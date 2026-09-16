@@ -1,6 +1,5 @@
 """Run Function Apps locally."""
 
-import html
 import importlib.util
 import shutil
 import sys
@@ -40,44 +39,24 @@ class RunFunctionAppCommand(ToolkitCommand):
         self._validate_function_app_handler(handler_path)
         self._warn_if_not_loopback(host)
 
-        from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-
-        environment = EnvironmentVariables.create_from_environment()
-
         if reload:
-            self._run_with_reload(
-                uvicorn, handler_path, host, port, log_level, environment.CDF_PROJECT, environment.CDF_CLUSTER
-            )
+            self._run_with_reload(uvicorn, handler_path, host, port, log_level)
         else:
-            self._run_without_reload(
-                uvicorn,
-                create_asgi_app,
-                handler_path,
-                host,
-                port,
-                log_level,
-                environment.CDF_PROJECT,
-                environment.CDF_CLUSTER,
-            )
+            self._run_without_reload(uvicorn, create_asgi_app, handler_path, host, port, log_level)
 
     @staticmethod
     def _run_without_reload(
-        uvicorn: Any,
-        create_asgi_app: Any,
-        handler_path: Path,
-        host: str,
-        port: int,
-        log_level: str,
-        cdf_project: str,
-        cdf_cluster: str,
+        uvicorn: Any, create_asgi_app: Any, handler_path: Path, host: str, port: int, log_level: str
     ) -> None:
         original_path = sys.path.copy()
         try:
-            RunFunctionAppCommand._patch_cognite_client_factory()
             handle = RunFunctionAppCommand._load_handler(handler_path)
-            app = create_asgi_app(handle)
-            app = RunFunctionAppCommand._wrap_with_landing_page(app, cdf_project, cdf_cluster)
-            uvicorn.run(app, host=host, port=port, log_level=log_level)
+            uvicorn.run(
+                create_asgi_app(handle, client_factory=RunFunctionAppCommand._create_cognite_client),
+                host=host,
+                port=port,
+                log_level=log_level,
+            )
         finally:
             sys.path[:] = original_path
 
@@ -99,9 +78,7 @@ class RunFunctionAppCommand(ToolkitCommand):
             raise RuntimeError(f"{handler_file} does not define a handle") from error
 
     @staticmethod
-    def _run_with_reload(
-        uvicorn: Any, handler_path: Path, host: str, port: int, log_level: str, cdf_project: str, cdf_cluster: str
-    ) -> None:
+    def _run_with_reload(uvicorn: Any, handler_path: Path, host: str, port: int, log_level: str) -> None:
         temp_dir = Path(tempfile.mkdtemp(prefix="cdf_run_function_app_"))
         module_path = temp_dir / "_cdf_run_function_app_asgi.py"
         temp_dir_str = str(temp_dir)
@@ -114,10 +91,8 @@ class RunFunctionAppCommand(ToolkitCommand):
                 f"sys.path.insert(0, {str(handler_path)!r})\n"
                 "from cognite_function_apps.devserver import create_asgi_app\n"
                 "from cognite_toolkit._cdf_tk.commands.run_function_app import RunFunctionAppCommand\n"
-                "RunFunctionAppCommand._patch_cognite_client_factory()\n"
                 f"handle = importlib.import_module({handler_path.name!r} + '.handler').handle\n"
-                "app = create_asgi_app(handle)\n"
-                f"app = RunFunctionAppCommand._wrap_with_landing_page(app, {cdf_project!r}, {cdf_cluster!r})\n"
+                "app = create_asgi_app(handle, client_factory=RunFunctionAppCommand._create_cognite_client)\n"
             )
             sys.path.insert(0, temp_dir_str)
             inserted_path = True
@@ -162,59 +137,6 @@ class RunFunctionAppCommand(ToolkitCommand):
             raise SystemExit(1)
 
     @staticmethod
-    def _render_safety_banner(cdf_project: str, cdf_cluster: str) -> bytes:
-        return (
-            f'<div style="background:#b91c1c;color:#fff;padding:10px 16px;font-family:sans-serif;font-size:14px;">'
-            f"Authenticated against CDF project <b>{html.escape(cdf_project)}</b> in cluster "
-            f"<b>{html.escape(cdf_cluster)}</b> &mdash; calling routes below uses your real, authenticated CDF "
-            "credentials and may create, update, or delete data in this project.</div>"
-        ).encode()
-
-    @staticmethod
-    def _wrap_with_landing_page(app: Any, cdf_project: str, cdf_cluster: str) -> Any:
-        async def wrapped_app(scope: Any, receive: Any, send: Any) -> None:
-            if scope["type"] == "http" and scope["method"] == "GET" and scope["path"] == "/":
-                await send({"type": "http.response.start", "status": 302, "headers": [(b"location", b"/docs")]})
-                await send({"type": "http.response.body", "body": b""})
-                return
-            if scope["type"] == "http" and scope["method"] == "GET" and scope["path"] == "/docs":
-                await RunFunctionAppCommand._serve_docs_with_banner(app, scope, receive, send, cdf_project, cdf_cluster)
-                return
-            await app(scope, receive, send)
-
-        return wrapped_app
-
-    @staticmethod
-    async def _serve_docs_with_banner(
-        app: Any, scope: Any, receive: Any, send: Any, cdf_project: str, cdf_cluster: str
-    ) -> None:
-        messages: list[dict[str, Any]] = []
-
-        async def capture_send(message: dict[str, Any]) -> None:
-            messages.append(message)
-
-        await app(scope, receive, capture_send)
-
-        body = b"".join(message["body"] for message in messages if message["type"] == "http.response.body")
-        if b"<body>" in body:
-            body = body.replace(
-                b"<body>", b"<body>" + RunFunctionAppCommand._render_safety_banner(cdf_project, cdf_cluster), 1
-            )
-
-        for message in messages:
-            if message["type"] == "http.response.start":
-                headers = [
-                    (name, value) for name, value in message.get("headers", []) if name.lower() != b"content-length"
-                ]
-                headers.append((b"content-length", str(len(body)).encode()))
-                await send({**message, "headers": headers})
-            elif message["type"] == "http.response.body":
-                if not message.get("more_body", False):
-                    await send({"type": "http.response.body", "body": body, "more_body": False})
-            else:
-                await send(message)
-
-    @staticmethod
     def _warn_if_not_loopback(host: str) -> None:
         if host not in RunFunctionAppCommand._LOOPBACK_HOSTS:
             print(
@@ -224,14 +146,7 @@ class RunFunctionAppCommand(ToolkitCommand):
             )
 
     @staticmethod
-    def _patch_cognite_client_factory() -> None:
-        import importlib
-
+    def _create_cognite_client() -> object:
         from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 
-        asgi_module = importlib.import_module("cognite_function_apps.devserver.asgi")
-
-        def get_client() -> object:
-            return EnvironmentVariables.create_from_environment().get_client(is_strict_validation=False)
-
-        asgi_module.get_cognite_client_from_env = get_client  # type: ignore[attr-defined]
+        return EnvironmentVariables.create_from_environment().get_client(is_strict_validation=False)
