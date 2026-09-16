@@ -7,9 +7,10 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     InsightList,
     Recommendation,
 )
+from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 
 
-def test_insight_list_to_csv_preserves_multiline_message_and_fix() -> None:
+def test_insight_list_to_csv_preserves_multiline_message_and_fix(valid_yaml_absolute_path) -> None:
     """Multiline and special characters round-trip via the csv module; rows use LF only."""
     insights = InsightList(
         [
@@ -17,12 +18,13 @@ def test_insight_list_to_csv_preserves_multiline_message_and_fix() -> None:
                 message="summary line\nnext line",
                 code="ERR-1",
                 fix="do this\r\nthen that",
+                source_files=[valid_yaml_absolute_path],
             ),
             Recommendation(
                 message='text with "quotes" and, commas',
-                code=None,
+                code="REC-2",
                 fix="single",
-                source_file="modules/foo/bar.yaml",
+                source_files=[valid_yaml_absolute_path],
             ),
         ]
     )
@@ -34,29 +36,41 @@ def test_insight_list_to_csv_preserves_multiline_message_and_fix() -> None:
         {
             "insight_type": "ConsistencyError",
             "code": "ERR-1",
-            "source_file": "",
+            "source_file": format_insight_source_file(valid_yaml_absolute_path),
             "message": "summary line\nnext line",
             "fix": "do this\nthen that",
         },
         {
             "insight_type": "Recommendation",
-            "code": "",
-            "source_file": "modules/foo/bar.yaml",
+            "code": "REC-2",
+            "source_file": format_insight_source_file(valid_yaml_absolute_path),
             "message": 'text with "quotes" and, commas',
             "fix": "single",
         },
     ]
 
 
-def test_insight_list_to_json_matches_structural_fields() -> None:
+def test_insight_list_to_json_matches_structural_fields(valid_yaml_absolute_path) -> None:
     insights = InsightList(
         [
-            ConsistencyError(message="a", code="C1", fix="f1"),
-            Recommendation(message="b", code=None, fix=None),
+            ConsistencyError(message="a", code="C1", fix="f1", source_files=[valid_yaml_absolute_path]),
+            Recommendation(message="b", code="B2", fix=None, source_files=[valid_yaml_absolute_path]),
         ]
     )
     parsed = json.loads(insights.to_json())
     assert parsed == [
-        {"insightType": "ConsistencyError", "code": "C1", "sourceFile": None, "message": "a", "fix": "f1"},
-        {"insightType": "Recommendation", "code": None, "sourceFile": None, "message": "b", "fix": None},
+        {
+            "insightType": "ConsistencyError",
+            "code": "C1",
+            "sourceFile": format_insight_source_file(valid_yaml_absolute_path),
+            "message": "a",
+            "fix": "f1",
+        },
+        {
+            "insightType": "Recommendation",
+            "code": "B2",
+            "sourceFile": format_insight_source_file(valid_yaml_absolute_path),
+            "message": "b",
+            "fix": None,
+        },
     ]

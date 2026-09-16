@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._datamodel import DataModelIO, ViewIO
 from cognite_toolkit._cdf_tk.resource_ios._workflow import WorkflowIO
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
+from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 from tests.test_unit.utils import MockQuestionary
 
 BASE_URL = "http://neat.cognitedata.com"
@@ -188,10 +189,10 @@ name: My Space
         }
 
         syntax_insight = next(i for i in folder.all_insights if i.code == "MODEL-SYNTAX-ERROR")
-        assert syntax_insight.source_file == "modules/my_module/data_modeling/my_space.Space.yaml"
+        assert syntax_insight.source_file == resource_file
 
         insights_csv = (build_dir / "insights.csv").read_text()
-        assert "modules/my_module/data_modeling/my_space.Space.yaml" in insights_csv
+        assert format_insight_source_file(resource_file) in insights_csv
 
     def test_build_filemetadata_with_content(self, tmp_path: Path) -> None:
         cmd = BuildV2Command()
@@ -377,6 +378,7 @@ class TestReadFileSystem:
             "validation_type": "dev",
             "cdf_project": "my-project",
             "organization_dir": tmp_path.resolve(),
+            "config_path": config_yaml.resolve(),
         }
 
     def test_invalid_config_yaml(self, tmp_path: Path) -> None:
@@ -560,13 +562,15 @@ class TestDisplayInsightsOutput:
 
     def test_displays_source_file_in_panel(self, tmp_path: Path) -> None:
         console, output = self._console()
+        source_file = tmp_path / "modules/my_module/data_modeling/my_space.Space.yaml"
+
         insights = InsightList(
             [
                 ModelSyntaxWarning(
                     code="MODEL-SYNTAX-WARNING",
                     message="Unknown field: 'Name'",
                     fix="Make sure the resource YAML content is valid and follows the expected structure.",
-                    source_file="modules/my_module/data_modeling/my_space.Space.yaml",
+                    source_files=[source_file],
                 )
             ]
         )
@@ -580,13 +584,14 @@ class TestDisplayInsightsOutput:
     def test_displays_regex_pattern_without_rich_markup_corruption(self, tmp_path: Path) -> None:
         console, output = self._console()
         pattern = "^[a-z]([a-z0-9_-]{0,98}[a-z0-9])?$"
+        yaml_file = tmp_path / "modules/quality/data_products/Quality.DataProduct.yaml"
         insights = InsightList(
             [
                 ModelSyntaxWarning(
                     code="MODEL-SYNTAX-WARNING",
                     message=f"In field externalId string should match pattern '{pattern}'",
                     fix="Make sure the resource YAML content is valid and follows the expected structure.",
-                    source_file="modules/quality/data_products/Quality.DataProduct.yaml",
+                    source_files=[yaml_file],
                 )
             ]
         )

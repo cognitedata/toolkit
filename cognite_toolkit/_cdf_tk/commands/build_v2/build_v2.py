@@ -41,6 +41,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, ValidationResult
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
+    InternalValidatorException,
     ModelSyntaxError,
     ModelSyntaxWarning,
 )
@@ -697,6 +698,7 @@ class BuildV2Command(ToolkitCommand):
             if errors:
                 raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
 
+        config_path: Path | None = None
         if config_yaml:
             config_path = config_yaml.resolve()
             try:
@@ -725,6 +727,7 @@ class BuildV2Command(ToolkitCommand):
             validation_type=validation_type,
             cdf_project=cdf_project,
             organization_dir=organization_dir.resolve(),
+            config_path=config_path,
         )
 
     @classmethod
@@ -943,7 +946,7 @@ class BuildV2Command(ToolkitCommand):
                 toolkit_resource = crud_class.yaml_cls.model_validate(parsed_yaml, extra="forbid")
                 identifier = toolkit_resource.as_id()
             except ValidationError as errors:
-                syntax_error, syntax_warning = self._create_syntax_warning(errors)
+                syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file)
                 try:
                     identifier = crud_class.get_id(parsed_yaml)
                 except KeyError:
@@ -978,7 +981,7 @@ class BuildV2Command(ToolkitCommand):
         try:
             toolkit_resources = adapter.validate_python(parsed_yaml)
         except ValidationError as errors:
-            syntax_error, syntax_warning = self._create_syntax_warning(errors)
+            syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file)
         read_resources: list[ReadResource[ToolkitResource]] = []
         for tk_resource, raw in zip_longest(toolkit_resources, parsed_yaml, fillvalue=None):
             if tk_resource is None:
@@ -1039,7 +1042,7 @@ class BuildV2Command(ToolkitCommand):
         return output
 
     def _create_syntax_warning(
-        self, error: ValidationError
+        self, error: ValidationError, resource_file: AbsoluteFilePath
     ) -> tuple[ModelSyntaxError | None, ModelSyntaxWarning | None]:
         categorized_errors = humanize_validation_error_categorized(error) or [
             ("The YAML doesn't follow the required format.", "error")
@@ -1053,6 +1056,7 @@ class BuildV2Command(ToolkitCommand):
                 code="MODEL-SYNTAX-ERROR",
                 message="\n".join(error_messages),
                 fix="Compare the YAML with reference documentation and make sure it is valid.",
+                source_files=[resource_file],
             )
 
         syntax_warning = None
@@ -1060,6 +1064,7 @@ class BuildV2Command(ToolkitCommand):
             syntax_warning = ModelSyntaxWarning(
                 code="MODEL-SYNTAX-WARNING",
                 message="\n".join(warning_messages),
+                source_files=[resource_file],
                 fix="Compare the YAML with reference documentation and make sure it is valid. It will be deployed as-is, but may be ignored or rejected by CDF.",
             )
         return syntax_error, syntax_warning
@@ -1232,10 +1237,20 @@ class BuildV2Command(ToolkitCommand):
                 display_name = step.rule.DISPLAY_NAME
                 progress.update(validating_task, description=f"Running '{display_name}'...")
 
-                insights: list[Insight] = list(step.rule.validate())
+                insights: list[Insight] = []
+                errors: list[InternalValidatorException] = []
+                for result in step.rule.validate():
+                    if isinstance(result, Insight):
+                        insights.append(result)
+                    elif isinstance(result, InternalValidatorException):
+                        errors.append(result)
 
-                validation_results.append(ValidationResult(name=display_name, insights=insights))
-                progress.update(validating_task, advance=1, description=f"Finished validating {display_name}.")
+                validation_results.append(ValidationResult(name=display_name, insights=insights, errors=errors))
+                progress.update(
+                    validating_task,
+                    advance=1,
+                    description=f"Finished validating {display_name}. Found {len(insights)} insights.",
+                )
             progress.update(validating_task, description=f"Finished validating. Ran {ready_step_count} validations.")
         return validation_results
 
@@ -1341,9 +1356,7 @@ class BuildV2Command(ToolkitCommand):
     @classmethod
     def _insight_section_title(cls, insight: Insight) -> str:
         title = cls._humanize_insight_code(insight.code)
-        if insight.source_file:
-            return f"{title} in {insight.source_file}"
-        return title
+        return f"{title} in {insight.display_source_files}"
 
     def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
         """Prioritize one insight per code, then by severity"""
@@ -1392,6 +1405,20 @@ class BuildV2Command(ToolkitCommand):
                     insight_style = "[red]✗[/]"
 
             summary_lines.append(f"{insight_style} [bold]{count}[/] {insight_type}")
+
+        validation_errors = [error for result in build_folder.validation_results for error in result.errors]
+        if validation_errors:
+            errors_by_validator: Counter[str] = Counter()
+            for result in build_folder.validation_results:
+                if result.errors:
+                    errors_by_validator[result.name] += len(result.errors)
+            summary_lines.append(
+                f"[red]✗[/] [bold]{len(validation_errors)}[/] validation errors "
+                f"across {len(errors_by_validator)} validator(s)"
+            )
+            if verbose:
+                for validator_name, count in errors_by_validator.most_common():
+                    summary_lines.append(f"    [red]-[/] {validator_name}: [bold]{count}[/]")
 
         build_dir_display = relative_to_if_possible(build_folder.build_dir).as_posix()
         if not build_dir_display.endswith("/"):

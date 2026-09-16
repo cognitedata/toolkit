@@ -7,10 +7,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view import 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, read_yaml_file
+from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes import InFieldCDMLocationConfigYAML
 from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import INFIELD_CDM_CARD_VIEW_ATTRS
 from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ViewReference
@@ -78,10 +79,10 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
         views_by_id: dict[ViewId, ViewResponse] = {v.as_id(): v for v in retrieved}
 
         for resource, card_key, view_id, required in card_view_refs:
-            yield from self._check_required_properties(resource, card_key, view_id, required, views_by_id)
+            yield from self._check_required_properties(resource.source_path, card_key, view_id, required, views_by_id)
 
         for resource, config_key, view_id, field_keys in field_config_refs:
-            yield from self._check_field_config_keys(resource, config_key, view_id, field_keys, views_by_id)
+            yield from self._check_field_config_keys(resource.source_path, config_key, view_id, field_keys, views_by_id)
 
     @staticmethod
     def _asset_view_id_for_card_config(config: InFieldCDMLocationConfigYAML) -> ViewId:
@@ -136,7 +137,7 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
 
     def _check_required_properties(
         self,
-        resource: BuiltResource,
+        source_path: AbsoluteFilePath,
         card_key: str,
         view_id: ViewId,
         required: frozenset[str],
@@ -153,12 +154,12 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
                 code=f"{self.CODE_PREFIX}-VIEW-MISSING-PROPERTIES",
                 message=(f"View {view_id!s} used as {card_key!r} is missing required properties: {quoted_missing}."),
                 fix=f"Ensure the view has these properties: {quoted_missing}.",
-                source_file=format_insight_source_file(resource.source_path),
+                source_files=[source_path],
             )
 
     def _check_field_config_keys(
         self,
-        resource: BuiltResource,
+        source_path: AbsoluteFilePath,
         config_key: str,
         view_id: ViewId,
         field_keys: frozenset[str],
@@ -175,5 +176,5 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
                 code=f"{self.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY",
                 message=(f"View {view_id!s} used for {config_key!r} does not have properties: {quoted_unknown}."),
                 fix=f"Use property names that exist on the view: {quoted_unknown}.",
-                source_file=format_insight_source_file(resource.source_path),
+                source_files=[source_path],
             )
