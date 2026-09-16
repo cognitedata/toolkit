@@ -92,7 +92,7 @@ class FunctionCodeBundle:
             return
 
         function_hash = cls.create_hash_values(function_rootdir)
-        if "metadata" not in item:
+        if not isinstance(item.get("metadata"), dict):
             item["metadata"] = {}
         item["metadata"][function_hash_key] = function_hash
         source_hash = calculate_directory_hash(function_rootdir)
