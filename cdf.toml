@@ -6,7 +6,7 @@ file_encoding = "utf-8"
 file_upload_timeout_seconds = 90
 
 [rules]
-ignore = ["AUTH-001"]
+ignore = []
 
 [alpha_flags]
 graphql = true
