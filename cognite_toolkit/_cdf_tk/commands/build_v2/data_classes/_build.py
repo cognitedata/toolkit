@@ -9,7 +9,6 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_RequestR
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 
 from ._insights import (
     ConsistencyError,
@@ -193,9 +192,9 @@ class BuiltModule(BaseModel):
                     )
                 )
         for path, error in self.syntax_errors_by_source.items():
-            insights.append(error.model_copy(update={"source_file": format_insight_source_file(path)}))
+            insights.append(error)
         for path, warning in self.syntax_warnings_by_source.items():
-            insights.append(warning.model_copy(update={"source_file": format_insight_source_file(path)}))
+            insights.append(warning)
         for path, variables in self.unresolved_variables_by_source.items():
             quoted_variables = humanize_collection([f"{variable!r}" for variable in variables])
             insights.append(

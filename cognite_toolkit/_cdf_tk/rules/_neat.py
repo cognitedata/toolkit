@@ -131,10 +131,11 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
             dumped = issue.model_dump()
             if "code" not in dumped:
                 dumped["code"] = f"{cls.CODE_PREFIX}-000"
-            if "source_file" not in dumped:
+            if "source_files" not in dumped:
                 # This is a less than ideal fallback as the issue is likely
                 # related to another file than the data model file.
-                dumped["source_file"] = source_file
+                sf = dumped.pop("source_file", None) or source_file
+                dumped["source_files"] = [sf]
             if isinstance(issue, NeatModelSyntaxError):
                 yield ModelSyntaxError.model_validate(dumped)
             elif isinstance(issue, NeatRecommendation):
