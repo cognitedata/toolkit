@@ -147,14 +147,27 @@ class BuildV2Command(ToolkitCommand):
             finished_at=datetime.now(timezone.utc),
         )
 
-        insights = build_folder.all_insights
+        # We report all insights in Mixpanel, but only display to the user the insights they have not ignored.
+        tracked_insights = build_folder.all_insights
+        if Flags.V09.is_enabled():
+            report_insights = InsightList(
+                [
+                    insight
+                    for insight in tracked_insights
+                    if insight.code not in parameters.rules_ignore
+                    and (not insight.alpha or Flags.ALPHA_RULES.is_enabled())
+                ]
+            )
+        else:
+            report_insights = tracked_insights
+
         if display:
-            self._display_insights(insights, parameters.insight_path, console, parameters.verbose)
-            self._display_build_summary(build_folder, insights, console, parameters.verbose)
+            self._display_insights(report_insights, parameters.insight_path, console, parameters.verbose)
+            self._display_build_summary(build_folder, report_insights, console, parameters.verbose)
 
-        self._track_build_results(build_folder, insights, client)
+        self._track_build_results(build_folder, report_insights, client)
 
-        self._write_results(insights, build_folder, parameters, client.config.project if client else None)
+        self._write_results(report_insights, build_folder, parameters, client.config.project if client else None)
 
         return build_folder
 
@@ -1430,7 +1443,6 @@ class BuildV2Command(ToolkitCommand):
         self, insights: InsightList, build: BuildFolder, parameters: BuildParameters, cdf_project: str | None = None
     ) -> None:
         """Write build results including lineage information and insights to the build folder."""
-
         if parameters.write_insights:
             insight_file = parameters.insight_path
             if parameters.insight_format == "csv":

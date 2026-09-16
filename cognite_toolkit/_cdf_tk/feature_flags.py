@@ -26,6 +26,10 @@ class Flags(Enum):
         visible=False,
         description="Does nothing",
     )
+    ALPHA_RULES = FlagMetadata(
+        visible=False,
+        description="Enables alpha rules",
+    )
     IMPORT_CMD = FlagMetadata(
         visible=True,
         description="Enables the import sub application",
