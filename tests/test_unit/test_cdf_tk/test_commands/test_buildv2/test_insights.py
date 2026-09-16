@@ -42,7 +42,7 @@ def test_insight_list_to_csv_preserves_multiline_message_and_fix(valid_yaml_abso
         },
         {
             "insight_type": "Recommendation",
-            "code": "",
+            "code": "REC-2",
             "source_file": format_insight_source_file(valid_yaml_absolute_path),
             "message": 'text with "quotes" and, commas',
             "fix": "single",
