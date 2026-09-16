@@ -149,8 +149,10 @@ class BuildV2Command(ToolkitCommand):
 
         insights = build_folder.all_insights
         if display:
-            self._display_insights(insights, parameters.insight_path, console, parameters.verbose)
-            self._display_build_summary(build_folder, insights, console, parameters.verbose)
+            self._display_insights(
+                insights, parameters.rules_ignore, parameters.insight_path, console, parameters.verbose
+            )
+            self._display_build_summary(build_folder, insights, parameters.rules_ignore, console, parameters.verbose)
 
         self._track_build_results(build_folder, insights, client)
 
@@ -1198,7 +1200,9 @@ class BuildV2Command(ToolkitCommand):
             progress.update(validating_task, description=f"Finished validating. Ran {ready_step_count} validations.")
         return validation_results
 
-    def _display_insights(self, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None:
+    def _display_insights(
+        self, insights: InsightList, rules_ignore: set[str], insight_path: Path, console: Console, verbose: bool
+    ) -> None:
         if not insights:
             return
 
@@ -1212,7 +1216,9 @@ class BuildV2Command(ToolkitCommand):
             "IgnoredFileWarning": (AuraColor.MOUNTAIN.rich, "○"),
         }
 
-        display_insights = self._select_display_insights(insights, max_display_count=30 if verbose else 5)
+        display_insights = self._select_display_insights(
+            insights, max_display_count=30 if verbose else 5, rules_ignore=set()
+        )
         remaining_count = len(insights) - len(display_insights)
 
         insights_by_type: dict[str, list[Insight]] = {}
@@ -1304,12 +1310,16 @@ class BuildV2Command(ToolkitCommand):
             return f"{title} in {insight.source_file}"
         return title
 
-    def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
+    def _select_display_insights(
+        self, insights: InsightList, max_display_count: int, rules_ignore: set[str]
+    ) -> list[Insight]:
         """Prioritize one insight per code, then by severity"""
         insights_by_code: dict[str, Insight] = {}
         remaining_insights: list[Insight] = []
 
         for insight in insights:
+            if insight.code in rules_ignore:
+                continue
             code = insight.code or "UNDEFINED"
             if code not in insights_by_code:
                 insights_by_code[code] = insight
@@ -1327,7 +1337,7 @@ class BuildV2Command(ToolkitCommand):
         )
 
     def _display_build_summary(
-        self, build_folder: BuildFolder, insights: InsightList, console: Console, verbose: bool
+        self, build_folder: BuildFolder, insights: InsightList, ignored_rules: set[str], console: Console, verbose: bool
     ) -> None:
         module_count = len(build_folder.built_modules)
         resource_count = sum(len(module.resources) for module in build_folder.built_modules)
@@ -1338,7 +1348,11 @@ class BuildV2Command(ToolkitCommand):
             f"[green]✓[/] [bold]{module_count}[/] modules",
             f"[green]✓[/] [bold]{resource_count}[/] resources of {resource_type_count} different types.",
         ]
-        aggregates = Counter((insight.insight_type(), type(insight).severity) for insight in insights)
+        aggregates = Counter(
+            (insight.insight_type(), type(insight).severity)
+            for insight in insights
+            if insight.code not in ignored_rules
+        )
         max_severity = 0
         for (insight_type, severity), count in sorted(aggregates.items(), key=lambda i: i[1], reverse=True):
             max_severity = max(max_severity, severity)
@@ -1430,13 +1444,16 @@ class BuildV2Command(ToolkitCommand):
         self, insights: InsightList, build: BuildFolder, parameters: BuildParameters, cdf_project: str | None = None
     ) -> None:
         """Write build results including lineage information and insights to the build folder."""
+        not_ignored_insights = InsightList(
+            [insight for insight in insights if insight.code not in parameters.rules_ignore]
+        )
 
         if parameters.write_insights:
             insight_file = parameters.insight_path
             if parameters.insight_format == "csv":
-                insight_file_content = insights.to_csv()
+                insight_file_content = not_ignored_insights.to_csv()
             else:
-                insight_file_content = insights.to_json()
+                insight_file_content = not_ignored_insights.to_json()
             if insight_file_content.strip():
                 safe_write(insight_file, insight_file_content)
 

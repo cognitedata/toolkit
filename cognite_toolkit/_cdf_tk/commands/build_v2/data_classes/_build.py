@@ -54,6 +54,10 @@ class BuildParameters(BaseModel):
         default="build",
         description="The operation being performed. Used when prompting the user for input. For example, 'Which modules do you want to build?'",
     )
+    rules_ignore: set[str] = Field(
+        default_factory=set,
+        description="Set of rule codes to ignore during validation.",
+    )
 
     @property
     def modules_directory(self) -> Path:
