@@ -25,7 +25,7 @@ from typing import Any, Literal, final
 
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import filters
-from pydantic import JsonValue
+from pydantic import JsonValue, ValidationError
 from rich import print
 from rich.console import Console
 from rich.panel import Panel
@@ -777,6 +777,26 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
             except ToolkitCycleError as e:
                 warning = MediumSeverityWarning(f"Failed to sort implements for view {resource.as_id()}: {e}")
                 warning.print_warning(console=self.console)
+
+        for key in ["filter", "name", "description"]:
+            if dumped.get(key) is None and key not in local:
+                # Set to null by server.
+                dumped.pop(key, None)
+
+        # Remove type = view from implements, if it is not set in local.
+        if "implements" in dumped and isinstance((local_implements := local.get("implements")), list):
+            try:
+                has_type_by_id = {ViewId.model_validate(local): "type" in local for local in local_implements}
+            except ValidationError:
+                ...
+            else:
+                for cdf_implement_raw in dumped["implements"]:
+                    try:
+                        implement_id = ViewId.model_validate(cdf_implement_raw)
+                    except ValidationError:
+                        continue
+                    if not has_type_by_id.get(implement_id, True) and "type" in cdf_implement_raw:
+                        cdf_implement_raw.pop("type", None)
 
         for prop in dumped.get("properties", {}).values():
             if isinstance(prop, dict):
