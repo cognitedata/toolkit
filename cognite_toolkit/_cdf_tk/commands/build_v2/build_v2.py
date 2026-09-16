@@ -1100,6 +1100,14 @@ class BuildV2Command(ToolkitCommand):
                 dependencies: set[tuple[type[ResourceIO], Identifier]] = set()
                 if resource.validated:
                     dependencies = set(file.resource_type.crud_cls.get_dependencies(resource.validated))
+                elif resource.raw is not None:
+                    # Model validation failed (either a hard error or a warning-only issue).
+                    # The raw YAML is still written to the build directory and will be deployed, so
+                    # we must still extract whatever dependencies can be inferred from the raw dict —
+                    # otherwise missing references (e.g. a space that doesn't exist) silently skip
+                    # the CDF check and only surface as a 400 error at real deploy time.
+                    # The default implementation returns nothing; GroupIO overrides this.
+                    dependencies = set(file.resource_type.crud_cls.get_raw_dependencies(resource.raw))
 
                 built_resources.append(
                     BuiltResource(

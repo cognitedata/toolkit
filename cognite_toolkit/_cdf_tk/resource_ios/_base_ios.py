@@ -305,6 +305,26 @@ class ResourceIO(
         raise NotImplementedError(f"get_dependencies must be implemented for {cls.__name__}.")
 
     @classmethod
+    def get_raw_dependencies(cls, raw: "dict[str, Any]") -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        """Extract dependencies from raw YAML dict when full model validation had warnings.
+
+        Called as a fallback when ``get_dependencies`` cannot run because model validation
+        produced only warnings (not errors) but still left ``validated=None``.  This happens
+        whenever a resource YAML contains an unknown field or capability name that the current
+        toolkit version does not recognise — the raw YAML is still written to the build
+        directory and deployed, but without a validated model the normal dependency check is
+        silently skipped.
+
+        Subclasses should override this method to extract whatever dependencies can be
+        determined from the raw dict alone (e.g. space IDs from ``spaceIdScope`` entries
+        inside group capabilities).  The default implementation returns nothing.
+
+        Args:
+            raw: The raw YAML dict as parsed from the source file.
+        """
+        return []
+
+    @classmethod
     def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
         """Check the item for any issues.
 
