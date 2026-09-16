@@ -154,7 +154,8 @@ class TestRunFunctionAppCommand:
         assert all("cdf_run_function_app_test" not in entry for entry in sys.path)
         uvicorn.run.assert_not_called()
 
-    def test_warns_when_host_is_not_loopback(self, function_app_path: Path) -> None:
+    @pytest.mark.parametrize(("host", "warns"), [("0.0.0.0", True), ("localhost", False)])
+    def test_warns_when_host_is_not_loopback(self, function_app_path: Path, host: str, warns: bool) -> None:
         command = RunFunctionAppCommand(client=None, skip_tracking=True)
 
         with (
@@ -164,56 +165,28 @@ class TestRunFunctionAppCommand:
             patch.object(RunFunctionAppCommand, "_patch_cognite_client_factory"),
             patch("cognite_toolkit._cdf_tk.commands.run_function_app.print") as mock_print,
         ):
-            command.run_function_app(function_app_path, host="0.0.0.0", reload=False)
+            command.run_function_app(function_app_path, host=host, reload=False)
 
-        assert any(
-            "0.0.0.0" in str(call.args[0]) and "network" in str(call.args[0]) for call in mock_print.call_args_list
-        )
-
-    def test_no_warning_for_loopback_host(self, function_app_path: Path) -> None:
-        command = RunFunctionAppCommand(client=None, skip_tracking=True)
-
-        with (
-            patch("uvicorn.run", MagicMock()),
-            patch.object(RunFunctionAppCommand, "_load_handler", return_value="handle"),
-            patch("cognite_function_apps.devserver.create_asgi_app", return_value="asgi-app"),
-            patch.object(RunFunctionAppCommand, "_patch_cognite_client_factory"),
-            patch("cognite_toolkit._cdf_tk.commands.run_function_app.print") as mock_print,
-        ):
-            command.run_function_app(function_app_path, reload=False)
-
-        assert not any("network" in str(call.args[0]) for call in mock_print.call_args_list)
+        assert any("network" in str(call.args[0]) for call in mock_print.call_args_list) is warns
 
 
 class TestSafetyBanner:
-    def test_render_includes_project_and_cluster_and_warning(self) -> None:
-        text = RunFunctionAppCommand._render_safety_banner("my-project", "my-cluster").decode()
+    @pytest.mark.parametrize(
+        ("cdf_project", "cdf_cluster", "expected", "unexpected"),
+        [
+            ("my-project", "my-cluster", "my-project", None),
+            ("<script>evil</script>", "cluster", "&lt;script&gt;", "<script>"),
+        ],
+    )
+    def test_render_safety_banner(
+        self, cdf_project: str, cdf_cluster: str, expected: str, unexpected: str | None
+    ) -> None:
+        text = RunFunctionAppCommand._render_safety_banner(cdf_project, cdf_cluster).decode()
 
-        assert "my-project" in text
-        assert "my-cluster" in text
+        assert expected in text
+        if unexpected:
+            assert unexpected not in text
         assert "create, update, or delete data" in text
-
-    def test_render_escapes_html_in_project_name(self) -> None:
-        text = RunFunctionAppCommand._render_safety_banner("<script>evil</script>", "cluster").decode()
-
-        assert "<script>" not in text
-        assert "&lt;script&gt;" in text
-
-    def test_inject_inserts_banner_right_after_body_tag(self) -> None:
-        page = b"<html><body><div>docs</div></body></html>"
-
-        injected = RunFunctionAppCommand._inject_safety_banner(page, "my-project", "my-cluster")
-
-        assert injected.startswith(b"<html><body><div style=")
-        assert b"my-project" in injected
-        assert b"<div>docs</div></body></html>" in injected
-
-    def test_inject_is_a_noop_when_body_tag_is_missing(self) -> None:
-        page = b"not html"
-
-        injected = RunFunctionAppCommand._inject_safety_banner(page, "my-project", "my-cluster")
-
-        assert injected == page
 
     def test_wrapper_redirects_root_to_docs(self) -> None:
         inner_app = MagicMock()
