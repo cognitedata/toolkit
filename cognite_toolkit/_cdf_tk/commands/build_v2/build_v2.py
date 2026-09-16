@@ -1004,7 +1004,10 @@ class BuildV2Command(ToolkitCommand):
 
     @classmethod
     def _get_ignore_rule_codes(cls, content: str) -> set[str]:
-        raise NotImplementedError()
+        codes: set[str] = set()
+        for match in re.findall(pattern=r"#\s*rules?\s*:\s*ignore\s*\[([^\]]*)\]", string=content):
+            codes.update(code.strip() for code in match.split(",") if code.strip())
+        return codes
 
     @classmethod
     def _find_unresolved_variables(cls, content: str) -> list[str]:

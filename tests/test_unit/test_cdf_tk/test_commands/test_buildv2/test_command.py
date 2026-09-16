@@ -767,6 +767,35 @@ views:
     def test_find_unresolved_variables(self, content: str, expected: list[str]) -> None:
         assert BuildV2Command._find_unresolved_variables(content) == expected
 
+    @pytest.mark.parametrize(
+        "content, expected",
+        [
+            pytest.param(
+                "space: my_space\nname: My Space\n",
+                set(),
+                id="No ignore rules",
+            ),
+            pytest.param(
+                "# rules: ignore[AUTH-001, AUTH-002]\nspace: my_space\nname: My Space\n",
+                {"AUTH-001", "AUTH-002"},
+                id="Two ignores rules",
+            ),
+            pytest.param(
+                "#rules:ignore[AUTH-001,AUTH-002]\nspace: my_space\nname: My Space\n",
+                {"AUTH-001", "AUTH-002"},
+                id="Two ignores rules with no spaces",
+            ),
+            pytest.param(
+                "# rule: ignore[AUTH-001]\nspace: my_space\nname: My Space\n",
+                {"AUTH-001"},
+                id="Single ignore rule line",
+            ),
+        ],
+    )
+    def test_get_ignore_rules_codes(self, content: str, expected: set[str]) -> None:
+        actual = BuildV2Command._get_ignore_rule_codes(content)
+        assert actual == expected
+
 
 @pytest.mark.usefixtures("empty_cdf")
 class TestTmpBuild:
