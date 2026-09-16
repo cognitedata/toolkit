@@ -41,6 +41,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, ValidationResult
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
+    InternalValidatorException,
     ModelSyntaxError,
     ModelSyntaxWarning,
 )
@@ -1208,10 +1209,20 @@ class BuildV2Command(ToolkitCommand):
                 display_name = step.rule.DISPLAY_NAME
                 progress.update(validating_task, description=f"Running '{display_name}'...")
 
-                insights: list[Insight] = list(step.rule.validate())
+                insights: list[Insight] = []
+                errors: list[InternalValidatorException] = []
+                for result in step.rule.validate():
+                    if isinstance(result, Insight):
+                        insights.append(result)
+                    elif isinstance(result, InternalValidatorException):
+                        errors.append(result)
 
-                validation_results.append(ValidationResult(name=display_name, insights=insights))
-                progress.update(validating_task, advance=1, description=f"Finished validating {display_name}.")
+                validation_results.append(ValidationResult(name=display_name, insights=insights, errors=errors))
+                progress.update(
+                    validating_task,
+                    advance=1,
+                    description=f"Finished validating {display_name}. Found {len(insights)} insights.",
+                )
             progress.update(validating_task, description=f"Finished validating. Ran {ready_step_count} validations.")
         return validation_results
 

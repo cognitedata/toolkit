@@ -17,6 +17,7 @@ from ._insights import (
     IgnoredFileWarning,
     Insight,
     InsightList,
+    InternalValidatorException,
     ModelSyntaxError,
     ModelSyntaxWarning,
 )
@@ -233,6 +234,7 @@ class BuiltModule(BaseModel):
 class ValidationResult(BaseModel):
     name: str
     insights: list[Insight]
+    errors: list[InternalValidatorException]
 
 
 class BuildFolder(BaseModel):
