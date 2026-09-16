@@ -83,6 +83,29 @@ class TestRunFunctionAppCommand:
         wrap_with_landing_page.assert_called_once_with("asgi-app", "test-project", "westeurope-1")
         uvicorn.run.assert_called_once_with("wrapped-asgi-app", host="0.0.0.0", port=8080, log_level="debug")
 
+    def test_loads_relative_imports_without_reload(self, tmp_path: Path) -> None:
+        function_app_path = tmp_path / "relative_import_app"
+        function_app_path.mkdir()
+        (function_app_path / "helper.py").write_text("handle = object()\n")
+        (function_app_path / "handler.py").write_text("from .helper import handle\n")
+        original_path = sys.path.copy()
+        uvicorn = MagicMock()
+        create_asgi_app = MagicMock(return_value="asgi-app")
+
+        with (
+            patch.object(RunFunctionAppCommand, "_patch_cognite_client_factory"),
+            patch.object(RunFunctionAppCommand, "_wrap_with_landing_page", return_value="wrapped-asgi-app"),
+        ):
+            RunFunctionAppCommand._run_without_reload(
+                uvicorn, create_asgi_app, function_app_path, "127.0.0.1", 8000, "info", "test-project", "westeurope-1"
+            )
+
+        assert sys.path == original_path
+        create_asgi_app.assert_called_once()
+        sys.modules.pop("relative_import_app.handler", None)
+        sys.modules.pop("relative_import_app.helper", None)
+        sys.modules.pop("relative_import_app", None)
+
     def test_restores_sys_path_when_handler_loading_fails(self, function_app_path: Path) -> None:
         command = RunFunctionAppCommand(client=None, skip_tracking=True)
         original_path = sys.path.copy()
