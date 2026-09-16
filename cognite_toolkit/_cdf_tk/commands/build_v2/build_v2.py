@@ -79,6 +79,7 @@ from cognite_toolkit._cdf_tk.utils import (
     tmp_build_directory,
 )
 from cognite_toolkit._cdf_tk.utils.file import (
+    format_insight_source_file,
     read_yaml_content,
     relative_to_if_possible,
     safe_rmtree,
@@ -683,6 +684,7 @@ class BuildV2Command(ToolkitCommand):
             if errors:
                 raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
 
+        config_path: Path | None = None
         if config_yaml:
             config_path = config_yaml.resolve()
             try:
@@ -711,6 +713,7 @@ class BuildV2Command(ToolkitCommand):
             validation_type=validation_type,
             cdf_project=cdf_project,
             organization_dir=organization_dir.resolve(),
+            config_path=config_path,
         )
 
     @classmethod
@@ -1315,9 +1318,8 @@ class BuildV2Command(ToolkitCommand):
     @classmethod
     def _insight_section_title(cls, insight: Insight) -> str:
         title = cls._humanize_insight_code(insight.code)
-        if insight.source_file:
-            return f"{title} in {insight.source_file}"
-        return title
+        source_file = format_insight_source_file(insight.source_file)
+        return f"{title} in {source_file}"
 
     def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
         """Prioritize one insight per code, then by severity"""

@@ -93,6 +93,10 @@ class BuildInput(BaseModel):
     validation_type: ValidationType = "prod"
     cdf_project: str
     organization_dir: AbsoluteDirPath
+    config_path: AbsoluteFilePath | None = Field(
+        None,
+        description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory).",
+    )
 
     @property
     def module_dir(self) -> Path:
