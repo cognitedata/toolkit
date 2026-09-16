@@ -91,6 +91,7 @@ class RunFunctionAppCommand(ToolkitCommand):
             raise RuntimeError(f"Failed to load {handler_file}")
         module = importlib.util.module_from_spec(spec)
         sys.modules[module_name] = module
+        sys.path.insert(0, str(handler_path.parent))
         sys.path.insert(0, str(handler_path))
         spec.loader.exec_module(module)
         try:
