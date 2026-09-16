@@ -9,6 +9,7 @@ from questionary import Choice
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils.file import validate_safe_path
 
 # Constants
@@ -169,12 +170,14 @@ def get_scaffolds() -> dict[str, list[ScaffoldDef]]:
     only the scaffold *runners* reference CRUD classes, and those run
     later at call time.
     """
-    return {
-        "function": [
-            ScaffoldDef("Function", "Single entry-point function", run=_scaffold_basic_function),
-            ScaffoldDef("Function App", "Let a function perform multiple tasks", run=_scaffold_function_app),
-        ],
+    scaffolds = {
+        "function": [ScaffoldDef("Function", "Single entry-point function", run=_scaffold_basic_function)],
     }
+    function_app_kind = "functionapp" if FeatureFlag.is_enabled(Flags.FUNCTION_APPS) else "function"
+    scaffolds.setdefault(function_app_kind, []).append(
+        ScaffoldDef("Function App", "Let a function perform multiple tasks", run=_scaffold_function_app)
+    )
+    return scaffolds
 
 
 # Command class
