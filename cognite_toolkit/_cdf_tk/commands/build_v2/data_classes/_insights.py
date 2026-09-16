@@ -6,6 +6,8 @@ from typing import ClassVar, TypeAlias
 
 from pydantic import BaseModel, field_validator
 
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
+
 
 class InsightDefinition(BaseModel):
     """Base class for all insights"""
@@ -13,9 +15,9 @@ class InsightDefinition(BaseModel):
     severity: ClassVar[int] = 999
 
     message: str
-    code: str | None = None
+    code: str
+    source_file: AbsoluteFilePath
     fix: str | None = None
-    source_file: str | None = None
     alpha: bool = False
 
     @classmethod
