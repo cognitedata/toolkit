@@ -55,10 +55,10 @@ from cognite_toolkit._cdf_tk.utils.file import (
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML, FunctionScheduleYAML, FunctionsYAML
 
-from .auth import GroupAllScopedCRUD
-from .data_organization import DataSetsIO
-from .file import CogniteFileCRUD, FileMetadataCRUD
-from .group_scoped import GroupResourceScopedCRUD
+from ._auth import GroupAllScopedCRUD
+from ._data_organization import DataSetsIO
+from ._file import CogniteFileCRUD, FileMetadataCRUD
+from ._group_scoped import GroupResourceScopedCRUD
 
 CDF_TOML: CDFToml = CDFToml.load()
 

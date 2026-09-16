@@ -68,12 +68,12 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_lis
 from cognite_toolkit._cdf_tk.yaml_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
 from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import SubworkflowTask
 
-from .auth import GroupAllScopedCRUD
-from .data_organization import DataSetsIO
-from .function import FunctionIO
-from .group_scoped import GroupResourceScopedCRUD
-from .streams import StreamIO
-from .transformation import TransformationIO
+from ._auth import GroupAllScopedCRUD
+from ._data_organization import DataSetsIO
+from ._function import FunctionIO
+from ._group_scoped import GroupResourceScopedCRUD
+from ._streams import StreamIO
+from ._transformation import TransformationIO
 
 
 @final

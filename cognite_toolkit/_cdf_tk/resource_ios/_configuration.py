@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.yaml_classes import SearchConfigYAML
 
-from .datamodel import ViewIO
+from ._datamodel import ViewIO
 
 
 @final

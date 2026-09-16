@@ -41,9 +41,9 @@ from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash, calculate_hash
 from cognite_toolkit._cdf_tk.yaml_classes import FileMetadataYAML, StreamlitYAML
 
-from .auth import GroupAllScopedCRUD
-from .data_organization import DataSetsIO
-from .file import FileMetadataCRUD
+from ._auth import GroupAllScopedCRUD
+from ._data_organization import DataSetsIO
+from ._file import FileMetadataCRUD
 
 
 @final

@@ -41,11 +41,11 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
 from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import DataFilter
 from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ViewReference
 
-from .auth import GroupAllScopedCRUD
-from .classic import AssetIO
-from .data_organization import DataSetsIO
-from .datamodel import SpaceCRUD, ViewIO
-from .group_scoped import GroupResourceScopedCRUD
+from ._auth import GroupAllScopedCRUD
+from ._classic import AssetIO
+from ._data_organization import DataSetsIO
+from ._datamodel import SpaceCRUD, ViewIO
+from ._group_scoped import GroupResourceScopedCRUD
 
 
 @final

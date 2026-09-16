@@ -67,10 +67,10 @@ from cognite_toolkit._cdf_tk.utils.text import suffix_description
 from cognite_toolkit._cdf_tk.utils.time import convert_data_modelling_timestamp
 from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML
 
-from .auth import GroupAllScopedCRUD, SecurityCategoryIO
-from .classic import AssetIO
-from .data_organization import DataSetsIO, LabelIO
-from .datamodel import NodeCRUD, SpaceCRUD, ViewIO
+from ._auth import GroupAllScopedCRUD, SecurityCategoryIO
+from ._classic import AssetIO
+from ._data_organization import DataSetsIO, LabelIO
+from ._datamodel import NodeCRUD, SpaceCRUD, ViewIO
 
 
 @final

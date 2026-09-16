@@ -64,9 +64,9 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import ExtractionPipelineConfigYAML, ExtractionPipelineYAML
 
-from .auth import GroupAllScopedCRUD
-from .data_organization import DataSetsIO
-from .raw import RawDatabaseCRUD, RawTableCRUD
+from ._auth import GroupAllScopedCRUD
+from ._data_organization import DataSetsIO
+from ._raw import RawDatabaseCRUD, RawTableCRUD
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable

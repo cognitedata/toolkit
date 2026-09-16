@@ -5,7 +5,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.skill import SkillIO
+from cognite_toolkit._cdf_tk.resource_ios._skill import SkillIO
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes.skill import SkillYAML

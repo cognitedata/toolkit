@@ -18,9 +18,9 @@ from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel import DataModelIO
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.function import FunctionIO
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.skill import SkillIO
+from cognite_toolkit._cdf_tk.resource_ios._datamodel import DataModelIO
+from cognite_toolkit._cdf_tk.resource_ios._function import FunctionIO
+from cognite_toolkit._cdf_tk.resource_ios._skill import SkillIO
 from cognite_toolkit._cdf_tk.utils import (
     calculate_hash,
     read_yaml_content,

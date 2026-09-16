@@ -9,8 +9,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.app import AppResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionRequest, AppVersionResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.resource_ios._app import AppIO, AppVersionIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.app import AppIO, AppVersionIO
 
 
 def _make_app_version_request(

@@ -1,7 +1,7 @@
 import pytest
 
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.streams import StreamIO
+from cognite_toolkit._cdf_tk.resource_ios._streams import StreamIO
 
 _HOUR_MS = 60 * 60 * 1000
 _NOW_MS = 3 * _HOUR_MS
@@ -55,9 +55,7 @@ class TestStreamCRUDIterLastUpdatedTimeWindows:
         start_ms: int | None,
         expected: list[dict[str, int]],
     ) -> None:
-        monkeypatch.setattr(
-            "cognite_toolkit._cdf_tk.resource_ios._resource_ios.streams.time.time", lambda: _NOW_MS / 1000
-        )
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.resource_ios._streams.time.time", lambda: _NOW_MS / 1000)
         stream = StreamResponse.model_validate(_IMMUTABLE_STREAM)
         windows = StreamIO.last_updated_time_windows(stream, start_ms=start_ms)
 
@@ -76,9 +74,7 @@ class TestStreamCRUDIterLastUpdatedTimeWindows:
         start_ms: int | None,
         expected: list[dict[str, int] | None],
     ) -> None:
-        monkeypatch.setattr(
-            "cognite_toolkit._cdf_tk.resource_ios._resource_ios.streams.time.time", lambda: _NOW_MS / 1000
-        )
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.resource_ios._streams.time.time", lambda: _NOW_MS / 1000)
         stream = StreamResponse.model_validate(_MUTABLE_STREAM)
         windows = StreamIO.last_updated_time_windows(stream, start_ms=start_ms)
 
