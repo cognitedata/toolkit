@@ -1,4 +1,6 @@
 import os
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 from unittest import mock
 
@@ -7,8 +9,10 @@ import pytest
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.auth.data_classes import LOGIN_FLOWS
 from cognite_toolkit._cdf_tk.commands.auth.data_classes._constants import parse_login_flow
+from cognite_toolkit._cdf_tk.commands.auth.session_store import StoredSession
 from cognite_toolkit._cdf_tk.commands.auth.utils import prompt_user_environment_variables
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingValueError
+from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_SESSION_VERSION
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, SessionExpiredError, ToolkitMissingValueError
 from tests.test_unit.utils import MockQuestionary
 
 PROJECT_AND_CLUSTER = {
@@ -86,6 +90,14 @@ class TestEnvironmentVariables:
                     "IDP_CLIENT_SECRET": "my-secret",
                 },
                 id="client-credentials cdf",
+            ),
+            pytest.param(
+                {
+                    **PROJECT_AND_CLUSTER,
+                    "LOGIN_FLOW": "session",
+                    "PROVIDER": "cdf",
+                },
+                id="session cdf",
             ),
         ],
     )
@@ -170,6 +182,82 @@ CDF_CLIENT_TIMEOUT=30
 CDF_CLIENT_MAX_WORKERS=5
 """
         )
+
+    def test_get_credentials_session_uses_persisted_access_token(self, sample_keyring: Path, cli_home: Path) -> None:
+        now = datetime.now(timezone.utc)
+        StoredSession(
+            version=COGNITE_CLI_SESSION_VERSION,
+            org="my-org",
+            access_token="session-access",
+            refresh_token="session-refresh",
+            access_token_expires_at=(now + timedelta(hours=1)).isoformat(),
+            refresh_token_expires_at=(now + timedelta(hours=2)).isoformat(),
+        ).save()
+        env_vars = EnvironmentVariables(
+            **PROJECT_AND_CLUSTER,
+            PROVIDER="cdf",
+            LOGIN_FLOW="session",
+        )
+
+        credentials = env_vars.get_credentials()
+
+        assert credentials.authorization_header() == ("Authorization", "Bearer session-access")
+        assert credentials.authorization_header() == ("Authorization", "Bearer session-access")
+
+    def test_get_credentials_session_refreshes_expiring_access_token(
+        self, sample_keyring: Path, cli_home: Path, cogidp_http
+    ) -> None:
+        cogidp_http(token_json={"access_token": "new-access", "refresh_token": "refresh", "expires_in": 3600})
+        now = datetime.now(timezone.utc)
+        StoredSession(
+            version=COGNITE_CLI_SESSION_VERSION,
+            org="my-org",
+            access_token="stale-access",
+            refresh_token="refresh",
+            access_token_expires_at=(now + timedelta(minutes=1)).isoformat(),
+            refresh_token_expires_at=(now + timedelta(hours=2)).isoformat(),
+        ).save()
+        env_vars = EnvironmentVariables(
+            **PROJECT_AND_CLUSTER,
+            PROVIDER="cdf",
+            LOGIN_FLOW="session",
+        )
+
+        credentials = env_vars.get_credentials()
+
+        assert credentials.authorization_header() == ("Authorization", "Bearer new-access")
+        persisted = StoredSession.load()
+        assert persisted is not None
+        assert persisted.access_token == "new-access"
+
+    def test_get_credentials_session_missing_raises(self, sample_keyring: Path, cli_home: Path) -> None:
+        env_vars = EnvironmentVariables(
+            **PROJECT_AND_CLUSTER,
+            PROVIDER="cdf",
+            LOGIN_FLOW="session",
+        )
+
+        with pytest.raises(AuthenticationError, match="Not signed in"):
+            env_vars.get_credentials()
+
+    def test_get_credentials_session_expired_raises(self, sample_keyring: Path, cli_home: Path) -> None:
+        now = datetime.now(timezone.utc)
+        StoredSession(
+            version=COGNITE_CLI_SESSION_VERSION,
+            org="my-org",
+            access_token="stale-access",
+            refresh_token="refresh",
+            access_token_expires_at=(now - timedelta(hours=1)).isoformat(),
+            refresh_token_expires_at=(now - timedelta(minutes=1)).isoformat(),
+        ).save()
+        env_vars = EnvironmentVariables(
+            **PROJECT_AND_CLUSTER,
+            PROVIDER="cdf",
+            LOGIN_FLOW="session",
+        )
+
+        with pytest.raises(SessionExpiredError, match="Session expired"):
+            env_vars.get_credentials()
 
 
 class TestPromptUserEnvironmentVariables:

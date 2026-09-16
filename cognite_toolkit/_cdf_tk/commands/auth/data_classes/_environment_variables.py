@@ -12,6 +12,8 @@ from cognite.client.credentials import (
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.commands.auth.oidc import refresh_session_tokens
+from cognite_toolkit._cdf_tk.commands.auth.session_store import StoredSession
 from cognite_toolkit._cdf_tk.constants import TOOLKIT_CLIENT_ENTRA_ID
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitKeyError, ToolkitMissingValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -226,6 +228,7 @@ class EnvironmentVariables:
             "interactive": self._get_oauth_interactive,
             "device_code": self._get_oauth_device_code,
             "token": self._get_token,
+            "session": self._get_session,
         }
         if self.LOGIN_FLOW not in method_by_flow:
             # Should already be checked in __post_init__
@@ -284,6 +287,26 @@ class EnvironmentVariables:
         if not self.CDF_TOKEN:
             raise ToolkitKeyError("CDF_TOKEN must be set in the environment", "CDF_TOKEN")
         return Token(self.CDF_TOKEN)
+
+    def _get_session(self) -> Token:
+        session = self._require_fresh_session()
+
+        # Token calls this factory while holding its own threading.Lock, so the
+        # nonlocal session read/refresh below is already serialized across threads.
+        def token_factory() -> str:
+            nonlocal session
+            if session.token_state() != "VALID":
+                session = self._require_fresh_session()
+            return session.access_token
+
+        return Token(token_factory)
+
+    @staticmethod
+    def _require_fresh_session() -> StoredSession:
+        session = StoredSession.ensure_fresh(refresh_session_tokens)
+        if session is None:
+            raise AuthenticationError("Not signed in. Run `cdf auth login` to sign in.")
+        return session
 
     def get_config(self, is_strict_validation: bool) -> ToolkitClientConfig:
         return ToolkitClientConfig(
