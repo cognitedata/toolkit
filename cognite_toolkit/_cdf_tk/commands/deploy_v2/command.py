@@ -41,6 +41,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceUpsertError,
     ToolkitError,
     ToolkitNotADirectoryError,
+    ToolkitNotSupported,
     ToolkitValidationError,
     ToolkitValueError,
     ToolkitWrongResourceError,
@@ -336,7 +337,10 @@ class DeployV2Command(ToolkitCommand):
                         resources.files_by_crud[crud].append(yaml_file)
                         matched = True
                     elif any(stem.endswith(extra_kind.casefold()) for extra_kind in crud.extra_kinds):
-                        resources.extra_files.append(yaml_file)
+                        # Multiple resource kinds can share extras (for example Function and
+                        # FunctionApp). A sidecar belongs to the directory only once.
+                        if yaml_file not in resources.extra_files:
+                            resources.extra_files.append(yaml_file)
                         matched = True
                 if not matched:
                     resources.invalid_files.append(yaml_file)
@@ -526,6 +530,12 @@ class DeployV2Command(ToolkitCommand):
             A list of DeploymentStep objects representing the deployment plan.
         """
         files_by_crud = read_dir.as_files_by_crud()
+        if unsupported := [crud for crud in files_by_crud if not crud.support_deploy]:
+            messages = [
+                crud.deploy_not_supported_message or f"Deployment is not supported for {crud.kind}."
+                for crud in unsupported
+            ]
+            raise ToolkitNotSupported(" ".join(messages))
         skipped_cruds = read_dir.skipped_cruds()
         dependencies_by_crud: dict[type[ResourceIO], Set[type[ResourceIO]]] = {}
         skipped_by_crud: dict[type[ResourceIO], Set[type[ResourceIO]]] = {}

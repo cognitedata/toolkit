@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ResourceCreationError,
     ToolkitNotADirectoryError,
+    ToolkitNotSupported,
     ToolkitValidationError,
     ToolkitValueError,
     ToolkitYAMLFormatError,
@@ -39,6 +40,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     CogniteFileCRUD,
     ContainerCRUD,
     DataSetsIO,
+    FunctionAppIO,
     FunctionScheduleIO,
     LabelIO,
     RawDatabaseCRUD,
@@ -230,6 +232,20 @@ class TestCreateDeploymentPlan:
         actual_plan = DeployV2Command.create_deployment_plan(read_dir)
 
         assert actual_plan == expected_plan
+
+    def test_create_deployment_plan_rejects_unsupported_resource_before_apply(self) -> None:
+        read_dir = ReadBuildDirectory(
+            path=Path("build"),
+            resource_directories=[
+                ResourceDirectory(
+                    directory=Path("build/functions"),
+                    files_by_crud={FunctionAppIO: [Path("build/functions/app.FunctionApp.yaml")]},
+                )
+            ],
+        )
+
+        with pytest.raises(ToolkitNotSupported, match="alpha resource supports build only"):
+            DeployV2Command.create_deployment_plan(read_dir)
 
 
 @dataclass

@@ -40,6 +40,7 @@ from ._extraction_pipeline import ExtractionPipelineConfigIO, ExtractionPipeline
 from ._fieldops import InFieldCDMLocationConfigIO, InFieldLocationConfigIO, InfieldV1IO
 from ._file import CogniteFileCRUD, FileMetadataCRUD
 from ._function import FunctionIO, FunctionScheduleIO
+from ._function_app import FunctionAppIO
 from ._group_scoped import GroupResourceScopedCRUD
 from ._hosted_extractors import (
     HostedExtractorDestinationIO,
@@ -102,6 +103,8 @@ if not FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
     _EXCLUDED_CRUDS.add(SkillIO)
 if not FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES):
     _EXCLUDED_CRUDS.add(ExternalDataSourceIO)
+if not FeatureFlag.is_enabled(Flags.FUNCTION_APPS):
+    _EXCLUDED_CRUDS.add(FunctionAppIO)
 
 CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
@@ -213,6 +216,7 @@ __all__ = [
     "ExtractionPipelineConfigIO",
     "ExtractionPipelineIO",
     "FileMetadataCRUD",
+    "FunctionAppIO",
     "FunctionIO",
     "FunctionScheduleIO",
     "GroupAllScopedCRUD",

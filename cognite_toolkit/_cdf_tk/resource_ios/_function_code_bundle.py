@@ -7,7 +7,12 @@ from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_hash, humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import create_zip_in_memory, sanitize_filename, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import (
+    create_zip_in_memory,
+    sanitize_filename,
+    validate_safe_path,
+    yaml_safe_dump,
+)
 from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML
 
 from ._file import CogniteFileCRUD, FileMetadataCRUD
@@ -25,7 +30,14 @@ class FunctionCodeBundle:
 
     @staticmethod
     def get_code_implicitly(filepath: Path, external_id: str) -> Path:
-        return filepath.parent / external_id
+        validate_safe_path(external_id)
+        code_root = filepath.parent.resolve()
+        function_rootdir = (filepath.parent / external_id).resolve()
+        if not function_rootdir.is_relative_to(code_root):
+            raise ValueError(
+                f"Invalid function code directory for {external_id!r}: path must remain inside {code_root}"
+            )
+        return function_rootdir
 
     @classmethod
     def create_hash_values(cls, function_rootdir: Path) -> str:
@@ -62,7 +74,15 @@ class FunctionCodeBundle:
     def get_extra_files(
         cls, filepath: Path, external_id: str, item: dict[str, Any], function_hash_key: str
     ) -> Iterable[ReadExtra]:
-        function_rootdir = cls.get_code_implicitly(filepath, external_id)
+        try:
+            function_rootdir = cls.get_code_implicitly(filepath, external_id)
+        except ValueError as error:
+            yield FailedReadExtra(
+                code="SYNTAX-ERROR",
+                error=str(error),
+                source_path=filepath.parent,
+            )
+            return
         if not function_rootdir.is_dir():
             yield FailedReadExtra(
                 code="MISSING",
