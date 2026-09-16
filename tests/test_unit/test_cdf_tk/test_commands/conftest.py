@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -26,3 +27,11 @@ def project_statistics_response() -> dict[str, Any]:
         "concurrentWriteLimit": 5,
         "concurrentDeleteLimit": 3,
     }
+
+
+@pytest.fixture()
+def valid_yaml_absolute_path(tmp_path: Path) -> Path:
+    """Fixture to provide a valid absolute path for testing."""
+    valid_path = tmp_path / "valid.yaml"
+    valid_path.touch()
+    return valid_path

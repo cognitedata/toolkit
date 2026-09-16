@@ -9,7 +9,6 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_RequestR
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 
 from ._insights import (
     ConsistencyError,
@@ -17,6 +16,7 @@ from ._insights import (
     IgnoredFileWarning,
     Insight,
     InsightList,
+    InternalValidatorException,
     ModelSyntaxError,
     ModelSyntaxWarning,
 )
@@ -93,6 +93,10 @@ class BuildInput(BaseModel):
     validation_type: ValidationType = "prod"
     cdf_project: str
     organization_dir: AbsoluteDirPath
+    config_path: AbsoluteFilePath | None = Field(
+        None,
+        description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory).",
+    )
 
     @property
     def module_dir(self) -> Path:
@@ -184,13 +188,13 @@ class BuiltModule(BaseModel):
                     FileReadError(
                         message=f"In {failed_extra.source_path.as_posix()!r}: {failed_extra.error}",
                         code=failed_extra.code,
-                        source_file=format_insight_source_file(resource.source_path),
+                        source_files=[resource.source_path],
                     )
                 )
         for path, error in self.syntax_errors_by_source.items():
-            insights.append(error.model_copy(update={"source_file": format_insight_source_file(path)}))
+            insights.append(error)
         for path, warning in self.syntax_warnings_by_source.items():
-            insights.append(warning.model_copy(update={"source_file": format_insight_source_file(path)}))
+            insights.append(warning)
         for path, variables in self.unresolved_variables_by_source.items():
             quoted_variables = humanize_collection([f"{variable!r}" for variable in variables])
             insights.append(
@@ -199,7 +203,7 @@ class BuiltModule(BaseModel):
                     message=f"Unresolved variable{'s' if len(variables) > 1 else ''} {quoted_variables}",
                     fix="Make sure to define the variables in the 'config.<env>.yaml' file and that they are "
                     "correctly placed in the variables section matching the file path",
-                    source_file=format_insight_source_file(path),
+                    source_files=[path],
                 )
             )
         for failed_file in self.failed_files:
@@ -207,7 +211,7 @@ class BuiltModule(BaseModel):
                 FileReadError(
                     code=failed_file.code,
                     message=f"In {failed_file.source_path.as_posix()!r}: {failed_file.error}",
-                    source_file=format_insight_source_file(failed_file.source_path),
+                    source_files=[failed_file.source_path],
                 )
             )
         for ignored_file in self.ignored_files:
@@ -216,7 +220,7 @@ class BuiltModule(BaseModel):
                     code=ignored_file.code,
                     message=ignored_file.reason,
                     fix=ignored_file.fix,
-                    source_file=format_insight_source_file(ignored_file.filepath),
+                    source_files=[ignored_file.filepath],
                 )
             )
 
@@ -229,6 +233,7 @@ class BuiltModule(BaseModel):
 class ValidationResult(BaseModel):
     name: str
     insights: list[Insight]
+    errors: list[InternalValidatorException]
 
 
 class BuildFolder(BaseModel):

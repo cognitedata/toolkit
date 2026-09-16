@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
 from cognite_toolkit._cdf_tk.utils import humanize_collection, validate_requirements_with_pip
-from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, read_yaml_file
+from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes.functions import FunctionsYAML
 
 
@@ -48,9 +48,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                     except Exception as e:
                         yield InternalValidatorException(
                             message=f"Function limits validator failed for function definition {resource.build_path.name!r}: {e}",
-                            code="INTERNAL-VALIDATOR-EXCEPTION",
                             source=str(resource.identifier),
-                            source_file=format_insight_source_file(resource.source_path),
                         )
 
     def _validate_function(self, resource: BuiltResource) -> Iterable[ConsistencyError]:
@@ -62,7 +60,6 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
         Yields:
             ConsistencyError for any violations of function limits.
         """
-        source_file = format_insight_source_file(resource.source_path)
         # Parse function_file (YAML) to dict/list, then create FunctionsYAML objects to validate and extract definitions
         raw_data = read_yaml_file(resource.build_path, expected_output="dict")
 
@@ -82,7 +79,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                     ),
                     code=f"{self.CODE_PREFIX}-CPU-OUT-OF-RANGE",
                     fix=f"Ensure that CPU cores is between {limits.cpu_cores.min} and {limits.cpu_cores.max}.",
-                    source_file=source_file,
+                    source_files=[resource.source_path],
                 )
 
         # Validate memory
@@ -95,7 +92,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                     ),
                     code=f"{self.CODE_PREFIX}-MEMORY-OUT-OF-RANGE",
                     fix=f"Ensure that memory is between {limits.memory_gb.min} and {limits.memory_gb.max} GB.",
-                    source_file=source_file,
+                    source_files=[resource.source_path],
                 )
 
         # Validate runtime
@@ -110,7 +107,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                     ),
                     code=f"{self.CODE_PREFIX}-UNKNOWN-RUNTIME",
                     fix=f"Use one of the available runtimes: {quoted_runtimes}.",
-                    source_file=source_file,
+                    source_files=[resource.source_path],
                 )
 
         function_folder = FunctionIO.get_function_code_implicitly(resource.source_path, function_def.as_id())
@@ -123,7 +120,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                     message=pip_result.create_message("Function", function_def.external_id),
                     code=f"{self.CODE_PREFIX}-INVALID-REQUIREMENTS",
                     fix="Ensure that requirements.txt is valid.",
-                    source_file=source_file,
+                    source_files=[resource.source_path],
                 )
 
     @cached_property

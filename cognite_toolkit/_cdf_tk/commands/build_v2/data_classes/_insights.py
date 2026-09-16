@@ -2,9 +2,12 @@ import csv
 import io
 import json
 from collections import UserList, defaultdict
-from typing import ClassVar, TypeAlias
+from typing import ClassVar, Literal, TypeAlias
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
+
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
+from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 
 
 class InsightDefinition(BaseModel):
@@ -13,14 +16,24 @@ class InsightDefinition(BaseModel):
     severity: ClassVar[int] = 999
 
     message: str
-    code: str | None = None
+    code: str
+    source_files: list[AbsoluteFilePath] = Field(min_length=1)
     fix: str | None = None
-    source_file: str | None = None
     alpha: bool = False
+
+    @property
+    def source_file(self) -> AbsoluteFilePath:
+        """Return the first source file if multiple are present."""
+        return self.source_files[0]
 
     @classmethod
     def insight_type(cls) -> str:
         return cls.__name__
+
+    @property
+    def display_source_files(self) -> str:
+        unique_paths = list(dict.fromkeys([format_insight_source_file(file) for file in self.source_files]))
+        return ", ".join(unique_paths)
 
 
 class FileReadError(InsightDefinition):
@@ -46,7 +59,7 @@ class ConsistencyError(InsightDefinition):
     severity = 45
 
 
-class InternalValidatorException(InsightDefinition):
+class InternalValidatorException(BaseModel):
     """A validator threw an unexpected exception and could not complete.
 
     This should never happen in normal operation — it indicates a bug in the validator itself, not
@@ -54,8 +67,9 @@ class InternalValidatorException(InsightDefinition):
     but the affected resource was not fully validated.
     """
 
-    severity = 35
     source: str
+    message: str
+    code: Literal["INTERNAL-VALIDATOR-EXCEPTION"] = "INTERNAL-VALIDATOR-EXCEPTION"
     fix: str | None = (
         "This is an unexpected error in the validator. It does not necessarily indicate an issue with your resource, only that we failed to validate it. Please report this as a bug."
     )
@@ -83,13 +97,7 @@ class Recommendation(InsightDefinition):
 
 
 Insight: TypeAlias = (
-    ModelSyntaxError
-    | ModelSyntaxWarning
-    | ConsistencyError
-    | InternalValidatorException
-    | Recommendation
-    | FileReadError
-    | IgnoredFileWarning
+    ModelSyntaxError | ModelSyntaxWarning | ConsistencyError | Recommendation | FileReadError | IgnoredFileWarning
 )
 
 
@@ -163,7 +171,7 @@ class InsightList(UserList[Insight]):
                 {
                     "insight_type": _normalize_csv_cell(insight.insight_type()),
                     "code": _normalize_csv_cell(insight.code or ""),
-                    "source_file": _normalize_csv_cell(insight.source_file or ""),
+                    "source_file": _normalize_csv_cell(insight.display_source_files),
                     "message": _normalize_csv_cell(insight.message),
                     "fix": _normalize_csv_cell(insight.fix or ""),
                 }
@@ -178,7 +186,7 @@ class InsightList(UserList[Insight]):
             {
                 "insightType": insight.insight_type(),
                 "code": insight.code,
-                "sourceFile": insight.source_file,
+                "sourceFile": insight.display_source_files,
                 "message": insight.message,
                 "fix": insight.fix,
             }
