@@ -96,6 +96,10 @@ class ValidationStep:
 
 SelectionSource = Literal["cli-arg", "config", "interactive"]
 
+# Precompiled once at import time so it isn't recompiled/looked up per file when
+# scanning 100s of resource files. Matches e.g. "# rules: ignore[AUTH-001, AUTH-002]".
+_IGNORE_RULE_PATTERN = re.compile(r"#\s*rules?\s*:\s*ignore\s*\[([^\]]*)\]")
+
 
 class BuildV2Command(ToolkitCommand):
     def build(
@@ -1005,7 +1009,7 @@ class BuildV2Command(ToolkitCommand):
     @classmethod
     def _get_ignore_rule_codes(cls, content: str) -> set[str]:
         codes: set[str] = set()
-        for match in re.findall(pattern=r"#\s*rules?\s*:\s*ignore\s*\[([^\]]*)\]", string=content):
+        for match in _IGNORE_RULE_PATTERN.findall(content):
             codes.update(code.strip() for code in match.split(",") if code.strip())
         return codes
 
