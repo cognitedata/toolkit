@@ -105,14 +105,13 @@ class RunFunctionAppCommand(ToolkitCommand):
     ) -> None:
         temp_dir = Path(tempfile.mkdtemp(prefix="cdf_run_function_app_"))
         module_path = temp_dir / "_cdf_run_function_app_asgi.py"
-        package_root = handler_path.parent
         temp_dir_str = str(temp_dir)
         inserted_path = False
         try:
             module_path.write_text(
                 "import importlib\n"
                 "import sys\n"
-                f"sys.path.insert(0, {str(package_root)!r})\n"
+                f"sys.path.insert(0, {str(handler_path.parent)!r})\n"
                 f"sys.path.insert(0, {str(handler_path)!r})\n"
                 "from cognite_function_apps.devserver import create_asgi_app\n"
                 "from cognite_toolkit._cdf_tk.commands.run_function_app import RunFunctionAppCommand\n"
@@ -173,21 +172,11 @@ class RunFunctionAppCommand(ToolkitCommand):
     @staticmethod
     def _render_safety_banner(cdf_project: str, cdf_cluster: str) -> bytes:
         return (
-            '<div style="background:#b91c1c;color:#fff;padding:10px 16px;'
-            'font-family:sans-serif;font-size:14px;">'
+            f'<div style="background:#b91c1c;color:#fff;padding:10px 16px;font-family:sans-serif;font-size:14px;">'
             f"Authenticated against CDF project <b>{html.escape(cdf_project)}</b> in cluster "
-            f"<b>{html.escape(cdf_cluster)}</b> &mdash; calling routes below uses your real, "
-            "authenticated CDF credentials and may create, update, or delete data in this project."
-            "</div>"
+            f"<b>{html.escape(cdf_cluster)}</b> &mdash; calling routes below uses your real, authenticated CDF "
+            "credentials and may create, update, or delete data in this project.</div>"
         ).encode()
-
-    @staticmethod
-    def _inject_safety_banner(body: bytes, cdf_project: str, cdf_cluster: str) -> bytes:
-        marker = b"<body>"
-        if marker not in body:
-            return body
-        banner = RunFunctionAppCommand._render_safety_banner(cdf_project, cdf_cluster)
-        return body.replace(marker, marker + banner, 1)
 
     @staticmethod
     def _wrap_with_landing_page(app: Any, cdf_project: str, cdf_cluster: str) -> Any:
@@ -215,7 +204,10 @@ class RunFunctionAppCommand(ToolkitCommand):
         await app(scope, receive, capture_send)
 
         body = b"".join(message["body"] for message in messages if message["type"] == "http.response.body")
-        body = RunFunctionAppCommand._inject_safety_banner(body, cdf_project, cdf_cluster)
+        if b"<body>" in body:
+            body = body.replace(
+                b"<body>", b"<body>" + RunFunctionAppCommand._render_safety_banner(cdf_project, cdf_cluster), 1
+            )
 
         for message in messages:
             if message["type"] == "http.response.start":
