@@ -190,9 +190,13 @@ class TestModuleSourceParser:
         selected_paths: set[str],
         expected_variables: dict[str, dict[int | None, list[BuildVariable]]],
         error_messages: list[str],
+        valid_yaml_absolute_path: Path,
     ) -> None:
         build_variables, errors = ModuleParser._parse_variables(
-            variables, {Path(path) for path in available_paths}, {Path(path) for path in selected_paths}
+            variables,
+            {Path(path) for path in available_paths},
+            {Path(path) for path in selected_paths},
+            valid_yaml_absolute_path,
         )
         actual_error_messages = [error.error.message for error in errors]
         assert actual_error_messages == error_messages
