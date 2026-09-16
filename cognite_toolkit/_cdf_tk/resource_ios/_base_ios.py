@@ -156,9 +156,13 @@ class SuccessExtra(ReadExtra):
     )
     source_hash: str
     suffix: str
+    content_parsed: dict[str, Any] | list[Any] | None = None
     content: str | None = None
-    byte_content: bytes | None = None
+    content_byte: bytes | None = None
     description: str
+    write_to_build: bool = Field(
+        False, description="Whether the extra content should be written to the build directory."
+    )
 
 
 class ResourceIO(

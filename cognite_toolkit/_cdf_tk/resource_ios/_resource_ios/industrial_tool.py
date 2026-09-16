@@ -150,6 +150,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
             content=content,
             description="Streamlit application code",
             resource_field=None,
+            write_to_build=True,
         )
         try:
             streamlit_request = StreamlitRequest.model_validate(item)
@@ -179,6 +180,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
                 content=file_metadata,
                 description="Streamlit app",
                 resource_field=None,
+                write_to_build=True,
             )
 
     def load_resource_file(

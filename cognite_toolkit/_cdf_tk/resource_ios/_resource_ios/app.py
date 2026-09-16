@@ -259,9 +259,10 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
             source_path=source_dir,
             source_hash=source_hash,
             suffix=".zip",
-            byte_content=zip_bytes,
+            content_byte=zip_bytes,
             description="app bundle",
             resource_field=None,
+            write_to_build=True,
         )
 
     def load_resource_file(

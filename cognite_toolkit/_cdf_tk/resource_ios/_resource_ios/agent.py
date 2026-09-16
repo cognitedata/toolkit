@@ -1,6 +1,9 @@
 from collections.abc import Hashable, Iterable, Sequence
 from graphlib import CycleError, TopologicalSorter
-from typing import Any, Literal, TypeVar, final
+from pathlib import Path
+from typing import Any, Literal, TypeVar, cast, final
+
+from yaml.error import YAMLError
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId, ExternalId
@@ -11,14 +14,21 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
     ScopeDefinition,
 )
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel import DataModelIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.function import FunctionIO
 from cognite_toolkit._cdf_tk.resource_ios._resource_ios.skill import SkillIO
+from cognite_toolkit._cdf_tk.utils import (
+    calculate_hash,
+    read_yaml_content,
+    safe_read,
+    sanitize_filename,
+)
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
-from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.yaml_classes import AgentYAML
 from cognite_toolkit._cdf_tk.yaml_classes.agent import (
     AgentDataModel,
@@ -38,6 +48,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
     resource_write_cls = AgentRequest
     kind = "Agent"
     yaml_cls = AgentYAML
+    extra_content_property = "instructions"
     dependencies = frozenset(
         {FunctionIO, DataModelIO, *({SkillIO} if FeatureFlag.is_enabled(Flags.AGENT_SKILLS) else set())}
     )
@@ -87,6 +98,186 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         dm_scope = tool.configuration.data_models
         if dm_scope.type == "manual" and isinstance(dm_scope, ManualQueryDataModels):
             yield from AgentIO._yaml_data_model_dependencies(dm_scope.data_models)
+
+    @classmethod
+    def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        """Get extra files for an Agent resource.
+
+        This includes an optional .md file referenced by instructionsFile, optional YAML files
+        referenced by toolFiles, and optional .py files referenced by pythonCodeFile on
+        runPythonCode tools.
+        """
+        yield from cls._get_instructions_extra_file(filepath, item)
+        yield from cls._get_tools_extra_files(filepath, item)
+        yield from cls._get_python_code_extra_files(filepath, item.get("tools"))
+
+    @classmethod
+    def _get_instructions_extra_file(cls, filepath: Path, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        instructions_file_name = item.get("instructionsFile")
+        if not instructions_file_name or not isinstance(instructions_file_name, str):
+            return
+        instructions_file = filepath.parent / Path(instructions_file_name)
+        if not instructions_file.is_file():
+            yield FailedReadExtra(
+                source_path=instructions_file,
+                code="MISSING",
+                error=f"Instructions file {instructions_file.as_posix()} not found or is not a file",
+            )
+            return
+
+        content = safe_read(instructions_file, encoding=BUILD_FOLDER_ENCODING)
+        source_hash = calculate_hash(content, shorten=True)
+        yield SuccessExtra(
+            source_path=instructions_file,
+            source_hash=source_hash,
+            suffix=".md",
+            content=content,
+            description="agent instructions",
+            resource_field="instructions",
+            remove_fields=["instructionsFile"],
+        )
+
+    @classmethod
+    def _get_tools_extra_files(cls, filepath: Path, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        if not isinstance(tools_files := item.get("toolFiles"), list):
+            return
+
+        for tools_file_name in tools_files:
+            if not isinstance(tools_file_name, str) or not tools_file_name:
+                continue
+            tools_file = filepath.parent / Path(tools_file_name)
+            if not tools_file.is_file():
+                yield FailedReadExtra(
+                    source_path=tools_file,
+                    code="MISSING",
+                    error=f"Tools file {tools_file.as_posix()} not found or is not a file",
+                )
+                continue
+
+            content = safe_read(tools_file, encoding=BUILD_FOLDER_ENCODING)
+            parsed_content = cls._try_parse(content)
+            if parsed_content is None:
+                yield FailedReadExtra(
+                    source_path=tools_file,
+                    code="SYNTAX-ERROR",
+                    error=f"Tools file {tools_file.as_posix()} is not valid YAML",
+                )
+                continue
+            yield from cls._get_python_code_extra_files(tools_file, parsed_content)
+            source_hash = calculate_hash(content, shorten=True)
+            suffix = tools_file.suffix if tools_file.suffix else ".yaml"
+            yield SuccessExtra(
+                source_path=tools_file,
+                source_hash=source_hash,
+                suffix=suffix,
+                content_parsed=parsed_content,
+                description="agent tools",
+                resource_field="tools",
+                is_list=True,
+                remove_fields=["toolFiles"],
+            )
+
+    @classmethod
+    def _try_parse(cls, content: str) -> Any | None:
+        try:
+            parsed = read_yaml_content(content)
+        except (YAMLError, ValueError, TypeError):
+            # This is handled when validating the Agent resource, so we can ignore it here.
+            return None
+        if not isinstance(parsed, dict | list):
+            return None
+        return parsed
+
+    @classmethod
+    def _get_python_code_extra_files(cls, filepath: Path, tools: Any) -> Iterable[ReadExtra]:
+        tool_list: list[Any] = []
+        if isinstance(tools, list):
+            tool_list.extend(tools)
+        elif isinstance(tools, dict):
+            tool_list.append(tools)
+        else:
+            return
+
+        for tool in tool_list or []:
+            if not isinstance(tool, dict) or tool.get("type") != "runPythonCode":
+                continue
+            config = tool.get("configuration")
+            if not isinstance(config, dict):
+                continue
+            extra = cls._read_and_inline_python_code_python_tool(filepath, config)
+            if extra is not None:
+                yield extra
+
+    @classmethod
+    def _read_and_inline_python_code_python_tool(cls, filepath: Path, config: dict[str, Any]) -> ReadExtra | None:
+        code_file_name = config.get("pythonCodeFile")
+        if not code_file_name or not isinstance(code_file_name, str):
+            return None
+        code_file = filepath.parent / Path(code_file_name)
+        if not code_file.is_file():
+            return FailedReadExtra(
+                source_path=code_file,
+                code="MISSING",
+                error=f"Python code file {code_file.as_posix()} not found or is not a file",
+            )
+        content = safe_read(code_file, encoding=BUILD_FOLDER_ENCODING)
+        config["pythonCode"] = content
+        # Mutating the config dict to remove the pythonCodeFile key, so that it is not included in the final resource.
+        config.pop("pythonCodeFile", None)
+        source_hash = calculate_hash(content, shorten=True)
+        suffix = code_file.suffix if code_file.suffix else ".py"
+        return SuccessExtra(
+            source_path=code_file,
+            source_hash=source_hash,
+            suffix=suffix,
+            content=content,
+            description="agent python code",
+            resource_field=None,
+            write_to_build=False,
+        )
+
+    def split_resource(
+        self, base_filepath: Path, resource: dict[str, Any]
+    ) -> Iterable[tuple[Path, dict[str, Any] | str]]:
+        if not Flags.V09.is_enabled():
+            yield from super().split_resource(base_filepath, resource)
+            return
+
+        if instructions := resource.pop("instructions", None):
+            md_path = base_filepath.with_suffix(".md")
+            resource["instructionsFile"] = md_path.name
+            yield md_path, cast(str, instructions)
+
+        if tools := resource.pop("tools", None):
+            if not isinstance(tools, list):
+                resource["tools"] = tools
+            else:
+                tool_paths: list[str] = []
+                for tool_no, tool in enumerate(tools, start=1):
+                    tool_name = tool.get("name") or f"{tool.get('type', '')}{tool_no!s}"
+                    tool_filename = sanitize_filename(tool_name)
+                    stem = base_filepath.stem
+                    if stem.lower().endswith(f".{self.kind.lower()}"):
+                        stem = stem[: -(len(self.kind) + 1)]
+
+                    tools_dir = base_filepath.parent
+                    if tool.get("type") == "runPythonCode":
+                        tools_dir = base_filepath.parent / "tools"
+                        config = tool.get("configuration")
+                        if isinstance(config, dict):
+                            python_code = config.pop("pythonCode", None)
+                            if python_code and isinstance(python_code, str):
+                                py_path = tools_dir / f"{stem}.{tool_filename}.py"
+                                config["pythonCodeFile"] = py_path.name
+                                yield py_path, python_code
+                    tools_path = tools_dir / f"{stem}.{tool_filename}.yaml"
+
+                    tool_paths.append(tools_path.relative_to(base_filepath.parent).as_posix())
+                    yield tools_path, yaml_safe_dump(tool)
+
+                resource["toolFiles"] = tool_paths
+
+        yield base_filepath, resource
 
     @classmethod
     def get_dependencies(cls, resource: AgentYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
