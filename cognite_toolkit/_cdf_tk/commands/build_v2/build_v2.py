@@ -151,7 +151,12 @@ class BuildV2Command(ToolkitCommand):
         tracked_insights = build_folder.all_insights
         if Flags.V09.is_enabled():
             report_insights = InsightList(
-                [insight for insight in tracked_insights if insight.code not in parameters.rules_ignore]
+                [
+                    insight
+                    for insight in tracked_insights
+                    if insight.code not in parameters.rules_ignore
+                    and (not insight.alpha or Flags.ALPHA_RULES.is_enabled())
+                ]
             )
         else:
             report_insights = tracked_insights

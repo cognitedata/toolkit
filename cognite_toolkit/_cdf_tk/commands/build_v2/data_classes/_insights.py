@@ -16,6 +16,7 @@ class InsightDefinition(BaseModel):
     code: str | None = None
     fix: str | None = None
     source_file: str | None = None
+    alpha: bool = False
 
     @classmethod
     def insight_type(cls) -> str:
