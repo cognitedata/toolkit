@@ -1,5 +1,3 @@
-from collections.abc import Set
-
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module
 from cognite_toolkit._cdf_tk.rules._base import ToolkitGlobalRuleSet, ToolkitLocalRule
@@ -33,18 +31,6 @@ def get_global_rules_registry(force_reload: bool = False) -> list[type[ToolkitGl
 
 
 class LocalRulesOrchestrator:
-    def __init__(self, exclude_rule_codes: Set[str] | None = None, enable_alpha_validators: bool = False) -> None:
-        self.exclude_rule_codes = exclude_rule_codes or set()
-        self._enable_alpha_validators = enable_alpha_validators
-
-    def can_run_rule(self, rule_cls: type[ToolkitLocalRule]) -> bool:
-        if rule_cls.CODE in self.exclude_rule_codes:
-            return False
-        if not rule_cls.IS_ALPHA:
-            return True
-        # Alpha Rule
-        return self._enable_alpha_validators
-
     def run(self, module: Module) -> list[Insight]:
         """Run all applicable rules on the provided modules while updating modules insights.
 
@@ -55,8 +41,6 @@ class LocalRulesOrchestrator:
         rules_registry = get_local_rules_registry()
         all_insights: list[Insight] = []
         for rule_cls in rules_registry:
-            if not self.can_run_rule(rule_cls):
-                continue
             rule = rule_cls(module)
             all_insights.extend(rule.validate())
         return all_insights
