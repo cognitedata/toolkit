@@ -11,15 +11,10 @@ from cognite_toolkit._cdf_tk.commands.auth.oidc import (
     login_for_session,
     refresh_session_tokens,
 )
-from cognite_toolkit._cdf_tk.commands.auth.session_keyring import delete_session_token
-from cognite_toolkit._cdf_tk.commands.auth.session_refresh import ensure_fresh_session
+from cognite_toolkit._cdf_tk.commands.auth.session_keyring import delete_session_token, read_session_token
 from cognite_toolkit._cdf_tk.commands.auth.session_store import (
     SessionMetadata,
     StoredSession,
-    read_session,
-    read_session_metadata,
-    token_state,
-    write_session,
 )
 from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_SESSION_VERSION
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
@@ -91,7 +86,7 @@ def test_token_state_expiring_within_leeway() -> None:
         access_token_expires_at=(now + timedelta(minutes=3)).isoformat(),
         refresh_token_expires_at=(now + timedelta(hours=10)).isoformat(),
     )
-    assert token_state(metadata, now=now) == "EXPIRING"
+    assert metadata.token_state(now=now) == "EXPIRING"
 
 
 def test_token_state_expired_when_refresh_past() -> None:
@@ -102,7 +97,7 @@ def test_token_state_expired_when_refresh_past() -> None:
         access_token_expires_at=(now - timedelta(hours=1)).isoformat(),
         refresh_token_expires_at=(now - timedelta(minutes=1)).isoformat(),
     )
-    assert token_state(metadata, now=now) == "EXPIRED"
+    assert metadata.token_state(now=now) == "EXPIRED"
 
 
 def test_oauth_callback_page_shows_idp_error_message(ephemeral_port: int) -> None:
@@ -138,26 +133,68 @@ def test_unsupported_session_version_is_not_loaded(cli_home: Path) -> None:
         '{"version": 0, "org": "org", "accessTokenExpiresAt": "x", "refreshTokenExpiresAt": "y"}\n'
     )
     with pytest.raises(AuthenticationError, match="Unsupported session version"):
-        read_session_metadata()
+        StoredSession.load_metadata()
 
 
 def test_missing_keyring_tokens_clears_stale_session_metadata(sample_keyring: Path, cli_home: Path) -> None:
     now = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    write_session(
-        StoredSession(
-            version=COGNITE_CLI_SESSION_VERSION,
-            org="my-org",
-            access_token="access",
-            refresh_token="refresh",
-            access_token_expires_at=(now + timedelta(hours=1)).isoformat(),
-            refresh_token_expires_at=(now + timedelta(hours=2)).isoformat(),
-        )
+    session = StoredSession(
+        version=COGNITE_CLI_SESSION_VERSION,
+        org="my-org",
+        access_token="access",
+        refresh_token="refresh",
+        access_token_expires_at=(now + timedelta(hours=1)).isoformat(),
+        refresh_token_expires_at=(now + timedelta(hours=2)).isoformat(),
     )
+    session.save()
     delete_session_token("my-org/accessToken")
     delete_session_token("my-org/refreshToken")
 
-    assert read_session() is None
-    assert read_session_metadata() is None
+    assert StoredSession.load() is None
+    assert StoredSession.load_metadata() is None
+
+
+def test_saving_session_for_new_org_clears_previous_org_tokens(sample_keyring: Path, cli_home: Path) -> None:
+    now = datetime.now(timezone.utc)
+    old_session = StoredSession(
+        version=COGNITE_CLI_SESSION_VERSION,
+        org="old-org",
+        access_token="old-access",
+        refresh_token="old-refresh",
+        access_token_expires_at=(now + timedelta(hours=1)).isoformat(),
+        refresh_token_expires_at=(now + timedelta(hours=2)).isoformat(),
+    )
+    old_session.save()
+
+    new_session = StoredSession(
+        version=COGNITE_CLI_SESSION_VERSION,
+        org="new-org",
+        access_token="new-access",
+        refresh_token="new-refresh",
+        access_token_expires_at=(now + timedelta(hours=1)).isoformat(),
+        refresh_token_expires_at=(now + timedelta(hours=2)).isoformat(),
+    )
+    new_session.save()
+
+    assert read_session_token("old-org/accessToken") is None
+    assert read_session_token("old-org/refreshToken") is None
+    assert StoredSession.load() == new_session
+
+
+def test_saving_session_overwrites_corrupted_session_metadata(sample_keyring: Path, cli_home: Path) -> None:
+    (cli_home / "session.json").write_text("{corrupted json\n")
+    now = datetime.now(timezone.utc)
+    session = StoredSession(
+        version=COGNITE_CLI_SESSION_VERSION,
+        org="my-org",
+        access_token="access",
+        refresh_token="refresh",
+        access_token_expires_at=(now + timedelta(hours=1)).isoformat(),
+        refresh_token_expires_at=(now + timedelta(hours=2)).isoformat(),
+    )
+    session.save()
+
+    assert StoredSession.load() == session
 
 
 def test_refresh_session_raises_when_idp_rejects_refresh_token(cogidp_http) -> None:
@@ -197,20 +234,20 @@ def test_ensure_fresh_session_refreshes_expiring_access_token(
 ) -> None:
     cogidp_http(token_json={"access_token": "new-access", "refresh_token": "refresh", "expires_in": 3600})
     now = datetime.now(timezone.utc)
-    write_session(
-        StoredSession(
-            version=COGNITE_CLI_SESSION_VERSION,
-            org="my-org",
-            access_token="access",
-            refresh_token="refresh",
-            access_token_expires_at=(now + timedelta(minutes=1)).isoformat(),
-            refresh_token_expires_at=(now + timedelta(hours=2)).isoformat(),
-        )
+    session = StoredSession(
+        version=COGNITE_CLI_SESSION_VERSION,
+        org="my-org",
+        access_token="access",
+        refresh_token="refresh",
+        access_token_expires_at=(now + timedelta(minutes=1)).isoformat(),
+        refresh_token_expires_at=(now + timedelta(hours=2)).isoformat(),
     )
+    session.save()
 
-    refreshed = ensure_fresh_session()
+    refreshed = StoredSession.ensure_fresh(refresh_session_tokens)
 
     assert refreshed is not None
     assert refreshed.access_token == "new-access"
-    assert read_session() is not None
-    assert read_session().access_token == "new-access"
+    persisted = StoredSession.load()
+    assert persisted is not None
+    assert persisted.access_token == "new-access"

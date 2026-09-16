@@ -6,21 +6,11 @@ import questionary
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands.auth.cogidp import SessionProject, fetch_session_user_info
+from cognite_toolkit._cdf_tk.commands.auth.data_classes import EnvironmentVariables, LoginFlow
+from cognite_toolkit._cdf_tk.commands.auth.oidc import login_for_session, refresh_session_tokens, revoke_refresh_token
+from cognite_toolkit._cdf_tk.commands.auth.session_store import StoredSession
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, SessionExpiredError
-
-from .cogidp import SessionProject, fetch_session_user_info
-from .data_classes import EnvironmentVariables, LoginFlow
-from .oidc import login_for_session, revoke_refresh_token
-from .session_keyring import read_session_token
-from .session_refresh import ensure_fresh_session
-from .session_store import (
-    StoredSession,
-    clear_org_tokens,
-    clear_session,
-    read_session_metadata,
-    token_state,
-    write_session,
-)
 
 
 def confirm_login_flow_overrides_env(selected_flow: LoginFlow) -> bool:
@@ -45,13 +35,13 @@ def confirm_login_flow_overrides_env(selected_flow: LoginFlow) -> bool:
 class AuthSessionCommand(ToolkitCommand):
     def login(self, org: str | None, force: bool, port: int | None) -> StoredSession | None:
         try:
-            existing = read_session_metadata()
+            existing = StoredSession.load()
         except AuthenticationError:
-            clear_session()
+            StoredSession.clear()
             existing = None
 
         if existing and not force:
-            state = token_state(existing)
+            state = existing.token_state()
             if state != "EXPIRED":
                 replace = questionary.confirm(
                     f'A session for organization "{existing.org}" already exists. Replace it?',
@@ -73,33 +63,30 @@ class AuthSessionCommand(ToolkitCommand):
             org = org.strip()
 
         session = login_for_session(org, port=port)
-        if existing and existing.org != session.org:
-            clear_org_tokens(existing.org)
-        write_session(session)
+        session.save()
         print("[green]Signed in.[/green]")
         return session
 
     def logout(self) -> None:
         try:
-            metadata = read_session_metadata()
+            metadata = StoredSession.load_metadata()
+            if metadata is None:
+                print("[yellow]No active session.[/yellow]")
+                return
+            session = StoredSession.load()
         except AuthenticationError:
-            clear_session()
+            StoredSession.clear()
             print("[green]Session cleared.[/green]")
             return
 
-        if metadata is None:
-            print("[yellow]No active session.[/yellow]")
-            return
-
-        refresh_token = read_session_token(f"{metadata.org}/refreshToken")
-        if refresh_token:
-            revoke_refresh_token(refresh_token, metadata.org)
-        clear_session()
+        if session is not None:
+            revoke_refresh_token(session.refresh_token, session.org)
+        StoredSession.clear()
         print(f"[green]Signed out from organization {metadata.org}.[/green]")
 
     def status(self) -> None:
         try:
-            session = ensure_fresh_session()
+            session = StoredSession.ensure_fresh(refresh_session_tokens)
         except (SessionExpiredError, AuthenticationError) as exc:
             print(f"[red]{exc}[/red]")
             return
