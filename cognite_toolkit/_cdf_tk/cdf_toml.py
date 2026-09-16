@@ -111,7 +111,13 @@ class RuleSection:
 
     @classmethod
     def load(cls, raw: dict[str, Any]) -> Self:
+        if not isinstance(raw, dict):
+            raise ToolkitTOMLFormatError("The 'rules' section must be a table/dictionary.")
         ignore = raw.get("ignore", [])
+        if not isinstance(ignore, list):
+            raise ToolkitTOMLFormatError("The 'ignore' field in the 'rules' section must be a list of strings.")
+        if not all(isinstance(item, str) for item in ignore):
+            raise ToolkitTOMLFormatError("All items in the 'ignore' list must be strings.")
         return cls(ignore=ignore)
 
 

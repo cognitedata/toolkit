@@ -1225,9 +1225,7 @@ class BuildV2Command(ToolkitCommand):
             "IgnoredFileWarning": (AuraColor.MOUNTAIN.rich, "○"),
         }
 
-        display_insights = self._select_display_insights(
-            insights, max_display_count=30 if verbose else 5, rules_ignore=set()
-        )
+        display_insights = self._select_display_insights(insights, max_display_count=30 if verbose else 5)
         remaining_count = len(insights) - len(display_insights)
 
         insights_by_type: dict[str, list[Insight]] = {}
@@ -1319,16 +1317,12 @@ class BuildV2Command(ToolkitCommand):
             return f"{title} in {insight.source_file}"
         return title
 
-    def _select_display_insights(
-        self, insights: InsightList, max_display_count: int, rules_ignore: set[str]
-    ) -> list[Insight]:
+    def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
         """Prioritize one insight per code, then by severity"""
         insights_by_code: dict[str, Insight] = {}
         remaining_insights: list[Insight] = []
 
         for insight in insights:
-            if insight.code in rules_ignore:
-                continue
             code = insight.code or "UNDEFINED"
             if code not in insights_by_code:
                 insights_by_code[code] = insight
