@@ -84,7 +84,7 @@ sql = [
 v08 = [
     "cognite-neat >=1.0.43"
 ]
-serve = [
+run-function-app = [
     "cognite-function-apps[cli]>=0.14.0",
 ]
 

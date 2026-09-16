@@ -418,7 +418,7 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-serve = [
+run-function-app = [
     { name = "cognite-function-apps", extra = ["cli"] },
 ]
 sql = [
@@ -459,7 +459,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cognite-function-apps", extras = ["cli"], marker = "extra == 'serve'", specifier = ">=0.14.0" },
+    { name = "cognite-function-apps", extras = ["cli"], marker = "extra == 'run-function-app'", specifier = ">=0.14.0" },
     { name = "cognite-neat", marker = "extra == 'v08'", specifier = ">=1.0.43" },
     { name = "cognite-sdk", specifier = ">=8.8.0,<9.0.0" },
     { name = "filelock", specifier = ">=3.18.0" },
@@ -483,7 +483,7 @@ requires-dist = [
     { name = "typer", specifier = ">=0.12.0,<1.0.0" },
     { name = "typing-extensions", specifier = ">=4.0.0" },
 ]
-provides-extras = ["table", "sql", "v08", "serve"]
+provides-extras = ["table", "sql", "v08", "run-function-app"]
 
 [package.metadata.requires-dev]
 dev = [

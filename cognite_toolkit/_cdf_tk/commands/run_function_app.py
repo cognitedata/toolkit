@@ -1,4 +1,4 @@
-"""Serve Function Apps locally."""
+"""Run Function Apps locally."""
 
 import html
 import importlib.util
@@ -14,10 +14,10 @@ from rich import print
 from ._base import ToolkitCommand
 
 
-class ServeFunctionCommand(ToolkitCommand):
+class RunFunctionAppCommand(ToolkitCommand):
     _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 
-    def serve(
+    def run_function_app(
         self,
         path: Path,
         host: str = "127.0.0.1",
@@ -31,8 +31,8 @@ class ServeFunctionCommand(ToolkitCommand):
             from cognite_function_apps.devserver import create_asgi_app
         except ImportError:
             print(
-                "[bold red]Error:[/] Missing dependencies for the serve command.\n"
-                "Install with: [bold]uv sync --extra serve[/]"
+                "[bold red]Error:[/] Missing dependencies for the run command.\n"
+                "Install with: [bold]uv sync --extra run-function-app[/]"
             )
             raise SystemExit(1)
 
@@ -74,10 +74,10 @@ class ServeFunctionCommand(ToolkitCommand):
     ) -> None:
         original_path = sys.path.copy()
         try:
-            ServeFunctionCommand._patch_cognite_client_factory()
-            handle = ServeFunctionCommand._load_handler(handler_path)
+            RunFunctionAppCommand._patch_cognite_client_factory()
+            handle = RunFunctionAppCommand._load_handler(handler_path)
             app = create_asgi_app(handle)
-            app = ServeFunctionCommand._wrap_with_landing_page(app, cdf_project, cdf_cluster)
+            app = RunFunctionAppCommand._wrap_with_landing_page(app, cdf_project, cdf_cluster)
             uvicorn.run(app, host=host, port=port, log_level=log_level)
         finally:
             sys.path[:] = original_path
@@ -102,8 +102,8 @@ class ServeFunctionCommand(ToolkitCommand):
     def _run_with_reload(
         uvicorn: Any, handler_path: Path, host: str, port: int, log_level: str, cdf_project: str, cdf_cluster: str
     ) -> None:
-        temp_dir = Path(tempfile.mkdtemp(prefix="cdf_serve_"))
-        module_path = temp_dir / "_cdf_serve_asgi.py"
+        temp_dir = Path(tempfile.mkdtemp(prefix="cdf_run_function_app_"))
+        module_path = temp_dir / "_cdf_run_function_app_asgi.py"
         package_root = handler_path.parent
         temp_dir_str = str(temp_dir)
         inserted_path = False
@@ -114,16 +114,16 @@ class ServeFunctionCommand(ToolkitCommand):
                 f"sys.path.insert(0, {str(package_root)!r})\n"
                 f"sys.path.insert(0, {str(handler_path)!r})\n"
                 "from cognite_function_apps.devserver import create_asgi_app\n"
-                "from cognite_toolkit._cdf_tk.commands.serve import ServeFunctionCommand\n"
-                "ServeFunctionCommand._patch_cognite_client_factory()\n"
+                "from cognite_toolkit._cdf_tk.commands.run_function_app import RunFunctionAppCommand\n"
+                "RunFunctionAppCommand._patch_cognite_client_factory()\n"
                 f"handle = importlib.import_module({handler_path.name!r} + '.handler').handle\n"
                 "app = create_asgi_app(handle)\n"
-                f"app = ServeFunctionCommand._wrap_with_landing_page(app, {cdf_project!r}, {cdf_cluster!r})\n"
+                f"app = RunFunctionAppCommand._wrap_with_landing_page(app, {cdf_project!r}, {cdf_cluster!r})\n"
             )
             sys.path.insert(0, temp_dir_str)
             inserted_path = True
             uvicorn.run(
-                "_cdf_serve_asgi:app",
+                "_cdf_run_function_app_asgi:app",
                 host=host,
                 port=port,
                 reload=True,
@@ -185,7 +185,7 @@ class ServeFunctionCommand(ToolkitCommand):
         marker = b"<body>"
         if marker not in body:
             return body
-        banner = ServeFunctionCommand._render_safety_banner(cdf_project, cdf_cluster)
+        banner = RunFunctionAppCommand._render_safety_banner(cdf_project, cdf_cluster)
         return body.replace(marker, marker + banner, 1)
 
     @staticmethod
@@ -196,7 +196,7 @@ class ServeFunctionCommand(ToolkitCommand):
                 await send({"type": "http.response.body", "body": b""})
                 return
             if scope["type"] == "http" and scope["method"] == "GET" and scope["path"] == "/docs":
-                await ServeFunctionCommand._serve_docs_with_banner(app, scope, receive, send, cdf_project, cdf_cluster)
+                await RunFunctionAppCommand._serve_docs_with_banner(app, scope, receive, send, cdf_project, cdf_cluster)
                 return
             await app(scope, receive, send)
 
@@ -214,7 +214,7 @@ class ServeFunctionCommand(ToolkitCommand):
         await app(scope, receive, capture_send)
 
         body = b"".join(message["body"] for message in messages if message["type"] == "http.response.body")
-        body = ServeFunctionCommand._inject_safety_banner(body, cdf_project, cdf_cluster)
+        body = RunFunctionAppCommand._inject_safety_banner(body, cdf_project, cdf_cluster)
 
         for message in messages:
             if message["type"] == "http.response.start":
@@ -231,7 +231,7 @@ class ServeFunctionCommand(ToolkitCommand):
 
     @staticmethod
     def _warn_if_not_loopback(host: str) -> None:
-        if host not in ServeFunctionCommand._LOOPBACK_HOSTS:
+        if host not in RunFunctionAppCommand._LOOPBACK_HOSTS:
             print(
                 f"[bold yellow]Warning:[/] Binding to {host} exposes this server to your local network.\n"
                 "It runs your handler code using your authenticated CDF credentials and has no "
