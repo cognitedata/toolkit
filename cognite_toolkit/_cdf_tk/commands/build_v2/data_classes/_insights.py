@@ -31,7 +31,7 @@ class InsightDefinition(BaseModel):
         return cls.__name__
 
     @property
-    def display_source_file(self) -> str:
+    def display_source_files(self) -> str:
         unique_paths = list(dict.fromkeys([format_insight_source_file(file) for file in self.source_files]))
         return ", ".join(unique_paths)
 
@@ -171,7 +171,7 @@ class InsightList(UserList[Insight]):
                 {
                     "insight_type": _normalize_csv_cell(insight.insight_type()),
                     "code": _normalize_csv_cell(insight.code or ""),
-                    "source_file": _normalize_csv_cell(format_insight_source_file(insight.source_file)),
+                    "source_file": _normalize_csv_cell(insight.display_source_files),
                     "message": _normalize_csv_cell(insight.message),
                     "fix": _normalize_csv_cell(insight.fix or ""),
                 }
@@ -186,7 +186,7 @@ class InsightList(UserList[Insight]):
             {
                 "insightType": insight.insight_type(),
                 "code": insight.code,
-                "sourceFile": format_insight_source_file(insight.source_file),
+                "sourceFile": insight.display_source_files,
                 "message": insight.message,
                 "fix": insight.fix,
             }

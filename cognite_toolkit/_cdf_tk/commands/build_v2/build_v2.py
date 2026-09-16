@@ -1328,7 +1328,7 @@ class BuildV2Command(ToolkitCommand):
     @classmethod
     def _insight_section_title(cls, insight: Insight) -> str:
         title = cls._humanize_insight_code(insight.code)
-        return f"{title} in {insight.display_source_file}"
+        return f"{title} in {insight.display_source_files}"
 
     def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
         """Prioritize one insight per code, then by severity"""
