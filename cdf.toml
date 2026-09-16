@@ -9,6 +9,7 @@ file_upload_timeout_seconds = 90
 ignore = []
 
 [alpha_flags]
+alpha-rules = true
 graphql = true
 import-cmd = true
 infield = true
