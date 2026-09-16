@@ -65,9 +65,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                     except Exception as e:
                         yield InternalValidatorException(
                             message=f"Agent validation failed for agent definition {resource.build_path.name!r}: {e}",
-                            code="INTERNAL-VALIDATOR-EXCEPTION",
                             source=str(resource.identifier),
-                            source_file=resource.source_path,
                         )
 
     def _validate_agent(self, resource: BuiltResource) -> Iterable[ConsistencyError]:
@@ -96,7 +94,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                 ),
                 code=f"{self.CODE_PREFIX}-MODEL",
                 fix="Use one of the available models for this CDF project.",
-                source_file=resource.source_path,
+                source_files=[resource.source_path],
             )
 
         if agent_def.runtime_version:
@@ -113,7 +111,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                     ),
                     code=f"{self.CODE_PREFIX}-UNKNOWN-RUNTIME",
                     fix="Use one of the available runtime versions for this CDF project.",
-                    source_file=resource.source_path,
+                    source_files=[resource.source_path],
                 )
 
         # If no runtime version is set, the agent runs on the project's default, so capabilities
@@ -137,7 +135,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                             f"Use a runtime version that supports '{requirement.field_name}', "
                             f"or remove the '{requirement.field_name}' field."
                         ),
-                        source_file=resource.source_path,
+                        source_files=[resource.source_path],
                     )
 
         max_tools = availability.max_tools_per_agent
@@ -149,7 +147,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                 ),
                 code=f"{self.CODE_PREFIX}-TOOLS-LIMIT",
                 fix=f"Reduce the number of tools to at most {max_tools}.",
-                source_file=resource.source_path,
+                source_files=[resource.source_path],
             )
 
     @cached_property

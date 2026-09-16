@@ -59,5 +59,5 @@ class CheckDataSetMissing(ToolkitLocalRule):
                     message=message,
                     code=self.CODE,
                     fix=fix,
-                    source_file=source_file.source_path,
+                    source_files=[source_file.source_path],
                 )

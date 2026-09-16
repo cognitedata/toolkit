@@ -188,7 +188,7 @@ class BuiltModule(BaseModel):
                     FileReadError(
                         message=f"In {failed_extra.source_path.as_posix()!r}: {failed_extra.error}",
                         code=failed_extra.code,
-                        source_file=resource.source_path,
+                        source_files=[resource.source_path],
                     )
                 )
         for path, error in self.syntax_errors_by_source.items():
@@ -203,7 +203,7 @@ class BuiltModule(BaseModel):
                     message=f"Unresolved variable{'s' if len(variables) > 1 else ''} {quoted_variables}",
                     fix="Make sure to define the variables in the 'config.<env>.yaml' file and that they are "
                     "correctly placed in the variables section matching the file path",
-                    source_file=path,
+                    source_files=[path],
                 )
             )
         for failed_file in self.failed_files:
@@ -211,7 +211,7 @@ class BuiltModule(BaseModel):
                 FileReadError(
                     code=failed_file.code,
                     message=f"In {failed_file.source_path.as_posix()!r}: {failed_file.error}",
-                    source_file=failed_file.source_path,
+                    source_files=[failed_file.source_path],
                 )
             )
         for ignored_file in self.ignored_files:
@@ -220,7 +220,7 @@ class BuiltModule(BaseModel):
                     code=ignored_file.code,
                     message=ignored_file.reason,
                     fix=ignored_file.fix,
-                    source_file=ignored_file.filepath,
+                    source_files=[ignored_file.filepath],
                 )
             )
 

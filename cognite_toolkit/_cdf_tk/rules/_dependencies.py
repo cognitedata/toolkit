@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import Absolu
 from cognite_toolkit._cdf_tk.constants import URL
 from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, DataModelIO, ResourceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_if_possible
+from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 
 from ._base import InternalValidatorException, RuleSetStatus, ToolkitGlobalRuleSet
 
@@ -76,7 +76,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                             code="UNKNOWN-REFERENCE",
                             message=f"Unknown reference to {display_name} with id '{identifier}'",
                             fix=f"Ensure that {display_name} exists or remove the reference to it.",
-                            source_file=self._source_files_for_resources(referencing_resources),
+                            source_files=[resource.source_path for resource in referencing_resources],
                         )
         else:
             for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
@@ -88,12 +88,8 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                         message=f"Missing {resource_type_name} '{identifier}'. It is referenced by {referenced_str}.",
                         fix=f"Provide credentials to enable CDF verification. "
                         f"Or ensure that {resource_type_name} exists or remove the reference to it.",
-                        source_file=self._source_files_for_resources(expected_resources),
+                        source_files=[resource.source_path for resource in expected_resources],
                     )
-
-    def _source_files_for_resources(self, resources: list[BuiltResource]) -> str:
-        unique_paths = list(dict.fromkeys(format_insight_source_file(resource.source_path) for resource in resources))
-        return ", ".join(unique_paths)
 
     def _create_reference_string(self, expected_resources: list[BuiltResource]) -> str:
         return " - ".join(
@@ -126,7 +122,6 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             except Exception as e:
                 yield InternalValidatorException(
                     message=f"Failed to compare local {crud.display_name} with CDF: {e}",
-                    code="INTERNAL-VALIDATOR-EXCEPTION",
                     source=crud.kind,
                 )
                 continue
@@ -247,7 +242,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 fix=(
                     f"Revert the properties to match the deployed version, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
                 ),
-                source_file=source_path,
+                source_files=[source_path],
             )
         missing = sorted(set(cdf_properties) - set(local_properties))
         if missing and not changed:
@@ -261,7 +256,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 fix=(
                     f"Add the properties back to your local YAML config, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
                 ),
-                source_file=source_path,
+                source_files=[source_path],
             )
 
         # usedFor defaults to "node" when omitted, both locally and by CDF, so an omitted local value is
@@ -280,7 +275,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 fix=(
                     f"Revert usedFor back to '{cdf_response.used_for}', or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
                 ),
-                source_file=source_path,
+                source_files=[source_path],
             )
 
     def _view_insights(
@@ -312,7 +307,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 fix=(
                     f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
                 ),
-                source_file=source_path,
+                source_files=[source_path],
             )
         elif removed:
             yield ConsistencyError(
@@ -325,7 +320,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 fix=(
                     f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
                 ),
-                source_file=source_path,
+                source_files=[source_path],
             )
         if (local_request.implements or []) != (cdf_as_request.implements or []):
             # implements can break clients relying on inherited properties, so it requires a version bump.
@@ -338,7 +333,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 fix=(
                     f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
                 ),
-                source_file=source_path,
+                source_files=[source_path],
             )
 
     def _data_model_insights(
@@ -377,7 +372,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 fix=(
                     f"Update the data model version to apply the change, or use 'cdf modules pull' to sync your local data model config with the deployed version. See {URL.dm_changes_docs}."
                 ),
-                source_file=source_path,
+                source_files=[source_path],
             )
 
         if removed:
@@ -391,5 +386,5 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 fix=(
                     f"Update the data model version to apply the change, or use 'cdf modules pull' to sync your local data model config with the deployed version. See {URL.dm_changes_docs}."
                 ),
-                source_file=source_path,
+                source_files=[source_path],
             )

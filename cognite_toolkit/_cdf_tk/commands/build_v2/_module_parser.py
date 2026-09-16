@@ -244,9 +244,9 @@ class ModuleParser:
                                     message=f"Invalid variable path: {'.'.join(subpath.parts)}. This does not correspond to the "
                                     f"folder structure inside the {MODULES} directory.",
                                     fix="Ensure that the variable paths correspond to the folder structure inside the modules directory.",
-                                    source_file=cast(
-                                        AbsoluteFilePath, config_path
-                                    ),  # We only have variables in the config file, so this cast is safe
+                                    source_files=[
+                                        cast(AbsoluteFilePath, config_path)
+                                    ],  # We only have variables in the config file, so this cast is safe
                                 ),
                             )
                         )
@@ -271,9 +271,9 @@ class ModuleParser:
                                     code=cls.VARIABLE_ERROR_CODE,
                                     message=f"Invalid variable type in list for variable {'.'.join(subpath.parts)}.",
                                     fix="Ensure that all items in the list are of the same supported type either (str, int, float, bool) or dict.",
-                                    source_file=cast(
-                                        AbsoluteFilePath, config_path
-                                    ),  # We only have variables in the config file, so this cast is safe
+                                    source_files=[
+                                        cast(AbsoluteFilePath, config_path)
+                                    ],  # We only have variables in the config file, so this cast is safe
                                 ),
                             )
                         )

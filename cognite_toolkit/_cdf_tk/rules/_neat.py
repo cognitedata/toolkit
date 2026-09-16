@@ -57,9 +57,7 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
                     except Exception as e:
                         yield InternalValidatorException(
                             message=f"Neat plugin failed to validate data model {data_model_file.name!r}: {e}",
-                            code="INTERNAL-VALIDATOR-EXCEPTION",
                             source=str(resource.identifier),
-                            source_file=resource.source_path,
                         )
 
     @classmethod
