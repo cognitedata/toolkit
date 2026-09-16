@@ -62,11 +62,12 @@ def test_runs_with_and_without_reload(function_app_path: Path, tmp_path: Path) -
 
 
 def test_loads_relative_imports_without_reload(tmp_path: Path) -> None:
-    path = tmp_path / "relative_import_app"
+    path = tmp_path / "function-app"
     path.mkdir()
     (path / "helper.py").write_text("handle = object()\n")
     (path / "handler.py").write_text("from .helper import handle\n")
 
+    RunFunctionAppCommand._validate_handler_directory(path)
     with (
         patch.object(RunFunctionAppCommand, "_patch_cognite_client_factory"),
         patch.object(RunFunctionAppCommand, "_wrap_with_landing_page", return_value="wrapped"),
@@ -75,14 +76,13 @@ def test_loads_relative_imports_without_reload(tmp_path: Path) -> None:
             MagicMock(), MagicMock(), path, "127.0.0.1", 8000, "info", "project", "cluster"
         )
 
-    for name in ["relative_import_app.handler", "relative_import_app.helper", "relative_import_app"]:
+    for name in ["function-app.handler", "function-app.helper", "function-app"]:
         sys.modules.pop(name, None)
 
 
 @pytest.mark.parametrize(
     ("path_name", "source", "message"),
     [
-        ("not-valid", "", "not a valid Python module name"),
         ("json", "", "shadows a standard library module"),
         ("valid", "", "handler.py not found"),
         ("valid", "def handle(client, data): pass", "not a Function App"),
