@@ -149,9 +149,12 @@ class BuildV2Command(ToolkitCommand):
 
         # We report all insights in Mixpanel, but only display to the user the insights they have not ignored.
         tracked_insights = build_folder.all_insights
-        report_insights = InsightList(
-            [insight for insight in tracked_insights if insight.code not in parameters.rules_ignore]
-        )
+        if Flags.V09.is_enabled():
+            report_insights = InsightList(
+                [insight for insight in tracked_insights if insight.code not in parameters.rules_ignore]
+            )
+        else:
+            report_insights = tracked_insights
 
         if display:
             self._display_insights(report_insights, parameters.insight_path, console, parameters.verbose)
