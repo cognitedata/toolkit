@@ -148,19 +148,19 @@ class BuildV2Command(ToolkitCommand):
         )
 
         # We report all insights in Mixpanel, but only display to the user the insights they have not ignored.
-        tracked_insights = build_folder.all_insights
+        found_insights = build_folder.all_insights
         if Flags.V09.is_enabled():
             report_insights = self._filter_to_reported_insights(
-                tracked_insights, build_folder.rules_ignored_by_source, parameters.rules_ignore
+                found_insights, build_folder.rules_ignored_by_source, parameters.rules_ignore
             )
         else:
-            report_insights = tracked_insights
+            report_insights = found_insights
 
         if display:
             self._display_insights(report_insights, parameters.insight_path, console, parameters.verbose)
             self._display_build_summary(build_folder, report_insights, console, parameters.verbose)
 
-        self._track_build_results(build_folder, report_insights, client)
+        self._track_build_results(build_folder, found_insights, client)
 
         self._write_results(report_insights, build_folder, parameters, client.config.project if client else None)
 
@@ -168,12 +168,13 @@ class BuildV2Command(ToolkitCommand):
 
     @classmethod
     def _filter_to_reported_insights(
-        cls, tracked_insights: InsightList, local_ignores_by_file: dict[Path, set[str]], global_ignores: set[str]
+        cls, found_insights: InsightList, local_ignores_by_file: dict[Path, set[str]], global_ignores: set[str]
     ) -> InsightList:
+        """Filters the tracked insights to only include those that are not ignored by the user, either globally or locally."""
         return InsightList(
             [
                 insight
-                for insight in tracked_insights
+                for insight in found_insights
                 if insight.code not in global_ignores
                 and insight.code not in local_ignores_by_file.get(insight.source_file, set())  # type: ignore[call-overload]
                 and (not insight.alpha or Flags.ALPHA_RULES.is_enabled())
