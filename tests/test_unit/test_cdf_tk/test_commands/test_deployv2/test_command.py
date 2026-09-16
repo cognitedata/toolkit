@@ -451,7 +451,7 @@ class TestApplyPlan:
                                     id=RawDatabaseId(name="my_db"),
                                     code="HAS-DATA",
                                     source_file=Path("raw/my.Database.yaml"),
-                                    reason="name='my_db' contains data and does not support updates. ",
+                                    reason="name='my_db' contains data and does not support updates.",
                                 )
                             ],
                         )
@@ -481,7 +481,7 @@ class TestApplyPlan:
                                     id=RawTableId(db_name="my_db", name="my_table"),
                                     code="HAS-DATA",
                                     source_file=Path("raw/my.Table.yaml"),
-                                    reason="my_db.my_table contains data and does not support updates. ",
+                                    reason="my_db.my_table contains data and does not support updates.",
                                 )
                             ],
                         )
