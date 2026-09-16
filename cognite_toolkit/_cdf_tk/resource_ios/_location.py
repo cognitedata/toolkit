@@ -28,11 +28,11 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_lis
 from cognite_toolkit._cdf_tk.yaml_classes import LocationYAML
 from cognite_toolkit._cdf_tk.yaml_classes.location import AssetCentricFields
 
-from .classic import AssetIO, SequenceIO
-from .data_organization import DataSetsIO
-from .datamodel import DataModelIO, SpaceCRUD, ViewIO
-from .file import FileMetadataCRUD
-from .timeseries import TimeSeriesCRUD
+from ._classic import AssetIO, SequenceIO
+from ._data_organization import DataSetsIO
+from ._datamodel import DataModelIO, SpaceCRUD, ViewIO
+from ._file import FileMetadataCRUD
+from ._timeseries import TimeSeriesCRUD
 
 
 @final

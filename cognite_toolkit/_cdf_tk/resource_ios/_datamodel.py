@@ -149,7 +149,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import (
     ViewReference,
 )
 
-from .auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedCRUD
 
 
 @final
@@ -702,7 +702,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
 
     @classmethod
     def get_dependencies(cls, resource: ViewYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
-        from .streams import StreamIO  # local import avoids circular import with streams.py
+        from ._streams import StreamIO  # local import avoids circular import with _streams.py
 
         yield SpaceCRUD, SpaceId(space=resource.space)
 

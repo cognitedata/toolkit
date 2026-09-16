@@ -29,7 +29,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     SpaceCRUD,
     ViewIO,
 )
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.streams import StreamIO
+from cognite_toolkit._cdf_tk.resource_ios._streams import StreamIO
 from cognite_toolkit._cdf_tk.yaml_classes.containers import ContainerYAML
 from cognite_toolkit._cdf_tk.yaml_classes.views import ViewYAML
 from tests.test_unit.approval_client import ApprovalToolkitClient

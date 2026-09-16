@@ -17,10 +17,10 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.yaml_classes import RelationshipYAML
 
-from .classic import AssetIO, EventIO, SequenceIO
-from .data_organization import DataSetsIO, LabelIO
-from .file import FileMetadataCRUD
-from .timeseries import TimeSeriesCRUD
+from ._classic import AssetIO, EventIO, SequenceIO
+from ._data_organization import DataSetsIO, LabelIO
+from ._file import FileMetadataCRUD
+from ._timeseries import TimeSeriesCRUD
 
 
 @final

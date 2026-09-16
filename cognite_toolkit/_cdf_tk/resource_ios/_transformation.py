@@ -118,12 +118,12 @@ from cognite_toolkit._cdf_tk.yaml_classes.transformation_destination import (
     ViewDataSource,
 )
 
-from .auth import GroupAllScopedCRUD
-from .data_organization import DataSetsIO
-from .datamodel import DataModelIO, SpaceCRUD, ViewIO
-from .externaldata import ExternalDataSourceIO
-from .group_scoped import GroupResourceScopedCRUD
-from .raw import RawDatabaseCRUD, RawTableCRUD
+from ._auth import GroupAllScopedCRUD
+from ._data_organization import DataSetsIO
+from ._datamodel import DataModelIO, SpaceCRUD, ViewIO
+from ._externaldata import ExternalDataSourceIO
+from ._group_scoped import GroupResourceScopedCRUD
+from ._raw import RawDatabaseCRUD, RawTableCRUD
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable

@@ -22,9 +22,9 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     HostedExtractorDestinationIO,
     HostedExtractorSourceIO,
 )
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.data_product import DataProductIO
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.data_product_version import DataProductVersionIO
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.rulesets import RuleSetIO, RuleSetVersionIO
+from cognite_toolkit._cdf_tk.resource_ios._data_product import DataProductIO
+from cognite_toolkit._cdf_tk.resource_ios._data_product_version import DataProductVersionIO
+from cognite_toolkit._cdf_tk.resource_ios._rulesets import RuleSetIO, RuleSetVersionIO
 from tests import data
 
 

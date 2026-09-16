@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.utils.file import create_zip_in_memory
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash
 from cognite_toolkit._cdf_tk.yaml_classes import AppVersionYAML, AppYAML
 
-from .auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedCRUD
 
 
 @final

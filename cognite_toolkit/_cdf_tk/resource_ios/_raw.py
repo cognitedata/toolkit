@@ -44,7 +44,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceContainerIO, 
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_list_write_actions
 from cognite_toolkit._cdf_tk.yaml_classes import DatabaseYAML, TableYAML
 
-from .auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedCRUD
 
 
 @final

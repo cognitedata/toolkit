@@ -48,7 +48,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, FunctionScheduleIO, WorkflowVersionIO
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.workflow import WorkflowTriggerIO
+from cognite_toolkit._cdf_tk.resource_ios._workflow import WorkflowTriggerIO
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import in_dict
 from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write

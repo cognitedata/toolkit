@@ -263,12 +263,12 @@ class ResourceIO(
         if parent_ids is not None and not self.parent_resource:
             return []
         if space is not None:
-            from ._resource_ios.datamodel import SpaceCRUD
+            from ._datamodel import SpaceCRUD
 
             if SpaceCRUD not in self.dependencies:
                 return []
         if data_set_external_id is not None:
-            from ._resource_ios.data_organization import DataSetsIO
+            from ._data_organization import DataSetsIO
 
             if DataSetsIO not in self.dependencies:
                 return []

@@ -46,10 +46,10 @@ from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine_revision import (
     SimulatorRoutineRevisionYAML,
 )
 
-from .data_organization import DataSetsIO
-from .file import FileMetadataCRUD
-from .function import CDF_TOML
-from .timeseries import TimeSeriesCRUD
+from ._data_organization import DataSetsIO
+from ._file import FileMetadataCRUD
+from ._function import CDF_TOML
+from ._timeseries import TimeSeriesCRUD
 
 
 @final

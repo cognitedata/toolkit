@@ -51,7 +51,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
     HostedExtractorSourceYAML,
 )
 
-from .data_organization import DataSetsIO
+from ._data_organization import DataSetsIO
 
 
 @final

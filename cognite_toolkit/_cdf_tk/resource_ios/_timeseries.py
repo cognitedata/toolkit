@@ -42,10 +42,10 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_lis
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 from cognite_toolkit._cdf_tk.yaml_classes import DatapointSubscriptionYAML, TimeSeriesYAML
 
-from .auth import GroupAllScopedCRUD, SecurityCategoryIO
-from .classic import AssetIO
-from .data_organization import DataSetsIO
-from .datamodel import NodeCRUD
+from ._auth import GroupAllScopedCRUD, SecurityCategoryIO
+from ._classic import AssetIO
+from ._data_organization import DataSetsIO
+from ._datamodel import NodeCRUD
 
 
 @final

@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions, dataset_scoped_resource
 from cognite_toolkit._cdf_tk.yaml_classes import ThreeDModelYAML
 
-from .data_organization import DataSetsIO
+from ._data_organization import DataSetsIO
 
 
 @final

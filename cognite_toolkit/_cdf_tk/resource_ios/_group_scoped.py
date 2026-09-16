@@ -20,15 +20,15 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 
-from .auth import GroupIO, SecurityCategoryIO
-from .classic import AssetIO
-from .data_organization import DataSetsIO
-from .data_product import DataProductIO
-from .datamodel import SpaceCRUD
-from .extraction_pipeline import ExtractionPipelineIO
-from .location import LocationFilterIO
-from .raw import RawDatabaseCRUD, RawTableCRUD
-from .timeseries import TimeSeriesCRUD
+from ._auth import GroupIO, SecurityCategoryIO
+from ._classic import AssetIO
+from ._data_organization import DataSetsIO
+from ._data_product import DataProductIO
+from ._datamodel import SpaceCRUD
+from ._extraction_pipeline import ExtractionPipelineIO
+from ._location import LocationFilterIO
+from ._raw import RawDatabaseCRUD, RawTableCRUD
+from ._timeseries import TimeSeriesCRUD
 
 
 @final
