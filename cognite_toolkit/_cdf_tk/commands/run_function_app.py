@@ -2,7 +2,6 @@
 
 import html
 import importlib.util
-import re
 import shutil
 import sys
 import tempfile
@@ -139,13 +138,6 @@ class RunFunctionAppCommand(ToolkitCommand):
     def _validate_handler_directory(handler_path: Path) -> None:
         if not handler_path.is_dir():
             print(f"[bold red]Error:[/] Path is not a directory: {handler_path}")
-            raise SystemExit(1)
-        if not handler_path.name.isidentifier():
-            suggested_name = re.sub(r"\W|^(?=\d)", "_", handler_path.name)
-            print(
-                f"[bold red]Error:[/] Directory name '{handler_path.name}' is not a valid Python module name.\n"
-                f"[yellow]Suggested name:[/] [green]{suggested_name}[/]"
-            )
             raise SystemExit(1)
         if handler_path.name in sys.stdlib_module_names:
             print(f"[bold red]Error:[/] Directory name '{handler_path.name}' shadows a standard library module.")
