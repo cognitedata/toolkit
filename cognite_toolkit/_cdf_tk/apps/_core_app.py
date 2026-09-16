@@ -250,6 +250,7 @@ class CoreApp(typer.Typer):
             user_selected_modules=selected,
             verbose=verbose,
             insight_format=insight_format.value,
+            rules_ignore=set(CDF_TOML.rules.ignore),
         )
 
         cmd.run(
