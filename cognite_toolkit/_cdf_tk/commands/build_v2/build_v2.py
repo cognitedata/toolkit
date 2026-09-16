@@ -885,7 +885,7 @@ class BuildV2Command(ToolkitCommand):
                 source_path=resource_file, error=f"Failed to read resource file: {read_error!s}", code="READ-ERROR"
             )
         # Ignore in file
-        rules_ignored = self._get_ignore_rule_codes(content.split("\n"))
+        rules_ignored = self._get_ignore_rule_codes(content)
 
         # Content read successfully.
         substituted_content = content
@@ -1003,7 +1003,7 @@ class BuildV2Command(ToolkitCommand):
         )
 
     @classmethod
-    def _get_ignore_rule_codes(cls, lines: list[str]) -> set[str]:
+    def _get_ignore_rule_codes(cls, content: str) -> set[str]:
         raise NotImplementedError()
 
     @classmethod
