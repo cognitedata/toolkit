@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceContainerIO
 from cognite_toolkit._cdf_tk.utils.time import time_windows_ms
 from cognite_toolkit._cdf_tk.yaml_classes import StreamYAML
 
-from .datamodel import ContainerCRUD
+from ._datamodel import ContainerCRUD
 
 _TIMEDELTA_ADAPTER: TypeAdapter[timedelta] = TypeAdapter(timedelta)
 

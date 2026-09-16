@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions
 from cognite_toolkit._cdf_tk.yaml_classes import ResourceViewMappingYAML
 
-from .datamodel import SpaceCRUD, ViewIO
+from ._datamodel import SpaceCRUD, ViewIO
 
 
 @final

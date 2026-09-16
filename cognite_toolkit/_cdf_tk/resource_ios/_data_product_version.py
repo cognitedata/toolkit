@@ -9,11 +9,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, ScopeDefinition
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel import ViewIO
+from cognite_toolkit._cdf_tk.resource_ios._datamodel import ViewIO
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductVersionYAML
 
-from .data_product import DataProductIO
-from .rulesets import RuleSetVersionIO
+from ._data_product import DataProductIO
+from ._rulesets import RuleSetVersionIO
 
 
 @final

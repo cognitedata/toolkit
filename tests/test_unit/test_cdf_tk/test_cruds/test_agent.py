@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, FunctionIO, SkillIO
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.agent import AgentIO
+from cognite_toolkit._cdf_tk.resource_ios._agent import AgentIO
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.yaml_classes import AgentYAML

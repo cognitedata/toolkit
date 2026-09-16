@@ -6,7 +6,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.skill import SkillIO
+from cognite_toolkit._cdf_tk.resource_ios._skill import SkillIO
 
 _SKILL_CONTENT = """---
 name: test-skill

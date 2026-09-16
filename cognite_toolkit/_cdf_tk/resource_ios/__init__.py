@@ -17,76 +17,67 @@ from typing import Literal, TypeAlias
 
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
+from ._agent import AgentIO
+from ._app import AppIO, AppVersionIO
+from ._auth import GroupAllScopedCRUD, GroupIO, SecurityCategoryIO
 from ._base_ios import Loader, ResourceContainerIO, ResourceIO
-from ._resource_ios import (
-    AgentIO,
-    AppIO,
-    AppVersionIO,
-    AssetIO,
-    CogniteFileCRUD,
+from ._classic import AssetIO, EventIO, SequenceIO, SequenceRowIO
+from ._configuration import SearchConfigIO
+from ._data_organization import DataSetsIO, LabelIO
+from ._data_product import DataProductIO
+from ._data_product_version import DataProductVersionIO
+from ._datamodel import (
     ContainerCRUD,
     DataModelIO,
-    DatapointSubscriptionIO,
-    DataProductIO,
-    DataProductVersionIO,
-    DataSetsIO,
     EdgeCRUD,
-    EventIO,
-    ExternalDataSourceIO,
-    ExtractionPipelineConfigIO,
-    ExtractionPipelineIO,
-    FileMetadataCRUD,
-    FunctionIO,
-    FunctionScheduleIO,
     GraphQLCRUD,
-    GroupAllScopedCRUD,
-    GroupIO,
-    GroupResourceScopedCRUD,
+    NodeCRUD,
+    SpaceCRUD,
+    ViewIO,
+)
+from ._externaldata import ExternalDataSourceIO
+from ._extraction_pipeline import ExtractionPipelineConfigIO, ExtractionPipelineIO
+from ._fieldops import InFieldCDMLocationConfigIO, InFieldLocationConfigIO, InfieldV1IO
+from ._file import CogniteFileCRUD, FileMetadataCRUD
+from ._function import FunctionIO, FunctionScheduleIO
+from ._group_scoped import GroupResourceScopedCRUD
+from ._hosted_extractors import (
     HostedExtractorDestinationIO,
     HostedExtractorJobIO,
     HostedExtractorMappingIO,
     HostedExtractorSourceIO,
-    InFieldCDMLocationConfigIO,
-    InFieldLocationConfigIO,
-    InfieldV1IO,
-    LabelIO,
-    LocationFilterIO,
-    NodeCRUD,
-    RawDatabaseCRUD,
-    RawTableCRUD,
-    RelationshipIO,
-    ResourceViewMappingIO,
+)
+from ._industrial_tool import StreamlitIO
+from ._location import LocationFilterIO
+from ._migration import ResourceViewMappingIO
+from ._raw import RawDatabaseCRUD, RawTableCRUD
+from ._relationship import RelationshipIO
+from ._robotics import (
     RobotCapabilityIO,
     RoboticFrameIO,
     RoboticLocationIO,
     RoboticMapIO,
     RoboticsDataPostProcessingIO,
-    RuleSetIO,
-    RuleSetVersionIO,
-    SearchConfigIO,
-    SecurityCategoryIO,
-    SequenceIO,
-    SequenceRowIO,
-    SignalSinkIO,
-    SignalSubscriptionIO,
+)
+from ._rulesets import RuleSetIO, RuleSetVersionIO
+from ._signal_sink import SignalSinkIO
+from ._signal_subscription import SignalSubscriptionIO
+from ._simulators import (
     SimulatorModelIO,
     SimulatorModelRevisionIO,
     SimulatorRoutineIO,
     SimulatorRoutineRevisionIO,
-    SkillIO,
-    SpaceCRUD,
-    StreamIO,
-    StreamlitIO,
-    ThreeDModelCRUD,
-    TimeSeriesCRUD,
+)
+from ._skill import SkillIO
+from ._streams import StreamIO
+from ._three_d_model import ThreeDModelCRUD
+from ._timeseries import DatapointSubscriptionIO, TimeSeriesCRUD
+from ._transformation import (
     TransformationIO,
     TransformationNotificationIO,
     TransformationScheduleIO,
-    ViewIO,
-    WorkflowIO,
-    WorkflowTriggerIO,
-    WorkflowVersionIO,
 )
+from ._workflow import WorkflowIO, WorkflowTriggerIO, WorkflowVersionIO
 
 _EXCLUDED_CRUDS: set[type[ResourceIO]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):

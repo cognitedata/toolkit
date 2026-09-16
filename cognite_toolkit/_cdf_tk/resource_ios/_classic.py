@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import AssetYAML, EventYAML, SequenceRowYAML, SequenceYAML
 
-from .data_organization import DataSetsIO, LabelIO
+from ._data_organization import DataSetsIO, LabelIO
 
 _DEPRECATION_WARNING_ISSUED = False
 

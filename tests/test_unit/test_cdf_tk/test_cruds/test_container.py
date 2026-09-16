@@ -82,9 +82,7 @@ indexes: {}
             }
         }
 
-        with patch(
-            "cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel.HighSeverityWarning"
-        ) as mock_warning_cls:
+        with patch("cognite_toolkit._cdf_tk.resource_ios._datamodel.HighSeverityWarning") as mock_warning_cls:
             mock_warning_cls.return_value.print_warning = MagicMock()
             crud._print_container_diff_warning(item_id, local_dict, cdf_dict)
 

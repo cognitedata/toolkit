@@ -142,14 +142,14 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
     @classmethod
     def get_dependencies(cls, resource: GroupYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
-        from .classic import AssetIO
-        from .data_organization import DataSetsIO
-        from .data_product import DataProductIO
-        from .datamodel import SpaceCRUD
-        from .extraction_pipeline import ExtractionPipelineIO
-        from .location import LocationFilterIO
-        from .raw import RawDatabaseCRUD, RawTableCRUD
-        from .timeseries import TimeSeriesCRUD
+        from ._classic import AssetIO
+        from ._data_organization import DataSetsIO
+        from ._data_product import DataProductIO
+        from ._datamodel import SpaceCRUD
+        from ._extraction_pipeline import ExtractionPipelineIO
+        from ._location import LocationFilterIO
+        from ._raw import RawDatabaseCRUD, RawTableCRUD
+        from ._timeseries import TimeSeriesCRUD
 
         for capability in resource.capabilities or []:
             scope = capability.scope
