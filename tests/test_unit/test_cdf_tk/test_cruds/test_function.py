@@ -310,6 +310,14 @@ secrets:
             ]
             yield loader
 
+    def test_replacing_file_mapping_updates_code_bundle(
+        self, function_io_with_file: FunctionIO, tmp_path: Path
+    ) -> None:
+        replacement = tmp_path / "replacement.FileMetadata.yaml"
+        function_io_with_file.filemetadata_path_by_external_id = {"replacement": replacement}
+
+        assert function_io_with_file._code_bundle.filemetadata_path_by_external_id == {"replacement": replacement}
+
     def test_create_succeeds_when_file_uploaded_within_timeout(self, function_io_with_file: FunctionIO) -> None:
         function_io = function_io_with_file
         client = function_io.client
