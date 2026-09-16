@@ -181,7 +181,7 @@ class BuildV2Command(ToolkitCommand):
                 insight
                 for insight in found_insights
                 if insight.code not in global_ignores
-                and insight.code not in local_ignores_by_file.get(insight.source_file, set())  # type: ignore[call-overload]
+                and insight.code not in local_ignores_by_file.get(insight.source_file, set())
                 and (not insight.alpha or Flags.ALPHA_RULES.is_enabled())
             ]
         )
