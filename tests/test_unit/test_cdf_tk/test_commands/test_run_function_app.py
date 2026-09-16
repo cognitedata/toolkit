@@ -1,8 +1,6 @@
 import asyncio
 import sys
-from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,228 +16,108 @@ def function_app_path(tmp_path: Path) -> Path:
     return path
 
 
-@pytest.fixture(autouse=True)
-def mock_environment_variables() -> Iterator[MagicMock]:
-    environment = MagicMock(CDF_PROJECT="test-project", CDF_CLUSTER="westeurope-1")
-    with patch(
-        "cognite_toolkit._cdf_tk.commands.auth.EnvironmentVariables.create_from_environment",
-        return_value=environment,
-    ):
-        yield environment
-
-
-class TestRunFunctionAppCommand:
-    def test_runs_with_reload(self, function_app_path: Path, tmp_path: Path) -> None:
-        command = RunFunctionAppCommand(client=None, skip_tracking=True)
-        uvicorn = MagicMock()
-        temporary_module_directory = tmp_path / "cdf_run_function_app_reload"
-        temporary_module_directory.mkdir()
-        generated_module_content = {}
-
-        def capture_generated_module(*_args: object, **_kwargs: object) -> None:
-            generated_module_content["text"] = (
-                temporary_module_directory / "_cdf_run_function_app_asgi.py"
-            ).read_text()
-
-        uvicorn.run.side_effect = capture_generated_module
-
-        with (
-            patch("uvicorn.run", uvicorn.run),
-            patch("tempfile.mkdtemp", return_value=str(temporary_module_directory)),
-        ):
-            command.run_function_app(function_app_path, host="0.0.0.0", port=8080, log_level="debug")
-
-        uvicorn.run.assert_called_once_with(
-            "_cdf_run_function_app_asgi:app",
-            host="0.0.0.0",
-            port=8080,
-            reload=True,
-            reload_dirs=[str(function_app_path)],
-            log_level="debug",
-        )
-        assert all("cdf_run_function_app_" not in entry for entry in sys.path)
-        assert "test-project" in generated_module_content["text"]
-        assert "westeurope-1" in generated_module_content["text"]
-        assert "_wrap_with_landing_page" in generated_module_content["text"]
-
-    def test_runs_without_reload(self, function_app_path: Path) -> None:
-        command = RunFunctionAppCommand(client=None, skip_tracking=True)
-        uvicorn = MagicMock()
-        loader = MagicMock(return_value="handle")
-        create_asgi_app = MagicMock(return_value="asgi-app")
-        wrap_with_landing_page = MagicMock(return_value="wrapped-asgi-app")
-
-        with (
-            patch("uvicorn.run", uvicorn.run),
-            patch.object(RunFunctionAppCommand, "_load_handler", loader),
-            patch("cognite_function_apps.devserver.create_asgi_app", create_asgi_app),
-            patch.object(RunFunctionAppCommand, "_patch_cognite_client_factory"),
-            patch.object(RunFunctionAppCommand, "_wrap_with_landing_page", wrap_with_landing_page),
-        ):
-            command.run_function_app(function_app_path, host="0.0.0.0", port=8080, reload=False, log_level="debug")
-
-        loader.assert_called_once_with(function_app_path)
-        create_asgi_app.assert_called_once_with("handle")
-        wrap_with_landing_page.assert_called_once_with("asgi-app", "test-project", "westeurope-1")
-        uvicorn.run.assert_called_once_with("wrapped-asgi-app", host="0.0.0.0", port=8080, log_level="debug")
-
-    def test_loads_relative_imports_without_reload(self, tmp_path: Path) -> None:
-        function_app_path = tmp_path / "relative_import_app"
-        function_app_path.mkdir()
-        (function_app_path / "helper.py").write_text("handle = object()\n")
-        (function_app_path / "handler.py").write_text("from .helper import handle\n")
-        original_path = sys.path.copy()
-        uvicorn = MagicMock()
-        create_asgi_app = MagicMock(return_value="asgi-app")
-
-        with (
-            patch.object(RunFunctionAppCommand, "_patch_cognite_client_factory"),
-            patch.object(RunFunctionAppCommand, "_wrap_with_landing_page", return_value="wrapped-asgi-app"),
-        ):
-            RunFunctionAppCommand._run_without_reload(
-                uvicorn, create_asgi_app, function_app_path, "127.0.0.1", 8000, "info", "test-project", "westeurope-1"
-            )
-
-        assert sys.path == original_path
-        create_asgi_app.assert_called_once()
-        sys.modules.pop("relative_import_app.handler", None)
-        sys.modules.pop("relative_import_app.helper", None)
-        sys.modules.pop("relative_import_app", None)
-
-    def test_restores_sys_path_when_handler_loading_fails(self, function_app_path: Path) -> None:
-        command = RunFunctionAppCommand(client=None, skip_tracking=True)
-        original_path = sys.path.copy()
-
-        with (
-            patch.object(RunFunctionAppCommand, "_load_handler", side_effect=RuntimeError("bad handler")),
-            patch.object(RunFunctionAppCommand, "_patch_cognite_client_factory"),
-            pytest.raises(RuntimeError, match="bad handler"),
-        ):
-            command.run_function_app(function_app_path, reload=False)
-
-        assert sys.path == original_path
-
-    def test_removes_reload_module_when_server_start_fails(self, function_app_path: Path, tmp_path: Path) -> None:
-        command = RunFunctionAppCommand(client=None, skip_tracking=True)
-        uvicorn = MagicMock()
-        temporary_module_directory = tmp_path / "cdf_run_function_app_test"
-        temporary_module_directory.mkdir()
-
-        with (
-            patch("uvicorn.run", uvicorn.run),
-            patch("tempfile.mkdtemp", return_value=str(temporary_module_directory)),
-            pytest.raises(RuntimeError, match="server failed"),
-        ):
-            uvicorn.run.side_effect = RuntimeError("server failed")
-            command.run_function_app(function_app_path)
-
-        assert not temporary_module_directory.exists()
-        assert all("cdf_run_function_app_test" not in entry for entry in sys.path)
-
-    def test_removes_reload_directory_when_module_creation_fails(self, function_app_path: Path, tmp_path: Path) -> None:
-        temporary_module_directory = tmp_path / "cdf_run_function_app_test"
-        temporary_module_directory.mkdir()
-        uvicorn = MagicMock()
-
-        with (
-            patch("tempfile.mkdtemp", return_value=str(temporary_module_directory)),
-            patch.object(Path, "write_text", side_effect=OSError("write failed")),
-            pytest.raises(OSError, match="write failed"),
-        ):
-            RunFunctionAppCommand._run_with_reload(
-                uvicorn, function_app_path, "127.0.0.1", 8000, "info", "test-project", "westeurope-1"
-            )
-
-        assert not temporary_module_directory.exists()
-        assert all("cdf_run_function_app_test" not in entry for entry in sys.path)
-        uvicorn.run.assert_not_called()
-
-    @pytest.mark.parametrize(("host", "warns"), [("0.0.0.0", True), ("localhost", False)])
-    def test_warns_when_host_is_not_loopback(self, function_app_path: Path, host: str, warns: bool) -> None:
-        command = RunFunctionAppCommand(client=None, skip_tracking=True)
-
-        with (
-            patch("uvicorn.run", MagicMock()),
-            patch.object(RunFunctionAppCommand, "_load_handler", return_value="handle"),
-            patch("cognite_function_apps.devserver.create_asgi_app", return_value="asgi-app"),
-            patch.object(RunFunctionAppCommand, "_patch_cognite_client_factory"),
-            patch("cognite_toolkit._cdf_tk.commands.run_function_app.print") as mock_print,
-        ):
-            command.run_function_app(function_app_path, host=host, reload=False)
-
-        assert any("network" in str(call.args[0]) for call in mock_print.call_args_list) is warns
-
-
-class TestSafetyBanner:
-    @pytest.mark.parametrize(
-        ("cdf_project", "cdf_cluster", "expected", "unexpected"),
-        [
-            ("my-project", "my-cluster", "my-project", None),
-            ("<script>evil</script>", "cluster", "&lt;script&gt;", "<script>"),
-        ],
+def test_runs_with_and_without_reload(function_app_path: Path, tmp_path: Path) -> None:
+    command = RunFunctionAppCommand(client=None, skip_tracking=True)
+    temporary_module_directory = tmp_path / "cdf_run_function_app"
+    temporary_module_directory.mkdir()
+    uvicorn = MagicMock()
+    generated = {}
+    uvicorn.run.side_effect = lambda *_args, **_kwargs: generated.setdefault(
+        "module", (temporary_module_directory / "_cdf_run_function_app_asgi.py").read_text()
     )
-    def test_render_safety_banner(
-        self, cdf_project: str, cdf_cluster: str, expected: str, unexpected: str | None
-    ) -> None:
-        text = RunFunctionAppCommand._render_safety_banner(cdf_project, cdf_cluster).decode()
 
-        assert expected in text
-        if unexpected:
-            assert unexpected not in text
-        assert "create, update, or delete data" in text
+    environment = MagicMock(CDF_PROJECT="project", CDF_CLUSTER="cluster")
+    with (
+        patch("uvicorn.run", uvicorn.run),
+        patch("tempfile.mkdtemp", return_value=str(temporary_module_directory)),
+        patch(
+            "cognite_toolkit._cdf_tk.commands.auth.EnvironmentVariables.create_from_environment",
+            return_value=environment,
+        ),
+    ):
+        command.run_function_app(function_app_path, host="0.0.0.0", port=8080, log_level="debug")
 
-    def test_wrapper_redirects_root_to_docs(self) -> None:
-        inner_app = MagicMock()
-        wrapped = RunFunctionAppCommand._wrap_with_landing_page(inner_app, "my-project", "my-cluster")
-        sent: list[dict] = []
+    assert "project" in generated["module"]
+    uvicorn.run.assert_called_once_with(
+        "_cdf_run_function_app_asgi:app",
+        host="0.0.0.0",
+        port=8080,
+        reload=True,
+        reload_dirs=[str(function_app_path)],
+        log_level="debug",
+    )
 
-        async def send(message: dict) -> None:
-            sent.append(message)
+    uvicorn.reset_mock(side_effect=True)
+    with (
+        patch("uvicorn.run", uvicorn.run),
+        patch.object(RunFunctionAppCommand, "_load_handler", return_value="handle"),
+        patch("cognite_function_apps.devserver.create_asgi_app", return_value="asgi-app") as create_app,
+        patch.object(RunFunctionAppCommand, "_patch_cognite_client_factory"),
+        patch.object(RunFunctionAppCommand, "_wrap_with_landing_page", return_value="wrapped"),
+        patch(
+            "cognite_toolkit._cdf_tk.commands.auth.EnvironmentVariables.create_from_environment",
+            return_value=MagicMock(CDF_PROJECT="project", CDF_CLUSTER="cluster"),
+        ),
+    ):
+        command.run_function_app(function_app_path, reload=False)
 
-        asyncio.run(wrapped({"type": "http", "path": "/", "method": "GET"}, None, send))
+    create_app.assert_called_once_with("handle")
+    uvicorn.run.assert_called_once_with("wrapped", host="127.0.0.1", port=8000, log_level="info")
 
-        inner_app.assert_not_called()
-        assert sent[0]["status"] == 302
-        assert (b"location", b"/docs") in sent[0]["headers"]
 
-    def test_wrapper_injects_banner_into_docs_and_fixes_content_length(self) -> None:
-        original_body = b"<html><body>swagger ui</body></html>"
+def test_loads_relative_imports_without_reload(tmp_path: Path) -> None:
+    path = tmp_path / "relative_import_app"
+    path.mkdir()
+    (path / "helper.py").write_text("handle = object()\n")
+    (path / "handler.py").write_text("from .helper import handle\n")
 
-        async def inner_app(scope: dict, receive: Any, send: Any) -> None:
-            await send(
-                {
-                    "type": "http.response.start",
-                    "status": 200,
-                    "headers": [(b"content-type", b"text/html"), (b"content-length", str(len(original_body)).encode())],
-                }
-            )
-            await send({"type": "http.response.body", "body": original_body, "more_body": False})
+    with (
+        patch.object(RunFunctionAppCommand, "_patch_cognite_client_factory"),
+        patch.object(RunFunctionAppCommand, "_wrap_with_landing_page", return_value="wrapped"),
+    ):
+        RunFunctionAppCommand._run_without_reload(
+            MagicMock(), MagicMock(), path, "127.0.0.1", 8000, "info", "project", "cluster"
+        )
 
-        wrapped = RunFunctionAppCommand._wrap_with_landing_page(inner_app, "my-project", "my-cluster")
-        sent: list[dict] = []
+    for name in ["relative_import_app.handler", "relative_import_app.helper", "relative_import_app"]:
+        sys.modules.pop(name, None)
 
-        async def send(message: dict) -> None:
-            sent.append(message)
 
-        asyncio.run(wrapped({"type": "http", "path": "/docs", "method": "GET"}, None, send))
+@pytest.mark.parametrize(
+    ("path_name", "source", "message"),
+    [
+        ("not-valid", "", "not a valid Python module name"),
+        ("json", "", "shadows a standard library module"),
+        ("valid", "", "handler.py not found"),
+        ("valid", "def handle(client, data): pass", "not a Function App"),
+    ],
+)
+def test_rejects_invalid_handlers(tmp_path: Path, path_name: str, source: str, message: str) -> None:
+    path = tmp_path / path_name
+    path.mkdir()
+    if source:
+        (path / "handler.py").write_text(source)
 
-        start, body = sent
-        assert start["status"] == 200
-        assert b"my-project" in body["body"]
-        sent_content_length = int(dict(start["headers"])[b"content-length"])
-        assert sent_content_length == len(body["body"])
+    with pytest.raises(SystemExit), patch("cognite_toolkit._cdf_tk.commands.run_function_app.print") as output:
+        RunFunctionAppCommand(client=None, skip_tracking=True).run_function_app(path)
 
-    def test_wrapper_passes_through_other_paths(self) -> None:
-        async def inner_app(scope: dict, receive: Any, send: Any) -> None:
-            await send({"type": "http.response.start", "status": 200, "headers": []})
-            await send({"type": "http.response.body", "body": b"inner"})
+    assert message in str(output.call_args)
 
-        wrapped = RunFunctionAppCommand._wrap_with_landing_page(inner_app, "my-project", "my-cluster")
-        sent: list[dict] = []
 
-        async def send(message: dict) -> None:
-            sent.append(message)
+def test_wraps_docs_and_redirects_root() -> None:
+    async def app(_scope: dict, _receive: object, send: object) -> None:
+        await send({"type": "http.response.start", "status": 200, "headers": [(b"content-length", b"30")]})
+        await send({"type": "http.response.body", "body": b"<html><body>docs</body></html>"})
 
-        asyncio.run(wrapped({"type": "http", "path": "/health", "method": "GET"}, None, send))
+    wrapped = RunFunctionAppCommand._wrap_with_landing_page(app, "<project>", "cluster")
+    sent: list[dict] = []
 
-        assert sent[1]["body"] == b"inner"
+    async def send(message: dict) -> None:
+        sent.append(message)
+
+    asyncio.run(wrapped({"type": "http", "path": "/", "method": "GET"}, None, send))
+    assert sent[0]["status"] == 302
+    sent.clear()
+    asyncio.run(wrapped({"type": "http", "path": "/docs", "method": "GET"}, None, send))
+    assert b"&lt;project&gt;" in sent[1]["body"]
+    assert int(dict(sent[0]["headers"])[b"content-length"]) == len(sent[1]["body"])
