@@ -67,7 +67,6 @@ class InternalValidatorException(BaseModel):
     but the affected resource was not fully validated.
     """
 
-    severity: ClassVar[int] = 35
     source: str
     message: str
     code: Literal["INTERNAL-VALIDATOR-EXCEPTION"] = "INTERNAL-VALIDATOR-EXCEPTION"

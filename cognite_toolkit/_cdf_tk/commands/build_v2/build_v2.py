@@ -1378,6 +1378,20 @@ class BuildV2Command(ToolkitCommand):
 
             summary_lines.append(f"{insight_style} [bold]{count}[/] {insight_type}")
 
+        validation_errors = [error for result in build_folder.validation_results for error in result.errors]
+        if validation_errors:
+            errors_by_validator: Counter[str] = Counter()
+            for result in build_folder.validation_results:
+                if result.errors:
+                    errors_by_validator[result.name] += len(result.errors)
+            summary_lines.append(
+                f"[red]✗[/] [bold]{len(validation_errors)}[/] validation errors "
+                f"across {len(errors_by_validator)} validator(s)"
+            )
+            if verbose:
+                for validator_name, count in errors_by_validator.most_common():
+                    summary_lines.append(f"    [red]-[/] {validator_name}: [bold]{count}[/]")
+
         build_dir_display = relative_to_if_possible(build_folder.build_dir).as_posix()
         if not build_dir_display.endswith("/"):
             build_dir_display = f"{build_dir_display}/"
