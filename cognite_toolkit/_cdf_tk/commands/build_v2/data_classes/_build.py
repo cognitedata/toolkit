@@ -139,6 +139,7 @@ class BuiltModule(BaseModel):
     unresolved_variables_by_source: dict[Path, list[str]] = Field(default_factory=dict)
     failed_files: list[FailedReadYAMLFile] = Field(default_factory=list)
     ignored_files: list[IgnoredFile] = Field(default_factory=list)
+    ignore_rules_by_source: dict[Path, set[str]] = Field(default_factory=dict)
     yaml_line_count: int
     variables: list[BuildVariable] = Field(default_factory=list)
 
@@ -264,3 +265,14 @@ class BuildFolder(BaseModel):
     def build_duration_seconds(self) -> float:
         """Duration of the build in seconds."""
         return (self.finished_at - self.started_at).total_seconds()
+
+    @property
+    def rules_ignored_by_source(self) -> dict[Path, set[str]]:
+        """Aggregates all ignored rules from all built modules, grouped by source file path."""
+        ignored_rules: dict[Path, set[str]] = {}
+        for module in self.built_modules:
+            for source_path, rules in module.ignore_rules_by_source.items():
+                if source_path not in ignored_rules:
+                    ignored_rules[source_path] = set()
+                ignored_rules[source_path].update(rules)
+        return ignored_rules

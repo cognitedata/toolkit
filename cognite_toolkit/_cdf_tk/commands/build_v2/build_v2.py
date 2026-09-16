@@ -97,6 +97,10 @@ class ValidationStep:
 
 SelectionSource = Literal["cli-arg", "config", "interactive"]
 
+# Precompiled once at import time so it isn't recompiled/looked up per file when
+# scanning 100s of resource files. Matches e.g. "# rules: ignore[AUTH-001, AUTH-002]".
+_IGNORE_RULE_PATTERN = re.compile(r"#\s*rules?\s*:\s*ignore\s*\[([^\]]*)\]")
+
 
 class BuildV2Command(ToolkitCommand):
     def build(
@@ -149,28 +153,38 @@ class BuildV2Command(ToolkitCommand):
         )
 
         # We report all insights in Mixpanel, but only display to the user the insights they have not ignored.
-        tracked_insights = build_folder.all_insights
+        found_insights = build_folder.all_insights
         if Flags.V09.is_enabled():
-            report_insights = InsightList(
-                [
-                    insight
-                    for insight in tracked_insights
-                    if insight.code not in parameters.rules_ignore
-                    and (not insight.alpha or Flags.ALPHA_RULES.is_enabled())
-                ]
+            report_insights = self._filter_to_reported_insights(
+                found_insights, build_folder.rules_ignored_by_source, parameters.rules_ignore
             )
         else:
-            report_insights = tracked_insights
+            report_insights = found_insights
 
         if display:
             self._display_insights(report_insights, parameters.insight_path, console, parameters.verbose)
             self._display_build_summary(build_folder, report_insights, console, parameters.verbose)
 
-        self._track_build_results(build_folder, report_insights, client)
+        self._track_build_results(build_folder, found_insights, client)
 
         self._write_results(report_insights, build_folder, parameters, client.config.project if client else None)
 
         return build_folder
+
+    @classmethod
+    def _filter_to_reported_insights(
+        cls, found_insights: InsightList, local_ignores_by_file: dict[Path, set[str]], global_ignores: set[str]
+    ) -> InsightList:
+        """Filters the tracked insights to only include those that are not ignored by the user, either globally or locally."""
+        return InsightList(
+            [
+                insight
+                for insight in found_insights
+                if insight.code not in global_ignores
+                and insight.code not in local_ignores_by_file.get(insight.source_file, set())
+                and (not insight.alpha or Flags.ALPHA_RULES.is_enabled())
+            ]
+        )
 
     @classmethod
     def read_filesystem_and_find_modules(
@@ -815,6 +829,11 @@ class BuildV2Command(ToolkitCommand):
                         yaml_line_count=sum(
                             file.line_count for file in module.files if isinstance(file, SuccessfulReadYAMLFile)
                         ),
+                        ignore_rules_by_source={
+                            file.source_path: file.rules_ignore
+                            for file in module.files
+                            if isinstance(file, SuccessfulReadYAMLFile)
+                        },
                         variables=source.variables,
                     )
                 )
@@ -872,6 +891,8 @@ class BuildV2Command(ToolkitCommand):
             return FailedReadYAMLFile(
                 source_path=resource_file, error=f"Failed to read resource file: {read_error!s}", code="READ-ERROR"
             )
+        # Ignore in file
+        rules_ignored = self._get_ignore_rule_codes(content)
 
         # Content read successfully.
         substituted_content = content
@@ -913,6 +934,8 @@ class BuildV2Command(ToolkitCommand):
             source_hash=file_hash,
             resource_type=resource_type,
             line_count=line_count,
+            unresolved_variables=unresolved_variables,
+            rules_ignore=rules_ignored,
         )
 
         if isinstance(parsed_yaml, dict):
@@ -946,7 +969,6 @@ class BuildV2Command(ToolkitCommand):
                         raw=parsed_yaml, identifier=identifier, validated=toolkit_resource, extra_files=extra_files
                     )
                 ],
-                unresolved_variables=unresolved_variables,
                 **args,
             )
         # Is instance list
@@ -985,8 +1007,14 @@ class BuildV2Command(ToolkitCommand):
             syntax_warning=syntax_warning,
             resources=read_resources,
             **args,
-            unresolved_variables=unresolved_variables,
         )
+
+    @classmethod
+    def _get_ignore_rule_codes(cls, content: str) -> set[str]:
+        codes: set[str] = set()
+        for match in _IGNORE_RULE_PATTERN.findall(content):
+            codes.update(code.strip() for code in match.split(",") if code.strip())
+        return codes
 
     @classmethod
     def _find_unresolved_variables(cls, content: str) -> list[str]:

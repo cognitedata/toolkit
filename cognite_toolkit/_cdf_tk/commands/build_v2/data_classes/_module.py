@@ -367,6 +367,7 @@ class SuccessfulReadYAMLFile(ReadYAMLFile):
     syntax_error: ModelSyntaxError | None = None
     syntax_warning: ModelSyntaxWarning | None = None
     line_count: int
+    rules_ignore: set[str] = Field(default_factory=set, description="The set of rules to ignore for this file. ")
 
 
 class IgnoredFile(BaseModel):
