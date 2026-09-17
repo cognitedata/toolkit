@@ -59,6 +59,7 @@ from cognite_toolkit._cdf_tk.client.api.transformation_notifications import Tran
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
 from cognite_toolkit._cdf_tk.client.api.user_profiles import UserProfilesAPI
+from cognite_toolkit._cdf_tk.client.api.workflow_executions import WorkflowExecutionsAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
@@ -68,6 +69,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     InternalId,
     InternalUnwrappedId,
     ThreeDModelRevisionId,
+    WorkflowVersionId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     AnnotationFilter,
@@ -218,6 +220,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule imp
     TransformationScheduleResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowExecutionDetailedResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     NonceCredentials,
     WorkflowTriggerRequest,
@@ -267,9 +270,10 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         HostedExtractorJobsAPI,
         # Edge depend on nodes
         InstancesAPI,
-        # WorkflowTrigger and WorkflowVersion depend on existing workflows
+        # WorkflowTrigger, WorkflowVersion, and WorkflowExecutions depend on existing workflows
         WorkflowVersionsAPI,
         WorkflowTriggersAPI,
+        WorkflowExecutionsAPI,
         # 3D Models are expensive to create, and AssetMappings depend on existing models and assets/nodes.
         ThreeDClassicModelsAPI,
         ThreeDDMAssetMappingAPI,
@@ -1009,6 +1013,33 @@ class TestCDFResourceAPI:
             result = list_func()
         return result
 
+    def cancel_running_executions(
+        self,
+        client: ToolkitClient,
+        workflow_version_id: WorkflowVersionId,
+        timeout_seconds: float = 30.0,
+        poll_interval: float = 1.0,
+    ) -> None:
+        """Cancel running executions for a workflow version and wait until none remain.
+
+        Workflows cannot be deleted while they have running executions.
+        """
+        start_time = time.monotonic()
+        while (time.monotonic() - start_time) < timeout_seconds:
+            running = client.tool.workflows.executions.list(
+                workflow_version_ids=[workflow_version_id],
+                statuses=["RUNNING"],
+                limit=100,
+            )
+            if not running:
+                return
+            client.tool.workflows.executions.cancel(
+                [item.as_id() for item in running],
+                reason="smoke test cleanup",
+                ignore_unknown_ids=True,
+            )
+            time.sleep(poll_interval)
+
     def test_all_cdf_resource_apis_registered(self) -> None:
         """Test that all CDFResourceAPI subclasses are registered in ToolkitClient."""
         existing_api = set(get_concrete_subclasses(CDFResourceAPI))  # type: ignore[type-abstract]
@@ -1491,8 +1522,69 @@ class TestCDFResourceAPI:
                     trigger_list_endpoint.path, "Expected at least 1 listed workflow trigger, got 0"
                 )
 
+            # Run, retrieve, list, and cancel a workflow execution
+            run_path = (
+                f"/workflows/{workflow_version_id.workflow_external_id}/versions/{workflow_version_id.version}/run"
+            )
+            try:
+                execution = client.tool.workflows.executions.run(
+                    workflow_version_id,
+                    nonce=toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce,
+                )
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(run_path, f"run method failed with error: {e!s}") from e
+
+            retrieve_endpoint = client.tool.workflows.executions._method_endpoint_map["retrieve"]
+            try:
+                retrieved_executions = client.tool.workflows.executions.retrieve([execution.as_id()])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(retrieve_endpoint.path, f"retrieve method failed with error: {e!s}") from e
+            if len(retrieved_executions) != 1:
+                raise EndpointAssertionError(
+                    retrieve_endpoint.path, f"Expected 1 retrieved execution, got {len(retrieved_executions)}"
+                )
+            if retrieved_executions[0].as_id() != execution.as_id():
+                raise EndpointAssertionError(retrieve_endpoint.path, "Retrieved execution ID does not match.")
+            if not isinstance(retrieved_executions[0], WorkflowExecutionDetailedResponse):
+                raise EndpointAssertionError(
+                    retrieve_endpoint.path, "Expected a detailed workflow execution in the retrieve response."
+                )
+
+            list_endpoint = client.tool.workflows.executions._method_endpoint_map["list"]
+            try:
+                listed_executions = client.tool.workflows.executions.list(
+                    workflow_version_ids=[workflow_version_id], limit=1
+                )
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(list_endpoint.path, f"list method failed with error: {e!s}") from e
+            if len(listed_executions) == 0:
+                raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed execution, got 0")
+
+            cancel_path = f"/workflows/executions/{execution.id}/cancel"
+            try:
+                canceled = client.tool.workflows.executions.cancel([execution.as_id()], reason="smoke test")
+            except ToolkitAPIError as e:
+                current = client.tool.workflows.executions.retrieve([execution.as_id()], ignore_unknown_ids=True)
+                if current and current[0].status == "RUNNING":
+                    raise EndpointAssertionError(cancel_path, f"cancel method failed with error: {e!s}") from e
+            else:
+                if len(canceled) != 1:
+                    raise EndpointAssertionError(cancel_path, f"Expected 1 canceled execution, got {len(canceled)}")
+
+                retry_path = f"/workflows/executions/{execution.id}/retry"
+                try:
+                    retried = client.tool.workflows.executions.retry(
+                        [execution.as_id()],
+                        nonce=toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce,
+                    )
+                except ToolkitAPIError as e:
+                    raise EndpointAssertionError(retry_path, f"retry method failed with error: {e!s}") from e
+                if len(retried) != 1:
+                    raise EndpointAssertionError(retry_path, f"Expected 1 retried execution, got {len(retried)}")
+
         finally:
-            # Clean up
+            # Clean up: running executions block workflow deletion.
+            self.cancel_running_executions(client, workflow_version_id)
             client.tool.workflows.triggers.delete([workflow_trigger_id])
             client.tool.workflows.versions.delete([workflow_version_id])
             client.tool.workflows.delete([workflow_id])
