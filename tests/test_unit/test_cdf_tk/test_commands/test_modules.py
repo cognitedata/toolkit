@@ -619,34 +619,32 @@ def _module_list_lineage(tmp_path: Path) -> BuildLineage:
     module_path.mkdir(parents=True, exist_ok=True)
     source_dir = module_path / "data_models"
     source_dir.mkdir(parents=True, exist_ok=True)
-    build_dir = tmp_path / "build" / "data_models"
+    build_dir = tmp_path / "build"
     build_dir.mkdir(parents=True, exist_ok=True)
 
     views = [
         ResourceLineageItem(
-            source_file=source_dir / f"view_{index}.View.yaml",
+            source_file=(source_dir / f"view_{index}.View.yaml").relative_to(tmp_path),
             source_hash="abc",
             type={"resource_folder": "data_models", "kind": "View"},
-            built_file=build_dir / f"{index}-view.View.yaml",
+            built_file=(build_dir / "data_models" / f"{index}-view.View.yaml").relative_to(build_dir),
             identifier={"space": "my_space", "externalId": f"View{index}", "version": "1"},
         )
         for index in (1, 2)
     ]
     files_dir = module_path / "files"
     files_dir.mkdir(parents=True, exist_ok=True)
-    files_build = tmp_path / "build" / "files"
-    files_build.mkdir(parents=True, exist_ok=True)
     file_item = ResourceLineageItem(
-        source_file=files_dir / "my_file.FileMetadata.yaml",
+        source_file=(files_dir / "my_file.FileMetadata.yaml").relative_to(tmp_path),
         source_hash="def",
         type={"resource_folder": "files", "kind": "FileMetadata"},
-        built_file=files_build / "1-my_file.FileMetadata.yaml",
+        built_file=(build_dir / "files" / "1-my_file.FileMetadata.yaml").relative_to(build_dir),
         identifier={"externalId": "my_file"},
     )
 
     return BuildLineage(
         organization_dir=tmp_path,
-        build_dir=tmp_path / "build",
+        build_dir=build_dir,
         modules_summary={"processed": 1, "succeeded": 1, "failed": 0},
         insights_summary={
             ModelSyntaxWarning.__name__: 1,
@@ -655,7 +653,7 @@ def _module_list_lineage(tmp_path: Path) -> BuildLineage:
         module_lineage=[
             ModuleLineageItem(
                 module_id="modules/my_module",
-                module_path=module_path,
+                module_path=module_path.relative_to(tmp_path),
                 insights_summary={
                     ModelSyntaxWarning.__name__: 1,
                     Recommendation.__name__: 2,

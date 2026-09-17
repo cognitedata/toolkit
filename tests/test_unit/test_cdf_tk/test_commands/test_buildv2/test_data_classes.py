@@ -259,13 +259,13 @@ class TestBuildLinage:
         source_file.touch()
         built_file.touch()
         data = {
-            "sourceFile": source_file.as_posix(),
+            "sourceFile": source_file.relative_to(tmp_path).as_posix(),
             "sourceHash": "123",
             "type": {
                 "resource_folder": "files",
                 "kind": "FileMetadata",
             },
-            "builtFile": built_file.as_posix(),
+            "builtFile": built_file.relative_to(tmp_path).as_posix(),
             "identifier": {"externalId": "some_id"},
         }
         linage = ResourceLineageItem.model_validate(data)
@@ -300,14 +300,14 @@ class TestBuildLinage:
             module_lineage=[
                 ModuleLineageItem(
                     module_id="modules/my_module",
-                    module_path=tmp_path,
+                    module_path=tmp_path.relative_to(tmp_path),
                     insights_summary={},
                     resource_lineage=[
                         ResourceLineageItem(
-                            source_file=source_file,
+                            source_file=source_file.relative_to(tmp_path),
                             source_hash=build_hash,
                             type={"resource_folder": "data_models", "kind": "View"},
-                            built_file=built_file,
+                            built_file=built_file.relative_to(tmp_path),
                             identifier={"space": "my_space", "externalId": "MyView", "version": "1"},
                         )
                     ],
