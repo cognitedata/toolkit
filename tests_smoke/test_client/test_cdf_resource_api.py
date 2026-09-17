@@ -1037,7 +1037,7 @@ class TestCDFResourceAPI:
         def _active_ids() -> list[WorkflowExecutionId]:
             by_id = {item.id: item for item in known_ids}
             listed = client.tool.workflows.executions.list(
-                workflow_external_id=workflow_version_id.workflow_external_id,
+                workflow_version_ids=[workflow_version_id],
                 limit=1000,
             )
             for item in listed:
