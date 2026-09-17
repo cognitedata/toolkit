@@ -945,12 +945,12 @@ variables:
 
         first_lineage = cmd.tmp_build(org, config_yaml=config_yaml, client=tlk_client)
         first_spaces = first_lineage.get_resource_of_type(SpaceCRUD.as_resource_type())
-        assert first_spaces[0].load_resource_dict({}) == {"space": "substituted_space", "name": "Space"}
+        assert first_spaces[0].load_resource_dict(org, {}) == {"space": "substituted_space", "name": "Space"}
 
         second_lineage = cmd.tmp_build(org, config_yaml=config_yaml, client=tlk_client)
         second_spaces = second_lineage.get_resource_of_type(SpaceCRUD.as_resource_type())
         assert second_spaces[0].variables
-        assert second_spaces[0].load_resource_dict({}) == {"space": "substituted_space", "name": "Space"}
+        assert second_spaces[0].load_resource_dict(org, {}) == {"space": "substituted_space", "name": "Space"}
 
 
 class TestSelectModule:
