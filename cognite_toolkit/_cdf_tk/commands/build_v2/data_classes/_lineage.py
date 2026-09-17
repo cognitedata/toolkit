@@ -176,8 +176,8 @@ class BuildLineage(_BaseLineageModel):
     filename: ClassVar[str] = "lineage.yaml"
     timestamp: datetime = Field(default_factory=datetime.now, description="When build started")
     duration: float | None = Field(None, description="Total build duration in seconds")
-    organization_dir: Path
-    build_dir: Path
+    organization_dir: AbsoluteDirPath
+    build_dir: AbsoluteDirPath
     cdf_project: str | None = None
     config_hash: str | None = Field(
         default=None,
