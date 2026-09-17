@@ -61,7 +61,7 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_lis
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import GroupYAML, SecurityCategoriesYAML
 from cognite_toolkit._cdf_tk.yaml_classes import capabilities as yaml_cap
-from cognite_toolkit._cdf_tk.yaml_classes.capabilities import Capability
+from cognite_toolkit._cdf_tk.yaml_classes.capabilities import UnknownCapability
 
 
 @dataclass
@@ -153,6 +153,14 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         from ._timeseries import TimeSeriesCRUD
 
         for capability in resource.capabilities or []:
+            if isinstance(capability, UnknownCapability) and isinstance(
+                capability.scope, yaml_cap.IDScope | yaml_cap.IDScopeLowerCase
+            ):
+                # IDScope resource type is implied by the ACL name (e.g. datasetsAcl →
+                # DataSetsIO).  Without a known capability name we cannot resolve it, so
+                # skip rather than guess.  All other scope types are resolved by scope
+                # alone and fall through to the normal dispatch below.
+                continue
             scope = capability.scope
             if isinstance(scope, yaml_cap.SpaceIDScope):
                 for space_id in scope.space_ids:
@@ -192,37 +200,6 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                             yield loader, ExternalId(external_id=id_)
                         elif loader is SecurityCategoryIO:
                             yield loader, NameId(name=id_)
-
-    @classmethod
-    def get_raw_dependencies(cls, raw: dict[str, Any]) -> Iterable[tuple[type[ResourceIO], Identifier]]:
-        """Extract scope-based dependencies from a raw group YAML dict.
-
-        Fallback for when ``GroupYAML.model_validate`` raises a ``ValidationError`` (e.g.
-        because the YAML contains a capability name that this toolkit version does not yet
-        recognise).  In that case ``validated`` is ``None`` and ``get_dependencies`` cannot
-        run.  We parse each capability entry individually — skipping those that still fail —
-        then delegate to ``get_dependencies`` on a partially-reconstructed model.  This
-        ensures that valid entries such as ``dataModelsAcl`` with ``spaceIdScope`` are still
-        checked against CDF even when a sibling capability is unknown.
-        """
-        valid_capabilities = []
-        for cap_raw in raw.get("capabilities") or []:
-            if not isinstance(cap_raw, dict):
-                continue
-            try:
-                valid_capabilities.append(Capability.model_validate(cap_raw))
-            except Exception:
-                pass  # Unknown/invalid capability — skip it; the warning is already emitted by build
-
-        if not valid_capabilities:
-            return
-
-        # model_construct bypasses validators — safe here because we only need the capabilities list
-        partial_group = GroupYAML.model_construct(
-            name=raw.get("name", ""),
-            capabilities=valid_capabilities,
-        )
-        yield from cls.get_dependencies(partial_group)
 
     def _substitute_scope_ids(self, group: dict[str, Any], is_dry_run: bool, reverse: bool = False) -> dict[str, Any]:
         replace_method_by_acl = self._create_replace_method_by_acl_and_scope()

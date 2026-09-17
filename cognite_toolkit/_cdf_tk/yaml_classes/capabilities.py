@@ -2,7 +2,7 @@ import sys
 from types import MappingProxyType, UnionType
 from typing import Any, ClassVar, Literal, cast, get_args
 
-from pydantic import ModelWrapValidatorHandler, field_validator, model_serializer, model_validator
+from pydantic import Field, ModelWrapValidatorHandler, PrivateAttr, field_validator, model_serializer, model_validator
 from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
@@ -171,7 +171,26 @@ class Capability(BaseModelResource):
             raise ValueError(f"Invalid capability data '{type(data)}' expected dict")
         name, content = next(iter(data.items()))
         if name not in _CAPABILITY_CLASS_BY_NAME:
-            raise ValueError(f"Invalid capability name '{name}'. Expected one of {_CAPABILITY_CLASS_BY_NAME.keys()}")
+            # Unknown capability — wrap it so GroupYAML validation still succeeds.
+            # Eagerly parse the scope with known Scope types so that scope-based
+            # dependencies (spaces, datasets, tables, …) can still be extracted by
+            # get_dependencies.  Fall back to AllScope for unrecognised scope names.
+            content = next(iter(data.values()), {})
+            scope_raw = content.get("scope") if isinstance(content, dict) else None
+            parsed_scope: Scope
+            if scope_raw and isinstance(scope_raw, dict):
+                try:
+                    parsed_scope = Scope.model_validate(scope_raw)
+                except Exception:
+                    parsed_scope = AllScope()
+            else:
+                parsed_scope = AllScope()
+            # model_construct is safe here: UnknownCapability is a simple, bounded class
+            # with no validators that need to run — the scope is already validated above.
+            cap = UnknownCapability.model_construct(scope=parsed_scope, actions=[])
+            cap._unknown_name = name
+            cap._raw_data = data
+            return cast(Self, cap)
         cls_ = _CAPABILITY_CLASS_BY_NAME[name]
         return cast(Self, cls_.model_validate(content))
 
@@ -593,8 +612,39 @@ class StreamRecordsAcl(Capability):
     scope: AllScope | SpaceIDScope
 
 
+class UnknownCapability(Capability):
+    """Wraps an unrecognised capability name so GroupYAML validation always succeeds.
+
+    The original name and raw dict are preserved via private attributes so the YAML
+    round-trips correctly through the build pipeline.
+
+    The scope is parsed eagerly with the known ``Scope`` types.  If the scope name is also
+    unrecognised, ``AllScope`` is used as a placeholder.  This means that scope-based
+    dependencies (spaces, datasets, tables, …) are still extracted correctly by
+    ``get_dependencies`` even when the wrapping capability name is unknown.  The only case
+    that cannot be resolved is ``IDScope`` / ``IDScopeLowerCase``, where the resource type is
+    implied by the capability name — those are intentionally skipped.
+    """
+
+    _capability_name: ClassVar[str] = "__unknown__"
+    _unknown_name: str = PrivateAttr(default="")
+    _raw_data: dict[str, Any] = PrivateAttr(default_factory=dict)
+    scope: Scope = Field(default_factory=AllScope)
+    actions: list[str] = Field(default_factory=list)
+
+    @model_serializer(mode="wrap", when_used="always", return_type=dict)
+    def serialize_raw(self, handler: SerializerFunctionWrapHandler) -> dict:
+        """Return the original raw dict, preserving the unknown capability structure."""
+        return self._raw_data
+
+    @property
+    def original_name(self) -> str:
+        """The capability name as it appeared in the YAML."""
+        return self._unknown_name
+
+
 _CAPABILITY_CLASS_BY_NAME: MappingProxyType[str, type[Capability]] = MappingProxyType(
-    {c._capability_name: c for c in Capability.__subclasses__()}
+    {c._capability_name: c for c in Capability.__subclasses__() if c is not UnknownCapability}
 )
 ALL_CAPABILITIES = sorted(_CAPABILITY_CLASS_BY_NAME)
 

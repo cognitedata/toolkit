@@ -1066,12 +1066,12 @@ def test_warning_missing_dependency_with_unknown_capability(
 ) -> None:
     """A group with an unrecognised capability name must still have its space references checked.
 
-    When GroupYAML.model_validate() raises a warning-only ValidationError (because the YAML
-    contains a capability name that this toolkit version does not know about), the resource is
-    still written to the build dir and deployed — but previously ``get_dependencies()`` was
-    silently skipped (``validated=None``), so a missing space was never detected.  The fix
-    uses ``get_raw_dependencies()`` as a fallback so the space reference is still validated
-    against CDF and an UNKNOWN-REFERENCE insight is emitted.
+    When GroupYAML contains an unknown capability name, ``UnknownCapability`` wraps it so
+    that model validation still succeeds (``validated`` is set).  ``get_dependencies`` skips
+    ``UnknownCapability`` instances, but the valid siblings (e.g. ``dataModelsAcl`` with a
+    ``spaceIdScope``) are still processed — so a missing space is caught and an
+    UNKNOWN-REFERENCE insight is emitted.  A MODEL-SYNTAX-WARNING is also produced via
+    ``get_build_warnings()`` to tell the user about the unrecognised capability.
     """
     group_yaml = """name: scoped_group_unknown_cap
 sourceId: '1234567890123456789'
@@ -1089,7 +1089,9 @@ capabilities:
     actions:
     - READ
     scope:
-      all: {}
+      spaceIdScope:
+        spaceIds:
+        - my_non_existent_space
 """
 
     my_org = tmp_path / "my_org"
@@ -1107,11 +1109,12 @@ capabilities:
             config_yaml=my_org / "config.dev.yaml",
         ),
     )
-    # The unknown capability should produce a ModelSyntaxError
-    syntax_errors = [i for i in folder.all_insights if i.code == "MODEL-SYNTAX-ERROR"]
-    assert len(syntax_errors) >= 1, "Expected a ModelSyntaxError for the unknown capability"
+    # The unknown capability should produce a MODEL-SYNTAX-WARNING (not an error — the YAML
+    # is still valid from the build perspective; CDF may or may not accept it at deploy time).
+    syntax_warnings = [i for i in folder.all_insights if i.code == "MODEL-SYNTAX-WARNING"]
+    assert len(syntax_warnings) >= 1, "Expected a MODEL-SYNTAX-WARNING for the unknown capability"
 
-    # Despite the warning, the space reference in the VALID capability must still be checked
+    # The space reference in the VALID sibling capability must still be checked against CDF.
     unknown_refs = [i for i in folder.all_insights if i.code == "UNKNOWN-REFERENCE"]
     assert len(unknown_refs) == 1, (
         "Expected UNKNOWN-REFERENCE for 'my_non_existent_space' even when group has an unknown capability"
