@@ -311,7 +311,7 @@ class ContainerPropertyDefinition(BaseModelResource):
         default=None,
         description="Increment the property based on its highest current value (max value).",
     )
-    default_value: str | int | bool | dict | None = Field(
+    default_value: str | int | bool | dict | float | None = Field(
         default=None,
         description="Default value to use when you do not specify a value for the property.",
     )

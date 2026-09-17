@@ -7,7 +7,9 @@ from typing import ClassVar, Literal, TypeAlias
 from pydantic import BaseModel, Field, field_validator
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
-from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
+from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_modules
+
+PATH_SEP_CSV = " | "  # Separator for multiple source files in CSV output
 
 
 class InsightDefinition(BaseModel):
@@ -31,8 +33,15 @@ class InsightDefinition(BaseModel):
         return cls.__name__
 
     @property
-    def display_source_files(self) -> str:
+    def display_source_files_cwd(self) -> str:
+        """Returns a comma-separated string of unique source file paths relative to the current working directory."""
         unique_paths = list(dict.fromkeys([format_insight_source_file(file) for file in self.source_files]))
+        return ", ".join(unique_paths)
+
+    @property
+    def display_source_files_modules(self) -> str:
+        """Returns a comma-separated string of unique source file paths relative to the organization's modules directory."""
+        unique_paths = list(dict.fromkeys([relative_to_modules(file) for file in self.source_files]))
         return ", ".join(unique_paths)
 
 
@@ -167,11 +176,12 @@ class InsightList(UserList[Insight]):
         writer.writeheader()
 
         for insight in self.data:
+            unique_paths = list(dict.fromkeys([relative_to_modules(file) for file in insight.source_files]))
             writer.writerow(
                 {
                     "insight_type": _normalize_csv_cell(insight.insight_type()),
                     "code": _normalize_csv_cell(insight.code or ""),
-                    "source_file": _normalize_csv_cell(insight.display_source_files),
+                    "source_file": _normalize_csv_cell(PATH_SEP_CSV.join(unique_paths)),
                     "message": _normalize_csv_cell(insight.message),
                     "fix": _normalize_csv_cell(insight.fix or ""),
                 }
@@ -186,7 +196,7 @@ class InsightList(UserList[Insight]):
             {
                 "insightType": insight.insight_type(),
                 "code": insight.code,
-                "sourceFile": insight.display_source_files,
+                "sourceFile": insight.display_source_files_modules,
                 "message": insight.message,
                 "fix": insight.fix,
             }

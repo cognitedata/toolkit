@@ -59,7 +59,7 @@ class ViewCorePropertyResponse(ViewCoreProperty):
     immutable: bool | None = None
     nullable: bool | None = None
     auto_increment: bool | None = None
-    default_value: str | int | bool | dict[str, JsonValue] | None = None
+    default_value: str | int | bool | float | dict[str, JsonValue] | None = None
     constraint_state: ConstraintOrIndexState
     type: DataType
 
