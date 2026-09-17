@@ -42,8 +42,9 @@ def test_confirm_login_flow_proceeds_when_login_flow_not_in_env(monkeypatch: pyt
 
 
 def test_confirm_login_flow_overrides_env_warns_on_mismatch(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("LOGIN_FLOW", "device_code")
     monkeypatch.setattr("sys.stdin.isatty", lambda: True)
     monkeypatch.setattr(
@@ -56,6 +57,8 @@ def test_confirm_login_flow_overrides_env_warns_on_mismatch(
     output = capsys.readouterr().out
     assert "LOGIN_FLOW='device_code'" in output
     assert "selected 'session'" in output
+    normalized = " ".join(output.split())
+    assert "LOGIN_FLOW environment variable" in normalized
 
 
 def test_confirm_login_flow_overrides_env_raises_without_tty(
