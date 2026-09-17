@@ -18,7 +18,12 @@ from rich.progress import Progress
 from yaml import YAMLError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import (
+    Identifier,
+    T_Identifier,
+    T_RequestResource,
+    T_ResponseResource,
+)
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, RawTableId, ViewId
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -29,7 +34,8 @@ from cognite_toolkit._cdf_tk.commands._utils import (
     validate_soft_delete_capacity,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ResourceType
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable
@@ -1056,6 +1062,7 @@ class DeployV2Command(ToolkitCommand):
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
         skipped_cruds: Set[type[ResourceIO]],
         deploy_dir: Path | None = None,
+        insights_by_resource: dict[tuple[ResourceType, Identifier], list[Insight]] | None = None,
     ) -> None:
         if action is None:
             raise RuntimeError("Bug in Toolkit. No action to perform but got API error.") from error
@@ -1074,16 +1081,39 @@ class DeployV2Command(ToolkitCommand):
                 for string in crud.sensitive_strings(item):
                     json_str = json_str.replace(string, "********")
             filepath.write_text(json_str, encoding="utf-8")
-
         if skipped_cruds:
             error_message = (
                 f"Failed to {action} {crud.display_name}. This is likely due to missing dependencies on "
                 f"{humanize_collection([crud.display_name for crud in skipped_cruds])} which were "
                 f"skipped based on the include filter.{suffix}"
             )
+        elif insights_by_resource and (
+            related_insights := cls._get_related_insights(
+                insights_by_resource, list(resources.get_ids(crud, action)), crud.as_resource_type()
+            )
+        ):
+            insights_str = "\n".join(
+                f"[{insight.severity}] {insight.message} (code: {insight.code}, source: {insight.display_source_files_cwd})"
+                for insight in related_insights
+            )
+            error_message = f"Failed to {action} {crud.display_name}. This is likely due to the following insights:\n{insights_str}{suffix}"
         else:
             error_message = f"Failed to {action} {crud.display_name} due to API error: {error.message}.{suffix}"
         raise cls._get_resource_exception(action)(error_message) from error
+
+    @classmethod
+    def _get_related_insights(
+        cls,
+        insights_by_resource: dict[tuple[ResourceType, Identifier], list[Insight]],
+        identifier: list[Identifier],
+        resource_type: ResourceType,
+    ) -> list[Insight]:
+        related_insights: list[Insight] = []
+        for resource_id in identifier:
+            key = (resource_type, resource_id)
+            if key in insights_by_resource:
+                related_insights.extend(insights_by_resource[key])
+        return related_insights
 
     @classmethod
     def _handle_validation_error(
