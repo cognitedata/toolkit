@@ -87,8 +87,17 @@ class SignalSubscriptionIO(
         return self.client.tool.signal_subscriptions.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SignalSubscriptionResponse]:
+        if not ids:
+            return []
         id_set = {id_.external_id for id_ in ids}
-        return [item for item in self.client.tool.signal_subscriptions.list() if item.external_id in id_set]
+        found: list[SignalSubscriptionResponse] = []
+        for page in self.client.tool.signal_subscriptions.iterate(limit=None):
+            for item in page:
+                if item.external_id in id_set:
+                    found.append(item)
+            if len(found) == len(id_set):
+                break
+        return found
 
     def update(self, items: Sequence[SignalSubscriptionRequest]) -> list[SignalSubscriptionResponse]:
         return self.client.tool.signal_subscriptions.update(list(items))

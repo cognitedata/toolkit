@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -188,6 +189,31 @@ class TestSignalSubscriptionCRUDGetId:
         request = SignalSubscriptionRequest.model_validate(_INTEGRATIONS_SUB)
         id_ = SignalSubscriptionIO.get_id(request)
         assert id_ == ExternalId(external_id="sub-int")
+
+
+class TestSignalSubscriptionCRUDRetrieve:
+    def test_retrieve_paginates_past_first_page(self) -> None:
+        filler = [
+            SignalSubscriptionResponse.model_validate(
+                {**_WORKFLOWS_SUB, "externalId": f"sub-{index}", "createdTime": 1, "lastUpdatedTime": 1}
+            )
+            for index in range(100)
+        ]
+        target = SignalSubscriptionResponse.model_validate(
+            {**_WORKFLOWS_SUB, "externalId": "sub-beyond-first-page", "createdTime": 1, "lastUpdatedTime": 1}
+        )
+        subscriptions_api = MagicMock()
+        subscriptions_api.iterate.return_value = iter([filler, [target]])
+
+        client = MagicMock()
+        client.tool.signal_subscriptions = subscriptions_api
+        io = SignalSubscriptionIO(client, None)
+
+        retrieved = io.retrieve([ExternalId(external_id="sub-beyond-first-page")])
+
+        assert [item.external_id for item in retrieved] == ["sub-beyond-first-page"]
+        subscriptions_api.iterate.assert_called_once_with(limit=None)
+        subscriptions_api.list.assert_not_called()
 
 
 class TestSignalSubscriptionCRUDGetDependencies:
