@@ -172,6 +172,22 @@ class WorkflowVersionId(Identifier):
         return f"{self.workflow_external_id}.{self.version}"
 
 
+class WorkflowExecutionId(Identifier):
+    id: str
+
+    @classmethod
+    def from_ids(cls, ids: Sequence[str]) -> list["WorkflowExecutionId"]:
+        return [cls(id=id_) for id_ in ids]
+
+    def __str__(self) -> str:
+        return f"id='{self.id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"id-{self.id}"
+        return self.id
+
+
 class AppVersionId(Identifier):
     app_external_id: str
     version: str
