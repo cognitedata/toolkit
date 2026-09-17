@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field, field_validator
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_modules
 
+PATH_SEP_CSV = " | "  # Separator for multiple source files in CSV output
+
 
 class InsightDefinition(BaseModel):
     """Base class for all insights"""
@@ -174,11 +176,12 @@ class InsightList(UserList[Insight]):
         writer.writeheader()
 
         for insight in self.data:
+            unique_paths = list(dict.fromkeys([relative_to_modules(file) for file in insight.source_files]))
             writer.writerow(
                 {
                     "insight_type": _normalize_csv_cell(insight.insight_type()),
                     "code": _normalize_csv_cell(insight.code or ""),
-                    "source_file": _normalize_csv_cell(insight.display_source_files_modules),
+                    "source_file": _normalize_csv_cell(PATH_SEP_CSV.join(unique_paths)),
                     "message": _normalize_csv_cell(insight.message),
                     "fix": _normalize_csv_cell(insight.fix or ""),
                 }
