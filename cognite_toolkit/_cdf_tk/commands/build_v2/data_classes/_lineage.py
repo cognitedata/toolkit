@@ -76,7 +76,7 @@ class ResourceLineageItem(_BaseLineageModel):
         return value.dump()
 
     @field_serializer("source_file", "built_file", when_used="json")
-    def try_serialize_as_relative(self, value: AbsoluteDirPath, info: SerializationInfo) -> str:
+    def serialize_as_posix(self, value: AbsoluteDirPath, info: SerializationInfo) -> str:
         """Serialize source_file to relative path if possible."""
         return value.as_posix()
 
@@ -128,7 +128,7 @@ class ModuleLineageItem(_BaseLineageModel):
         return self
 
     @field_serializer("module_path", when_used="json")
-    def try_serialize_as_relative(self, value: AbsoluteDirPath, info: SerializationInfo) -> str:
+    def serialize_as_posix(self, value: AbsoluteDirPath, info: SerializationInfo) -> str:
         """Serialize module_path to relative path if possible."""
         return value.as_posix()
 
