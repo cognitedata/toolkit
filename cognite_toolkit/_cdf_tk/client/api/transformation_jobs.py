@@ -5,7 +5,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_job import (
-    TransformationJobMetric,
+    TransformationJobMetricResponse,
     TransformationJobResponse,
 )
 
@@ -47,7 +47,7 @@ class TransformationJobsAPI(CDFResourceAPI[TransformationJobResponse]):
             extra_body={"ignoreUnknownIds": ignore_unknown_ids},
         )
 
-    def list_metrics(self, id: int) -> list[TransformationJobMetric]:
+    def list_metrics(self, id: int) -> list[TransformationJobMetricResponse]:
         """`List job metrics by job id. <https://api-docs.cognite.com/20230101/tag/Transformation-Jobs/operation/getTransformationJobsMetrics>`_
 
         Args:
@@ -61,7 +61,7 @@ class TransformationJobsAPI(CDFResourceAPI[TransformationJobResponse]):
             method="GET",
         )
         response = self._http_client.request_single_retries(request).get_success_or_raise(request)
-        return ResponseItems[TransformationJobMetric].model_validate_json(response.body).items
+        return ResponseItems[TransformationJobMetricResponse].model_validate_json(response.body).items
 
     def paginate(
         self,

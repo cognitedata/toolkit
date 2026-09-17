@@ -73,4 +73,3 @@ class TestTransformationsAPI:
             "inferSchemaLimit": 10_000,
             "timeout": TransformationsAPI.DEFAULT_TIMEOUT_RUN_QUERY,
         }
-        assert TransformationsAPI.preview is TransformationsAPI.run_query

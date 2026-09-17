@@ -124,14 +124,14 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
 
     def run_query(
         self,
-        query: str | None = None,
-        convert_to_string: bool = False,
+        query: str,
+        convert_to_string: bool,
         limit: int | None = 100,
         source_limit: int | None = 100,
         infer_schema_limit: int | None = 10_000,
         timeout: float | None = DEFAULT_TIMEOUT_RUN_QUERY,
     ) -> SQLQueryResponse:
-        """`Run a SQL query preview. <https://api-docs.cognite.com/20230101/tag/Query/operation/runPreview>`_
+        """`Run a SQL query. <https://api-docs.cognite.com/20230101/tag/Query/operation/runPreview>`_
 
         Toolkit runs long-running queries that take longer than the typical default of 30 seconds. In addition,
         we do not want to retry, which typically is up to 10 times, as the user will have to wait for a long time. Instead,
@@ -139,7 +139,7 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         running the CLI command again.
 
         Args:
-            query (str | None): SQL query to run for preview.
+            query (str): SQL query to run.
             convert_to_string (bool): Stringify values in the query results, default is False.
             limit (int | None): Maximum number of rows to return in the final result, default is 100.
             source_limit (int | None): Maximum number of items to read from the data source or None to run without limit, default is 100.
@@ -173,8 +173,6 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         )
         response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         return SQLQueryResponse.model_validate_json(response.body)
-
-    preview = run_query
 
     def paginate(
         self,

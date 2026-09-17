@@ -5,7 +5,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import Destination
 
 
-class TransformationJobMetric(BaseModelObject):
+class TransformationJobMetricResponse(BaseModelObject):
     timestamp: int
     name: str
     count: int
