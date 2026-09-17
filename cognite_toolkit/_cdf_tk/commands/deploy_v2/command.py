@@ -920,6 +920,16 @@ class DeployV2Command(ToolkitCommand):
                         )
                     )
                     continue
+                if not crud.support_drop:
+                    resources.skipped.append(
+                        Skipped(
+                            identifier,
+                            code="DELETE-NOT-SUPPORTED",
+                            source_file=resource.source_files[0],
+                            reason=f"{crud.display_name.capitalize()!s} does not support deletion, skipping",
+                        )
+                    )
+                    continue
                 resources.to_delete.append(identifier)
             else:
                 if cdf_resource is None:
@@ -937,7 +947,7 @@ class DeployV2Command(ToolkitCommand):
                             identifier,
                             code="HAS-DATA",
                             source_file=resource.source_files[0],
-                            reason=(f"{identifier!s} contains data and does not support updates. "),
+                            reason=(f"{identifier!s} contains data and does not support updates."),
                         )
                     )
                 else:
