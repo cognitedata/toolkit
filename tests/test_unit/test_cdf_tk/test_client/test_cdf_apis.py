@@ -78,8 +78,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import (
-    WorkflowExecution,
-    WorkflowExecutionDetailed,
+    WorkflowExecutionDetailedResponse,
+    WorkflowExecutionResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerRequest,
@@ -565,9 +565,9 @@ class TestCDFResourceAPI:
     def test_workflow_execution_api_methods(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
     ) -> None:
-        execution = get_example_minimum_responses(WorkflowExecution)
-        detailed = get_example_minimum_responses(WorkflowExecutionDetailed)
-        instance = WorkflowExecution.model_validate(execution)
+        execution = get_example_minimum_responses(WorkflowExecutionResponse)
+        detailed = get_example_minimum_responses(WorkflowExecutionDetailedResponse)
+        instance = WorkflowExecutionResponse.model_validate(execution)
         config = toolkit_config
         api = WorkflowExecutionsAPI(HTTPClient(config))
         execution_id = instance.as_id()
@@ -588,7 +588,7 @@ class TestCDFResourceAPI:
         retrieved = api.retrieve([execution_id])
         assert len(retrieved) == 1
         assert retrieved[0].dump() == detailed
-        assert isinstance(retrieved[0], WorkflowExecutionDetailed)
+        assert isinstance(retrieved[0], WorkflowExecutionDetailedResponse)
 
         respx_mock.post(config.create_api_url(f"/workflows/executions/{instance.id}/cancel")).mock(
             return_value=httpx2.Response(status_code=200, json=execution)

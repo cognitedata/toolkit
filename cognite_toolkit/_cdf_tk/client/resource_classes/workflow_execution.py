@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowExecutionId, WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowDefinition
 
-WorkflowExecutionStatus: TypeAlias = Literal["PENDING", "RUNNING", "COMPLETED", "FAILED", "TERMINATED", "TIMED_OUT"]
+WorkflowExecutionStatus: TypeAlias = Literal["RUNNING", "COMPLETED", "FAILED", "TERMINATED", "TIMED_OUT"]
 WorkflowTaskExecutionStatus: TypeAlias = Literal[
     "SCHEDULED",
     "IN_PROGRESS",
@@ -21,7 +21,7 @@ WorkflowTaskExecutionStatus: TypeAlias = Literal[
 ]
 
 
-class WorkflowExecution(BaseModelObject):
+class WorkflowExecutionResponse(BaseModelObject):
     id: str
     workflow_external_id: str
     version: str | None = None
@@ -55,7 +55,7 @@ class WorkflowTaskExecution(BaseModelObject):
     reason_for_incompletion: str | None = None
 
 
-class WorkflowExecutionDetailed(WorkflowExecution):
+class WorkflowExecutionDetailedResponse(WorkflowExecutionResponse):
     workflow_definition: WorkflowDefinition
     executed_tasks: list[WorkflowTaskExecution]
     input: JsonValue | None = None

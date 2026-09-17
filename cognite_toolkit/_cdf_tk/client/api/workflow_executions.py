@@ -21,15 +21,15 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 )
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowExecutionId, WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import (
-    WorkflowExecution,
-    WorkflowExecutionDetailed,
+    WorkflowExecutionDetailedResponse,
+    WorkflowExecutionResponse,
     WorkflowExecutionStatus,
 )
 
 T_ExecutionResponse = TypeVar("T_ExecutionResponse", bound=BaseModelObject)
 
 
-class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecution]):
+class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,
@@ -41,8 +41,8 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecution]):
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
-    ) -> PagedResponse[WorkflowExecution]:
-        return PagedResponse[WorkflowExecution].model_validate_json(response.body)
+    ) -> PagedResponse[WorkflowExecutionResponse]:
+        return PagedResponse[WorkflowExecutionResponse].model_validate_json(response.body)
 
     def _request_per_execution(
         self,
@@ -75,7 +75,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecution]):
         nonce: str,
         input: dict[str, JsonValue] | None = None,
         metadata: Metadata | None = None,
-    ) -> WorkflowExecution:
+    ) -> WorkflowExecutionResponse:
         """Start an execution of a specific version of a workflow.
 
         Args:
@@ -98,11 +98,11 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecution]):
             body_content=body,
         )
         response = self._http_client.request_single_retries(request).get_success_or_raise(request)
-        return WorkflowExecution.model_validate_json(response.body)
+        return WorkflowExecutionResponse.model_validate_json(response.body)
 
     def retrieve(
         self, items: Sequence[WorkflowExecutionId], ignore_unknown_ids: bool = False
-    ) -> list[WorkflowExecutionDetailed]:
+    ) -> list[WorkflowExecutionDetailedResponse]:
         """Retrieve detailed workflow executions from CDF.
 
         Args:
@@ -115,7 +115,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecution]):
         return self._request_per_execution(
             items,
             path_suffix="",
-            response_cls=WorkflowExecutionDetailed,
+            response_cls=WorkflowExecutionDetailedResponse,
             ignore_unknown_ids=ignore_unknown_ids,
             method="GET",
         )
@@ -125,7 +125,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecution]):
         items: Sequence[WorkflowExecutionId],
         reason: str | None = None,
         ignore_unknown_ids: bool = False,
-    ) -> list[WorkflowExecution]:
+    ) -> list[WorkflowExecutionResponse]:
         """Cancel workflow executions.
 
         Stops the specified executions from starting new workflow tasks and sets the
@@ -148,7 +148,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecution]):
         return self._request_per_execution(
             items,
             path_suffix="/cancel",
-            response_cls=WorkflowExecution,
+            response_cls=WorkflowExecutionResponse,
             ignore_unknown_ids=ignore_unknown_ids,
             body_content=body,
         )
@@ -158,7 +158,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecution]):
         items: Sequence[WorkflowExecutionId],
         nonce: str | None = None,
         ignore_unknown_ids: bool = False,
-    ) -> list[WorkflowExecution]:
+    ) -> list[WorkflowExecutionResponse]:
         """Retry previously failed, timed out, or terminated workflow executions.
 
         Args:
@@ -175,7 +175,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecution]):
         return self._request_per_execution(
             items,
             path_suffix="/retry",
-            response_cls=WorkflowExecution,
+            response_cls=WorkflowExecutionResponse,
             ignore_unknown_ids=ignore_unknown_ids,
             body_content=body,
         )
@@ -208,7 +208,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecution]):
         statuses: Sequence[WorkflowExecutionStatus | str] | None = None,
         limit: int = 100,
         cursor: str | None = None,
-    ) -> PagedResponse[WorkflowExecution]:
+    ) -> PagedResponse[WorkflowExecutionResponse]:
         """Fetch a page of workflow executions from CDF.
 
         Args:
@@ -235,7 +235,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecution]):
         created_time_end: int | None = None,
         statuses: Sequence[WorkflowExecutionStatus | str] | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[WorkflowExecution]]:
+    ) -> Iterable[list[WorkflowExecutionResponse]]:
         """Iterate over workflow executions in CDF.
 
         Args:
@@ -260,7 +260,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecution]):
         created_time_end: int | None = None,
         statuses: Sequence[WorkflowExecutionStatus | str] | None = None,
         limit: int | None = 100,
-    ) -> list[WorkflowExecution]:
+    ) -> list[WorkflowExecutionResponse]:
         """List workflow executions in CDF.
 
         Args:
