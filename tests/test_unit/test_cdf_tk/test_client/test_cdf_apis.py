@@ -30,13 +30,14 @@ from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfiguration
 from cognite_toolkit._cdf_tk.client.api.skills import SkillsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import ThreeDClassicModelsAPI
+from cognite_toolkit._cdf_tk.client.api.workflow_executions import WorkflowExecutionsAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
-from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId, ExternalId, PrincipalId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId, ExternalId, PrincipalId, ViewId, WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.alert_channel import AlertChannelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
@@ -76,6 +77,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import (
+    WorkflowExecution,
+    WorkflowExecutionDetailed,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerRequest,
     WorkflowTriggerResponse,
@@ -535,6 +540,16 @@ class TestCDFResourceAPI:
         api.delete([instance.as_id()])
         assert len(respx_mock.calls) >= 1  # At least one call should have been made
 
+        # Test pause/resume
+        respx_mock.post(config.create_api_url(f"/workflows/triggers/{instance.external_id}/pause")).mock(
+            return_value=httpx2.Response(status_code=200)
+        )
+        api.pause([instance.as_id()])
+        respx_mock.post(config.create_api_url(f"/workflows/triggers/{instance.external_id}/resume")).mock(
+            return_value=httpx2.Response(status_code=200)
+        )
+        api.resume([instance.as_id()])
+
         # Test iterate/list
         respx_mock.get(config.create_api_url("/workflows/triggers")).mock(
             return_value=httpx2.Response(status_code=200, json={"items": [resource]})
@@ -546,6 +561,63 @@ class TestCDFResourceAPI:
         page = api.paginate(limit=10)
         assert len(page.items) == 1
         assert page.items[0].dump() == resource
+
+    def test_workflow_execution_api_methods(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        execution = get_example_minimum_responses(WorkflowExecution)
+        detailed = get_example_minimum_responses(WorkflowExecutionDetailed)
+        instance = WorkflowExecution.model_validate(execution)
+        config = toolkit_config
+        api = WorkflowExecutionsAPI(HTTPClient(config))
+        execution_id = instance.as_id()
+
+        respx_mock.post(config.create_api_url("/workflows/workflow_001/versions/1/run")).mock(
+            return_value=httpx2.Response(status_code=202, json=execution)
+        )
+        created = api.run(
+            WorkflowVersionId(workflow_external_id="workflow_001", version="1"),
+            nonce="test-nonce",
+            input={"key": "value"},
+        )
+        assert created.dump() == execution
+
+        respx_mock.get(config.create_api_url(f"/workflows/executions/{instance.id}")).mock(
+            return_value=httpx2.Response(status_code=200, json=detailed)
+        )
+        retrieved = api.retrieve([execution_id])
+        assert len(retrieved) == 1
+        assert retrieved[0].dump() == detailed
+        assert isinstance(retrieved[0], WorkflowExecutionDetailed)
+
+        respx_mock.post(config.create_api_url(f"/workflows/executions/{instance.id}/cancel")).mock(
+            return_value=httpx2.Response(status_code=200, json=execution)
+        )
+        canceled = api.cancel([execution_id], reason="no longer needed")
+        assert len(canceled) == 1
+        assert canceled[0].dump() == execution
+
+        respx_mock.post(config.create_api_url(f"/workflows/executions/{instance.id}/retry")).mock(
+            return_value=httpx2.Response(status_code=200, json=execution)
+        )
+        retried = api.retry([execution_id], nonce="test-nonce")
+        assert len(retried) == 1
+        assert retried[0].dump() == execution
+
+        respx_mock.post(config.create_api_url("/workflows/executions/list")).mock(
+            return_value=httpx2.Response(status_code=200, json={"items": [execution]})
+        )
+        listed = api.list(limit=10)
+        assert len(listed) == 1
+        assert listed[0].dump() == execution
+
+        page = api.paginate(limit=10)
+        assert len(page.items) == 1
+        assert page.items[0].dump() == execution
+
+        iterated = list(api.iterate(limit=10))
+        assert len(iterated) == 1
+        assert iterated[0][0].dump() == execution
 
     def test_function_schedule_api_crud_list_methods(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter

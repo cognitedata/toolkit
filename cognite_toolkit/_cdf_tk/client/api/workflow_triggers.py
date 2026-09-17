@@ -3,7 +3,12 @@ from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import (
+    HTTPClient,
+    ItemsSuccessResponse,
+    RequestMessage,
+    SuccessResponse,
+)
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerRequest,
@@ -58,6 +63,50 @@ class WorkflowTriggersAPI(CDFResourceAPI[WorkflowTriggerResponse]):
             items: List of ExternalId objects to delete.
         """
         self._request_no_response(items, "delete")
+
+    def _request_per_trigger(
+        self,
+        items: Sequence[ExternalId],
+        path_suffix: str,
+        ignore_unknown_ids: bool = False,
+    ) -> None:
+        for item in items:
+            request = RequestMessage(
+                endpoint_url=self._make_url(f"/workflows/triggers/{item.external_id}{path_suffix}"),
+                method="POST",
+            )
+            response = self._http_client.request_single_retries(request)
+            if isinstance(response, SuccessResponse) or ignore_unknown_ids:
+                continue
+            _ = response.get_success_or_raise(request)
+
+    def pause(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
+        """Pause workflow triggers.
+
+        When paused, a trigger will not fire until it is resumed. For data modeling
+        and records stream triggers, processing continues from the cursor at pause
+        time rather than the freshest data. That cursor can become invalid if the
+        trigger is paused longer than the stream retention.
+
+        Args:
+            items: List of ExternalId objects identifying triggers to pause.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
+        """
+        self._request_per_trigger(items, "/pause", ignore_unknown_ids)
+
+    def resume(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
+        """Resume paused workflow triggers.
+
+        Once resumed, a trigger will fire according to its configuration. For data
+        modeling and records stream triggers, processing continues from the cursor
+        at pause time rather than the freshest data. That cursor can become invalid
+        if the trigger is paused longer than the stream retention.
+
+        Args:
+            items: List of ExternalId objects identifying triggers to resume.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
+        """
+        self._request_per_trigger(items, "/resume", ignore_unknown_ids)
 
     def paginate(
         self,
