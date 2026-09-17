@@ -89,13 +89,14 @@ class SignalSubscriptionIO(
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SignalSubscriptionResponse]:
         if not ids:
             return []
-        id_set = {id_.external_id for id_ in ids}
+        remaining = {id_.external_id for id_ in ids}
         found: list[SignalSubscriptionResponse] = []
         for page in self.client.tool.signal_subscriptions.iterate(limit=None):
             for item in page:
-                if item.external_id in id_set:
+                if item.external_id in remaining:
                     found.append(item)
-            if len(found) == len(id_set):
+                    remaining.remove(item.external_id)
+            if not remaining:
                 break
         return found
 

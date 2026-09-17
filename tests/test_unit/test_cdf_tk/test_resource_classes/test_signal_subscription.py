@@ -215,6 +215,22 @@ class TestSignalSubscriptionCRUDRetrieve:
         subscriptions_api.iterate.assert_called_once_with(limit=None)
         subscriptions_api.list.assert_not_called()
 
+    def test_retrieve_continues_when_duplicate_external_id_in_page(self) -> None:
+        sub_a = SignalSubscriptionResponse.model_validate(
+            {**_WORKFLOWS_SUB, "externalId": "sub-a", "createdTime": 1, "lastUpdatedTime": 1}
+        )
+        sub_b = SignalSubscriptionResponse.model_validate(
+            {**_WORKFLOWS_SUB, "externalId": "sub-b", "createdTime": 1, "lastUpdatedTime": 1}
+        )
+        subscriptions_api = MagicMock()
+        subscriptions_api.iterate.return_value = iter([[sub_a, sub_a], [sub_b]])
+
+        io = SignalSubscriptionIO(MagicMock(tool=MagicMock(signal_subscriptions=subscriptions_api)), None)
+
+        retrieved = io.retrieve([ExternalId(external_id="sub-a"), ExternalId(external_id="sub-b")])
+
+        assert [item.external_id for item in retrieved] == ["sub-a", "sub-b"]
+
 
 class TestSignalSubscriptionCRUDGetDependencies:
     def test_email_sink_with_integration_resource(self) -> None:
