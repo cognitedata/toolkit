@@ -77,7 +77,7 @@ class ResourceLineageItem(_BaseLineageModel):
 
     @field_serializer("source_file", "built_file", when_used="json")
     def serialize_as_posix(self, value: AbsoluteDirPath, info: SerializationInfo) -> str:
-        """Serialize source_file to relative path if possible."""
+        """Serialize source_file and built_file to posix path string."""
         return value.as_posix()
 
     def load_resource_dict(
@@ -104,7 +104,7 @@ class ModuleLineageItem(_BaseLineageModel):
     """Tracks a module through the build process."""
 
     module_id: str = Field(description="Module identifier (e.g., modules/my_module)")
-    module_path: RelativeDirPath = Field(description="Absolute path to module source directory")
+    module_path: RelativeDirPath = Field(description="Relative path to module source directory")
     module_hash: str = Field(
         default="",
         description="Hash of the module source directory at build time, used for incremental rebuilds.",
@@ -128,8 +128,8 @@ class ModuleLineageItem(_BaseLineageModel):
         return self
 
     @field_serializer("module_path", when_used="json")
-    def serialize_as_posix(self, value: AbsoluteDirPath, info: SerializationInfo) -> str:
-        """Serialize module_path to relative path if possible."""
+    def serialize_as_posix(self, value: Path, info: SerializationInfo) -> str:
+        """Serialize module_path to posix path string."""
         return value.as_posix()
 
     @property
@@ -209,8 +209,8 @@ class BuildLineage(_BaseLineageModel):
         return value.replace(microsecond=0).isoformat()
 
     @field_serializer("organization_dir", "build_dir", when_used="json")
-    def serialize_paths(self, value: AbsoluteDirPath) -> str:
-        """Serialize build_dir to relative path if possible."""
+    def serialize_path_as_posix(self, value: AbsoluteDirPath) -> str:
+        """Serialize organization_dir and build_dir to posix path string."""
         return value.as_posix()
 
     @field_serializer("duration", when_used="json")
