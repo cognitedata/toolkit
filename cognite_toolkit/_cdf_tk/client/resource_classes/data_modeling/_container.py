@@ -15,7 +15,7 @@ class ContainerPropertyDefinition(BaseModelObject):
     immutable: bool | None = None
     nullable: bool | None = None
     auto_increment: bool | None = None
-    default_value: str | int | float | bool | dict[str, JsonValue] | None = None
+    default_value: str | int | float | bool | float | dict[str, JsonValue] | None = None
     description: str | None = None
     name: str | None = None
     type: DataType
