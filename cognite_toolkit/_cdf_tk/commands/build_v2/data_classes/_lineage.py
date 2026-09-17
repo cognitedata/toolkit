@@ -41,7 +41,7 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
 from ._module import BuildVariable, ResourceType
-from ._types import AbsoluteDirPath, AbsoluteFilePath
+from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath
 
 
 class _BaseLineageModel(BaseModel):
@@ -53,10 +53,10 @@ class _BaseLineageModel(BaseModel):
 class ResourceLineageItem(_BaseLineageModel):
     """Tracks a single resource through the build process."""
 
-    source_file: AbsoluteFilePath
+    source_file: RelativeFilePath
     source_hash: str
     type: ResourceType
-    built_file: AbsoluteFilePath
+    built_file: RelativeFilePath
     identifier: Identifier
     variables: list[BuildVariable] = Field(default_factory=list, exclude=True)
 
@@ -74,6 +74,11 @@ class ResourceLineageItem(_BaseLineageModel):
     @field_serializer("identifier", when_used="always")
     def serialize_identifier(self, value: Identifier) -> dict[str, Any]:
         return value.dump()
+
+    @field_serializer("source_file", "built_file", when_used="json")
+    def try_serialize_as_relative(self, value: AbsoluteDirPath, info: SerializationInfo) -> str:
+        """Serialize source_file to relative path if possible."""
+        return value.as_posix()
 
     def load_resource_dict(
         self, environment_variables: dict[str, str | None], validate: bool = False
@@ -99,7 +104,7 @@ class ModuleLineageItem(_BaseLineageModel):
     """Tracks a module through the build process."""
 
     module_id: str = Field(description="Module identifier (e.g., modules/my_module)")
-    module_path: AbsoluteDirPath = Field(description="Absolute path to module source directory")
+    module_path: RelativeDirPath = Field(description="Absolute path to module source directory")
     module_hash: str = Field(
         default="",
         description="Hash of the module source directory at build time, used for incremental rebuilds.",
@@ -121,6 +126,11 @@ class ModuleLineageItem(_BaseLineageModel):
             if not resource.variables:
                 resource.variables = self.variables
         return self
+
+    @field_serializer("module_path", when_used="json")
+    def try_serialize_as_relative(self, value: AbsoluteDirPath, info: SerializationInfo) -> str:
+        """Serialize module_path to relative path if possible."""
+        return value.as_posix()
 
     @property
     def is_success(self) -> bool:
@@ -145,21 +155,23 @@ class ModuleLineageItem(_BaseLineageModel):
             return "FAILED: Unknown reason"
 
     @classmethod
-    def from_built_module(cls, module: BuiltModule) -> "ModuleLineageItem":
+    def from_built_module(
+        cls, module: BuiltModule, organization_dir: AbsoluteDirPath, build_dir: AbsoluteDirPath
+    ) -> "ModuleLineageItem":
         """Construct lineage item from built module."""
         resource_lineage = []
         for resource in module.resources:
             resource_lineage.append(
                 ResourceLineageItem(
-                    source_file=resource.source_path.resolve(),
+                    source_file=resource.source_path.relative_to(organization_dir),
                     source_hash=resource.source_hash,
-                    built_file=resource.build_path.resolve(),
+                    built_file=resource.build_path.relative_to(build_dir),
                     type=resource.type,
                     identifier=resource.identifier,
                     variables=module.variables,
                 )
             )
-        module_path = module.module_id.path.resolve()
+        module_path = module.module_id.path.relative_to(organization_dir)
         return cls(
             module_id=module.module_id.id.as_posix(),
             module_path=module_path,
@@ -197,12 +209,8 @@ class BuildLineage(_BaseLineageModel):
         return value.replace(microsecond=0).isoformat()
 
     @field_serializer("organization_dir", "build_dir", when_used="json")
-    def serialize_paths(self, value: Path, info: SerializationInfo) -> str:
+    def serialize_paths(self, value: AbsoluteDirPath) -> str:
         """Serialize build_dir to relative path if possible."""
-        if info.field_name == "build_dir":  # type: ignore
-            organization_dir = info.context.get("organization_dir") if info.context else None
-            if organization_dir and value.is_relative_to(organization_dir):
-                return value.relative_to(organization_dir).as_posix()
         return value.as_posix()
 
     @field_serializer("duration", when_used="json")
@@ -216,7 +224,10 @@ class BuildLineage(_BaseLineageModel):
     ) -> "BuildLineage":
         """Construct lineage from build output folder."""
 
-        module_lineage = [ModuleLineageItem.from_built_module(module) for module in build.built_modules]
+        module_lineage = [
+            ModuleLineageItem.from_built_module(module, build.organization_dir, build.build_dir)
+            for module in build.built_modules
+        ]
         modules_summary = {
             "processed": len(module_lineage),
             "succeeded": sum(1 for module in module_lineage if module.is_success),
@@ -277,7 +288,7 @@ class BuildLineage(_BaseLineageModel):
         missing_files: list[str] = []
         for module in self.module_lineage:
             for resource in module.resource_lineage:
-                source_file = resource.source_file
+                source_file = self.organization_dir / resource.source_file
 
                 if not source_file.exists():
                     missing_files.append(source_file.as_posix())
