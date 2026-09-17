@@ -175,7 +175,7 @@ class ModuleLineageItem(_BaseLineageModel):
         return cls(
             module_id=module.module_id.id.as_posix(),
             module_path=module_path,
-            module_hash=calculate_directory_hash(module_path, shorten=True),
+            module_hash=calculate_directory_hash(module.module_id.path, shorten=True),
             resource_lineage=resource_lineage,
             insights_summary=module.all_insights.summary,
             variables=module.variables,
