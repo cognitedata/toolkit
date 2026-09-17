@@ -186,12 +186,15 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
         created_time_start: int | None = None,
         created_time_end: int | None = None,
         statuses: Sequence[WorkflowExecutionStatus | str] | None = None,
+        workflow_external_id: str | None = None,
     ) -> dict[str, Any] | None:
         filter_body: dict[str, Any] = {}
         if workflow_version_ids:
             filter_body["workflowFilters"] = [
                 {"externalId": item.workflow_external_id, "version": item.version} for item in workflow_version_ids
             ]
+        elif workflow_external_id:
+            filter_body["workflowFilters"] = [{"externalId": workflow_external_id}]
         if created_time_start is not None:
             filter_body["createdTimeStart"] = created_time_start
         if created_time_end is not None:
@@ -206,6 +209,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
         created_time_start: int | None = None,
         created_time_end: int | None = None,
         statuses: Sequence[WorkflowExecutionStatus | str] | None = None,
+        workflow_external_id: str | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[WorkflowExecutionResponse]:
@@ -216,6 +220,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
             created_time_start: Filter out executions created before this time (ms since epoch).
             created_time_end: Filter out executions created after this time (ms since epoch).
             statuses: Filter by workflow execution status.
+            workflow_external_id: Filter by workflow external ID.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
@@ -225,7 +230,13 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body=self._create_list_body(workflow_version_ids, created_time_start, created_time_end, statuses),
+            body=self._create_list_body(
+                workflow_version_ids,
+                created_time_start,
+                created_time_end,
+                statuses,
+                workflow_external_id,
+            ),
         )
 
     def iterate(
@@ -234,6 +245,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
         created_time_start: int | None = None,
         created_time_end: int | None = None,
         statuses: Sequence[WorkflowExecutionStatus | str] | None = None,
+        workflow_external_id: str | None = None,
         limit: int | None = 100,
     ) -> Iterable[list[WorkflowExecutionResponse]]:
         """Iterate over workflow executions in CDF.
@@ -243,6 +255,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
             created_time_start: Filter out executions created before this time (ms since epoch).
             created_time_end: Filter out executions created after this time (ms since epoch).
             statuses: Filter by workflow execution status.
+            workflow_external_id: Filter by workflow external ID.
             limit: Maximum number of items to return per page.
 
         Returns:
@@ -250,7 +263,13 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
         """
         return self._iterate(
             limit=limit,
-            body=self._create_list_body(workflow_version_ids, created_time_start, created_time_end, statuses),
+            body=self._create_list_body(
+                workflow_version_ids,
+                created_time_start,
+                created_time_end,
+                statuses,
+                workflow_external_id,
+            ),
         )
 
     def list(
@@ -259,6 +278,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
         created_time_start: int | None = None,
         created_time_end: int | None = None,
         statuses: Sequence[WorkflowExecutionStatus | str] | None = None,
+        workflow_external_id: str | None = None,
         limit: int | None = 100,
     ) -> list[WorkflowExecutionResponse]:
         """List workflow executions in CDF.
@@ -268,6 +288,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
             created_time_start: Filter out executions created before this time (ms since epoch).
             created_time_end: Filter out executions created after this time (ms since epoch).
             statuses: Filter by workflow execution status.
+            workflow_external_id: Filter by workflow external ID.
             limit: Maximum number of items to return.
 
         Returns:
@@ -275,5 +296,11 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
         """
         return self._list(
             limit=limit,
-            body=self._create_list_body(workflow_version_ids, created_time_start, created_time_end, statuses),
+            body=self._create_list_body(
+                workflow_version_ids,
+                created_time_start,
+                created_time_end,
+                statuses,
+                workflow_external_id,
+            ),
         )

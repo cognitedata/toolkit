@@ -69,6 +69,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     InternalId,
     InternalUnwrappedId,
     ThreeDModelRevisionId,
+    WorkflowExecutionId,
     WorkflowVersionId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
@@ -1017,28 +1018,64 @@ class TestCDFResourceAPI:
         self,
         client: ToolkitClient,
         workflow_version_id: WorkflowVersionId,
-        timeout_seconds: float = 30.0,
+        execution_ids: list[WorkflowExecutionId] | None = None,
+        timeout_seconds: float = 60.0,
         poll_interval: float = 1.0,
     ) -> None:
-        """Cancel running executions for a workflow version and wait until none remain.
+        """Cancel active executions for a workflow and wait until none remain.
 
-        Workflows cannot be deleted while they have running executions.
+        Workflows cannot be deleted while they have running executions. Listing by
+        status is eventually consistent and can miss a just-retried run, so known
+        execution IDs are retrieved directly and non-terminal statuses are cancelled.
         """
+        terminal_statuses = frozenset({"COMPLETED", "FAILED", "TERMINATED", "TIMED_OUT"})
+        known_ids = list(execution_ids or [])
+
+        def _is_active(status: str) -> bool:
+            return status.upper() not in terminal_statuses
+
+        def _active_ids() -> list[WorkflowExecutionId]:
+            by_id = {item.id: item for item in known_ids}
+            listed = client.tool.workflows.executions.list(
+                workflow_external_id=workflow_version_id.workflow_external_id,
+                limit=1000,
+            )
+            for item in listed:
+                if _is_active(str(item.status)):
+                    by_id[item.id] = item.as_id()
+
+            active: list[WorkflowExecutionId] = []
+            for execution_id in by_id.values():
+                retrieved = client.tool.workflows.executions.retrieve([execution_id], ignore_unknown_ids=True)
+                if retrieved and _is_active(str(retrieved[0].status)):
+                    active.append(execution_id)
+            return active
+
+        # Do not treat a single empty list as done; list can lag behind retrieve.
+        empty_checks = 0
         start_time = time.monotonic()
         while (time.monotonic() - start_time) < timeout_seconds:
-            running = client.tool.workflows.executions.list(
-                workflow_version_ids=[workflow_version_id],
-                statuses=["RUNNING"],
-                limit=100,
-            )
-            if not running:
-                return
-            client.tool.workflows.executions.cancel(
-                [item.as_id() for item in running],
-                reason="smoke test cleanup",
-                ignore_unknown_ids=True,
-            )
+            active_ids = _active_ids()
+            if not active_ids:
+                empty_checks += 1
+                if empty_checks >= 2:
+                    return
+                time.sleep(poll_interval)
+                continue
+            empty_checks = 0
+            try:
+                client.tool.workflows.executions.cancel(active_ids, reason="smoke test cleanup")
+            except ToolkitAPIError:
+                pass
             time.sleep(poll_interval)
+
+        still_active = _active_ids()
+        if still_active:
+            ids = ", ".join(item.id for item in still_active)
+            raise EndpointAssertionError(
+                "/workflows/executions/{executionId}/cancel",
+                f"Timed out waiting for executions to stop running: {ids}",
+            )
 
     def test_all_cdf_resource_apis_registered(self) -> None:
         """Test that all CDFResourceAPI subclasses are registered in ToolkitClient."""
@@ -1465,6 +1502,7 @@ class TestCDFResourceAPI:
         workflow_trigger_request.authentication = NonceCredentials(
             nonce=toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
         )
+        execution_id: WorkflowExecutionId | None = None
 
         try:
             # Create workflow
@@ -1533,6 +1571,7 @@ class TestCDFResourceAPI:
                 )
             except ToolkitAPIError as e:
                 raise EndpointAssertionError(run_path, f"run method failed with error: {e!s}") from e
+            execution_id = execution.as_id()
 
             retrieve_endpoint = client.tool.workflows.executions._method_endpoint_map["retrieve"]
             try:
@@ -1583,9 +1622,12 @@ class TestCDFResourceAPI:
                     raise EndpointAssertionError(retry_path, f"Expected 1 retried execution, got {len(retried)}")
 
         finally:
-            # Clean up: running executions block workflow deletion.
-            self.cancel_running_executions(client, workflow_version_id)
-            client.tool.workflows.triggers.delete([workflow_trigger_id])
+            # Triggers can start new runs; remove them before cancelling executions.
+            try:
+                client.tool.workflows.triggers.delete([workflow_trigger_id])
+            except ToolkitAPIError:
+                pass
+            self.cancel_running_executions(client, workflow_version_id, [execution_id] if execution_id else None)
             client.tool.workflows.versions.delete([workflow_version_id])
             client.tool.workflows.delete([workflow_id])
 
