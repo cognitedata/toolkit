@@ -167,7 +167,10 @@ class BuildV2Command(ToolkitCommand):
 
         self._track_build_results(build_folder, found_insights, client)
 
-        self._write_results(report_insights, build_folder, parameters, client.config.project if client else None)
+        # We write all found insights to the build folder, even if they are ignored by the user.
+        # This is so that they can be used in the deploy command to improve error messages when the API
+        # fails to deploy a resource.
+        self._write_results(found_insights, build_folder, parameters, client.config.project if client else None)
 
         return build_folder
 
