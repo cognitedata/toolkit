@@ -9,6 +9,7 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawTableId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceRequest, SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
@@ -20,6 +21,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployOptions, DeployV2Command
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, InsightList
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ModuleLineageItem, ResourceLineageItem
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     DeploymentResult,
     DeploymentStep,
@@ -660,3 +664,118 @@ class TestCategorizeResources:
             "unchanged": len(result.unchanged),
             "skipped": len(result.skipped),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 0, "skipped": 1}
+
+
+def _space_lineage_with_insights(tmp_path: Path, fmt: str) -> tuple[Path, BuildLineage, SpaceId]:
+    organization_dir = tmp_path / "org"
+    build_dir = tmp_path / "build"
+    source_file = organization_dir / "modules" / "my_module" / "data_modeling" / "my.Space.yaml"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("space: my_space\n", encoding="utf-8")
+    build_dir.mkdir()
+    space_id = SpaceId(space="my_space")
+    lineage = BuildLineage(
+        organization_dir=organization_dir,
+        build_dir=build_dir,
+        modules_summary={"processed": 1, "succeeded": 1, "failed": 0},
+        insights_summary={},
+        module_lineage=[
+            ModuleLineageItem(
+                module_id="modules/my_module",
+                module_path=Path("modules/my_module"),
+                insights_summary={},
+                resource_lineage=[
+                    ResourceLineageItem(
+                        source_file=source_file.relative_to(organization_dir),
+                        source_hash="abc",
+                        type={"resource_folder": "data_modeling", "kind": "Space"},
+                        built_file=Path("data_modeling/my.Space.yaml"),
+                        identifier={"space": "my_space"},
+                    )
+                ],
+            )
+        ],
+    )
+    insights = InsightList(
+        [
+            ConsistencyError(
+                message="Space is missing a required view",
+                code="MISSING-VIEW",
+                source_files=[source_file],
+                fix="Add the view",
+            )
+        ]
+    )
+    insight_content = insights.to_csv() if fmt == "csv" else insights.to_json()
+    (build_dir / f"insights.{fmt}").write_text(insight_content, encoding="utf-8")
+    return build_dir, lineage, space_id
+
+
+class TestReadInsightsByResource:
+    @pytest.mark.parametrize("fmt", ["csv", "json"])
+    def test_maps_insights_to_resources_from_file(self, tmp_path: Path, fmt: str) -> None:
+        build_dir, lineage, space_id = _space_lineage_with_insights(tmp_path, fmt)
+
+        actual = DeployV2Command.read_insights_by_resource(build_dir, lineage)
+
+        key = (SpaceCRUD.as_resource_type(), space_id)
+        assert actual is not None
+        assert key in actual
+        assert [insight.message for insight in actual[key]] == ["Space is missing a required view"]
+        assert [insight.code for insight in actual[key]] == ["MISSING-VIEW"]
+
+    def test_does_not_match_when_relative_source_path_differs(self, tmp_path: Path) -> None:
+        build_dir, lineage, _ = _space_lineage_with_insights(tmp_path, "csv")
+        other_source = tmp_path / "org" / "modules" / "other_module" / "data_modeling" / "other.Space.yaml"
+        other_source.parent.mkdir(parents=True)
+        other_source.write_text("space: other_space\n", encoding="utf-8")
+        insights = InsightList(
+            [
+                ConsistencyError(
+                    message="Unrelated insight",
+                    code="OTHER",
+                    source_files=[other_source],
+                )
+            ]
+        )
+        (build_dir / "insights.csv").write_text(insights.to_csv(), encoding="utf-8")
+
+        assert DeployV2Command.read_insights_by_resource(build_dir, lineage) is None
+
+    def test_returns_none_when_insights_file_missing(self, tmp_path: Path) -> None:
+        build_dir, lineage, _ = _space_lineage_with_insights(tmp_path, "csv")
+        (build_dir / "insights.csv").unlink()
+
+        assert DeployV2Command.read_insights_by_resource(build_dir, lineage) is None
+
+    def test_returns_none_when_lineage_missing(self, tmp_path: Path) -> None:
+        build_dir, _, _ = _space_lineage_with_insights(tmp_path, "csv")
+
+        assert DeployV2Command.read_insights_by_resource(build_dir, None) is None
+
+
+class TestDeployResourcesRelatedInsights:
+    def test_api_error_includes_related_insights(self, valid_yaml_absolute_path: Path) -> None:
+        space_id = SpaceId(space="my_space")
+        resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy()
+        resources.to_create = [SpaceRequest(space="my_space")]
+        insights_by_resource = {
+            (SpaceCRUD.as_resource_type(), space_id): [
+                ConsistencyError(
+                    message="Space is missing a required view",
+                    code="MISSING-VIEW",
+                    source_files=[valid_yaml_absolute_path],
+                )
+            ]
+        }
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.spaces.create.side_effect = ToolkitAPIError("API failed")
+            crud = SpaceCRUD.create_loader(client)
+            with pytest.raises(ResourceCreationError, match="likely due to the following insights") as exc_info:
+                DeployV2Command.deploy_resources(
+                    crud, resources, skipped_cruds=set(), insights_by_resource=insights_by_resource
+                )
+
+        assert "MISSING-VIEW" in str(exc_info.value)
+        assert "Space is missing a required view" in str(exc_info.value)

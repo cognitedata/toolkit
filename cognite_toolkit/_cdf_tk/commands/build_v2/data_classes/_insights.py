@@ -2,14 +2,17 @@ import csv
 import io
 import json
 from collections import UserList, defaultdict
-from typing import ClassVar, Literal, TypeAlias
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Any, ClassVar, Literal, TypeAlias, get_args
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_modules
 
 PATH_SEP_CSV = " | "  # Separator for multiple source files in CSV output
+PATH_SEP_JSON = ", "  # Separator for multiple source files in JSON output
 
 
 class InsightDefinition(BaseModel):
@@ -115,6 +118,11 @@ def _normalize_csv_cell(text: str) -> str:
     return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
+def _split_source_files(raw: str, separator: str) -> list[str]:
+    """Split a serialized source-file cell into relative (or absolute) path strings."""
+    return [part.strip() for part in raw.split(separator) if part.strip()]
+
+
 class InsightList(UserList[Insight]):
     """A list of insights that can be sorted by type and message."""
 
@@ -203,3 +211,86 @@ class InsightList(UserList[Insight]):
             for insight in self.data
         ]
         return json.dumps(rows, indent=2, ensure_ascii=False) + "\n"
+
+    @classmethod
+    def from_file(cls, path: Path, organization_dir: Path) -> "InsightList":
+        """Load insights from a CSV or JSON file written during build."""
+        return cls(
+            [insight for row in cls.read_serialized_rows(path) if (insight := cls._to_insight(row, organization_dir))]
+        )
+
+    @classmethod
+    def from_csv(cls, content: str, organization_dir: Path) -> "InsightList":
+        """Load insights from a CSV string produced by ``to_csv``."""
+        return cls(
+            [insight for row in cls._rows_from_csv(content) if (insight := cls._to_insight(row, organization_dir))]
+        )
+
+    @classmethod
+    def from_json(cls, content: str, organization_dir: Path) -> "InsightList":
+        """Load insights from a JSON string produced by ``to_json``."""
+        return cls(
+            [insight for row in cls._rows_from_json(content) if (insight := cls._to_insight(row, organization_dir))]
+        )
+
+    @classmethod
+    def read_serialized_rows(cls, path: Path) -> list[dict[str, Any]]:
+        """Read insights from a CSV or JSON file, keeping source files as serialized relative paths."""
+        content = path.read_text(encoding="utf-8")
+        if path.suffix.lower() == ".json":
+            return cls._rows_from_json(content)
+        return cls._rows_from_csv(content)
+
+    @classmethod
+    def _rows_from_csv(cls, content: str) -> list[dict[str, Any]]:
+        reader = csv.DictReader(io.StringIO(content), dialect=csv.unix_dialect)
+        return [
+            {
+                "insight_type": row.get("insight_type") or "",
+                "code": row.get("code") or "",
+                "source_files": _split_source_files(str(row.get("source_file") or ""), PATH_SEP_CSV),
+                "message": row.get("message") or "",
+                "fix": row.get("fix") or None,
+            }
+            for row in reader
+        ]
+
+    @classmethod
+    def _rows_from_json(cls, content: str) -> list[dict[str, Any]]:
+        data = json.loads(content)
+        if not isinstance(data, list):
+            raise TypeError("Insights JSON must be a list of objects")
+        return [
+            {
+                "insight_type": row.get("insightType") or "",
+                "code": row.get("code") or "",
+                "source_files": _split_source_files(str(row.get("sourceFile") or ""), PATH_SEP_JSON),
+                "message": row.get("message") or "",
+                "fix": row.get("fix") or None,
+            }
+            for row in data
+            if isinstance(row, dict)
+        ]
+
+    @classmethod
+    def _to_insight(cls, row: Mapping[str, Any], organization_dir: Path) -> Insight | None:
+        insight_cls_by_name = {insight_cls.__name__: insight_cls for insight_cls in get_args(Insight)}
+        insight_cls = insight_cls_by_name.get(str(row.get("insight_type") or ""))
+        if insight_cls is None:
+            return None
+        source_files: list[Path] = []
+        for part in row.get("source_files") or []:
+            path = Path(part)
+            source_files.append(path if path.is_absolute() else organization_dir / path)
+        if not source_files:
+            return None
+        fix = row.get("fix")
+        try:
+            return insight_cls(
+                message=str(row.get("message") or ""),
+                code=str(row.get("code") or ""),
+                source_files=source_files,
+                fix=fix if fix else None,
+            )
+        except ValidationError:
+            return None

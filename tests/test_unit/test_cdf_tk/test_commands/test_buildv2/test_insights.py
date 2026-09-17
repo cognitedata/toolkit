@@ -74,3 +74,36 @@ def test_insight_list_to_json_matches_structural_fields(valid_yaml_absolute_path
             "fix": None,
         },
     ]
+
+
+def test_insight_list_from_csv_roundtrip(valid_yaml_absolute_path) -> None:
+    original = InsightList(
+        [
+            ConsistencyError(
+                message="summary line\nnext line",
+                code="ERR-1",
+                fix="do this",
+                source_files=[valid_yaml_absolute_path],
+            )
+        ]
+    )
+    loaded = InsightList.from_csv(original.to_csv(), valid_yaml_absolute_path.parent)
+    assert len(loaded) == 1
+    assert loaded[0].message == original[0].message
+    assert loaded[0].code == original[0].code
+    assert loaded[0].fix == original[0].fix
+    assert loaded[0].source_files == original[0].source_files
+
+
+def test_insight_list_from_json_roundtrip(valid_yaml_absolute_path) -> None:
+    original = InsightList(
+        [
+            Recommendation(message="b", code="B2", fix=None, source_files=[valid_yaml_absolute_path]),
+        ]
+    )
+    loaded = InsightList.from_json(original.to_json(), valid_yaml_absolute_path.parent)
+    assert len(loaded) == 1
+    assert loaded[0].message == original[0].message
+    assert loaded[0].code == original[0].code
+    assert loaded[0].fix == original[0].fix
+    assert loaded[0].source_files == original[0].source_files
