@@ -111,6 +111,7 @@ from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
 from .api.user_profiles import UserProfilesAPI
 from .api.verify import VerifyAPI
+from .api.workflow_executions import WorkflowExecutionsAPI
 from .api.workflow_triggers import WorkflowTriggersAPI
 from .api.workflow_versions import WorkflowVersionsAPI
 from .api.workflows import WorkflowsAPI
@@ -252,6 +253,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.workflows = MagicMock(spec=WorkflowsAPI)
         self.tool.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)
         self.tool.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)
+        self.tool.workflows.executions = MagicMock(spec_set=WorkflowExecutionsAPI)
         self.tool.data_products = MagicMock(spec=DataProductsAPI)
         self.tool.data_products.versions = MagicMock(spec_set=DataProductVersionsAPI)
         self.tool.rulesets = MagicMock(spec=RuleSetsAPI)
