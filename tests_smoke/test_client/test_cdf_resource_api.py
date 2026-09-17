@@ -55,6 +55,7 @@ from cognite_toolkit._cdf_tk.client.api.three_d import (
     ThreeDDMAssetMappingAPI,
 )
 from cognite_toolkit._cdf_tk.client.api.transformation_externaldata import TransformationExternalDataSourcesAPI
+from cognite_toolkit._cdf_tk.client.api.transformation_jobs import TransformationJobsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
@@ -303,6 +304,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         TransformationsAPI,
         TransformationSchedulesAPI,
         TransformationNotificationsAPI,
+        # Jobs are created by running a transformation; no create/delete.
+        TransformationJobsAPI,
         # Requires special handling of requests.
         # GraphQLDataModelsAPI,
         # List method requires an argument,
@@ -2144,6 +2147,13 @@ class TestCDFResourceAPI:
                 raise EndpointAssertionError(list_endpoint.path, "Listing transformations failed.")
             if len(listed) == 0:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed transformation, got 0")
+
+            ### Jobs ###
+            jobs_list_endpoint = client.tool.transformations.jobs._method_endpoint_map["list"]
+            try:
+                client.tool.transformations.jobs.list(transformation_external_id=transformation_id.external_id, limit=1)
+            except ToolkitAPIError:
+                raise EndpointAssertionError(jobs_list_endpoint.path, "Listing transformation jobs failed.")
 
             ### Schedules ###
             # Create transformation schedule (dependent on transformation)
