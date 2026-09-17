@@ -360,7 +360,10 @@ class BuildV2Command(ToolkitCommand):
         source_by_module_id, _ = ModuleParser.find_modules(build_files.organization_dir, build_files.yaml_files)
         module_scan = ModuleParser.parse(build_files, {Path(MODULES)}, source_by_module_id, [])
 
-        cached_hash_by_path = {item.module_path.resolve(): item.module_hash for item in cached_lineage.module_lineage}
+        cached_hash_by_path = {
+            cached_lineage.organization_dir / item.module_path: item.module_hash
+            for item in cached_lineage.module_lineage
+        }
 
         needs_rebuild: set[RelativeDirPath] = set()
         seen_module_ids: set[RelativeDirPath] = set()
@@ -369,7 +372,7 @@ class BuildV2Command(ToolkitCommand):
             if source.id in seen_module_ids:
                 continue
             seen_module_ids.add(source.id)
-            module_path = Path(source.path).resolve()
+            module_path = source.path
             current_module_paths.add(module_path)
             current_hash = calculate_directory_hash(module_path, shorten=True)
             cached_hash = cached_hash_by_path.get(module_path)
@@ -383,18 +386,17 @@ class BuildV2Command(ToolkitCommand):
     @staticmethod
     def _merge_build_lineage(cached_lineage: BuildLineage, new_lineage: BuildLineage | None) -> BuildLineage:
         if new_lineage is not None:
-            rebuilt_paths = {item.module_path.resolve() for item in new_lineage.module_lineage}
+            rebuilt_paths = {item.module_path for item in new_lineage.module_lineage}
             merged_modules = list(new_lineage.module_lineage)
         else:
             rebuilt_paths = set()
             merged_modules = []
 
         for item in cached_lineage.module_lineage:
-            resolved_path = item.module_path.resolve()
-            if resolved_path in rebuilt_paths:
+            if item.module_path in rebuilt_paths:
                 continue
             # Filter out cached modules whose directories no longer exist on disk.
-            if not resolved_path.exists():
+            if not (cached_lineage.organization_dir / item.module_path).exists():
                 continue
             merged_modules.append(item)
 
@@ -1356,7 +1358,7 @@ class BuildV2Command(ToolkitCommand):
     @classmethod
     def _insight_section_title(cls, insight: Insight) -> str:
         title = cls._humanize_insight_code(insight.code)
-        return f"{title} in {insight.display_source_files}"
+        return f"{title} in {insight.display_source_files_cwd}"
 
     def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
         """Prioritize one insight per code, then by severity"""
