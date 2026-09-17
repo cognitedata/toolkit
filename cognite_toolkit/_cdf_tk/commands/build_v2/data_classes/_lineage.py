@@ -81,15 +81,17 @@ class ResourceLineageItem(_BaseLineageModel):
         return value.as_posix()
 
     def load_resource_dict(
-        self, environment_variables: dict[str, str | None], validate: bool = False
+        self, organization_path: Path, environment_variables: dict[str, str | None], validate: bool = False
     ) -> dict[str, Any]:
-        content = BuildVariable.substitute(safe_read(self.source_file), self.variables, self.source_file.suffix)
+        content = BuildVariable.substitute(
+            safe_read(organization_path / self.source_file), self.variables, self.source_file.suffix
+        )
         resource_io = cast(type[ResourceIO], get_crud(self.type.resource_folder, self.type.kind))
         raw = load_yaml_inject_variables(
             content,
             environment_variables,
             validate=validate,
-            original_filepath=self.source_file,
+            original_filepath=organization_path / self.source_file,
         )
         if isinstance(raw, dict):
             return raw
@@ -97,7 +99,9 @@ class ResourceLineageItem(_BaseLineageModel):
             for item in raw:
                 if resource_io.get_id(item) == self.identifier:
                     return item
-        raise ToolkitMissingResourceError(f"Resource {self.identifier} not found in {self.source_file}")
+        raise ToolkitMissingResourceError(
+            f"Resource {self.identifier} not found in {(organization_path / self.source_file).as_posix()}"
+        )
 
 
 class ModuleLineageItem(_BaseLineageModel):

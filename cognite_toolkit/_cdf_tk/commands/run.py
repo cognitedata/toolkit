@@ -314,14 +314,14 @@ if __name__ == "__main__":
         workflows = build_folder.get_resource_of_type(WorkflowVersionIO.as_resource_type())
         raw_trigger_by_workflow_id: dict[tuple[str, str | None], dict[str, Any]] = {}
         for trigger in build_folder.get_resource_of_type(WorkflowTriggerIO.as_resource_type()):
-            raw_trigger = trigger.load_resource_dict({}, validate=False)
+            raw_trigger = trigger.load_resource_dict(build_folder.organization_dir, {}, validate=False)
             loaded_trigger = WorkflowTriggerUpsert.load(raw_trigger)
             raw_trigger_by_workflow_id[(loaded_trigger.workflow_external_id, loaded_trigger.workflow_version)] = (
                 raw_trigger
             )
 
         for workflow in workflows:
-            raw_workflow = workflow.load_resource_dict({}, validate=False)
+            raw_workflow = workflow.load_resource_dict(build_folder.organization_dir, {}, validate=False)
             loaded = WorkflowVersionUpsert.load(raw_workflow)
             for task in loaded.workflow_definition.tasks:
                 if (
@@ -345,7 +345,7 @@ if __name__ == "__main__":
         selected = options[selected_name]
         if isinstance(selected, ResourceLineageItem):
             # Schedule
-            raw_schedule = selected.load_resource_dict({}, validate=False)
+            raw_schedule = selected.load_resource_dict(build_folder.organization_dir, {}, validate=False)
             return raw_schedule.get("data", {}), ClientCredentials.load(
                 raw_schedule["authentication"]
             ) if "authentication" in raw_schedule else None
@@ -382,7 +382,7 @@ if __name__ == "__main__":
                     and identifier.version == data_source.version
                 )
             if matches_workflow:
-                raw_workflow = workflow.load_resource_dict({}, validate=False)
+                raw_workflow = workflow.load_resource_dict(build_folder.organization_dir, {}, validate=False)
                 loaded = WorkflowVersionUpsert.load(raw_workflow)
                 for task in loaded.workflow_definition.tasks:
                     if (
@@ -393,7 +393,7 @@ if __name__ == "__main__":
                         found = True
                         break
             for trigger in triggers:
-                raw_trigger = trigger.load_resource_dict({}, validate=False)
+                raw_trigger = trigger.load_resource_dict(build_folder.organization_dir, {}, validate=False)
                 loaded_trigger = WorkflowTriggerUpsert.load(raw_trigger)
                 if (isinstance(data_source, str) and loaded_trigger.workflow_external_id == data_source) or (
                     isinstance(data_source, WorkflowVersionId)
@@ -420,7 +420,7 @@ if __name__ == "__main__":
                 and schedule.identifier.function_external_id == function_external_id
                 and schedule.identifier.name == data_source
             ):
-                raw_schedule = schedule.load_resource_dict({}, validate=False)
+                raw_schedule = schedule.load_resource_dict(build_folder.organization_dir, {}, validate=False)
                 return raw_schedule.get("data", {}), ClientCredentials.load(
                     raw_schedule["authentication"]
                 ) if "authentication" in raw_schedule else None
@@ -472,7 +472,7 @@ if __name__ == "__main__":
             safe_write(readme_overview, self.default_readme_md)
 
         function_venv = Path(virtual_envs_dir) / function_external_id
-        function_source_code = function_build.source_file.parent / function_external_id
+        function_source_code = build_folder.organization_dir / function_build.source_file.parent / function_external_id
         if not function_source_code.exists():
             raise ToolkitNotADirectoryError(
                 f"Could not find function code for {function_external_id}. Expected at {function_source_code.as_posix()}"
@@ -511,7 +511,9 @@ if __name__ == "__main__":
             # We need a __init__ to avoid import errors when running the function code.
             init_py.touch()
 
-        function_dict = function_build.load_resource_dict(env_vars.dump(), validate=False)
+        function_dict = function_build.load_resource_dict(
+            build_folder.organization_dir, env_vars.dump(), validate=False
+        )
         handler_file = function_dict.get("functionPath", "handler.py")
         handler_path = function_destination_code / handler_file
         if not handler_path.exists():
@@ -772,7 +774,7 @@ class RunWorkflowCommand(ToolkitCommand):
         credentials: ClientCredentials | None = None
         input_: dict | None = None
         for trigger in triggers:
-            trigger_dict = trigger.load_resource_dict(env_vars.dump(), validate=False)
+            trigger_dict = trigger.load_resource_dict(build_folder.organization_dir, env_vars.dump(), validate=False)
             if (
                 trigger_dict["workflowExternalId"] == id_.workflow_external_id
                 and trigger_dict["workflowVersion"] == id_.version
