@@ -42,11 +42,10 @@ def test_function_app_forwards_options(tmp_path: Path, monkeypatch: pytest.Monke
                 "0.0.0.0",
                 "--port",
                 "8080",
-                "--no-reload",
                 "--log-level",
                 "debug",
             ],
         )
 
     assert result.exit_code == 0
-    command.run_function_app.assert_called_once_with(tmp_path, "0.0.0.0", 8080, False, "debug")
+    command.run_function_app.assert_called_once_with(tmp_path, "0.0.0.0", 8080, "debug")

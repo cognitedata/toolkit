@@ -1,18 +1,19 @@
 """Run Function Apps locally."""
 
 import importlib.util
-import shutil
+import os
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any
 
+from cognite.client import CogniteClient
 from rich import print
 
 from ._base import ToolkitCommand
 
 
 class RunFunctionAppCommand(ToolkitCommand):
+    _HANDLER_PATH_ENV_VAR = "CDF_TK_FUNCTION_APP_HANDLER_PATH"
     _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 
     def run_function_app(
@@ -20,13 +21,13 @@ class RunFunctionAppCommand(ToolkitCommand):
         path: Path,
         host: str = "127.0.0.1",
         port: int = 8000,
-        reload: bool = True,
         log_level: str = "info",
     ) -> None:
         """Start a local development server for a Function App."""
         try:
             import uvicorn
-            from cognite_function_apps.devserver import create_asgi_app
+
+            importlib.import_module("cognite_function_apps.devserver")
         except ImportError:
             print(
                 "[bold red]Error:[/] Missing dependencies for the run command.\n"
@@ -39,26 +40,7 @@ class RunFunctionAppCommand(ToolkitCommand):
         self._validate_function_app_handler(handler_path)
         self._warn_if_not_loopback(host)
 
-        if reload:
-            self._run_with_reload(uvicorn, handler_path, host, port, log_level)
-        else:
-            self._run_without_reload(uvicorn, create_asgi_app, handler_path, host, port, log_level)
-
-    @staticmethod
-    def _run_without_reload(
-        uvicorn: Any, create_asgi_app: Any, handler_path: Path, host: str, port: int, log_level: str
-    ) -> None:
-        original_path = sys.path.copy()
-        try:
-            handle = RunFunctionAppCommand._load_handler(handler_path)
-            uvicorn.run(
-                create_asgi_app(handle, client_factory=RunFunctionAppCommand._create_cognite_client),
-                host=host,
-                port=port,
-                log_level=log_level,
-            )
-        finally:
-            sys.path[:] = original_path
+        self._run_with_reload(uvicorn, handler_path, host, port, log_level)
 
     @staticmethod
     def _load_handler(handler_path: Path) -> Any:
@@ -78,34 +60,35 @@ class RunFunctionAppCommand(ToolkitCommand):
             raise RuntimeError(f"{handler_file} does not define a handle") from error
 
     @staticmethod
+    def _create_reloading_asgi_app() -> Any:
+        from cognite_function_apps.devserver import create_asgi_app
+
+        handler_path_value = os.environ.get(RunFunctionAppCommand._HANDLER_PATH_ENV_VAR)
+        if handler_path_value is None:
+            raise RuntimeError("Function App reload factory must be started through 'cdf dev run function-app'.")
+        handler_path = Path(handler_path_value)
+        handle = RunFunctionAppCommand._load_handler(handler_path)
+        return create_asgi_app(handle, client_factory=RunFunctionAppCommand._create_cognite_client)
+
+    @staticmethod
     def _run_with_reload(uvicorn: Any, handler_path: Path, host: str, port: int, log_level: str) -> None:
-        temp_dir = Path(tempfile.mkdtemp(prefix="cdf_run_function_app_"))
-        module_path = temp_dir / "_cdf_run_function_app_asgi.py"
-        temp_dir_str = str(temp_dir)
+        previous_handler_path = os.environ.get(RunFunctionAppCommand._HANDLER_PATH_ENV_VAR)
+        os.environ[RunFunctionAppCommand._HANDLER_PATH_ENV_VAR] = str(handler_path)
         try:
-            module_path.write_text(
-                "import importlib\n"
-                "import sys\n"
-                f"sys.path.insert(0, {str(handler_path.parent)!r})\n"
-                f"sys.path.insert(0, {str(handler_path)!r})\n"
-                "from cognite_function_apps.devserver import create_asgi_app\n"
-                "from cognite_toolkit._cdf_tk.commands.run_function_app import RunFunctionAppCommand\n"
-                f"handle = importlib.import_module({handler_path.name!r} + '.handler').handle\n"
-                "app = create_asgi_app(handle, client_factory=RunFunctionAppCommand._create_cognite_client)\n"
-            )
-            sys.path.insert(0, temp_dir_str)
             uvicorn.run(
-                "_cdf_run_function_app_asgi:app",
+                "cognite_toolkit._cdf_tk.commands.run_function_app:RunFunctionAppCommand._create_reloading_asgi_app",
                 host=host,
                 port=port,
                 reload=True,
                 reload_dirs=[str(handler_path)],
                 log_level=log_level,
+                factory=True,
             )
         finally:
-            if temp_dir_str in sys.path:
-                sys.path.remove(temp_dir_str)
-            shutil.rmtree(temp_dir)
+            if previous_handler_path is None:
+                del os.environ[RunFunctionAppCommand._HANDLER_PATH_ENV_VAR]
+            else:
+                os.environ[RunFunctionAppCommand._HANDLER_PATH_ENV_VAR] = previous_handler_path
 
     @staticmethod
     def _validate_handler_directory(handler_path: Path) -> None:
@@ -144,7 +127,7 @@ class RunFunctionAppCommand(ToolkitCommand):
             )
 
     @staticmethod
-    def _create_cognite_client() -> object:
+    def _create_cognite_client() -> CogniteClient:
         from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 
         return EnvironmentVariables.create_from_environment().get_client(is_strict_validation=False)
