@@ -4,10 +4,12 @@ import importlib.util
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from cognite.client import CogniteClient
 from rich import print
+
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.client import ToolkitClient
 
 from ._base import ToolkitCommand
 
@@ -110,7 +112,7 @@ class RunFunctionAppCommand(ToolkitCommand):
             raise SystemExit(1)
 
     @staticmethod
-    def _create_cognite_client() -> CogniteClient:
+    def _create_cognite_client() -> "ToolkitClient":
         from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 
         return EnvironmentVariables.create_from_environment().get_client(is_strict_validation=False)
