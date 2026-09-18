@@ -26,12 +26,12 @@ def test_runs_with_reload(function_app_path: Path, monkeypatch: pytest.MonkeyPat
 
     uvicorn.run.side_effect = assert_handler_path_is_set
     with patch("uvicorn.run", uvicorn.run):
-        command.run_function_app(function_app_path, host="0.0.0.0", port=8080, log_level="debug")
+        command.run_function_app(function_app_path, port=8080, log_level="debug")
 
     assert RunFunctionAppCommand._HANDLER_PATH_ENV_VAR not in os.environ
     uvicorn.run.assert_called_once_with(
         "cognite_toolkit._cdf_tk.commands.run_function_app:RunFunctionAppCommand._create_reloading_asgi_app",
-        host="0.0.0.0",
+        host="127.0.0.1",
         port=8080,
         reload=True,
         reload_dirs=[str(function_app_path)],
@@ -46,7 +46,7 @@ def test_reload_restores_existing_handler_path(function_app_path: Path, monkeypa
     uvicorn.run.side_effect = RuntimeError("server failed")
 
     with pytest.raises(RuntimeError, match="server failed"):
-        RunFunctionAppCommand._run_with_reload(uvicorn, function_app_path, "127.0.0.1", 8000, "info")
+        RunFunctionAppCommand._run_with_reload(uvicorn, function_app_path, 8000, "info")
 
     assert os.environ[RunFunctionAppCommand._HANDLER_PATH_ENV_VAR] == "previous-path"
 

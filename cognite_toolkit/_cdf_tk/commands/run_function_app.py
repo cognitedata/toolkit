@@ -3,6 +3,8 @@
 import importlib.util
 import os
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -11,23 +13,34 @@ from rich import print
 
 from ._base import ToolkitCommand
 
+_LOOPBACK_HOST = "127.0.0.1"
+
+
+@contextmanager
+def _temporary_environment(name: str, value: str) -> Iterator[None]:
+    previous_value = os.environ.get(name)
+    os.environ[name] = value
+    try:
+        yield
+    finally:
+        if previous_value is None:
+            del os.environ[name]
+        else:
+            os.environ[name] = previous_value
+
 
 class RunFunctionAppCommand(ToolkitCommand):
     _HANDLER_PATH_ENV_VAR = "CDF_TK_FUNCTION_APP_HANDLER_PATH"
-    _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 
     def run_function_app(
         self,
         path: Path,
-        host: str = "127.0.0.1",
         port: int = 8000,
         log_level: str = "info",
     ) -> None:
         """Start a local development server for a Function App."""
         try:
             import uvicorn
-
-            importlib.import_module("cognite_function_apps.devserver")
         except ImportError:
             print(
                 "[bold red]Error:[/] Missing dependencies for the run command.\n"
@@ -36,11 +49,9 @@ class RunFunctionAppCommand(ToolkitCommand):
             raise SystemExit(1)
 
         handler_path = path.resolve()
-        self._validate_handler_directory(handler_path)
-        self._validate_function_app_handler(handler_path)
-        self._warn_if_not_loopback(host)
+        self._validate_handler(handler_path)
 
-        self._run_with_reload(uvicorn, handler_path, host, port, log_level)
+        self._run_with_reload(uvicorn, handler_path, port, log_level)
 
     @staticmethod
     def _load_handler(handler_path: Path) -> Any:
@@ -71,27 +82,20 @@ class RunFunctionAppCommand(ToolkitCommand):
         return create_asgi_app(handle, client_factory=RunFunctionAppCommand._create_cognite_client)
 
     @staticmethod
-    def _run_with_reload(uvicorn: Any, handler_path: Path, host: str, port: int, log_level: str) -> None:
-        previous_handler_path = os.environ.get(RunFunctionAppCommand._HANDLER_PATH_ENV_VAR)
-        os.environ[RunFunctionAppCommand._HANDLER_PATH_ENV_VAR] = str(handler_path)
-        try:
+    def _run_with_reload(uvicorn: Any, handler_path: Path, port: int, log_level: str) -> None:
+        with _temporary_environment(RunFunctionAppCommand._HANDLER_PATH_ENV_VAR, str(handler_path)):
             uvicorn.run(
                 "cognite_toolkit._cdf_tk.commands.run_function_app:RunFunctionAppCommand._create_reloading_asgi_app",
-                host=host,
+                host=_LOOPBACK_HOST,
                 port=port,
                 reload=True,
                 reload_dirs=[str(handler_path)],
                 log_level=log_level,
                 factory=True,
             )
-        finally:
-            if previous_handler_path is None:
-                del os.environ[RunFunctionAppCommand._HANDLER_PATH_ENV_VAR]
-            else:
-                os.environ[RunFunctionAppCommand._HANDLER_PATH_ENV_VAR] = previous_handler_path
 
     @staticmethod
-    def _validate_handler_directory(handler_path: Path) -> None:
+    def _validate_handler(handler_path: Path) -> None:
         if not handler_path.is_dir():
             print(f"[bold red]Error:[/] Path is not a directory: {handler_path}")
             raise SystemExit(1)
@@ -99,8 +103,6 @@ class RunFunctionAppCommand(ToolkitCommand):
             print(f"[bold red]Error:[/] Directory name '{handler_path.name}' shadows a standard library module.")
             raise SystemExit(1)
 
-    @staticmethod
-    def _validate_function_app_handler(handler_path: Path) -> None:
         handler_file = handler_path / "handler.py"
         if not handler_file.is_file():
             print(f"[bold red]Error:[/] handler.py not found in {handler_path}")
@@ -116,15 +118,6 @@ class RunFunctionAppCommand(ToolkitCommand):
                 "Classical functions with [bold]def handle(client, data)[/] are not supported."
             )
             raise SystemExit(1)
-
-    @staticmethod
-    def _warn_if_not_loopback(host: str) -> None:
-        if host not in RunFunctionAppCommand._LOOPBACK_HOSTS:
-            print(
-                f"[bold yellow]Warning:[/] Binding to {host} exposes this server to your local network.\n"
-                "It runs your handler code using your authenticated CDF credentials and has no "
-                "authentication of its own."
-            )
 
     @staticmethod
     def _create_cognite_client() -> CogniteClient:
