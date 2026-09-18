@@ -21,12 +21,7 @@ class ToolkitResource(BaseModelResource):
         raise NotImplementedError()
 
     def syntax_warnings(self, source_file: Path) -> "list[ModelSyntaxWarning]":
-        """Return build-time syntax warnings for this resource (empty list if none).
-
-        Called by the build system after a successful ``model_validate``.
-        Override in subclasses that can accept YAML with soft issues (e.g. unknown
-        capability names in ``GroupYAML``) while still producing useful warnings.
-        """
+        """Return build-time syntax warnings after a successful ``model_validate``."""
         return []
 
 

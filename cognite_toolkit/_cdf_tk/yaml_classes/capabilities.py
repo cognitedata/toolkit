@@ -172,17 +172,9 @@ class Capability(BaseModelResource):
             raise ValueError(f"Invalid capability data '{type(data)}' expected dict")
         name, content = next(iter(data.items()))
         if name not in _CAPABILITY_CLASS_BY_NAME:
-            # Unknown capability — wrap it so GroupYAML validation still succeeds.
-            # Eagerly parse the scope with known Scope types so that scope-based
-            # dependencies (spaces, datasets, tables, …) can still be extracted by
-            # get_dependencies.  Fall back to AllScope for unrecognised scope names.
             content = next(iter(data.values()), {})
             scope_raw = content.get("scope") if isinstance(content, dict) else None
-            # Scope.model_validate now returns UnknownScope for unrecognised scope names,
-            # so no fallback is needed — any dict-shaped scope parses without raising.
             parsed_scope: Scope = Scope.model_validate(scope_raw) if isinstance(scope_raw, dict) else AllScope()
-            # model_construct is safe here: UnknownCapability is a simple, bounded class
-            # with no validators that need to run — the scope is already validated above.
             cap = UnknownCapability.model_construct(scope=parsed_scope, actions=[])
             cap._unknown_name = name
             cap._raw_data = data
@@ -609,17 +601,11 @@ class StreamRecordsAcl(Capability):
 
 
 class UnknownCapability(Capability):
-    """Wraps an unrecognised capability name so GroupYAML validation always succeeds.
+    """Wraps an unrecognised capability name so ``GroupYAML`` validation succeeds.
 
-    The original name and raw dict are preserved via private attributes so the YAML
-    round-trips correctly through the build pipeline.
-
-    The scope is parsed eagerly with the known ``Scope`` types.  If the scope name is also
-    unrecognised, ``AllScope`` is used as a placeholder.  This means that scope-based
-    dependencies (spaces, datasets, tables, …) are still extracted correctly by
-    ``get_dependencies`` even when the wrapping capability name is unknown.  The only case
-    that cannot be resolved is ``IDScope`` / ``IDScopeLowerCase``, where the resource type is
-    implied by the capability name — those are intentionally skipped.
+    Scope-based dependencies (spaces, datasets, …) are still extracted normally.
+    ``IDScope`` / ``IDScopeLowerCase`` are skipped — the resource type is implied
+    by the capability name and cannot be inferred here.
     """
 
     _capability_name: ClassVar[str] = "__unknown__"
@@ -630,12 +616,10 @@ class UnknownCapability(Capability):
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def serialize_raw(self, handler: SerializerFunctionWrapHandler) -> dict:
-        """Return the original raw dict, preserving the unknown capability structure."""
         return self._raw_data
 
     @property
     def original_name(self) -> str:
-        """The capability name as it appeared in the YAML."""
         return self._unknown_name
 
 
@@ -646,12 +630,7 @@ ALL_CAPABILITIES = sorted(_CAPABILITY_CLASS_BY_NAME)
 
 
 class UnknownScope(Scope):
-    """Wraps an unrecognised scope name so capability validation can still succeed.
-
-    The original name and raw dict are preserved via private attributes for
-    correct round-trip serialization. ``get_dependencies`` yields no dependencies
-    for unknown scopes — they cannot be interpreted by this toolkit version.
-    """
+    """Wraps an unrecognised scope name; preserved for round-trip serialization."""
 
     _scope_name: ClassVar[str] = "__unknown__"
     _unknown_name: str = PrivateAttr(default="")

@@ -156,10 +156,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             if isinstance(capability, UnknownCapability) and isinstance(
                 capability.scope, yaml_cap.IDScope | yaml_cap.IDScopeLowerCase
             ):
-                # IDScope resource type is implied by the ACL name (e.g. datasetsAcl →
-                # DataSetsIO).  Without a known capability name we cannot resolve it, so
-                # skip rather than guess.  All other scope types are resolved by scope
-                # alone and fall through to the normal dispatch below.
+                # Resource type is implied by the ACL name — skip rather than guess.
                 continue
             scope = capability.scope
             if isinstance(scope, yaml_cap.SpaceIDScope):
