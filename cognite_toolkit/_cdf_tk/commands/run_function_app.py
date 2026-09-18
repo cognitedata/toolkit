@@ -3,8 +3,6 @@
 import importlib.util
 import os
 import sys
-from collections.abc import Iterator
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -12,21 +10,6 @@ from cognite.client import CogniteClient
 from rich import print
 
 from ._base import ToolkitCommand
-
-_LOOPBACK_HOST = "127.0.0.1"
-
-
-@contextmanager
-def _temporary_environment(name: str, value: str) -> Iterator[None]:
-    previous_value = os.environ.get(name)
-    os.environ[name] = value
-    try:
-        yield
-    finally:
-        if previous_value is None:
-            del os.environ[name]
-        else:
-            os.environ[name] = previous_value
 
 
 class RunFunctionAppCommand(ToolkitCommand):
@@ -83,16 +66,23 @@ class RunFunctionAppCommand(ToolkitCommand):
 
     @staticmethod
     def _run_with_reload(uvicorn: Any, handler_path: Path, port: int, log_level: str) -> None:
-        with _temporary_environment(RunFunctionAppCommand._HANDLER_PATH_ENV_VAR, str(handler_path)):
+        previous_handler_path = os.environ.get(RunFunctionAppCommand._HANDLER_PATH_ENV_VAR)
+        os.environ[RunFunctionAppCommand._HANDLER_PATH_ENV_VAR] = str(handler_path)
+        try:
             uvicorn.run(
                 "cognite_toolkit._cdf_tk.commands.run_function_app:RunFunctionAppCommand._create_reloading_asgi_app",
-                host=_LOOPBACK_HOST,
+                host="127.0.0.1",
                 port=port,
                 reload=True,
                 reload_dirs=[str(handler_path)],
                 log_level=log_level,
                 factory=True,
             )
+        finally:
+            if previous_handler_path is None:
+                del os.environ[RunFunctionAppCommand._HANDLER_PATH_ENV_VAR]
+            else:
+                os.environ[RunFunctionAppCommand._HANDLER_PATH_ENV_VAR] = previous_handler_path
 
     @staticmethod
     def _validate_handler(handler_path: Path) -> None:
