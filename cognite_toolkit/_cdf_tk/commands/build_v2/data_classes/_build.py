@@ -135,7 +135,7 @@ class BuiltModule(BaseModel):
     resources: list[BuiltResource] = Field(default_factory=list)
     insights: list[Insight] = Field(default_factory=list)
     syntax_errors_by_source: dict[Path, ModelSyntaxError] = Field(default_factory=dict)
-    syntax_warnings_by_source: dict[Path, ModelSyntaxWarning] = Field(default_factory=dict)
+    syntax_warnings_by_source: dict[Path, list[ModelSyntaxWarning]] = Field(default_factory=dict)
     unresolved_variables_by_source: dict[Path, list[str]] = Field(default_factory=dict)
     failed_files: list[FailedReadYAMLFile] = Field(default_factory=list)
     ignored_files: list[IgnoredFile] = Field(default_factory=list)
@@ -194,8 +194,8 @@ class BuiltModule(BaseModel):
                 )
         for path, error in self.syntax_errors_by_source.items():
             insights.append(error)
-        for path, warning in self.syntax_warnings_by_source.items():
-            insights.append(warning)
+        for path, warnings in self.syntax_warnings_by_source.items():
+            insights.extend(warnings)
         for path, variables in self.unresolved_variables_by_source.items():
             quoted_variables = humanize_collection([f"{variable!r}" for variable in variables])
             insights.append(

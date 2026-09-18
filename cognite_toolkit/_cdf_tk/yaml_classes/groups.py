@@ -29,23 +29,22 @@ class GroupYAML(ToolkitResource):
     def as_id(self) -> NameId:
         return NameId(name=self.name)
 
-    def syntax_warning(self, source_file: Path) -> "ModelSyntaxWarning | None":
+    def syntax_warnings(self, source_file: Path) -> "list[ModelSyntaxWarning]":
         # Lazy import to avoid a circular dependency at module load time:
         # yaml_classes → commands.build_v2 → resource_ios → yaml_classes
         from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ModelSyntaxWarning
 
-        unknown = [cap.original_name for cap in (self.capabilities or []) if isinstance(cap, UnknownCapability)]
-        if not unknown:
-            return None
-        return ModelSyntaxWarning(
-            code="MODEL-SYNTAX-WARNING",
-            message="\n".join(
-                f"Unknown capability name '{n}'. It will be deployed as-is, but may be rejected by CDF."
-                for n in unknown
-            ),
-            source_files=[source_file],
-            fix="Compare the YAML with reference documentation. The resource will still be deployed.",
-        )
+        return [
+            ModelSyntaxWarning(
+                code="MODEL-SYNTAX-WARNING",
+                message=f"Unknown capability name '{cap.original_name}'. "
+                "It will be deployed as-is, but may be rejected by CDF.",
+                source_files=[source_file],
+                fix="Compare the YAML with reference documentation. The resource will still be deployed.",
+            )
+            for cap in (self.capabilities or [])
+            if isinstance(cap, UnknownCapability)
+        ]
 
     @model_validator(mode="wrap")
     @classmethod
