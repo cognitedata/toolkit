@@ -6,10 +6,10 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
+    RunFunctionAppCommand,
     RunFunctionCommand,
     RunTransformationCommand,
     RunWorkflowCommand,
-    RunFunctionAppCommand,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
