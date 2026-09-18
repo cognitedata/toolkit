@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.client.api.signal_sinks import SignalSinksAPI
 from cognite_toolkit._cdf_tk.client.api.signal_subscriptions import SignalSubscriptionsAPI
 from cognite_toolkit._cdf_tk.client.api.spaces import SpacesAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_externaldata import TransformationExternalDataSourcesAPI
+from cognite_toolkit._cdf_tk.client.api.transformation_jobs import TransformationJobsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
@@ -110,6 +111,7 @@ from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
 from .api.user_profiles import UserProfilesAPI
 from .api.verify import VerifyAPI
+from .api.workflow_executions import WorkflowExecutionsAPI
 from .api.workflow_triggers import WorkflowTriggersAPI
 from .api.workflow_versions import WorkflowVersionsAPI
 from .api.workflows import WorkflowsAPI
@@ -246,10 +248,12 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.token = MagicMock(spec=ToolkitTokenAPI)
         self.tool.transformations.schedules = MagicMock(spec=TransformationSchedulesAPI)
         self.tool.transformations.notifications = MagicMock(spec=TransformationNotificationsAPI)
+        self.tool.transformations.jobs = MagicMock(spec=TransformationJobsAPI)
         self.tool.transformations.external_data_sources = MagicMock(spec=TransformationExternalDataSourcesAPI)
         self.tool.workflows = MagicMock(spec=WorkflowsAPI)
         self.tool.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)
         self.tool.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)
+        self.tool.workflows.executions = MagicMock(spec_set=WorkflowExecutionsAPI)
         self.tool.data_products = MagicMock(spec=DataProductsAPI)
         self.tool.data_products.versions = MagicMock(spec_set=DataProductVersionsAPI)
         self.tool.rulesets = MagicMock(spec=RuleSetsAPI)

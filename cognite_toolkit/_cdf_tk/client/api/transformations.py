@@ -2,6 +2,7 @@ from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.api.transformation_externaldata import TransformationExternalDataSourcesAPI
+from cognite_toolkit._cdf_tk.client.api.transformation_jobs import TransformationJobsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
@@ -10,10 +11,12 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessR
 from cognite_toolkit._cdf_tk.client.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import TransformationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    NonceCredentials,
     SQLQueryResponse,
     TransformationRequest,
     TransformationResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_job import TransformationJobResponse
 
 
 class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
@@ -32,6 +35,7 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         )
         self.schedules = TransformationSchedulesAPI(http_client)
         self.notifications = TransformationNotificationsAPI(http_client)
+        self.jobs = TransformationJobsAPI(http_client)
         self.external_data_sources = TransformationExternalDataSourcesAPI(http_client)
 
     def _validate_page_response(
@@ -93,24 +97,49 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         """
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
-    def preview(
+    def run(
         self,
-        query: str | None = None,
-        convert_to_string: bool = False,
+        item: InternalOrExternalId,
+        nonce: NonceCredentials | None = None,
+    ) -> TransformationJobResponse:
+        """`Run a transformation. <https://api-docs.cognite.com/20230101/tag/Transformations/operation/runTransformation>`_
+
+        Args:
+            item: Internal or external ID of the transformation to run.
+            nonce: Optional credentials for a CDF session (session ID, nonce, and project name).
+
+        Returns:
+            The created transformation job.
+        """
+        body: dict[str, Any] = item.dump()
+        if nonce is not None:
+            body["nonce"] = nonce.dump()
+        request = RequestMessage(
+            endpoint_url=self._make_url("/transformations/run"),
+            method="POST",
+            body_content=body,
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        return TransformationJobResponse.model_validate_json(response.body)
+
+    def run_query(
+        self,
+        query: str,
+        convert_to_string: bool,
         limit: int | None = 100,
         source_limit: int | None = 100,
         infer_schema_limit: int | None = 10_000,
         timeout: float | None = DEFAULT_TIMEOUT_RUN_QUERY,
     ) -> SQLQueryResponse:
-        """`Preview the result of a query. <https://developer.cognite.com/api#tag/Query/operation/runPreview>`_
+        """`Run a SQL query. <https://api-docs.cognite.com/20230101/tag/Query/operation/runPreview>`_
 
-        Toolkit runs long-running queries that takes longer than the typical default of 30 seconds. In addition,
-        we do not want to retry, which typically up to 10 times, as the user will have to wait for a long time. Instead,
-        we want to fail provide the user with the error and then let the user decide whether to retry or not by
+        Toolkit runs long-running queries that take longer than the typical default of 30 seconds. In addition,
+        we do not want to retry, which typically is up to 10 times, as the user will have to wait for a long time. Instead,
+        we want to fail, provide the user with the error, and then let the user decide whether to retry or not by
         running the CLI command again.
 
         Args:
-            query (str | None): SQL query to run for preview.
+            query (str): SQL query to run.
             convert_to_string (bool): Stringify values in the query results, default is False.
             limit (int | None): Maximum number of rows to return in the final result, default is 100.
             source_limit (int | None): Maximum number of items to read from the data source or None to run without limit, default is 100.
@@ -134,7 +163,7 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
             # This is the server-side timeout for how long the query is allowed to run before it is cancelled.
             body["timeout"] = timeout
         request = RequestMessage(
-            endpoint_url=self._http_client.config.create_api_url("/transformations/query/run"),
+            endpoint_url=self._make_url("/transformations/query/run"),
             method="POST",
             body_content=body,
             client_timeout=timeout
