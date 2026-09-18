@@ -148,13 +148,12 @@ class RunApp(typer.Typer):
             Path,
             typer.Argument(help="Path to the directory containing handler.py."),
         ],
-        host: Annotated[str, typer.Option("--host", help="Host to bind to")] = "127.0.0.1",
         port: Annotated[int, typer.Option("--port", help="Port to bind to")] = 8000,
         log_level: Annotated[str, typer.Option("--log-level", help="Log level for the server")] = "info",
     ) -> None:
         """Start a local development server for a Function App handler."""
         command = RunFunctionAppCommand(client=None, skip_tracking=True)
-        command.run(lambda: command.run_function_app(path, host, port, log_level))
+        command.run(lambda: command.run_function_app(path, port, log_level))
 
 
 class RunFunctionApp(typer.Typer):

@@ -43,9 +43,9 @@ __all__ = [
     "RepoCommand",
     "ResourcesCommand",
     "RespaceCommand",
+    "RunFunctionAppCommand",
     "RunFunctionCommand",
     "RunTransformationCommand",
     "RunWorkflowCommand",
-    "RunFunctionAppCommand",
     "UploadCommand",
 ]
