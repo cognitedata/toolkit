@@ -81,5 +81,4 @@ def test_rejects_invalid_handlers(tmp_path: Path, path_name: str, source: str, m
 
     with pytest.raises(SystemExit), patch("cognite_toolkit._cdf_tk.commands.run_function_app.print") as output:
         RunFunctionAppCommand(client=None, skip_tracking=True).run_function_app(path)
-
-    assert message in str(output.call_args)
+        assert message in str(output.call_args)

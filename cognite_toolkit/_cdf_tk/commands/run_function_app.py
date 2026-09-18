@@ -82,7 +82,6 @@ class RunFunctionAppCommand(ToolkitCommand):
         temp_dir = Path(tempfile.mkdtemp(prefix="cdf_run_function_app_"))
         module_path = temp_dir / "_cdf_run_function_app_asgi.py"
         temp_dir_str = str(temp_dir)
-        inserted_path = False
         try:
             module_path.write_text(
                 "import importlib\n"
@@ -95,7 +94,6 @@ class RunFunctionAppCommand(ToolkitCommand):
                 "app = create_asgi_app(handle, client_factory=RunFunctionAppCommand._create_cognite_client)\n"
             )
             sys.path.insert(0, temp_dir_str)
-            inserted_path = True
             uvicorn.run(
                 "_cdf_run_function_app_asgi:app",
                 host=host,
@@ -105,7 +103,7 @@ class RunFunctionAppCommand(ToolkitCommand):
                 log_level=log_level,
             )
         finally:
-            if inserted_path:
+            if temp_dir_str in sys.path:
                 sys.path.remove(temp_dir_str)
             shutil.rmtree(temp_dir)
 
