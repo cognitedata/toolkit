@@ -815,10 +815,10 @@ class BuildV2Command(ToolkitCommand):
                             and not file.unresolved_variables
                         },
                         syntax_warnings_by_source={
-                            file.source_path: file.syntax_warning
+                            file.source_path: file.syntax_warnings
                             for file in module.files
                             if isinstance(file, SuccessfulReadYAMLFile)
-                            and file.syntax_warning is not None
+                            and file.syntax_warnings
                             and not file.unresolved_variables
                         },
                         failed_files=[file for file in module.files if isinstance(file, FailedReadYAMLFile)],
@@ -943,18 +943,21 @@ class BuildV2Command(ToolkitCommand):
         if isinstance(parsed_yaml, dict):
             toolkit_resource: ToolkitResource | None = None
             syntax_error: ModelSyntaxError | None = None
-            syntax_warning: ModelSyntaxWarning | None = None
+            syntax_warnings: list[ModelSyntaxWarning] = []
             try:
                 toolkit_resource = crud_class.yaml_cls.model_validate(parsed_yaml, extra="forbid")
                 identifier = toolkit_resource.as_id()
+                syntax_warnings = toolkit_resource.syntax_warnings(resource_file)
             except ValidationError as errors:
                 syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file)
+                if syntax_warning is not None:
+                    syntax_warnings = [syntax_warning]
                 try:
                     identifier = crud_class.get_id(parsed_yaml)
                 except KeyError:
                     return SuccessfulReadYAMLFile(
                         syntax_error=syntax_error,
-                        syntax_warning=syntax_warning,
+                        syntax_warnings=syntax_warnings,
                         resources=[],
                         **args,
                     )
@@ -965,7 +968,7 @@ class BuildV2Command(ToolkitCommand):
 
             return SuccessfulReadYAMLFile(
                 syntax_error=syntax_error,
-                syntax_warning=syntax_warning,
+                syntax_warnings=syntax_warnings,
                 resources=[
                     ReadResource(
                         raw=parsed_yaml, identifier=identifier, validated=toolkit_resource, extra_files=extra_files
@@ -979,17 +982,20 @@ class BuildV2Command(ToolkitCommand):
         adapter = TypeAdapter[list[crud_class.yaml_cls]](list[crud_class.yaml_cls])  # type: ignore[name-defined]
         toolkit_resources: list[ToolkitResource] = []
         syntax_error = None
-        syntax_warning = None
+        syntax_warnings = []
         try:
             toolkit_resources = adapter.validate_python(parsed_yaml)
         except ValidationError as errors:
             syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file)
+            if syntax_warning is not None:
+                syntax_warnings = [syntax_warning]
         read_resources: list[ReadResource[ToolkitResource]] = []
         for tk_resource, raw in zip_longest(toolkit_resources, parsed_yaml, fillvalue=None):
             if tk_resource is None:
                 identifier = crud_class.get_id(raw)
             else:
                 identifier = tk_resource.as_id()
+                syntax_warnings.extend(tk_resource.syntax_warnings(resource_file))
             # We know that the parse_yaml list will always be longer than tk_resource
             # thus raw will never be None.
             raw_dict = cast(dict[str, Any], raw)
@@ -1006,7 +1012,7 @@ class BuildV2Command(ToolkitCommand):
             )
         return SuccessfulReadYAMLFile(
             syntax_error=syntax_error,
-            syntax_warning=syntax_warning,
+            syntax_warnings=syntax_warnings,
             resources=read_resources,
             **args,
         )

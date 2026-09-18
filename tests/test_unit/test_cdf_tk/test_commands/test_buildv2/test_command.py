@@ -615,7 +615,7 @@ def _read_resource_outcome(result: FailedReadYAMLFile | SuccessfulReadYAMLFile) 
         "outcome": "success",
         "code": None,
         "resource_count": len(result.resources),
-        "has_syntax_warning": result.syntax_warning is not None,
+        "has_syntax_warning": bool(result.syntax_warnings),
     }
 
 
@@ -716,7 +716,7 @@ class TestReadResourceFile:
         assert isinstance(result, SuccessfulReadYAMLFile)
         assert len(result.resources) == expected_resource_count
         assert has_syntax_error == (result.syntax_error is not None)
-        assert has_syntax_warning == (result.syntax_warning is not None)
+        assert has_syntax_warning == bool(result.syntax_warnings)
 
 
 class TestFindUnresolvedVariables:

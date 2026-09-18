@@ -61,6 +61,7 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_lis
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import GroupYAML, SecurityCategoriesYAML
 from cognite_toolkit._cdf_tk.yaml_classes import capabilities as yaml_cap
+from cognite_toolkit._cdf_tk.yaml_classes.capabilities import UnknownCapability
 
 
 @dataclass
@@ -152,6 +153,11 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         from ._timeseries import TimeSeriesCRUD
 
         for capability in resource.capabilities or []:
+            if isinstance(capability, UnknownCapability) and isinstance(
+                capability.scope, yaml_cap.IDScope | yaml_cap.IDScopeLowerCase
+            ):
+                # Resource type is implied by the ACL name — skip rather than guess.
+                continue
             scope = capability.scope
             if isinstance(scope, yaml_cap.SpaceIDScope):
                 for space_id in scope.space_ids:
