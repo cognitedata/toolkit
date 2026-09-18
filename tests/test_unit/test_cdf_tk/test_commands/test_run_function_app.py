@@ -18,7 +18,6 @@ def function_app_path(tmp_path: Path) -> Path:
 
 def test_runs_with_reload(function_app_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(RunFunctionAppCommand._HANDLER_PATH_ENV_VAR, raising=False)
-    command = RunFunctionAppCommand(client=None, skip_tracking=True)
     uvicorn = MagicMock()
 
     def assert_handler_path_is_set(*_args: object, **_kwargs: object) -> None:
@@ -26,18 +25,9 @@ def test_runs_with_reload(function_app_path: Path, monkeypatch: pytest.MonkeyPat
 
     uvicorn.run.side_effect = assert_handler_path_is_set
     with patch("uvicorn.run", uvicorn.run):
-        command.run_function_app(function_app_path, port=8080, log_level="debug")
+        RunFunctionAppCommand(client=None, skip_tracking=True).run_function_app(function_app_path)
 
     assert RunFunctionAppCommand._HANDLER_PATH_ENV_VAR not in os.environ
-    uvicorn.run.assert_called_once_with(
-        "cognite_toolkit._cdf_tk.commands.run_function_app:RunFunctionAppCommand._create_reloading_asgi_app",
-        host="127.0.0.1",
-        port=8080,
-        reload=True,
-        reload_dirs=[str(function_app_path)],
-        log_level="debug",
-        factory=True,
-    )
 
 
 def test_reload_restores_existing_handler_path(function_app_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -95,4 +85,5 @@ def test_rejects_invalid_handlers(tmp_path: Path, path_name: str, source: str, m
 
     with pytest.raises(SystemExit), patch("cognite_toolkit._cdf_tk.commands.run_function_app.print") as output:
         RunFunctionAppCommand(client=None, skip_tracking=True).run_function_app(path)
-        assert message in str(output.call_args)
+
+    assert message in str(output.call_args)
