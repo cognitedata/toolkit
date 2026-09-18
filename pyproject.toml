@@ -85,7 +85,7 @@ v08 = [
     "cognite-neat >=1.0.43"
 ]
 run-function-app = [
-    "cognite-function-apps[cli]>=0.14.0",
+    "cognite-function-apps[cli]>=0.15.0",
 ]
 
 [project.scripts]
