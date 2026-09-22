@@ -29,9 +29,13 @@ from rich.progress import Progress
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleId
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    NonceCredentials as TransformationNonceCredentials,
+)
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.auth import CLIENT_NAME, EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ResourceLineageItem
@@ -680,6 +684,66 @@ if __name__ == "__main__":
     @staticmethod
     def _create_handler_import(handler_file: str) -> str:
         return re.sub(r"\.+", ".", handler_file.replace(".py", "").replace("/", ".")).removeprefix(".")
+
+
+class RunTransformationV2Command(ToolkitCommand):
+    def run_transformation(
+        self, client: ToolkitClient, external_ids: str | list[str] | None, is_dry_run: bool, wait: bool
+    ) -> bool:
+        """Run a transformation in CDF"""
+        if isinstance(external_ids, str):
+            external_ids = [external_ids]
+        elif external_ids is None:
+            # Interactive mode
+            external_ids = [self._select_transformation_interactive(client)]
+            is_dry_run = questionary.confirm("Do you want to run the transformation in dry-run mode?").unsafe_ask()
+            if not is_dry_run:
+                wait = questionary.confirm("Do you want to wait for the transformation to complete?").unsafe_ask()
+
+        for external_id in external_ids:
+            try:
+                session = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
+            except CogniteAPIError as e:
+                print("[bold red]ERROR:[/] Could not get a oneshot session.")
+                print(e)
+                return False
+            if session is None:
+                print("[bold red]ERROR:[/] Could not get a oneshot session.")
+                return False
+            nonce = TransformationNonceCredentials(
+                session_id=session.id, nonce=session.nonce, cdf_project_name=client.config.project
+            )
+            try:
+                job = client.tool.transformations.run(ExternalId(external_id=external_id), nonce=nonce)
+                print(f"Running transformation {external_id}, status {job.status}...")
+            except ToolkitAPIError as e:
+                print(f"[bold red]ERROR:[/] Could not run transformation {external_id}.")
+                print(e)
+        return True
+
+    @staticmethod
+    def _select_transformation_interactive(client: ToolkitClient) -> str:
+        transformations = client.tool.transformations.list(limit=None)
+        if not transformations:
+            raise ToolkitMissingResourceError("No transformations found.")
+
+        choices = [
+            questionary.Choice(
+                title=f"{transformation.name} ({transformation.external_id})",
+                value=transformation.external_id,
+            )
+            for transformation in sorted(transformations, key=lambda t: (t.name or t.external_id).casefold())
+        ]
+        selected: str | None = questionary.select(
+            "Select a transformation to run",
+            choices=choices,
+            instruction="Type to filter",
+            use_search_filter=True,
+            use_jk_keys=False,
+        ).unsafe_ask()
+        if not selected:
+            raise ToolkitValueError("No transformation selected.")
+        return selected
 
 
 class RunTransformationCommand(ToolkitCommand):

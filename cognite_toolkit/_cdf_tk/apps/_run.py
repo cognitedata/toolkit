@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.commands import (
     RunFunctionAppCommand,
     RunFunctionCommand,
     RunTransformationCommand,
+    RunTransformationV2Command,
     RunWorkflowCommand,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
@@ -53,6 +54,24 @@ class RunApp(typer.Typer):
                 help="External id of the transformation to run.",
             ),
         ],
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                hidden=not Flags.V09.is_enabled(),
+                help="Whether to run the transformation in dry-run mode.",
+            ),
+        ] = False,
+        wait: Annotated[
+            bool,
+            typer.Option(
+                "--wait",
+                "-w",
+                hidden=not Flags.V09.is_enabled(),
+                help="Whether to wait for the transformation to complete.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -64,9 +83,12 @@ class RunApp(typer.Typer):
     ) -> None:
         """This command will run the specified transformation using a one-time session."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = RunTransformationCommand(client=client)
-
-        cmd.run(lambda: cmd.run_transformation(client, external_id))
+        if Flags.V09.is_enabled():
+            cmd2 = RunTransformationV2Command(client=client)
+            cmd2.run(lambda: cmd2.run_transformation(client, external_id, dry_run, wait))
+        else:
+            cmd = RunTransformationCommand(client=client)
+            cmd.run(lambda: cmd.run_transformation(client, external_id))
 
     @staticmethod
     def run_workflow(
