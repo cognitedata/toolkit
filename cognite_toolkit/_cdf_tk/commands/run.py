@@ -9,7 +9,7 @@ import textwrap
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import questionary
 from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive, Token
@@ -691,7 +691,7 @@ if __name__ == "__main__":
 
 
 class RunTransformationV2Command(ToolkitCommand):
-    _IN_PROGRESS_STATUSES = frozenset({"created", "running"})
+    _IN_PROGRESS_STATUSES: ClassVar[frozenset[str]] = frozenset({"created", "running"})
 
     def run_transformation(
         self, client: ToolkitClient, external_ids: str | list[str] | None, is_dry_run: bool, wait: bool
