@@ -46,14 +46,14 @@ class RunApp(typer.Typer):
     def run_transformation(
         ctx: typer.Context,
         external_id: Annotated[
-            str,
+            str | None,
             typer.Option(
                 "--external-id",
                 "-e",
-                prompt=True,
+                prompt=not Flags.V09.is_enabled(),
                 help="External id of the transformation to run.",
             ),
-        ],
+        ] = None,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -86,6 +86,9 @@ class RunApp(typer.Typer):
         if Flags.V09.is_enabled():
             cmd2 = RunTransformationV2Command(client=client)
             cmd2.run(lambda: cmd2.run_transformation(client, external_id, dry_run, wait))
+        elif external_id is None:
+            print("The --external-id option is required to run a transformation.")
+            raise typer.Exit(code=1)
         else:
             cmd = RunTransformationCommand(client=client)
             cmd.run(lambda: cmd.run_transformation(client, external_id))

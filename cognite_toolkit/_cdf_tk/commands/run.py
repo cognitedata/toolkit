@@ -734,8 +734,8 @@ class RunTransformationV2Command(ToolkitCommand):
                     print(f"[bold red]ERROR:[/] {job.error}")
         return True
 
-    @staticmethod
-    def _dry_run_transformations(client: ToolkitClient, external_ids: list[str]) -> bool:
+    @classmethod
+    def _dry_run_transformations(cls, client: ToolkitClient, external_ids: list[str]) -> bool:
         try:
             transformations = client.tool.transformations.retrieve(ExternalId.from_external_ids(external_ids))
         except ToolkitAPIError as e:
@@ -753,11 +753,11 @@ class RunTransformationV2Command(ToolkitCommand):
                 print(f"[bold red]ERROR:[/] Could not dry-run transformation {transformation.external_id}.")
                 print(e)
                 continue
-            RunTransformationV2Command._print_query_result(transformation.external_id, result)
+            cls._print_query_result(transformation.external_id, result)
         return True
 
-    @staticmethod
-    def _print_query_result(external_id: str, result: SQLQueryResponse) -> None:
+    @classmethod
+    def _print_query_result(cls, external_id: str, result: SQLQueryResponse) -> None:
         columns = [column.name for column in result.schema_]
         if not columns:
             print(f"Dry-run of {external_id} returned {len(result.results)} row(s).")
