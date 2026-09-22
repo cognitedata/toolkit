@@ -10,7 +10,8 @@ from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 
 def find_dotenv_path(cwd: Path | None = None) -> Path | None:
     """Return the .env file the CLI would load (cwd first, then parent)."""
-    base = cwd or Path.cwd()
+    # Resolve so a relative cwd such as Path(".") still has a real parent.
+    base = (cwd or Path.cwd()).resolve()
     for candidate in (base / ".env", base.parent / ".env"):
         if candidate.is_file():
             return candidate
@@ -25,7 +26,11 @@ def describe_configured_login_flow() -> tuple[LoginFlow | None, str | None]:
 
     dotenv_path = find_dotenv_path()
     if dotenv_path is not None:
-        file_raw = (dotenv_values(dotenv_path).get("LOGIN_FLOW") or "").strip()
+        try:
+            dotenv_vars = dotenv_values(dotenv_path)
+        except OSError:
+            dotenv_vars = {}
+        file_raw = (dotenv_vars.get("LOGIN_FLOW") or "").strip()
         if file_raw:
             try:
                 file_flow = parse_login_flow(file_raw)
