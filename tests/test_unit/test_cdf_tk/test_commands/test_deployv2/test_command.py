@@ -1,3 +1,4 @@
+import io
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -7,6 +8,7 @@ from unittest.mock import MagicMock
 import httpx2
 import pytest
 import respx
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -764,18 +766,27 @@ class TestDeployResourcesRelatedInsights:
                 ConsistencyError(
                     message="Space is missing a required view",
                     code="MISSING-VIEW",
+                    fix="Add the missing view to the space",
                     source_files=[valid_yaml_absolute_path],
                 )
             ]
         }
 
+        console_output = io.StringIO()
         with monkeypatch_toolkit_client() as client:
+            client.console = Console(file=console_output, width=200)
             client.tool.spaces.create.side_effect = ToolkitAPIError("API failed")
             crud = SpaceCRUD.create_loader(client)
-            with pytest.raises(ResourceCreationError, match="likely due to the following insights") as exc_info:
+            with pytest.raises(ResourceCreationError, match="likely due to the insights") as exc_info:
                 DeployV2Command.deploy_resources(
                     crud, resources, skipped_cruds=set(), insights_by_resource=insights_by_resource
                 )
 
-        assert "MISSING-VIEW" in str(exc_info.value)
-        assert "Space is missing a required view" in str(exc_info.value)
+        # The insight details are rendered in a prominent panel rather than the exception message.
+        output = console_output.getvalue()
+        assert "MISSING-VIEW" in output
+        assert "Space is missing a required view" in output
+        assert "Suggested fix:" in output
+        assert "Add the missing view to the space" in output
+        # Severity is internal and must not be surfaced to the user.
+        assert str(ConsistencyError.severity) not in str(exc_info.value)

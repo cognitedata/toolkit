@@ -334,7 +334,7 @@ class DeployV2Command(ToolkitCommand):
                 if source_file in resources_by_source_path:
                     for resource_type, identifier in resources_by_source_path[source_file]:
                         insights_by_resource[(resource_type, identifier)].append(insight)
-        return dict(insights_by_resource)
+        return dict(insights_by_resource) or None
 
     @classmethod
     def read_build_directory(
@@ -1147,14 +1147,60 @@ class DeployV2Command(ToolkitCommand):
                 insights_by_resource, list(resources.get_ids(crud, action)), crud.as_resource_type()
             )
         ):
-            insights_str = "\n".join(
-                f"[{insight.severity}] {insight.message} (code: {insight.code}, source: {insight.display_source_files_cwd})"
-                for insight in related_insights
+            cls._display_related_insights(crud.client.console, related_insights, action, crud.display_name)
+            error_message = (
+                f"Failed to {action} {crud.display_name}. This is likely due to the insights "
+                f"produced in `cdf build` shown in the panel above.{suffix}"
             )
-            error_message = f"Failed to {action} {crud.display_name}. This is likely due to the following insights produced in `cdf build`:\n{insights_str}\n{suffix}"
         else:
             error_message = f"Failed to {action} {crud.display_name} due to API error: {error.message}.{suffix}"
         raise cls._get_resource_exception(action)(error_message) from error
+
+    @classmethod
+    def _display_related_insights(
+        cls,
+        console: Console,
+        related_insights: list[Insight],
+        action: str,
+        display_name: str,
+    ) -> None:
+        """Render the build insights related to a failed deployment in a prominent panel.
+
+        The panel highlights each insight's message, code and source location, and - when a
+        suggested fix is available - shows it prominently so it does not get lost in the surrounding
+        output. The internal severity is intentionally omitted as it has no meaning for the user.
+        """
+        insight_count = len(related_insights)
+        plural = "s" if insight_count != 1 else ""
+        sections: list[RenderableType] = [
+            ToolkitPanelSection(
+                description=(
+                    f"The failed {action} is likely caused by the following {insight_count} "
+                    f"insight{plural} produced during [bold]cdf build[/]:"
+                )
+            )
+        ]
+        for insight in related_insights:
+            lines: list[RenderableType] = [
+                f"[bold]{escape(insight.message)}[/]",
+                f"[dim]Code:[/] {escape(insight.code)}",
+                f"[dim]Source:[/] {escape(insight.display_source_files_cwd)}",
+            ]
+            if insight.fix:
+                lines.append(
+                    f"[bold {AuraColor.GREEN.rich}]Suggested fix:[/] [{AuraColor.GREEN.rich}]{escape(insight.fix)}[/]"
+                )
+            sections.append(
+                ToolkitPanelSection(content=[hanging_indent("✗", Group(*lines), marker_style=AuraColor.RED.rich)])
+            )
+
+        console.print(
+            ToolkitPanel(
+                Group(*sections),
+                title=f"Insights related to failed {action} of {display_name}",
+                border_style=AuraColor.AMBER.rich,
+            )
+        )
 
     @classmethod
     def _get_related_insights(

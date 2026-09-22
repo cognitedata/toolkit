@@ -243,15 +243,15 @@ class InsightList(UserList[Insight]):
                 writer.writerow(insight.model_dump(context={"format": "csv"}))
             return output.getvalue()
 
-    def to_json(self) -> bytes:
+    def to_json(self) -> str:
         """Returns a JSON array of insight objects with keys insight_type, code, source_file, message, fix."""
-        return InsightListAdapter.dump_json(self.data, indent=2, ensure_ascii=False)
+        return InsightListAdapter.dump_json(self.data, indent=2, ensure_ascii=False).decode(BUILD_FOLDER_ENCODING)
 
     @classmethod
     def from_file(cls, path: Path, organization_dir: Path) -> Self:
         """Load insights from a CSV or JSON file written during build."""
         if path.suffix == ".json":
-            return cls.from_json(path.read_bytes(), organization_dir)
+            return cls.from_json(path.read_text(encoding=BUILD_FOLDER_ENCODING), organization_dir)
         elif path.suffix == ".csv":
             return cls.from_csv(path.read_text(encoding=BUILD_FOLDER_ENCODING), organization_dir)
         raise ToolkitValidationError(f"Unsupported insight file format: {path.suffix}")
@@ -267,7 +267,7 @@ class InsightList(UserList[Insight]):
         )
 
     @classmethod
-    def from_json(cls, content: bytes, organization_dir: Path) -> Self:
+    def from_json(cls, content: str, organization_dir: Path) -> Self:
         """Load insights from a JSON string produced by ``to_json``."""
         return cls(
             InsightListAdapter.validate_python(json.loads(content), context={"organization_dir": organization_dir})

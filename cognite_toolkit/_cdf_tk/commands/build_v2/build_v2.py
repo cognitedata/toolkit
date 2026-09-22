@@ -41,6 +41,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, ValidationResult
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
+    InsightDefinition,
     InternalValidatorException,
     ModelSyntaxError,
     ModelSyntaxWarning,
@@ -1251,7 +1252,7 @@ class BuildV2Command(ToolkitCommand):
                 insights: list[Insight] = []
                 errors: list[InternalValidatorException] = []
                 for result in step.rule.validate():
-                    if isinstance(result, Insight):
+                    if isinstance(result, InsightDefinition):
                         insights.append(result)
                     elif isinstance(result, InternalValidatorException):
                         errors.append(result)
