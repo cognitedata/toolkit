@@ -10,9 +10,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import
     DataProductVersionView,
 )
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.data_product import DataProductIO
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.data_product_version import DataProductVersionIO
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel import ViewIO
+from cognite_toolkit._cdf_tk.resource_ios._data_product import DataProductIO
+from cognite_toolkit._cdf_tk.resource_ios._data_product_version import DataProductVersionIO
+from cognite_toolkit._cdf_tk.resource_ios._datamodel import ViewIO
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductVersionYAML
 
 

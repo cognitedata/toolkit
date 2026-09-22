@@ -31,9 +31,10 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import FileMetadataCRUD, SearchConfigIO, SpaceCRUD
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.datamodel import DataModelIO, ViewIO
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.workflow import WorkflowIO
+from cognite_toolkit._cdf_tk.resource_ios._datamodel import DataModelIO, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios._workflow import WorkflowIO
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
+from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 from tests.test_unit.utils import MockQuestionary
 
 BASE_URL = "http://neat.cognitedata.com"
@@ -188,10 +189,10 @@ name: My Space
         }
 
         syntax_insight = next(i for i in folder.all_insights if i.code == "MODEL-SYNTAX-ERROR")
-        assert syntax_insight.source_file == "modules/my_module/data_modeling/my_space.Space.yaml"
+        assert syntax_insight.source_file == resource_file
 
         insights_csv = (build_dir / "insights.csv").read_text()
-        assert "modules/my_module/data_modeling/my_space.Space.yaml" in insights_csv
+        assert format_insight_source_file(resource_file) in insights_csv
 
     def test_build_filemetadata_with_content(self, tmp_path: Path) -> None:
         cmd = BuildV2Command()
@@ -377,6 +378,7 @@ class TestReadFileSystem:
             "validation_type": "dev",
             "cdf_project": "my-project",
             "organization_dir": tmp_path.resolve(),
+            "config_path": config_yaml.resolve(),
         }
 
     def test_invalid_config_yaml(self, tmp_path: Path) -> None:
@@ -560,13 +562,15 @@ class TestDisplayInsightsOutput:
 
     def test_displays_source_file_in_panel(self, tmp_path: Path) -> None:
         console, output = self._console()
+        source_file = tmp_path / "modules/my_module/data_modeling/my_space.Space.yaml"
+
         insights = InsightList(
             [
                 ModelSyntaxWarning(
                     code="MODEL-SYNTAX-WARNING",
                     message="Unknown field: 'Name'",
                     fix="Make sure the resource YAML content is valid and follows the expected structure.",
-                    source_file="modules/my_module/data_modeling/my_space.Space.yaml",
+                    source_files=[source_file],
                 )
             ]
         )
@@ -580,13 +584,14 @@ class TestDisplayInsightsOutput:
     def test_displays_regex_pattern_without_rich_markup_corruption(self, tmp_path: Path) -> None:
         console, output = self._console()
         pattern = "^[a-z]([a-z0-9_-]{0,98}[a-z0-9])?$"
+        yaml_file = tmp_path / "modules/quality/data_products/Quality.DataProduct.yaml"
         insights = InsightList(
             [
                 ModelSyntaxWarning(
                     code="MODEL-SYNTAX-WARNING",
                     message=f"In field externalId string should match pattern '{pattern}'",
                     fix="Make sure the resource YAML content is valid and follows the expected structure.",
-                    source_file="modules/quality/data_products/Quality.DataProduct.yaml",
+                    source_files=[yaml_file],
                 )
             ]
         )
@@ -610,7 +615,7 @@ def _read_resource_outcome(result: FailedReadYAMLFile | SuccessfulReadYAMLFile) 
         "outcome": "success",
         "code": None,
         "resource_count": len(result.resources),
-        "has_syntax_warning": result.syntax_warning is not None,
+        "has_syntax_warning": bool(result.syntax_warnings),
     }
 
 
@@ -711,7 +716,7 @@ class TestReadResourceFile:
         assert isinstance(result, SuccessfulReadYAMLFile)
         assert len(result.resources) == expected_resource_count
         assert has_syntax_error == (result.syntax_error is not None)
-        assert has_syntax_warning == (result.syntax_warning is not None)
+        assert has_syntax_warning == bool(result.syntax_warnings)
 
 
 class TestFindUnresolvedVariables:
@@ -766,6 +771,35 @@ views:
     )
     def test_find_unresolved_variables(self, content: str, expected: list[str]) -> None:
         assert BuildV2Command._find_unresolved_variables(content) == expected
+
+    @pytest.mark.parametrize(
+        "content, expected",
+        [
+            pytest.param(
+                "space: my_space\nname: My Space\n",
+                set(),
+                id="No ignore rules",
+            ),
+            pytest.param(
+                "# rules: ignore[AUTH-001, AUTH-002]\nspace: my_space\nname: My Space\n",
+                {"AUTH-001", "AUTH-002"},
+                id="Two ignores rules",
+            ),
+            pytest.param(
+                "#rules:ignore[AUTH-001,AUTH-002]\nspace: my_space\nname: My Space\n",
+                {"AUTH-001", "AUTH-002"},
+                id="Two ignores rules with no spaces",
+            ),
+            pytest.param(
+                "# rule: ignore[AUTH-001]\nspace: my_space\nname: My Space\n",
+                {"AUTH-001"},
+                id="Single ignore rule line",
+            ),
+        ],
+    )
+    def test_get_ignore_rules_codes(self, content: str, expected: set[str]) -> None:
+        actual = BuildV2Command._get_ignore_rule_codes(content)
+        assert actual == expected
 
 
 @pytest.mark.usefixtures("empty_cdf")
@@ -911,12 +945,12 @@ variables:
 
         first_lineage = cmd.tmp_build(org, config_yaml=config_yaml, client=tlk_client)
         first_spaces = first_lineage.get_resource_of_type(SpaceCRUD.as_resource_type())
-        assert first_spaces[0].load_resource_dict({}) == {"space": "substituted_space", "name": "Space"}
+        assert first_spaces[0].load_resource_dict(org, {}) == {"space": "substituted_space", "name": "Space"}
 
         second_lineage = cmd.tmp_build(org, config_yaml=config_yaml, client=tlk_client)
         second_spaces = second_lineage.get_resource_of_type(SpaceCRUD.as_resource_type())
         assert second_spaces[0].variables
-        assert second_spaces[0].load_resource_dict({}) == {"space": "substituted_space", "name": "Space"}
+        assert second_spaces[0].load_resource_dict(org, {}) == {"space": "substituted_space", "name": "Space"}
 
 
 class TestSelectModule:

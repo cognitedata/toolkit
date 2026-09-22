@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeId, SpaceId, ViewDirectId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelRequest,
@@ -26,8 +28,7 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.constants import VIEW_UPSERT_BATCH_LIMIT
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
-from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, EdgeCRUD, NodeCRUD, SpaceCRUD
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios import GraphQLCRUD, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, EdgeCRUD, GraphQLCRUD, NodeCRUD, SpaceCRUD, ViewIO
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.utils import to_deploy_status
 
@@ -238,6 +239,24 @@ version: {version}
         return yaml_file
 
 
+def get_default_view_response_values(
+    properties: dict[str, Any] | None = None, implements: list[ViewId] | None = None
+) -> dict[str, Any]:
+    return dict(
+        description=None,
+        implements=implements or [],
+        properties=properties or {},
+        last_updated_time=1,
+        created_time=1,
+        filter=None,
+        writable=True,
+        used_for="node",
+        is_global=False,
+        mapped_containers=[],
+        queryable=False,
+    )
+
+
 @pytest.fixture()
 def parent_grandparent_view() -> list[ViewResponse]:
     return [
@@ -246,34 +265,16 @@ def parent_grandparent_view() -> list[ViewResponse]:
             external_id="Parent",
             version="v1",
             name="Parent",
-            description=None,
-            implements=[ViewId(space="space", external_id="GrandParent", version="v1")],
-            properties={},
-            last_updated_time=1,
-            created_time=1,
-            filter=None,
-            writable=True,
-            used_for="node",
-            is_global=False,
-            mapped_containers=[],
-            queryable=False,
+            **get_default_view_response_values(
+                implements=[ViewId(space="space", external_id="GrandParent", version="v1")],
+            ),
         ),
         ViewResponse(
             space="space",
             external_id="GrandParent",
             version="v1",
             name="GrandParent",
-            description=None,
-            implements=[],
-            properties={},
-            last_updated_time=1,
-            created_time=1,
-            filter=None,
-            writable=True,
-            used_for="node",
-            is_global=False,
-            mapped_containers=[],
-            queryable=False,
+            **get_default_view_response_values(),
         ),
     ]
 
@@ -312,6 +313,26 @@ class TestViewLoader:
             )
 
         assert "cycle in implements" in str(exc_info.value)
+
+    def test_dump_resource_skip_implements_type(self, toolkit_client_cheap: ToolkitClient) -> None:
+        response = ViewResponse(
+            space="space",
+            external_id="MyView",
+            version="v1",
+            **get_default_view_response_values(
+                implements=[ViewId(space="space", external_id="OtherView", version="v1")]
+            ),
+        )
+        local = {
+            "space": "space",
+            "externalId": "MyView",
+            "version": "v1",
+            "implements": [{"space": "space", "externalId": "OtherView", "version": "v1"}],
+        }
+        io = ViewIO.create_loader(toolkit_client_cheap)
+
+        dumped = io.dump_resource(response, local)
+        assert dumped == local
 
 
 class TestViewDeployTopologicalSort:

@@ -9,8 +9,8 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import SuccessExtra
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.file import FileMetadataCRUD
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.industrial_tool import StreamlitIO
+from cognite_toolkit._cdf_tk.resource_ios._file import FileMetadataCRUD
+from cognite_toolkit._cdf_tk.resource_ios._industrial_tool import StreamlitIO
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content
 
 
@@ -88,7 +88,7 @@ class TestStreamlitUpdateWithFileio:
         file_request = MagicMock(external_id=ext_id, filepath=source_file)
         file_request.as_id.return_value = MagicMock(external_id=ext_id)
 
-        with patch("cognite_toolkit._cdf_tk.resource_ios._resource_ios.industrial_tool.FileMetadataCRUD") as MockCRUD:
+        with patch("cognite_toolkit._cdf_tk.resource_ios._industrial_tool.FileMetadataCRUD") as MockCRUD:
             mock_fileio = MagicMock()
             MockCRUD.return_value = mock_fileio
             mock_fileio.load_resource_files.return_value = [file_request]

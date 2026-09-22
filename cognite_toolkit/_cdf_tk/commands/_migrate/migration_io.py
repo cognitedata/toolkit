@@ -53,7 +53,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     ThreeDSelector,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitNotImplementedError, ToolkitValueError
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.streams import StreamIO
+from cognite_toolkit._cdf_tk.resource_ios._streams import StreamIO
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence, humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import (

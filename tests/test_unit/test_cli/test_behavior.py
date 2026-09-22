@@ -1056,4 +1056,67 @@ capabilities:
     insight = insights[0]
     assert isinstance(insight, ConsistencyError)
     assert insight.message == "Unknown reference to spaces with id 'my_non_existent_space'"
-    assert insight.source_file == "modules/my_module/auth/scoped_group.Group.yaml"
+    assert insight.source_file == yaml_filepath
+
+
+def test_warning_missing_dependency_with_unknown_capability(
+    default_config_dev_yaml: str,
+    env_vars_with_client: EnvironmentVariables,
+    tmp_path: Path,
+) -> None:
+    """A group with an unrecognised capability name must still have its space references checked.
+
+    When GroupYAML contains an unknown capability name, ``UnknownCapability`` wraps it so
+    that model validation still succeeds (``validated`` is set).  ``get_dependencies`` skips
+    ``UnknownCapability`` instances, but the valid siblings (e.g. ``dataModelsAcl`` with a
+    ``spaceIdScope``) are still processed — so a missing space is caught and an
+    UNKNOWN-REFERENCE insight is emitted.  A MODEL-SYNTAX-WARNING is also produced via
+    ``get_build_warnings()`` to tell the user about the unrecognised capability.
+    """
+    group_yaml = """name: scoped_group_unknown_cap
+sourceId: '1234567890123456789'
+metadata:
+  origin: cognite-toolkit
+capabilities:
+- dataModelsAcl:
+    actions:
+    - READ
+    scope:
+      spaceIdScope:
+        spaceIds:
+        - my_non_existent_space
+- notAValidCapabilityAcl:
+    actions:
+    - READ
+    scope:
+      spaceIdScope:
+        spaceIds:
+        - my_non_existent_space
+"""
+
+    my_org = tmp_path / "my_org"
+    yaml_filepath = my_org / "modules" / "my_module" / "auth" / "scoped_group_unk.Group.yaml"
+    yaml_filepath.parent.mkdir(parents=True, exist_ok=True)
+    yaml_filepath.write_text(group_yaml, encoding="utf-8")
+
+    (my_org / "config.dev.yaml").write_text(default_config_dev_yaml, encoding="utf-8")
+
+    folder = BuildV2Command(silent=True, skip_tracking=True).build(
+        client=env_vars_with_client.get_client(),
+        parameters=BuildParameters(
+            organization_dir=my_org,
+            build_dir=tmp_path / "build",
+            config_yaml=my_org / "config.dev.yaml",
+        ),
+    )
+    # The unknown capability should produce a MODEL-SYNTAX-WARNING (not an error — the YAML
+    # is still valid from the build perspective; CDF may or may not accept it at deploy time).
+    syntax_warnings = [i for i in folder.all_insights if i.code == "MODEL-SYNTAX-WARNING"]
+    assert len(syntax_warnings) >= 1, "Expected a MODEL-SYNTAX-WARNING for the unknown capability"
+
+    # The space reference in the VALID sibling capability must still be checked against CDF.
+    unknown_refs = [i for i in folder.all_insights if i.code == "UNKNOWN-REFERENCE"]
+    assert len(unknown_refs) == 1, (
+        "Expected UNKNOWN-REFERENCE for 'my_non_existent_space' even when group has an unknown capability"
+    )
+    assert "my_non_existent_space" in unknown_refs[0].message

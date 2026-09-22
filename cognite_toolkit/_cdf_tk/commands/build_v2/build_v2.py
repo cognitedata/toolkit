@@ -41,6 +41,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, ValidationResult
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
+    InternalValidatorException,
     ModelSyntaxError,
     ModelSyntaxWarning,
 )
@@ -96,6 +97,10 @@ class ValidationStep:
 
 SelectionSource = Literal["cli-arg", "config", "interactive"]
 
+# Precompiled once at import time so it isn't recompiled/looked up per file when
+# scanning 100s of resource files. Matches e.g. "# rules: ignore[AUTH-001, AUTH-002]".
+_IGNORE_RULE_PATTERN = re.compile(r"#\s*rules?\s*:\s*ignore\s*\[([^\]]*)\]")
+
 
 class BuildV2Command(ToolkitCommand):
     def build(
@@ -147,16 +152,39 @@ class BuildV2Command(ToolkitCommand):
             finished_at=datetime.now(timezone.utc),
         )
 
-        insights = build_folder.all_insights
+        # We report all insights in Mixpanel, but only display to the user the insights they have not ignored.
+        found_insights = build_folder.all_insights
+        if Flags.V09.is_enabled():
+            report_insights = self._filter_to_reported_insights(
+                found_insights, build_folder.rules_ignored_by_source, parameters.rules_ignore
+            )
+        else:
+            report_insights = found_insights
+
         if display:
-            self._display_insights(insights, parameters.insight_path, console, parameters.verbose)
-            self._display_build_summary(build_folder, insights, console, parameters.verbose)
+            self._display_insights(report_insights, parameters.insight_path, console, parameters.verbose)
+            self._display_build_summary(build_folder, report_insights, console, parameters.verbose)
 
-        self._track_build_results(build_folder, insights, client)
+        self._track_build_results(build_folder, found_insights, client)
 
-        self._write_results(insights, build_folder, parameters, client.config.project if client else None)
+        self._write_results(report_insights, build_folder, parameters, client.config.project if client else None)
 
         return build_folder
+
+    @classmethod
+    def _filter_to_reported_insights(
+        cls, found_insights: InsightList, local_ignores_by_file: dict[Path, set[str]], global_ignores: set[str]
+    ) -> InsightList:
+        """Filters the tracked insights to only include those that are not ignored by the user, either globally or locally."""
+        return InsightList(
+            [
+                insight
+                for insight in found_insights
+                if insight.code not in global_ignores
+                and insight.code not in local_ignores_by_file.get(insight.source_file, set())
+                and (not insight.alpha or Flags.ALPHA_RULES.is_enabled())
+            ]
+        )
 
     @classmethod
     def read_filesystem_and_find_modules(
@@ -332,7 +360,10 @@ class BuildV2Command(ToolkitCommand):
         source_by_module_id, _ = ModuleParser.find_modules(build_files.organization_dir, build_files.yaml_files)
         module_scan = ModuleParser.parse(build_files, {Path(MODULES)}, source_by_module_id, [])
 
-        cached_hash_by_path = {item.module_path.resolve(): item.module_hash for item in cached_lineage.module_lineage}
+        cached_hash_by_path = {
+            cached_lineage.organization_dir / item.module_path: item.module_hash
+            for item in cached_lineage.module_lineage
+        }
 
         needs_rebuild: set[RelativeDirPath] = set()
         seen_module_ids: set[RelativeDirPath] = set()
@@ -341,7 +372,7 @@ class BuildV2Command(ToolkitCommand):
             if source.id in seen_module_ids:
                 continue
             seen_module_ids.add(source.id)
-            module_path = Path(source.path).resolve()
+            module_path = source.path
             current_module_paths.add(module_path)
             current_hash = calculate_directory_hash(module_path, shorten=True)
             cached_hash = cached_hash_by_path.get(module_path)
@@ -355,18 +386,17 @@ class BuildV2Command(ToolkitCommand):
     @staticmethod
     def _merge_build_lineage(cached_lineage: BuildLineage, new_lineage: BuildLineage | None) -> BuildLineage:
         if new_lineage is not None:
-            rebuilt_paths = {item.module_path.resolve() for item in new_lineage.module_lineage}
+            rebuilt_paths = {item.module_path for item in new_lineage.module_lineage}
             merged_modules = list(new_lineage.module_lineage)
         else:
             rebuilt_paths = set()
             merged_modules = []
 
         for item in cached_lineage.module_lineage:
-            resolved_path = item.module_path.resolve()
-            if resolved_path in rebuilt_paths:
+            if item.module_path in rebuilt_paths:
                 continue
             # Filter out cached modules whose directories no longer exist on disk.
-            if not resolved_path.exists():
+            if not (cached_lineage.organization_dir / item.module_path).exists():
                 continue
             merged_modules.append(item)
 
@@ -670,6 +700,7 @@ class BuildV2Command(ToolkitCommand):
             if errors:
                 raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
 
+        config_path: Path | None = None
         if config_yaml:
             config_path = config_yaml.resolve()
             try:
@@ -698,6 +729,7 @@ class BuildV2Command(ToolkitCommand):
             validation_type=validation_type,
             cdf_project=cdf_project,
             organization_dir=organization_dir.resolve(),
+            config_path=config_path,
         )
 
     @classmethod
@@ -783,10 +815,10 @@ class BuildV2Command(ToolkitCommand):
                             and not file.unresolved_variables
                         },
                         syntax_warnings_by_source={
-                            file.source_path: file.syntax_warning
+                            file.source_path: file.syntax_warnings
                             for file in module.files
                             if isinstance(file, SuccessfulReadYAMLFile)
-                            and file.syntax_warning is not None
+                            and file.syntax_warnings
                             and not file.unresolved_variables
                         },
                         failed_files=[file for file in module.files if isinstance(file, FailedReadYAMLFile)],
@@ -799,6 +831,11 @@ class BuildV2Command(ToolkitCommand):
                         yaml_line_count=sum(
                             file.line_count for file in module.files if isinstance(file, SuccessfulReadYAMLFile)
                         ),
+                        ignore_rules_by_source={
+                            file.source_path: file.rules_ignore
+                            for file in module.files
+                            if isinstance(file, SuccessfulReadYAMLFile)
+                        },
                         variables=source.variables,
                     )
                 )
@@ -856,6 +893,8 @@ class BuildV2Command(ToolkitCommand):
             return FailedReadYAMLFile(
                 source_path=resource_file, error=f"Failed to read resource file: {read_error!s}", code="READ-ERROR"
             )
+        # Ignore in file
+        rules_ignored = self._get_ignore_rule_codes(content)
 
         # Content read successfully.
         substituted_content = content
@@ -897,23 +936,28 @@ class BuildV2Command(ToolkitCommand):
             source_hash=file_hash,
             resource_type=resource_type,
             line_count=line_count,
+            unresolved_variables=unresolved_variables,
+            rules_ignore=rules_ignored,
         )
 
         if isinstance(parsed_yaml, dict):
             toolkit_resource: ToolkitResource | None = None
             syntax_error: ModelSyntaxError | None = None
-            syntax_warning: ModelSyntaxWarning | None = None
+            syntax_warnings: list[ModelSyntaxWarning] = []
             try:
                 toolkit_resource = crud_class.yaml_cls.model_validate(parsed_yaml, extra="forbid")
                 identifier = toolkit_resource.as_id()
+                syntax_warnings = toolkit_resource.syntax_warnings(resource_file)
             except ValidationError as errors:
-                syntax_error, syntax_warning = self._create_syntax_warning(errors)
+                syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file)
+                if syntax_warning is not None:
+                    syntax_warnings = [syntax_warning]
                 try:
                     identifier = crud_class.get_id(parsed_yaml)
                 except KeyError:
                     return SuccessfulReadYAMLFile(
                         syntax_error=syntax_error,
-                        syntax_warning=syntax_warning,
+                        syntax_warnings=syntax_warnings,
                         resources=[],
                         **args,
                     )
@@ -924,13 +968,12 @@ class BuildV2Command(ToolkitCommand):
 
             return SuccessfulReadYAMLFile(
                 syntax_error=syntax_error,
-                syntax_warning=syntax_warning,
+                syntax_warnings=syntax_warnings,
                 resources=[
                     ReadResource(
                         raw=parsed_yaml, identifier=identifier, validated=toolkit_resource, extra_files=extra_files
                     )
                 ],
-                unresolved_variables=unresolved_variables,
                 **args,
             )
         # Is instance list
@@ -939,17 +982,20 @@ class BuildV2Command(ToolkitCommand):
         adapter = TypeAdapter[list[crud_class.yaml_cls]](list[crud_class.yaml_cls])  # type: ignore[name-defined]
         toolkit_resources: list[ToolkitResource] = []
         syntax_error = None
-        syntax_warning = None
+        syntax_warnings = []
         try:
             toolkit_resources = adapter.validate_python(parsed_yaml)
         except ValidationError as errors:
-            syntax_error, syntax_warning = self._create_syntax_warning(errors)
+            syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file)
+            if syntax_warning is not None:
+                syntax_warnings = [syntax_warning]
         read_resources: list[ReadResource[ToolkitResource]] = []
         for tk_resource, raw in zip_longest(toolkit_resources, parsed_yaml, fillvalue=None):
             if tk_resource is None:
                 identifier = crud_class.get_id(raw)
             else:
                 identifier = tk_resource.as_id()
+                syntax_warnings.extend(tk_resource.syntax_warnings(resource_file))
             # We know that the parse_yaml list will always be longer than tk_resource
             # thus raw will never be None.
             raw_dict = cast(dict[str, Any], raw)
@@ -966,11 +1012,17 @@ class BuildV2Command(ToolkitCommand):
             )
         return SuccessfulReadYAMLFile(
             syntax_error=syntax_error,
-            syntax_warning=syntax_warning,
+            syntax_warnings=syntax_warnings,
             resources=read_resources,
             **args,
-            unresolved_variables=unresolved_variables,
         )
+
+    @classmethod
+    def _get_ignore_rule_codes(cls, content: str) -> set[str]:
+        codes: set[str] = set()
+        for match in _IGNORE_RULE_PATTERN.findall(content):
+            codes.update(code.strip() for code in match.split(",") if code.strip())
+        return codes
 
     @classmethod
     def _find_unresolved_variables(cls, content: str) -> list[str]:
@@ -998,7 +1050,7 @@ class BuildV2Command(ToolkitCommand):
         return output
 
     def _create_syntax_warning(
-        self, error: ValidationError
+        self, error: ValidationError, resource_file: AbsoluteFilePath
     ) -> tuple[ModelSyntaxError | None, ModelSyntaxWarning | None]:
         categorized_errors = humanize_validation_error_categorized(error) or [
             ("The YAML doesn't follow the required format.", "error")
@@ -1012,6 +1064,7 @@ class BuildV2Command(ToolkitCommand):
                 code="MODEL-SYNTAX-ERROR",
                 message="\n".join(error_messages),
                 fix="Compare the YAML with reference documentation and make sure it is valid.",
+                source_files=[resource_file],
             )
 
         syntax_warning = None
@@ -1019,6 +1072,7 @@ class BuildV2Command(ToolkitCommand):
             syntax_warning = ModelSyntaxWarning(
                 code="MODEL-SYNTAX-WARNING",
                 message="\n".join(warning_messages),
+                source_files=[resource_file],
                 fix="Compare the YAML with reference documentation and make sure it is valid. It will be deployed as-is, but may be ignored or rejected by CDF.",
             )
         return syntax_error, syntax_warning
@@ -1191,10 +1245,20 @@ class BuildV2Command(ToolkitCommand):
                 display_name = step.rule.DISPLAY_NAME
                 progress.update(validating_task, description=f"Running '{display_name}'...")
 
-                insights: list[Insight] = list(step.rule.validate())
+                insights: list[Insight] = []
+                errors: list[InternalValidatorException] = []
+                for result in step.rule.validate():
+                    if isinstance(result, Insight):
+                        insights.append(result)
+                    elif isinstance(result, InternalValidatorException):
+                        errors.append(result)
 
-                validation_results.append(ValidationResult(name=display_name, insights=insights))
-                progress.update(validating_task, advance=1, description=f"Finished validating {display_name}.")
+                validation_results.append(ValidationResult(name=display_name, insights=insights, errors=errors))
+                progress.update(
+                    validating_task,
+                    advance=1,
+                    description=f"Finished validating {display_name}. Found {len(insights)} insights.",
+                )
             progress.update(validating_task, description=f"Finished validating. Ran {ready_step_count} validations.")
         return validation_results
 
@@ -1300,9 +1364,7 @@ class BuildV2Command(ToolkitCommand):
     @classmethod
     def _insight_section_title(cls, insight: Insight) -> str:
         title = cls._humanize_insight_code(insight.code)
-        if insight.source_file:
-            return f"{title} in {insight.source_file}"
-        return title
+        return f"{title} in {insight.display_source_files_cwd}"
 
     def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
         """Prioritize one insight per code, then by severity"""
@@ -1351,6 +1413,20 @@ class BuildV2Command(ToolkitCommand):
                     insight_style = "[red]✗[/]"
 
             summary_lines.append(f"{insight_style} [bold]{count}[/] {insight_type}")
+
+        validation_errors = [error for result in build_folder.validation_results for error in result.errors]
+        if validation_errors:
+            errors_by_validator: Counter[str] = Counter()
+            for result in build_folder.validation_results:
+                if result.errors:
+                    errors_by_validator[result.name] += len(result.errors)
+            summary_lines.append(
+                f"[red]✗[/] [bold]{len(validation_errors)}[/] validation errors "
+                f"across {len(errors_by_validator)} validator(s)"
+            )
+            if verbose:
+                for validator_name, count in errors_by_validator.most_common():
+                    summary_lines.append(f"    [red]-[/] {validator_name}: [bold]{count}[/]")
 
         build_dir_display = relative_to_if_possible(build_folder.build_dir).as_posix()
         if not build_dir_display.endswith("/"):
@@ -1430,7 +1506,6 @@ class BuildV2Command(ToolkitCommand):
         self, insights: InsightList, build: BuildFolder, parameters: BuildParameters, cdf_project: str | None = None
     ) -> None:
         """Write build results including lineage information and insights to the build folder."""
-
         if parameters.write_insights:
             insight_file = parameters.insight_path
             if parameters.insight_format == "csv":

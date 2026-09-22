@@ -190,6 +190,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule imp
     TransformationScheduleResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import (
+    WorkflowExecutionDetailedResponse,
+    WorkflowExecutionResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerRequest,
     WorkflowTriggerResponse,
@@ -562,6 +566,32 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "isPaused": False,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
+        },
+        WorkflowExecutionResponse: {
+            "id": "059edaa4-a17a-4102-910e-2c3591500cce",
+            "workflowExternalId": "workflow_001",
+            "version": "1",
+            "status": "RUNNING",
+            "createdTime": 1622547800000,
+        },
+        WorkflowExecutionDetailedResponse: {
+            "id": "059edaa4-a17a-4102-910e-2c3591500cce",
+            "workflowExternalId": "workflow_001",
+            "version": "1",
+            "status": "RUNNING",
+            "createdTime": 1622547800000,
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "task_001",
+                        "type": "function",
+                        "parameters": {
+                            "function": {"externalId": "my_function"},
+                        },
+                    }
+                ]
+            },
+            "executedTasks": [],
         },
         GroupResponse: {
             "id": 202,

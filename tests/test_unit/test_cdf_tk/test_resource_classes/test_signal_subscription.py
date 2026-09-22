@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -10,13 +11,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import 
     UnknownSubscriptionFilter,
 )
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.hosted_extractors import (
+from cognite_toolkit._cdf_tk.resource_ios._hosted_extractors import (
     HostedExtractorDestinationIO,
     HostedExtractorSourceIO,
 )
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.signal_sink import SignalSinkIO
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.signal_subscription import SignalSubscriptionIO
-from cognite_toolkit._cdf_tk.resource_ios._resource_ios.workflow import WorkflowIO
+from cognite_toolkit._cdf_tk.resource_ios._signal_sink import SignalSinkIO
+from cognite_toolkit._cdf_tk.resource_ios._signal_subscription import SignalSubscriptionIO
+from cognite_toolkit._cdf_tk.resource_ios._workflow import WorkflowIO
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes.signal_subscription import SignalSubscriptionYAML
@@ -188,6 +189,47 @@ class TestSignalSubscriptionCRUDGetId:
         request = SignalSubscriptionRequest.model_validate(_INTEGRATIONS_SUB)
         id_ = SignalSubscriptionIO.get_id(request)
         assert id_ == ExternalId(external_id="sub-int")
+
+
+class TestSignalSubscriptionCRUDRetrieve:
+    def test_retrieve_paginates_past_first_page(self) -> None:
+        filler = [
+            SignalSubscriptionResponse.model_validate(
+                {**_WORKFLOWS_SUB, "externalId": f"sub-{index}", "createdTime": 1, "lastUpdatedTime": 1}
+            )
+            for index in range(100)
+        ]
+        target = SignalSubscriptionResponse.model_validate(
+            {**_WORKFLOWS_SUB, "externalId": "sub-beyond-first-page", "createdTime": 1, "lastUpdatedTime": 1}
+        )
+        subscriptions_api = MagicMock()
+        subscriptions_api.iterate.return_value = iter([filler, [target]])
+
+        client = MagicMock()
+        client.tool.signal_subscriptions = subscriptions_api
+        io = SignalSubscriptionIO(client, None)
+
+        retrieved = io.retrieve([ExternalId(external_id="sub-beyond-first-page")])
+
+        assert [item.external_id for item in retrieved] == ["sub-beyond-first-page"]
+        subscriptions_api.iterate.assert_called_once_with(limit=None)
+        subscriptions_api.list.assert_not_called()
+
+    def test_retrieve_continues_when_duplicate_external_id_in_page(self) -> None:
+        sub_a = SignalSubscriptionResponse.model_validate(
+            {**_WORKFLOWS_SUB, "externalId": "sub-a", "createdTime": 1, "lastUpdatedTime": 1}
+        )
+        sub_b = SignalSubscriptionResponse.model_validate(
+            {**_WORKFLOWS_SUB, "externalId": "sub-b", "createdTime": 1, "lastUpdatedTime": 1}
+        )
+        subscriptions_api = MagicMock()
+        subscriptions_api.iterate.return_value = iter([[sub_a, sub_a], [sub_b]])
+
+        io = SignalSubscriptionIO(MagicMock(tool=MagicMock(signal_subscriptions=subscriptions_api)), None)
+
+        retrieved = io.retrieve([ExternalId(external_id="sub-a"), ExternalId(external_id="sub-b")])
+
+        assert [item.external_id for item in retrieved] == ["sub-a", "sub-b"]
 
 
 class TestSignalSubscriptionCRUDGetDependencies:

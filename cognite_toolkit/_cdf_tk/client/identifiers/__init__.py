@@ -43,6 +43,7 @@ from ._identifiers import (
     ThreeDModelRevisionId,
     TransformationNotificationId,
     UserProfileId,
+    WorkflowExecutionId,
     WorkflowVersionId,
 )
 from ._migration import AssetCentricExternalId
@@ -92,5 +93,6 @@ __all__ = [
     "ViewNoVersionUntypedId",
     "ViewNoVersionUntypedId",
     "ViewUntypedId",
+    "WorkflowExecutionId",
     "WorkflowVersionId",
 ]

@@ -242,7 +242,11 @@ class TestGroupAPIClasses:
         request_capabilities = {acl.model_fields["acl_name"].default for acl in get_all_subclasses(Acl)} - {
             "unknownAcl"
         }
-        spec_capabilities = {capability._capability_name for capability in get_all_subclasses(Capability)}
+        spec_capabilities = {
+            capability._capability_name
+            for capability in get_all_subclasses(Capability)
+            if capability._capability_name != "__unknown__"
+        }
 
         assert request_capabilities == spec_capabilities, (
             "Mismatch between GroupRequest capabilities and Capability spec. "

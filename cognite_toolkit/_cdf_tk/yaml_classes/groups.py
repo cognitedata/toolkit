@@ -1,5 +1,6 @@
 import sys
-from typing import Any, Literal, cast
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import ModelWrapValidatorHandler, model_serializer, model_validator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
@@ -8,7 +9,10 @@ from cognite_toolkit._cdf_tk.client.identifiers import NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupAttributes
 
 from .base import ToolkitResource
-from .capabilities import Capability
+from .capabilities import Capability, UnknownCapability
+
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ModelSyntaxWarning
 
 if sys.version_info < (3, 11):
     from typing_extensions import Self
@@ -24,6 +28,22 @@ class GroupYAML(ToolkitResource):
 
     def as_id(self) -> NameId:
         return NameId(name=self.name)
+
+    def syntax_warnings(self, source_file: Path) -> "list[ModelSyntaxWarning]":
+        # Lazy import to avoid circular dependency (yaml_classes → commands.build_v2 → resource_ios → yaml_classes).
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ModelSyntaxWarning
+
+        return [
+            ModelSyntaxWarning(
+                code="MODEL-SYNTAX-WARNING",
+                message=f"Unknown capability name '{cap.original_name}'. "
+                "It will be deployed as-is, but may be rejected by CDF.",
+                source_files=[source_file],
+                fix="Compare the YAML with reference documentation. The resource will still be deployed.",
+            )
+            for cap in (self.capabilities or [])
+            if isinstance(cap, UnknownCapability)
+        ]
 
     @model_validator(mode="wrap")
     @classmethod

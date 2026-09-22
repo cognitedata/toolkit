@@ -57,7 +57,6 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
                     except Exception as e:
                         yield InternalValidatorException(
                             message=f"Neat plugin failed to validate data model {data_model_file.name!r}: {e}",
-                            code="INTERNAL-VALIDATOR-EXCEPTION",
                             source=str(resource.identifier),
                         )
 
@@ -114,10 +113,10 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
         )
         orchestrator.run(schema)
 
-        yield from self.issues_to_insights(orchestrator.issues)
+        yield from self.issues_to_insights(orchestrator.issues, data_model_file)
 
     @classmethod
-    def issues_to_insights(cls, issues: "NeatIssueList") -> Iterable[Insight]:
+    def issues_to_insights(cls, issues: "NeatIssueList", source_file: Path) -> Iterable[Insight]:
         """Converts a list of Neat issues to a Toolkit insight list.
 
         Args:
@@ -129,12 +128,20 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
         from cognite.neat._toolkit_adapter import NeatConsistencyError, NeatModelSyntaxError, NeatRecommendation
 
         for issue in issues:
+            dumped = issue.model_dump()
+            if "code" not in dumped:
+                dumped["code"] = f"{cls.CODE_PREFIX}-000"
+            if "source_files" not in dumped:
+                # This is a less than ideal fallback as the issue is likely
+                # related to another file than the data model file.
+                sf = dumped.pop("source_file", None) or source_file
+                dumped["source_files"] = [sf]
             if isinstance(issue, NeatModelSyntaxError):
-                yield ModelSyntaxError.model_validate(issue.model_dump())
+                yield ModelSyntaxError.model_validate(dumped)
             elif isinstance(issue, NeatRecommendation):
-                yield Recommendation.model_validate(issue.model_dump())
+                yield Recommendation.model_validate(dumped)
             elif isinstance(issue, NeatConsistencyError):
-                yield ConsistencyError.model_validate(issue.model_dump())
+                yield ConsistencyError.model_validate(dumped)
 
     @cached_property
     def _neat_client(self) -> "NeatClient":

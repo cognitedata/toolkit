@@ -525,6 +525,11 @@ def format_insight_source_file(path: Path) -> str:
     relative = relative_to_if_possible(path)
     if not relative.is_absolute():
         return relative.as_posix()
+    return relative_to_modules(path)
+
+
+def relative_to_modules(path: Path) -> str:
+    """Return the path relative to the modules/ directory if possible, otherwise return the absolute path."""
     if MODULES in path.parts:
         module_index = path.parts.index(MODULES)
         return "/".join(path.parts[module_index:])

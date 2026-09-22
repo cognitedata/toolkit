@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     ModuleScanResult,
     NonExistingModuleName,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, MODULES, RESOURCE_FOLDERS_WITH_CODE_BUNDLES
 from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA, ResourceTypes
 
@@ -43,7 +44,9 @@ class ModuleParser:
         for module_path in module_ids:
             module_paths_by_name[module_path.name].append(module_path)
 
-        build_variables, invalid_variables = cls._parse_variables(build.variables, available_paths, selected_paths)
+        build_variables, invalid_variables = cls._parse_variables(
+            build.variables, available_paths, selected_paths, build.config_path
+        )
 
         module_sources: list[ModuleDirectory] = []
         for module in selected_modules:
@@ -207,7 +210,11 @@ class ModuleParser:
 
     @classmethod
     def _parse_variables(
-        cls, variables: dict[str, Any], available_paths: set[RelativeDirPath], selected_paths: set[RelativeDirPath]
+        cls,
+        variables: dict[str, Any],
+        available_paths: set[RelativeDirPath],
+        selected_paths: set[RelativeDirPath],
+        config_path: AbsoluteFilePath | None = None,
     ) -> tuple[dict[RelativeDirPath, dict[int | None, list[BuildVariable]]], list[InvalidBuildVariable]]:
         variables_by_path_and_iteration: dict[RelativeDirPath, dict[int | None, list[BuildVariable]]] = defaultdict(
             lambda: defaultdict(list)
@@ -237,6 +244,9 @@ class ModuleParser:
                                     message=f"Invalid variable path: {'.'.join(subpath.parts)}. This does not correspond to the "
                                     f"folder structure inside the {MODULES} directory.",
                                     fix="Ensure that the variable paths correspond to the folder structure inside the modules directory.",
+                                    source_files=[
+                                        cast(AbsoluteFilePath, config_path)
+                                    ],  # We only have variables in the config file, so this cast is safe
                                 ),
                             )
                         )
@@ -261,6 +271,9 @@ class ModuleParser:
                                     code=cls.VARIABLE_ERROR_CODE,
                                     message=f"Invalid variable type in list for variable {'.'.join(subpath.parts)}.",
                                     fix="Ensure that all items in the list are of the same supported type either (str, int, float, bool) or dict.",
+                                    source_files=[
+                                        cast(AbsoluteFilePath, config_path)
+                                    ],  # We only have variables in the config file, so this cast is safe
                                 ),
                             )
                         )

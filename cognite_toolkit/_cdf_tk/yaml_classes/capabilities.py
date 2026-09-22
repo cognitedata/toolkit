@@ -2,7 +2,7 @@ import sys
 from types import MappingProxyType, UnionType
 from typing import Any, ClassVar, Literal, cast, get_args
 
-from pydantic import ModelWrapValidatorHandler, field_validator, model_serializer, model_validator
+from pydantic import Field, ModelWrapValidatorHandler, PrivateAttr, field_validator, model_serializer, model_validator
 from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
@@ -30,9 +30,10 @@ class Scope(BaseModelResource):
             return handler(data)
         name, content = next(iter(data.items()))
         if name not in _SCOPE_CLASS_BY_NAME:
-            raise ValueError(
-                f"invalid scope name '{name}'. Expected one of {humanize_collection(_SCOPE_CLASS_BY_NAME.keys(), bind_word='or')}"
-            )
+            scope = UnknownScope.model_construct()
+            scope._unknown_name = name
+            scope._raw_data = data
+            return cast(Self, scope)
         cls_ = _SCOPE_CLASS_BY_NAME[name]
         return cast(Self, cls_.model_validate(content))
 
@@ -171,7 +172,13 @@ class Capability(BaseModelResource):
             raise ValueError(f"Invalid capability data '{type(data)}' expected dict")
         name, content = next(iter(data.items()))
         if name not in _CAPABILITY_CLASS_BY_NAME:
-            raise ValueError(f"Invalid capability name '{name}'. Expected one of {_CAPABILITY_CLASS_BY_NAME.keys()}")
+            content = next(iter(data.values()), {})
+            scope_raw = content.get("scope") if isinstance(content, dict) else None
+            parsed_scope: Scope = Scope.model_validate(scope_raw) if isinstance(scope_raw, dict) else AllScope()
+            cap = UnknownCapability.model_construct(scope=parsed_scope, actions=[])
+            cap._unknown_name = name
+            cap._raw_data = data
+            return cast(Self, cap)
         cls_ = _CAPABILITY_CLASS_BY_NAME[name]
         return cast(Self, cls_.model_validate(content))
 
@@ -593,13 +600,53 @@ class StreamRecordsAcl(Capability):
     scope: AllScope | SpaceIDScope
 
 
+class UnknownCapability(Capability):
+    """Wraps an unrecognised capability name so ``GroupYAML`` validation succeeds.
+
+    Scope-based dependencies (spaces, datasets, …) are still extracted normally.
+    ``IDScope`` / ``IDScopeLowerCase`` are skipped — the resource type is implied
+    by the capability name and cannot be inferred here.
+    """
+
+    _capability_name: ClassVar[str] = "__unknown__"
+    _unknown_name: str = PrivateAttr(default="")
+    _raw_data: dict[str, Any] = PrivateAttr(default_factory=dict)
+    scope: Scope = Field(default_factory=AllScope)
+    actions: list[str] = Field(default_factory=list)
+
+    @model_serializer(mode="wrap", when_used="always", return_type=dict)
+    def serialize_raw(self, handler: SerializerFunctionWrapHandler) -> dict:
+        return self._raw_data
+
+    @property
+    def original_name(self) -> str:
+        return self._unknown_name
+
+
 _CAPABILITY_CLASS_BY_NAME: MappingProxyType[str, type[Capability]] = MappingProxyType(
-    {c._capability_name: c for c in Capability.__subclasses__()}
+    {c._capability_name: c for c in Capability.__subclasses__() if c is not UnknownCapability}
 )
 ALL_CAPABILITIES = sorted(_CAPABILITY_CLASS_BY_NAME)
 
+
+class UnknownScope(Scope):
+    """Wraps an unrecognised scope name; preserved for round-trip serialization."""
+
+    _scope_name: ClassVar[str] = "__unknown__"
+    _unknown_name: str = PrivateAttr(default="")
+    _raw_data: dict[str, Any] = PrivateAttr(default_factory=dict)
+
+    @model_serializer(mode="wrap", when_used="always", return_type=dict)
+    def serialize_raw(self, handler: SerializerFunctionWrapHandler) -> dict:
+        return self._raw_data
+
+    @property
+    def original_name(self) -> str:
+        return self._unknown_name
+
+
 _SCOPE_CLASS_BY_NAME: MappingProxyType[str, type[Scope]] = MappingProxyType(
-    {s._scope_name: s for s in Scope.__subclasses__()}
+    {s._scope_name: s for s in Scope.__subclasses__() if s is not UnknownScope}
 )
 
 _SCOPE_BY_CLASS_NAME: MappingProxyType[str, str] = MappingProxyType(

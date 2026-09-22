@@ -5,7 +5,11 @@ default_organization_dir = "cognite_toolkit"
 file_encoding = "utf-8"
 file_upload_timeout_seconds = 90
 
+[rules]
+ignore = []
+
 [alpha_flags]
+alpha-rules = true
 graphql = true
 import-cmd = true
 infield = true
