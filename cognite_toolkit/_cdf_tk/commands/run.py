@@ -1207,7 +1207,7 @@ class RunWorkflowV2Command(ToolkitCommand):
         total = len(tasks)
         max_time = sum((task.timeout or 3600) * (task.retries or 3) for task in tasks)
         result = cls._retrieve_execution(client, execution_id)
-        with Progress() as progress:
+        with Progress(console=client.console) as progress:
             call_task = progress.add_task("Waiting for workflow execution to complete...", total=total)
             start_time = time.time()
             duration = 0.0
