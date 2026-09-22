@@ -124,7 +124,7 @@ class TestRunTransformationV2:
         client.tool.transformations.retrieve.return_value = [
             _transformation_response("tr_assets", "Assets", query="SELECT * FROM assets")
         ]
-        client.tool.transformations.run_query.return_value = SQLQueryResponse(
+        client.tool.transformations.run_query_preview.return_value = SQLQueryResponse(
             schema_=[Column(name="id", sql_type="INT", type="INT", nullable=False)],
             results=[{"id": 1}],
         )
@@ -133,7 +133,9 @@ class TestRunTransformationV2:
 
         assert result is True
         client.tool.transformations.run.assert_not_called()
-        client.tool.transformations.run_query.assert_called_once_with("SELECT * FROM assets", convert_to_string=False)
+        client.tool.transformations.run_query_preview.assert_called_once_with(
+            "SELECT * FROM assets", convert_to_string=False
+        )
 
     @patch("cognite_toolkit._cdf_tk.commands.run.time.sleep")
     def test_run_transformation_wait(self, _sleep: MagicMock) -> None:

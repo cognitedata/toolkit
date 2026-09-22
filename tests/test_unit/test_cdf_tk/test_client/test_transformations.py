@@ -52,7 +52,7 @@ class TestTransformationsAPI:
             "nonce": {"sessionId": 42, "nonce": "session-nonce", "cdfProjectName": "my-project"},
         }
 
-    def test_run_query(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+    def test_run_query_preview(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         client = HTTPClient(toolkit_config)
         api = TransformationsAPI(client)
         query_url = toolkit_config.create_api_url("/transformations/query/run")
@@ -62,7 +62,7 @@ class TestTransformationsAPI:
         }
         respx_mock.post(query_url).mock(return_value=httpx2.Response(status_code=200, json=query_response))
 
-        result = api.run_query(query="SELECT 1 AS col", convert_to_string=False, limit=10, source_limit=20)
+        result = api.run_query_preview(query="SELECT 1 AS col", convert_to_string=False, limit=10, source_limit=20)
         assert result.schema_[0].name == "col"
         assert result.results == [{"col": 1}]
         assert _request_json(respx_mock.calls[-1].request) == {

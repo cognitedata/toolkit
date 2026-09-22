@@ -752,7 +752,7 @@ class RunTransformationV2Command(ToolkitCommand):
 
         for transformation in transformations:
             try:
-                result = client.tool.transformations.run_query(transformation.query, convert_to_string=False)
+                result = client.tool.transformations.run_query_preview(transformation.query, convert_to_string=False)
             except ToolkitAPIError as e:
                 print(f"[bold red]ERROR:[/] Could not dry-run transformation {transformation.external_id}.")
                 print(e)
