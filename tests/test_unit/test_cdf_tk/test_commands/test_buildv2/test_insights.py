@@ -53,6 +53,7 @@ class TestInsightList:
         rows = list(csv.DictReader(io.StringIO(csv_text), dialect=csv.unix_dialect))
         assert rows == [
             {
+                "alpha": "False",
                 "insight_type": "ConsistencyError",
                 "code": "ERR-1",
                 "source_files": format_insight_source_file(valid_yaml_absolute_path),
@@ -60,6 +61,7 @@ class TestInsightList:
                 "fix": "do this\nthen that",
             },
             {
+                "alpha": "False",
                 "insight_type": "Recommendation",
                 "code": "REC-2",
                 "source_files": format_insight_source_file(valid_yaml_absolute_path),

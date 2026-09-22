@@ -1,12 +1,13 @@
 import csv
 import io
+import json
 import sys
 from collections import UserList, defaultdict
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import BaseModel, Field, TypeAdapter, field_serializer, field_validator
-from pydantic_core.core_schema import FieldSerializationInfo
+from pydantic_core.core_schema import FieldSerializationInfo, ValidationInfo
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
@@ -27,8 +28,8 @@ class InsightDefinition(BaseModel):
     insight_type: str = "InsightDefinition"
     severity: ClassVar[int] = 999
 
-    message: str
     code: str
+    message: str
     source_files: list[AbsoluteFilePath] = Field(min_length=1)
     fix: str | None = None
     alpha: bool = False
@@ -52,10 +53,11 @@ class InsightDefinition(BaseModel):
 
     @field_validator("source_files", mode="before")
     @classmethod
-    def _to_absolute_path(
-        cls, value: list[str] | list[AbsoluteFilePath], info: FieldSerializationInfo
-    ) -> list[AbsoluteFilePath]:
+    def _to_absolute_path(cls, value: Any, info: ValidationInfo) -> list[AbsoluteFilePath]:
         """Convert source file paths to absolute paths relative to the organization directory."""
+        if isinstance(value, str):
+            # CSV serializes multiple source files into a single separator-joined cell.
+            value = _split_source_files(value, PATH_SEP_CSV)
         if info.context and "organization_dir" in info.context:
             organization_dir = info.context["organization_dir"]
             return [
@@ -73,12 +75,13 @@ class InsightDefinition(BaseModel):
             return PATH_SEP_CSV.join(unique_paths)
         return unique_paths
 
-    @field_serializer("message", "fix", when_used="unless-none")
-    def normalize_line_breaks(self, value: str, info: FieldSerializationInfo) -> str:
-        """Normalize line breaks to LF-only for CSV output."""
-        if info.context and info.context.get("format") == "csv":
-            return _normalize_csv_cell(value)
-        return value
+    @field_validator("message", "fix", mode="after")
+    @classmethod
+    def normalize_line_breaks(cls, value: str | None) -> str | None:
+        """Normalize line breaks to LF-only so values round-trip consistently across formats."""
+        if value is None:
+            return value
+        return _normalize_csv_cell(value)
 
 
 class FileReadError(InsightDefinition):
@@ -226,9 +229,14 @@ class InsightList(UserList[Insight]):
         Returns:
             CSV formatted string with columns: insight_type, code, source_file, message, fix
         """
+        field_names = list(InsightDefinition.model_fields.keys())
         with io.StringIO() as output:
             writer = csv.DictWriter(
-                output, fieldnames=InsightDefinition.model_fields.keys(), dialect=csv.unix_dialect, lineterminator="\n"
+                output,
+                fieldnames=field_names,
+                dialect=csv.unix_dialect,
+                lineterminator="\n",
+                extrasaction="ignore",
             )
             writer.writeheader()
             for insight in self.data:
@@ -253,11 +261,14 @@ class InsightList(UserList[Insight]):
         """Load insights from a CSV string produced by ``to_csv``."""
         return cls(
             InsightListAdapter.validate_python(
-                (csv.reader(io.StringIO(content))), context={"organization_dir": organization_dir}
+                list(csv.DictReader(io.StringIO(content), dialect=csv.unix_dialect)),
+                context={"organization_dir": organization_dir},
             )
         )
 
     @classmethod
     def from_json(cls, content: bytes, organization_dir: Path) -> Self:
         """Load insights from a JSON string produced by ``to_json``."""
-        return cls(InsightListAdapter.validate_json(content, context={"organization_dir": organization_dir}))
+        return cls(
+            InsightListAdapter.validate_python(json.loads(content), context={"organization_dir": organization_dir})
+        )
