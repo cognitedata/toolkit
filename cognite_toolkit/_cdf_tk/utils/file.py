@@ -258,16 +258,11 @@ def safe_read(file: Path | str, encoding: str | None = None) -> str:
             raise
 
 
-def safe_write(file: Path, content: str | bytes, encoding: str | None = None) -> None:
+def safe_write(file: Path, content: str, encoding: str | None = None) -> None:
     """Falls back on explicit using utf-8 if the default .write_text()"""
     try:
-        if isinstance(content, bytes):
-            file.write_bytes(content)
-        else:
-            file.write_text(content, encoding=encoding)
+        file.write_text(content, encoding=encoding)
     except UnicodeEncodeError:
-        if isinstance(content, bytes):
-            raise
         # On Windows, we may have issues as the encoding is not always utf-8
         file.write_text(content, encoding="utf-8")
 

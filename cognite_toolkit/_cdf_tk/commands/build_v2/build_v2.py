@@ -1513,7 +1513,7 @@ class BuildV2Command(ToolkitCommand):
         if parameters.write_insights:
             insight_file = parameters.insight_path
             if parameters.insight_format == "csv":
-                insight_file_content: str | bytes = insights.to_csv()
+                insight_file_content = insights.to_csv()
             else:
                 insight_file_content = insights.to_json()
             if insight_file_content.strip():
