@@ -1,6 +1,7 @@
 from ._agents import AgentRuleSet
 from ._auth import CheckDataSetMissing
 from ._base import ToolkitGlobalRuleSet, ToolkitLocalRule
+from ._containers import DeployableContainer
 from ._dependencies import DependencyRuleSet
 from ._functions import FunctionRuleSet
 from ._infield import InFieldCDMRuleSet
@@ -11,6 +12,7 @@ __all__ = [
     "AgentRuleSet",
     "CheckDataSetMissing",
     "DependencyRuleSet",
+    "DeployableContainer",
     "FunctionRuleSet",
     "InFieldCDMRuleSet",
     "LocalRulesOrchestrator",

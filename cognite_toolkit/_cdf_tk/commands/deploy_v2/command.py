@@ -1151,7 +1151,7 @@ class DeployV2Command(ToolkitCommand):
                 f"[{insight.severity}] {insight.message} (code: {insight.code}, source: {insight.display_source_files_cwd})"
                 for insight in related_insights
             )
-            error_message = f"Failed to {action} {crud.display_name}. This is likely due to the following insights:\n{insights_str}{suffix}"
+            error_message = f"Failed to {action} {crud.display_name}. This is likely due to the following insights produced in `cdf build`:\n{insights_str}\n{suffix}"
         else:
             error_message = f"Failed to {action} {crud.display_name} due to API error: {error.message}.{suffix}"
         raise cls._get_resource_exception(action)(error_message) from error
