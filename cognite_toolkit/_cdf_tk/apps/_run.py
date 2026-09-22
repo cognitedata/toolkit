@@ -6,12 +6,13 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
+    RunFunctionAppCommand,
     RunFunctionCommand,
     RunTransformationCommand,
     RunWorkflowCommand,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
 from ._helpers import print_help_if_no_subcommand
 
@@ -25,6 +26,8 @@ class RunApp(typer.Typer):
         self.command("transformation")(self.run_transformation)
         self.command("workflow")(self.run_workflow)
         self.add_typer(RunFunctionApp(*args, **kwargs), name="function")
+        if FeatureFlag.is_enabled(Flags.FUNCTION_APPS):
+            self.command("function-app")(self.function_app)
 
     @staticmethod
     def _print_deprecation_warning() -> None:
@@ -138,6 +141,19 @@ class RunApp(typer.Typer):
                 env_vars, organization_dir, env_name, external_id, version, wait, config_yaml=config_yaml
             )
         )
+
+    @staticmethod
+    def function_app(
+        path: Annotated[
+            Path,
+            typer.Argument(help="Path to the directory containing handler.py."),
+        ],
+        port: Annotated[int, typer.Option("--port", help="Port to bind to")] = 8000,
+        log_level: Annotated[str, typer.Option("--log-level", help="Log level for the server")] = "info",
+    ) -> None:
+        """Start a local development server for a Function App handler."""
+        command = RunFunctionAppCommand(client=None, skip_tracking=True)
+        command.run(lambda: command.run_function_app(path, port, log_level))
 
 
 class RunFunctionApp(typer.Typer):
