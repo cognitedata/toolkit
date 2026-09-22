@@ -24,11 +24,13 @@ from cognite.client.data_classes.workflows import (
 )
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils import ms_to_datetime
+from pydantic import JsonValue
 from rich import print
 from rich.progress import Progress
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowExecutionId
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
@@ -40,6 +42,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     SQLQueryResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_job import TransformationJobResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowExecutionDetailedResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import Task, WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.auth import CLIENT_NAME, EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ResourceLineageItem
@@ -1051,3 +1055,156 @@ class RunWorkflowCommand(ToolkitCommand):
             )
         print(table)
         return True
+
+
+class RunWorkflowV2Command(ToolkitCommand):
+    unfinished_task_statuses = frozenset({"IN_PROGRESS", "SCHEDULED"})
+
+    def run_workflow(
+        self,
+        env_vars: EnvironmentVariables,
+        external_id: str | None,
+        version: str | None,
+        wait: bool,
+    ) -> bool:
+        """Run a workflow in CDF.
+
+        The available workflows are read from CDF, so no local modules are needed.
+        """
+        client = env_vars.get_client()
+        is_interactive = external_id is None
+        selected = self._select_version(client, external_id, version)
+        id_ = selected.as_id()
+
+        input_ = self._get_trigger_input(client, id_, is_interactive)
+
+        try:
+            nonce = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
+        except CogniteAPIError as e:
+            raise AuthorizationError(f"Could not create oneshot session for workflow {id_!s}: {e!s}") from e
+
+        if is_interactive:
+            wait = questionary.confirm("Do you want to wait for the workflow to complete?").unsafe_ask()
+
+        execution = client.tool.workflows.executions.run(id_, nonce=nonce, input=input_)
+        table = Table(title=f"Workflow {id_!s}")
+        table.add_column("Info", justify="left")
+        table.add_column("Value", justify="left", style="green")
+        table.add_row("Execution id", execution.id)
+        table.add_row("Status", str(execution.status))
+        table.add_row("Created time", f"{ms_to_datetime(execution.created_time):%Y-%m-%d %H:%M:%S}")
+        print(table)
+
+        if not wait:
+            return True
+
+        result = self._wait_for_completion(client, execution.as_id(), selected.workflow_definition.tasks)
+        if result is None:
+            print(f"Could not find execution {execution.id}")
+            return False
+
+        print(f"Workflow {id_!s} execution {execution.id} completed with status {result.status}")
+        self._print_tasks(id_, result)
+        return True
+
+    @staticmethod
+    def _select_version(client: ToolkitClient, external_id: str | None, version: str | None) -> WorkflowVersionResponse:
+        versions = client.tool.workflows.versions.list(workflow_external_id=external_id, limit=None)
+        if external_id is None:
+            # Interactive mode
+            if not versions:
+                raise ToolkitMissingResourceError("No workflows found in CDF.")
+            choices = [
+                questionary.Choice(title=f"{item.workflow_external_id} ({item.version})", value=item)
+                for item in versions
+            ]
+            selected: WorkflowVersionResponse = questionary.select(
+                "Select workflow to run", choices=choices
+            ).unsafe_ask()
+            return selected
+        match = next((item for item in versions if version is None or item.version == version), None)
+        if match is None:
+            version_str = f" and version {version}" if version is not None else ""
+            raise ToolkitMissingResourceError(f"Could not find workflow with external id {external_id}{version_str}")
+        return match
+
+    @staticmethod
+    def _get_trigger_input(
+        client: ToolkitClient, id_: ToolkitWorkflowVersionId, is_interactive: bool
+    ) -> dict[str, JsonValue] | None:
+        for triggers in client.tool.workflows.triggers.iterate(
+            workflow_external_id=id_.workflow_external_id, workflow_version=id_.version
+        ):
+            for trigger in triggers:
+                if not isinstance(trigger.input, dict):
+                    continue
+                print(f"Found trigger {trigger.as_id()!s} for workflow {id_!s}")
+                if (
+                    is_interactive
+                    and not questionary.confirm("Do you want to use input data from this trigger?").unsafe_ask()
+                ):
+                    return None
+                return trigger.input
+        return None
+
+    @classmethod
+    def _wait_for_completion(
+        cls, client: ToolkitClient, execution_id: WorkflowExecutionId, tasks: list[Task]
+    ) -> WorkflowExecutionDetailedResponse | None:
+        total = len(tasks)
+        max_time = sum((task.timeout or 3600) * (task.retries or 3) for task in tasks)
+        result = cls._retrieve_execution(client, execution_id)
+        with Progress() as progress:
+            call_task = progress.add_task("Waiting for workflow execution to complete...", total=total)
+            start_time = time.time()
+            duration = 0.0
+            sleep_time = 1
+            while (result is None or str(result.status).upper() == "RUNNING") and duration < max_time:
+                time.sleep(sleep_time)
+                sleep_time = min(sleep_time * 2, 15)
+                result = cls._retrieve_execution(client, execution_id)
+                duration = time.time() - start_time
+                if result is not None:
+                    progress.update(call_task, completed=min(cls._finished_task_count(result), total))
+            if result is not None:
+                progress.update(call_task, completed=min(cls._finished_task_count(result), total))
+        return result
+
+    @staticmethod
+    def _retrieve_execution(
+        client: ToolkitClient, execution_id: WorkflowExecutionId
+    ) -> WorkflowExecutionDetailedResponse | None:
+        executions = client.tool.workflows.executions.retrieve([execution_id], ignore_unknown_ids=True)
+        return executions[0] if executions else None
+
+    @classmethod
+    def _finished_task_count(cls, execution: WorkflowExecutionDetailedResponse) -> int:
+        return sum(
+            1 for task in execution.executed_tasks if str(task.status).upper() not in cls.unfinished_task_statuses
+        )
+
+    @staticmethod
+    def _print_tasks(id_: ToolkitWorkflowVersionId, execution: WorkflowExecutionDetailedResponse) -> None:
+        table = Table(title=f"Workflow Tasks {id_!s}")
+        table.add_column("Task")
+        table.add_column("Status")
+        table.add_column("Start Time")
+        table.add_column("End Time")
+        table.add_column("Duration")
+        table.add_column("ReasonForIncompletion")
+
+        for task in execution.executed_tasks:
+            task_duration = (
+                f"{datetime.timedelta(seconds=(task.end_time - task.start_time) / 1000).total_seconds():.1f} seconds"
+                if task.end_time and task.start_time
+                else ""
+            )
+            table.add_row(
+                task.external_id,
+                str(task.status),
+                f"{ms_to_datetime(task.start_time):%Y-%m-%d %H:%M:%S}" if task.start_time else "",
+                f"{ms_to_datetime(task.end_time):%Y-%m-%d %H:%M:%S}" if task.end_time else "",
+                task_duration,
+                task.reason_for_incompletion,
+            )
+        print(table)

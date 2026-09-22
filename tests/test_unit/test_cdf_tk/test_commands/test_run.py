@@ -27,15 +27,25 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation_job import (
     TransformationJobMetricResponse,
     TransformationJobResponse,
 )
+from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import (
+    WorkflowExecutionDetailedResponse,
+    WorkflowExecutionResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import WorkflowTriggerResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.commands import (
     BuildV2Command,
     RunFunctionCommand,
     RunTransformationCommand,
     RunWorkflowCommand,
+    RunWorkflowV2Command,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.commands.run import FunctionCallArgs, RunTransformationV2Command
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
+from cognite_toolkit._cdf_tk.commands.run import FunctionCallArgs
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from tests.data import RUN_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -469,3 +479,158 @@ class TestRunWorkflow:
         )
         assert called_with.workflow_external_id == "workflow"
         assert called_with.version == "v1"
+
+
+def _workflow_version(external_id: str = "workflow", version: str = "v1") -> WorkflowVersionResponse:
+    return WorkflowVersionResponse.model_validate(
+        {
+            "workflowExternalId": external_id,
+            "version": version,
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "task1",
+                        "type": "function",
+                        "parameters": {"function": {"externalId": "fn_test3"}},
+                        "timeout": 60,
+                        "retries": 1,
+                    }
+                ]
+            },
+            "createdTime": 0,
+            "lastUpdatedTime": 0,
+        }
+    )
+
+
+def _workflow_execution(status: str = "RUNNING") -> WorkflowExecutionResponse:
+    return WorkflowExecutionResponse.model_validate(
+        {
+            "id": "1234567890",
+            "workflowExternalId": "workflow",
+            "version": "v1",
+            "status": status,
+            "createdTime": int(datetime.now().timestamp() * 1000),
+        }
+    )
+
+
+def _detailed_execution(status: str, task_status: str) -> WorkflowExecutionDetailedResponse:
+    now_ms = int(datetime.now().timestamp() * 1000)
+    return WorkflowExecutionDetailedResponse.model_validate(
+        {
+            "id": "1234567890",
+            "workflowExternalId": "workflow",
+            "version": "v1",
+            "status": status,
+            "createdTime": now_ms,
+            "workflowDefinition": _workflow_version().workflow_definition.dump(),
+            "executedTasks": [
+                {
+                    "id": "task-id",
+                    "externalId": "task1",
+                    "status": task_status,
+                    "startTime": now_ms,
+                    "endTime": now_ms + 1000 if task_status == "COMPLETED" else None,
+                }
+            ],
+        }
+    )
+
+
+class TestRunWorkflowV2:
+    def test_run_workflow(
+        self, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
+    ) -> None:
+        client = toolkit_client_approval.mock_client
+        client.tool.workflows.versions.list = MagicMock(return_value=[_workflow_version()])
+        client.tool.workflows.triggers.iterate = MagicMock(return_value=iter([]))
+        client.tool.workflows.executions.run = MagicMock(return_value=_workflow_execution())
+
+        assert (
+            RunWorkflowV2Command().run_workflow(
+                env_vars_with_client,
+                external_id="workflow",
+                version="v1",
+                wait=False,
+            )
+            is True
+        )
+
+    def test_run_workflow_passes_trigger_input(
+        self, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
+    ) -> None:
+        client = toolkit_client_approval.mock_client
+        trigger = WorkflowTriggerResponse.model_validate(
+            {
+                "externalId": "my_trigger",
+                "triggerRule": {"triggerType": "schedule", "cronExpression": "0 0 * * *"},
+                "workflowExternalId": "workflow",
+                "workflowVersion": "v1",
+                "input": {"breakfast": "egg and bacon"},
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+                "isPaused": False,
+            }
+        )
+        client.tool.workflows.versions.list = MagicMock(return_value=[_workflow_version()])
+        client.tool.workflows.triggers.iterate = MagicMock(return_value=iter([[trigger]]))
+        run_mock = MagicMock(return_value=_workflow_execution())
+        client.tool.workflows.executions.run = run_mock
+
+        RunWorkflowV2Command().run_workflow(
+            env_vars_with_client,
+            external_id="workflow",
+            version="v1",
+            wait=False,
+        )
+
+        run_mock.assert_called_once_with(
+            ToolkitWorkflowVersionId(workflow_external_id="workflow", version="v1"),
+            nonce="dummy-nonce",
+            input={"breakfast": "egg and bacon"},
+        )
+
+    @patch("cognite_toolkit._cdf_tk.commands.run.time.sleep")
+    def test_run_workflow_wait_for_completion(
+        self,
+        _sleep: MagicMock,
+        toolkit_client_approval: ApprovalToolkitClient,
+        env_vars_with_client: EnvironmentVariables,
+    ) -> None:
+        client = toolkit_client_approval.mock_client
+        client.tool.workflows.versions.list = MagicMock(return_value=[_workflow_version()])
+        client.tool.workflows.triggers.iterate = MagicMock(return_value=iter([]))
+        client.tool.workflows.executions.run = MagicMock(return_value=_workflow_execution())
+        retrieve_mock = MagicMock(
+            side_effect=[
+                [_detailed_execution("RUNNING", "IN_PROGRESS")],
+                [_detailed_execution("COMPLETED", "COMPLETED")],
+            ]
+        )
+        client.tool.workflows.executions.retrieve = retrieve_mock
+
+        assert (
+            RunWorkflowV2Command().run_workflow(
+                env_vars_with_client,
+                external_id="workflow",
+                version="v1",
+                wait=True,
+            )
+            is True
+        )
+        assert retrieve_mock.call_count == 2
+
+    def test_run_workflow_missing_version(
+        self, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
+    ) -> None:
+        client = toolkit_client_approval.mock_client
+        client.tool.workflows.versions.list = MagicMock(return_value=[_workflow_version(version="v1")])
+
+        with pytest.raises(ToolkitMissingResourceError, match="Could not find workflow"):
+            RunWorkflowV2Command().run_workflow(
+                env_vars_with_client,
+                external_id="workflow",
+                version="v2",
+                wait=False,
+            )
