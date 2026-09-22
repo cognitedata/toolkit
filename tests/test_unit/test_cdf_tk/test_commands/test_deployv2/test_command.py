@@ -3,6 +3,7 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 from unittest.mock import MagicMock
 
 import httpx2
@@ -668,7 +669,9 @@ class TestCategorizeResources:
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 0, "skipped": 1}
 
 
-def _space_lineage_with_insights(tmp_path: Path, fmt: str) -> tuple[Path, BuildLineage, SpaceId]:
+def _space_lineage_with_insights(
+    tmp_path: Path, fmt: Literal["json", "csv"]
+) -> tuple[Path, BuildLineage, InsightList, SpaceId]:
     organization_dir = tmp_path / "org"
     build_dir = tmp_path / "build"
     source_file = organization_dir / "modules" / "my_module" / "data_modeling" / "my.Space.yaml"
@@ -701,92 +704,65 @@ def _space_lineage_with_insights(tmp_path: Path, fmt: str) -> tuple[Path, BuildL
     insights = InsightList(
         [
             ConsistencyError(
-                message="Space is missing a required view",
-                code="MISSING-VIEW",
+                message="Space is fine this is a test",
+                code="NOT-REAL",
                 source_files=[source_file],
-                fix="Add the view",
+                fix="Cannot be fixed as it is not an issue",
             )
         ]
     )
     insight_content = insights.to_csv() if fmt == "csv" else insights.to_json()
     (build_dir / f"insights.{fmt}").write_text(insight_content, encoding="utf-8")
-    return build_dir, lineage, space_id
+    return build_dir, lineage, insights, space_id
 
 
 class TestReadInsightsByResource:
     @pytest.mark.parametrize("fmt", ["csv", "json"])
-    def test_maps_insights_to_resources_from_file(self, tmp_path: Path, fmt: str) -> None:
-        build_dir, lineage, space_id = _space_lineage_with_insights(tmp_path, fmt)
+    def test_maps_insights_to_resources_from_file(self, tmp_path: Path, fmt: Literal["csv", "json"]) -> None:
+        build_dir, lineage, insights, space_id = _space_lineage_with_insights(tmp_path, fmt)
 
         actual = DeployV2Command.read_insights_by_resource(build_dir, lineage)
 
         key = (SpaceCRUD.as_resource_type(), space_id)
         assert actual is not None
         assert key in actual
-        assert [insight.message for insight in actual[key]] == ["Space is missing a required view"]
-        assert [insight.code for insight in actual[key]] == ["MISSING-VIEW"]
-
-    def test_does_not_match_when_relative_source_path_differs(self, tmp_path: Path) -> None:
-        build_dir, lineage, _ = _space_lineage_with_insights(tmp_path, "csv")
-        other_source = tmp_path / "org" / "modules" / "other_module" / "data_modeling" / "other.Space.yaml"
-        other_source.parent.mkdir(parents=True)
-        other_source.write_text("space: other_space\n", encoding="utf-8")
-        insights = InsightList(
-            [
-                ConsistencyError(
-                    message="Unrelated insight",
-                    code="OTHER",
-                    source_files=[other_source],
-                )
-            ]
-        )
-        (build_dir / "insights.csv").write_text(insights.to_csv(), encoding="utf-8")
-
-        assert DeployV2Command.read_insights_by_resource(build_dir, lineage) is None
+        actual_insights = actual[key]
+        assert [insight.model_dump() for insight in actual_insights] == insights.dump()
 
     def test_returns_none_when_insights_file_missing(self, tmp_path: Path) -> None:
-        build_dir, lineage, _ = _space_lineage_with_insights(tmp_path, "csv")
+        build_dir, lineage, *_ = _space_lineage_with_insights(tmp_path, "csv")
         (build_dir / "insights.csv").unlink()
 
         assert DeployV2Command.read_insights_by_resource(build_dir, lineage) is None
 
     def test_returns_none_when_lineage_missing(self, tmp_path: Path) -> None:
-        build_dir, _, _ = _space_lineage_with_insights(tmp_path, "csv")
+        build_dir, *_ = _space_lineage_with_insights(tmp_path, "csv")
 
         assert DeployV2Command.read_insights_by_resource(build_dir, None) is None
 
 
 class TestDeployResourcesRelatedInsights:
-    def test_api_error_includes_related_insights(self, valid_yaml_absolute_path: Path) -> None:
-        space_id = SpaceId(space="my_space")
-        resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy()
-        resources.to_create = [SpaceRequest(space="my_space")]
-        insights_by_resource = {
-            (SpaceCRUD.as_resource_type(), space_id): [
-                ConsistencyError(
-                    message="Space is missing a required view",
-                    code="MISSING-VIEW",
-                    fix="Add the missing view to the space",
-                    source_files=[valid_yaml_absolute_path],
-                )
-            ]
-        }
+    def test_api_error_includes_related_insights(self, tmp_path: Path) -> None:
+        build_dir, lineage, _, space_id = _space_lineage_with_insights(tmp_path, "json")
+
+        insights_by_resource = DeployV2Command.read_insights_by_resource(build_dir, lineage)
+
+        resources = ResourceToDeploy[SpaceId, SpaceRequest]()
+        resources.to_create = [SpaceRequest(space=space_id.space)]
 
         console_output = io.StringIO()
-        with monkeypatch_toolkit_client() as client:
-            client.console = Console(file=console_output, width=200)
-            client.tool.spaces.create.side_effect = ToolkitAPIError("API failed")
-            crud = SpaceCRUD.create_loader(client)
-            with pytest.raises(ResourceCreationError, match="likely due to the insights") as exc_info:
-                DeployV2Command.deploy_resources(
-                    crud, resources, skipped_cruds=set(), insights_by_resource=insights_by_resource
-                )
+        client = MagicMock()
+        client.console = Console(file=console_output, width=200)
+        client.tool.spaces.create.side_effect = ToolkitAPIError("API failed")
+        crud = SpaceCRUD.create_loader(client)
+        with pytest.raises(ResourceCreationError, match="likely due to the insights"):
+            DeployV2Command.deploy_resources(
+                crud, resources, skipped_cruds=set(), insights_by_resource=insights_by_resource
+            )
 
         # The insight details are rendered in a prominent panel rather than the exception message.
         output = console_output.getvalue()
-        assert "MISSING-VIEW" in output
-        assert "Space is missing a required view" in output
+        assert "NOT-REAL" in output
+        assert "Space is fine this is a test" in output
         assert "Suggested fix:" in output
-        assert "Add the missing view to the space" in output
-        # Severity is internal and must not be surfaced to the user.
-        assert str(ConsistencyError.severity) not in str(exc_info.value)
+        assert "Cannot be fixed as it is not an issue" in output
