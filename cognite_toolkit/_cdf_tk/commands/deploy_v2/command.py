@@ -319,31 +319,22 @@ class DeployV2Command(ToolkitCommand):
                 break
         if insight_path is None:
             return None
-        try:
-            rows = InsightList.read_serialized_rows(insight_path)
-        except (OSError, json.JSONDecodeError, csv.Error, UnicodeDecodeError, TypeError, ValueError):
-            return None
-        if not rows:
-            return None
+        insights = InsightList.from_file(insight_path, build_lineage.organization_dir)
 
-        resources_by_source_path: dict[str, list[tuple[ResourceType, Identifier]]] = defaultdict(list)
+        resources_by_source_path: dict[Path, list[tuple[ResourceType, Identifier]]] = defaultdict(list)
         for module in build_lineage.module_lineage:
             for resource in module.resource_lineage:
-                resources_by_source_path[resource.source_file.as_posix()].append((resource.type, resource.identifier))
+                resources_by_source_path[build_lineage.organization_dir / resource.source_file].append(
+                    (resource.type, resource.identifier)
+                )
 
         insights_by_resource: InsightsByResource = defaultdict(list)
-        for row in rows:
-            matched: set[tuple[ResourceType, Identifier]] = set()
-            for source_file in row.get("source_files") or []:
-                matched.update(resources_by_source_path.get(Path(source_file).as_posix(), ()))
-            if not matched:
-                continue
-            insight = InsightList._to_insight(row, build_lineage.organization_dir)
-            if insight is None:
-                continue
-            for resource_key in matched:
-                insights_by_resource[resource_key].append(insight)
-        return dict(insights_by_resource) or None
+        for insight in insights:
+            for source_file in insight.source_files:
+                if source_file in resources_by_source_path:
+                    for resource_type, identifier in resources_by_source_path[source_file]:
+                        insights_by_resource[(resource_type, identifier)].append(insight)
+        return dict(insights_by_resource)
 
     @classmethod
     def read_build_directory(

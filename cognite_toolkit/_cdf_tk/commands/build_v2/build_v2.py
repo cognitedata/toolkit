@@ -1403,7 +1403,7 @@ class BuildV2Command(ToolkitCommand):
             f"[green]✓[/] [bold]{module_count}[/] modules",
             f"[green]✓[/] [bold]{resource_count}[/] resources of {resource_type_count} different types.",
         ]
-        aggregates = Counter((insight.insight_type(), type(insight).severity) for insight in insights)
+        aggregates = Counter((insight.insight_type, type(insight).severity) for insight in insights)
         max_severity = 0
         for (insight_type, severity), count in sorted(aggregates.items(), key=lambda i: i[1], reverse=True):
             max_severity = max(max_severity, severity)
