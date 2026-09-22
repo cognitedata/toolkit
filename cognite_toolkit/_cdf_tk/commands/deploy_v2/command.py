@@ -1176,7 +1176,7 @@ class DeployV2Command(ToolkitCommand):
             ToolkitPanelSection(
                 description=(
                     f"The failed {action} is likely caused by the following {insight_count} "
-                    f"insight{plural} produced during [bold]cdf build[/]:"
+                    f"cause{plural} produced during [bold]build[/]:"
                 )
             )
         ]
