@@ -27,7 +27,7 @@ from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils import ms_to_datetime
 from pydantic import JsonValue
 from rich import print
-from rich.progress import Progress
+from rich.progress import Progress, TaskID
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -44,6 +44,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_job import TransformationJobResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowExecutionDetailedResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import (
+    WorkflowExecutionDetailedResponse,
+    WorkflowTaskExecution,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import Task, WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.auth import CLIENT_NAME, EnvironmentVariables
@@ -1060,6 +1064,7 @@ class RunWorkflowCommand(ToolkitCommand):
 
 class RunWorkflowV2Command(ToolkitCommand):
     unfinished_task_statuses = frozenset({"IN_PROGRESS", "SCHEDULED"})
+    failed_task_statuses = frozenset({"FAILED", "FAILED_WITH_TERMINAL_ERROR", "TIMED_OUT", "CANCELED"})
 
     def run_workflow(
         self,
@@ -1204,11 +1209,16 @@ class RunWorkflowV2Command(ToolkitCommand):
     def _wait_for_completion(
         cls, client: ToolkitClient, execution_id: WorkflowExecutionId, tasks: list[Task]
     ) -> WorkflowExecutionDetailedResponse | None:
-        total = len(tasks)
-        max_time = sum((task.timeout or 3600) * (task.retries or 3) for task in tasks)
+        # Each task is attempted once, plus once more for each retry.
+        max_time = sum(
+            (task.timeout or 3600) * ((task.retries if task.retries is not None else 3) + 1) for task in tasks
+        )
         result = cls._retrieve_execution(client, execution_id)
+        # Attempts we have already told the user about, so each one is only reported once.
+        reported: set[str] = set()
         with Progress(console=client.console) as progress:
-            call_task = progress.add_task("Waiting for workflow execution to complete...", total=total)
+            bar = progress.add_task(cls._progress_description(result), total=len(tasks))
+            cls._update_progress(progress, bar, result, len(tasks), reported)
             start_time = time.time()
             duration = 0.0
             sleep_time = 1
@@ -1217,10 +1227,7 @@ class RunWorkflowV2Command(ToolkitCommand):
                 sleep_time = min(sleep_time * 2, 15)
                 result = cls._retrieve_execution(client, execution_id)
                 duration = time.time() - start_time
-                if result is not None:
-                    progress.update(call_task, completed=min(cls._finished_task_count(result), total))
-            if result is not None:
-                progress.update(call_task, completed=min(cls._finished_task_count(result), total))
+                cls._update_progress(progress, bar, result, len(tasks), reported)
         return result
 
     @staticmethod
@@ -1230,34 +1237,121 @@ class RunWorkflowV2Command(ToolkitCommand):
         executions = client.tool.workflows.executions.retrieve([execution_id], ignore_unknown_ids=True)
         return executions[0] if executions else None
 
+    @staticmethod
+    def _attempts_by_task(
+        execution: WorkflowExecutionDetailedResponse,
+    ) -> dict[str, list[WorkflowTaskExecution]]:
+        """Group the task executions by task, in the order they were attempted."""
+        attempts_by_task: dict[str, list[WorkflowTaskExecution]] = defaultdict(list)
+        for task in execution.executed_tasks:
+            attempts_by_task[task.external_id].append(task)
+        return attempts_by_task
+
     @classmethod
-    def _finished_task_count(cls, execution: WorkflowExecutionDetailedResponse) -> int:
-        return sum(
-            1 for task in execution.executed_tasks if str(task.status).upper() not in cls.unfinished_task_statuses
+    def _update_progress(
+        cls,
+        progress: Progress,
+        bar: TaskID,
+        execution: WorkflowExecutionDetailedResponse | None,
+        task_count: int,
+        reported: set[str],
+    ) -> None:
+        if execution is None:
+            return
+        attempts_by_task = cls._attempts_by_task(execution)
+        for attempts in attempts_by_task.values():
+            for attempt_no, task in enumerate(attempts, 1):
+                cls._report_attempt(progress, task, attempt_no, reported)
+        progress.update(
+            bar,
+            # Dynamic and subworkflow tasks are expanded at runtime, so the workflow
+            # definition is a lower bound on the number of tasks.
+            total=max(task_count, len(attempts_by_task)),
+            completed=cls._finished_task_count(execution),
+            description=cls._progress_description(execution),
         )
 
+    @classmethod
+    def _finished_task_count(cls, execution: WorkflowExecutionDetailedResponse) -> int:
+        """Count the tasks that are done, which is not the same as the number of task executions.
+
+        A task that is retried has one execution per attempt, so only the last attempt of each task counts.
+        """
+        return sum(
+            1
+            for attempts in cls._attempts_by_task(execution).values()
+            if str(attempts[-1].status).upper() not in cls.unfinished_task_statuses
+        )
+
+    @classmethod
+    def _report_attempt(
+        cls, progress: Progress, task: WorkflowTaskExecution, attempt_no: int, reported: set[str]
+    ) -> None:
+        if attempt_no > 1 and f"{task.id}:started" not in reported:
+            reported.add(f"{task.id}:started")
+            progress.console.print(f"[yellow]Retrying task {task.external_id!r} (attempt {attempt_no})[/]")
+        status = str(task.status).upper()
+        if status not in cls.failed_task_statuses or f"{task.id}:{status}" in reported:
+            return
+        reported.add(f"{task.id}:{status}")
+        reason = f": {task.reason_for_incompletion}" if task.reason_for_incompletion else ""
+        progress.console.print(f"[red]Task {task.external_id!r} attempt {attempt_no} {status}[/]{reason}")
+
     @staticmethod
-    def _print_tasks(id_: ToolkitWorkflowVersionId, execution: WorkflowExecutionDetailedResponse) -> None:
+    def _progress_description(execution: WorkflowExecutionDetailedResponse | None) -> str:
+        if execution is None:
+            return "Waiting for workflow execution to start..."
+        running = [task.external_id for task in execution.executed_tasks if str(task.status).upper() == "IN_PROGRESS"]
+        if not running:
+            return "Waiting for workflow execution to complete..."
+        if len(running) == 1:
+            return f"Running task {running[0]!r}..."
+        return f"Running {len(running)} tasks: {', '.join(repr(external_id) for external_id in running[:3])}..."
+
+    @staticmethod
+    def _truncate(value: JsonValue, max_length: int = 50) -> str:
+        if value is None:
+            return ""
+        text = " ".join((value if isinstance(value, str) else json.dumps(value)).split())
+        if len(text) <= max_length:
+            return text
+        return f"{text[: max_length - 1]}…"
+
+    @classmethod
+    def _print_tasks(cls, id_: ToolkitWorkflowVersionId, execution: WorkflowExecutionDetailedResponse) -> None:
         table = Table(title=f"Workflow Tasks {id_!s}")
         table.add_column("Task")
+        table.add_column("Attempt")
         table.add_column("Status")
         table.add_column("Start Time")
         table.add_column("End Time")
         table.add_column("Duration")
+        table.add_column("Output")
         table.add_column("ReasonForIncompletion")
 
-        for task in execution.executed_tasks:
-            task_duration = (
-                f"{datetime.timedelta(seconds=(task.end_time - task.start_time) / 1000).total_seconds():.1f} seconds"
-                if task.end_time and task.start_time
-                else ""
-            )
-            table.add_row(
-                task.external_id,
-                str(task.status),
-                f"{ms_to_datetime(task.start_time):%Y-%m-%d %H:%M:%S}" if task.start_time else "",
-                f"{ms_to_datetime(task.end_time):%Y-%m-%d %H:%M:%S}" if task.end_time else "",
-                task_duration,
-                task.reason_for_incompletion,
-            )
+        for external_id, attempts in cls._attempts_by_task(execution).items():
+            for attempt_no, task in enumerate(attempts, 1):
+                task_duration = (
+                    f"{datetime.timedelta(seconds=(task.end_time - task.start_time) / 1000).total_seconds():.1f} seconds"
+                    if task.end_time and task.start_time
+                    else ""
+                )
+                if attempt_no > 1:
+                    # The task is already named in the first row of the group.
+                    task_name = ""
+                elif len(attempts) > 1:
+                    task_name = f"{external_id} ({len(attempts)} attempts)"
+                else:
+                    task_name = external_id
+                table.add_row(
+                    task_name,
+                    f"{attempt_no}/{len(attempts)}" if len(attempts) > 1 else "1",
+                    str(task.status),
+                    f"{ms_to_datetime(task.start_time):%Y-%m-%d %H:%M:%S}" if task.start_time else "",
+                    f"{ms_to_datetime(task.end_time):%Y-%m-%d %H:%M:%S}" if task.end_time else "",
+                    task_duration,
+                    cls._truncate(task.output),
+                    task.reason_for_incompletion,
+                    end_section=len(attempts) > 1 and attempt_no == len(attempts),
+                )
         print(table)

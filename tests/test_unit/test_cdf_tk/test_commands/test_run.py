@@ -13,6 +13,7 @@ from cognite.client.data_classes.workflows import (
     WorkflowVersionId,
 )
 from questionary import Choice
+from pydantic import JsonValue
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.api.workflow_executions import WorkflowExecutionsAPI
@@ -36,6 +37,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as Tool
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import (
     WorkflowExecutionDetailedResponse,
     WorkflowExecutionResponse,
+    WorkflowTaskExecution,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import WorkflowTriggerResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
@@ -522,25 +524,37 @@ def _workflow_execution(status: str = "RUNNING") -> WorkflowExecutionResponse:
     )
 
 
-def _detailed_execution(status: str, task_status: str) -> WorkflowExecutionDetailedResponse:
+def _task_execution(
+    id_: str,
+    external_id: str,
+    status: str,
+    output: JsonValue = None,
+    reason_for_incompletion: str | None = None,
+) -> WorkflowTaskExecution:
     now_ms = int(datetime.now().timestamp() * 1000)
+    return WorkflowTaskExecution.model_validate(
+        {
+            "id": id_,
+            "externalId": external_id,
+            "status": status,
+            "startTime": now_ms,
+            "endTime": None if status in ("SCHEDULED", "IN_PROGRESS") else now_ms + 1000,
+            "output": output,
+            "reasonForIncompletion": reason_for_incompletion,
+        }
+    )
+
+
+def _detailed_execution(status: str, executed_tasks: list[WorkflowTaskExecution]) -> WorkflowExecutionDetailedResponse:
     return WorkflowExecutionDetailedResponse.model_validate(
         {
             "id": "1234567890",
             "workflowExternalId": "workflow",
             "version": "v1",
             "status": status,
-            "createdTime": now_ms,
+            "createdTime": int(datetime.now().timestamp() * 1000),
             "workflowDefinition": _workflow_version().workflow_definition.dump(),
-            "executedTasks": [
-                {
-                    "id": "task-id",
-                    "externalId": "task1",
-                    "status": task_status,
-                    "startTime": now_ms,
-                    "endTime": now_ms + 1000 if task_status == "COMPLETED" else None,
-                }
-            ],
+            "executedTasks": executed_tasks,
         }
     )
 
@@ -638,8 +652,8 @@ class TestRunWorkflowV2:
         client = workflow_client
         client.tool.workflows.versions.retrieve.return_value = [_workflow_version()]
         client.tool.workflows.executions.retrieve.side_effect = [
-            [_detailed_execution("RUNNING", "IN_PROGRESS")],
-            [_detailed_execution("COMPLETED", "COMPLETED")],
+            [_detailed_execution("RUNNING", [_task_execution("1", "task1", "IN_PROGRESS")])],
+            [_detailed_execution("COMPLETED", [_task_execution("1", "task1", "COMPLETED")])],
         ]
 
         assert (
@@ -664,3 +678,57 @@ class TestRunWorkflowV2:
                 version="v2",
                 wait=False,
             )
+
+    def test_finished_task_count_counts_tasks_not_attempts(self) -> None:
+        """A retried task has one execution per attempt, but is still a single task."""
+        execution = _detailed_execution(
+            "RUNNING",
+            [
+                _task_execution("1", "task1", "FAILED"),
+                _task_execution("2", "task1", "COMPLETED"),
+                _task_execution("3", "task2", "IN_PROGRESS"),
+            ],
+        )
+
+        assert RunWorkflowV2Command._finished_task_count(execution) == 1
+
+    def test_report_attempt_reports_failure_and_retry_once(self) -> None:
+        progress = MagicMock()
+        reported: set[str] = set()
+        failed = _task_execution("1", "task1", "FAILED", reason_for_incompletion="boom")
+        retry = _task_execution("2", "task1", "IN_PROGRESS")
+
+        RunWorkflowV2Command._report_attempt(progress, failed, 1, reported)
+        RunWorkflowV2Command._report_attempt(progress, retry, 2, reported)
+        # The same attempts are seen again on the next poll, and must not be reported twice.
+        RunWorkflowV2Command._report_attempt(progress, failed, 1, reported)
+        RunWorkflowV2Command._report_attempt(progress, retry, 2, reported)
+
+        assert [call.args[0] for call in progress.console.print.call_args_list] == [
+            "[red]Task 'task1' attempt 1 FAILED[/]: boom",
+            "[yellow]Retrying task 'task1' (attempt 2)[/]",
+        ]
+
+    @patch("cognite_toolkit._cdf_tk.commands.run.print")
+    def test_print_tasks_groups_attempts_and_truncates_output(self, print_: MagicMock) -> None:
+        execution = _detailed_execution(
+            "COMPLETED",
+            [
+                _task_execution("1", "task1", "FAILED", reason_for_incompletion="boom"),
+                _task_execution("2", "task1", "COMPLETED", output={"result": "ok"}),
+                _task_execution("3", "task2", "COMPLETED", output="a" * 60),
+            ],
+        )
+
+        RunWorkflowV2Command._print_tasks(
+            ToolkitWorkflowVersionId(workflow_external_id="workflow", version="v1"), execution
+        )
+
+        table = print_.call_args.args[0]
+        rendered = {column.header: list(column._cells) for column in table.columns}
+        assert {key: rendered[key] for key in ("Task", "Attempt", "Status", "Output")} == {
+            "Task": ["task1 (2 attempts)", "", "task2"],
+            "Attempt": ["1/2", "2/2", "1"],
+            "Status": ["FAILED", "COMPLETED", "COMPLETED"],
+            "Output": ["", '{"result": "ok"}', f"{'a' * 49}…"],
+        }
