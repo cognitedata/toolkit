@@ -10,21 +10,11 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     DataProductIO,
     DataProductVersionIO,
     Loader,
-    RobotCapabilityIO,
-    RoboticFrameIO,
-    RoboticLocationIO,
-    RoboticMapIO,
-    RoboticsDataPostProcessingIO,
 )
 
 # APIs excluded from the doc_url test: either unofficial/internal APIs not publicly documented,
 # or APIs whose public documentation is not yet available.
 INTERNAL_DOCS = {
-    RoboticMapIO,
-    RoboticFrameIO,
-    RoboticLocationIO,
-    RobotCapabilityIO,
-    RoboticsDataPostProcessingIO,
     DataProductIO,
     DataProductVersionIO,
     AppIO,
