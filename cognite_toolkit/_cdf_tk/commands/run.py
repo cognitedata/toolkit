@@ -1195,7 +1195,7 @@ class RunWorkflowV2Command(ToolkitCommand):
                 f"{trigger.as_id()!s} {str(trigger.input)[:50]}{'…' if len(str(trigger.input)) > 50 else ''}",
                 value=trigger,
             )
-            for trigger in triggers
+            for trigger in triggers_with_data
         ]
         return questionary.select(
             f"Select trigger for workflow {id_!s} to use input data from",
