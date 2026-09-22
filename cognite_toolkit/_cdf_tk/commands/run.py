@@ -67,7 +67,7 @@ from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, FunctionScheduleIO, WorkflowVersionIO
 from cognite_toolkit._cdf_tk.resource_ios._workflow import WorkflowTriggerIO
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-from cognite_toolkit._cdf_tk.utils import in_dict
+from cognite_toolkit._cdf_tk.utils import humanize_collection, in_dict
 from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write
 
 from ._base import ToolkitCommand
@@ -1306,7 +1306,7 @@ class RunWorkflowV2Command(ToolkitCommand):
             return "Waiting for workflow execution to complete..."
         if len(running) == 1:
             return f"Running task {running[0]!r}..."
-        return f"Running {len(running)} tasks: {', '.join(repr(external_id) for external_id in running[:3])}..."
+        return f"Running {len(running)} tasks: {humanize_collection(running[:3])}..."
 
     @staticmethod
     def _truncate(value: JsonValue, max_length: int = 50) -> str:
