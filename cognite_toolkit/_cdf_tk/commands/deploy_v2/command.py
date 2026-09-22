@@ -1209,11 +1209,15 @@ class DeployV2Command(ToolkitCommand):
         identifier: list[Identifier],
         resource_type: ResourceType,
     ) -> list[Insight]:
+        seen: set[int] = set()
         related_insights: list[Insight] = []
         for resource_id in identifier:
             key = (resource_type, resource_id)
             if key in insights_by_resource:
-                related_insights.extend(insights_by_resource[key])
+                for insight in insights_by_resource[key]:
+                    if id(insight) not in seen:
+                        seen.add(id(insight))
+                        related_insights.append(insight)
         return related_insights
 
     @classmethod
