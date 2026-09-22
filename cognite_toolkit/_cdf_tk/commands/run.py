@@ -36,6 +36,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import Fu
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     NonceCredentials as TransformationNonceCredentials,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import SQLQueryResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_job import TransformationJobResponse
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.auth import CLIENT_NAME, EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ResourceLineageItem
@@ -687,6 +689,8 @@ if __name__ == "__main__":
 
 
 class RunTransformationV2Command(ToolkitCommand):
+    _IN_PROGRESS_STATUSES = frozenset({"created", "running"})
+
     def run_transformation(
         self, client: ToolkitClient, external_ids: str | list[str] | None, is_dry_run: bool, wait: bool
     ) -> bool:
@@ -699,6 +703,9 @@ class RunTransformationV2Command(ToolkitCommand):
             is_dry_run = questionary.confirm("Do you want to run the transformation in dry-run mode?").unsafe_ask()
             if not is_dry_run:
                 wait = questionary.confirm("Do you want to wait for the transformation to complete?").unsafe_ask()
+
+        if is_dry_run:
+            return self._dry_run_transformations(client, external_ids)
 
         for external_id in external_ids:
             try:
@@ -719,7 +726,66 @@ class RunTransformationV2Command(ToolkitCommand):
             except ToolkitAPIError as e:
                 print(f"[bold red]ERROR:[/] Could not run transformation {external_id}.")
                 print(e)
+                continue
+            if wait:
+                job = self._wait_for_job(client, job)
+                print(f"Transformation {external_id} finished with status {job.status}.")
+                if job.error:
+                    print(f"[bold red]ERROR:[/] {job.error}")
         return True
+
+    @staticmethod
+    def _dry_run_transformations(client: ToolkitClient, external_ids: list[str]) -> bool:
+        try:
+            transformations = client.tool.transformations.retrieve(ExternalId.from_external_ids(external_ids))
+        except ToolkitAPIError as e:
+            print("[bold red]ERROR:[/] Could not retrieve transformations.")
+            print(e)
+            return False
+        if not transformations:
+            print(f"[bold red]ERROR:[/] Could not find transformation with external_id {external_ids}")
+            return False
+
+        for transformation in transformations:
+            try:
+                result = client.tool.transformations.run_query(transformation.query, convert_to_string=False)
+            except ToolkitAPIError as e:
+                print(f"[bold red]ERROR:[/] Could not dry-run transformation {transformation.external_id}.")
+                print(e)
+                continue
+            RunTransformationV2Command._print_query_result(transformation.external_id, result)
+        return True
+
+    @staticmethod
+    def _print_query_result(external_id: str, result: SQLQueryResponse) -> None:
+        columns = [column.name for column in result.schema_]
+        if not columns:
+            print(f"Dry-run of {external_id} returned {len(result.results)} row(s).")
+            return
+        table = Table(title=f"Dry-run result for {external_id}")
+        for column in columns:
+            table.add_column(column)
+        for row in result.results:
+            table.add_row(*(str(row.get(column, "")) for column in columns))
+        print(table)
+        print(f"Dry-run of {external_id} returned {len(result.results)} row(s).")
+
+    def _wait_for_job(self, client: ToolkitClient, job: TransformationJobResponse) -> TransformationJobResponse:
+        sleep_time = 1.0
+        with Progress() as progress:
+            wait_task = progress.add_task(
+                f"Waiting for transformation {job.transformation_external_id} to complete...", total=None
+            )
+            while job.status.casefold() in self._IN_PROGRESS_STATUSES:
+                time.sleep(sleep_time)
+                sleep_time = min(sleep_time * 2, 15)
+                retrieved = client.tool.transformations.jobs.retrieve([job.as_id()])
+                if not retrieved:
+                    print(f"[bold red]ERROR:[/] Could not retrieve job {job.id}.")
+                    return job
+                job = retrieved[0]
+                progress.update(wait_task, description=f"Transformation {job.transformation_external_id}: {job.status}")
+        return job
 
     @staticmethod
     def _select_transformation_interactive(client: ToolkitClient) -> str:
