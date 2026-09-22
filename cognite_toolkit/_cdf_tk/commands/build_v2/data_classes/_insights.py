@@ -1,12 +1,12 @@
 import csv
 import io
-import json
 import sys
 from collections import UserList, defaultdict
 from pathlib import Path
-from typing import Annotated, ClassVar, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import BaseModel, Field, TypeAdapter, field_validator
+from pydantic import BaseModel, Field, TypeAdapter, field_serializer, field_validator
+from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
@@ -19,13 +19,12 @@ else:
     from typing_extensions import Self
 
 PATH_SEP_CSV = " | "  # Separator for multiple source files in CSV output
-PATH_SEP_JSON = ", "  # Separator for multiple source files in JSON output
 
 
 class InsightDefinition(BaseModel):
     """Base class for all insights"""
 
-    insight_type: ClassVar[str] = "InsightDefinition"
+    insight_type: str = "InsightDefinition"
     severity: ClassVar[int] = 999
 
     message: str
@@ -51,9 +50,39 @@ class InsightDefinition(BaseModel):
         unique_paths = list(dict.fromkeys([relative_to_modules(file) for file in self.source_files]))
         return ", ".join(unique_paths)
 
+    @field_validator("source_files", mode="before")
+    @classmethod
+    def _to_absolute_path(
+        cls, value: list[str] | list[AbsoluteFilePath], info: FieldSerializationInfo
+    ) -> list[AbsoluteFilePath]:
+        """Convert source file paths to absolute paths relative to the organization directory."""
+        if info.context and "organization_dir" in info.context:
+            organization_dir = info.context["organization_dir"]
+            return [
+                AbsoluteFilePath(organization_dir / Path(file)) if isinstance(file, str) else file for file in value
+            ]
+        return value
+
+    @field_serializer("source_files")
+    def as_relative_to_modules(
+        self, source_files: list[AbsoluteFilePath], info: FieldSerializationInfo
+    ) -> list[str] | str:
+        """Serialize the source_files field as a comma-separated string of unique paths relative to the organization's modules directory."""
+        unique_paths = sorted(dict.fromkeys([relative_to_modules(file) for file in source_files]))
+        if info.context and info.context.get("format") == "csv":
+            return PATH_SEP_CSV.join(unique_paths)
+        return unique_paths
+
+    @field_serializer("message", "fix", when_used="unless-none")
+    def normalize_line_breaks(self, value: str, info: FieldSerializationInfo) -> str:
+        """Normalize line breaks to LF-only for CSV output."""
+        if info.context and info.context.get("format") == "csv":
+            return _normalize_csv_cell(value)
+        return value
+
 
 class FileReadError(InsightDefinition):
-    insight_type: ClassVar[Literal["FileReadError"]] = "FileReadError"
+    insight_type: Literal["FileReadError"] = "FileReadError"
     severity = 60
 
 
@@ -61,21 +90,21 @@ class ModelSyntaxError(InsightDefinition):
     """If any syntax error is found. Stop validation
     and ask user to fix the syntax error first."""
 
-    insight_type: ClassVar[Literal["ModelSyntaxError"]] = "ModelSyntaxError"
+    insight_type: Literal["ModelSyntaxError"] = "ModelSyntaxError"
     severity = 40
 
 
 class ModelSyntaxWarning(InsightDefinition):
     """A non-blocking syntax issue, such as an unrecognized field. The resource is still built and deployed."""
 
-    insight_type: ClassVar[Literal["ModelSyntaxWarning"]] = "ModelSyntaxWarning"
+    insight_type: Literal["ModelSyntaxWarning"] = "ModelSyntaxWarning"
     severity = 15
 
 
 class ConsistencyError(InsightDefinition):
     """If any consistency error is found, the deployment of the CDF resource will fail."""
 
-    insight_type: ClassVar[Literal["ConsistencyError"]] = "ConsistencyError"
+    insight_type: Literal["ConsistencyError"] = "ConsistencyError"
     severity = 45
 
 
@@ -109,14 +138,14 @@ class InternalValidatorException(BaseModel):
 class IgnoredFileWarning(InsightDefinition):
     """A file was ignored because it was not recognized as a valid resource file."""
 
-    insight_type: ClassVar[Literal["IgnoredFileWarning"]] = "IgnoredFileWarning"
+    insight_type: Literal["IgnoredFileWarning"] = "IgnoredFileWarning"
     severity = 20
 
 
 class Recommendation(InsightDefinition):
     """Best practice recommendation."""
 
-    insight_type: ClassVar[Literal["Recommendation"]] = "Recommendation"
+    insight_type: Literal["Recommendation"] = "Recommendation"
     severity = 10
 
 
@@ -183,6 +212,10 @@ class InsightList(UserList[Insight]):
 
         return {insight_type.__name__: len(insights) for insight_type, insights in by_type.items()}
 
+    def dump(self) -> list[dict[str, Any]]:
+        """Returns a list of insight dicts with keys insight_type, code, source_file, message, fix."""
+        return [insight.model_dump() for insight in self.data]
+
     def to_csv(self) -> str:
         """Returns a CSV formatted string representation of the insights.
 
@@ -193,35 +226,24 @@ class InsightList(UserList[Insight]):
         Returns:
             CSV formatted string with columns: insight_type, code, source_file, message, fix
         """
-        output = io.StringIO()
-        fieldnames = ["insight_type", "code", "source_file", "message", "fix"]
-        writer = csv.DictWriter(output, fieldnames=fieldnames, dialect=csv.unix_dialect)
-        writer.writeheader()
-
-        for insight in self.data:
-            unique_paths = list(dict.fromkeys([relative_to_modules(file) for file in insight.source_files]))
-            writer.writerow(
-                {
-                    "insight_type": _normalize_csv_cell(insight.insight_type),
-                    "code": _normalize_csv_cell(insight.code or ""),
-                    "source_file": _normalize_csv_cell(PATH_SEP_CSV.join(unique_paths)),
-                    "message": _normalize_csv_cell(insight.message),
-                    "fix": _normalize_csv_cell(insight.fix or ""),
-                }
+        with io.StringIO() as output:
+            writer = csv.DictWriter(
+                output, fieldnames=InsightDefinition.model_fields.keys(), dialect=csv.unix_dialect, lineterminator="\n"
             )
+            writer.writeheader()
+            for insight in self.data:
+                writer.writerow(insight.model_dump(context={"format": "csv"}))
+            return output.getvalue()
 
-        return output.getvalue()
-
-    def to_json(self) -> str:
+    def to_json(self) -> bytes:
         """Returns a JSON array of insight objects with keys insight_type, code, source_file, message, fix."""
-        rows = [insight.model_dump() for insight in self.data]
-        return json.dumps(rows, indent=2, ensure_ascii=False) + "\n"
+        return InsightListAdapter.dump_json(self.data, indent=2, ensure_ascii=False)
 
     @classmethod
     def from_file(cls, path: Path, organization_dir: Path) -> Self:
         """Load insights from a CSV or JSON file written during build."""
         if path.suffix == ".json":
-            return cls.from_json(path.read_text(encoding=BUILD_FOLDER_ENCODING), organization_dir)
+            return cls.from_json(path.read_bytes(), organization_dir)
         elif path.suffix == ".csv":
             return cls.from_csv(path.read_text(encoding=BUILD_FOLDER_ENCODING), organization_dir)
         raise ToolkitValidationError(f"Unsupported insight file format: {path.suffix}")
@@ -236,6 +258,6 @@ class InsightList(UserList[Insight]):
         )
 
     @classmethod
-    def from_json(cls, content: str, organization_dir: Path) -> Self:
+    def from_json(cls, content: bytes, organization_dir: Path) -> Self:
         """Load insights from a JSON string produced by ``to_json``."""
-        return cls(InsightListAdapter.validate_python(content, context={"organization_dir": organization_dir}))
+        return cls(InsightListAdapter.validate_json(content, context={"organization_dir": organization_dir}))
