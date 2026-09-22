@@ -732,6 +732,8 @@ class RunTransformationV2Command(ToolkitCommand):
                 print(f"Transformation {external_id} finished with status {job.status}.")
                 if job.error:
                     print(f"[bold red]ERROR:[/] {job.error}")
+                if job.status.casefold() == "completed":
+                    self._print_job_metrics(client, job)
         return True
 
     @classmethod
@@ -786,6 +788,26 @@ class RunTransformationV2Command(ToolkitCommand):
                 job = retrieved[0]
                 progress.update(wait_task, description=f"Transformation {job.transformation_external_id}: {job.status}")
         return job
+
+    @staticmethod
+    def _print_job_metrics(client: ToolkitClient, job: TransformationJobResponse) -> None:
+        try:
+            metrics = client.tool.transformations.jobs.list_metrics(job.id)
+        except ToolkitAPIError as e:
+            print(f"[bold red]ERROR:[/] Could not retrieve metrics for job {job.id}.")
+            print(e)
+            return
+        if not metrics:
+            print(f"No metrics available for transformation {job.transformation_external_id}.")
+            return
+
+        table = Table(title=f"Job metrics for {job.transformation_external_id}")
+        table.add_column("Time")
+        table.add_column("Metric")
+        table.add_column("Count", justify="right")
+        for metric in metrics:
+            table.add_row(str(ms_to_datetime(metric.timestamp)), metric.name, f"{metric.count:,}")
+        print(table)
 
     @staticmethod
     def _select_transformation_interactive(client: ToolkitClient) -> str:
