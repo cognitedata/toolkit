@@ -1149,8 +1149,8 @@ class DeployV2Command(ToolkitCommand):
         ):
             cls._display_related_insights(crud.client.console, related_insights, action, crud.display_name)
             error_message = (
-                f"Failed to {action} {crud.display_name}. This is likely due to the insights "
-                f"produced in `cdf build` shown in the panel above.{suffix}"
+                f"Failed to {action} {crud.display_name}. Likely causes detected during"
+                f"build are shown in the panel above.{suffix}"
             )
         else:
             error_message = f"Failed to {action} {crud.display_name} due to API error: {error.message}.{suffix}"
