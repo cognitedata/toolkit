@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 from collections.abc import Iterator
+from io import StringIO
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -74,12 +75,22 @@ def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
         yield approval_client
 
 
+def _cheap_toolkit_client() -> MagicMock:
+    """Bare ToolkitClient mock that is safe to pass into build (Rich Progress) and Mixpanel tracking."""
+    mock_client = MagicMock(spec=ToolkitClient)
+    # Rich Progress reads Console.get_time, which is assigned in Console.__init__ and is
+    # therefore missing from MagicMock(spec=Console).
+    mock_client.console = Console(file=StringIO())
+    mock_client.config.project = CDF_PROJECT
+    mock_client.project = MagicMock()
+    mock_client.project.organization.side_effect = ValueError("offline")
+    return mock_client
+
+
 @pytest.fixture(scope="session")
 def toolkit_client_cheap() -> ToolkitClient:
     """A bare minimum fast to initialize client. For tests that don't need to make any calls to the CDF API."""
-    mock_client = MagicMock(spec=ToolkitClient)
-    mock_client.console = MagicMock(spec=Console)
-    return mock_client
+    return _cheap_toolkit_client()
 
 
 @pytest.fixture(scope="session")
@@ -87,8 +98,7 @@ def toolkit_client_with_lookup() -> ToolkitClient:
     """Toolkit client with all lookup methods mocked. For tests that need to test lookup functionality.
     This is much faster than using the ApprovalToolkitClient, which requires a lot of setup and is slower to initialize.
     """
-    mock_client = MagicMock(spec=ToolkitClient)
-    mock_client.console = MagicMock(spec=Console)
+    mock_client = _cheap_toolkit_client()
     mock_client.lookup = MagicMock()
     # Setup mock for all lookup methods
     for lookup_api in [
