@@ -7,6 +7,7 @@ import re
 import shutil
 import textwrap
 import time
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar, cast
@@ -1062,7 +1063,7 @@ class RunWorkflowV2Command(ToolkitCommand):
 
     def run_workflow(
         self,
-        env_vars: EnvironmentVariables,
+        client: ToolkitClient,
         external_id: str | None,
         version: str | None,
         wait: bool,
@@ -1071,20 +1072,20 @@ class RunWorkflowV2Command(ToolkitCommand):
 
         The available workflows are read from CDF, so no local modules are needed.
         """
-        client = env_vars.get_client()
-        is_interactive = external_id is None
-        selected = self._select_version(client, external_id, version)
+        if external_id is None:
+            # Interactive mode
+            selected = self._interactive_select_workflow(client)
+            input_ = self._get_trigger_input(client, selected.as_id())
+            wait = questionary.confirm("Do you want to wait for the workflow to complete?").unsafe_ask()
+        else:
+            selected = self._retrieve_workflow(client, external_id, version)
+            input_ = None
         id_ = selected.as_id()
-
-        input_ = self._get_trigger_input(client, id_, is_interactive)
 
         try:
             nonce = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
         except CogniteAPIError as e:
             raise AuthorizationError(f"Could not create oneshot session for workflow {id_!s}: {e!s}") from e
-
-        if is_interactive:
-            wait = questionary.confirm("Do you want to wait for the workflow to complete?").unsafe_ask()
 
         execution = client.tool.workflows.executions.run(id_, nonce=nonce, input=input_)
         table = Table(title=f"Workflow {id_!s}")
@@ -1107,45 +1108,97 @@ class RunWorkflowV2Command(ToolkitCommand):
         self._print_tasks(id_, result)
         return True
 
-    @staticmethod
-    def _select_version(client: ToolkitClient, external_id: str | None, version: str | None) -> WorkflowVersionResponse:
-        versions = client.tool.workflows.versions.list(workflow_external_id=external_id, limit=None)
-        if external_id is None:
-            # Interactive mode
-            if not versions:
-                raise ToolkitMissingResourceError("No workflows found in CDF.")
-            choices = [
-                questionary.Choice(title=f"{item.workflow_external_id} ({item.version})", value=item)
-                for item in versions
+    @classmethod
+    def _interactive_select_workflow(cls, client: ToolkitClient) -> WorkflowVersionResponse:
+        workflow_versions = client.tool.workflows.versions.list(workflow_external_id=None, limit=None)
+
+        versions_by_external_id: dict[str, list[WorkflowVersionResponse]] = defaultdict(list)
+        for item in workflow_versions:
+            versions_by_external_id[item.workflow_external_id].append(item)
+
+        if len(versions_by_external_id) == 0:
+            raise ToolkitMissingResourceError("No workflows found in CDF.")
+        elif len(versions_by_external_id) == 1:
+            versions = next(iter(versions_by_external_id.values()))
+        else:
+            external_id_choices = [
+                questionary.Choice(title=external_id, value=versions)
+                for external_id, versions in sorted(versions_by_external_id.items())
             ]
-            selected: WorkflowVersionResponse = questionary.select(
-                "Select workflow to run", choices=choices
+            versions = questionary.select(
+                "Select workflow to run",
+                choices=external_id_choices,
+                instruction="Type to filter",
+                use_search_filter=True,
+                use_jk_keys=False,
             ).unsafe_ask()
-            return selected
-        match = next((item for item in versions if version is None or item.version == version), None)
-        if match is None:
-            version_str = f" and version {version}" if version is not None else ""
-            raise ToolkitMissingResourceError(f"Could not find workflow with external id {external_id}{version_str}")
-        return match
+
+        if len(versions) == 1:
+            return versions[0]
+
+        choices = [
+            questionary.Choice(
+                title=f'Version {item.version!r} (last updated: {ms_to_datetime(item.last_updated_time):%Y-%m-%d %H:%M:%S"})',
+                value=item,
+            )
+            for item in sorted(versions, key=lambda item: item.last_updated_time, reverse=True)
+        ]
+        return questionary.select(
+            f"Select version of {versions[0].workflow_external_id} to run",
+            choices=choices,
+            instruction="Type to filter",
+            use_search_filter=True,
+            use_jk_keys=False,
+        ).unsafe_ask()
+
+    @classmethod
+    def _retrieve_workflow(
+        cls, client: ToolkitClient, external_id: str, version: str | None
+    ) -> WorkflowVersionResponse:
+        if version is not None:
+            workflows = client.tool.workflows.versions.retrieve(
+                [ToolkitWorkflowVersionId(workflow_external_id=external_id, version=version)], ignore_unknown_ids=True
+            )
+            if len(workflows) == 0:
+                raise ToolkitMissingResourceError(
+                    f"Could not find workflow with external id {external_id} and version {version}"
+                )
+            # We specifically requested a version, so we know there is only one workflow in the list.
+            return workflows[0]
+        else:
+            options = client.tool.workflows.versions.list(workflow_external_id=external_id, limit=None)
+            if len(options) == 0:
+                raise ToolkitMissingResourceError(f"Could not find workflow with external id {external_id}")
+            return max(options, key=lambda item: item.last_updated_time)
 
     @staticmethod
-    def _get_trigger_input(
-        client: ToolkitClient, id_: ToolkitWorkflowVersionId, is_interactive: bool
-    ) -> dict[str, JsonValue] | None:
-        for triggers in client.tool.workflows.triggers.iterate(
+    def _get_trigger_input(client: ToolkitClient, id_: ToolkitWorkflowVersionId) -> dict[str, JsonValue] | None:
+        triggers = client.tool.workflows.triggers.list(
             workflow_external_id=id_.workflow_external_id, workflow_version=id_.version
-        ):
-            for trigger in triggers:
-                if not isinstance(trigger.input, dict):
-                    continue
-                print(f"Found trigger {trigger.as_id()!s} for workflow {id_!s}")
-                if (
-                    is_interactive
-                    and not questionary.confirm("Do you want to use input data from this trigger?").unsafe_ask()
-                ):
-                    return None
-                return trigger.input
-        return None
+        )
+        triggers_with_data = [trigger for trigger in triggers if isinstance(trigger.input, dict)]
+        if len(triggers_with_data) == 0:
+            return None
+        if len(triggers_with_data) == 1:
+            if questionary.confirm(
+                f"Found trigger {triggers_with_data[0].as_id()!s} for workflow {id_!s}. Do you want to use input data from this trigger?"
+            ).unsafe_ask():
+                return triggers_with_data[0].input if isinstance(triggers_with_data[0].input, dict) else None
+            return None
+        choices = [
+            questionary.Choice(
+                f"{trigger.as_id()!s} {str(trigger.input)[:50]}{'…' if len(str(trigger.input)) > 50 else ''}",
+                value=trigger,
+            )
+            for trigger in triggers
+        ]
+        return questionary.select(
+            f"Select trigger for workflow {id_!s} to use input data from",
+            choices=choices,
+            instruction="Type to filter",
+            use_search_filter=True,
+            use_jk_keys=False,
+        ).unsafe_ask()
 
     @classmethod
     def _wait_for_completion(
