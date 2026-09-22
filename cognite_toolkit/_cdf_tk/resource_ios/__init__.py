@@ -52,13 +52,6 @@ from ._location import LocationFilterIO
 from ._migration import ResourceViewMappingIO
 from ._raw import RawDatabaseCRUD, RawTableCRUD
 from ._relationship import RelationshipIO
-from ._robotics import (
-    RobotCapabilityIO,
-    RoboticFrameIO,
-    RoboticLocationIO,
-    RoboticMapIO,
-    RoboticsDataPostProcessingIO,
-)
 from ._rulesets import RuleSetIO, RuleSetVersionIO
 from ._signal_sink import SignalSinkIO
 from ._signal_subscription import SignalSubscriptionIO
@@ -166,7 +159,6 @@ ResourceTypes: TypeAlias = Literal[
     "extraction_pipelines",
     "functions",
     "raw",
-    "robotics",
     "rulesets",
     "signals",
     "simulators",
@@ -233,11 +225,6 @@ __all__ = [
     "ResourceContainerIO",
     "ResourceIO",
     "ResourceTypes",
-    "RobotCapabilityIO",
-    "RoboticFrameIO",
-    "RoboticLocationIO",
-    "RoboticMapIO",
-    "RoboticsDataPostProcessingIO",
     "RuleSetIO",
     "RuleSetVersionIO",
     "SearchConfigIO",

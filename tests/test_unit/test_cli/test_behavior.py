@@ -568,7 +568,6 @@ def test_build_custom_project(
         "data_sets",
         "extraction_pipelines",
         "transformations",
-        "robotics",
     }
     BuildV2Command(silent=True, skip_tracking=True).build(
         parameters=BuildParameters(

@@ -31,12 +31,6 @@ from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersA
 from cognite_toolkit._cdf_tk.client.api.migration import ResourceViewMappingsAPI
 from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawTablesAPI
-from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
-from cognite_toolkit._cdf_tk.client.api.robotics_data_postprocessing import DataPostProcessingAPI
-from cognite_toolkit._cdf_tk.client.api.robotics_frames import FramesAPI
-from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
-from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
-from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.ruleset_versions import RuleSetVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.rulesets import RuleSetsAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
@@ -250,14 +244,6 @@ from tests_smoke.exceptions import EndpointAssertionError
 
 NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
     {
-        # Robotics API already have its own smoke tests.
-        # Todo: Use generic tests for sub-APIs if possible.
-        RobotsAPI,
-        MapsAPI,
-        FramesAPI,
-        LocationsAPI,
-        CapabilitiesAPI,
-        DataPostProcessingAPI,
         # Needs special handling as it needs an existing simulator to create models.
         SimulatorModelsAPI,
         SimulatorRoutinesAPI,

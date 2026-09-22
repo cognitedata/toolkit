@@ -37,7 +37,6 @@ from .api.project import ProjectAPI
 from .api.raw import RawAPI
 from .api.records import RecordsAPI
 from .api.relationships import RelationshipsAPI
-from .api.robotics import RoboticsAPI
 from .api.rulesets import RuleSetsAPI
 from .api.search_config import SearchConfigurationsAPI
 from .api.security_categories import SecurityCategoriesAPI
@@ -89,7 +88,6 @@ class ToolAPI:
         self.location_filters = LocationFiltersAPI(http_client)
         self.filemetadata = FileMetadataAPI(http_client)
         self.raw = RawAPI(http_client)
-        self.robotics = RoboticsAPI(http_client)
         self.rulesets = RuleSetsAPI(http_client)
         self.security_categories = SecurityCategoriesAPI(http_client)
         self.relationships = RelationshipsAPI(http_client)
