@@ -755,7 +755,7 @@ class TestDeployResourcesRelatedInsights:
         client.console = Console(file=console_output, width=200)
         client.tool.spaces.create.side_effect = ToolkitAPIError("API failed")
         crud = SpaceCRUD.create_loader(client)
-        with pytest.raises(ResourceCreationError, match="likely due to the insights"):
+        with pytest.raises(ResourceCreationError, match="Likely causes detected during"):
             DeployV2Command.deploy_resources(
                 crud, resources, skipped_cruds=set(), insights_by_resource=insights_by_resource
             )
