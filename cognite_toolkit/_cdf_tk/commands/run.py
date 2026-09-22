@@ -36,7 +36,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import Fu
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     NonceCredentials as TransformationNonceCredentials,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.transformation import SQLQueryResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    SQLQueryResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_job import TransformationJobResponse
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.auth import CLIENT_NAME, EnvironmentVariables
