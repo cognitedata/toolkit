@@ -12,7 +12,7 @@ class DeployableContainer(ToolkitLocalRule):
     Checks that the container can be deployed
 
     ## What it does
-    It checks that the container can bne
+    This rule checks that the container can be deployed
 
     ## Why is this bad?
     An invalid container will be rejected by the CDF API, and the deployment will fail.
@@ -75,4 +75,5 @@ class DeployableContainer(ToolkitLocalRule):
                     code=self.CODE,
                     fix=fix,
                     source_files=[source_file.source_path],
+                    alpha=True,
                 )
