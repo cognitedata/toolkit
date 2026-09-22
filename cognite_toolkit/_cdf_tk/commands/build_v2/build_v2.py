@@ -41,6 +41,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, ValidationResult
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
+    InsightDefinition,
     InternalValidatorException,
     ModelSyntaxError,
     ModelSyntaxWarning,
@@ -167,7 +168,10 @@ class BuildV2Command(ToolkitCommand):
 
         self._track_build_results(build_folder, found_insights, client)
 
-        self._write_results(report_insights, build_folder, parameters, client.config.project if client else None)
+        # We write all found insights to the build folder, even if they are ignored by the user.
+        # This is so that they can be used in the deploy command to improve error messages when the API
+        # fails to deploy a resource.
+        self._write_results(found_insights, build_folder, parameters, client.config.project if client else None)
 
         return build_folder
 
@@ -1248,7 +1252,7 @@ class BuildV2Command(ToolkitCommand):
                 insights: list[Insight] = []
                 errors: list[InternalValidatorException] = []
                 for result in step.rule.validate():
-                    if isinstance(result, Insight):
+                    if isinstance(result, InsightDefinition):
                         insights.append(result)
                     elif isinstance(result, InternalValidatorException):
                         errors.append(result)
@@ -1400,7 +1404,7 @@ class BuildV2Command(ToolkitCommand):
             f"[green]✓[/] [bold]{module_count}[/] modules",
             f"[green]✓[/] [bold]{resource_count}[/] resources of {resource_type_count} different types.",
         ]
-        aggregates = Counter((insight.insight_type(), type(insight).severity) for insight in insights)
+        aggregates = Counter((insight.insight_type, type(insight).severity) for insight in insights)
         max_severity = 0
         for (insight_type, severity), count in sorted(aggregates.items(), key=lambda i: i[1], reverse=True):
             max_severity = max(max_severity, severity)
@@ -1513,7 +1517,7 @@ class BuildV2Command(ToolkitCommand):
             else:
                 insight_file_content = insights.to_json()
             if insight_file_content.strip():
-                safe_write(insight_file, insight_file_content)
+                safe_write(insight_file, insight_file_content, encoding=BUILD_FOLDER_ENCODING)
 
         if parameters.write_lineage:
             lineage_file = build.build_dir / BuildLineage.filename

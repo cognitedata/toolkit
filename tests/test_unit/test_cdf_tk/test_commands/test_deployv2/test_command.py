@@ -1,14 +1,18 @@
+import io
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 from unittest.mock import MagicMock
 
 import httpx2
 import pytest
 import respx
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawTableId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceRequest, SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
@@ -20,6 +24,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployOptions, DeployV2Command
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, InsightList
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ModuleLineageItem, ResourceLineageItem
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     DeploymentResult,
     DeploymentStep,
@@ -660,3 +667,102 @@ class TestCategorizeResources:
             "unchanged": len(result.unchanged),
             "skipped": len(result.skipped),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 0, "skipped": 1}
+
+
+def _space_lineage_with_insights(
+    tmp_path: Path, fmt: Literal["json", "csv"]
+) -> tuple[Path, BuildLineage, InsightList, SpaceId]:
+    organization_dir = tmp_path / "org"
+    build_dir = tmp_path / "build"
+    source_file = organization_dir / "modules" / "my_module" / "data_modeling" / "my.Space.yaml"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("space: my_space\n", encoding="utf-8")
+    build_dir.mkdir()
+    space_id = SpaceId(space="my_space")
+    lineage = BuildLineage(
+        organization_dir=organization_dir,
+        build_dir=build_dir,
+        modules_summary={"processed": 1, "succeeded": 1, "failed": 0},
+        insights_summary={},
+        module_lineage=[
+            ModuleLineageItem(
+                module_id="modules/my_module",
+                module_path=Path("modules/my_module"),
+                insights_summary={},
+                resource_lineage=[
+                    ResourceLineageItem(
+                        source_file=source_file.relative_to(organization_dir),
+                        source_hash="abc",
+                        type={"resource_folder": "data_modeling", "kind": "Space"},
+                        built_file=Path("data_modeling/my.Space.yaml"),
+                        identifier={"space": "my_space"},
+                    )
+                ],
+            )
+        ],
+    )
+    insights = InsightList(
+        [
+            ConsistencyError(
+                message="Space is fine this is a test",
+                code="NOT-REAL",
+                source_files=[source_file],
+                fix="Cannot be fixed as it is not an issue",
+            )
+        ]
+    )
+    insight_content = insights.to_csv() if fmt == "csv" else insights.to_json()
+    (build_dir / f"insights.{fmt}").write_text(insight_content, encoding="utf-8")
+    return build_dir, lineage, insights, space_id
+
+
+class TestReadInsightsByResource:
+    @pytest.mark.parametrize("fmt", ["csv", "json"])
+    def test_maps_insights_to_resources_from_file(self, tmp_path: Path, fmt: Literal["csv", "json"]) -> None:
+        build_dir, lineage, insights, space_id = _space_lineage_with_insights(tmp_path, fmt)
+
+        actual = DeployV2Command.read_insights_by_resource(build_dir, lineage)
+
+        key = (SpaceCRUD.as_resource_type(), space_id)
+        assert actual is not None
+        assert key in actual
+        actual_insights = actual[key]
+        assert [insight.model_dump() for insight in actual_insights] == insights.dump()
+
+    def test_returns_none_when_insights_file_missing(self, tmp_path: Path) -> None:
+        build_dir, lineage, *_ = _space_lineage_with_insights(tmp_path, "csv")
+        (build_dir / "insights.csv").unlink()
+
+        assert DeployV2Command.read_insights_by_resource(build_dir, lineage) is None
+
+    def test_returns_none_when_lineage_missing(self, tmp_path: Path) -> None:
+        build_dir, *_ = _space_lineage_with_insights(tmp_path, "csv")
+
+        assert DeployV2Command.read_insights_by_resource(build_dir, None) is None
+
+
+class TestDeployResourcesRelatedInsights:
+    def test_api_error_includes_related_insights(self, tmp_path: Path) -> None:
+        build_dir, lineage, _, space_id = _space_lineage_with_insights(tmp_path, "json")
+
+        insights_by_resource = DeployV2Command.read_insights_by_resource(build_dir, lineage)
+
+        resources = ResourceToDeploy[SpaceId, SpaceRequest]()
+        resources.to_create = [SpaceRequest(space=space_id.space)]
+
+        console_output = io.StringIO()
+        client = MagicMock()
+        client.console = Console(file=console_output, width=200)
+        client.tool.spaces.create.side_effect = ToolkitAPIError("API failed")
+        crud = SpaceCRUD.create_loader(client)
+        with pytest.raises(ResourceCreationError, match="Likely causes detected during"):
+            DeployV2Command.deploy_resources(
+                crud, resources, skipped_cruds=set(), insights_by_resource=insights_by_resource
+            )
+
+        # The insight details are rendered in a prominent panel rather than the exception message.
+        output = console_output.getvalue()
+        assert "NOT-REAL" in output
+        assert "Space is fine this is a test" in output
+        assert "Suggested fix:" in output
+        assert "Cannot be fixed as it is not an issue" in output

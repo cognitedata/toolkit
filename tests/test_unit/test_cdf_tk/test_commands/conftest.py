@@ -3,6 +3,8 @@ from typing import Any
 
 import pytest
 
+from cognite_toolkit._cdf_tk.constants import MODULES
+
 
 @pytest.fixture
 def project_statistics_response() -> dict[str, Any]:
@@ -32,6 +34,7 @@ def project_statistics_response() -> dict[str, Any]:
 @pytest.fixture()
 def valid_yaml_absolute_path(tmp_path: Path) -> Path:
     """Fixture to provide a valid absolute path for testing."""
-    valid_path = tmp_path / "valid.yaml"
+    valid_path = tmp_path / MODULES / "valid.yaml"
+    valid_path.parent.mkdir(parents=True, exist_ok=True)
     valid_path.touch()
     return valid_path
