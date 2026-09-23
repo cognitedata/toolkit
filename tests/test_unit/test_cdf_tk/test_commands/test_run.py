@@ -12,8 +12,8 @@ from cognite.client.data_classes.workflows import (
     WorkflowExecution,
     WorkflowVersionId,
 )
-from questionary import Choice
 from pydantic import JsonValue
+from questionary import Choice
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.api.workflow_executions import WorkflowExecutionsAPI
@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTrigger
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     Column,
     SQLQueryResponse,
@@ -33,7 +34,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation_job import (
     TransformationJobMetricResponse,
     TransformationJobResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import (
     WorkflowExecutionDetailedResponse,
     WorkflowExecutionResponse,
@@ -51,8 +51,6 @@ from cognite_toolkit._cdf_tk.commands import (
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.commands.run import FunctionCallArgs, RunTransformationV2Command
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
-from cognite_toolkit._cdf_tk.commands.run import FunctionCallArgs
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from tests.data import RUN_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient

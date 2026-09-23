@@ -31,9 +31,8 @@ from rich.progress import Progress, TaskID
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowExecutionId
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowExecutionId
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
@@ -43,7 +42,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     SQLQueryResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_job import TransformationJobResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowExecutionDetailedResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import (
     WorkflowExecutionDetailedResponse,
     WorkflowTaskExecution,
