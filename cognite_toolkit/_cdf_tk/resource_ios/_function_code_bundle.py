@@ -1,12 +1,26 @@
+import sys
 from collections.abc import Iterable
 from pathlib import Path
+import subprocess
 from typing import Any
+
+if sys.version_info >= (3, 11):
+    import tomllib
+    from tomllib import TOMLDecodeError
+else:
+    import tomli as tomllib
+    from tomli import TOMLDecodeError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
-from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_hash, humanize_collection
+from cognite_toolkit._cdf_tk.utils import (
+    calculate_directory_hash,
+    calculate_hash,
+    calculate_zipfile_hash,
+    humanize_collection,
+)
 from cognite_toolkit._cdf_tk.utils.file import (
     create_zip_in_memory,
     sanitize_filename,
@@ -71,8 +85,107 @@ class FunctionCodeBundle:
                 self.cognitefile_path_by_external_id[external_id] = cognitefile
 
     @classmethod
+    def _export_requirements(cls, function_rootdir: Path, package: str | None) -> bytes | FailedReadExtra | None:
+        requirements_file = function_rootdir / "requirements.txt"
+        if requirements_file.is_file():
+            return None
+
+        uv_root = next(
+            (
+                parent
+                for parent in ([function_rootdir, *function_rootdir.parents] if package else [function_rootdir])
+                if (parent / "pyproject.toml").exists() or (parent / "uv.lock").exists()
+            ),
+            None,
+        )
+        if uv_root is None:
+            return None
+        pyproject_file = uv_root / "pyproject.toml"
+        lock_file = uv_root / "uv.lock"
+        if not pyproject_file.exists() or not lock_file.exists():
+            missing = "pyproject.toml" if not pyproject_file.exists() else "uv.lock"
+            return FailedReadExtra(
+                code="MISSING",
+                error=(
+                    f"Function App {function_rootdir.name!r} requires either requirements.txt or both pyproject.toml "
+                    f"and uv.lock. Missing {missing}."
+                ),
+                source_path=uv_root,
+            )
+
+        try:
+            pyproject = tomllib.loads(pyproject_file.read_text())
+        except (OSError, TOMLDecodeError) as error:
+            return FailedReadExtra(
+                code="SYNTAX-ERROR", error=f"Could not read {pyproject_file}: {error}", source_path=pyproject_file
+            )
+        if isinstance(pyproject.get("tool"), dict) and isinstance(pyproject["tool"].get("uv"), dict):
+            if "workspace" in pyproject["tool"]["uv"] and package is None:
+                return FailedReadExtra(
+                    code="MISSING",
+                    error=(
+                        f"Function App {function_rootdir.name!r} uses a UV workspace. Set the FunctionApp YAML "
+                        "'package' field to the workspace package to deploy."
+                    ),
+                    source_path=pyproject_file,
+                )
+
+        args = [
+            "uv",
+            "export",
+            "--format",
+            "requirements.txt",
+            "--frozen",
+            "--no-dev",
+            "--no-emit-workspace",
+            "--no-header",
+            "--no-annotate",
+            "--no-hashes",
+            *(["--package", package] if package else []),
+        ]
+        try:
+            result = subprocess.run(args, cwd=uv_root, capture_output=True, timeout=30, check=False)
+        except FileNotFoundError:
+            return FailedReadExtra(
+                code="MISSING",
+                error="Cannot export Function App dependencies because UV is not installed. Install uv or add requirements.txt.",
+                source_path=function_rootdir,
+            )
+        except subprocess.TimeoutExpired:
+            return FailedReadExtra(
+                code="SYNTAX-ERROR",
+                error=f"Timed out exporting Function App dependencies from {function_rootdir} with uv.",
+                source_path=function_rootdir,
+            )
+        except OSError as error:
+            return FailedReadExtra(
+                code="SYNTAX-ERROR",
+                error=f"Could not export Function App dependencies from {function_rootdir}: {error}",
+                source_path=function_rootdir,
+            )
+        if result.returncode:
+            stderr = result.stderr.decode(errors="replace").strip()
+            return FailedReadExtra(
+                code="SYNTAX-ERROR",
+                error=(
+                    f"UV could not export locked dependencies for Function App {function_rootdir.name!r}. "
+                    f"Run 'uv lock' and retry. {stderr[-1000:]}"
+                ),
+                source_path=function_rootdir,
+            )
+        return result.stdout
+
+    @classmethod
     def get_extra_files(
-        cls, filepath: Path, external_id: str, item: dict[str, Any], function_hash_key: str
+        cls,
+        filepath: Path,
+        external_id: str,
+        item: dict[str, Any],
+        function_hash_key: str,
+        package: str | None = None,
+        export_uv_requirements: bool = False,
+        hash_build_file: bool = False,
+        remove_fields: list[str] | None = None,
     ) -> Iterable[ReadExtra]:
         try:
             function_rootdir = cls.get_code_implicitly(filepath, external_id)
@@ -91,18 +204,35 @@ class FunctionCodeBundle:
             )
             return
 
-        function_hash = cls.create_hash_values(function_rootdir)
+        requirements = cls._export_requirements(function_rootdir, package) if export_uv_requirements else None
+        if isinstance(requirements, FailedReadExtra):
+            yield requirements
+            return
+
+        zip_content = create_zip_in_memory(
+            function_rootdir,
+            additional_content={"requirements.txt": requirements} if isinstance(requirements, bytes) else None,
+            exclude_files={"pyproject.toml", "uv.lock"} if isinstance(requirements, bytes) else None,
+        )
+        function_hash = (
+            calculate_zipfile_hash(zip_content, shorten=True)
+            if hash_build_file
+            else cls.create_hash_values(function_rootdir)
+        )
         if not isinstance(item.get("metadata"), dict):
             item["metadata"] = {}
         item["metadata"][function_hash_key] = function_hash
-        source_hash = calculate_directory_hash(function_rootdir)
+        source_hash = (
+            calculate_zipfile_hash(zip_content) if hash_build_file else calculate_directory_hash(function_rootdir)
+        )
 
         yield SuccessExtra(
             source_path=function_rootdir,
             source_hash=source_hash,
             resource_field=None,
+            remove_fields=remove_fields or [],
             suffix=".zip",
-            content_byte=create_zip_in_memory(function_rootdir),
+            content_byte=zip_content,
             description="function code",
             write_to_build=True,
         )

@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 import tempfile
 from collections.abc import Iterable
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,7 @@ from _pytest.mark import ParameterSet
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
+    calculate_zipfile_hash,
     flatten_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
@@ -61,6 +63,17 @@ def test_calculate_hash_on_folder() -> None:
     shutil.rmtree(tempdir)
 
     assert hash1 == hash3
+
+
+def test_calculate_zipfile_hash_ignores_metadata(tmp_path: Path) -> None:
+    first = tmp_path / "first.zip"
+    second = tmp_path / "second.zip"
+    for archive, timestamp in [(first, (2020, 1, 1, 0, 0, 0)), (second, (2024, 1, 1, 0, 0, 0))]:
+        with ZipFile(archive, "w", ZIP_DEFLATED) as zip_file:
+            info = ZipInfo("content.txt", timestamp)
+            zip_file.writestr(info, "same content")
+
+    assert calculate_zipfile_hash(first) == calculate_zipfile_hash(second)
 
 
 def auth_variables_validate_test_cases():

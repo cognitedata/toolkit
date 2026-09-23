@@ -483,6 +483,8 @@ def create_temporary_zip(directory: Path, zipname: str) -> typing.Generator[Path
 def create_zip_in_memory(
     directory: Path,
     additional_files: dict[str, Path] | None = None,
+    additional_content: dict[str, bytes] | None = None,
+    exclude_files: set[str] | None = None,
 ) -> bytes:
     """
     Create a zip file in memory from a directory.
@@ -490,6 +492,8 @@ def create_zip_in_memory(
     Args:
         directory: The directory to zip.
         additional_files: Extra files to add at specific archive paths, as ``{arcname: path}``.
+        additional_content: Extra byte content to add at specific archive paths.
+        exclude_files: Relative source paths to exclude from the archive.
 
     Returns:
         The bytes of the zip file.
@@ -506,9 +510,13 @@ def create_zip_in_memory(
             for filename in files:
                 file_path = root_path / filename
                 arcname = file_path.relative_to(directory)
+                if arcname.as_posix() in (exclude_files or set()):
+                    continue
                 zf.write(file_path, arcname)
         for extra_arcname, extra_file_path in (additional_files or {}).items():
             zf.write(extra_file_path, arcname=extra_arcname)
+        for extra_arcname, content in (additional_content or {}).items():
+            zf.writestr(extra_arcname, content)
     return buffer.getvalue()
 
 
