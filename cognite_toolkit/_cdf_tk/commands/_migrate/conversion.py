@@ -703,7 +703,8 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
         """
         unresolved_external_ids = [
             external_id
-            for external_id in dict.fromkeys(external_ids)
+            # dict.fromkeys() is used to deduplicate while preserving order.
+            for external_id in dict.fromkeys(external_ids).keys()
             if external_id not in self._target_space_by_external_id
             and external_id not in self._unresolvable_external_ids
         ]
@@ -1126,7 +1127,7 @@ class ConnectionCreator:
                 issues.append(str(error))
                 continue
             try:
-                other_side = self.map_instance(edge.other_side)
+                other_side = self._instance_id_mapper.map_instance_id(edge.other_side)
             except InstanceMappingError as error:
                 issues.append(str(error))
                 continue
