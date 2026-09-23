@@ -1,7 +1,7 @@
 import gzip
 import json
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import httpx2
 import pytest
@@ -1323,6 +1323,19 @@ class TestCDFResourceAPI:
         assert retrieved[0].graph.steps[0].inputs[0].type is None
         assert retrieved[0].graph.steps[0].inputs[0].value is None
 
+    def test_chart_scheduled_calculation_update_omits_write_target(self) -> None:
+        resource = get_example_minimum_responses(ChartScheduledCalculationResponse)
+        request = ChartScheduledCalculationRequest.model_validate({**resource, "nonce": "test-nonce"}, extra="ignore")
+
+        update = request.as_update(mode="replace")
+
+        assert update["externalId"] == resource["externalId"]
+        assert "graph" in update
+        assert "targetTimeseriesExternalId" not in update
+        assert "targetTimeseriesInstanceId" not in update
+        assert "period" not in update
+        assert "nonce" not in update
+
     def test_alert_channels_api_list_method(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
     ) -> None:
@@ -1465,6 +1478,53 @@ description: Smoke test skill
         assert retrieve_route.called
         assert len(created) == 1
         assert created[0].external_id == "smoke-test-skill"
+
+    def test_skills_api_upload_retries_when_file_is_not_visible_yet(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_config
+        api = SkillsAPI(HTTPClient(config))
+        skill = SkillRequest(
+            external_id="smoke-test-skill",
+            name="smoke-test-skill",
+            description="Smoke test skill",
+            content="---\nname: smoke-test-skill\ndescription: Smoke test skill\n---\n\n# Smoke test skill\n",
+        )
+        upload_route = respx_mock.post(
+            config.create_api_url("/ai/skills/upload?externalId=smoke-test-skill&overwrite=true")
+        ).mock(
+            side_effect=[
+                httpx2.Response(
+                    status_code=400,
+                    json={"error": {"message": "Files not uploaded, ids: 7341231842422036", "code": 400}},
+                ),
+                httpx2.Response(status_code=200, json={}),
+            ]
+        )
+        respx_mock.post(config.create_api_url("/ai/skills/byids")).mock(
+            return_value=httpx2.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "externalId": "smoke-test-skill",
+                            "name": "smoke-test-skill",
+                            "description": "Smoke test skill",
+                            "content": skill.content,
+                            "createdTime": 1,
+                            "lastUpdatedTime": 1,
+                        }
+                    ]
+                },
+            )
+        )
+
+        with patch("cognite_toolkit._cdf_tk.client.api.skills.time.sleep") as sleep:
+            created = api.create([skill])
+
+        assert upload_route.call_count == 2
+        sleep.assert_called_once_with(10.0)
+        assert len(created) == 1
 
 
 def test_task_move_type_to_field_handles_none_validation_data() -> None:

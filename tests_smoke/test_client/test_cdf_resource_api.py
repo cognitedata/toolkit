@@ -60,6 +60,7 @@ from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersion
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
+    ExternalId,
     ExtractionPipelineConfigId,
     InternalId,
     InternalUnwrappedId,
@@ -1025,6 +1026,7 @@ class TestCDFResourceAPI:
 
         def _active_ids() -> list[WorkflowExecutionId]:
             by_id = {item.id: item for item in known_ids}
+            listed_active_ids: set[str] = set()
             listed = client.tool.workflows.executions.list(
                 workflow_version_ids=[workflow_version_id],
                 limit=1000,
@@ -1032,11 +1034,14 @@ class TestCDFResourceAPI:
             for item in listed:
                 if _is_active(str(item.status)):
                     by_id[item.id] = item.as_id()
+                    listed_active_ids.add(item.id)
 
             active: list[WorkflowExecutionId] = []
             for execution_id in by_id.values():
                 retrieved = client.tool.workflows.executions.retrieve([execution_id], ignore_unknown_ids=True)
-                if retrieved and _is_active(str(retrieved[0].status)):
+                retrieve_active = bool(retrieved and _is_active(str(retrieved[0].status)))
+                # Retrieve can still show the pre-retry terminal status while list, or delete, sees RUNNING.
+                if retrieve_active or execution_id.id in listed_active_ids:
                     active.append(execution_id)
             return active
 
@@ -1065,6 +1070,58 @@ class TestCDFResourceAPI:
                 "/workflows/executions/{executionId}/cancel",
                 f"Timed out waiting for executions to stop running: {ids}",
             )
+
+    def delete_workflow_after_executions_stop(
+        self,
+        client: ToolkitClient,
+        workflow_id: ExternalId,
+        workflow_version_id: WorkflowVersionId,
+        execution_ids: list[WorkflowExecutionId],
+        timeout_seconds: float = 90.0,
+        poll_interval: float = 2.0,
+    ) -> None:
+        """Delete a workflow once CDF no longer reports running executions.
+
+        Retry leaves the same execution RUNNING again. List and retrieve can both still
+        show the cancelled status for a few seconds, so a quiet list is not proof that
+        delete will succeed. The delete error is the source of truth.
+        """
+        version_deleted = False
+        deadline = time.monotonic() + timeout_seconds
+        last_error: ToolkitAPIError | None = None
+        while time.monotonic() < deadline:
+            try:
+                self.cancel_running_executions(
+                    client,
+                    workflow_version_id,
+                    execution_ids,
+                    timeout_seconds=min(10.0, max(poll_interval, deadline - time.monotonic())),
+                    poll_interval=poll_interval,
+                )
+            except EndpointAssertionError:
+                pass
+            if not version_deleted:
+                try:
+                    client.tool.workflows.versions.delete([workflow_version_id])
+                except ToolkitAPIError as error:
+                    if "running executions" not in error.message:
+                        raise
+                    last_error = error
+                    time.sleep(poll_interval)
+                    continue
+                version_deleted = True
+            try:
+                client.tool.workflows.delete([workflow_id])
+            except ToolkitAPIError as error:
+                if "running executions" not in error.message:
+                    raise
+                last_error = error
+                time.sleep(poll_interval)
+                continue
+            return
+        if last_error is not None:
+            raise last_error
+        raise ToolkitAPIError(f"Timed out deleting workflow {workflow_id} while executions were still running.")
 
     def test_all_cdf_resource_apis_registered(self) -> None:
         """Test that all CDFResourceAPI subclasses are registered in ToolkitClient."""
@@ -1491,7 +1548,7 @@ class TestCDFResourceAPI:
         workflow_trigger_request.authentication = NonceCredentials(
             nonce=toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
         )
-        execution_id: WorkflowExecutionId | None = None
+        execution_ids: list[WorkflowExecutionId] = []
 
         try:
             # Create workflow
@@ -1561,6 +1618,7 @@ class TestCDFResourceAPI:
             except ToolkitAPIError as e:
                 raise EndpointAssertionError(run_path, f"run method failed with error: {e!s}") from e
             execution_id = execution.as_id()
+            execution_ids.append(execution_id)
 
             retrieve_endpoint = client.tool.workflows.executions._method_endpoint_map["retrieve"]
             try:
@@ -1609,6 +1667,7 @@ class TestCDFResourceAPI:
                     raise EndpointAssertionError(retry_path, f"retry method failed with error: {e!s}") from e
                 if len(retried) != 1:
                     raise EndpointAssertionError(retry_path, f"Expected 1 retried execution, got {len(retried)}")
+                execution_ids.append(retried[0].as_id())
 
         finally:
             # Triggers can start new runs; remove them before cancelling executions.
@@ -1616,9 +1675,7 @@ class TestCDFResourceAPI:
                 client.tool.workflows.triggers.delete([workflow_trigger_id])
             except ToolkitAPIError:
                 pass
-            self.cancel_running_executions(client, workflow_version_id, [execution_id] if execution_id else None)
-            client.tool.workflows.versions.delete([workflow_version_id])
-            client.tool.workflows.delete([workflow_id])
+            self.delete_workflow_after_executions_stop(client, workflow_id, workflow_version_id, execution_ids)
 
     def test_rulesets_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
@@ -2664,7 +2721,7 @@ class TestCDFResourceAPI:
                 CalculationStep(
                     op="PASSTHROUGH",
                     version=1.0,
-                    inputs=[CalculationInput(type="ts", value=source_ts_external_id)],
+                    inputs=[CalculationInput(type="ts", value=source_ts_external_id, param="series")],
                     raw=True,
                     step=0,
                 )

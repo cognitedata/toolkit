@@ -6,6 +6,7 @@ https://api-docs.cognite.com/20230101-beta/tag/Skills
 Note: This is a beta API and may change in future releases.
 """
 
+import time
 from collections.abc import Iterable, Sequence
 from urllib.parse import urlencode
 
@@ -19,6 +20,11 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest, SkillResponse
+
+# CDF Files can reject a skill upload that references a file whose bytes are not visible yet.
+_FILES_NOT_UPLOADED = "Files not uploaded"
+_SKILL_UPLOAD_ATTEMPTS = 4
+_SKILL_UPLOAD_RETRY_SECONDS = 10.0
 
 
 class SkillsAPI(CDFResourceAPI[SkillResponse]):
@@ -41,17 +47,28 @@ class SkillsAPI(CDFResourceAPI[SkillResponse]):
 
     def upload(self, items: Sequence[SkillRequest], overwrite: bool = True) -> list[SkillResponse]:
         """Upload SKILL.md content using the dedicated upload endpoint."""
-        for item in items:
-            query_string = urlencode({"externalId": item.external_id, "overwrite": str(overwrite).lower()})
-            result = self._http_client.request_multipart_retries(
-                url=self._make_url(f"/ai/skills/upload?{query_string}"),
-                files={"file": ("SKILL.md", item.content.encode("utf-8"), "text/markdown")},
-                form_fields={},
-                api_version=self._api_version,
-            )
-            if isinstance(result, FailedResponse):
-                raise ToolkitAPIError(message=result.body, code=result.status_code)
-        return self.retrieve([item.as_id() for item in items], ignore_unknown_ids=False)
+        for attempt in range(_SKILL_UPLOAD_ATTEMPTS):
+            pending = list(items)
+            uploaded: list[SkillRequest] = []
+            for item in pending:
+                query_string = urlencode({"externalId": item.external_id, "overwrite": str(overwrite).lower()})
+                result = self._http_client.request_multipart_retries(
+                    url=self._make_url(f"/ai/skills/upload?{query_string}"),
+                    files={"file": ("SKILL.md", item.content.encode("utf-8"), "text/markdown")},
+                    form_fields={},
+                    api_version=self._api_version,
+                )
+                if isinstance(result, FailedResponse):
+                    # The skills service writes the file, then immediately reads it back. That read can
+                    # lose the race and return "Files not uploaded" until the file content is visible.
+                    if _FILES_NOT_UPLOADED in result.body and attempt < _SKILL_UPLOAD_ATTEMPTS - 1:
+                        time.sleep(_SKILL_UPLOAD_RETRY_SECONDS)
+                        break
+                    raise ToolkitAPIError(message=result.body, code=result.status_code)
+                uploaded.append(item)
+            else:
+                return self.retrieve([item.as_id() for item in uploaded], ignore_unknown_ids=False)
+        raise ToolkitAPIError(message="Skill upload did not complete.")
 
     def create(self, items: Sequence[SkillRequest], overwrite: bool = True) -> list[SkillResponse]:
         """Create or update skills in CDF."""
