@@ -153,6 +153,20 @@ def test_function_app_exports_workspace_package_from_parent(tmp_path: Path) -> N
     assert extras[0].remove_fields == ["package"]
 
 
+def test_function_app_parent_workspace_requires_package(tmp_path: Path) -> None:
+    resource_file = tmp_path / "modules" / "functions" / "app.FunctionApp.yaml"
+    resource_file.parent.mkdir(parents=True)
+    (resource_file.parent / "app").mkdir()
+    (tmp_path / "pyproject.toml").write_text("[tool.uv.workspace]\nmembers = ['modules/*']\n")
+    (tmp_path / "uv.lock").write_text("version = 1\n")
+    item = {"externalId": "app", "name": "App", "dataSetExternalId": "dataset"}
+
+    [failed] = FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id(item), item)
+
+    assert failed.code == "MISSING"
+    assert "'package' field" in failed.error
+
+
 def test_function_app_workspace_requires_package(tmp_path: Path) -> None:
     resource_file = tmp_path / "app.FunctionApp.yaml"
     code_directory = tmp_path / "app"
