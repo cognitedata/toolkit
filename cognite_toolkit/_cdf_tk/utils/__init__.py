@@ -19,6 +19,7 @@ from .hashing import (
     calculate_directory_hash,
     calculate_hash,
     calculate_secure_hash,
+    calculate_zipfile_hash,
 )
 from .pip_validator import PipValidationResult, validate_requirements_with_pip
 from .sentry_utils import sentry_exception_filter
@@ -31,6 +32,7 @@ __all__ = [
     "calculate_directory_hash",
     "calculate_hash",
     "calculate_secure_hash",
+    "calculate_zipfile_hash",
     "detect_coding_agent",
     "flatten_dict",
     "get_cicd_environment",

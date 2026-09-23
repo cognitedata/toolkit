@@ -1,5 +1,8 @@
+from io import BytesIO
 from pathlib import Path
-from unittest.mock import MagicMock
+from subprocess import CompletedProcess
+from unittest.mock import MagicMock, patch
+from zipfile import ZipFile
 
 import pytest
 from pydantic import ValidationError
@@ -57,6 +60,128 @@ def test_function_app_build_normalizes_null_metadata(tmp_path: Path) -> None:
 
     assert len(extras) == 2
     assert item["metadata"]["cognite-toolkit-hash"]
+
+
+def test_function_app_exports_uv_requirements(tmp_path: Path) -> None:
+    resource_file = tmp_path / "app.FunctionApp.yaml"
+    code_directory = tmp_path / "app"
+    code_directory.mkdir()
+    (code_directory / "handler.py").write_text("pass\n")
+    (code_directory / "pyproject.toml").write_text("[project]\nname = 'app'\nversion = '1.0.0'\n")
+    (code_directory / "uv.lock").write_text("version = 1\n")
+    item = {"externalId": "app", "name": "App", "dataSetExternalId": "dataset"}
+
+    with patch(
+        "cognite_toolkit._cdf_tk.resource_ios._function_code_bundle.subprocess.run",
+        return_value=CompletedProcess([], 0, stdout=b"cognite-function-apps==0.15.0\n", stderr=b""),
+    ) as run:
+        extras = list(FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id(item), item))
+
+    with ZipFile(BytesIO(extras[0].content_byte)) as archive:
+        assert archive.read("requirements.txt") == b"cognite-function-apps==0.15.0\n"
+        assert "pyproject.toml" not in archive.namelist()
+        assert "uv.lock" not in archive.namelist()
+    run.assert_called_once_with(
+        [
+            "uv",
+            "export",
+            "--format",
+            "requirements.txt",
+            "--frozen",
+            "--no-dev",
+            "--no-emit-workspace",
+            "--no-header",
+            "--no-annotate",
+            "--no-hashes",
+        ],
+        cwd=code_directory,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+    assert not (code_directory / "requirements.txt").exists()
+
+
+def test_function_app_hashes_generated_requirements_not_uv_metadata(tmp_path: Path) -> None:
+    resource_file = tmp_path / "app.FunctionApp.yaml"
+    code_directory = tmp_path / "app"
+    code_directory.mkdir()
+    (code_directory / "handler.py").write_text("pass\n")
+    pyproject = code_directory / "pyproject.toml"
+    pyproject.write_text("[tool.ruff]\nline-length = 88\n")
+    (code_directory / "uv.lock").write_text("version = 1\n")
+    item = {"externalId": "app", "name": "App", "dataSetExternalId": "dataset"}
+
+    with patch(
+        "cognite_toolkit._cdf_tk.resource_ios._function_code_bundle.subprocess.run",
+        return_value=CompletedProcess([], 0, stdout=b"dependency==1.0\n", stderr=b""),
+    ):
+        first = list(FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id(item), item))[0]
+        pyproject.write_text("[tool.ruff]\nline-length = 120\n")
+        second = list(FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id(item), item))[0]
+
+    assert first.source_hash == second.source_hash
+    assert item["metadata"]["cognite-toolkit-hash"]
+
+
+def test_function_app_keeps_authored_requirements(tmp_path: Path) -> None:
+    resource_file = tmp_path / "app.FunctionApp.yaml"
+    code_directory = tmp_path / "app"
+    code_directory.mkdir()
+    (code_directory / "requirements.txt").write_text("authored==1.0\n")
+    (code_directory / "pyproject.toml").write_text("[project]\nname = 'app'\nversion = '1.0.0'\n")
+    (code_directory / "uv.lock").write_text("version = 1\n")
+    item = {"externalId": "app", "name": "App", "dataSetExternalId": "dataset"}
+
+    with patch("cognite_toolkit._cdf_tk.resource_ios._function_code_bundle.subprocess.run") as run:
+        extras = list(FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id(item), item))
+
+    with ZipFile(BytesIO(extras[0].content_byte)) as archive:
+        assert archive.read("requirements.txt") == b"authored==1.0\n"
+    run.assert_not_called()
+
+
+def test_function_app_exports_workspace_package_from_parent(tmp_path: Path) -> None:
+    resource_file = tmp_path / "modules" / "functions" / "app.FunctionApp.yaml"
+    resource_file.parent.mkdir(parents=True)
+    code_directory = resource_file.parent / "app"
+    code_directory.mkdir()
+    (tmp_path / "pyproject.toml").write_text("[tool.uv.workspace]\nmembers = ['modules/*']\n")
+    (tmp_path / "uv.lock").write_text("version = 1\n")
+    item = {"externalId": "app", "name": "App", "dataSetExternalId": "dataset", "package": "worker"}
+
+    with patch(
+        "cognite_toolkit._cdf_tk.resource_ios._function_code_bundle.subprocess.run",
+        return_value=CompletedProcess([], 0, stdout=b"worker==1.0\n", stderr=b""),
+    ) as run:
+        extras = list(FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id(item), item))
+
+    with ZipFile(BytesIO(extras[0].content_byte)) as archive:
+        assert archive.read("requirements.txt") == b"worker==1.0\n"
+    assert run.call_args.kwargs["cwd"] == tmp_path
+    assert run.call_args.args[0][-2:] == ["--package", "worker"]
+    assert extras[0].remove_fields == ["package"]
+
+
+def test_function_app_workspace_requires_package(tmp_path: Path) -> None:
+    resource_file = tmp_path / "app.FunctionApp.yaml"
+    code_directory = tmp_path / "app"
+    code_directory.mkdir()
+    (code_directory / "pyproject.toml").write_text("[tool.uv.workspace]\nmembers = ['apps/*']\n")
+    (code_directory / "uv.lock").write_text("version = 1\n")
+    item = {"externalId": "app", "name": "App", "dataSetExternalId": "dataset"}
+
+    [failed] = FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id(item), item)
+
+    assert failed.code == "MISSING"
+    assert "'package' field" in failed.error
+
+
+def test_function_app_removes_package_from_request() -> None:
+    loader = FunctionAppIO.create_loader(MagicMock(), None)
+    request = loader.load_resource({"externalId": "app", "name": "App", "package": "worker"})
+
+    assert "package" not in request.dump()
 
 
 @pytest.mark.parametrize("external_id", ["../secret", "/tmp/secret", "nested/secret", "nested\\secret"])

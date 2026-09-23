@@ -1,6 +1,7 @@
 import hashlib
 import json
 import zipfile
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -61,10 +62,15 @@ def calculate_hash(content: str | bytes | Path, shorten: bool = False) -> str:
     return calculated
 
 
-def calculate_zipfile_hash(filepath: Path, shorten: bool = False) -> str:
-    """Calculate a hash of a zip file based on its contents, ignoring zip metadata.
-
-    It reads the contents directly from the zip file without extracting,
-    which ensures consistent hashing across platforms.
-    """
-    return "zipfil-hash-not-supported"
+def calculate_zipfile_hash(filepath: Path | bytes, shorten: bool = False) -> str:
+    """Calculate a hash of a ZIP file based on its contents, ignoring ZIP metadata."""
+    sha256_hash = hashlib.sha256()
+    source = filepath if isinstance(filepath, Path) else BytesIO(filepath)
+    with zipfile.ZipFile(source) as archive:
+        for name in sorted(archive.namelist()):
+            if name.endswith("/"):
+                continue
+            sha256_hash.update(name.encode("utf-8"))
+            sha256_hash.update(archive.read(name).replace(b"\r\n", b"\n"))
+    calculated = sha256_hash.hexdigest()
+    return calculated[:8] if shorten else calculated

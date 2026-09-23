@@ -122,6 +122,7 @@ class FunctionAppIO(ResourceIO[ExternalId, FunctionAppRequest, FunctionAppRespon
             resource["dataSetId"] = data_set_id
         if space := resource.pop("space", None):
             self.space_by_external_id[external_id] = space
+        resource.pop("package", None)
         resource.setdefault("fileId", -1)
         return FunctionAppRequest.model_validate(resource)
 
@@ -132,7 +133,14 @@ class FunctionAppIO(ResourceIO[ExternalId, FunctionAppRequest, FunctionAppRespon
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
         yield from FunctionCodeBundle.get_extra_files(
-            filepath, identifier.external_id, item, cls._MetadataKey.function_hash
+            filepath,
+            identifier.external_id,
+            item,
+            cls._MetadataKey.function_hash,
+            package=item.get("package"),
+            export_uv_requirements=True,
+            hash_build_file=True,
+            remove_fields=["package"],
         )
 
     def sensitive_strings(self, item: FunctionAppRequest) -> Iterable[str]:
