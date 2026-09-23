@@ -410,7 +410,7 @@ class TestRawTableRowCount:
         before_last_call_epoch = 0.0
         with monkeypatch_toolkit_client() as client:
             client.config.project = project
-            client.tool.transformations.run_query.return_value = SQLQueryResponse(
+            client.tool.transformations.run_query_preview.return_value = SQLQueryResponse(
                 schema_=[], results=[{"row_count": len(raw_data)}]
             )
             raw_row_count(client, populated_raw_table)

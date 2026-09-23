@@ -19,7 +19,7 @@ from .modules import ModulesCommand
 from .pull import PullV2Command
 from .repo import RepoCommand
 from .resources import ResourcesCommand
-from .run import RunFunctionCommand, RunTransformationCommand, RunWorkflowCommand
+from .run import RunFunctionCommand, RunTransformationCommand, RunTransformationV2Command, RunWorkflowCommand
 from .run_function_app import RunFunctionAppCommand
 
 __all__ = [
@@ -46,6 +46,7 @@ __all__ = [
     "RunFunctionAppCommand",
     "RunFunctionCommand",
     "RunTransformationCommand",
+    "RunTransformationV2Command",
     "RunWorkflowCommand",
     "UploadCommand",
 ]
