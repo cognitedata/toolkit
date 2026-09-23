@@ -52,6 +52,7 @@ class FunctionAppAPIError(BaseModelObject):
 class FunctionAppResponse(FunctionAppBase, ResponseResource[FunctionAppRequest]):
     id: int
     created_time: int
+    owner: str | None = None
     status: FunctionAppStatus | None = None
     error: FunctionAppAPIError | None = None
 

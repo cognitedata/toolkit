@@ -20,9 +20,19 @@ def test_function_app_request_excludes_dataset_id() -> None:
     assert "dataSetId" not in request.dump()
 
 
-def test_function_app_response_has_alpha_wire_status() -> None:
-    response = FunctionAppResponse(id=1, created_time=2, external_id="app", name="App", file_id=3, status="ready")
+def test_function_app_response_has_alpha_wire_status_and_owner() -> None:
+    response = FunctionAppResponse(
+        id=1,
+        created_time=2,
+        external_id="app",
+        name="App",
+        file_id=3,
+        owner="user_identifier:service-principal-identity",
+        status="ready",
+    )
+
     assert response.status == "ready"
+    assert response.owner == "user_identifier:service-principal-identity"
 
 
 def test_function_app_load_resource_normalizes_null_metadata(tmp_path: Path) -> None:
