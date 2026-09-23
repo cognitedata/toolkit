@@ -99,7 +99,32 @@ class FunctionCodeBundle:
             None,
         )
         if uv_root is None:
-            return None
+            workspace_root = next(
+                (
+                    parent
+                    for parent in function_rootdir.parents
+                    if (parent / "pyproject.toml").is_file() and (parent / "uv.lock").is_file()
+                ),
+                None,
+            )
+            if workspace_root is None:
+                return None
+            try:
+                pyproject = tomllib.loads((workspace_root / "pyproject.toml").read_text())
+            except (OSError, TOMLDecodeError):
+                return None
+            if not isinstance(pyproject.get("tool"), dict) or not isinstance(pyproject["tool"].get("uv"), dict):
+                return None
+            if "workspace" not in pyproject["tool"]["uv"]:
+                return None
+            return FailedReadExtra(
+                code="MISSING",
+                error=(
+                    f"Function App {function_rootdir.name!r} uses a UV workspace. Set the FunctionApp YAML "
+                    "'package' field to the workspace package to deploy."
+                ),
+                source_path=workspace_root / "pyproject.toml",
+            )
         pyproject_file = uv_root / "pyproject.toml"
         lock_file = uv_root / "uv.lock"
         if not pyproject_file.exists() or not lock_file.exists():
