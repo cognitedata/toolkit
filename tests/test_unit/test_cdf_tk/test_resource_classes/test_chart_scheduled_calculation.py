@@ -27,3 +27,34 @@ def test_scheduled_calculation_requires_input_param(input_data: dict[str, object
     assert [(error["loc"], error["type"]) for error in exc_info.value.errors()] == [
         (("graph", "steps", 0, "inputs", 0, "param"), error_type)
     ]
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        pytest.param({"targetTimeseriesExternalId": "output-ts"}, id="external-id"),
+        pytest.param(
+            {"targetTimeseriesInstanceId": {"space": "plant", "externalId": "output-ts"}},
+            id="instance-id",
+        ),
+    ],
+)
+def test_scheduled_calculation_update_omits_immutable_fields(target: dict[str, object]) -> None:
+    resource = get_example_minimum_responses(ChartScheduledCalculationResponse)
+    resource.pop("targetTimeseriesExternalId", None)
+    resource.pop("targetTimeseriesInstanceId", None)
+    resource.update(target)
+    resource.update(
+        nonce="test-nonce", offset=0, windowSize=300000, name="updated-name", description="updated-description"
+    )
+    request = ChartScheduledCalculationRequest.model_validate(resource, extra="ignore")
+
+    assert request.as_update("replace") == {
+        "externalId": request.external_id,
+        "name": "updated-name",
+        "description": "updated-description",
+        "graph": request.graph.model_dump(exclude_none=True, by_alias=True),
+    }
+    create_payload = request.dump()
+    for field, value in target.items():
+        assert create_payload[field] == value
