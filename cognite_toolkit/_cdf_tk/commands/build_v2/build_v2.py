@@ -62,6 +62,7 @@ from cognite_toolkit._cdf_tk.data_classes._tracking_info import BuildTracking, R
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
+    ToolkitValidationError,
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
@@ -173,7 +174,7 @@ class BuildV2Command(ToolkitCommand):
         # fails to deploy a resource.
         self._write_results(found_insights, build_folder, parameters, client.config.project if client else None)
 
-        if parameters.rules_enforce:
+        if Flags.V09.is_enabled() and parameters.rules_enforce:
             self._enforce_rules(report_insights, console)
 
         return build_folder
@@ -191,6 +192,27 @@ class BuildV2Command(ToolkitCommand):
                 and insight.code not in local_ignores_by_file.get(insight.source_file, set())
                 and (not insight.alpha or Flags.ALPHA_RULES.is_enabled())
             ]
+        )
+
+    @classmethod
+    def _enforce_rules(cls, violations: InsightList, console: Console) -> None:
+        """Fails the build when blocking rule violations are found.
+
+        Called when ``--rules-enforce`` (``parameters.rules_enforce``) is set. Any insight whose
+        severity exceeds :attr:`_ENFORCE_SEVERITY_THRESHOLD` (e.g. syntax, consistency or file read
+        errors) is treated as a violation that must block the build.
+
+        Args:
+            violations: The insights reported to the user (already filtered for ignored rules).
+            console: The console used to display the enforcement summary.
+
+        Raises:
+            ToolkitValidationError: If one or more blocking rule violations are found.
+        """
+        counts_by_code = Counter(insight.code or "UNDEFINED" for insight in violations)
+        raise ToolkitValidationError(
+            f"Rule enforcement failed: found {len(violations)} blocking rule violation(s) "
+            f"across {len(counts_by_code)} rule code(s). See the insights above for details."
         )
 
     @classmethod
