@@ -55,7 +55,7 @@ def _example_scheduled_calculation_response() -> ChartScheduledCalculationRespon
             CalculationStep(
                 op="PASSTHROUGH",
                 version=1.0,
-                inputs=[CalculationInput(type="ts", value=_CHART_TS_EXTERNAL_ID)],
+                inputs=[CalculationInput(type="ts", value=_CHART_TS_EXTERNAL_ID, param="series")],
                 raw=False,
                 step=0,
             )
