@@ -214,6 +214,40 @@ class TestWorkflowVersionIODependencies:
 
         assert actual == [(WorkflowIO, ExternalId(external_id="wf_main"))]
 
+    def test_get_dependencies_yields_inline_subworkflow_task_references(self) -> None:
+        resource = WorkflowVersionYAML.model_validate(
+            {
+                "workflowExternalId": "wf_main",
+                "version": "v1",
+                "workflowDefinition": {
+                    "tasks": [
+                        {
+                            "externalId": "run_sub",
+                            "type": "subworkflow",
+                            "parameters": {
+                                "subworkflow": {
+                                    "tasks": [
+                                        {
+                                            "externalId": "nested_fn",
+                                            "type": "function",
+                                            "parameters": {"function": {"externalId": "nested-function"}},
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    ],
+                },
+            }
+        )
+
+        actual = list(WorkflowVersionIO.get_dependencies(resource))
+
+        assert actual == [
+            (WorkflowIO, ExternalId(external_id="wf_main")),
+            (FunctionIO, ExternalId(external_id="nested-function")),
+        ]
+
 
 class TestWorkflowVersionLoader:
     def test_topological_sort_raises_on_cycle(self) -> None:

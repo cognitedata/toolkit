@@ -72,6 +72,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import (
     SimulationTask,
     SubworkflowInlineTasks,
     SubworkflowTask,
+    Task,
     TransformationTask,
 )
 
@@ -363,9 +364,8 @@ class WorkflowVersionIO(
         return super().diff_list(local, cdf, json_path)
 
     @classmethod
-    def get_dependencies(cls, resource: WorkflowVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
-        yield WorkflowIO, ExternalId(external_id=resource.workflow_external_id)
-        for task in resource.workflow_definition.tasks:
+    def _yield_task_dependencies(cls, tasks: list[Task]) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        for task in tasks:
             if isinstance(task, FunctionTask):
                 function_external_id = task.parameters.function.external_id
                 if not _is_workflow_runtime_reference(function_external_id):
@@ -384,14 +384,22 @@ class WorkflowVersionIO(
                     yield SimulatorRoutineIO, ExternalId(external_id=routine_external_id)
             elif isinstance(task, SubworkflowTask):
                 subworkflow = task.parameters.subworkflow
+                # Subworkflows can be either inline tasks or a reference to a workflow version.
+                # We yield the dependencies of the inline tasks.
                 if isinstance(subworkflow, SubworkflowInlineTasks):
-                    continue
-                yield (
-                    cls,
-                    WorkflowVersionId(
-                        workflow_external_id=subworkflow.workflow_external_id, version=subworkflow.version
-                    ),
-                )
+                    yield from cls._yield_task_dependencies(subworkflow.tasks)
+                else:
+                    yield (
+                        cls,
+                        WorkflowVersionId(
+                            workflow_external_id=subworkflow.workflow_external_id, version=subworkflow.version
+                        ),
+                    )
+
+    @classmethod
+    def get_dependencies(cls, resource: WorkflowVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield WorkflowIO, ExternalId(external_id=resource.workflow_external_id)
+        yield from cls._yield_task_dependencies(resource.workflow_definition.tasks)
 
     @classmethod
     def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
