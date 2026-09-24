@@ -612,10 +612,9 @@ class TestRunWorkflowV2:
             input=None,
         )
 
-    @patch("cognite_toolkit._cdf_tk.commands.run.questionary.confirm")
-    def test_run_workflow_interactive_uses_trigger_input(self, confirm: MagicMock, workflow_client: MagicMock) -> None:
-        # The first confirm is whether to use the trigger input, the second whether to wait.
-        confirm.return_value.unsafe_ask.side_effect = [True, False]
+    def test_run_workflow_interactive_uses_trigger_input(
+        self, workflow_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         trigger = WorkflowTriggerResponse.model_validate(
             {
                 "externalId": "my_trigger",
@@ -632,12 +631,19 @@ class TestRunWorkflowV2:
         client.tool.workflows.versions.list.return_value = [_workflow_version()]
         client.tool.workflows.triggers.list.return_value = [trigger]
 
-        RunWorkflowV2Command().run_workflow(
-            client,
-            external_id=None,
-            version=None,
-            wait=False,
-        )
+        def select_workflow(choices: list[Choice]) -> object:
+            assert len(choices) == 1
+            return choices[0].value
+
+        # 1. Select the workflow, 2. confirm using the trigger input, 3. confirm not to wait.
+        answers = [select_workflow, True, False]
+        with MockQuestionary(RunWorkflowV2Command.__module__, monkeypatch, answers):
+            RunWorkflowV2Command().run_workflow(
+                client,
+                external_id=None,
+                version=None,
+                wait=False,
+            )
 
         client.tool.workflows.executions.run.assert_called_once_with(
             ToolkitWorkflowVersionId(workflow_external_id="workflow", version="v1"),
