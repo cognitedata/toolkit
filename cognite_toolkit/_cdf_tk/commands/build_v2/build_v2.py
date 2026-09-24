@@ -62,6 +62,7 @@ from cognite_toolkit._cdf_tk.data_classes._tracking_info import BuildTracking, R
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
+    ToolkitValidationError,
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
@@ -173,6 +174,9 @@ class BuildV2Command(ToolkitCommand):
         # fails to deploy a resource.
         self._write_results(found_insights, build_folder, parameters, client.config.project if client else None)
 
+        if Flags.V09.is_enabled() and parameters.rules_enforce:
+            self._enforce_rules(report_insights)
+
         return build_folder
 
     @classmethod
@@ -188,6 +192,24 @@ class BuildV2Command(ToolkitCommand):
                 and insight.code not in local_ignores_by_file.get(insight.source_file, set())
                 and (not insight.alpha or Flags.ALPHA_RULES.is_enabled())
             ]
+        )
+
+    @classmethod
+    def _enforce_rules(cls, violations: InsightList) -> None:
+        """Fails the build when blocking rule violations are found.
+
+        Args:
+            violations: The insights reported to the user (already filtered for ignored rules).
+
+        Raises:
+            ToolkitValidationError: If any blocking rule violations are found, with a summary of the violations.
+        """
+        if not violations:
+            return
+        counts_by_code = Counter(insight.code or "UNDEFINED" for insight in violations)
+        raise ToolkitValidationError(
+            f"Build failed due to rule enforcement. Found {len(violations)} blocking rule violation(s) "
+            f"across {len(counts_by_code)} rule code(s). See the insights above for details."
         )
 
     @classmethod

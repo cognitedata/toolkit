@@ -1945,6 +1945,12 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
                             candidates.append(parent_external_id)
             elif isinstance(item, EdgeResponse) and item.type in APP_DATA_PARENT_EDGE_TYPES:
                 candidates.append(item.start_node.external_id)
+
+            if isinstance(item, EdgeResponse):
+                if item.start_node.space == self._instance_id_mapper.source_space:
+                    candidates.append(item.start_node.external_id)
+                if item.end_node.space == self._instance_id_mapper.source_space:
+                    candidates.append(item.end_node.external_id)
         return candidates
 
     def _map_single_node(

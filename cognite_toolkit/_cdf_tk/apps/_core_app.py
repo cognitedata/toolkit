@@ -251,6 +251,7 @@ class CoreApp(typer.Typer):
             verbose=verbose,
             insight_format=insight_format.value,
             rules_ignore=set(CDF_TOML.rules.ignore),
+            rules_enforce=CDF_TOML.rules.enforce,
         )
 
         cmd.run(
