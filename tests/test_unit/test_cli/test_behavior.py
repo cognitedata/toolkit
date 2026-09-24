@@ -1054,7 +1054,7 @@ capabilities:
     assert len(insights) == 1
     insight = insights[0]
     assert isinstance(insight, ConsistencyError)
-    assert insight.message == "Unknown reference to spaces with id 'my_non_existent_space'"
+    assert insight.message == "Unknown reference to space with id 'my_non_existent_space'"
     assert insight.source_file == yaml_filepath
 
 

@@ -67,6 +67,7 @@ from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
 from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import (
+    FunctionAppTask,
     FunctionTask,
     SimulationTask,
     SubworkflowInlineTasks,
@@ -84,6 +85,7 @@ from ._transformation import TransformationIO
 
 
 def _is_workflow_runtime_reference(value: str) -> bool:
+    """Whether value is a ${...} reference resolved when the workflow runs, not a Toolkit resource id."""
     return value.startswith("${")
 
 
@@ -368,6 +370,10 @@ class WorkflowVersionIO(
                 function_external_id = task.parameters.function.external_id
                 if not _is_workflow_runtime_reference(function_external_id):
                     yield FunctionIO, ExternalId(external_id=function_external_id)
+            elif isinstance(task, FunctionAppTask):
+                function_app_external_id = task.parameters.function_app.external_id
+                if not _is_workflow_runtime_reference(function_app_external_id):
+                    yield FunctionIO, ExternalId(external_id=function_app_external_id)
             elif isinstance(task, TransformationTask):
                 transformation_external_id = task.parameters.transformation.external_id
                 if not _is_workflow_runtime_reference(transformation_external_id):
@@ -386,7 +392,6 @@ class WorkflowVersionIO(
                         workflow_external_id=subworkflow.workflow_external_id, version=subworkflow.version
                     ),
                 )
-            # functionApp tasks reference CDF Function Apps, which have no Toolkit resource type.
 
     @classmethod
     def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
