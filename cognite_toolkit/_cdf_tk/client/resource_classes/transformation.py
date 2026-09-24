@@ -191,7 +191,9 @@ class Column(BaseModelObject):
 
 class SQLQueryResponse(BaseModelObject):
     schema_: list[Column] = Field(..., alias="schema")
-    results: list[dict[str, str | int | float | bool | None]]
+    results: list[
+        dict[str, str | int | float | bool | None | list[str | int | float | bool | None] | dict[str, Any]]
+    ] = Field(..., alias="results")
 
     @field_validator("schema_", "results", mode="before")
     def _remove_items_wrapper(cls, value: Any) -> Any:

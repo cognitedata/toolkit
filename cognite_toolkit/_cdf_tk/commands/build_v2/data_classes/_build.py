@@ -58,6 +58,10 @@ class BuildParameters(BaseModel):
         default_factory=set,
         description="Set of rule codes to ignore during validation.",
     )
+    rules_enforce: bool = Field(
+        default=False,
+        description="Whether to enforce rules during validation. If True, any rule violations will cause the build to fail. If False, rule violations will be reported as warnings.",
+    )
 
     @property
     def modules_directory(self) -> Path:

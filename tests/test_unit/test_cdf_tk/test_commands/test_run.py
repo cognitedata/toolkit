@@ -5,14 +5,28 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-from cognite.client.data_classes import ClientCredentials
+from cognite.client.data_classes import ClientCredentials, CreatedSession
 from cognite.client.data_classes.functions import Function, FunctionCall
 from cognite.client.data_classes.transformations import Transformation, TransformationDestination
 from cognite.client.data_classes.workflows import (
     WorkflowExecution,
     WorkflowVersionId,
 )
+from questionary import Choice
 
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    Column,
+    SQLQueryResponse,
+    TransformationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    NonceCredentials as TransformationNonceCredentials,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_job import (
+    TransformationJobMetricResponse,
+    TransformationJobResponse,
+)
 from cognite_toolkit._cdf_tk.commands import (
     BuildV2Command,
     RunFunctionCommand,
@@ -21,9 +35,11 @@ from cognite_toolkit._cdf_tk.commands import (
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
-from cognite_toolkit._cdf_tk.commands.run import FunctionCallArgs
+from cognite_toolkit._cdf_tk.commands.run import FunctionCallArgs, RunTransformationV2Command
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from tests.data import RUN_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient
+from tests.test_unit.utils import MockQuestionary
 
 
 class TestRunTransformation:
@@ -45,6 +61,129 @@ class TestRunTransformation:
         toolkit_client_approval.append(Transformation, transformation)
 
         assert RunTransformationCommand().run_transformation(toolkit_client_approval.mock_client, "test") is True
+
+
+def _transformation_response(external_id: str, name: str, query: str = "SELECT 1") -> TransformationResponse:
+    return TransformationResponse(
+        id=abs(hash(external_id)) % 10_000,
+        external_id=external_id,
+        name=name,
+        ignore_null_fields=True,
+        created_time=1,
+        last_updated_time=1,
+        query=query,
+        is_public=True,
+        conflict_mode="upsert",
+        destination={"type": "assets"},
+        owner="test",
+        owner_is_current_user=True,
+        has_source_oidc_credentials=False,
+        has_destination_oidc_credentials=False,
+    )
+
+
+def _transformation_job(status: str, external_id: str = "tr_assets") -> TransformationJobResponse:
+    return TransformationJobResponse(
+        id=1,
+        uuid="job-uuid",
+        status=status,
+        transformation_id=1,
+        transformation_external_id=external_id,
+        source_project="my-project",
+        destination_project="my-project",
+        destination={"type": "assets"},
+        conflict_mode="upsert",
+        query="SELECT 1",
+        ignore_null_fields=True,
+        created_time=1,
+    )
+
+
+class TestRunTransformationV2:
+    @staticmethod
+    def _mock_client() -> MagicMock:
+        client = MagicMock()
+        client.config.project = "my-project"
+        client.iam.sessions.create.return_value = CreatedSession(id=42, status="READY", nonce="dummy-nonce")
+        client.tool.transformations.run.return_value = _transformation_job("Created")
+        return client
+
+    def test_run_transformation(self) -> None:
+        client = self._mock_client()
+
+        result = RunTransformationV2Command().run_transformation(client, "tr_assets", is_dry_run=False, wait=False)
+
+        assert result is True
+        client.tool.transformations.run.assert_called_once_with(
+            ExternalId(external_id="tr_assets"),
+            nonce=TransformationNonceCredentials(session_id=42, nonce="dummy-nonce", cdf_project_name="my-project"),
+        )
+
+    def test_run_transformation_dry_run(self) -> None:
+        client = self._mock_client()
+        client.tool.transformations.retrieve.return_value = [
+            _transformation_response("tr_assets", "Assets", query="SELECT * FROM assets")
+        ]
+        client.tool.transformations.run_query_preview.return_value = SQLQueryResponse(
+            schema_=[Column(name="id", sql_type="INT", type="INT", nullable=False)],
+            results=[{"id": 1}],
+        )
+
+        result = RunTransformationV2Command().run_transformation(client, "tr_assets", is_dry_run=True, wait=False)
+
+        assert result is True
+        client.tool.transformations.run.assert_not_called()
+        client.tool.transformations.run_query_preview.assert_called_once_with(
+            "SELECT * FROM assets", convert_to_string=False
+        )
+
+    @patch("cognite_toolkit._cdf_tk.commands.run.time.sleep")
+    def test_run_transformation_wait(self, _sleep: MagicMock) -> None:
+        client = self._mock_client()
+        client.tool.transformations.jobs.retrieve.side_effect = [
+            [_transformation_job("Running")],
+            [_transformation_job("Completed")],
+        ]
+        client.tool.transformations.jobs.list_metrics.return_value = [
+            TransformationJobMetricResponse(timestamp=1_622_547_800_000, name="assets.read", count=10),
+        ]
+
+        result = RunTransformationV2Command().run_transformation(client, "tr_assets", is_dry_run=False, wait=True)
+
+        assert result is True
+        client.tool.transformations.jobs.list_metrics.assert_called_once_with(1)
+
+    def test_run_transformation_interactive(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        transformations = [
+            _transformation_response("tr_assets", "Assets"),
+            _transformation_response("tr_events", "Events"),
+            _transformation_response("tr_files", "Files"),
+        ]
+
+        def select_transformation(choices: list[Choice]) -> str:
+            assert len(choices) == 3
+            return choices[1].value
+
+        answers = [select_transformation, False, False]
+        with MockQuestionary(RunTransformationV2Command.__module__, monkeypatch, answers):
+            client = self._mock_client()
+            client.tool.transformations.list.return_value = transformations
+
+            result = RunTransformationV2Command().run_transformation(client, None, is_dry_run=False, wait=False)
+
+        assert result is True
+        client.tool.transformations.list.assert_called_once_with(limit=None)
+        client.tool.transformations.run.assert_called_once_with(
+            ExternalId(external_id="tr_events"),
+            nonce=TransformationNonceCredentials(session_id=42, nonce="dummy-nonce", cdf_project_name="my-project"),
+        )
+
+    def test_run_transformation_interactive_no_transformations(self) -> None:
+        client = self._mock_client()
+        client.tool.transformations.list.return_value = []
+
+        with pytest.raises(ToolkitMissingResourceError, match="No transformations found"):
+            RunTransformationV2Command().run_transformation(client, None, is_dry_run=False, wait=False)
 
 
 @pytest.fixture(scope="session")

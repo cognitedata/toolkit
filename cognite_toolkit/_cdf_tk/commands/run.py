@@ -9,7 +9,7 @@ import textwrap
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import questionary
 from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive, Token
@@ -29,9 +29,17 @@ from rich.progress import Progress
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleId
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    NonceCredentials as TransformationNonceCredentials,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    SQLQueryResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_job import TransformationJobResponse
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.auth import CLIENT_NAME, EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ResourceLineageItem
@@ -680,6 +688,152 @@ if __name__ == "__main__":
     @staticmethod
     def _create_handler_import(handler_file: str) -> str:
         return re.sub(r"\.+", ".", handler_file.replace(".py", "").replace("/", ".")).removeprefix(".")
+
+
+class RunTransformationV2Command(ToolkitCommand):
+    _IN_PROGRESS_STATUSES: ClassVar[frozenset[str]] = frozenset({"created", "running"})
+
+    def run_transformation(
+        self, client: ToolkitClient, external_ids: str | list[str] | None, is_dry_run: bool, wait: bool
+    ) -> bool:
+        """Run a transformation in CDF"""
+        if isinstance(external_ids, str):
+            external_ids = [external_ids]
+        elif external_ids is None:
+            # Interactive mode
+            external_ids = [self._select_transformation_interactive(client)]
+            is_dry_run = questionary.confirm("Do you want to run the transformation in dry-run mode?").unsafe_ask()
+            if not is_dry_run:
+                wait = questionary.confirm("Do you want to wait for the transformation to complete?").unsafe_ask()
+
+        if is_dry_run:
+            return self._dry_run_transformations(client, external_ids)
+
+        for external_id in external_ids:
+            try:
+                session = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
+            except CogniteAPIError as e:
+                print("[bold red]ERROR:[/] Could not get a oneshot session.")
+                print(e)
+                return False
+            if session is None:
+                print("[bold red]ERROR:[/] Could not get a oneshot session.")
+                return False
+            nonce = TransformationNonceCredentials(
+                session_id=session.id, nonce=session.nonce, cdf_project_name=client.config.project
+            )
+            try:
+                job = client.tool.transformations.run(ExternalId(external_id=external_id), nonce=nonce)
+                print(f"Running transformation {external_id}, status {job.status}...")
+            except ToolkitAPIError as e:
+                print(f"[bold red]ERROR:[/] Could not run transformation {external_id}.")
+                print(e)
+                continue
+            if wait:
+                job = self._wait_for_job(client, job)
+                print(f"Transformation {external_id} finished with status {job.status}.")
+                if job.error:
+                    print(f"[bold red]ERROR:[/] {job.error}")
+                if job.status.casefold() == "completed":
+                    self._print_job_metrics(client, job)
+        return True
+
+    @classmethod
+    def _dry_run_transformations(cls, client: ToolkitClient, external_ids: list[str]) -> bool:
+        try:
+            transformations = client.tool.transformations.retrieve(ExternalId.from_external_ids(external_ids))
+        except ToolkitAPIError as e:
+            print("[bold red]ERROR:[/] Could not retrieve transformations.")
+            print(e)
+            return False
+        if not transformations:
+            print(f"[bold red]ERROR:[/] Could not find transformation with external_id {external_ids}")
+            return False
+
+        for transformation in transformations:
+            try:
+                result = client.tool.transformations.run_query_preview(transformation.query, convert_to_string=False)
+            except ToolkitAPIError as e:
+                print(f"[bold red]ERROR:[/] Could not dry-run transformation {transformation.external_id}.")
+                print(e)
+                continue
+            cls._print_query_result(transformation.external_id, result)
+        return True
+
+    @classmethod
+    def _print_query_result(cls, external_id: str, result: SQLQueryResponse) -> None:
+        columns = [column.name for column in result.schema_]
+        if not columns:
+            print(f"Dry-run of {external_id} returned {len(result.results)} row(s).")
+            return
+        table = Table(title=f"Dry-run result for {external_id}")
+        for column in columns:
+            table.add_column(column)
+        for row in result.results:
+            table.add_row(*(str(row.get(column, "")) for column in columns))
+        print(table)
+        print(f"Dry-run of {external_id} returned {len(result.results)} row(s).")
+
+    def _wait_for_job(self, client: ToolkitClient, job: TransformationJobResponse) -> TransformationJobResponse:
+        sleep_time = 1.0
+        with Progress() as progress:
+            wait_task = progress.add_task(
+                f"Waiting for transformation {job.transformation_external_id} to complete...", total=None
+            )
+            while job.status.casefold() in self._IN_PROGRESS_STATUSES:
+                time.sleep(sleep_time)
+                sleep_time = min(sleep_time * 2, 15)
+                retrieved = client.tool.transformations.jobs.retrieve([job.as_id()])
+                if not retrieved:
+                    print(f"[bold red]ERROR:[/] Could not retrieve job {job.id}.")
+                    return job
+                job = retrieved[0]
+                progress.update(wait_task, description=f"Transformation {job.transformation_external_id}: {job.status}")
+        return job
+
+    @staticmethod
+    def _print_job_metrics(client: ToolkitClient, job: TransformationJobResponse) -> None:
+        try:
+            metrics = client.tool.transformations.jobs.list_metrics(job.id)
+        except ToolkitAPIError as e:
+            print(f"[bold red]ERROR:[/] Could not retrieve metrics for job {job.id}.")
+            print(e)
+            return
+        if not metrics:
+            print(f"No metrics available for transformation {job.transformation_external_id}.")
+            return
+
+        table = Table(title=f"Job metrics for {job.transformation_external_id}")
+        table.add_column("Time")
+        table.add_column("Metric")
+        table.add_column("Count", justify="right")
+        for metric in metrics:
+            table.add_row(str(ms_to_datetime(metric.timestamp)), metric.name, f"{metric.count:,}")
+        print(table)
+
+    @staticmethod
+    def _select_transformation_interactive(client: ToolkitClient) -> str:
+        transformations = client.tool.transformations.list(limit=None)
+        if not transformations:
+            raise ToolkitMissingResourceError("No transformations found.")
+
+        choices = [
+            questionary.Choice(
+                title=f"{transformation.name} ({transformation.external_id})",
+                value=transformation.external_id,
+            )
+            for transformation in sorted(transformations, key=lambda t: (t.name or t.external_id).casefold())
+        ]
+        selected: str | None = questionary.select(
+            "Select a transformation to run",
+            choices=choices,
+            instruction="Type to filter",
+            use_search_filter=True,
+            use_jk_keys=False,
+        ).unsafe_ask()
+        if not selected:
+            raise ToolkitValueError("No transformation selected.")
+        return selected
 
 
 class RunTransformationCommand(ToolkitCommand):

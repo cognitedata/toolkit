@@ -36,11 +36,9 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
-    calculate_directory_hash,
-    calculate_hash,
     calculate_secure_hash,
     humanize_collection,
 )
@@ -48,16 +46,15 @@ from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.file import (
     create_temporary_zip,
-    create_zip_in_memory,
     sanitize_filename,
-    yaml_safe_dump,
 )
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
-from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML, FunctionScheduleYAML, FunctionsYAML
+from cognite_toolkit._cdf_tk.yaml_classes import FunctionScheduleYAML, FunctionsYAML
 
 from ._auth import GroupAllScopedCRUD
 from ._data_organization import DataSetsIO
 from ._file import CogniteFileCRUD, FileMetadataCRUD
+from ._function_code_bundle import FunctionCodeBundle
 from ._group_scoped import GroupResourceScopedCRUD
 
 CDF_TOML: CDFToml = CDFToml.load()
@@ -93,10 +90,25 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         self.data_set_id_by_external_id: dict[str, int] = {}
         self.space_by_external_id: dict[str, str] = {}
         self.function_dir_by_external_id: dict[str, Path] = {}
-        self.filemetadata_path_by_external_id: dict[str, Path] = {}
-        self.cognitefile_path_by_external_id: dict[str, Path] = {}
+        self._code_bundle = FunctionCodeBundle(client)
         self._file_upload_timeout_seconds = file_upload_timeout_seconds
         self.use_filio = use_fileio
+
+    @property
+    def filemetadata_path_by_external_id(self) -> dict[str, Path]:
+        return self._code_bundle.filemetadata_path_by_external_id
+
+    @filemetadata_path_by_external_id.setter
+    def filemetadata_path_by_external_id(self, value: dict[str, Path]) -> None:
+        self._code_bundle.filemetadata_path_by_external_id = value
+
+    @property
+    def cognitefile_path_by_external_id(self) -> dict[str, Path]:
+        return self._code_bundle.cognitefile_path_by_external_id
+
+    @cognitefile_path_by_external_id.setter
+    def cognitefile_path_by_external_id(self, value: dict[str, Path]) -> None:
+        self._code_bundle.cognitefile_path_by_external_id = value
 
     @cached_property
     def project_data_modeling_status(self) -> Literal["HYBRID", "DATA_MODELING_ONLY"]:
@@ -155,10 +167,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
                 if "secrets" in item:
                     item["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(item["secrets"])
                 external_id = self.get_id(item).external_id
-                if (filemetadata := filepath.parent / f"{filestem}.{FileMetadataCRUD.kind}.yaml").exists():
-                    self.filemetadata_path_by_external_id[external_id] = filemetadata
-                elif (cognitefile := filepath.parent / f"{filestem}.{CogniteFileCRUD.kind}.yaml").exists():
-                    self.cognitefile_path_by_external_id[external_id] = cognitefile
+                self._code_bundle.map_sidecar_paths(filepath, filestem, [external_id])
         else:
             if filepath.parent.name != self.folder_name:
                 # Functions configs needs to be in the root function folder.
@@ -181,111 +190,17 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
 
     @classmethod
     def get_function_code_implicitly(cls, filepath: Path, identifier: ExternalId) -> Path:
-        return filepath.parent / identifier.external_id
+        return FunctionCodeBundle.get_code_implicitly(filepath, identifier.external_id)
 
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
-        function_rootdir = cls.get_function_code_implicitly(filepath, identifier)
-        if not function_rootdir.is_dir():
-            yield FailedReadExtra(
-                code="MISSING",
-                error=f"Cannot find function code for function {identifier.external_id!r} in {filepath.as_posix()}. Expected function code directory {function_rootdir.as_posix()} to exist. ",
-                source_path=function_rootdir,
-            )
-            return
-
-        # This mutates the input object, but it is the easiest way to pass
-        # the hash-value.
-        # This hash value is used to determine whether to redeploy the function.
-        function_hash = cls._create_hash_values(function_rootdir)
-        if "metadata" not in item:
-            item["metadata"] = {}
-        item["metadata"][cls._MetadataKey.function_hash] = function_hash
-
-        # This hash value is used to determine whether you can deploy from the build folder.
-        # (avoid the user running cdf build, modify the source code, then cdf deploy)
-        source_hash = calculate_directory_hash(function_rootdir)
-
-        yield SuccessExtra(
-            source_path=function_rootdir,
-            source_hash=source_hash,
-            resource_field=None,
-            suffix=".zip",
-            content_byte=create_zip_in_memory(function_rootdir),
-            description="function code",
-            write_to_build=True,
+        yield from FunctionCodeBundle.get_extra_files(
+            filepath, identifier.external_id, item, cls._MetadataKey.function_hash
         )
-        name = item.get("name")
-        if not isinstance(name, str):
-            yield FailedReadExtra(
-                source_path=function_rootdir,
-                code="MISSING",
-                error=f"Cannot find function name for function {identifier.external_id!r} in {filepath.as_posix()}. This is required and is necessary for creating the function code.",
-            )
-            return
-        filename = sanitize_filename(name)
-        if data_set_external_id := item.get("dataSetExternalId"):
-            yield SuccessExtra(
-                source_path=function_rootdir,
-                source_hash=source_hash,
-                suffix=f".{FileMetadataCRUD.kind}.yaml",
-                content=yaml_safe_dump(
-                    FileMetadataYAML(
-                        name=f"{filename}.zip",
-                        externalId=identifier.external_id,
-                        dataSetExternalId=data_set_external_id,
-                        mimeType="application/zip",
-                    ).model_dump(by_alias=True, exclude_unset=True)
-                ),
-                description="metadata for function code",
-                resource_field=None,
-                write_to_build=True,
-            )
-        elif space := item.get("space"):
-            yield SuccessExtra(
-                source_path=function_rootdir,
-                source_hash=source_hash,
-                suffix=f".{CogniteFileCRUD.kind}.yaml",
-                content=yaml_safe_dump(
-                    CogniteFileYAML(
-                        space=space,
-                        externalId=identifier.external_id,
-                        name=name,
-                        mimeType="application/zip",
-                    ).model_dump(by_alias=True, exclude_unset=True)
-                ),
-                description="metadata for function code",
-                resource_field=None,
-                write_to_build=True,
-            )
-        else:
-            yield FailedReadExtra(
-                source_path=function_rootdir,
-                code="MISSING",
-                error=f"Failed to create function code metadata for function {identifier.external_id!r} in {filepath.as_posix()}. This is required for creating the function code. The function must have either a dataSetExternalId or a space specified.",
-            )
 
     @classmethod
     def _create_hash_values(cls, function_rootdir: Path) -> str:
-        root_hash = calculate_directory_hash(
-            function_rootdir, exclude_prefixes={".DS_Store"}, ignore_files={".pyc"}, shorten=True
-        )
-        hash_value = f"/={root_hash}"
-        to_search = [function_rootdir]
-        while to_search:
-            search_dir = to_search.pop()
-            for file in sorted(search_dir.glob("*"), key=lambda x: x.relative_to(function_rootdir).as_posix()):
-                if file.is_dir():
-                    to_search.append(file)
-                    continue
-                elif (file.is_file() and file.suffix == ".pyc") or (file.is_file() and file.name == ".DS_Store"):
-                    continue
-                file_hash = calculate_hash(file, shorten=True)
-                new_entry = f"{file.relative_to(function_rootdir).as_posix()}={file_hash}"
-                if len(hash_value) + len(new_entry) > (cls.metadata_value_limit - 1):
-                    break
-                hash_value += f";{new_entry}"
-        return hash_value
+        return FunctionCodeBundle.create_hash_values(function_rootdir)
 
     def get_function_required_capabilities(
         self, items: Sequence[FunctionRequest] | None, read_only: bool
@@ -496,42 +411,14 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         return created
 
     def _as_file_by_external_id(self, items: Sequence[FunctionRequest]) -> tuple[dict[Path, str], dict[Path, str]]:
-        filemetadata_files: dict[Path, str] = {}
-        cognite_files: dict[Path, str] = {}
-        missing: list[str] = []
-        for item in items:
-            if item.external_id is None:
-                continue
-            if filemetadata_path := self.filemetadata_path_by_external_id.get(item.external_id):
-                filemetadata_files[filemetadata_path] = item.external_id
-            elif cognitefile_path := self.cognitefile_path_by_external_id.get(item.external_id):
-                cognite_files[cognitefile_path] = item.external_id
-            else:
-                missing.append(item.external_id)
-        if missing:
-            raise ResourceCreationError(
-                f"Failed to create functions. Missing function code files for {humanize_collection(missing)}"
-            )
-        return cognite_files, filemetadata_files
+        return self._code_bundle.as_file_by_external_id(
+            item.external_id for item in items if item.external_id is not None
+        )
 
     def _upload_files(
         self, cognite_files: dict[Path, str], filemetadata_files: dict[Path, str]
     ) -> dict[str, InternalId]:
-        file_id_by_external_id: dict[str, InternalId] = {}
-        if filemetadata_files:
-            fileio = FileMetadataCRUD(self.client, None, None)
-            file_request = fileio.load_resource_files(list(filemetadata_files.keys()))
-            fileresponse = fileio.create(file_request)
-            file_id_by_external_id.update(zip(filemetadata_files.values(), [InternalId(id=f.id) for f in fileresponse]))
-        if cognite_files:
-            cognitefileio = CogniteFileCRUD(self.client, None, None)
-            cognitefile_request = cognitefileio.load_resource_files(list(cognite_files.keys()))
-            cognitefile_response = cognitefileio.create(cognitefile_request)
-            dm_fileresponse = self.client.tool.filemetadata.retrieve(
-                [node.as_instance_id() for node in cognitefile_response]
-            )
-            file_id_by_external_id.update(zip(cognite_files.values(), [InternalId(id=f.id) for f in dm_fileresponse]))
-        return file_id_by_external_id
+        return self._code_bundle.upload_files(cognite_files, filemetadata_files)
 
     def _upload_function_code(self, external_id: str, item: FunctionRequest) -> InternalId:
         """Uploads the function code to CDF.

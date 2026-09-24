@@ -190,7 +190,9 @@ def metadata_key_counts(
        GROUP BY key
        ORDER BY key_count DESC;
 """
-    results = client.tool.transformations.run_query(query, convert_to_string=False, limit=None, source_limit=None)
+    results = client.tool.transformations.run_query_preview(
+        query, convert_to_string=False, limit=None, source_limit=None
+    )
     # We know from the SQL that the result is a list of dictionaries with string keys and int values.
     return [(item["key"], item["key_count"]) for item in results.results]  # type: ignore[misc]
 
@@ -242,7 +244,9 @@ FROM labels
 GROUP BY label
 ORDER BY label_count DESC;
 """
-    results = client.tool.transformations.run_query(query, convert_to_string=False, limit=None, source_limit=None)
+    results = client.tool.transformations.run_query_preview(
+        query, convert_to_string=False, limit=None, source_limit=None
+    )
     # We know from the SQL that the result is a list of dictionaries with string keys and int values.
     return [(item["label"], item["label_count"]) for item in results.results]  # type: ignore[misc]
 
@@ -284,7 +288,9 @@ GROUP BY
     sourceType,
     targetType
 """
-    results = client.tool.transformations.run_query(query, convert_to_string=False, limit=None, source_limit=None)
+    results = client.tool.transformations.run_query_preview(
+        query, convert_to_string=False, limit=None, source_limit=None
+    )
     # We know from the SQL that the result is a list of dictionaries with string keys and int values.
     return [
         RelationshipCount(item["sourceType"], item["targetType"], item["relationshipCount"])  # type: ignore[arg-type]
@@ -311,7 +317,9 @@ def label_aggregate_count(client: ToolkitClient, data_sets: list[int] | None = N
 FROM
     _cdf.labels{where_clause}"""
 
-    results = client.tool.transformations.run_query(query, convert_to_string=False, limit=None, source_limit=None)
+    results = client.tool.transformations.run_query_preview(
+        query, convert_to_string=False, limit=None, source_limit=None
+    )
     if results.results:
         # We know from the SQL that the result is a list of dictionaries with string keys and int values.
         return int(results.results[0]["labelCount"])  # type: ignore[arg-type]
@@ -419,7 +427,9 @@ FROM (
     LIMIT {max_count}
 ) AS limited_keys"""
 
-    results = client.tool.transformations.run_query(query, convert_to_string=False, limit=None, source_limit=None)
+    results = client.tool.transformations.run_query_preview(
+        query, convert_to_string=False, limit=None, source_limit=None
+    )
     if results.results:
         # We know from the SQL that the result is a list of dictionaries with string keys and int values.
         return int(results.results[0]["row_count"])  # type: ignore[arg-type]

@@ -6,12 +6,14 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
+    RunFunctionAppCommand,
     RunFunctionCommand,
     RunTransformationCommand,
+    RunTransformationV2Command,
     RunWorkflowCommand,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
 from ._helpers import print_help_if_no_subcommand
 
@@ -25,6 +27,8 @@ class RunApp(typer.Typer):
         self.command("transformation")(self.run_transformation)
         self.command("workflow")(self.run_workflow)
         self.add_typer(RunFunctionApp(*args, **kwargs), name="function")
+        if FeatureFlag.is_enabled(Flags.FUNCTION_APPS):
+            self.command("function-app")(self.function_app)
 
     @staticmethod
     def _print_deprecation_warning() -> None:
@@ -42,14 +46,32 @@ class RunApp(typer.Typer):
     def run_transformation(
         ctx: typer.Context,
         external_id: Annotated[
-            str,
+            str | None,
             typer.Option(
                 "--external-id",
                 "-e",
-                prompt=True,
+                prompt=not Flags.V09.is_enabled(),
                 help="External id of the transformation to run.",
             ),
-        ],
+        ] = None,
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                hidden=not Flags.V09.is_enabled(),
+                help="Whether to run the transformation in dry-run mode.",
+            ),
+        ] = False,
+        wait: Annotated[
+            bool,
+            typer.Option(
+                "--wait",
+                "-w",
+                hidden=not Flags.V09.is_enabled(),
+                help="Whether to wait for the transformation to complete.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -61,9 +83,15 @@ class RunApp(typer.Typer):
     ) -> None:
         """This command will run the specified transformation using a one-time session."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = RunTransformationCommand(client=client)
-
-        cmd.run(lambda: cmd.run_transformation(client, external_id))
+        if Flags.V09.is_enabled():
+            cmd2 = RunTransformationV2Command(client=client)
+            cmd2.run(lambda: cmd2.run_transformation(client, external_id, dry_run, wait))
+        elif external_id is None:
+            print("The --external-id option is required to run a transformation.")
+            raise typer.Exit(code=1)
+        else:
+            cmd = RunTransformationCommand(client=client)
+            cmd.run(lambda: cmd.run_transformation(client, external_id))
 
     @staticmethod
     def run_workflow(
@@ -138,6 +166,19 @@ class RunApp(typer.Typer):
                 env_vars, organization_dir, env_name, external_id, version, wait, config_yaml=config_yaml
             )
         )
+
+    @staticmethod
+    def function_app(
+        path: Annotated[
+            Path,
+            typer.Argument(help="Path to the directory containing handler.py."),
+        ],
+        port: Annotated[int, typer.Option("--port", help="Port to bind to")] = 8000,
+        log_level: Annotated[str, typer.Option("--log-level", help="Log level for the server")] = "info",
+    ) -> None:
+        """Start a local development server for a Function App handler."""
+        command = RunFunctionAppCommand(client=None, skip_tracking=True)
+        command.run(lambda: command.run_function_app(path, port, log_level))
 
 
 class RunFunctionApp(typer.Typer):

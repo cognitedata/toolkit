@@ -550,7 +550,7 @@ class TestChartMapper:
                                 CalculationStep(
                                     op="PASSTHROUGH",
                                     version=1.0,
-                                    inputs=[CalculationInput(type="ts", value="OLD_INPUT_TS")],
+                                    inputs=[CalculationInput(type="ts", value="OLD_INPUT_TS", param="series")],
                                     raw=False,
                                     step=0,
                                 )
@@ -1141,9 +1141,12 @@ class TestFDMtoCDMMapper:
         target_by_root_asset: dict[str, str],
         registered: dict[str, str] | None = None,
         dry_run: bool = False,
+        edge_mapping: dict[EdgeTypeId, str] | None = None,
     ) -> LocationSplitFDMtoCDMMapper:
         client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
-        mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"textProp": "targetInt"}})
+        mapping = self.VIEW_MAPPING.model_copy(
+            update={"container_mapping": {"textProp": "targetInt"}, "edge_mapping": edge_mapping}
+        )
         instance_id_mapper = LocationSplitInstanceIdMapper(client, self.SOURCE_SPACE)
         if registered is not None:
             for external_id, target_space in registered.items():
@@ -1267,6 +1270,56 @@ class TestFDMtoCDMMapper:
         mapped_nodes = [item.item for item in mapped_items if isinstance(item.item, NodeRequest)]
         assert len(mapped_nodes) == 1
         assert mapped_nodes[0].space == expected_space
+
+    def test_location_split_mapper_with_edge_to_edge(self) -> None:
+        """An edge whose other side is an unregistered source-space node must have its target space
+        resolved before ``create_edges_from_edges`` maps it. The edge conversion never prefetches the
+        edge other-side external IDs, so the cache-only ``resolve_target_space`` raises a RuntimeError.
+
+        Correct behavior (asserted here): the other-side node is resolved from the relocation source view,
+        and the edge is created with its end node in the resolved target space.
+        """
+        node = self._location_split_node(
+            "node1", {TEMPLATE_VIEW: {"rootLocation": {"space": "x", "externalId": "ROOT_A"}}}
+        )
+        edge = EdgeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="edge1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            type=NodeId(space="schema_space1", external_id="sourceEdge1"),
+            start_node=NodeId(space=self.SOURCE_SPACE, external_id="node1"),
+            end_node=NodeId(space=self.SOURCE_SPACE, external_id="node2"),
+        )
+        edge_mapping = {
+            EdgeTypeId(
+                type=NodeId(space="schema_space1", external_id="sourceEdge1"), direction="outwards"
+            ): "targetEdge1"
+        }
+        with monkeypatch_toolkit_client() as client:
+            # The unregistered other-side node was migrated to "target_space" per the relocation source view.
+            client.migration.instance_space_relocation_source.retrieve.return_value = [
+                InstanceSpaceRelocationSource(
+                    space="target_space",
+                    external_id="node2",
+                    source_space=self.SOURCE_SPACE,
+                    version=1,
+                    created_time=0,
+                    last_updated_time=0,
+                )
+            ]
+            mapper = self._location_split_mapper(client, {"ROOT_A": "target_space"}, edge_mapping=edge_mapping)
+            mapped_items = mapper.map(
+                [
+                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:node1", item=node),
+                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:edge1", item=edge),
+                ]
+            )
+
+        mapped_edges = [item.item for item in mapped_items if isinstance(item.item, EdgeRequest)]
+        assert len(mapped_edges) == 1
+        assert mapped_edges[0].end_node == NodeId(space="target_space", external_id="node2")
 
     @pytest.mark.parametrize(
         "dry_run, expected_log_calls",

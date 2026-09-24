@@ -122,7 +122,7 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         return TransformationJobResponse.model_validate_json(response.body)
 
-    def run_query(
+    def run_query_preview(
         self,
         query: str,
         convert_to_string: bool,

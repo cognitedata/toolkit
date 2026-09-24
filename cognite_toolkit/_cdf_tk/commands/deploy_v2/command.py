@@ -18,7 +18,12 @@ from rich.progress import Progress
 from yaml import YAMLError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import (
+    Identifier,
+    T_Identifier,
+    T_RequestResource,
+    T_ResponseResource,
+)
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, RawTableId, ViewId
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -29,7 +34,8 @@ from cognite_toolkit._cdf_tk.commands._utils import (
     validate_soft_delete_capacity,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ResourceType
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable
@@ -76,6 +82,7 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename
 from cognite_toolkit._version import __version__
 
 Operation: TypeAlias = Literal["deploy", "clean"]
+InsightsByResource: TypeAlias = dict[tuple[ResourceType, Identifier], list[Insight]]
 
 
 @dataclass
@@ -233,6 +240,7 @@ class DeployV2Command(ToolkitCommand):
 
         options = options or DeployOptions(environment_variables=env_vars.dump() if env_vars else None)
         build_lineage = self.read_build_lineage(user_build_dir)
+        insights_by_resource = self.read_insights_by_resource(user_build_dir, build_lineage)
         build_dir = self.read_build_directory(user_build_dir, options.include, build_lineage)
 
         if client is None:
@@ -253,12 +261,14 @@ class DeployV2Command(ToolkitCommand):
         if options.drop and (options.operation == "clean" or not options.dry_run):
             # If we are deploying, and it is dry-run, we skip this step, as apply_plan accounts
             # for drop in dry-run mode.
-            clean_result = self.apply_plan(client, list(reversed(plan)), options, is_delete=True)
+            clean_result = self.apply_plan(
+                client, list(reversed(plan)), options, is_delete=True, insights_by_resource=insights_by_resource
+            )
             if options.operation == "clean":
                 self._display_results(clean_result, options.operation, client.console, options.verbose)
                 return clean_result
 
-        results = self.apply_plan(client, plan, options)
+        results = self.apply_plan(client, plan, options, insights_by_resource=insights_by_resource)
 
         if clean_result is not None:
             self._merge_clean_results(results, clean_result)
@@ -288,6 +298,43 @@ class DeployV2Command(ToolkitCommand):
         if (lineage_path := (build_dir / BuildLineage.filename)).exists():
             return BuildLineage.from_yaml_file(lineage_path)
         return None
+
+    @classmethod
+    def read_insights_by_resource(
+        cls, build_dir: Path, build_lineage: BuildLineage | None
+    ) -> InsightsByResource | None:
+        """Read insights.csv/json from the build directory and map them to resources via lineage.
+
+        Returns None if lineage or the insights file is missing, or if the file cannot be read.
+        Insights are matched to resources by comparing the relative source_files stored in the
+        insights file with each resource's source path in the lineage.
+        """
+        if build_lineage is None:
+            return None
+        insight_path: Path | None = None
+        for suffix in ("csv", "json"):
+            candidate = build_dir / f"insights.{suffix}"
+            if candidate.exists():
+                insight_path = candidate
+                break
+        if insight_path is None:
+            return None
+        insights = InsightList.from_file(insight_path, build_lineage.organization_dir)
+
+        resources_by_source_path: dict[Path, list[tuple[ResourceType, Identifier]]] = defaultdict(list)
+        for module in build_lineage.module_lineage:
+            for resource in module.resource_lineage:
+                resources_by_source_path[build_lineage.organization_dir / resource.source_file].append(
+                    (resource.type, resource.identifier)
+                )
+
+        insights_by_resource: InsightsByResource = defaultdict(list)
+        for insight in insights:
+            for source_file in insight.source_files:
+                if source_file in resources_by_source_path:
+                    for resource_type, identifier in resources_by_source_path[source_file]:
+                        insights_by_resource[(resource_type, identifier)].append(insight)
+        return dict(insights_by_resource) or None
 
     @classmethod
     def read_build_directory(
@@ -679,7 +726,12 @@ class DeployV2Command(ToolkitCommand):
 
     @classmethod
     def apply_plan(
-        cls, client: ToolkitClient, plan: list[DeploymentStep], options: DeployOptions, is_delete: bool = False
+        cls,
+        client: ToolkitClient,
+        plan: list[DeploymentStep],
+        options: DeployOptions,
+        is_delete: bool = False,
+        insights_by_resource: InsightsByResource | None = None,
     ) -> Sequence[DeploymentResult]:
         """Applies the given plan using the given client.
 
@@ -687,6 +739,8 @@ class DeployV2Command(ToolkitCommand):
             client: The client to use to apply the plan.
             plan: The plan to apply.
             options: The options to use when applying the plan.
+            is_delete: Whether this plan application is a delete/clean operation.
+            insights_by_resource: Optional mapping of resources to related build insights.
 
         Returns:
             A list of DeploymentResult objects matching the given plan.
@@ -782,7 +836,13 @@ class DeployV2Command(ToolkitCommand):
                         if not confirmed:
                             resources_to_deploy.to_delete.clear()
                     progress.update(task_id, description=f"{options.operation.title()}ing {resource_name} to CDF")
-                    result = cls.deploy_resources(crud, resources_to_deploy, step.skipped_cruds, options.deployment_dir)
+                    result = cls.deploy_resources(
+                        crud,
+                        resources_to_deploy,
+                        step.skipped_cruds,
+                        options.deployment_dir,
+                        insights_by_resource,
+                    )
                     progress.update(task_id, description=f"{options.operation.title()}ed {resource_name} successfully.")
 
                 results.append(result)
@@ -1007,6 +1067,7 @@ class DeployV2Command(ToolkitCommand):
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
         skipped_cruds: Set[type[ResourceIO]],
         deploy_dir: Path | None = None,
+        insights_by_resource: InsightsByResource | None = None,
     ) -> DeploymentResult:
         deleted, created, updated = 0, 0, 0
         action: Literal["create", "delete", "update", "upsert"] | None = None
@@ -1032,7 +1093,7 @@ class DeployV2Command(ToolkitCommand):
                     action = "update"
                     updated = len(crud.update(resources.to_update))
         except ToolkitAPIError as error:
-            cls._handle_deploy_error(error, action, crud, resources, skipped_cruds, deploy_dir)
+            cls._handle_deploy_error(error, action, crud, resources, skipped_cruds, deploy_dir, insights_by_resource)
         except ValidationError as error:
             cls._handle_validation_error(error, action, crud, resources.to_create + resources.to_update, deploy_dir)
 
@@ -1056,6 +1117,7 @@ class DeployV2Command(ToolkitCommand):
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
         skipped_cruds: Set[type[ResourceIO]],
         deploy_dir: Path | None = None,
+        insights_by_resource: InsightsByResource | None = None,
     ) -> None:
         if action is None:
             raise RuntimeError("Bug in Toolkit. No action to perform but got API error.") from error
@@ -1074,16 +1136,89 @@ class DeployV2Command(ToolkitCommand):
                 for string in crud.sensitive_strings(item):
                     json_str = json_str.replace(string, "********")
             filepath.write_text(json_str, encoding="utf-8")
-
         if skipped_cruds:
             error_message = (
                 f"Failed to {action} {crud.display_name}. This is likely due to missing dependencies on "
                 f"{humanize_collection([crud.display_name for crud in skipped_cruds])} which were "
                 f"skipped based on the include filter.{suffix}"
             )
+        elif insights_by_resource and (
+            related_insights := cls._get_related_insights(
+                insights_by_resource, list(resources.get_ids(crud, action)), crud.as_resource_type()
+            )
+        ):
+            cls._display_related_insights(crud.client.console, related_insights, action, crud.display_name)
+            error_message = (
+                f"Failed to {action} {crud.display_name}. Likely causes detected during"
+                f"build are shown in the panel above.{suffix}"
+            )
         else:
             error_message = f"Failed to {action} {crud.display_name} due to API error: {error.message}.{suffix}"
         raise cls._get_resource_exception(action)(error_message) from error
+
+    @classmethod
+    def _display_related_insights(
+        cls,
+        console: Console,
+        related_insights: list[Insight],
+        action: str,
+        display_name: str,
+    ) -> None:
+        """Render the build insights related to a failed deployment in a prominent panel.
+
+        The panel highlights each insight's message, code and source location, and - when a
+        suggested fix is available - shows it prominently so it does not get lost in the surrounding
+        output. The internal severity is intentionally omitted as it has no meaning for the user.
+        """
+        insight_count = len(related_insights)
+        plural = "s" if insight_count != 1 else ""
+        sections: list[RenderableType] = [
+            ToolkitPanelSection(
+                description=(
+                    f"The failed {action} is likely caused by the following {insight_count} "
+                    f"cause{plural} produced during [bold]build[/]:"
+                )
+            )
+        ]
+        for insight in related_insights:
+            lines: list[RenderableType] = [
+                f"[bold]{escape(insight.message)}[/]",
+                f"[dim]Code:[/] {escape(insight.code)}",
+                f"[dim]Source:[/] {escape(insight.display_source_files_cwd)}",
+            ]
+            if insight.fix:
+                lines.append(
+                    f"[bold {AuraColor.GREEN.rich}]Suggested fix:[/] [{AuraColor.GREEN.rich}]{escape(insight.fix)}[/]"
+                )
+            sections.append(
+                ToolkitPanelSection(content=[hanging_indent("✗", Group(*lines), marker_style=AuraColor.RED.rich)])
+            )
+
+        console.print(
+            ToolkitPanel(
+                Group(*sections),
+                title=f"Insights related to failed {action} of {display_name}",
+                border_style=AuraColor.AMBER.rich,
+            )
+        )
+
+    @classmethod
+    def _get_related_insights(
+        cls,
+        insights_by_resource: InsightsByResource,
+        identifier: list[Identifier],
+        resource_type: ResourceType,
+    ) -> list[Insight]:
+        seen: set[int] = set()
+        related_insights: list[Insight] = []
+        for resource_id in identifier:
+            key = (resource_type, resource_id)
+            if key in insights_by_resource:
+                for insight in insights_by_resource[key]:
+                    if id(insight) not in seen:
+                        seen.add(id(insight))
+                        related_insights.append(insight)
+        return related_insights
 
     @classmethod
     def _handle_validation_error(
