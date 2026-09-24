@@ -1443,9 +1443,12 @@ class BuildV2Command(ToolkitCommand):
         validation_errors = [error for result in build_folder.validation_results for error in result.errors]
         if validation_errors:
             errors_by_validator: Counter[str] = Counter()
+            first_error_by_validator: dict[str, str] = {}
             for result in build_folder.validation_results:
                 if result.errors:
                     errors_by_validator[result.name] += len(result.errors)
+                    if result.name not in first_error_by_validator:
+                        first_error_by_validator[result.name] = result.errors[0].message
             summary_lines.append(
                 f"[red]✗[/] [bold]{len(validation_errors)}[/] validation errors "
                 f"across {len(errors_by_validator)} validator(s)"
@@ -1453,6 +1456,9 @@ class BuildV2Command(ToolkitCommand):
             if verbose:
                 for validator_name, count in errors_by_validator.most_common():
                     summary_lines.append(f"    [red]-[/] {validator_name}: [bold]{count}[/]")
+                    first_error_message = first_error_by_validator.get(validator_name)
+                    if first_error_message:
+                        summary_lines.append(f"      [dim]{first_error_message}[/]")
 
         build_dir_display = relative_to_if_possible(build_folder.build_dir).as_posix()
         if not build_dir_display.endswith("/"):

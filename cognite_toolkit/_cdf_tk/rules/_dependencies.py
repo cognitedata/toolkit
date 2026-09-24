@@ -4,6 +4,7 @@ from typing import Any, ClassVar
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, DataModelId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerPropertyDefinition,
@@ -48,7 +49,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         if self.client is not None:
             yield from self._validate_data_modeling_changes(self.client)
 
-    def _validate_dependencies(self) -> Iterable[Insight]:
+    def _validate_dependencies(self) -> Iterable[Insight | InternalValidatorException]:
         """CDF dependency validations are validations that require checking the existence of resources in CDF."""
         built_resource_ids: set[tuple[type[ResourceIO], Identifier]] = {
             (resource.crud_cls, resource.identifier) for module in self.modules for resource in module.resources
@@ -66,9 +67,16 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
                 crud = crud_cls(self.client, None, None)
                 resource_label = crud_cls.kind.lower()
-                existing_in_cdf = {
-                    crud.get_id(cdf_item) for cdf_item in crud.retrieve(list(expected_by_identifier.keys()))
-                }
+                try:
+                    existing_in_cdf = {
+                        crud.get_id(cdf_item) for cdf_item in crud.retrieve(list(expected_by_identifier.keys()))
+                    }
+                except ToolkitAPIError as e:
+                    yield InternalValidatorException(
+                        message=f"Failed to verify existence of {resource_label} in CDF: {e}",
+                        source=crud.kind,
+                    )
+                    continue
                 if missing := set(expected_by_identifier.keys()) - existing_in_cdf:
                     for identifier in missing:
                         referencing_resources = expected_by_identifier[identifier]
