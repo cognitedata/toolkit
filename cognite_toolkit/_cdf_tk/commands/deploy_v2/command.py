@@ -922,7 +922,7 @@ class DeployV2Command(ToolkitCommand):
         if isinstance(minimum_scope, DataSetScope):
             data_set_ids = minimum_scope.ids
         elif isinstance(minimum_scope, AllScope):
-            # If the minimum scope is AllScope, then at least one of the resources be unscoped. But there
+            # If the minimum scope is AllScope, then at least one of the resources are unscoped. But there
             # can still be resources that are scoped to a dataset, so we check for those and add the ownership ACLs
             # for those datasets if they are write-protected.
             data_set_ids = cls._get_data_set_ids(resources)
