@@ -6,7 +6,7 @@ from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import ClientCredentials, CreatedSession
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     ScheduleTriggerRule,
     WorkflowTriggerRequest,
@@ -26,8 +26,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.resource_ios import WorkflowTriggerIO, WorkflowVersionIO
+from cognite_toolkit._cdf_tk.resource_ios import (
+    FunctionIO,
+    SimulatorRoutineIO,
+    TransformationIO,
+    WorkflowIO,
+    WorkflowTriggerIO,
+    WorkflowVersionIO,
+)
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
+from cognite_toolkit._cdf_tk.yaml_classes import WorkflowVersionYAML
 
 
 class TestWorkflowTriggerLoader:
@@ -131,6 +139,80 @@ authentication:
             loader.create([trigger])
 
         client.iam.sessions.create.assert_called_once_with(credentials, session_type="CLIENT_CREDENTIALS")
+
+
+class TestWorkflowVersionIODependencies:
+    def test_get_dependencies_yields_static_task_references(self) -> None:
+        resource = WorkflowVersionYAML.model_validate(
+            {
+                "workflowExternalId": "wf_main",
+                "version": "v1",
+                "workflowDefinition": {
+                    "tasks": [
+                        {
+                            "externalId": "run_fn",
+                            "type": "function",
+                            "parameters": {"function": {"externalId": "my-function"}},
+                        },
+                        {
+                            "externalId": "run_tr",
+                            "type": "transformation",
+                            "parameters": {"transformation": {"externalId": "my-transformation"}},
+                        },
+                        {
+                            "externalId": "run_sim",
+                            "type": "simulation",
+                            "parameters": {"simulation": {"routineExternalId": "my-routine"}},
+                        },
+                        {
+                            "externalId": "run_sub",
+                            "type": "subworkflow",
+                            "parameters": {
+                                "subworkflow": {"workflowExternalId": "wf_child", "version": "v2"},
+                            },
+                        },
+                    ]
+                },
+            }
+        )
+
+        actual = list(WorkflowVersionIO.get_dependencies(resource))
+
+        assert actual == [
+            (WorkflowIO, ExternalId(external_id="wf_main")),
+            (FunctionIO, ExternalId(external_id="my-function")),
+            (TransformationIO, ExternalId(external_id="my-transformation")),
+            (SimulatorRoutineIO, ExternalId(external_id="my-routine")),
+            (WorkflowVersionIO, WorkflowVersionId(workflow_external_id="wf_child", version="v2")),
+        ]
+
+    def test_get_dependencies_ignores_runtime_task_references(self) -> None:
+        resource = WorkflowVersionYAML.model_validate(
+            {
+                "workflowExternalId": "wf_main",
+                "version": "v1",
+                "workflowDefinition": {
+                    "tasks": [
+                        {
+                            "externalId": "run_fn",
+                            "type": "function",
+                            "parameters": {"function": {"externalId": "${upstream.output.functionId}"}},
+                        },
+                        {
+                            "externalId": "run_tr",
+                            "type": "transformation",
+                            "parameters": {
+                                "transformation": {"externalId": "${upstream.output.transformationId}"},
+                            },
+                        },
+                    ]
+                },
+            }
+        )
+
+        actual = list(WorkflowVersionIO.get_dependencies(resource))
+
+        assert actual == [(WorkflowIO, ExternalId(external_id="wf_main"))]
 
 
 class TestWorkflowVersionLoader:

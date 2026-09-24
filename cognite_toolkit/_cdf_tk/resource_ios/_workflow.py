@@ -66,14 +66,25 @@ from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
-from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import SubworkflowTask
+from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import (
+    FunctionTask,
+    SimulationTask,
+    SubworkflowInlineTasks,
+    SubworkflowTask,
+    TransformationTask,
+)
 
 from ._auth import GroupAllScopedCRUD
 from ._data_organization import DataSetsIO
 from ._function import FunctionIO
 from ._group_scoped import GroupResourceScopedCRUD
+from ._simulators import SimulatorRoutineIO
 from ._streams import StreamIO
 from ._transformation import TransformationIO
+
+
+def _is_workflow_runtime_reference(value: str) -> bool:
+    return value.startswith("${")
 
 
 @final
@@ -353,15 +364,29 @@ class WorkflowVersionIO(
     def get_dependencies(cls, resource: WorkflowVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield WorkflowIO, ExternalId(external_id=resource.workflow_external_id)
         for task in resource.workflow_definition.tasks:
-            if isinstance(task, SubworkflowTask):
+            if isinstance(task, FunctionTask):
+                function_external_id = task.parameters.function.external_id
+                if not _is_workflow_runtime_reference(function_external_id):
+                    yield FunctionIO, ExternalId(external_id=function_external_id)
+            elif isinstance(task, TransformationTask):
+                transformation_external_id = task.parameters.transformation.external_id
+                if not _is_workflow_runtime_reference(transformation_external_id):
+                    yield TransformationIO, ExternalId(external_id=transformation_external_id)
+            elif isinstance(task, SimulationTask):
+                routine_external_id = task.parameters.simulation.routine_external_id
+                if not _is_workflow_runtime_reference(routine_external_id):
+                    yield SimulatorRoutineIO, ExternalId(external_id=routine_external_id)
+            elif isinstance(task, SubworkflowTask):
                 subworkflow = task.parameters.subworkflow
-                if isinstance(subworkflow, WorkflowVersionId):
-                    yield (
-                        cls,
-                        WorkflowVersionId(
-                            workflow_external_id=subworkflow.workflow_external_id, version=subworkflow.version
-                        ),
-                    )
+                if isinstance(subworkflow, SubworkflowInlineTasks):
+                    continue
+                yield (
+                    cls,
+                    WorkflowVersionId(
+                        workflow_external_id=subworkflow.workflow_external_id, version=subworkflow.version
+                    ),
+                )
+            # functionApp tasks reference CDF Function Apps, which have no Toolkit resource type.
 
     @classmethod
     def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
