@@ -140,7 +140,12 @@ class ToolkitTokenAPI:
     def verify_acls(self, required_acls: Sequence[AclType]) -> Sequence[AclType]:
         """Verify that the current token has the required ACLs, for the current project. Returns the list of missing ACLs."""
         if self._project_capabilities is None:
-            self._project_capabilities = self.inspect().to_project_capabilities()
+            try:
+                self._project_capabilities = self.inspect().to_project_capabilities()
+            except AuthorizationError:
+                raise AuthorizationError(
+                    f"Failed to validate {humanize_collection(required_acls)}. You do not have access to project {self._http_client.config.project!r}."
+                )
         return self._project_capabilities.verify(required_acls)
 
     def create_error(self, missing_capabilities: Sequence[Acl], action: str | None = None) -> AuthorizationError:

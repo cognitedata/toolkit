@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import (
     scope_difference,
     scope_union,
 )
+from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 
 AclName: TypeAlias = str
 AclAction: TypeAlias = str
@@ -202,7 +203,12 @@ class InspectResponse(BaseModelObject):
         project = project or self.project
         project_info = next((p for p in self.projects if p.project_url_name == project), None)
         if project_info is None:
-            raise ValueError(f"Project '{project}' not found in inspect response")
+            available_projects = [p.project_url_name for p in self.projects]
+            if available_projects:
+                suffix = f" Available projects: {', '.join(available_projects)}."
+            else:
+                suffix = " No projects available in inspect response. You are likely not a member of a group the ProjectsAcl with READ action."
+            raise AuthorizationError(f"Missing project '{project}' in inspect response.{suffix}")
         return FlatCapabilities.from_capabilities(
             capabilities=self.capabilities, project=project, groups=project_info.groups
         )
