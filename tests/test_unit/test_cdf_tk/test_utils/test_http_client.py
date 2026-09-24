@@ -171,6 +171,33 @@ class TestHTTPClient2:
         assert isinstance(response, FailedRequest)
         assert "RequestException after 1 attempts (read error): Simulated read timeout" == response.error
 
+    def test_connection_reset_error(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
+        http_client = http_client_one_retry
+        rsps.get("https://example.com/api/resource").mock(
+            side_effect=httpx2.ReadError("[Errno 54] Connection reset by peer")
+        )
+        with patch(f"{HTTPClient.__module__}.time"):
+            # Patch time to avoid actual sleep
+            response = http_client.request_single_retries(
+                RequestMessage(endpoint_url="https://example.com/api/resource", method="GET")
+            )
+        assert isinstance(response, FailedRequest)
+        assert "RequestException after 1 attempts (read error): [Errno 54] Connection reset by peer" == response.error
+
+    def test_connection_reset_then_success(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
+        url = "https://example.com/api/resource"
+        rsps.get(url).mock(
+            side_effect=[
+                httpx2.ReadError("[Errno 54] Connection reset by peer"),
+                httpx2.Response(200, json={"key": "value"}),
+            ]
+        )
+        with patch(f"{HTTPClient.__module__}.time"):
+            response = http_client_one_retry.request_single_retries(RequestMessage(endpoint_url=url, method="GET"))
+        assert isinstance(response, SuccessResponse)
+        assert response.status_code == 200
+        assert len(rsps.calls) == 2
+
     def test_zero_retries(self, toolkit_config: ToolkitClientConfig, rsps: respx.MockRouter) -> None:
         client = HTTPClient(toolkit_config, max_retries=0)
         rsps.get("https://example.com/api/resource").respond(
@@ -352,6 +379,26 @@ class TestHTTPClientItemRequests2:
         assert results == [
             ItemsFailedRequest(
                 ids=["1"], error_message="RequestException after 1 attempts (read error): Simulated timeout error"
+            )
+        ]
+
+    def test_connection_reset_error_items(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
+        client = http_client_one_retry
+        rsps.post("https://example.com/api/resource").mock(
+            side_effect=httpx2.ReadError("[Errno 54] Connection reset by peer")
+        )
+        with patch("time.sleep"):
+            results = client.request_items_retries(
+                ItemsRequest(
+                    endpoint_url="https://example.com/api/resource",
+                    method="POST",
+                    items=[MyRequestItem(name="A", id=1)],
+                )
+            )
+        assert results == [
+            ItemsFailedRequest(
+                ids=["1"],
+                error_message="RequestException after 1 attempts (read error): [Errno 54] Connection reset by peer",
             )
         ]
 
