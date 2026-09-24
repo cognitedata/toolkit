@@ -92,6 +92,8 @@ class ErrorDetails(HTTPBaseModel):
     message: str
     missing: list[JsonValue] | None = None
     duplicated: list[JsonValue] | None = None
+    # tasks-api puts Pydantic validation errors here (APISyntacticalError). Standard CDF errors omit it.
+    detail: list[JsonValue] | None = None
     is_auto_retryable: bool | None = None
     x_request_id: str | None = None
 
@@ -99,6 +101,8 @@ class ErrorDetails(HTTPBaseModel):
     def full_message(self) -> str:
         """The error message with missing/duplicated referenced resources and the request ID appended, if present."""
         parts = [self.message] if self.message else []
+        if self.detail:
+            parts.append(f"Detail: {self.detail}")
         if self.missing:
             parts.append(f"Missing: {self.missing}")
         if self.duplicated:
