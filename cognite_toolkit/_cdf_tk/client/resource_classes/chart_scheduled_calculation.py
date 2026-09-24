@@ -21,7 +21,7 @@ class CalculationInput(BaseModelObject):
     # The literal is to show typical values of type.
     type: Literal["ts", "const", "result"] | str | None = None
     value: str | float | int | NodeUntypedId | JsonValue | None = None
-    param: JsonValue | None = None
+    param: str
 
 
 class CalculationStep(BaseModelObject):
