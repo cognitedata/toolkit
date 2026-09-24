@@ -175,7 +175,7 @@ class BuildV2Command(ToolkitCommand):
         self._write_results(found_insights, build_folder, parameters, client.config.project if client else None)
 
         if Flags.V09.is_enabled() and parameters.rules_enforce:
-            self._enforce_rules(report_insights, console)
+            self._enforce_rules(report_insights)
 
         return build_folder
 
@@ -195,19 +195,14 @@ class BuildV2Command(ToolkitCommand):
         )
 
     @classmethod
-    def _enforce_rules(cls, violations: InsightList, console: Console) -> None:
+    def _enforce_rules(cls, violations: InsightList) -> None:
         """Fails the build when blocking rule violations are found.
-
-        Called when ``--rules-enforce`` (``parameters.rules_enforce``) is set. Any insight whose
-        severity exceeds :attr:`_ENFORCE_SEVERITY_THRESHOLD` (e.g. syntax, consistency or file read
-        errors) is treated as a violation that must block the build.
 
         Args:
             violations: The insights reported to the user (already filtered for ignored rules).
-            console: The console used to display the enforcement summary.
 
         Raises:
-            ToolkitValidationError: If one or more blocking rule violations are found.
+            ToolkitValidationError: If any blocking rule violations are found, with a summary of the violations.
         """
         counts_by_code = Counter(insight.code or "UNDEFINED" for insight in violations)
         raise ToolkitValidationError(
