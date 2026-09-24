@@ -4,7 +4,7 @@ from typing import Any, Literal
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 
 
@@ -23,7 +23,7 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
 
     def _add_to_cache(self, data_set: DataSetResponse) -> None:
         """Add a data set to both the internal and external ID caches."""
-        self._cache_by_id[data_set.as_id()] = data_set
+        self._cache_by_id[InternalId(id=data_set.id)] = data_set
         if data_set.external_id is not None:
             self._cache_by_id[ExternalId(external_id=data_set.external_id)] = data_set
 
