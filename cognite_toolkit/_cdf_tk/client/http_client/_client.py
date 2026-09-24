@@ -243,7 +243,7 @@ class HTTPClient:
         return None
 
     def _handle_error_single(self, e: Exception, request: RequestMessage) -> RequestMessage | HTTPResult:
-        if isinstance(e, httpx2.ReadTimeout | httpx2.TimeoutException):
+        if isinstance(e, httpx2.ReadTimeout | httpx2.TimeoutException | httpx2.ReadError):
             error_type = "read"
             request.read_attempt += 1
             attempts = request.read_attempt
@@ -478,7 +478,7 @@ class HTTPClient:
             ]
 
     def _handle_items_error(self, e: Exception, request: ItemsRequest) -> Sequence[ItemsRequest | ItemsResultMessage]:
-        if isinstance(e, httpx2.ReadTimeout | httpx2.TimeoutException):
+        if isinstance(e, httpx2.ReadTimeout | httpx2.TimeoutException | httpx2.ReadError):
             error_type = "read"
             request.read_attempt += 1
             attempts = request.read_attempt
