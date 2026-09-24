@@ -20,12 +20,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import ACL_NAME
-from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import Acl, AclType
+from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import Acl, AclType, GroupsAcl, ProjectsAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import (
     scope_difference,
     scope_union,
 )
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 AclName: TypeAlias = str
 AclAction: TypeAlias = str
@@ -205,9 +206,10 @@ class InspectResponse(BaseModelObject):
         if project_info is None:
             available_projects = [p.project_url_name for p in self.projects]
             if available_projects:
-                suffix = f" Available projects: {', '.join(available_projects)}."
+                suffix = f" Available projects: {humanize_collection(available_projects)}."
             else:
-                suffix = " No projects available in inspect response. You are likely not a member of a group the ProjectsAcl with READ action."
+                required_capabilities = f"{ProjectsAcl.__name__} and {GroupsAcl.__name__} capabilities with LIST action"
+                suffix = f" You are likely not a member of a group with {required_capabilities}."
             raise AuthorizationError(f"Missing project '{project}' in inspect response.{suffix}")
         return FlatCapabilities.from_capabilities(
             capabilities=self.capabilities, project=project, groups=project_info.groups

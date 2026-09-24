@@ -142,9 +142,9 @@ class ToolkitTokenAPI:
         if self._project_capabilities is None:
             try:
                 self._project_capabilities = self.inspect().to_project_capabilities()
-            except AuthorizationError:
+            except AuthorizationError as e:
                 raise AuthorizationError(
-                    f"Failed to validate {humanize_collection(required_acls)}. You do not have access to project {self._http_client.config.project!r}."
+                    f"Failed to validate {humanize_collection([repr(acl) for acl in required_acls])}. \n{e!s}"
                 )
         return self._project_capabilities.verify(required_acls)
 
