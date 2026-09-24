@@ -2629,7 +2629,7 @@ class TestCDFResourceAPI:
                 CalculationStep(
                     op="PASSTHROUGH",
                     version=1.0,
-                    inputs=[CalculationInput(type="ts", value=source_ts_external_id)],
+                    inputs=[CalculationInput(type="ts", value=source_ts_external_id, param="series")],
                     raw=True,
                     step=0,
                 )

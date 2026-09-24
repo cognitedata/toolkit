@@ -550,7 +550,7 @@ class TestChartMapper:
                                 CalculationStep(
                                     op="PASSTHROUGH",
                                     version=1.0,
-                                    inputs=[CalculationInput(type="ts", value="OLD_INPUT_TS")],
+                                    inputs=[CalculationInput(type="ts", value="OLD_INPUT_TS", param="series")],
                                     raw=False,
                                     step=0,
                                 )
