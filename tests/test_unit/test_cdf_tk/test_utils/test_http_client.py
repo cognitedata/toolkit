@@ -79,6 +79,25 @@ class TestHTTPClient2:
         assert response.status_code == 400
         assert response.error.message == "bad request"
 
+    def test_syntactical_error_keeps_detail(self, rsps: respx.MockRouter, http_client: HTTPClient) -> None:
+        detail = [{"type": "missing", "loc": ["body", "items", 0, "nonce"], "msg": "Field required"}]
+        rsps.post("https://example.com/api/resource").respond(
+            json={
+                "error": {
+                    "message": "Syntactical request error",
+                    "code": 400,
+                    "detail": detail,
+                }
+            },
+            status_code=400,
+        )
+        response = http_client.request_single(
+            RequestMessage(endpoint_url="https://example.com/api/resource", method="POST", body_content={"items": []})
+        )
+        assert isinstance(response, FailedResponse)
+        assert response.error.detail == detail
+        assert "Field required" in response.error.full_message
+
     @pytest.mark.usefixtures("disable_gzip")
     def test_retry_then_success(self, rsps: respx.MockRouter, http_client: HTTPClient) -> None:
         url = "https://example.com/api/resource"
