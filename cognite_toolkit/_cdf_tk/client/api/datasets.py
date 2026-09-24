@@ -61,24 +61,15 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
             return self._request_item_response(
                 items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
             )
-
-        cached_results: list[DataSetResponse] = []
-        missing_items: list[InternalOrExternalId] = []
-        for item in items:
-            if item in self._cache_by_id:
-                cached_results.append(self._cache_by_id[item])
-            else:
-                missing_items.append(item)
-
+        missing_items = list(dict.fromkeys(item for item in items if item not in self._cache_by_id))
         if missing_items:
             fetched = self._request_item_response(
                 missing_items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
             )
             for data_set in fetched:
                 self._add_to_cache(data_set)
-                cached_results.append(data_set)
 
-        return cached_results
+        return [self._cache_by_id[item] for item in items if item in self._cache_by_id]
 
     def update(
         self, items: Sequence[DataSetRequest], mode: Literal["patch", "replace"] = "replace"
