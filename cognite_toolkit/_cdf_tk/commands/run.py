@@ -1121,8 +1121,6 @@ class RunWorkflowV2Command(ToolkitCommand):
 
         if len(versions_by_external_id) == 0:
             raise ToolkitMissingResourceError("No workflows found in CDF.")
-        elif len(versions_by_external_id) == 1:
-            versions = next(iter(versions_by_external_id.values()))
         else:
             external_id_choices = [
                 questionary.Choice(title=external_id, value=versions)
