@@ -173,6 +173,9 @@ class BuildV2Command(ToolkitCommand):
         # fails to deploy a resource.
         self._write_results(found_insights, build_folder, parameters, client.config.project if client else None)
 
+        if parameters.rules_enforce:
+            self._enforce_rules(report_insights, console)
+
         return build_folder
 
     @classmethod
