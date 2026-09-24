@@ -208,7 +208,7 @@ class BuildV2Command(ToolkitCommand):
             return
         counts_by_code = Counter(insight.code or "UNDEFINED" for insight in violations)
         raise ToolkitValidationError(
-            f"Rule enforcement failed: found {len(violations)} blocking rule violation(s) "
+            f"Build failed due to rule enforcement. Found {len(violations)} blocking rule violation(s) "
             f"across {len(counts_by_code)} rule code(s). See the insights above for details."
         )
 
