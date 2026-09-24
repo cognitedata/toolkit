@@ -12,9 +12,16 @@ from cognite.client.data_classes.workflows import (
     WorkflowExecution,
     WorkflowVersionId,
 )
+from pydantic import JsonValue
 from questionary import Choice
+from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client.api.workflow_executions import WorkflowExecutionsAPI
+from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
+from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
+from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     Column,
     SQLQueryResponse,
@@ -27,11 +34,19 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation_job import (
     TransformationJobMetricResponse,
     TransformationJobResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import (
+    WorkflowExecutionDetailedResponse,
+    WorkflowExecutionResponse,
+    WorkflowTaskExecution,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import WorkflowTriggerResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.commands import (
     BuildV2Command,
     RunFunctionCommand,
     RunTransformationCommand,
     RunWorkflowCommand,
+    RunWorkflowV2Command,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
@@ -469,3 +484,255 @@ class TestRunWorkflow:
         )
         assert called_with.workflow_external_id == "workflow"
         assert called_with.version == "v1"
+
+
+def _workflow_version(
+    external_id: str = "workflow", version: str = "v1", last_updated_time: int = 0
+) -> WorkflowVersionResponse:
+    return WorkflowVersionResponse.model_validate(
+        {
+            "workflowExternalId": external_id,
+            "version": version,
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "task1",
+                        "type": "function",
+                        "parameters": {"function": {"externalId": "fn_test3"}},
+                        "timeout": 60,
+                        "retries": 1,
+                    }
+                ]
+            },
+            "createdTime": 0,
+            "lastUpdatedTime": last_updated_time,
+        }
+    )
+
+
+def _workflow_execution(status: str = "RUNNING") -> WorkflowExecutionResponse:
+    return WorkflowExecutionResponse.model_validate(
+        {
+            "id": "1234567890",
+            "workflowExternalId": "workflow",
+            "version": "v1",
+            "status": status,
+            "createdTime": int(datetime.now().timestamp() * 1000),
+        }
+    )
+
+
+def _task_execution(
+    id_: str,
+    external_id: str,
+    status: str,
+    output: JsonValue = None,
+    reason_for_incompletion: str | None = None,
+) -> WorkflowTaskExecution:
+    now_ms = int(datetime.now().timestamp() * 1000)
+    return WorkflowTaskExecution.model_validate(
+        {
+            "id": id_,
+            "externalId": external_id,
+            "status": status,
+            "startTime": now_ms,
+            "endTime": None if status in ("SCHEDULED", "IN_PROGRESS") else now_ms + 1000,
+            "output": output,
+            "reasonForIncompletion": reason_for_incompletion,
+        }
+    )
+
+
+def _detailed_execution(status: str, executed_tasks: list[WorkflowTaskExecution]) -> WorkflowExecutionDetailedResponse:
+    return WorkflowExecutionDetailedResponse.model_validate(
+        {
+            "id": "1234567890",
+            "workflowExternalId": "workflow",
+            "version": "v1",
+            "status": status,
+            "createdTime": int(datetime.now().timestamp() * 1000),
+            "workflowDefinition": _workflow_version().workflow_definition.dump(),
+            "executedTasks": executed_tasks,
+        }
+    )
+
+
+@pytest.fixture
+def workflow_client() -> MagicMock:
+    """Ad-hoc mock of the parts of the ToolkitClient that RunWorkflowV2Command uses."""
+    client = MagicMock()
+    # The command passes the console to rich.Progress, which does not accept a mock.
+    client.console = Console()
+    client.iam.sessions.create.return_value.nonce = "dummy-nonce"
+    client.tool.workflows = MagicMock(spec=WorkflowsAPI)
+    client.tool.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)
+    client.tool.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)
+    client.tool.workflows.executions = MagicMock(spec_set=WorkflowExecutionsAPI)
+    client.tool.workflows.executions.run.return_value = _workflow_execution()
+    return client
+
+
+class TestRunWorkflowV2:
+    def test_run_workflow(self, workflow_client: MagicMock) -> None:
+        client = workflow_client
+        client.tool.workflows.versions.retrieve.return_value = [_workflow_version()]
+
+        assert (
+            RunWorkflowV2Command().run_workflow(
+                client,
+                external_id="workflow",
+                version="v1",
+                wait=False,
+            )
+            is True
+        )
+        client.tool.workflows.executions.run.assert_called_once_with(
+            ToolkitWorkflowVersionId(workflow_external_id="workflow", version="v1"),
+            nonce="dummy-nonce",
+            input=None,
+        )
+
+    def test_run_workflow_without_version_runs_last_updated(self, workflow_client: MagicMock) -> None:
+        client = workflow_client
+        client.tool.workflows.versions.list.return_value = [
+            _workflow_version(version="v1", last_updated_time=1),
+            _workflow_version(version="v2", last_updated_time=2),
+        ]
+
+        RunWorkflowV2Command().run_workflow(
+            client,
+            external_id="workflow",
+            version=None,
+            wait=False,
+        )
+
+        client.tool.workflows.executions.run.assert_called_once_with(
+            ToolkitWorkflowVersionId(workflow_external_id="workflow", version="v2"),
+            nonce="dummy-nonce",
+            input=None,
+        )
+
+    def test_run_workflow_interactive_uses_trigger_input(
+        self, workflow_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        trigger = WorkflowTriggerResponse.model_validate(
+            {
+                "externalId": "my_trigger",
+                "triggerRule": {"triggerType": "schedule", "cronExpression": "0 0 * * *"},
+                "workflowExternalId": "workflow",
+                "workflowVersion": "v1",
+                "input": {"breakfast": "egg and bacon"},
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+                "isPaused": False,
+            }
+        )
+        client = workflow_client
+        client.tool.workflows.versions.list.return_value = [_workflow_version()]
+        client.tool.workflows.triggers.list.return_value = [trigger]
+
+        def select_workflow(choices: list[Choice]) -> object:
+            assert len(choices) == 1
+            return choices[0].value
+
+        # 1. Select the workflow, 2. confirm using the trigger input, 3. confirm not to wait.
+        answers = [select_workflow, True, False]
+        with MockQuestionary(RunWorkflowV2Command.__module__, monkeypatch, answers):
+            RunWorkflowV2Command().run_workflow(
+                client,
+                external_id=None,
+                version=None,
+                wait=False,
+            )
+
+        client.tool.workflows.executions.run.assert_called_once_with(
+            ToolkitWorkflowVersionId(workflow_external_id="workflow", version="v1"),
+            nonce="dummy-nonce",
+            input={"breakfast": "egg and bacon"},
+        )
+
+    @patch("cognite_toolkit._cdf_tk.commands.run.time.sleep")
+    def test_run_workflow_wait_for_completion(self, _sleep: MagicMock, workflow_client: MagicMock) -> None:
+        client = workflow_client
+        client.tool.workflows.versions.retrieve.return_value = [_workflow_version()]
+        client.tool.workflows.executions.retrieve.side_effect = [
+            [_detailed_execution("RUNNING", [_task_execution("1", "task1", "IN_PROGRESS")])],
+            [_detailed_execution("COMPLETED", [_task_execution("1", "task1", "COMPLETED")])],
+        ]
+
+        assert (
+            RunWorkflowV2Command().run_workflow(
+                client,
+                external_id="workflow",
+                version="v1",
+                wait=True,
+            )
+            is True
+        )
+        assert client.tool.workflows.executions.retrieve.call_count == 2
+
+    def test_run_workflow_missing_version(self, workflow_client: MagicMock) -> None:
+        client = workflow_client
+        client.tool.workflows.versions.retrieve.return_value = []
+
+        with pytest.raises(ToolkitMissingResourceError, match="Could not find workflow"):
+            RunWorkflowV2Command().run_workflow(
+                client,
+                external_id="workflow",
+                version="v2",
+                wait=False,
+            )
+
+    def test_finished_task_count_counts_tasks_not_attempts(self) -> None:
+        """A retried task has one execution per attempt, but is still a single task."""
+        execution = _detailed_execution(
+            "RUNNING",
+            [
+                _task_execution("1", "task1", "FAILED"),
+                _task_execution("2", "task1", "COMPLETED"),
+                _task_execution("3", "task2", "IN_PROGRESS"),
+            ],
+        )
+
+        assert RunWorkflowV2Command._finished_task_count(execution) == 1
+
+    def test_report_attempt_reports_failure_and_retry_once(self) -> None:
+        progress = MagicMock()
+        reported: set[str] = set()
+        failed = _task_execution("1", "task1", "FAILED", reason_for_incompletion="boom")
+        retry = _task_execution("2", "task1", "IN_PROGRESS")
+
+        RunWorkflowV2Command._report_attempt(progress, failed, 1, reported)
+        RunWorkflowV2Command._report_attempt(progress, retry, 2, reported)
+        # The same attempts are seen again on the next poll, and must not be reported twice.
+        RunWorkflowV2Command._report_attempt(progress, failed, 1, reported)
+        RunWorkflowV2Command._report_attempt(progress, retry, 2, reported)
+
+        assert [call.args[0] for call in progress.console.print.call_args_list] == [
+            "[red]Task 'task1' attempt 1 FAILED[/]: boom",
+            "[yellow]Retrying task 'task1' (attempt 2)[/]",
+        ]
+
+    @patch("cognite_toolkit._cdf_tk.commands.run.print")
+    def test_print_tasks_groups_attempts_and_truncates_output(self, print_: MagicMock) -> None:
+        execution = _detailed_execution(
+            "COMPLETED",
+            [
+                _task_execution("1", "task1", "FAILED", reason_for_incompletion="boom"),
+                _task_execution("2", "task1", "COMPLETED", output={"result": "ok"}),
+                _task_execution("3", "task2", "COMPLETED", output="a" * 60),
+            ],
+        )
+
+        RunWorkflowV2Command._print_tasks(
+            ToolkitWorkflowVersionId(workflow_external_id="workflow", version="v1"), execution
+        )
+
+        table = print_.call_args.args[0]
+        rendered = {column.header: list(column._cells) for column in table.columns}
+        assert {key: rendered[key] for key in ("Task", "Attempt", "Status", "Output")} == {
+            "Task": ["task1 (2 attempts)", "", "task2"],
+            "Attempt": ["1/2", "2/2", "1"],
+            "Status": ["FAILED", "COMPLETED", "COMPLETED"],
+            "Output": ["", '{"result": "ok"}', f"{'a' * 49}…"],
+        }

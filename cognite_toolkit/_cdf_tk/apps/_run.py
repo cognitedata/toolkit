@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.commands import (
     RunTransformationCommand,
     RunTransformationV2Command,
     RunWorkflowCommand,
+    RunWorkflowV2Command,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
@@ -117,6 +118,7 @@ class RunApp(typer.Typer):
             typer.Option(
                 "--organization-dir",
                 "-o",
+                hidden=Flags.V09.is_enabled(),
                 help="Path to project directory with the modules. This is used to search for available functions.",
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
@@ -129,18 +131,6 @@ class RunApp(typer.Typer):
                 help="Name of the build environment to use. If not provided, the default environment will be used.",
             ),
         ] = CDF_TOML.cdf.default_env,
-        config_yaml: Annotated[
-            Path | None,
-            typer.Option(
-                "--config-yaml",
-                "-c",
-                exists=True,
-                hidden=not Flags.V09.is_enabled(),
-                file_okay=True,
-                dir_okay=False,
-                help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
-            ),
-        ] = Path(CDF_TOML.cdf.default_config_yaml) if CDF_TOML.cdf.default_config_yaml else None,
         wait: Annotated[
             bool,
             typer.Option(
@@ -160,12 +150,13 @@ class RunApp(typer.Typer):
     ) -> None:
         """This command will run the specified workflow."""
         env_vars = EnvironmentVariables.create_from_environment()
-        cmd = RunWorkflowCommand(client=env_vars.get_client())
-        cmd.run(
-            lambda: cmd.run_workflow(
-                env_vars, organization_dir, env_name, external_id, version, wait, config_yaml=config_yaml
-            )
-        )
+        if Flags.V09.is_enabled():
+            client = env_vars.get_client()
+            cmd2 = RunWorkflowV2Command(client=client)
+            cmd2.run(lambda: cmd2.run_workflow(client, external_id, version, wait))
+        else:
+            cmd = RunWorkflowCommand(client=env_vars.get_client())
+            cmd.run(lambda: cmd.run_workflow(env_vars, organization_dir, env_name, external_id, version, wait))
 
     @staticmethod
     def function_app(

@@ -7,6 +7,7 @@ import re
 import shutil
 import textwrap
 import time
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar, cast
@@ -24,13 +25,14 @@ from cognite.client.data_classes.workflows import (
 )
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils import ms_to_datetime
+from pydantic import JsonValue
 from rich import print
-from rich.progress import Progress
+from rich.progress import Progress, TaskID
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowExecutionId
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
@@ -40,6 +42,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     SQLQueryResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_job import TransformationJobResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import (
+    WorkflowExecutionDetailedResponse,
+    WorkflowTaskExecution,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import Task, WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.auth import CLIENT_NAME, EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ResourceLineageItem
@@ -58,7 +65,7 @@ from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, FunctionScheduleIO, WorkflowVersionIO
 from cognite_toolkit._cdf_tk.resource_ios._workflow import WorkflowTriggerIO
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-from cognite_toolkit._cdf_tk.utils import in_dict
+from cognite_toolkit._cdf_tk.utils import humanize_collection, in_dict
 from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write
 
 from ._base import ToolkitCommand
@@ -1051,3 +1058,296 @@ class RunWorkflowCommand(ToolkitCommand):
             )
         print(table)
         return True
+
+
+class RunWorkflowV2Command(ToolkitCommand):
+    unfinished_task_statuses = frozenset({"IN_PROGRESS", "SCHEDULED"})
+    failed_task_statuses = frozenset({"FAILED", "FAILED_WITH_TERMINAL_ERROR", "TIMED_OUT", "CANCELED"})
+
+    def run_workflow(
+        self,
+        client: ToolkitClient,
+        external_id: str | None,
+        version: str | None,
+        wait: bool,
+    ) -> bool:
+        """Run a workflow in CDF.
+
+        The available workflows are read from CDF, so no local modules are needed.
+        """
+        if external_id is None:
+            # Interactive mode
+            selected = self._interactive_select_workflow(client)
+            input_ = self._get_trigger_input(client, selected.as_id())
+            wait = questionary.confirm("Do you want to wait for the workflow to complete?").unsafe_ask()
+        else:
+            selected = self._retrieve_workflow(client, external_id, version)
+            input_ = None
+        id_ = selected.as_id()
+
+        try:
+            nonce = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
+        except CogniteAPIError as e:
+            raise AuthorizationError(f"Could not create oneshot session for workflow {id_!s}: {e!s}") from e
+
+        execution = client.tool.workflows.executions.run(id_, nonce=nonce, input=input_)
+        table = Table(title=f"Workflow {id_!s}")
+        table.add_column("Info", justify="left")
+        table.add_column("Value", justify="left", style="green")
+        table.add_row("Execution id", execution.id)
+        table.add_row("Status", str(execution.status))
+        table.add_row("Created time", f"{ms_to_datetime(execution.created_time):%Y-%m-%d %H:%M:%S}")
+        print(table)
+
+        if not wait:
+            return True
+
+        result = self._wait_for_completion(client, execution.as_id(), selected.workflow_definition.tasks)
+        if result is None:
+            print(f"Could not find execution {execution.id}")
+            return False
+
+        print(f"Workflow {id_!s} execution {execution.id} completed with status {result.status}")
+        self._print_tasks(id_, result)
+        return True
+
+    @classmethod
+    def _interactive_select_workflow(cls, client: ToolkitClient) -> WorkflowVersionResponse:
+        workflow_versions = client.tool.workflows.versions.list(workflow_external_id=None, limit=None)
+
+        versions_by_external_id: dict[str, list[WorkflowVersionResponse]] = defaultdict(list)
+        for item in workflow_versions:
+            versions_by_external_id[item.workflow_external_id].append(item)
+
+        if len(versions_by_external_id) == 0:
+            raise ToolkitMissingResourceError("No workflows found in CDF.")
+        else:
+            external_id_choices = [
+                questionary.Choice(title=external_id, value=versions)
+                for external_id, versions in sorted(versions_by_external_id.items())
+            ]
+            versions = questionary.select(
+                "Select workflow to run",
+                choices=external_id_choices,
+                instruction="Type to filter",
+                use_search_filter=True,
+                use_jk_keys=False,
+            ).unsafe_ask()
+
+        if len(versions) == 1:
+            return versions[0]
+
+        choices = [
+            questionary.Choice(
+                title=f'Version {item.version!r} (last updated: {ms_to_datetime(item.last_updated_time):%Y-%m-%d %H:%M:%S"})',
+                value=item,
+            )
+            for item in sorted(versions, key=lambda item: item.last_updated_time, reverse=True)
+        ]
+        return questionary.select(
+            f"Select version of {versions[0].workflow_external_id} to run",
+            choices=choices,
+            instruction="Type to filter",
+            use_search_filter=True,
+            use_jk_keys=False,
+        ).unsafe_ask()
+
+    @classmethod
+    def _retrieve_workflow(
+        cls, client: ToolkitClient, external_id: str, version: str | None
+    ) -> WorkflowVersionResponse:
+        if version is not None:
+            workflows = client.tool.workflows.versions.retrieve(
+                [ToolkitWorkflowVersionId(workflow_external_id=external_id, version=version)], ignore_unknown_ids=True
+            )
+            if len(workflows) == 0:
+                raise ToolkitMissingResourceError(
+                    f"Could not find workflow with external id {external_id} and version {version}"
+                )
+            # We specifically requested a version, so we know there is only one workflow in the list.
+            return workflows[0]
+        else:
+            options = client.tool.workflows.versions.list(workflow_external_id=external_id, limit=None)
+            if len(options) == 0:
+                raise ToolkitMissingResourceError(f"Could not find workflow with external id {external_id}")
+            return max(options, key=lambda item: item.last_updated_time)
+
+    @staticmethod
+    def _get_trigger_input(client: ToolkitClient, id_: ToolkitWorkflowVersionId) -> dict[str, JsonValue] | None:
+        triggers = client.tool.workflows.triggers.list(
+            workflow_external_id=id_.workflow_external_id, workflow_version=id_.version
+        )
+        triggers_with_data = [trigger for trigger in triggers if isinstance(trigger.input, dict)]
+        if len(triggers_with_data) == 0:
+            return None
+        if len(triggers_with_data) == 1:
+            if questionary.confirm(
+                f"Found trigger {triggers_with_data[0].as_id()!s} for workflow {id_!s}. Do you want to use input data from this trigger?"
+            ).unsafe_ask():
+                return triggers_with_data[0].input if isinstance(triggers_with_data[0].input, dict) else None
+            return None
+        choices = [
+            questionary.Choice(
+                f"{trigger.as_id()!s} {str(trigger.input)[:50]}{'…' if len(str(trigger.input)) > 50 else ''}",
+                value=trigger,
+            )
+            for trigger in triggers_with_data
+        ]
+        return questionary.select(
+            f"Select trigger for workflow {id_!s} to use input data from",
+            choices=choices,
+            instruction="Type to filter",
+            use_search_filter=True,
+            use_jk_keys=False,
+        ).unsafe_ask()
+
+    @classmethod
+    def _wait_for_completion(
+        cls, client: ToolkitClient, execution_id: WorkflowExecutionId, tasks: list[Task]
+    ) -> WorkflowExecutionDetailedResponse | None:
+        # Each task is attempted once, plus once more for each retry.
+        max_time = sum(
+            (task.timeout or 3600) * ((task.retries if task.retries is not None else 3) + 1) for task in tasks
+        )
+        result = cls._retrieve_execution(client, execution_id)
+        # Attempts we have already told the user about, so each one is only reported once.
+        reported: set[str] = set()
+        with Progress(console=client.console) as progress:
+            bar = progress.add_task(cls._progress_description(result), total=len(tasks))
+            cls._update_progress(progress, bar, result, len(tasks), reported)
+            start_time = time.time()
+            duration = 0.0
+            sleep_time = 1
+            while (result is None or str(result.status).upper() == "RUNNING") and duration < max_time:
+                time.sleep(sleep_time)
+                sleep_time = min(sleep_time * 2, 15)
+                result = cls._retrieve_execution(client, execution_id)
+                duration = time.time() - start_time
+                cls._update_progress(progress, bar, result, len(tasks), reported)
+        return result
+
+    @staticmethod
+    def _retrieve_execution(
+        client: ToolkitClient, execution_id: WorkflowExecutionId
+    ) -> WorkflowExecutionDetailedResponse | None:
+        executions = client.tool.workflows.executions.retrieve([execution_id], ignore_unknown_ids=True)
+        return executions[0] if executions else None
+
+    @staticmethod
+    def _attempts_by_task(
+        execution: WorkflowExecutionDetailedResponse,
+    ) -> dict[str, list[WorkflowTaskExecution]]:
+        """Group the task executions by task, in the order they were attempted."""
+        attempts_by_task: dict[str, list[WorkflowTaskExecution]] = defaultdict(list)
+        for task in execution.executed_tasks:
+            attempts_by_task[task.external_id].append(task)
+        return attempts_by_task
+
+    @classmethod
+    def _update_progress(
+        cls,
+        progress: Progress,
+        bar: TaskID,
+        execution: WorkflowExecutionDetailedResponse | None,
+        task_count: int,
+        reported: set[str],
+    ) -> None:
+        if execution is None:
+            return
+        attempts_by_task = cls._attempts_by_task(execution)
+        for attempts in attempts_by_task.values():
+            for attempt_no, task in enumerate(attempts, 1):
+                cls._report_attempt(progress, task, attempt_no, reported)
+        progress.update(
+            bar,
+            # Dynamic and subworkflow tasks are expanded at runtime, so the workflow
+            # definition is a lower bound on the number of tasks.
+            total=max(task_count, len(attempts_by_task)),
+            completed=cls._finished_task_count(execution),
+            description=cls._progress_description(execution),
+        )
+
+    @classmethod
+    def _finished_task_count(cls, execution: WorkflowExecutionDetailedResponse) -> int:
+        """Count the tasks that are done, which is not the same as the number of task executions.
+
+        A task that is retried has one execution per attempt, so only the last attempt of each task counts.
+        """
+        return sum(
+            1
+            for attempts in cls._attempts_by_task(execution).values()
+            if str(attempts[-1].status).upper() not in cls.unfinished_task_statuses
+        )
+
+    @classmethod
+    def _report_attempt(
+        cls, progress: Progress, task: WorkflowTaskExecution, attempt_no: int, reported: set[str]
+    ) -> None:
+        if attempt_no > 1 and f"{task.id}:started" not in reported:
+            reported.add(f"{task.id}:started")
+            progress.console.print(f"[yellow]Retrying task {task.external_id!r} (attempt {attempt_no})[/]")
+        status = str(task.status).upper()
+        if status not in cls.failed_task_statuses or f"{task.id}:{status}" in reported:
+            return
+        reported.add(f"{task.id}:{status}")
+        reason = f": {task.reason_for_incompletion}" if task.reason_for_incompletion else ""
+        progress.console.print(f"[red]Task {task.external_id!r} attempt {attempt_no} {status}[/]{reason}")
+
+    @staticmethod
+    def _progress_description(execution: WorkflowExecutionDetailedResponse | None) -> str:
+        if execution is None:
+            return "Waiting for workflow execution to start..."
+        running = [task.external_id for task in execution.executed_tasks if str(task.status).upper() == "IN_PROGRESS"]
+        if not running:
+            return "Waiting for workflow execution to complete..."
+        if len(running) == 1:
+            return f"Running task {running[0]!r}..."
+        return f"Running {len(running)} tasks: {humanize_collection(running[:3])}..."
+
+    @staticmethod
+    def _truncate(value: JsonValue, max_length: int = 50) -> str:
+        if value is None:
+            return ""
+        text = " ".join((value if isinstance(value, str) else json.dumps(value)).split())
+        if len(text) <= max_length:
+            return text
+        return f"{text[: max_length - 1]}…"
+
+    @classmethod
+    def _print_tasks(cls, id_: ToolkitWorkflowVersionId, execution: WorkflowExecutionDetailedResponse) -> None:
+        table = Table(title=f"Workflow Tasks {id_!s}")
+        table.add_column("Task")
+        table.add_column("Attempt")
+        table.add_column("Status")
+        table.add_column("Start Time")
+        table.add_column("End Time")
+        table.add_column("Duration")
+        table.add_column("Output")
+        table.add_column("ReasonForIncompletion")
+
+        for external_id, attempts in cls._attempts_by_task(execution).items():
+            for attempt_no, task in enumerate(attempts, 1):
+                task_duration = (
+                    f"{datetime.timedelta(seconds=(task.end_time - task.start_time) / 1000).total_seconds():.1f} seconds"
+                    if task.end_time and task.start_time
+                    else ""
+                )
+                if attempt_no > 1:
+                    # The task is already named in the first row of the group.
+                    task_name = ""
+                elif len(attempts) > 1:
+                    task_name = f"{external_id} ({len(attempts)} attempts)"
+                else:
+                    task_name = external_id
+                table.add_row(
+                    task_name,
+                    f"{attempt_no}/{len(attempts)}" if len(attempts) > 1 else "1",
+                    str(task.status),
+                    f"{ms_to_datetime(task.start_time):%Y-%m-%d %H:%M:%S}" if task.start_time else "",
+                    f"{ms_to_datetime(task.end_time):%Y-%m-%d %H:%M:%S}" if task.end_time else "",
+                    task_duration,
+                    cls._truncate(task.output),
+                    task.reason_for_incompletion,
+                    end_section=len(attempts) > 1 and attempt_no == len(attempts),
+                )
+        print(table)

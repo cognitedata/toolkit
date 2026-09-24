@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -126,11 +127,7 @@ class WorkflowTriggersAPI(CDFResourceAPI[WorkflowTriggerResponse]):
         Returns:
             PagedResponse of WorkflowTriggerResponse objects.
         """
-        params: dict[str, Any] = {}
-        if workflow_external_id:
-            params["workflowExternalId"] = workflow_external_id
-        if workflow_version:
-            params["workflowVersion"] = workflow_version
+        params = self._create_params(workflow_external_id, workflow_version)
 
         return self._paginate(
             cursor=cursor,
@@ -138,12 +135,21 @@ class WorkflowTriggersAPI(CDFResourceAPI[WorkflowTriggerResponse]):
             params=params,
         )
 
+    @classmethod
+    def _create_params(cls, workflow_external_id: str | None, workflow_version: str | None) -> dict[str, Any]:
+        params: dict[str, Any] = {}
+        if workflow_external_id:
+            params["workflowExternalId"] = workflow_external_id
+        if workflow_version:
+            params["workflowVersion"] = workflow_version
+        return params
+
     def iterate(
         self,
         workflow_external_id: str | None = None,
         workflow_version: str | None = None,
         limit: int = 100,
-    ) -> Iterable[list[WorkflowTriggerResponse]]:
+    ) -> Iterable[builtins.list[WorkflowTriggerResponse]]:
         """Iterate over all workflow triggers in CDF.
 
         Args:
@@ -154,11 +160,7 @@ class WorkflowTriggersAPI(CDFResourceAPI[WorkflowTriggerResponse]):
         Returns:
             Iterable of lists of WorkflowTriggerResponse objects.
         """
-        params: dict[str, Any] = {}
-        if workflow_external_id:
-            params["workflowExternalId"] = workflow_external_id
-        if workflow_version:
-            params["workflowVersion"] = workflow_version
+        params = self._create_params(workflow_external_id, workflow_version)
 
         return self._iterate(
             limit=limit,
@@ -167,11 +169,14 @@ class WorkflowTriggersAPI(CDFResourceAPI[WorkflowTriggerResponse]):
 
     def list(
         self,
+        workflow_external_id: str | None = None,
+        workflow_version: str | None = None,
         limit: int | None = 100,
-    ) -> list[WorkflowTriggerResponse]:
+    ) -> builtins.list[WorkflowTriggerResponse]:
         """List all workflow triggers in CDF.
 
         Returns:
             List of WorkflowTriggerResponse objects.
         """
-        return self._list(limit=limit)
+        params = self._create_params(workflow_external_id, workflow_version)
+        return self._list(limit=limit, params=params)
