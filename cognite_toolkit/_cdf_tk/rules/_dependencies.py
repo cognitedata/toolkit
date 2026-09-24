@@ -65,7 +65,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         if self.client:
             for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
                 crud = crud_cls(self.client, None, None)
-                display_name = crud.display_name
+                resource_label = crud_cls.kind.lower()
                 existing_in_cdf = {
                     crud.get_id(cdf_item) for cdf_item in crud.retrieve(list(expected_by_identifier.keys()))
                 }
@@ -74,8 +74,8 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                         referencing_resources = expected_by_identifier[identifier]
                         yield ConsistencyError(
                             code="UNKNOWN-REFERENCE",
-                            message=f"Unknown reference to {display_name} with id '{identifier}'",
-                            fix=f"Ensure that {display_name} exists or remove the reference to it.",
+                            message=f"Unknown reference to {resource_label} with id '{identifier}'",
+                            fix=f"Ensure that the {resource_label} exists or remove the reference to it.",
                             source_files=[resource.source_path for resource in referencing_resources],
                         )
         else:
