@@ -86,7 +86,10 @@ from ._transformation import TransformationIO
 
 
 def _is_workflow_runtime_reference(value: str) -> bool:
-    """Whether value is a ${...} reference resolved when the workflow runs, not a Toolkit resource id."""
+    """
+    Whether value is a ${...} reference to a runtime value, not a Toolkit resource id.
+    Hence we do cannot check dependencies for these at build time.
+    """
     return value.startswith("${")
 
 
