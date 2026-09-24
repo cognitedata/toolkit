@@ -768,7 +768,7 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
                     {
                         "op": "PASSTHROUGH",
                         "version": 1.0,
-                        "inputs": [{"type": "ts", "value": "ts_001"}],
+                        "inputs": [{"type": "ts", "value": "ts_001", "param": "series"}],
                         "raw": False,
                         "step": 0,
                     }
