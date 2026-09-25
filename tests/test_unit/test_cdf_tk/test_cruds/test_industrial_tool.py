@@ -73,7 +73,7 @@ class TestStreamlitUpdateWithFileio:
     )
     def test_reupload_based_on_hash(self, cdf_hash: str, local_hash: str, expect_upload: bool) -> None:
         mock_client = MagicMock()
-        loader = StreamlitIO(mock_client, use_fileio=True)
+        loader = StreamlitIO(mock_client)
         ext_id = "stapp-test"
         loader.filemetadata_by_external_id[ext_id] = MagicMock(spec=Path)
 
