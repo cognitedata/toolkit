@@ -30,7 +30,7 @@ def deployed_container_space_coupled_model(toolkit_client: ToolkitClient) -> Non
 
 @pytest.mark.usefixtures("deployed_container_space_coupled_model")
 def test_deploy_strongly_coupled_model(toolkit_client: ToolkitClient) -> None:
-    loader = ViewIO(toolkit_client, STRONGLY_COUPLED_MODEL, None)
+    loader = ViewIO(toolkit_client)
     views = [
         ViewRequest.load_yaml(file.read_text(encoding="utf-8")) for file in loader.find_files(STRONGLY_COUPLED_MODEL)
     ]

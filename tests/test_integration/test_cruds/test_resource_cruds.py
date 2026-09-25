@@ -93,7 +93,7 @@ class TestFunctionScheduleLoader:
         dummy_function: Function,
         dummy_schedule: FunctionScheduleResponse,
     ) -> None:
-        loader = FunctionScheduleIO(toolkit_client, None, None)
+        loader = FunctionScheduleIO(toolkit_client)
         function_schedule = dummy_schedule.as_request_resource()
 
         function_schedule.description = (
@@ -130,7 +130,7 @@ class TestFunctionScheduleLoader:
             function_external_id=dummy_function.external_id,
             description="This schedule should be ignored as it does not have a function_external_id",
         )
-        loader = FunctionScheduleIO(toolkit_client, None, None)
+        loader = FunctionScheduleIO(toolkit_client)
         assert isinstance(toolkit_client_config.credentials, OAuthClientCredentials)
         loader.authentication_by_id[loader.get_id(local)] = ClientCredentials(
             toolkit_client_config.credentials.client_id, toolkit_client_config.credentials.client_secret
@@ -156,7 +156,7 @@ class TestFunctionScheduleLoader:
         existing = client.functions.schedules.list(name=schedule.name, function_id=dummy_function.id, limit=1)
         if not existing:
             _ = client.functions.schedules.create(schedule)
-        crud = FunctionScheduleIO(client, None, None)
+        crud = FunctionScheduleIO(client)
 
         schedules = list(crud.iterate(parent_ids=[ExternalId(external_id=dummy_function.external_id)]))
         assert len(schedules) >= 1
@@ -182,7 +182,7 @@ authentication:
   clientId: {cred.client_id}
   clientSecret: {cred.client_secret}
 """
-        loader = FunctionScheduleIO(toolkit_client, None, None)
+        loader = FunctionScheduleIO(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = schedule_yaml
 
@@ -285,7 +285,7 @@ def three_hundred_and_three_cognite_timeseries(
 
 class TestDatapointSubscriptionLoader:
     def test_delete_non_existing(self, toolkit_client: ToolkitClient) -> None:
-        loader = DatapointSubscriptionIO(toolkit_client, None)
+        loader = DatapointSubscriptionIO(toolkit_client)
         _ = loader.delete([ExternalId(external_id="non_existing")])
 
     def test_create_update_delete_subscription(self, toolkit_client: ToolkitClient) -> None:
@@ -355,7 +355,7 @@ name: The subscription name
 timeSeriesIds:
 - {ts_update_ds}
 """
-        loader = DatapointSubscriptionIO(toolkit_client, None)
+        loader = DatapointSubscriptionIO(toolkit_client)
         sub = self._load_subscription_from_yaml(self._create_mock_file(sub_yaml), loader)
         try:
             created = loader.create([sub])
@@ -409,13 +409,13 @@ timeSeriesIds:
 
 class TestLabelLoader:
     def test_delete_non_existing(self, toolkit_client: ToolkitClient) -> None:
-        loader = LabelIO(toolkit_client, None)
+        loader = LabelIO(toolkit_client)
         delete_count = loader.delete([ExternalId(external_id="non_existing")])
         assert delete_count == 0
 
     def test_create_delete_label(self, toolkit_client: ToolkitClient) -> None:
         label = LabelRequest(external_id=f"tmp_test_create_update_delete_label_{RUN_UNIQUE_ID}", name="Initial name")
-        loader = LabelIO(toolkit_client, None)
+        loader = LabelIO(toolkit_client)
 
         try:
             created = loader.create([label])
@@ -432,7 +432,7 @@ class TestAssetLoader:
             description="My description",
         )
 
-        loader = AssetIO(toolkit_client, None)
+        loader = AssetIO(toolkit_client)
 
         try:
             created = loader.create([asset])
@@ -508,7 +508,7 @@ class TestDataModelLoader:
     def test_create_update_delete(
         self, toolkit_client: ToolkitClient, toolkit_space: dm.Space, two_views_ephemeral: dm.ViewList
     ) -> None:
-        loader = DataModelIO(toolkit_client, None)
+        loader = DataModelIO(toolkit_client)
         view_list = two_views_ephemeral.as_ids()
         assert len(view_list) == 2, "Expected 2 views in the test data model"
         my_model = DataModelRequest(
@@ -683,7 +683,7 @@ workflowDefinition:
         file = MagicMock(spec=Path)
         file.read_text.return_value = definition_yaml
         with monkeypatch_toolkit_client() as client:
-            loader = WorkflowVersionIO(client, None, None)
+            loader = WorkflowVersionIO(client)
 
             with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
                 loaded = loader.load_resource_file(file, {"myTask1.output.data": "should-be-ignored"})
@@ -968,7 +968,7 @@ description: ""
         function_code_path.parent.mkdir(parents=True, exist_ok=True)
         function_code_path.write_text(self.FUNCTION_CODE, encoding="utf-8")
 
-        loader = FunctionIO(toolkit_client, build_dir, None, use_fileio=False)
+        loader = FunctionIO(toolkit_client, use_fileio=False)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = definition_yaml
         filepath.parent.name = FunctionIO.folder_name
@@ -1057,7 +1057,7 @@ class TestSkillIO:
     # Skills upload can intermittently fail with "Files not uploaded" against live CDF.
     @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["ToolkitAPIError"])
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
-        loader = SkillIO(toolkit_client, None)
+        loader = SkillIO(toolkit_client)
         external_id = f"toolkit_integration_skill_{RUN_UNIQUE_ID}".replace("-", "_")
         # Skill names must be unique in CDF and match ^[a-z0-9]+(?:-[a-z0-9]+)*$.
         skill_name = f"integration-test-skill-{RUN_UNIQUE_ID}".lower().replace("_", "-")
