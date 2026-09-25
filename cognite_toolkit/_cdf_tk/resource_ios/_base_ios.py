@@ -339,7 +339,7 @@ class ResourceIO(
     def doc_url(cls) -> str:
         return cls._doc_base_url + cls._doc_url
 
-    def find_files(self, dir_or_file: Path | None = None) -> list[Path]:
+    def find_files(self, dir_or_file: Path) -> list[Path]:
         """Find all files that are supported by this loader in the given directory or file.
 
         Args:
@@ -350,7 +350,7 @@ class ResourceIO(
             list[Path]: A sorted list of all files that are supported by this loader.
 
         """
-        dir_or_file = dir_or_file or self.resource_build_path
+        dir_or_file = dir_or_file
         if dir_or_file is None:
             raise ValueError("No 'dir_or_file' or 'build_path' is set.")
         if dir_or_file.is_file():
@@ -361,10 +361,6 @@ class ResourceIO(
             return sorted([file for file in dir_or_file.rglob("*") if self.is_supported_file(file)])
         else:
             return []
-
-    @classmethod
-    def any_supported_files(cls, directory: Path) -> bool:
-        return any(cls.is_supported_file(file) for file in directory.glob("**/*"))
 
     @classmethod
     def is_supported_file(cls, file: Path) -> bool:
