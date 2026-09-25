@@ -172,15 +172,17 @@ databases:
         # No warning should be printed
         print_mock.assert_not_called()
 
-    def test_load_resource_invalid_yaml_warning(self, toolkit_client_cheap: ToolkitClient) -> None:
+    def test_load_resource_invalid_yaml_warning(self) -> None:
         resource = {
             "externalId": "ep_src_asset",
             "config": "invalid-yaml: [unclosed_list",
         }
+        client = MagicMock()
         console = MagicMock(spec=Console)
+        client.console = console
         print_mock = MagicMock()
         console.print = print_mock
-        crud = ExtractionPipelineConfigIO(toolkit_client_cheap)
+        crud = ExtractionPipelineConfigIO(client)
         loaded = crud.load_resource(resource)
 
         assert isinstance(loaded, ExtractionPipelineConfigRequest)
@@ -189,15 +191,17 @@ databases:
         _, message = args
         assert "ep_src_asset" in message
 
-    def test_load_resource_yaml_array(self, toolkit_client_cheap: ToolkitClient) -> None:
+    def test_load_resource_yaml_array(self) -> None:
         resource = {
             "externalId": "ep_src_asset",
             "config": "- item1: value1",
         }
+        client = MagicMock()
         console = MagicMock(spec=Console)
+        client.console = console
         print_mock = MagicMock()
         console.print = print_mock
-        crud = ExtractionPipelineConfigIO(toolkit_client_cheap)
+        crud = ExtractionPipelineConfigIO(client)
         loaded = crud.load_resource(resource)
 
         assert isinstance(loaded, ExtractionPipelineConfigRequest)
