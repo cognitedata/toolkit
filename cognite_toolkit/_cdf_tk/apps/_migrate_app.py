@@ -1507,6 +1507,11 @@ class MigrateApp(typer.Typer):
         """
         client = _get_client(cdf_project)
         verify_threed_dm_migration_enabled(client)
+        if client.project.status().this_project.data_modeling_status == "DATA_MODELING_ONLY":
+            raise ToolkitMigrationError(
+                "The project is in DATA_MODELING_ONLY mode, which assumes migration is done. "
+                "You cannot migrate 3D model asset mappings in this mode. Please switch to HYBRID mode to perform the migration."
+            )
         selected_ids: list[int]
         if model_id is not None:
             selected_ids = model_id
