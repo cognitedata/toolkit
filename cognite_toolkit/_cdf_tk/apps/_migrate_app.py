@@ -1533,6 +1533,12 @@ class MigrateApp(typer.Typer):
                 "--object-3d-space and --cad-node-space are required when specifying IDs directly."
             )
 
+        if client.project.status().this_project.data_modeling_status == "DATA_MODELING_ONLY":
+            raise ToolkitMigrationError(
+                "The project is in DATA_MODELING_ONLY mode, which assumes migration is done. "
+                "You cannot migrate 3D model asset mappings in this mode. Please switch to HYBRID mode to perform the migration."
+            )
+
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
