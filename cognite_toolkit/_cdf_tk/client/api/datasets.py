@@ -4,7 +4,7 @@ from typing import Any, Literal
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
-from cognite_toolkit._cdf_tk.client.identifiers import InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 
 
@@ -19,6 +19,13 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
                 "list": Endpoint(method="POST", path="/datasets/list", item_limit=1000),
             },
         )
+        self._cache_by_id: dict[InternalOrExternalId, DataSetResponse] = {}
+
+    def _add_to_cache(self, data_set: DataSetResponse) -> None:
+        """Add a data set to both the internal and external ID caches."""
+        self._cache_by_id[InternalId(id=data_set.id)] = data_set
+        if data_set.external_id is not None:
+            self._cache_by_id[ExternalId(external_id=data_set.external_id)] = data_set
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
@@ -39,19 +46,30 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
         return self._request_item_response(items, "create")
 
     def retrieve(
-        self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
+        self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False, cache_response: bool = False
     ) -> list[DataSetResponse]:
         """Retrieve data sets from CDF.
 
         Args:
             items: List of InternalOrExternalId objects to retrieve.
             ignore_unknown_ids: Whether to ignore unknown IDs.
+            cache_response: Whether to cache the response. If True, the requests will be skipped if the same request has been made before.
         Returns:
             List of retrieved DataSetResponse objects.
         """
-        return self._request_item_response(
-            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
-        )
+        if not cache_response:
+            return self._request_item_response(
+                items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
+            )
+        missing_items = list(dict.fromkeys(item for item in items if item not in self._cache_by_id))
+        if missing_items:
+            fetched = self._request_item_response(
+                missing_items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
+            )
+            for data_set in fetched:
+                self._add_to_cache(data_set)
+
+        return [self._cache_by_id[item] for item in items if item in self._cache_by_id]
 
     def update(
         self, items: Sequence[DataSetRequest], mode: Literal["patch", "replace"] = "replace"

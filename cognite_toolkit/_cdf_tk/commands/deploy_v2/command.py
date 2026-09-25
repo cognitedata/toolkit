@@ -25,7 +25,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     T_ResponseResource,
 )
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, RawTableId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, InternalId, RawTableId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, DataSetsAcl, DataSetScope, IDScope
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._utils import (
     confirm_by_typing_project_name,
@@ -774,7 +775,7 @@ class DeployV2Command(ToolkitCommand):
                 request_resources = [resource.request for resource in resource_by_id.values()]
 
                 is_missing_read, is_missing_write = cls._validate_access(
-                    crud, request_resources, is_dry_run=options.dry_run
+                    crud, request_resources, client, is_dry_run=options.dry_run
                 )
                 if is_missing_read:
                     progress.update(task_id, description=f"Missing READ access for {resource_name}, skipping")
@@ -903,6 +904,7 @@ class DeployV2Command(ToolkitCommand):
         cls,
         crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
         resources: list[T_RequestResource],
+        client: ToolkitClient,
         is_dry_run: bool,
     ) -> tuple[bool, bool]:
         """Validate that the user has access to the resources they are deploying.
@@ -916,18 +918,56 @@ class DeployV2Command(ToolkitCommand):
         if minimum_scope is None:
             return False, False
 
+        data_set_ids: list[int] | None = None
+        if isinstance(minimum_scope, DataSetScope):
+            data_set_ids = minimum_scope.ids
+        elif isinstance(minimum_scope, AllScope):
+            # If the minimum scope is AllScope, then at least one of the resources are unscoped. But there
+            # can still be resources that are scoped to a dataset, so we check for those and add the ownership ACLs
+            # for those datasets if they are write-protected.
+            data_set_ids = cls._get_data_set_ids(resources)
+
+        dataset_owner: DataSetsAcl | None = None
+        if write_protected_ids := cls._write_protected_datasets(client, data_set_ids or []):
+            dataset_owner = DataSetsAcl(actions=["OWNER"], scope=IDScope(ids=list(write_protected_ids)))
+
         if is_dry_run:
             read_acl = list(crud.create_acl({"READ"}, minimum_scope))
             write_acl = list(crud.create_acl({"WRITE"}, minimum_scope))
+            if dataset_owner:
+                write_acl.append(dataset_owner)
             if not Flags.V09.is_enabled() and (missing_read := crud.client.tool.token.verify_acls(read_acl)):
                 raise crud.client.tool.token.create_error(missing_read, action=f"deploy {crud.display_name}")
             return bool(crud.client.tool.token.verify_acls(read_acl)), bool(
                 crud.client.tool.token.verify_acls(write_acl)
             )
-        # Is not dry run
-        elif missing := crud.client.tool.token.verify_acls(list(crud.create_acl({"READ", "WRITE"}, minimum_scope))):
-            raise crud.client.tool.token.create_error(missing, action=f"deploy {crud.display_name}")
-        return False, False
+        else:
+            # Is not dry run
+            read_write_acls = list(crud.create_acl({"READ", "WRITE"}, minimum_scope))
+            if dataset_owner:
+                read_write_acls.append(dataset_owner)
+            if missing := crud.client.tool.token.verify_acls(read_write_acls):
+                raise crud.client.tool.token.create_error(missing, action=f"deploy {crud.display_name}")
+            return False, False
+
+    @classmethod
+    def _get_data_set_ids(cls, resources: list[T_RequestResource]) -> list[int]:
+        """Return the list of dataset ids that are referenced by the given resources."""
+        data_set_ids: set[int] = set()
+        for resource in resources:
+            if hasattr(resource, "data_set_id") and resource.data_set_id is not None:
+                data_set_ids.add(resource.data_set_id)
+        return list(data_set_ids)
+
+    @classmethod
+    def _write_protected_datasets(cls, client: ToolkitClient, ids: list[int]) -> set[int]:
+        """Return the set of dataset ids that are write-protected for the given client."""
+        # We use cache_response=True to avoid making multiple requests for the same dataset ids as this is in a hot-loop.
+        return {
+            dataset.id
+            for dataset in client.tool.datasets.retrieve([InternalId(id=id_) for id_ in ids], cache_response=True)
+            if dataset.write_protected is True
+        }
 
     @classmethod
     def categorize_resources(

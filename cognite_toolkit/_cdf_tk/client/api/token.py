@@ -140,7 +140,12 @@ class ToolkitTokenAPI:
     def verify_acls(self, required_acls: Sequence[AclType]) -> Sequence[AclType]:
         """Verify that the current token has the required ACLs, for the current project. Returns the list of missing ACLs."""
         if self._project_capabilities is None:
-            self._project_capabilities = self.inspect().to_project_capabilities()
+            try:
+                self._project_capabilities = self.inspect().to_project_capabilities()
+            except AuthorizationError as e:
+                raise AuthorizationError(
+                    f"Failed to validate {humanize_collection([repr(acl) for acl in required_acls])}. \n{e!s}"
+                )
         return self._project_capabilities.verify(required_acls)
 
     def create_error(self, missing_capabilities: Sequence[Acl], action: str | None = None) -> AuthorizationError:

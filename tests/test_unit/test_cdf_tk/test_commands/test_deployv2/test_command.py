@@ -21,7 +21,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleData,
     FunctionScheduleResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    AllScope,
+    DataModelsAcl,
+    DataSetsAcl,
+    DataSetScope,
+    IDScope,
+    TimeSeriesAcl,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.token import AllProjects, InspectCapability
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployOptions, DeployV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
@@ -36,6 +45,7 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     ResourceToDeploy,
     Skipped,
 )
+from cognite_toolkit._cdf_tk.constants import URL
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ResourceCreationError,
@@ -54,6 +64,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RawTableCRUD,
     ResourceIO,
     SpaceCRUD,
+    TimeSeriesCRUD,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 
@@ -766,3 +777,83 @@ class TestDeployResourcesRelatedInsights:
         assert "Space is fine this is a test" in output
         assert "Suggested fix:" in output
         assert "Cannot be fixed as it is not an issue" in output
+
+
+def _inspect_capability(acl: TimeSeriesAcl) -> dict[str, object]:
+    return InspectCapability(acl=acl, project_scope=AllProjects(all_projects={})).dump()
+
+
+class TestDeployAccessControlErrors:
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_empty_inspect_response_raises_authorization_error(
+        self, toolkit_config: ToolkitClientConfig, tmp_path: Path, respx_mock: respx.MockRouter
+    ) -> None:
+        yaml_file = tmp_path / "my.Space.yaml"
+        yaml_file.write_text("space: my_space\n")
+        respx_mock.get(f"{toolkit_config.base_url}/api/v1/token/inspect").respond(
+            json={"subject": "test", "projects": [], "capabilities": []}
+        )
+        client = ToolkitClient(config=toolkit_config)
+
+        with pytest.raises(AuthorizationError) as exc_info:
+            DeployV2Command.apply_plan(client, [DeploymentStep(SpaceCRUD, [yaml_file])], DeployOptions(dry_run=False))
+
+        required = DataModelsAcl(actions=["READ", "WRITE"], scope=AllScope())
+        assert str(exc_info.value) == (
+            f"Failed to validate {required!r}. \n"
+            f"Missing project '{toolkit_config.project}' in inspect response. "
+            "You are likely not a member of a group with ProjectsAcl and GroupsAcl capabilities with LIST action."
+        )
+
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_write_protected_dataset_raises_authorization_error(
+        self, toolkit_config: ToolkitClientConfig, tmp_path: Path, respx_mock: respx.MockRouter
+    ) -> None:
+        data_set_id = 42
+        yaml_file = tmp_path / "my.TimeSeries.yaml"
+        yaml_file.write_text(f"externalId: my_ts\nname: My TS\ndataSetId: {data_set_id}\n")
+        respx_mock.get(f"{toolkit_config.base_url}/api/v1/token/inspect").respond(
+            json={
+                "subject": "test",
+                "projects": [{"projectUrlName": toolkit_config.project, "groups": [1]}],
+                "capabilities": [
+                    _inspect_capability(TimeSeriesAcl(actions=["READ", "WRITE"], scope=DataSetScope(ids=[data_set_id])))
+                ],
+            }
+        )
+        respx_mock.post(toolkit_config.create_api_url("/datasets/byids")).respond(
+            json={
+                "items": [
+                    DataSetResponse(
+                        id=data_set_id,
+                        external_id="my_dataset",
+                        write_protected=True,
+                        created_time=1,
+                        last_updated_time=1,
+                    ).dump()
+                ]
+            }
+        )
+        create_route = respx_mock.post(toolkit_config.create_api_url("/timeseries")).respond(
+            status_code=403, json={"error": {"message": "Forbidden"}}
+        )
+        client = ToolkitClient(config=toolkit_config)
+
+        with pytest.raises(AuthorizationError) as exc_info:
+            DeployV2Command.apply_plan(
+                client, [DeploymentStep(TimeSeriesCRUD, [yaml_file])], DeployOptions(dry_run=False)
+            )
+
+        missing_owner = DataSetsAcl(actions=["OWNER"], scope=IDScope(ids=[data_set_id]))
+        assert {
+            "message": str(exc_info.value),
+            "create_called": create_route.called,
+        } == {
+            "message": (
+                "Don't have correct access rights to deploy time series. Missing:\n"
+                f"  - {missing_owner!r}\n"
+                f"Please [blue][link={URL.auth_toolkit}]click here[/link][/blue] to visit the documentation "
+                "and ensure that you have setup authentication for the CDF toolkit correctly."
+            ),
+            "create_called": False,
+        }
