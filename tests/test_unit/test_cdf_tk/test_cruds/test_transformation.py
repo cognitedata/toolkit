@@ -70,7 +70,7 @@ conflictMode: upsert
         toolkit_client_approval: ApprovalToolkitClient,
         env_vars_with_client_cheap: EnvironmentVariables,
     ) -> None:
-        loader = TransformationIO(toolkit_client_approval.mock_client, None)
+        loader = TransformationIO(toolkit_client_approval.mock_client)
         filepath = self._create_mock_file(self.trafo_yaml)
 
         raw_list = loader.load_resource_file(filepath, env_vars_with_client_cheap.dump())
@@ -85,7 +85,7 @@ conflictMode: upsert
         env_vars_with_client_cheap: EnvironmentVariables,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TransformationIO(toolkit_client_approval.mock_client, None)
+        loader = TransformationIO(toolkit_client_approval.mock_client)
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
         resource["authentication"] = {
             "clientId": "my-client-id",
@@ -147,7 +147,7 @@ authentication:
             has_source_oidc_credentials=False,
             has_destination_oidc_credentials=False,
         )
-        loader = TransformationIO(toolkit_client_cheap, None, None)
+        loader = TransformationIO(toolkit_client_cheap)
 
         filepath = self._create_mock_file(local_content)
         local_dumped = loader.load_resource_file(filepath, {})[0]
@@ -165,7 +165,7 @@ authentication:
         env_vars_with_client_cheap: EnvironmentVariables,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TransformationIO(toolkit_client_approval.mock_client, None)
+        loader = TransformationIO(toolkit_client_approval.mock_client)
 
         filepath = self._create_mock_file(self.trafo_yaml)
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
@@ -221,7 +221,7 @@ authentication:
 
         with monkeypatch_toolkit_client() as client:
             client.tool.transformations.create.side_effect = create_transformations
-            crud = TransformationIO(client, None, None)
+            crud = TransformationIO(client)
             created = crud.create(transformations)
 
             assert [t.external_id for t in created] == [t.external_id for t in transformations]
@@ -239,7 +239,7 @@ authentication:
             "query": "SELECT 1",
         }
         with monkeypatch_toolkit_client() as client:
-            loader = TransformationIO(client, None, None)
+            loader = TransformationIO(client)
             loaded = loader.load_resource(resource)
 
         assert loaded.destination is not None
@@ -281,7 +281,7 @@ authentication:
             "query": "SELECT 1",
         }
         with monkeypatch_toolkit_client() as client:
-            loader = TransformationIO(client, None, None)
+            loader = TransformationIO(client)
             dumped = loader.dump_resource(cdf_transformation, local_dumped)
 
         assert "autoCreate" not in dumped["destination"]
@@ -323,7 +323,7 @@ authentication:
             "query": "SELECT 1",
         }
         with monkeypatch_toolkit_client() as client:
-            loader = TransformationIO(client, None, None)
+            loader = TransformationIO(client)
             dumped = loader.dump_resource(cdf_transformation, local_dumped)
 
         assert dumped["destination"]["autoCreate"] == {"directRelations": False}

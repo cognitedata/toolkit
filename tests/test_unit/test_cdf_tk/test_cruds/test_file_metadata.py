@@ -74,7 +74,7 @@ class TestLoadResources:
         toolkit_client_with_lookup: ToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        fileio = FileMetadataCRUD(toolkit_client_with_lookup, None)
+        fileio = FileMetadataCRUD(toolkit_client_with_lookup)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = yaml_content
         filepath.parent.glob.return_value = [Path(f) for f in files]
@@ -123,7 +123,7 @@ class TestFileMetadataCRUDUpdate:
     )
     def test_reupload_based_on_hash(self, cdf_hash: str, local_hash: str, expect_upload: bool) -> None:
         mock_client = MagicMock()
-        fileio = FileMetadataCRUD(mock_client, None, None, support_upload=True)
+        fileio = FileMetadataCRUD(mock_client, support_upload=True)
 
         def _response(h: str) -> FileMetadataResponse:
             return FileMetadataResponse(

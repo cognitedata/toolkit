@@ -80,7 +80,7 @@ def _make_response(**kwargs: object) -> ExternalDataSourceResponse:
 class TestExternalDataSourceIO:
     def test_sensitive_strings(self) -> None:
         item = _make_request()
-        loader = ExternalDataSourceIO(MagicMock(), None, None)
+        loader = ExternalDataSourceIO(MagicMock())
         assert list(loader.sensitive_strings(item)) == ["secret"]
 
     def test_dump_resource_without_local_omits_client_secret(self, toolkit_client_cheap: ToolkitClient) -> None:

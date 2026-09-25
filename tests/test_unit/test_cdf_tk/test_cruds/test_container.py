@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -148,7 +147,7 @@ class TestContainerDeployTopologicalSort:
         )
 
         with monkeypatch_toolkit_client() as client:
-            loader = ContainerCRUD(client, Path("build_dir"), None)
+            loader = ContainerCRUD(client)
             batches = loader._compute_deploy_batches([dependent_container, dependency_container])
 
         flat_ids = [container.external_id for batch in batches for container in batch]
@@ -176,7 +175,7 @@ class TestContainerDeployTopologicalSort:
         ]
 
         with monkeypatch_toolkit_client() as client:
-            loader = ContainerCRUD(client, Path("build_dir"), None)
+            loader = ContainerCRUD(client)
             batches = loader._compute_deploy_batches([*dependents, dependency_container])
 
         assert len(batches) > 1, "Should split into multiple batches given the batch limit"
@@ -203,7 +202,7 @@ class TestContainerDeployTopologicalSort:
         ]
 
         with monkeypatch_toolkit_client() as client:
-            loader = ContainerCRUD(client, Path("build_dir"), None)
+            loader = ContainerCRUD(client)
             batches = loader._compute_deploy_batches(containers)
 
         assert len(batches) == 1, (

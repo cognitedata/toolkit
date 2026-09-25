@@ -289,7 +289,7 @@ class TestDeployResourcesSpecialUpsertHandling:
 
         with monkeypatch_toolkit_client() as client:
             client.tool.views.create.side_effect = lambda items: list(items)
-            loader = ViewIO(client, Path("build_dir"), None)
+            loader = ViewIO(client)
             resources: ResourceToDeploy = ResourceToDeploy(to_create=[derived_view], to_update=[base_view])
             result = DeployV2Command.deploy_resources(loader, resources, set())
 

@@ -296,7 +296,7 @@ secrets:
     @pytest.fixture()
     def function_io_with_file(self, tmp_path: Path) -> Iterable[FunctionIO]:
         with monkeypatch_toolkit_client() as client:
-            loader = FunctionIO(client, None, None, file_upload_timeout_seconds=30.0)
+            loader = FunctionIO(client, file_upload_timeout_seconds=30.0)
             function_id = "my_func"
             filestem = function_id
             filemetadata = tmp_path / f"{filestem}.FileMetadata.yaml"
@@ -400,7 +400,7 @@ authentication:
             )
             # The as_write method looks up the input data.
             client.functions.schedules.get_input_data.return_value = None
-            loader = FunctionScheduleIO(client, None, None)
+            loader = FunctionScheduleIO(client)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_content
@@ -466,7 +466,7 @@ authentication:
             json={"error": {"message": "Invalid client credentials"}},
         )
         client = ToolkitClient(toolkit_config)
-        loader = FunctionScheduleIO(client, None, None)
+        loader = FunctionScheduleIO(client)
         schedule = FunctionScheduleRequest(
             name="daily-8am-utc",
             function_external_id="fn_example_repeater",
@@ -491,7 +491,7 @@ authentication:
             json={"items": []},
         )
         client = ToolkitClient(toolkit_config)
-        loader = FunctionScheduleIO(client, None, None)
+        loader = FunctionScheduleIO(client)
         schedule = FunctionScheduleWrite(
             name="daily-8am-utc",
             function_external_id="fn_non_existent_function",

@@ -58,8 +58,10 @@ class TestExtractionPipelineDependencies:
 
 
 class TestExtractionPipelineLoader:
-    def test_diff_list_contacts_does_not_raise(self, monkeypatch: MonkeyPatch) -> None:
-        loader = ExtractionPipelineIO(MagicMock(spec=ToolkitClient), None, MagicMock(spec=Console))
+    def test_diff_list_contacts_does_not_raise(
+        self, monkeypatch: MonkeyPatch, toolkit_client_cheap: ToolkitClient
+    ) -> None:
+        loader = ExtractionPipelineIO(toolkit_client_cheap)
         local = [{"name": "Alice", "email": "alice@example.com", "role": "owner", "sendNotification": True}]
         cdf = [
             {"name": "Alice", "email": "alice@example.com", "role": "owner", "sendNotification": True},
@@ -132,8 +134,8 @@ class TestExtractionPipelineDocumentationFile:
         "dataSetExternalId": "ds_my_dataset",
     }
 
-    def test_split_resource_writes_markdown(self, tmp_path: Path) -> None:
-        loader = ExtractionPipelineIO(MagicMock(spec=ToolkitClient), None, MagicMock(spec=Console))
+    def test_split_resource_writes_markdown(self, tmp_path: Path, toolkit_client_cheap: ToolkitClient) -> None:
+        loader = ExtractionPipelineIO(toolkit_client_cheap)
         base = tmp_path / "ep_src_asset.ExtractionPipeline.yaml"
         resource = {**self._PIPELINE_YAML, "documentation": "# Docs\n"}
 
@@ -146,7 +148,7 @@ class TestExtractionPipelineDocumentationFile:
 
 
 class TestExtractionPipelineConfigCRUD:
-    def test_load_resource_no_warning_on_keyvault(self) -> None:
+    def test_load_resource_no_warning_on_keyvault(self, toolkit_client_cheap: ToolkitClient) -> None:
         resource = {
             "externalId": "ep_src_asset",
             "config": """azure-keyvault:
@@ -161,10 +163,8 @@ databases:
     name: my_db
     type: odbc""",
         }
-        console = MagicMock(spec=Console)
         print_mock = MagicMock()
-        console.print = print_mock
-        crud = ExtractionPipelineConfigIO(MagicMock(spec=ToolkitClient), None, console=console)
+        crud = ExtractionPipelineConfigIO(toolkit_client_cheap)
 
         loaded = crud.load_resource(resource)
 
@@ -172,7 +172,7 @@ databases:
         # No warning should be printed
         print_mock.assert_not_called()
 
-    def test_load_resource_invalid_yaml_warning(self) -> None:
+    def test_load_resource_invalid_yaml_warning(self, toolkit_client_cheap: ToolkitClient) -> None:
         resource = {
             "externalId": "ep_src_asset",
             "config": "invalid-yaml: [unclosed_list",
@@ -180,7 +180,7 @@ databases:
         console = MagicMock(spec=Console)
         print_mock = MagicMock()
         console.print = print_mock
-        crud = ExtractionPipelineConfigIO(MagicMock(spec=ToolkitClient), None, console=console)
+        crud = ExtractionPipelineConfigIO(toolkit_client_cheap)
         loaded = crud.load_resource(resource)
 
         assert isinstance(loaded, ExtractionPipelineConfigRequest)
@@ -189,7 +189,7 @@ databases:
         _, message = args
         assert "ep_src_asset" in message
 
-    def test_load_resource_yaml_array(self) -> None:
+    def test_load_resource_yaml_array(self, toolkit_client_cheap: ToolkitClient) -> None:
         resource = {
             "externalId": "ep_src_asset",
             "config": "- item1: value1",
@@ -197,7 +197,7 @@ databases:
         console = MagicMock(spec=Console)
         print_mock = MagicMock()
         console.print = print_mock
-        crud = ExtractionPipelineConfigIO(MagicMock(spec=ToolkitClient), None, console=console)
+        crud = ExtractionPipelineConfigIO(toolkit_client_cheap)
         loaded = crud.load_resource(resource)
 
         assert isinstance(loaded, ExtractionPipelineConfigRequest)

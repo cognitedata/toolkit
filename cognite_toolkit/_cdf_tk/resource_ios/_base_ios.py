@@ -63,10 +63,7 @@ class SuccessExtra(ReadExtra):
     )
 
 
-class ResourceIO(
-    ABC,
-    Generic[T_Identifier, T_RequestResource, T_ResponseResource, T_YamlResource],
-):
+class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResource, T_YamlResource]):
     """This is the base class for all resources input/output to CDF and file.
 
     A resource IO consists of the following

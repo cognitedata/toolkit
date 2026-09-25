@@ -283,7 +283,7 @@ class TestViewLoader:
             client.tool.views.retrieve.return_value = parent_grandparent_view
             parent = ViewId(space="space", external_id="Parent", version="v1")
             grandparent = ViewId(space="space", external_id="GrandParent", version="v1")
-            loader = ViewIO(client, Path("build_dir"), None, topological_sort_implements=True)
+            loader = ViewIO(client, topological_sort_implements=True)
             actual = loader.topological_sort_implements(
                 [
                     parent,
@@ -302,7 +302,7 @@ class TestViewLoader:
 
         with monkeypatch_toolkit_client() as client, pytest.raises(ToolkitCycleError) as exc_info:
             client.tool.views.retrieve.return_value = parent_grandparent_view
-            loader = ViewIO(client, Path("build_dir"), None, topological_sort_implements=True)
+            loader = ViewIO(client, topological_sort_implements=True)
             loader.topological_sort_implements(
                 [
                     parent,
@@ -392,7 +392,7 @@ class TestViewDeployTopologicalSort:
         dependency_view = ViewRequest(space="sp_space", external_id="Dependency", version="v1")
 
         with monkeypatch_toolkit_client() as client:
-            loader = ViewIO(client, Path("build_dir"), None)
+            loader = ViewIO(client, topological_sort_implements=True)
             batches = loader._compute_deploy_batches([dependent_view, dependency_view])
 
         flat_ids = [view.external_id for batch in batches for view in batch]
@@ -421,7 +421,7 @@ class TestViewDeployTopologicalSort:
         ]
 
         with monkeypatch_toolkit_client() as client:
-            loader = ViewIO(client, Path("build_dir"), None)
+            loader = ViewIO(client)
             batches = loader._compute_deploy_batches(views)
 
         assert len(batches) == 1, "All views in one SCC should stay in a single batch"
@@ -442,7 +442,7 @@ class TestViewDeployTopologicalSort:
         )
 
         with monkeypatch_toolkit_client() as client:
-            loader = ViewIO(client, Path("build_dir"), None)
+            loader = ViewIO(client)
             with pytest.raises(ToolkitCycleError):
                 loader._compute_deploy_batches([view_a, view_b])
 

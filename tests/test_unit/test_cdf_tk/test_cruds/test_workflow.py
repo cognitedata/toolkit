@@ -97,7 +97,7 @@ authentication:
             },
         )
         with monkeypatch_toolkit_client() as client:
-            loader = WorkflowTriggerIO(client, None, None)
+            loader = WorkflowTriggerIO(client)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_content
@@ -123,7 +123,7 @@ authentication:
         )
         with monkeypatch_toolkit_client() as client:
             client.iam.sessions.create.return_value = CreatedSession(123, "READY", "my-nonce")
-            loader = WorkflowTriggerIO(client, None, None)
+            loader = WorkflowTriggerIO(client)
             loader._authentication_by_id["daily-8am-utc"] = credentials
             client.tool.workflows.triggers.create.return_value = [
                 WorkflowTriggerResponse(
@@ -312,7 +312,7 @@ class TestWorkflowVersionLineageAnnotation:
         original = FeatureFlag.is_enabled
         monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.DATA_PRODUCTS or original(flag))
         with monkeypatch_toolkit_client() as client:
-            loader = WorkflowVersionIO(client, None, None)
+            loader = WorkflowVersionIO(client)
 
         dumped = loader.dump_resource(self._response_with_lineage())
 
@@ -323,7 +323,7 @@ class TestWorkflowVersionLineageAnnotation:
     def test_dump_resource_strips_lineage_annotation_without_alpha_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(FeatureFlag, "is_enabled", lambda _flag: False)
         with monkeypatch_toolkit_client() as client:
-            loader = WorkflowVersionIO(client, None, None)
+            loader = WorkflowVersionIO(client)
 
         dumped = loader.dump_resource(self._response_with_lineage())
 
@@ -331,7 +331,7 @@ class TestWorkflowVersionLineageAnnotation:
 
     def test_diff_list_lineage_sources(self) -> None:
         with monkeypatch_toolkit_client() as client:
-            loader = WorkflowVersionIO(client, None, None)
+            loader = WorkflowVersionIO(client)
 
         local = [{"uri": "cdf://cluster/project/domain/default/files/f1"}]
         cdf = [{"uri": "cdf://cluster/project/domain/default/files/f1"}]

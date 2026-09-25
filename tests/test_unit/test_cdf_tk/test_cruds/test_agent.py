@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import AgentYAML
 class TestAgentIODumpResource:
     def test_dump_resource_ignores_empty_skills_when_omitted_locally(self) -> None:
         client = ToolkitClientMock()
-        io = AgentIO(client, None, None)
+        io = AgentIO(client)
         local = {
             "externalId": "my_agent",
             "name": "My Agent",
@@ -45,7 +45,7 @@ class TestAgentIODumpResource:
 
     def test_dump_resource_ignores_empty_subagents_when_omitted_locally(self) -> None:
         client = ToolkitClientMock()
-        io = AgentIO(client, None, None)
+        io = AgentIO(client)
         local = {
             "externalId": "my_agent",
             "name": "My Agent",
@@ -69,7 +69,7 @@ class TestAgentIODumpResource:
 
     def test_dump_resource_ignores_empty_example_questions_when_omitted_locally(self) -> None:
         client = ToolkitClientMock()
-        io = AgentIO(client, None, None)
+        io = AgentIO(client)
         local = {
             "externalId": "my_agent",
             "name": "My Agent",
@@ -128,7 +128,7 @@ class TestAgentIODependencies:
 
 class TestAgentIODiffList:
     def test_diff_list_subagents_matches_by_agent_external_id(self) -> None:
-        io = AgentIO(ToolkitClientMock(), None, None)
+        io = AgentIO(ToolkitClientMock())
         local = [
             {"agentExternalId": "weather-specialist"},
             {"agentExternalId": "rca-specialist"},
@@ -144,7 +144,7 @@ class TestAgentIODiffList:
         assert added == []
 
     def test_diff_list_subagents_reports_cdf_only_subagents(self) -> None:
-        io = AgentIO(ToolkitClientMock(), None, None)
+        io = AgentIO(ToolkitClientMock())
         local = [{"agentExternalId": "weather-specialist"}]
         cdf = [
             {"agentExternalId": "weather-specialist"},
@@ -157,7 +157,7 @@ class TestAgentIODiffList:
         assert added == [1]
 
     def test_diff_list_subagents_reports_no_match_when_external_ids_differ(self) -> None:
-        io = AgentIO(ToolkitClientMock(), None, None)
+        io = AgentIO(ToolkitClientMock())
         local = [{"agentExternalId": "weather-specialist"}]
         cdf = [{"agentExternalId": "rca-specialist"}]
 
@@ -167,7 +167,7 @@ class TestAgentIODiffList:
         assert added == [0]
 
     def test_diff_list_example_questions_matches_by_question(self) -> None:
-        io = AgentIO(ToolkitClientMock(), None, None)
+        io = AgentIO(ToolkitClientMock())
         local = [
             {"question": "What can you do?"},
             {
@@ -189,7 +189,7 @@ class TestAgentIODiffList:
         assert added == []
 
     def test_diff_list_example_questions_reports_cdf_only_questions(self) -> None:
-        io = AgentIO(ToolkitClientMock(), None, None)
+        io = AgentIO(ToolkitClientMock())
         local = [{"question": "What can you do?"}]
         cdf = [
             {"question": "What can you do?"},
@@ -248,7 +248,7 @@ class TestAgentIODelete:
         )
         client = ToolkitClientMock()
         client.tool.agents.retrieve.return_value = [supervisor, subagent]
-        io = AgentIO(client, None, None)
+        io = AgentIO(client)
 
         io.delete([ExternalId(external_id="weather-specialist"), ExternalId(external_id="supervisor")])
 
@@ -370,7 +370,7 @@ class TestAgentIOExtraFiles:
     def test_split_resource_writes_markdown_and_tools(
         self, tmp_path: Path, toolkit_client_cheap: ToolkitClient
     ) -> None:
-        io = AgentIO(toolkit_client_cheap, None, None)
+        io = AgentIO(toolkit_client_cheap)
         base = tmp_path / "my_agent.Agent.yaml"
         python_code = "print('hello')\n"
         _python_tool = {

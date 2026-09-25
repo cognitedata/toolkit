@@ -162,8 +162,9 @@ class TestInFieldCDMLocationConfigCRUD:
         )
         with monkeypatch_toolkit_client() as client:
             my_console = MagicMock(spec=Console)
+            client.console = my_console
             client.infield.apm_config.list.return_value = [legacy]
-            io = InFieldCDMLocationConfigIO(client, None, my_console)
+            io = InFieldCDMLocationConfigIO(client)
 
             created = io.create([item])
 
@@ -183,7 +184,8 @@ class TestInFieldCDMLocationConfigCRUD:
             client.infield.apm_config.list.side_effect = ToolkitAPIError(
                 "One or more views do not exist: 'APM_Config:APM_Config/1'", code=400
             )
-            io = InFieldCDMLocationConfigIO(client, None, my_console)
+            client.console = my_console
+            io = InFieldCDMLocationConfigIO(client)
 
             io.create([item])
 
