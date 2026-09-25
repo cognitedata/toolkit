@@ -24,6 +24,7 @@ from .externaldata import ExternalDataSourceYAML
 from .extraction_pipeline import ExtractionPipelineYAML
 from .extraction_pipeline_config import ExtractionPipelineConfigYAML
 from .filemetadata import FileMetadataYAML
+from .function_apps import FunctionAppsYAML
 from .function_schedule import FunctionScheduleYAML
 from .functions import FunctionsYAML
 from .graphql_model import GraphQLDataModelYAML
@@ -87,6 +88,7 @@ __all__ = [
     "ExtractionPipelineConfigYAML",
     "ExtractionPipelineYAML",
     "FileMetadataYAML",
+    "FunctionAppsYAML",
     "FunctionScheduleYAML",
     "FunctionsYAML",
     "GraphQLDataModelYAML",

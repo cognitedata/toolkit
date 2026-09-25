@@ -112,7 +112,7 @@ class Flags(Enum):
     )
     FUNCTION_APPS = FlagMetadata(
         visible=False,
-        description="Enables local Function App development commands",
+        description="Enables local Function App development commands and Function App deployment resources",
     )
 
     def is_enabled(self) -> bool:
