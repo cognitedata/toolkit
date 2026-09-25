@@ -148,7 +148,7 @@ class PullV2Command(ToolkitCommand):
 
         results: list[PullResult] = []
         for resource_type, resources in resources_by_type.items():
-            resource_io = resources[0].crud_cls.create_loader(
+            resource_io = resources[0].crud_cls.create_io(
                 client, build_dir=build_folder.build_dir, console=client.console
             )
 

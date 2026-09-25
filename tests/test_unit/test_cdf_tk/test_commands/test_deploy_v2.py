@@ -270,8 +270,8 @@ class TestCheckNoOutOfScopeViewReferences:
         ]
         raises_ctx = pytest.raises(ToolkitValueError, match=error_match) if should_raise else nullcontext()
         with (
-            patch.object(ContainerCRUD, "create_loader", return_value=mock_container_crud),
-            patch.object(ViewIO, "create_loader", return_value=mock_view_crud),
+            patch.object(ContainerCRUD, "create_io", return_value=mock_container_crud),
+            patch.object(ViewIO, "create_io", return_value=mock_view_crud),
             raises_ctx,
         ):
             cmd._validate_plan_container_references(client, plan, DeployOptions(drop=True, operation=operation))

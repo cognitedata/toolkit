@@ -65,7 +65,7 @@ description: PH 1stStgSuctCool Gas Out
             client.lookup.data_sets.id.side_effect = mock_id_lookup
             client.lookup.assets.id.side_effect = mock_id_lookup
             client.lookup.security_categories.id.side_effect = mock_id_lookup
-            loader = TimeSeriesCRUD.create_loader(client)
+            loader = TimeSeriesCRUD.create_io(client)
 
         resource = {
             "externalId": "MyTimeseries",

@@ -16,7 +16,7 @@ from tests.data import NAUGHTY_PROJECT
 
 @pytest.fixture()
 def deployed_misbehaving_grandparent(toolkit_client: ToolkitClient) -> dm.DataModelId:
-    loader = GraphQLCRUD.create_loader(toolkit_client)
+    loader = GraphQLCRUD.create_io(toolkit_client)
     filepaths = loader.find_files(NAUGHTY_PROJECT / MODULES / "difficult_graphql")
     assert len(filepaths) == 1
     model_list = loader.load_resource_file(filepaths[0])
@@ -74,7 +74,7 @@ class TestDumpResource:
 
         data_model_folder = output_dir / DataModelIO.folder_name
         assert data_model_folder.exists()
-        view_loader = ViewIO.create_loader(toolkit_client)
+        view_loader = ViewIO.create_io(toolkit_client)
         views_by_id = {
             view_loader.get_id(item).external_id: view_loader.load_resource(item)
             for filepath in view_loader.find_files(output_dir)

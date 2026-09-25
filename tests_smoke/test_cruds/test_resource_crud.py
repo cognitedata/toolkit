@@ -29,7 +29,7 @@ class TestResourceCRUD:
         crud_classes = [crud_cls for crud_cls in CRUD_LIST if crud_cls not in INTERNAL_DOCS]
 
         async def check_url(crud_cls: type[ResourceIO], client: httpx2.AsyncClient) -> str | None:
-            crud = crud_cls.create_loader(toolkit_client)
+            crud = crud_cls.create_io(toolkit_client)
             url = crud.doc_url()
             try:
                 response = await client.get(url, follow_redirects=True)

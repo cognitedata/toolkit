@@ -354,17 +354,17 @@ class FileMetadataContentIO(
                 ExternalId(external_id=data_set_external_id)
                 for data_set_external_id in self.client.lookup.data_sets.external_id(list(data_set_ids))
             ]
-            yield from self._configurations(data_set_external_ids, DataSetsIO.create_loader(self.client))
+            yield from self._configurations(data_set_external_ids, DataSetsIO.create_io(self.client))
 
         labels = self._downloaded_labels_by_selector[selector]
         if labels:
-            yield from self._configurations(list(labels), LabelIO.create_loader(self.client))
+            yield from self._configurations(list(labels), LabelIO.create_io(self.client))
         if security_categories := self._downloaded_security_categories_by_selector[selector]:
             category_ids: list[NameId] = [
                 NameId(name=name)
                 for name in self.client.lookup.security_categories.external_id(list(security_categories))
             ]
-            yield from self._configurations(category_ids, SecurityCategoryIO.create_loader(self.client))
+            yield from self._configurations(category_ids, SecurityCategoryIO.create_io(self.client))
 
     @classmethod
     def _configurations(

@@ -36,7 +36,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     GroupResourceScopedCRUD,
     HostedExtractorDestinationIO,
     HostedExtractorSourceIO,
-    Loader,
     LocationFilterIO,
     ResourceIO,
     ResourceTypes,
@@ -56,7 +55,7 @@ class TestFormatConsistency:
     ):
         fakegenerator = FakeCogniteResourceGenerator(seed=1337)
 
-        loader = Loader.create_loader(toolkit_client_cheap)
+        loader = Loader.create_io(toolkit_client_cheap)
         instance = fakegenerator.create_instance(loader.resource_write_cls)
 
         if get_origin(loader.resource_write_cls) is typing.Annotated:
@@ -74,7 +73,7 @@ class TestFormatConsistency:
         monkeypatch: MonkeyPatch,
         tmp_path: Path,
     ) -> None:
-        loader = Loader.create_loader(toolkit_client_cheap, tmp_path)
+        loader = Loader.create_io(toolkit_client_cheap, tmp_path)
 
         if loader.resource_cls in [
             TransformationResponse,
@@ -119,7 +118,7 @@ class TestFormatConsistency:
         monkeypatch: MonkeyPatch,
         tmp_path: Path,
     ) -> None:
-        loader = Loader.create_loader(toolkit_client_cheap, tmp_path)
+        loader = Loader.create_io(toolkit_client_cheap, tmp_path)
 
         if loader.resource_cls in [
             TransformationResponse,
@@ -164,8 +163,8 @@ class TestFormatConsistency:
     @pytest.mark.parametrize(
         "Loader", [loader for loader in CRUD_LIST if loader.folder_name != "robotics"]
     )  # Robotics does not have a public doc_url
-    def test_loader_has_doc_url(self, Loader: type[Loader], toolkit_client_cheap: ToolkitClient):
-        loader = Loader.create_loader(toolkit_client_cheap)
+    def test_loader_has_doc_url(self, Loader: type[ResourceIO], toolkit_client_cheap: ToolkitClient):
+        loader = Loader.create_io(toolkit_client_cheap)
         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
 
 
@@ -367,7 +366,7 @@ class TestResourceCRUDs:
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
         with monkeypatch_toolkit_client() as client:
             client.iam.sessions.create.return_value = CreatedSession(123, "READY", "my-nonce")
-            loader = loader_cls.create_loader(client, build_dir=tmp_path)
+            loader = loader_cls.create_io(client, build_dir=tmp_path)
 
         file = MagicMock(spec=Path)
         file.read_text.return_value = local_file
@@ -392,7 +391,7 @@ class TestResourceCRUDs:
     def test_dump_resource_with_local_id(
         self, loader_cls: type[ResourceIO], toolkit_client_with_lookup: ToolkitClient
     ) -> None:
-        loader = loader_cls.create_loader(toolkit_client_with_lookup)
+        loader = loader_cls.create_io(toolkit_client_with_lookup)
         resource = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_cls)
         local_dict = loader.dump_id(loader.get_id(resource))
 
@@ -412,14 +411,14 @@ class TestResourceCRUDs:
 class TestLoaders:
     def test_unique_display_names(self, env_vars_with_client_cheap: EnvironmentVariables):
         name_by_count = Counter(
-            [loader_cls.create_loader(env_vars_with_client_cheap.get_client()).display_name for loader_cls in CRUD_LIST]
+            [loader_cls.create_io(env_vars_with_client_cheap.get_client()).display_name for loader_cls in CRUD_LIST]
         )
 
         duplicates = {name: count for name, count in name_by_count.items() if count > 1}
 
         # Todo: Remove in v1.0
         for loader in CRUDS_BY_FOLDER_NAME["data_modeling"]:
-            duplicates.pop(loader.create_loader(env_vars_with_client_cheap.get_client()).display_name, None)
+            duplicates.pop(loader.create_io(env_vars_with_client_cheap.get_client()).display_name, None)
 
         assert not duplicates, f"Duplicate display names: {duplicates}"
 

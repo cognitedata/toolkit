@@ -48,7 +48,7 @@ class TestExtractionPipelineDependencies:
             ),
         )
 
-        loader = ExtractionPipelineConfigIO.create_loader(toolkit_client_approval.mock_client)
+        loader = ExtractionPipelineConfigIO.create_io(toolkit_client_approval.mock_client)
         assert to_deploy_status(self.config_yaml, loader) == {
             "create": 1,
             "change": 0,
@@ -93,7 +93,7 @@ class TestExtractionPipelineLoader:
         """
         local_file.stem = "ep_src_asset"
 
-        loader = ExtractionPipelineConfigIO.create_loader(env_vars_with_client_cheap.get_client())
+        loader = ExtractionPipelineConfigIO.create_io(env_vars_with_client_cheap.get_client())
         res = loader.load_resource_file(filepath=local_file, environment_variables=env_vars_with_client_cheap.dump())
         # Assert that env vars are skipped for this loader
         assert res[0]["config"] == "secret: ${INGESTION_CLIENT_SECRET}"

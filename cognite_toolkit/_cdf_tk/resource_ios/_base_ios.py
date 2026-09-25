@@ -14,11 +14,9 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     T_RequestResource,
     T_ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
-from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
@@ -227,47 +225,6 @@ class ResourceIO(
         raise NotImplementedError(f"get_dependencies must be implemented for {cls.__name__}.")
 
     @classmethod
-    def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
-        """Check the item for any issues.
-
-        This is intended to be overwritten in subclasses that require special checking of the item.
-
-        Example, it is used in the WorkflowVersionLoader to check that all tasks dependsOn tasks that are in the same
-        workflow.
-
-        Args:
-            item (dict): The item to check.
-            filepath (Path): The path to the file where the item is located.
-            element_no (int): The element number in the file. This is used to provide better error messages.
-                None if the item is an object and not a list.
-
-        Returns:
-            list[ToolkitWarning]: A list of warnings.
-        """
-        return []
-
-    @classmethod
-    def get_internal_id(cls, item: T_ResponseResource | dict) -> int:
-        raise NotImplementedError(f"{cls.__name__} does not have an internal id.")
-
-    @classmethod
-    def _split_ids(cls, ids: T_Identifier | int | Sequence[T_Identifier | int] | None) -> tuple[list[int], list[str]]:
-        # Used by subclasses to split the ids into external and internal ids
-        if ids is None:
-            return [], []
-        if isinstance(ids, int):
-            return [ids], []
-        if isinstance(ids, str):
-            return [], [ids]
-        if isinstance(ids, ExternalId):
-            return [], [ids.external_id]
-        if isinstance(ids, Sequence):
-            return [id for id in ids if isinstance(id, int)], [
-                id if isinstance(id, str) else id.external_id for id in ids if isinstance(id, str | ExternalId)
-            ]
-        raise ValueError(f"Invalid ids: {ids}")
-
-    @classmethod
     def safe_read(cls, filepath: Path | str) -> str:
         """Reads the file and returns the content. This is intended to be overwritten in subclasses that require special
         handling of the files content. For example, Data Models need to quote the value on the version key to ensure
@@ -366,7 +323,7 @@ class ResourceIO(
         return ResourceType(kind=cls.kind, resource_folder=cls.folder_name)
 
     @classmethod
-    def create_loader(
+    def create_io(
         cls,
         client: ToolkitClient,
         build_dir: Path | None = None,

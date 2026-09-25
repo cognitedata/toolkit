@@ -66,7 +66,7 @@ class TestDataModelLoader:
             name=None,
         ).dump_yaml()
 
-        loader = DataModelIO.create_loader(
+        loader = DataModelIO.create_io(
             env_vars_with_client.get_client(),
         )
         assert to_deploy_status(local_data_model, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
@@ -92,7 +92,7 @@ views:
             name=None,
             is_global=False,
         )
-        loader = DataModelIO.create_loader(env_vars_with_client_cheap.get_client())
+        loader = DataModelIO.create_io(env_vars_with_client_cheap.get_client())
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_yaml
         # The load filepath method ensures version is read as an int.
@@ -107,7 +107,7 @@ class TestGraphQLLoader:
     def test_deployment_order(
         self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        loader = GraphQLCRUD.create_loader(env_vars_with_client.get_client())
+        loader = GraphQLCRUD.create_io(env_vars_with_client.get_client())
         # The first model is dependent on the second model
         first_file = self._create_mock_file(
             """
@@ -139,7 +139,7 @@ type GeneratingUnit {
         assert created[1].external_id == "WindTurbineModel"
 
     def test_raise_cycle_error(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
-        loader = GraphQLCRUD.create_loader(env_vars_with_client_cheap.get_client())
+        loader = GraphQLCRUD.create_io(env_vars_with_client_cheap.get_client())
         # The two models are dependent on each other
         first_file = self._create_mock_file(
             """type WindTurbine @import(dataModel: {externalId: "SolarModel", version: "v1", space: "second_space"}) {
@@ -176,7 +176,7 @@ name: String}""",
             "AssetHierarchyDOM",
             "3_0_2",
         )
-        loader = GraphQLCRUD.create_loader(env_vars_with_client_cheap.get_client())
+        loader = GraphQLCRUD.create_io(env_vars_with_client_cheap.get_client())
 
         items = loader.load_resource_file(file, {})
 
@@ -213,7 +213,7 @@ name: String}""",
         yaml_file.parent = MagicMock(spec=Path)
         yaml_file.parent.__truediv__ = MagicMock(return_value=custom_graphql_file)
 
-        loader = GraphQLCRUD.create_loader(env_vars_with_client_cheap.get_client())
+        loader = GraphQLCRUD.create_io(env_vars_with_client_cheap.get_client())
         items = loader.load_resource_file(yaml_file, {})
 
         assert len(items) == 1
@@ -329,7 +329,7 @@ class TestViewLoader:
             "version": "v1",
             "implements": [{"space": "space", "externalId": "OtherView", "version": "v1"}],
         }
-        io = ViewIO.create_loader(toolkit_client_cheap)
+        io = ViewIO.create_io(toolkit_client_cheap)
 
         dumped = io.dump_resource(response, local)
         assert dumped == local
