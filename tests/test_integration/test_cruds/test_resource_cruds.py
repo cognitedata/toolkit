@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from contextlib import suppress
 from copy import deepcopy
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -77,6 +78,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ViewIO,
     WorkflowVersionIO,
 )
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from tests.test_integration.constants import RUN_UNIQUE_ID
 from tests.test_integration.helpers import retry_on_deadlock
@@ -312,7 +314,7 @@ class TestDatapointSubscriptionLoader:
             },
         )
 
-        loader = DatapointSubscriptionIO(toolkit_client, None)
+        loader = DatapointSubscriptionIO(toolkit_client)
 
         try:
             created = loader.create([sub])
@@ -561,7 +563,7 @@ def custom_file_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space
 
 class TestCogniteFileLoader:
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> None:
-        loader = CogniteFileCRUD(toolkit_client, None)
+        loader = CogniteFileCRUD(toolkit_client)
         # Loading from YAML to test the loading of extra properties as well
         file = CogniteFileRequest._load(
             yaml.safe_load(f"""space: {toolkit_space.space}
@@ -594,7 +596,7 @@ description: Original description
     def test_create_update_retrieve_delete_extension(
         self, toolkit_client: ToolkitClient, toolkit_space: dm.Space
     ) -> None:
-        loader = CogniteFileCRUD(toolkit_client, None)
+        loader = CogniteFileCRUD(toolkit_client)
         # Loading from YAML to test the loading of extra properties as well
         file = CogniteFileRequest.model_validate(
             yaml.safe_load(f"""space: {toolkit_space.space}
@@ -867,7 +869,7 @@ ignoreNullFields: true
 
 class TestNodeLoader:
     def test_update_existing_node(self, toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> None:
-        loader = NodeCRUD(toolkit_client, None)
+        loader = NodeCRUD(toolkit_client)
         view_id = ViewId(space="cdf_cdm", external_id="CogniteDescribable", version="v1")
         existing_node = NodeRequest(
             space=toolkit_space.space,
@@ -953,25 +955,49 @@ class TestFunctionLoader:
 
     """
 
+    def _write_function_build(self, directory: Path, definition: dict[str, Any]) -> Path:
+        """Write the function YAML, code hash, zip, and file sidecar the way build does."""
+        external_id = definition["externalId"]
+        if not isinstance(external_id, str):
+            raise TypeError("Function externalId must be a string.")
+        directory.mkdir(parents=True, exist_ok=True)
+        code_dir = directory / external_id
+        code_dir.mkdir()
+        (code_dir / "handler.py").write_text(self.FUNCTION_CODE, encoding="utf-8")
+
+        filepath = directory / f"{external_id}.Function.yaml"
+        extras = list(FunctionIO.get_extra_files(filepath, ExternalId(external_id=external_id), definition))
+        failures = [extra.error for extra in extras if isinstance(extra, FailedReadExtra)]
+        if failures:
+            raise RuntimeError(failures[0])
+
+        filepath.write_text(yaml.safe_dump(definition), encoding="utf-8")
+        for extra in extras:
+            if not isinstance(extra, SuccessExtra) or not extra.write_to_build:
+                continue
+            extra_path = directory / f"{external_id}{extra.suffix}"
+            if extra.content is not None:
+                extra_path.write_text(extra.content, encoding="utf-8")
+            elif extra.content_byte is not None:
+                extra_path.write_bytes(extra.content_byte)
+        return filepath
+
     def test_avoid_redeploying_function_with_no_changes(
         self, toolkit_client: ToolkitClient, toolkit_dataset: DataSet, tmp_path: Path
     ) -> None:
         external_id = "toolkit_test_function_no_redeploy"
-        definition_yaml = f"""externalId: {external_id}
-name: Toolkit Test Function No Redeploy
-owner: ""
-dataSetExternalId: {toolkit_dataset.external_id}
-description: ""
-        """
-        build_dir = tmp_path / "build"
-        function_code_path = build_dir / FunctionIO.folder_name / external_id / "handler.py"
-        function_code_path.parent.mkdir(parents=True, exist_ok=True)
-        function_code_path.write_text(self.FUNCTION_CODE, encoding="utf-8")
+        filepath = self._write_function_build(
+            tmp_path / "build" / FunctionIO.folder_name,
+            {
+                "externalId": external_id,
+                "name": "Toolkit Test Function No Redeploy",
+                "owner": "",
+                "dataSetExternalId": toolkit_dataset.external_id,
+                "description": "",
+            },
+        )
 
-        loader = FunctionIO(toolkit_client, use_fileio=False)
-        filepath = MagicMock(spec=Path)
-        filepath.read_text.return_value = definition_yaml
-        filepath.parent.name = FunctionIO.folder_name
+        loader = FunctionIO(toolkit_client)
         assert to_deploy_status(filepath, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     def test_delete_function_with_cognite_file_code(
@@ -979,22 +1005,18 @@ description: ""
     ) -> None:
         client = toolkit_client
         external_id = f"toolkit_test_function_delete_cognite_file_code_{RUN_UNIQUE_ID}"
-        definition_yaml = f"""externalId: {external_id}
-name: Toolkit Test Function Delete Cognite File Code
-owner: ""
-space: {toolkit_space.space}
-description: ""
-        """
-        build_dir = tmp_path / "build"
-        function_code_path = build_dir / FunctionIO.folder_name / external_id / "handler.py"
-        function_code_path.parent.mkdir(parents=True, exist_ok=True)
-        function_code_path.write_text(self.FUNCTION_CODE, encoding="utf-8")
+        filepath = self._write_function_build(
+            tmp_path / "build" / FunctionIO.folder_name,
+            {
+                "externalId": external_id,
+                "name": "Toolkit Test Function Delete Cognite File Code",
+                "owner": "",
+                "space": toolkit_space.space,
+                "description": "",
+            },
+        )
 
-        crud = FunctionIO(toolkit_client, build_dir, None, use_fileio=False)
-
-        filepath = MagicMock(spec=Path)
-        filepath.read_text.return_value = definition_yaml
-        filepath.parent.name = FunctionIO.folder_name
+        crud = FunctionIO(toolkit_client)
         resource_dict = crud.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
 

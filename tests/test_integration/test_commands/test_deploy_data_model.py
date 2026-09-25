@@ -8,7 +8,7 @@ from tests.data import STRONGLY_COUPLED_MODEL
 
 @pytest.fixture()
 def deployed_container_space_coupled_model(toolkit_client: ToolkitClient) -> None:
-    space_loader = SpaceCRUD(toolkit_client, STRONGLY_COUPLED_MODEL, None)
+    space_loader = SpaceCRUD(toolkit_client)
     files = space_loader.find_files(STRONGLY_COUPLED_MODEL)
     assert len(files) == 1
     space = SpaceRequest.load_yaml(files[0].read_text(encoding="utf-8"))
@@ -16,7 +16,7 @@ def deployed_container_space_coupled_model(toolkit_client: ToolkitClient) -> Non
         created_space = space_loader.create([space])
         assert len(created_space) == 1
 
-    container_loader = ContainerCRUD(toolkit_client, STRONGLY_COUPLED_MODEL, None)
+    container_loader = ContainerCRUD(toolkit_client)
     containers = [
         ContainerRequest.load_yaml(file.read_text(encoding="utf-8"))
         for file in container_loader.find_files(STRONGLY_COUPLED_MODEL)

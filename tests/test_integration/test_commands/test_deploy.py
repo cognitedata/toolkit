@@ -137,7 +137,7 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
             continue
         loader = loader_cls.create_io(client)
 
-        files = loader.find_files(build_dir)
+        files = loader.find_files(build_dir / loader.folder_name)
         if not files:
             continue
         resource_by_id = DeployV2Command._read_resource_files(loader, files, options)
