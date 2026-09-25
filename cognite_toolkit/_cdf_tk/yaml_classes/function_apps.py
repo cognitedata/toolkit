@@ -29,6 +29,9 @@ class FunctionAppsYAML(ToolkitResource):
     )
     index_url: str | None = Field(default=None, description="A different Python package index.")
     extra_index_urls: list[str] | None = Field(default=None, description="Extra Python package indexes.")
+    package: str | None = Field(
+        default=None, description="UV workspace package to export dependencies for.", min_length=1
+    )
     data_set_external_id: str | None = Field(
         default=None, description="Dataset external ID for the uploaded code file.", max_length=255
     )
