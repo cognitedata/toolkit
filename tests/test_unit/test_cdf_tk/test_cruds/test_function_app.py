@@ -116,9 +116,9 @@ def test_function_app_hashes_generated_requirements_not_uv_metadata(tmp_path: Pa
         "cognite_toolkit._cdf_tk.resource_ios._function_code_bundle.subprocess.run",
         return_value=CompletedProcess([], 0, stdout=b"dependency==1.0\n", stderr=b""),
     ):
-        first = list(FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id(item), item))[0]
+        first = next(FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id(item), item))
         pyproject.write_text("[tool.ruff]\nline-length = 120\n")
-        second = list(FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id(item), item))[0]
+        second = next(FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id(item), item))
 
     assert first.source_hash == second.source_hash
     assert item["metadata"]["cognite-toolkit-hash"]
