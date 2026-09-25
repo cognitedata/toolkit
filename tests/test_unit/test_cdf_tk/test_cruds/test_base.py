@@ -73,7 +73,7 @@ class TestFormatConsistency:
         monkeypatch: MonkeyPatch,
         tmp_path: Path,
     ) -> None:
-        loader = Loader.create_io(toolkit_client_cheap, tmp_path)
+        loader = Loader.create_io(toolkit_client_cheap)
 
         if loader.resource_cls in [
             TransformationResponse,
@@ -118,7 +118,7 @@ class TestFormatConsistency:
         monkeypatch: MonkeyPatch,
         tmp_path: Path,
     ) -> None:
-        loader = Loader.create_io(toolkit_client_cheap, tmp_path)
+        loader = Loader.create_io(toolkit_client_cheap)
 
         if loader.resource_cls in [
             TransformationResponse,
@@ -366,7 +366,7 @@ class TestResourceCRUDs:
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
         with monkeypatch_toolkit_client() as client:
             client.iam.sessions.create.return_value = CreatedSession(123, "READY", "my-nonce")
-            loader = loader_cls.create_io(client, build_dir=tmp_path)
+            loader = loader_cls.create_io(client)
 
         file = MagicMock(spec=Path)
         file.read_text.return_value = local_file

@@ -234,7 +234,7 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId]):
             yield list(self.container_ids), None, ContainerCRUD.create_io(self.client), "containers"
             yield list(self.space_ids), None, SpaceCRUD.create_io(self.client), None
         else:
-            view_loader = ViewIO(self.client, None, None, topological_sort_implements=True)
+            view_loader = ViewIO(self.client, topological_sort_implements=True)
             views = [view for view in view_loader.retrieve(list(self.view_ids)) if not view.is_global]
             yield [], views, view_loader, "views"
             container_loader = ContainerCRUD.create_io(self.client)
@@ -510,7 +510,7 @@ class NodeFinder(ResourceFinder[ViewNoVersionId]):
                 raise ToolkitResourceMissingError(f"View {identifier} not found", str(identifier))
             view_id = view[0].as_id()
 
-        loader = NodeCRUD(self.client, None, None, view_id)
+        loader = NodeCRUD(self.client, view_id)
         if self.is_interactive:
             count = self.client.data_modeling.instances.aggregate(
                 dm.ViewId(

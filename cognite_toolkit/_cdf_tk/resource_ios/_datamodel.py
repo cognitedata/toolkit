@@ -27,7 +27,6 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes import filters
 from pydantic import JsonValue, ValidationError
 from rich import print
-from rich.console import Console
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk import constants
@@ -164,8 +163,8 @@ class SpaceCRUD(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceY
     _doc_url = "Spaces/operation/ApplySpaces"
     delete_recreate_limit_seconds: int = 10
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None) -> None:
-        super().__init__(client, build_dir, console)
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
         self._deleted_time_by_id: dict[SpaceId, float] = {}
 
     @property
@@ -298,14 +297,8 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
     _doc_url = "Containers/operation/ApplyContainers"
     sub_folder_name = "containers"
 
-    def __init__(
-        self,
-        client: ToolkitClient,
-        build_dir: Path | None,
-        console: Console | None = None,
-        topological_sort_implements: bool = False,
-    ) -> None:
-        super().__init__(client, build_dir, console)
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
         self._container_by_id: dict[ContainerId, ContainerResponse] = {}
 
     @property
@@ -665,11 +658,9 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
     def __init__(
         self,
         client: ToolkitClient,
-        build_dir: Path | None,
-        console: Console | None,
         topological_sort_implements: bool = False,
     ) -> None:
-        super().__init__(client, build_dir, console)
+        super().__init__(client)
         self._topological_sort_implements = topological_sort_implements
         self._view_by_id: dict[ViewId, ViewResponse] = {}
 
@@ -1199,11 +1190,9 @@ class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML])
     def __init__(
         self,
         client: ToolkitClient,
-        build_dir: Path | None,
-        console: Console | None = None,
         view_id: ViewId | None = None,
     ) -> None:
-        super().__init__(client, build_dir, console)
+        super().__init__(client)
         # View ID is used to retrieve nodes with properties.
         self.view_id = view_id
         self._constrained_properties_by_source: dict[ViewId | ContainerId, set[str]] = {}
@@ -1452,8 +1441,8 @@ class GraphQLCRUD(
 
     extra_content_property = "dml"
 
-    def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None) -> None:
-        super().__init__(client, build_dir, console)
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
         self._graphql_filepath_cache: dict[DataModelId, Path] = {}
         self._datamodels_by_view_id: dict[ViewId, set[DataModelId]] = defaultdict(set)
         self._dependencies_by_datamodel_id: dict[DataModelId, set[ViewId | DataModelId]] = {}

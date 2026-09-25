@@ -37,7 +37,7 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 class TestFunctionLoader:
     def test_load_functions(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client(), LOAD_DATA)
+        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client())
 
         raw_list = loader.load_resource_file(
             LOAD_DATA / "functions" / "1.my_functions.yaml", env_vars_with_client_cheap.dump()
@@ -46,7 +46,7 @@ class TestFunctionLoader:
         assert len(raw_list) == 2
 
     def test_load_function(self, env_vars_with_client: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_io(env_vars_with_client.get_client(), LOAD_DATA)
+        loader = FunctionIO.create_io(env_vars_with_client.get_client())
 
         raw_list = loader.load_resource_file(
             LOAD_DATA / "functions" / "1.my_function.yaml", env_vars_with_client.dump()
@@ -59,7 +59,7 @@ class TestFunctionLoader:
         """Avoid poisoning the shared lookup cache when dry-run and a DataSet is created in the same deploy."""
         client = MagicMock()
         client.lookup.data_sets.id.return_value = 42
-        loader = FunctionIO.create_io(client, Path("/tmp"))
+        loader = FunctionIO.create_io(client)
         resource = {
             "externalId": "fn_test",
             "name": "test",
@@ -107,7 +107,7 @@ secrets:
         filepath.read_text.return_value = local_yaml
         filepath.parent.name = FunctionIO.folder_name
 
-        loader = FunctionIO.create_io(env_vars_with_client.get_client(), tmp_path)
+        loader = FunctionIO.create_io(env_vars_with_client.get_client())
         resource_dict = loader.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
         resource = loader.load_resource(deepcopy(resource_dict[0]))
@@ -182,7 +182,7 @@ secrets:
                 ),
             },
         )
-        loader = FunctionIO.create_io(env_vars_with_client.get_client(), tmp_path)
+        loader = FunctionIO.create_io(env_vars_with_client.get_client())
 
         dumped = loader.dump_resource(cdf_function, local_dict)
 
@@ -211,7 +211,7 @@ secrets:
                 ),
             },
         )
-        loader = FunctionIO.create_io(env_vars_with_client.get_client(), tmp_path)
+        loader = FunctionIO.create_io(env_vars_with_client.get_client())
 
         dumped = loader.dump_resource(cdf_function, local_dict)
 
@@ -240,14 +240,14 @@ secrets:
                 ),
             },
         )
-        loader = FunctionIO.create_io(env_vars_with_client.get_client(), tmp_path)
+        loader = FunctionIO.create_io(env_vars_with_client.get_client())
 
         dumped = loader.dump_resource(cdf_function, local_dict)
 
         assert dumped["runtime"] == "py311"
 
     def test_get_function_required_capabilities(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client(), None)
+        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client())
         loader.data_set_id_by_external_id = {"function1": 123, "function2": 456}
 
         # Mock data
@@ -276,14 +276,14 @@ secrets:
         assert sorted(write_capabilities[1].scope.ids) == [123, 456]
 
     def test_get_function_required_capabilities_empty(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client(), None)
+        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client())
         capabilities = loader.get_function_required_capabilities([], read_only=False)
         assert capabilities == []
 
     def test_get_function_required_capabilities_no_datasets(
         self, env_vars_with_client_cheap: EnvironmentVariables
     ) -> None:
-        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client(), None)
+        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client())
         items = [
             FunctionWrite(external_id="function1", name="Function 1", file_id=1001),
             FunctionWrite(external_id="function2", name="Function 2", file_id=1002),

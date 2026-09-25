@@ -630,7 +630,7 @@ class InstanceIO(
             )
         if not selector.view:
             return
-        view_crud = ViewIO(self.client, None, None, topological_sort_implements=True)
+        view_crud = ViewIO(self.client, topological_sort_implements=True)
         views = self.client.tool.views.retrieve([selector.view.as_id()], include_inherited_properties=False)
         views = [view for view in views if not view.is_global]
         if not views:

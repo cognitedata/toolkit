@@ -7,7 +7,6 @@ from typing import Any, Literal, cast, final
 from cognite.client._version import __version__ as CogniteSDKVersion
 from packaging.requirements import Requirement
 from pydantic import ValidationError
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -62,11 +61,9 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
     def __init__(
         self,
         client: ToolkitClient,
-        build_dir: Path | None,
-        console: Console | None = None,
         use_fileio: bool = True,
     ):
-        super().__init__(client, build_dir, console)
+        super().__init__(client)
         self._source_file_by_external_id: dict[str, Path] = {}
         self.filemetadata_by_external_id: dict[str, Path] = {}
         self.use_fileio = use_fileio
@@ -284,7 +281,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         return created
 
     def _create_with_fileio(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        fileio = FileMetadataCRUD(self.client, None, None)
+        fileio = FileMetadataCRUD(self.client)
         try:
             filepaths = [self.filemetadata_by_external_id[item.external_id] for item in items]
         except KeyError as e:
@@ -318,7 +315,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         return updated
 
     def _update_with_fileio(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        fileio = FileMetadataCRUD(self.client, None, None)
+        fileio = FileMetadataCRUD(self.client)
         try:
             filepaths = [self.filemetadata_by_external_id[item.external_id] for item in items]
         except KeyError as e:

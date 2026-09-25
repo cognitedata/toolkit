@@ -11,7 +11,6 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -81,11 +80,9 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
     def __init__(
         self,
         client: ToolkitClient,
-        build_path: Path | None,
-        console: Console | None,
         file_upload_timeout_seconds: float = CDF_TOML.cdf.file_upload_timeout_seconds,
     ):
-        super().__init__(client, build_path, console)
+        super().__init__(client)
         self.data_set_id_by_external_id: dict[str, int] = {}
         self.space_by_external_id: dict[str, str] = {}
         self.function_dir_by_external_id: dict[str, Path] = {}
@@ -490,8 +487,8 @@ class FunctionScheduleIO(
     _hash_key = "cdf-auth"
     _description_character_limit = 500
 
-    def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
-        super().__init__(client, build_path, console)
+    def __init__(self, client: ToolkitClient):
+        super().__init__(client)
         self.authentication_by_id: dict[FunctionScheduleId, ClientCredentials] = {}
 
     @property
@@ -589,7 +586,7 @@ class FunctionScheduleIO(
         for id_ in ids:
             names_by_function[id_.function_external_id].add(id_.name)
         function_external_ids = [ExternalId(external_id=ext_id) for ext_id in names_by_function]
-        functions = FunctionIO(self.client, None, None).retrieve(function_external_ids)
+        functions = FunctionIO(self.client).retrieve(function_external_ids)
         schedules: list[FunctionScheduleResponse] = []
         for func in functions:
             func_external_id = cast(str, func.external_id)

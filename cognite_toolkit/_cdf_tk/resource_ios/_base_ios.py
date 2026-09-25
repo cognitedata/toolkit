@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import (
@@ -120,14 +119,9 @@ class ResourceIO(
     # for example, the Transformation resource has the query property that is used to store the query content.
     extra_content_property: str | None = None
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None) -> None:
+    def __init__(self, client: ToolkitClient) -> None:
         self.client = client
-        self.resource_build_path: Path | None = None
-        if build_dir is not None and build_dir.name == self.folder_name:
-            raise ValueError(f"Build directory cannot be the same as the resource folder name: {self.folder_name}")
-        elif build_dir is not None:
-            self.resource_build_path = build_dir / self.folder_name
-        self.console = console or client.console
+        self.console = client.console
 
     # The methods that must be implemented in the subclass
     @classmethod
@@ -323,13 +317,8 @@ class ResourceIO(
         return ResourceType(kind=cls.kind, resource_folder=cls.folder_name)
 
     @classmethod
-    def create_io(
-        cls,
-        client: ToolkitClient,
-        build_dir: Path | None = None,
-        console: Console | None = None,
-    ) -> Self:
-        return cls(client, build_dir, console)
+    def create_io(cls, client: ToolkitClient) -> Self:
+        return cls(client)
 
     @property
     def display_name(self) -> str:

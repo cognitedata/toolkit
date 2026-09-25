@@ -4,6 +4,7 @@ from typing import Any, Literal, final
 
 from pydantic import ValidationError
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
@@ -39,8 +40,8 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
     _doc_base_url = ""
     _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Skills/operation/skill_create_ai_skills_post/"
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
         self._source_file_by_external_id: dict[str, Path] = {}
 
     @classmethod

@@ -82,7 +82,7 @@ authentication:
                     "dataSetExternalId": "my_dataset",
                 }
             ]
-            loader = FunctionIO.create_io(toolkit_client_approval.mock_client, None)
+            loader = FunctionIO.create_io(toolkit_client_approval.mock_client)
 
             local_file = MagicMock(spec=Path)
             local_file.parent.name = FunctionIO.folder_name

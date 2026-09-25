@@ -66,9 +66,7 @@ class TestDataModelLoader:
             name=None,
         ).dump_yaml()
 
-        loader = DataModelIO.create_io(
-            env_vars_with_client.get_client(),
-        )
+        loader = DataModelIO.create_io(env_vars_with_client.get_client())
         assert to_deploy_status(local_data_model, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     def test_are_equal_version_int(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
