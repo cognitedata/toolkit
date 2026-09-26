@@ -16,12 +16,10 @@
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Literal, final
 
 from cognite.client.data_classes import capabilities as cap
 from rich import print
-from rich.console import Console
 from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -99,14 +97,12 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
     def __init__(
         self,
         client: ToolkitClient,
-        build_dir: Path | None,
-        console: Console | None,
         target_scopes: Literal[
             "all_scoped_only",
             "resource_scoped_only",
         ] = "all_scoped_only",
     ):
-        super().__init__(client, build_dir, console)
+        super().__init__(client)
         self.target_scopes = target_scopes
 
     @property
@@ -457,8 +453,8 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
 @final
 class GroupAllScopedCRUD(GroupIO):
-    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None):
-        super().__init__(client, build_dir, console, "all_scoped_only")
+    def __init__(self, client: ToolkitClient):
+        super().__init__(client, "all_scoped_only")
 
     @property
     def display_name(self) -> str:

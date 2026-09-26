@@ -65,7 +65,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
 
         if self.client:
             for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
-                crud = crud_cls(self.client, None, None)
+                crud = crud_cls(self.client)
                 resource_label = crud_cls.kind.lower()
                 try:
                     existing_in_cdf = {
@@ -115,9 +115,9 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         during ``cdf build``.
         """
         cruds: tuple[ResourceIO[Any, Any, Any, Any], ...] = (
-            ContainerCRUD(client, None, None),
-            ViewIO(client, None, None),
-            DataModelIO(client, None, None),
+            ContainerCRUD(client),
+            ViewIO(client),
+            DataModelIO(client),
         )
         for crud in cruds:
             try:

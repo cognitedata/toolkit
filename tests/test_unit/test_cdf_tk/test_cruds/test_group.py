@@ -26,7 +26,7 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 class TestGroupLoader:
     def test_load_all_scoped_only(self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch):
-        loader = GroupAllScopedCRUD.create_loader(env_vars_with_client.get_client())
+        loader = GroupAllScopedCRUD.create_io(env_vars_with_client.get_client())
         raw_list = loader.load_resource_file(
             LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", env_vars_with_client.dump()
         )
@@ -38,7 +38,7 @@ class TestGroupLoader:
             loader.load_resource(raw_list[0], is_dry_run=False)
 
     def test_load_resource_scoped_only(self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch):
-        loader = GroupResourceScopedCRUD.create_loader(env_vars_with_client.get_client())
+        loader = GroupResourceScopedCRUD.create_io(env_vars_with_client.get_client())
         with pytest.raises(ToolkitWrongResourceError):
             raw_list = loader.load_resource_file(
                 LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", env_vars_with_client.dump()
@@ -60,7 +60,7 @@ class TestGroupLoader:
     def test_load_group_list_resource_scoped_only(
         self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
     ):
-        loader = GroupResourceScopedCRUD.create_loader(env_vars_with_client.get_client())
+        loader = GroupResourceScopedCRUD.create_io(env_vars_with_client.get_client())
         raw_list = loader.load_resource_file(
             LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", env_vars_with_client.dump()
         )
@@ -72,7 +72,7 @@ class TestGroupLoader:
     def test_load_group_list_all_scoped_only(
         self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
     ):
-        loader = GroupAllScopedCRUD.create_loader(env_vars_with_client.get_client())
+        loader = GroupAllScopedCRUD.create_io(env_vars_with_client.get_client())
         raw_list = loader.load_resource_file(
             LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", env_vars_with_client.dump()
         )
@@ -87,7 +87,7 @@ class TestGroupLoader:
         toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = GroupResourceScopedCRUD.create_loader(env_vars_with_client.get_client())
+        loader = GroupResourceScopedCRUD.create_io(env_vars_with_client.get_client())
         filepath = LOAD_DATA / "auth" / "1.my_group_scoped.yaml"
         raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
         loaded = loader.load_resource(deepcopy(raw_list[0]), is_dry_run=False)
@@ -132,7 +132,7 @@ class TestGroupLoader:
         toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ):
-        loader = GroupResourceScopedCRUD.create_loader(env_vars_with_client.get_client())
+        loader = GroupResourceScopedCRUD.create_io(env_vars_with_client.get_client())
         filepath = LOAD_DATA / "auth" / "1.my_group_scoped.yaml"
         raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
         loaded = loader.load_resource(deepcopy(raw_list[0]), is_dry_run=False)
@@ -169,7 +169,7 @@ class TestGroupLoader:
         toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = GroupAllScopedCRUD.create_loader(env_vars_with_client.get_client())
+        loader = GroupAllScopedCRUD.create_io(env_vars_with_client.get_client())
         local_group = """name: gp_no_metadata
 sourceId: '123'
 capabilities:
@@ -216,7 +216,7 @@ capabilities:
         toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = GroupResourceScopedCRUD.create_loader(env_vars_with_client.get_client())
+        loader = GroupResourceScopedCRUD.create_io(env_vars_with_client.get_client())
         local_group = """name: gp_raw_acl_table_scoped
 sourceId: '123'
 capabilities:

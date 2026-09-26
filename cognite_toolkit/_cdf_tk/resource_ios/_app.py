@@ -3,8 +3,6 @@ from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal, final
 
-from rich.console import Console
-
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -123,8 +121,8 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
     dependencies = frozenset({AppIO, GroupAllScopedCRUD})
     _doc_url = "Apps/operation/appsCreate"
 
-    def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
-        super().__init__(client, build_path, console)
+    def __init__(self, client: ToolkitClient):
+        super().__init__(client)
         self.zip_path_by_version_id: dict[AppVersionId, Path] = {}
 
     @property

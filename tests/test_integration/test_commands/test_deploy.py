@@ -135,9 +135,9 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
             # Data Products and Rule Sets APIs are not yet available on the test server.
             # External data sources reject dummy OneLake credentials (400 Invalid body).
             continue
-        loader = loader_cls.create_loader(client, build_dir)
+        loader = loader_cls.create_io(client)
 
-        files = loader.find_files()
+        files = loader.find_files(build_dir / loader.folder_name)
         if not files:
             continue
         resource_by_id = DeployV2Command._read_resource_files(loader, files, options)

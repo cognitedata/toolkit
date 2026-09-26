@@ -49,7 +49,7 @@ class TestDataProductVersionIODumpResource:
         """Regression test for CDF-27689: dump_resource must not crash when the API
         response omits the optional 'quality' field."""
         client = ToolkitClientMock()
-        io = DataProductVersionIO(client, None, None)
+        io = DataProductVersionIO(client)
 
         resource = DataProductVersionResponse(
             data_product_external_id="my-product",
@@ -66,7 +66,7 @@ class TestDataProductVersionIODumpResource:
     def test_dump_resource_with_quality_preserved_when_in_local(self) -> None:
         """When quality is present in the local file it must not be stripped from the dump."""
         client = ToolkitClientMock()
-        io = DataProductVersionIO(client, None, None)
+        io = DataProductVersionIO(client)
 
         resource = DataProductVersionResponse(
             data_product_external_id="my-product",

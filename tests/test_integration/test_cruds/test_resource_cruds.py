@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from contextlib import suppress
 from copy import deepcopy
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -77,6 +78,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ViewIO,
     WorkflowVersionIO,
 )
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from tests.test_integration.constants import RUN_UNIQUE_ID
 from tests.test_integration.helpers import retry_on_deadlock
@@ -93,7 +95,7 @@ class TestFunctionScheduleLoader:
         dummy_function: Function,
         dummy_schedule: FunctionScheduleResponse,
     ) -> None:
-        loader = FunctionScheduleIO(toolkit_client, None, None)
+        loader = FunctionScheduleIO(toolkit_client)
         function_schedule = dummy_schedule.as_request_resource()
 
         function_schedule.description = (
@@ -130,7 +132,7 @@ class TestFunctionScheduleLoader:
             function_external_id=dummy_function.external_id,
             description="This schedule should be ignored as it does not have a function_external_id",
         )
-        loader = FunctionScheduleIO(toolkit_client, None, None)
+        loader = FunctionScheduleIO(toolkit_client)
         assert isinstance(toolkit_client_config.credentials, OAuthClientCredentials)
         loader.authentication_by_id[loader.get_id(local)] = ClientCredentials(
             toolkit_client_config.credentials.client_id, toolkit_client_config.credentials.client_secret
@@ -156,7 +158,7 @@ class TestFunctionScheduleLoader:
         existing = client.functions.schedules.list(name=schedule.name, function_id=dummy_function.id, limit=1)
         if not existing:
             _ = client.functions.schedules.create(schedule)
-        crud = FunctionScheduleIO(client, None, None)
+        crud = FunctionScheduleIO(client)
 
         schedules = list(crud.iterate(parent_ids=[ExternalId(external_id=dummy_function.external_id)]))
         assert len(schedules) >= 1
@@ -182,7 +184,7 @@ authentication:
   clientId: {cred.client_id}
   clientSecret: {cred.client_secret}
 """
-        loader = FunctionScheduleIO(toolkit_client, None, None)
+        loader = FunctionScheduleIO(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = schedule_yaml
 
@@ -285,7 +287,7 @@ def three_hundred_and_three_cognite_timeseries(
 
 class TestDatapointSubscriptionLoader:
     def test_delete_non_existing(self, toolkit_client: ToolkitClient) -> None:
-        loader = DatapointSubscriptionIO(toolkit_client, None)
+        loader = DatapointSubscriptionIO(toolkit_client)
         _ = loader.delete([ExternalId(external_id="non_existing")])
 
     def test_create_update_delete_subscription(self, toolkit_client: ToolkitClient) -> None:
@@ -312,7 +314,7 @@ class TestDatapointSubscriptionLoader:
             },
         )
 
-        loader = DatapointSubscriptionIO(toolkit_client, None)
+        loader = DatapointSubscriptionIO(toolkit_client)
 
         try:
             created = loader.create([sub])
@@ -355,7 +357,7 @@ name: The subscription name
 timeSeriesIds:
 - {ts_update_ds}
 """
-        loader = DatapointSubscriptionIO(toolkit_client, None)
+        loader = DatapointSubscriptionIO(toolkit_client)
         sub = self._load_subscription_from_yaml(self._create_mock_file(sub_yaml), loader)
         try:
             created = loader.create([sub])
@@ -390,7 +392,7 @@ timeSeriesIds:
 - {three_timeseries[1].external_id}
 - {three_timeseries[2].external_id}
 """
-        loader = DatapointSubscriptionIO.create_loader(toolkit_client)
+        loader = DatapointSubscriptionIO.create_io(toolkit_client)
 
         assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
@@ -409,13 +411,13 @@ timeSeriesIds:
 
 class TestLabelLoader:
     def test_delete_non_existing(self, toolkit_client: ToolkitClient) -> None:
-        loader = LabelIO(toolkit_client, None)
+        loader = LabelIO(toolkit_client)
         delete_count = loader.delete([ExternalId(external_id="non_existing")])
         assert delete_count == 0
 
     def test_create_delete_label(self, toolkit_client: ToolkitClient) -> None:
         label = LabelRequest(external_id=f"tmp_test_create_update_delete_label_{RUN_UNIQUE_ID}", name="Initial name")
-        loader = LabelIO(toolkit_client, None)
+        loader = LabelIO(toolkit_client)
 
         try:
             created = loader.create([label])
@@ -432,7 +434,7 @@ class TestAssetLoader:
             description="My description",
         )
 
-        loader = AssetIO(toolkit_client, None)
+        loader = AssetIO(toolkit_client)
 
         try:
             created = loader.create([asset])
@@ -508,7 +510,7 @@ class TestDataModelLoader:
     def test_create_update_delete(
         self, toolkit_client: ToolkitClient, toolkit_space: dm.Space, two_views_ephemeral: dm.ViewList
     ) -> None:
-        loader = DataModelIO(toolkit_client, None)
+        loader = DataModelIO(toolkit_client)
         view_list = two_views_ephemeral.as_ids()
         assert len(view_list) == 2, "Expected 2 views in the test data model"
         my_model = DataModelRequest(
@@ -561,7 +563,7 @@ def custom_file_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space
 
 class TestCogniteFileLoader:
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> None:
-        loader = CogniteFileCRUD(toolkit_client, None)
+        loader = CogniteFileCRUD(toolkit_client)
         # Loading from YAML to test the loading of extra properties as well
         file = CogniteFileRequest._load(
             yaml.safe_load(f"""space: {toolkit_space.space}
@@ -594,7 +596,7 @@ description: Original description
     def test_create_update_retrieve_delete_extension(
         self, toolkit_client: ToolkitClient, toolkit_space: dm.Space
     ) -> None:
-        loader = CogniteFileCRUD(toolkit_client, None)
+        loader = CogniteFileCRUD(toolkit_client)
         # Loading from YAML to test the loading of extra properties as well
         file = CogniteFileRequest.model_validate(
             yaml.safe_load(f"""space: {toolkit_space.space}
@@ -644,7 +646,7 @@ class TestGroupLoader:
             group_id = created_group.as_request_resource().as_id()
             toolkit_client.tool.timeseries.delete([to_delete.as_id()])
 
-            loader = GroupIO.create_loader(toolkit_client)
+            loader = GroupIO.create_io(toolkit_client)
 
             dumped = loader.dump_resource(created_group)
             assert "capabilities" in dumped
@@ -683,7 +685,7 @@ workflowDefinition:
         file = MagicMock(spec=Path)
         file.read_text.return_value = definition_yaml
         with monkeypatch_toolkit_client() as client:
-            loader = WorkflowVersionIO(client, None, None)
+            loader = WorkflowVersionIO(client)
 
             with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
                 loaded = loader.load_resource_file(file, {"myTask1.output.data": "should-be-ignored"})
@@ -714,7 +716,7 @@ workflowDefinition:
         externalId: some_transformation
     retries: null
 """
-        loader = WorkflowVersionIO.create_loader(toolkit_client)
+        loader = WorkflowVersionIO.create_io(toolkit_client)
 
         assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
@@ -737,7 +739,7 @@ authentication:
   clientSecret: ${IDP_CLIENT_SECRET}
 """
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
-        loader = TransformationIO.create_loader(toolkit_client)
+        loader = TransformationIO.create_io(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = transformation_text
 
@@ -772,7 +774,7 @@ authentication:
     clientSecret: ${IDP_CLIENT_SECRET}
         """
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
-        loader = TransformationIO.create_loader(toolkit_client)
+        loader = TransformationIO.create_io(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = transformation_text
 
@@ -823,7 +825,7 @@ authentication:
             for i in range(1, N + 1)
         ]
 
-        loader = TransformationIO.create_loader(toolkit_client)
+        loader = TransformationIO.create_io(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = "\n".join(definition_yaml)
 
@@ -860,14 +862,14 @@ ignoreNullFields: true
         self, toolkit_client: ToolkitClient, transformation_yaml: str, monkeypatch
     ) -> None:
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
-        crud = TransformationIO.create_loader(toolkit_client)
+        crud = TransformationIO.create_io(toolkit_client)
 
         assert to_deploy_status(transformation_yaml, crud) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
 class TestNodeLoader:
     def test_update_existing_node(self, toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> None:
-        loader = NodeCRUD(toolkit_client, None)
+        loader = NodeCRUD(toolkit_client)
         view_id = ViewId(space="cdf_cdm", external_id="CogniteDescribable", version="v1")
         existing_node = NodeRequest(
             space=toolkit_space.space,
@@ -933,7 +935,7 @@ properties:
       type: container
     containerPropertyIdentifier: name
         """
-        loader = ViewIO.create_loader(toolkit_client)
+        loader = ViewIO.create_io(toolkit_client)
 
         assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
@@ -953,25 +955,49 @@ class TestFunctionLoader:
 
     """
 
+    def _write_function_build(self, directory: Path, definition: dict[str, Any]) -> Path:
+        """Write the function YAML, code hash, zip, and file sidecar the way build does."""
+        external_id = definition["externalId"]
+        if not isinstance(external_id, str):
+            raise TypeError("Function externalId must be a string.")
+        directory.mkdir(parents=True, exist_ok=True)
+        code_dir = directory / external_id
+        code_dir.mkdir()
+        (code_dir / "handler.py").write_text(self.FUNCTION_CODE, encoding="utf-8")
+
+        filepath = directory / f"{external_id}.Function.yaml"
+        extras = list(FunctionIO.get_extra_files(filepath, ExternalId(external_id=external_id), definition))
+        failures = [extra.error for extra in extras if isinstance(extra, FailedReadExtra)]
+        if failures:
+            raise RuntimeError(failures[0])
+
+        filepath.write_text(yaml.safe_dump(definition), encoding="utf-8")
+        for extra in extras:
+            if not isinstance(extra, SuccessExtra) or not extra.write_to_build:
+                continue
+            extra_path = directory / f"{external_id}{extra.suffix}"
+            if extra.content is not None:
+                extra_path.write_text(extra.content, encoding="utf-8")
+            elif extra.content_byte is not None:
+                extra_path.write_bytes(extra.content_byte)
+        return filepath
+
     def test_avoid_redeploying_function_with_no_changes(
         self, toolkit_client: ToolkitClient, toolkit_dataset: DataSet, tmp_path: Path
     ) -> None:
         external_id = "toolkit_test_function_no_redeploy"
-        definition_yaml = f"""externalId: {external_id}
-name: Toolkit Test Function No Redeploy
-owner: ""
-dataSetExternalId: {toolkit_dataset.external_id}
-description: ""
-        """
-        build_dir = tmp_path / "build"
-        function_code_path = build_dir / FunctionIO.folder_name / external_id / "handler.py"
-        function_code_path.parent.mkdir(parents=True, exist_ok=True)
-        function_code_path.write_text(self.FUNCTION_CODE, encoding="utf-8")
+        filepath = self._write_function_build(
+            tmp_path / "build" / FunctionIO.folder_name,
+            {
+                "externalId": external_id,
+                "name": "Toolkit Test Function No Redeploy",
+                "owner": "",
+                "dataSetExternalId": toolkit_dataset.external_id,
+                "description": "",
+            },
+        )
 
-        loader = FunctionIO(toolkit_client, build_dir, None, use_fileio=False)
-        filepath = MagicMock(spec=Path)
-        filepath.read_text.return_value = definition_yaml
-        filepath.parent.name = FunctionIO.folder_name
+        loader = FunctionIO(toolkit_client)
         assert to_deploy_status(filepath, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     def test_delete_function_with_cognite_file_code(
@@ -979,22 +1005,18 @@ description: ""
     ) -> None:
         client = toolkit_client
         external_id = f"toolkit_test_function_delete_cognite_file_code_{RUN_UNIQUE_ID}"
-        definition_yaml = f"""externalId: {external_id}
-name: Toolkit Test Function Delete Cognite File Code
-owner: ""
-space: {toolkit_space.space}
-description: ""
-        """
-        build_dir = tmp_path / "build"
-        function_code_path = build_dir / FunctionIO.folder_name / external_id / "handler.py"
-        function_code_path.parent.mkdir(parents=True, exist_ok=True)
-        function_code_path.write_text(self.FUNCTION_CODE, encoding="utf-8")
+        filepath = self._write_function_build(
+            tmp_path / "build" / FunctionIO.folder_name,
+            {
+                "externalId": external_id,
+                "name": "Toolkit Test Function Delete Cognite File Code",
+                "owner": "",
+                "space": toolkit_space.space,
+                "description": "",
+            },
+        )
 
-        crud = FunctionIO(toolkit_client, build_dir, None, use_fileio=False)
-
-        filepath = MagicMock(spec=Path)
-        filepath.read_text.return_value = definition_yaml
-        filepath.parent.name = FunctionIO.folder_name
+        crud = FunctionIO(toolkit_client)
         resource_dict = crud.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
 
@@ -1036,7 +1058,7 @@ source: here
 documentation: To Do
 createdBy: null
 """
-        loader = ExtractionPipelineIO.create_loader(toolkit_client)
+        loader = ExtractionPipelineIO.create_io(toolkit_client)
 
         assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
@@ -1057,7 +1079,7 @@ class TestSkillIO:
     # Skills upload can intermittently fail with "Files not uploaded" against live CDF.
     @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["ToolkitAPIError"])
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
-        loader = SkillIO(toolkit_client, None)
+        loader = SkillIO(toolkit_client)
         external_id = f"toolkit_integration_skill_{RUN_UNIQUE_ID}".replace("-", "_")
         # Skill names must be unique in CDF and match ^[a-z0-9]+(?:-[a-z0-9]+)*$.
         skill_name = f"integration-test-skill-{RUN_UNIQUE_ID}".lower().replace("_", "-")

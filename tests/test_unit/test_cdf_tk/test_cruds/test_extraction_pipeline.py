@@ -48,7 +48,7 @@ class TestExtractionPipelineDependencies:
             ),
         )
 
-        loader = ExtractionPipelineConfigIO.create_loader(toolkit_client_approval.mock_client)
+        loader = ExtractionPipelineConfigIO.create_io(toolkit_client_approval.mock_client)
         assert to_deploy_status(self.config_yaml, loader) == {
             "create": 1,
             "change": 0,
@@ -58,8 +58,10 @@ class TestExtractionPipelineDependencies:
 
 
 class TestExtractionPipelineLoader:
-    def test_diff_list_contacts_does_not_raise(self, monkeypatch: MonkeyPatch) -> None:
-        loader = ExtractionPipelineIO(MagicMock(spec=ToolkitClient), None, MagicMock(spec=Console))
+    def test_diff_list_contacts_does_not_raise(
+        self, monkeypatch: MonkeyPatch, toolkit_client_cheap: ToolkitClient
+    ) -> None:
+        loader = ExtractionPipelineIO(toolkit_client_cheap)
         local = [{"name": "Alice", "email": "alice@example.com", "role": "owner", "sendNotification": True}]
         cdf = [
             {"name": "Alice", "email": "alice@example.com", "role": "owner", "sendNotification": True},
@@ -93,7 +95,7 @@ class TestExtractionPipelineLoader:
         """
         local_file.stem = "ep_src_asset"
 
-        loader = ExtractionPipelineConfigIO.create_loader(env_vars_with_client_cheap.get_client())
+        loader = ExtractionPipelineConfigIO.create_io(env_vars_with_client_cheap.get_client())
         res = loader.load_resource_file(filepath=local_file, environment_variables=env_vars_with_client_cheap.dump())
         # Assert that env vars are skipped for this loader
         assert res[0]["config"] == "secret: ${INGESTION_CLIENT_SECRET}"
@@ -132,8 +134,8 @@ class TestExtractionPipelineDocumentationFile:
         "dataSetExternalId": "ds_my_dataset",
     }
 
-    def test_split_resource_writes_markdown(self, tmp_path: Path) -> None:
-        loader = ExtractionPipelineIO(MagicMock(spec=ToolkitClient), None, MagicMock(spec=Console))
+    def test_split_resource_writes_markdown(self, tmp_path: Path, toolkit_client_cheap: ToolkitClient) -> None:
+        loader = ExtractionPipelineIO(toolkit_client_cheap)
         base = tmp_path / "ep_src_asset.ExtractionPipeline.yaml"
         resource = {**self._PIPELINE_YAML, "documentation": "# Docs\n"}
 
@@ -146,7 +148,7 @@ class TestExtractionPipelineDocumentationFile:
 
 
 class TestExtractionPipelineConfigCRUD:
-    def test_load_resource_no_warning_on_keyvault(self) -> None:
+    def test_load_resource_no_warning_on_keyvault(self, toolkit_client_cheap: ToolkitClient) -> None:
         resource = {
             "externalId": "ep_src_asset",
             "config": """azure-keyvault:
@@ -161,10 +163,8 @@ databases:
     name: my_db
     type: odbc""",
         }
-        console = MagicMock(spec=Console)
         print_mock = MagicMock()
-        console.print = print_mock
-        crud = ExtractionPipelineConfigIO(MagicMock(spec=ToolkitClient), None, console=console)
+        crud = ExtractionPipelineConfigIO(toolkit_client_cheap)
 
         loaded = crud.load_resource(resource)
 
@@ -177,10 +177,12 @@ databases:
             "externalId": "ep_src_asset",
             "config": "invalid-yaml: [unclosed_list",
         }
+        client = MagicMock()
         console = MagicMock(spec=Console)
+        client.console = console
         print_mock = MagicMock()
         console.print = print_mock
-        crud = ExtractionPipelineConfigIO(MagicMock(spec=ToolkitClient), None, console=console)
+        crud = ExtractionPipelineConfigIO(client)
         loaded = crud.load_resource(resource)
 
         assert isinstance(loaded, ExtractionPipelineConfigRequest)
@@ -194,10 +196,12 @@ databases:
             "externalId": "ep_src_asset",
             "config": "- item1: value1",
         }
+        client = MagicMock()
         console = MagicMock(spec=Console)
+        client.console = console
         print_mock = MagicMock()
         console.print = print_mock
-        crud = ExtractionPipelineConfigIO(MagicMock(spec=ToolkitClient), None, console=console)
+        crud = ExtractionPipelineConfigIO(client)
         loaded = crud.load_resource(resource)
 
         assert isinstance(loaded, ExtractionPipelineConfigRequest)

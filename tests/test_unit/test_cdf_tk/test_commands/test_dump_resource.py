@@ -226,7 +226,7 @@ class TestDumpTransformations:
                 clean=False,
                 verbose=False,
             )
-            loader = TransformationIO(client, None, None)
+            loader = TransformationIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -452,7 +452,7 @@ class TestDumpLocationFilter:
                 clean=False,
                 verbose=False,
             )
-            loader = LocationFilterIO(client, None, None)
+            loader = LocationFilterIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -499,7 +499,7 @@ class TestDumpAgents:
                 clean=False,
                 verbose=False,
             )
-            loader = AgentIO(client, None, None)
+            loader = AgentIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 1
@@ -596,7 +596,7 @@ class TestDumpExtractionPipeline:
                 clean=False,
                 verbose=False,
             )
-            loader = ExtractionPipelineIO(client, None, None)
+            loader = ExtractionPipelineIO(client)
 
             filepaths = list(loader.find_files(tmp_path))
             items = sorted(
@@ -694,10 +694,10 @@ class TestDumpHostedExtractor:
                 clean=False,
                 verbose=False,
             )
-            source_loader = HostedExtractorSourceIO(client, None, None)
-            job_loader = HostedExtractorJobIO(client, None, None)
-            dest_loader = HostedExtractorDestinationIO(client, None, None)
-            mapping_loader = HostedExtractorMappingIO(client, None, None)
+            source_loader = HostedExtractorSourceIO(client)
+            job_loader = HostedExtractorJobIO(client)
+            dest_loader = HostedExtractorDestinationIO(client)
+            mapping_loader = HostedExtractorMappingIO(client)
 
             source_items = [read_yaml_file(path) for path in source_loader.find_files(tmp_path)]
             job_items = [read_yaml_file(path) for path in job_loader.find_files(tmp_path)]
@@ -721,7 +721,7 @@ class TestDumpHostedExtractor:
             last_updated_time=1,
         )
         with monkeypatch_toolkit_client() as client:
-            dumped = HostedExtractorSourceIO.create_loader(client).dump_resource(source)
+            dumped = HostedExtractorSourceIO.create_io(client).dump_resource(source)
         assert dumped == {"type": "mqtt5", "externalId": "sourceA", "host": "localhost"}
 
     def test_dump_source_with_local_returns_identifier(self) -> None:
@@ -733,9 +733,7 @@ class TestDumpHostedExtractor:
             last_updated_time=1,
         )
         with monkeypatch_toolkit_client() as client:
-            dumped = HostedExtractorSourceIO.create_loader(client).dump_resource(
-                source, local={"externalId": "sourceA"}
-            )
+            dumped = HostedExtractorSourceIO.create_io(client).dump_resource(source, local={"externalId": "sourceA"})
         assert dumped == {"externalId": "sourceA"}
 
     def test_dump_destination_without_local_translates_dataset(self) -> None:
@@ -747,7 +745,7 @@ class TestDumpHostedExtractor:
         )
         with monkeypatch_toolkit_client() as client:
             client.lookup.data_sets.external_id.return_value = "ds_files"
-            dumped = HostedExtractorDestinationIO.create_loader(client).dump_resource(destination)
+            dumped = HostedExtractorDestinationIO.create_io(client).dump_resource(destination)
         assert dumped == {"externalId": "destA", "targetDataSetExternalId": "ds_files"}
 
 
@@ -809,7 +807,7 @@ class TestDumpGroups:
                 clean=False,
                 verbose=False,
             )
-            loader = GroupAllScopedCRUD(client, None, None)
+            loader = GroupAllScopedCRUD(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -866,7 +864,7 @@ class TestDumpFunctions:
                 clean=False,
                 verbose=False,
             )
-            loader = FunctionIO(client, None, None)
+            loader = FunctionIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -934,7 +932,7 @@ class TestDumpDataSets:
                 clean=False,
                 verbose=False,
             )
-            loader = DataSetsIO(client, None, None)
+            loader = DataSetsIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -1032,7 +1030,7 @@ class TestDumpStreamlitApps:
                 clean=False,
                 verbose=False,
             )
-            loader = StreamlitIO(client, None, None)
+            loader = StreamlitIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 1
@@ -1229,7 +1227,7 @@ class TestDumpSpaces:
                 clean=False,
                 verbose=False,
             )
-            loader = SpaceCRUD(client, None, None)
+            loader = SpaceCRUD(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -1304,7 +1302,7 @@ class TestDumpSearchConfigs:
                 clean=False,
                 verbose=False,
             )
-            loader = SearchConfigIO(client, None, None)
+            loader = SearchConfigIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -1383,7 +1381,7 @@ class TestDumpResourceViewMappings:
                 clean=False,
                 verbose=False,
             )
-            loader = ResourceViewMappingIO(client, None, None)
+            loader = ResourceViewMappingIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2

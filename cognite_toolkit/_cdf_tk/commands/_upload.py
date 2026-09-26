@@ -155,7 +155,7 @@ class UploadCommand(ToolkitCommand):
                     )
                 selector_by_view_id[view_ref] = selector
 
-        view_dependencies, cyclic_views = ViewIO.create_loader(client).topological_sort_container_constraints(
+        view_dependencies, cyclic_views = ViewIO.create_io(client).topological_sort_container_constraints(
             list(selector_by_view_id.keys())
         )
         if cyclic_views:

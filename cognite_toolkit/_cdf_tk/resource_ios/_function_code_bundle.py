@@ -158,12 +158,12 @@ class FunctionCodeBundle:
     ) -> dict[str, InternalId]:
         file_id_by_external_id: dict[str, InternalId] = {}
         if filemetadata_files:
-            fileio = FileMetadataCRUD(self.client, None, None)
+            fileio = FileMetadataCRUD(self.client)
             file_request = fileio.load_resource_files(list(filemetadata_files))
             fileresponse = fileio.create(file_request)
             file_id_by_external_id.update(zip(filemetadata_files.values(), (InternalId(id=f.id) for f in fileresponse)))
         if cognite_files:
-            cognitefileio = CogniteFileCRUD(self.client, None, None)
+            cognitefileio = CogniteFileCRUD(self.client)
             cognitefile_request = cognitefileio.load_resource_files(list(cognite_files))
             cognitefile_response = cognitefileio.create(cognitefile_request)
             dm_fileresponse = self.client.tool.filemetadata.retrieve(

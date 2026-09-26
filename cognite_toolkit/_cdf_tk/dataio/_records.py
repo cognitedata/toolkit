@@ -43,7 +43,7 @@ class RecordIO(
     def _get_stream(self, stream_external_id: str) -> StreamResponse:
         """Get a stream by external ID, caching the response."""
         if stream_external_id not in self._stream_by_external_id:
-            streams = StreamIO.create_loader(self.client).retrieve([ExternalId(external_id=stream_external_id)])
+            streams = StreamIO.create_io(self.client).retrieve([ExternalId(external_id=stream_external_id)])
             if not streams:
                 raise ToolkitValueError(f"Stream '{stream_external_id}' does not exist or is not accessible.")
             self._stream_by_external_id[stream_external_id] = streams[0]
@@ -77,7 +77,7 @@ class RecordIO(
         spaces = {selector.container.space}
         if selector.instance_spaces:
             spaces.update(selector.instance_spaces)
-        space_crud = SpaceCRUD.create_loader(self.client)
+        space_crud = SpaceCRUD.create_io(self.client)
         for space in space_crud.retrieve([SpaceId(space=s) for s in spaces]):
             if space.is_global:
                 continue
@@ -88,7 +88,7 @@ class RecordIO(
                 filename=sanitize_filename(space.space),
             )
 
-        container_crud = ContainerCRUD.create_loader(self.client)
+        container_crud = ContainerCRUD.create_io(self.client)
         for container in container_crud.retrieve([selector.container.as_id()]):
             if container.is_global:
                 continue
@@ -99,7 +99,7 @@ class RecordIO(
                 filename=sanitize_filename(f"{container.space}_{container.external_id}"),
             )
 
-        stream_crud = StreamIO.create_loader(self.client)
+        stream_crud = StreamIO.create_io(self.client)
         for stream in stream_crud.retrieve([ExternalId(external_id=selector.stream.external_id)]):
             yield StorageIOConfig(
                 kind=StreamIO.kind,

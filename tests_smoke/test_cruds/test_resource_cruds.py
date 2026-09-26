@@ -55,7 +55,7 @@ class TestResourceCRUD:
             seed=37, sample_from_string=string.ascii_letters, min_string_length=3, max_string_length=20
         ).create_instance(identifier_cls)
 
-        resource_io = resource_io_cls.create_loader(toolkit_client)
+        resource_io = resource_io_cls.create_io(toolkit_client)
 
         try:
             retrieved = resource_io.retrieve([non_existing_id])
