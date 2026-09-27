@@ -1671,7 +1671,9 @@ class MigrateApp(typer.Typer):
         """Migrates Infield data from existing APM instance spaces in CDF to the new InfieldOnCDM data model."""
         client = _get_client(cdf_project)
         cmd = MigrationCommand(client=client)
-        user_input = infield_setup.InFieldUserInput(client, operation="Infield data")
+
+        lookup = infield_setup.InFieldLookup(client, operation="Infield data")
+        user_input = infield_setup.InFieldUserInput(client, lookup, operation="Infield data")
         if source_space is None:
             # Interactive selection of source and target spaces
             migration_spaces = user_input.prompt_migration_spaces()
@@ -1679,124 +1681,13 @@ class MigrateApp(typer.Typer):
         else:
             migration_spaces = user_input.validate_migration_spaces(source_space, target_space)
 
-        setup = infield_setup.InFieldSetup(client)
-        selectors = setup.get_infield_data_selectors(migration_spaces, skip_observations)
-        mapper = setup.get_infield_data_mapper(migration_spaces)
+        lookup.source_space = migration_spaces.source
 
-        mapper = infield_setup.get_infield_data_mapper(client, migration_spaces)
+        setup = infield_setup.InFieldSetup(client, lookup, skip_observations)
+        infield_mappings = setup.infield_mappings()
+        selectors = setup.get_infield_data_selectors(migration_spaces, infield_mappings)
+        mapper = setup.get_infield_data_mapper(migration_spaces, infield_mappings)
 
-
-        instance_id_mapper, location_split_id_mapper, target_spaces, target_by_root_asset = (
-            cls._infield_instance_id_mappers(
-                client,
-                source_space=source_space,
-                target_space=target_space,
-                shared_legacy_spaces=shared_legacy_spaces,
-                apm_configs=apm_configs,
-                cdm_configs=infield_cdm_configs,
-                target_kind="app_data",
-                passthrough_space_mapping={"cognite_app_data": "cognite_app_data"},  # users stay in this space
-                label="Infield data",
-            )
-        )
-        cls._print_location_split_plan(
-            client,
-            source_space=source_space,
-            target_by_root_asset=target_by_root_asset,
-            label="Infield data",
-        )
-        infield_mappings = create_infield_data_mappings()
-        if skip_observations:
-            # Skip the default mapping to the FieldObservation view if users will be using custom observation views.
-            # If this skip is not done, users will end up with observations both in the custom observation view and the default FieldObservation view,
-            # which can lead to the wrong view being rendered for migrated observations in Infield since it relies on the instances/inspect endpoint.
-            infield_mappings = [m for m in infield_mappings if m.destination_view.external_id != "FieldObservation"]
-        else:
-            # If a custom observation view is configured for the target space (e.g. to support SAP writeback),
-            # migrate Observations onto it instead of the default FieldObservation view.
-            custom_observation_views = {
-                resolve_observation_view_id(infield_cdm_configs, space) for space in target_spaces
-            }
-            if len(custom_observation_views) > 1:
-                raise ToolkitMigrationError(
-                    "Location split targets disagree on the custom observation view. "
-                    f"Distinct views: {humanize_collection([str(view_id) for view_id in custom_observation_views])}."
-                )
-            custom_observation_view = next(iter(custom_observation_views), None)
-            if custom_observation_view is not None:
-                infield_mappings = [
-                    m.model_copy(update={"destination_view": custom_observation_view})
-                    if m.source_view.external_id == "Observation"
-                    else m
-                    for m in infield_mappings
-                ]
-        schedule_selector = create_infield_schedule_selector(instance_space=source_space)
-        selectors: list[InstanceViewSelector | InstanceQuerySelector] = []
-        schedule_mapping: ViewToViewMapping | None = None
-        solution_tag_mapping: ViewToViewMapping | None = None
-        for mapping in infield_mappings:
-            if mapping.source_view.external_id == "Schedule":
-                # Special case for schedules, see create_infield_schedule_query for docs on why.
-                selectors.append(schedule_selector)
-                schedule_mapping = mapping
-                continue
-            if mapping.source_view == COGNITE_SOLUTION_TAG_VIEW_ID:
-                solution_tag_mapping = mapping
-            edge_types = list(mapping.edge_mapping.keys()) if mapping.edge_mapping else []
-            selectors.append(
-                InstanceViewSelector(
-                    view=SelectedView(
-                        space=mapping.source_view.space,
-                        external_id=mapping.source_view.external_id,
-                        version=mapping.source_view.version,
-                    ),
-                    instance_spaces=(source_space,),
-                    edge_types=tuple(dict.fromkeys(edge_types)) or None,
-                    endpoint="sync",
-                )
-            )
-        if schedule_mapping is None:
-            raise ValueError("No mapping for Schedule view found in infield_data_mappings.yaml")
-        connection_creator = ConnectionCreator(
-            client,
-            instance_id_mapper=instance_id_mapper,
-            custom_mappings=[InFieldAssetMapping(client)],
-            direct_relation_edge_tiebreakers=DIRECT_RELATION_EDGE_TIEBREAKERS,
-        )
-        custom_properties_mappings = [
-            InFieldConditionMapping(infield_mappings),
-            InFieldUserMapping(),
-            InFieldObservationSapStatusMapping(),
-        ]
-        mapper: FDMtoCDMMapper
-        schedule_mapper = InFieldLegacyToCDMScheduleMapper(
-            client, connection_creator, schedule_mapping, location_split_id_mapper
-        )
-        if location_split_id_mapper is not None:
-            if solution_tag_mapping is None:
-                raise ValueError("No mapping for CogniteSolutionTag view found in infield_data_mappings.yaml")
-            mapper = LocationSplitFDMtoCDMMapper(
-                client,
-                infield_mappings,
-                connection_creator,
-                location_split_id_mapper,
-                target_by_root_asset,
-                custom_properties_mappings=custom_properties_mappings,
-                custom_instance_mappings={
-                    schedule_mapper.SCHEDULE_VIEW: schedule_mapper,
-                    COGNITE_SOLUTION_TAG_VIEW_ID: LocationSplitSolutionTagMapper(
-                        client, connection_creator, solution_tag_mapping, target_spaces
-                    ),
-                },
-            )
-        else:
-            mapper = FDMtoCDMMapper(
-                client,
-                infield_mappings,
-                connection_creator=connection_creator,
-                custom_properties_mappings=custom_properties_mappings,
-                custom_instance_mappings={InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: schedule_mapper},
-            )
         cmd.run(
             lambda: cmd.migrate(
                 selectors=selectors,
