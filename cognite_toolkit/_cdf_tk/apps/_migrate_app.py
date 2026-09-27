@@ -1679,8 +1679,9 @@ class MigrateApp(typer.Typer):
         else:
             migration_spaces = user_input.validate_migration_spaces(source_space, target_space)
 
-        setup = infield_setup.InFieldSetup()
-        mapper = user_input.get_infield_data_mapper(migration_spaces)
+        setup = infield_setup.InFieldSetup(client)
+        selectors = setup.get_infield_data_selectors(migration_spaces, skip_observations)
+        mapper = setup.get_infield_data_mapper(migration_spaces)
 
         mapper = infield_setup.get_infield_data_mapper(client, migration_spaces)
 
