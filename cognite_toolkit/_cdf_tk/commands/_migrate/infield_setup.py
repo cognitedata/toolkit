@@ -243,7 +243,9 @@ class InFieldSetup:
             target_spaces=self.lookup.target_spaces,
         )
 
-    def infield_mappings(self, skip_observations: bool = False) -> list[ViewToViewMapping]:
+    def infield_mappings(
+        self, migration_spaces: InfieldMigrationSpaces, skip_observations: bool = False
+    ) -> list[ViewToViewMapping]:
         mappings = create_infield_data_mappings()
         if skip_observations:
             # Skip the default mapping to the FieldObservation view if users will be using custom observation views.
@@ -253,8 +255,11 @@ class InFieldSetup:
 
         # If a custom observation view is configured for the target space (e.g. to support SAP writeback),
         # migrate Observations onto it instead of the default FieldObservation view.
+        target_spaces = (
+            {migration_spaces.target} if not migration_spaces.is_location_split else self.lookup.target_spaces
+        )
         custom_observation_views = {
-            resolve_observation_view_id(self.lookup.cdm_configs, space) for space in self.lookup.target_spaces
+            resolve_observation_view_id(self.lookup.cdm_configs, space) for space in target_spaces
         }
         if len(custom_observation_views) > 1:
             raise ToolkitMigrationError(
@@ -302,7 +307,9 @@ class InFieldSetup:
         self, migration_spaces: InfieldMigrationSpaces, infield_mappings: list[ViewToViewMapping]
     ) -> FDMtoCDMMapper:
         """Creates a data mapper for InField data migration based on the provided mappings and migration spaces."""
-        instance_id_mapper = self._create_instance_id_mappers(migration_spaces, passthrough={})
+        instance_id_mapper = self._create_instance_id_mappers(
+            migration_spaces, passthrough={"cognite_app_data": "cognite_app_data"}
+        )
         connection_creator = ConnectionCreator(
             self.client,
             instance_id_mapper=instance_id_mapper,

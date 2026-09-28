@@ -1671,7 +1671,7 @@ class MigrateApp(typer.Typer):
         lookup.source_space = migration_spaces.source
 
         setup = InFieldSetup(client, lookup)
-        infield_mappings = setup.infield_mappings(skip_observations)
+        infield_mappings = setup.infield_mappings(migration_spaces, skip_observations)
         selectors = setup.get_infield_data_selectors(migration_spaces, infield_mappings)
         mapper = setup.get_infield_data_mapper(migration_spaces, infield_mappings)
 
