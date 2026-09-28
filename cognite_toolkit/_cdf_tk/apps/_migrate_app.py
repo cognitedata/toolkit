@@ -35,9 +35,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
     CustomConnectionMapping,
     InFieldAssetMapping,
-    InFieldConditionMapping,
-    InFieldObservationSapStatusMapping,
-    InFieldUserMapping,
     InstanceIdMapper,
     LocationSplitInstanceIdMapper,
     SpaceMappingInstanceIdMapper,
@@ -57,9 +54,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     Image360AnnotationMapper,
     Image360CollectionMapper,
     Image360FDMtoCDMMapper,
-    InFieldLegacyToCDMScheduleMapper,
     LocationSplitFDMtoCDMMapper,
-    LocationSplitSolutionTagMapper,
     Station360PropertiesMapping,
     ThreeDAssetMapper,
     ThreeDMapper,
@@ -68,14 +63,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW,
     create_360_image_selectors,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
-    DIRECT_RELATION_EDGE_TIEBREAKERS,
-    create_infield_data_mappings,
-    create_infield_schedule_selector,
-    resolve_observation_view_id,
-)
+from cognite_toolkit._cdf_tk.commands._migrate.infield_setup import InFieldLookup, InFieldSetup, InFieldUserInput
 from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
-    COGNITE_SOLUTION_TAG_VIEW_ID,
     LocationSplitKind,
     build_target_by_root_asset,
     find_shared_legacy_instance_spaces,
@@ -102,7 +91,6 @@ from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO, InstanceIO
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
-    InstanceQuerySelector,
     InstanceViewSelector,
     SelectedView,
     ThreeDModelIdSelector,
@@ -129,7 +117,6 @@ from cognite_toolkit._cdf_tk.utils.text import warn_invalid_space_name
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
 from ._helpers import print_help_if_no_subcommand
-from cognite_toolkit._cdf_tk.commands._migrate import infield_setup
 
 TODAY = date.today()
 
@@ -1672,8 +1659,8 @@ class MigrateApp(typer.Typer):
         client = _get_client(cdf_project)
         cmd = MigrationCommand(client=client)
 
-        lookup = infield_setup.InFieldLookup(client, operation="Infield data")
-        user_input = infield_setup.InFieldUserInput(client, lookup, operation="Infield data")
+        lookup = InFieldLookup(client, operation="Infield data")
+        user_input = InFieldUserInput(client, lookup)
         if source_space is None:
             # Interactive selection of source and target spaces
             migration_spaces = user_input.prompt_migration_spaces()
@@ -1683,8 +1670,8 @@ class MigrateApp(typer.Typer):
 
         lookup.source_space = migration_spaces.source
 
-        setup = infield_setup.InFieldSetup(client, lookup, skip_observations)
-        infield_mappings = setup.infield_mappings()
+        setup = InFieldSetup(client, lookup)
+        infield_mappings = setup.infield_mappings(skip_observations)
         selectors = setup.get_infield_data_selectors(migration_spaces, infield_mappings)
         mapper = setup.get_infield_data_mapper(migration_spaces, infield_mappings)
 

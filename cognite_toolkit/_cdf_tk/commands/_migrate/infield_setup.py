@@ -1,41 +1,31 @@
-from collections.abc import Sequence, Mapping
+from collections.abc import Sequence
 from dataclasses import dataclass
-from functools import cached_property, lru_cache
+from functools import cached_property
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 import questionary
 import typer
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
-from rich.console import Group
-from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeOrEdgeRequest, NodeOrEdgeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
-from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import (
-    ENTITY_BY_SOURCE_VIEW_EXTERNAL_ID,
-    SOURCE_DATA_TYPE_BY_VIEW_EXTERNAL_ID,
-    create_apm_source_data_mappings,
-    get_first_instance_space,
-    resolve_apm_source_data_instance_spaces,
-    resolve_apm_source_data_view_ids,
-    resolve_source_data_view_ids,
-)
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
-    APMSourceDataMaintenanceOrderMapping,
     ConnectionCreator,
-    CustomConnectionMapping,
     InFieldAssetMapping,
     InFieldConditionMapping,
     InFieldObservationSapStatusMapping,
     InFieldUserMapping,
+    InstanceIdMapper,
     LocationSplitInstanceIdMapper,
-    SpaceMappingInstanceIdMapper, InstanceIdMapper,
+    SpaceMappingInstanceIdMapper,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
+    DataMapper,
     FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
     LocationSplitFDMtoCDMMapper,
@@ -53,14 +43,13 @@ from cognite_toolkit._cdf_tk.commands._migrate.location_split import (
     find_shared_legacy_instance_spaces,
 )
 from cognite_toolkit._cdf_tk.dataio.selectors import (
-    InstanceQuerySelector,
+    InstanceSelector,
     InstanceViewSelector,
-    SelectedView, InstanceSelector,
+    SelectedView,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.ui import ToolkitPanel, ToolkitTable
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 
@@ -79,7 +68,11 @@ class InfieldMigrationSpaces:
     def is_location_split(self) -> bool:
         return self._target is None
 
+
 class InFieldLookup:
+    """Utility class that caches responses from the CDF client to avoid repeated API calls
+    during setting up the InField data migration."""
+
     def __init__(self, client: ToolkitClient, operation: Literal["Infield data", "APM_SourceData"]) -> None:
         self.client = client
         self.operation = operation
@@ -112,22 +105,25 @@ class InFieldLookup:
             source_space=self.source_space,
             apm_configs=self.apm_configs,
             cdm_configs=self.cdm_configs,
-            target_kind={"Infield data": "app_data", "APM_SourceData": "source_data"}[self.operation],
+            target_kind={"Infield data": "app_data", "APM_SourceData": "source_data"}[self.operation],  # type: ignore[arg-type]
         )
 
     @cached_property
     def target_spaces(self) -> set[str]:
-        return set(self.target_by_root_asset(self.source_space).values())
+        return set(self.target_by_root_asset.values())
 
     @cached_property
     def shared_legacy_spaces(self) -> set[str]:
         return find_shared_legacy_instance_spaces(self.apm_configs)
 
+
 class InFieldUserInput:
-    def __init__(self, client: ToolkitClient, lookup: InFieldLookup, operation: Literal["Infield data", "APM_SourceData"]) -> None:
+    """Handles user input for InField migration, including prompting for source and target spaces,"""
+
+    def __init__(self, client: ToolkitClient, lookup: InFieldLookup) -> None:
         self.client = client
         self.lookup = lookup
-        self.operation = operation
+        self.operation = lookup.operation
 
     @staticmethod
     def prompt_flags(log_dir: Path, dry_run: bool, verbose: bool) -> tuple[Path, bool, bool]:
@@ -147,7 +143,9 @@ class InFieldUserInput:
         target_space = self._prompt_space(self._target_candidates, "target")
         return InfieldMigrationSpaces(source=source_space, _target=target_space)
 
-    def validate_migration_spaces(self, user_source_space: str, user_target_space: str | None) -> InfieldMigrationSpaces:
+    def validate_migration_spaces(
+        self, user_source_space: str, user_target_space: str | None
+    ) -> InfieldMigrationSpaces:
         self._is_valid_space(user_source_space, self._source_candidates, "source")
         if self._is_split_location(user_source_space):
             if user_target_space is not None:
@@ -170,10 +168,9 @@ class InFieldUserInput:
         existing_candidates = self._get_space_stats(candidates)
         if missing := candidates - existing_candidates.keys():
             HighSeverityWarning(
-                f"The following {space_label} spaces do not exist or cannot be accessed: {humanize_collection(missing)}.").print_warning(
-                console=self.client.console)
-        stats = [existing_candidates[space] for space in candidates if
-                        space in existing_candidates]
+                f"The following {space_label} spaces do not exist or cannot be accessed: {humanize_collection(missing)}."
+            ).print_warning(console=self.client.console)
+        stats = [existing_candidates[space] for space in candidates if space in existing_candidates]
         selected_space = questionary.select(
             f"Select the {space_label} instance space for {self.operation} migration:",
             choices=[
@@ -188,7 +185,7 @@ class InFieldUserInput:
             raise typer.BadParameter(f"No {space_label} space selected for {self.operation} migration.")
         return selected_space
 
-    def _is_valid_space(self, user_space: str, candidates: set[str], space_label: Literal["source", "target"]):
+    def _is_valid_space(self, user_space: str, candidates: set[str], space_label: Literal["source", "target"]) -> None:
         """Checks if the user-provided space is valid and exists in the candidates. Raises a BadParameter exception if not."""
         if user_space not in candidates:
             raise typer.BadParameter(
@@ -202,7 +199,7 @@ class InFieldUserInput:
             )
 
     def _is_split_location(self, source_space: str) -> bool:
-        return Flags.INFIELD_LOCATION_SPLIT.is_enabled() and  source_space in self.lookup.shared_legacy_spaces
+        return Flags.INFIELD_LOCATION_SPLIT.is_enabled() and source_space in self.lookup.shared_legacy_spaces
 
     @cached_property
     def _source_candidates(self) -> set[str]:
@@ -227,25 +224,28 @@ class InFieldUserInput:
 
 
 class InFieldSetup:
-    def __init__(self, client: ToolkitClient, lookup: InFieldLookup, skip_observations: bool = False) -> None:
+    """Handles the setup of InField data migration, including creating instance ID mappers and data mappers."""
+
+    def __init__(self, client: ToolkitClient, lookup: InFieldLookup) -> None:
         self.client = client
         self.lookup = lookup
-        self.skip_observations = skip_observations
 
-    def create_instance_id_mappers(self, migration_spaces: InfieldMigrationSpaces, passthrough: dict[str, str]) -> InstanceIdMapper:
+    def _create_instance_id_mappers(
+        self, migration_spaces: InfieldMigrationSpaces, passthrough: dict[str, str]
+    ) -> InstanceIdMapper:
         if not migration_spaces.is_location_split:
             return SpaceMappingInstanceIdMapper({migration_spaces.source: migration_spaces.target, **passthrough})
 
-        return  LocationSplitInstanceIdMapper(
+        return LocationSplitInstanceIdMapper(
             self.client,
             migration_spaces.source,
             passthrough_space_mapping=passthrough or None,
             target_spaces=self.lookup.target_spaces,
         )
 
-    def infield_mappings(self) -> list[ViewToViewMapping]:
+    def infield_mappings(self, skip_observations: bool = False) -> list[ViewToViewMapping]:
         mappings = create_infield_data_mappings()
-        if self.skip_observations:
+        if skip_observations:
             # Skip the default mapping to the FieldObservation view if users will be using custom observation views.
             # If this skip is not done, users will end up with observations both in the custom observation view and the default FieldObservation view,
             # which can lead to the wrong view being rendered for migrated observations in Infield since it relies on the instances/inspect endpoint.
@@ -253,7 +253,9 @@ class InFieldSetup:
 
         # If a custom observation view is configured for the target space (e.g. to support SAP writeback),
         # migrate Observations onto it instead of the default FieldObservation view.
-        custom_observation_views = {resolve_observation_view_id(self.lookup.cdm_configs, space) for space in self.lookup.target_spaces}
+        custom_observation_views = {
+            resolve_observation_view_id(self.lookup.cdm_configs, space) for space in self.lookup.target_spaces
+        }
         if len(custom_observation_views) > 1:
             raise ToolkitMigrationError(
                 "Location split targets disagree on the custom observation view. "
@@ -270,8 +272,11 @@ class InFieldSetup:
         return mappings
 
     @classmethod
-    def get_infield_data_selectors(cls, migration_spaces: InfieldMigrationSpaces, infield_mappings: list[ViewToViewMapping]) -> list[InstanceSelector]:
-        selectors: list[InstanceViewSelector | InstanceQuerySelector] = []
+    def get_infield_data_selectors(
+        cls, migration_spaces: InfieldMigrationSpaces, infield_mappings: list[ViewToViewMapping]
+    ) -> list[InstanceSelector]:
+        """Creates instance selectors for InField data migration based on the provided mappings and migration spaces."""
+        selectors: list[InstanceSelector] = []
         for mapping in infield_mappings:
             if mapping.source_view.external_id == "Schedule":
                 # Special case for schedules, see create_infield_schedule_query for docs on why.
@@ -293,8 +298,11 @@ class InFieldSetup:
             )
         return selectors
 
-    def get_infield_data_mapper(self, migration_spaces: InfieldMigrationSpaces, infield_mappings: list[ViewToViewMapping], instance_id_mapper: InstanceIdMapper) -> FDMtoCDMMapper:
-        location_split_id_mapper = instance_id_mapper if isinstance(instance_id_mapper, LocationSplitInstanceIdMapper) else None
+    def get_infield_data_mapper(
+        self, migration_spaces: InfieldMigrationSpaces, infield_mappings: list[ViewToViewMapping]
+    ) -> FDMtoCDMMapper:
+        """Creates a data mapper for InField data migration based on the provided mappings and migration spaces."""
+        instance_id_mapper = self._create_instance_id_mappers(migration_spaces, passthrough={})
         connection_creator = ConnectionCreator(
             self.client,
             instance_id_mapper=instance_id_mapper,
@@ -306,10 +314,14 @@ class InFieldSetup:
             InFieldUserMapping(),
             InFieldObservationSapStatusMapping(),
         ]
-        schedule_mapper = InFieldLegacyToCDMScheduleMapper(
-            self.client, connection_creator, schedule_mapping, location_split_id_mapper
+        location_split_id_mapper = (
+            instance_id_mapper if isinstance(instance_id_mapper, LocationSplitInstanceIdMapper) else None
         )
-        custom_instance_mappings = {schedule_mapper.SCHEDULE_VIEW: schedule_mapper}
+        schedule_mapper = self._create_schedule_mapper(connection_creator, infield_mappings, location_split_id_mapper)
+
+        custom_instance_mappings: dict[ViewId, DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdgeRequest]] = {
+            schedule_mapper.SCHEDULE_VIEW: schedule_mapper
+        }
 
         if not migration_spaces.is_location_split:
             return FDMtoCDMMapper(
@@ -319,11 +331,14 @@ class InFieldSetup:
                 custom_properties_mappings=custom_properties_mappings,
                 custom_instance_mappings=custom_instance_mappings,
             )
-        if not location_split_id_mapper:
-            raise RuntimeError("Toolkit bug: LocationSplitInstanceIdMapper should be used for location split migrations.")
 
-        custom_instance_mappings[COGNITE_SOLUTION_TAG_VIEW_ID] = LocationSplitSolutionTagMapper(
-            self.client, connection_creator, solution_tag_mapping, self.lookup.target_spaces
+        if not location_split_id_mapper:
+            raise RuntimeError(
+                "Toolkit bug: LocationSplitInstanceIdMapper should be used for location split migrations."
+            )
+
+        custom_instance_mappings[COGNITE_SOLUTION_TAG_VIEW_ID] = self._create_solution_tag_mapper(
+            connection_creator, infield_mappings
         )
 
         return LocationSplitFDMtoCDMMapper(
@@ -336,30 +351,29 @@ class InFieldSetup:
             custom_instance_mappings=custom_instance_mappings,
         )
 
-
-
-
-
-def _print_location_split_plan(
-    client: ToolkitClient,
-    *,
-    source_space: str,
-    target_by_root_asset: Mapping[str, str],
-    label: str,
-) -> None:
-    """Show the resolved root-location -> target-space plan."""
-    if not target_by_root_asset:
-        return
-    table = ToolkitTable("Root location", "Target instance space")
-    for root_asset, target_space in sorted(target_by_root_asset.items()):
-        table.add_row(root_asset, target_space)
-    client.console.print(
-        ToolkitPanel(
-            Group(
-                f"Legacy instance space [bold]{source_space!r}[/] is shared by these root locations. "
-                f"{label} will be split into the following target instance spaces:",
-                table.as_panel_detail(),
-            ),
-            title="Location split plan",
+    def _create_schedule_mapper(
+        self,
+        connection_creator: ConnectionCreator,
+        infield_mappings: list[ViewToViewMapping],
+        location_split_id_mapper: LocationSplitInstanceIdMapper | None,
+    ) -> InFieldLegacyToCDMScheduleMapper:
+        schedule_mapping = next((m for m in infield_mappings if m.source_view.external_id == "Schedule"), None)
+        if schedule_mapping is None:
+            raise RuntimeError("Toolkit bug: Schedule mapping should always be present in InField data mappings.")
+        schedule_mapper = InFieldLegacyToCDMScheduleMapper(
+            self.client, connection_creator, schedule_mapping, location_split_id_mapper
         )
-    )
+        return schedule_mapper
+
+    def _create_solution_tag_mapper(
+        self, connection_creator: ConnectionCreator, infield_mappings: list[ViewToViewMapping]
+    ) -> LocationSplitSolutionTagMapper:
+        solution_tag_mapping = next(
+            (m for m in infield_mappings if m.source_view == COGNITE_SOLUTION_TAG_VIEW_ID), None
+        )
+        if solution_tag_mapping is None:
+            raise RuntimeError("Toolkit bug: SolutionTag mapping should always be present in InField data mappings.")
+        solution_tag_mapper = LocationSplitSolutionTagMapper(
+            self.client, connection_creator, solution_tag_mapping, self.lookup.target_spaces
+        )
+        return solution_tag_mapper
