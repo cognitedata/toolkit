@@ -1,9 +1,6 @@
 import collections.abc
 from collections.abc import Hashable, Iterable, Sequence
-from pathlib import Path
 from typing import Any, Literal, final
-
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -286,8 +283,8 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
     yaml_cls = SequenceRowYAML
     support_update = False
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None):
-        super().__init__(client, build_dir, console)
+    def __init__(self, client: ToolkitClient):
+        super().__init__(client)
         # Used in the .diff_list method to keep track of the last column in the local list
         # such that the values in the rows can be matched to the correct column.
         self._last_column: tuple[dict[int, int], list[int]] = {}, []

@@ -16,12 +16,10 @@
 import itertools
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
-from pathlib import Path
 from typing import Any, Literal, final
 
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -59,8 +57,8 @@ class RawDatabaseCRUD(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAW
     support_update = False
     _doc_url = "Raw/operation/createDBs"
 
-    def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None):
-        super().__init__(client, build_dir, console)
+    def __init__(self, client: ToolkitClient):
+        super().__init__(client)
         self._loaded_db_names: set[str] = set()
 
     @property
@@ -164,8 +162,8 @@ class RawTableCRUD(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableResp
     _doc_url = "Raw/operation/createTables"
     parent_resource = frozenset({RawDatabaseCRUD})
 
-    def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None):
-        super().__init__(client, build_dir, console)
+    def __init__(self, client: ToolkitClient):
+        super().__init__(client)
         self._printed_warning = False
 
     @property

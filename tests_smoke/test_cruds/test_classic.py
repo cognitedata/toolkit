@@ -35,7 +35,7 @@ class TestSequenceRowCRUD:
             columns=[large_sequence.columns[0].external_id],
             rows=[SequenceRow(row_number=no, values=[1000.0 + no]) for no in range(count)],
         )
-        io = SequenceRowIO(toolkit_client, None, None)
+        io = SequenceRowIO(toolkit_client)
 
         try:
             io.create([many_rows])

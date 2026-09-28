@@ -235,20 +235,20 @@ been appended to the client.
 
 ```python
 def test_pull_transformation(
-    monkeypatch: MonkeyPatch,
-    cognite_client_approval: ApprovalCogniteClient,
-    cdf_tool_config: CDFToolConfig,
-    typer_context: typer.Context,
-    init_project: Path,
+        monkeypatch: MonkeyPatch,
+        cognite_client_approval: ApprovalCogniteClient,
+        cdf_tool_config: CDFToolConfig,
+        typer_context: typer.Context,
+        init_project: Path,
 ) -> None:
-    loader = TransformationLoader.create_loader(cdf_tool_config.toolkit_client)
+    loader = TransformationLoader.create_io(cdf_tool_config.toolkit_client)
 
     loaded = load_transformation()
 
     # Simulate a change in the transformation in CDF.
     loaded.name = "New transformation name"
     read_transformation = Transformation.load(loaded.dump())
-    
+
     # Here we append the transformation to the ApprovalCogniteClient which 
     # simulates that the transformation exists in CDF.
     cognite_client_approval.append(Transformation, read_transformation)

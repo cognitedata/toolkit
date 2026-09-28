@@ -40,7 +40,7 @@ class TestTimeSeriesLoader:
             [{"timestamp": 0, timeseries.external_id: 0}, {"timestamp": 1, timeseries.external_id: 1}]
         ).set_index("timestamp")
         datapoints.index = pd.to_datetime(datapoints.index, unit="s")
-        loader = TimeSeriesCRUD(toolkit_client, None)
+        loader = TimeSeriesCRUD(toolkit_client)
         ts_ids = [timeseries.as_id()]
 
         try:
@@ -102,7 +102,7 @@ class TestContainerLoader:
         )
         container_id = [ContainerId(space=node_container.space, external_id=node_container.external_id)]
 
-        loader = ContainerCRUD(toolkit_client, None)
+        loader = ContainerCRUD(toolkit_client)
 
         try:
             assert loader.count(container_id) == 0
@@ -157,7 +157,7 @@ class TestContainerLoader:
         )
         container_id = [ContainerId(space=edge_container.space, external_id=edge_container.external_id)]
 
-        loader = ContainerCRUD(toolkit_client, None)
+        loader = ContainerCRUD(toolkit_client)
 
         try:
             assert loader.count(container_id) == 0
@@ -192,7 +192,7 @@ class Test3DModelLoader:
             },
         )
 
-        loader = ThreeDModelCRUD(toolkit_client, None)
+        loader = ThreeDModelCRUD(toolkit_client)
 
         created: list[ThreeDModelClassicResponse] | None = None
         try:
@@ -229,7 +229,7 @@ class TestRawTableCRUD:
             # Assume it is existing
             ...
 
-        raw_table_io = RawTableCRUD(client, None, None)
+        raw_table_io = RawTableCRUD(client)
 
         raw_table_io.drop_data([table_existing.as_id(), non_existing])
 

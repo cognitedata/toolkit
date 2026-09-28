@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 )
 
 
-def to_deploy_status(definition_yaml: str | MagicMock, loader: ResourceIO) -> dict[str, int]:
+def to_deploy_status(definition_yaml: str | Path | MagicMock, loader: ResourceIO) -> dict[str, int]:
     """This is a helper function to test that a YAML definiition of a resource is
     correctly categorized into create, change, delete, or unchanged."""
     if isinstance(definition_yaml, str):

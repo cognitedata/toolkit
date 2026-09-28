@@ -11,7 +11,6 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -81,18 +80,14 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
     def __init__(
         self,
         client: ToolkitClient,
-        build_path: Path | None,
-        console: Console | None,
         file_upload_timeout_seconds: float = CDF_TOML.cdf.file_upload_timeout_seconds,
-        use_fileio: bool = True,
     ):
-        super().__init__(client, build_path, console)
+        super().__init__(client)
         self.data_set_id_by_external_id: dict[str, int] = {}
         self.space_by_external_id: dict[str, str] = {}
         self.function_dir_by_external_id: dict[str, Path] = {}
         self._code_bundle = FunctionCodeBundle(client)
         self._file_upload_timeout_seconds = file_upload_timeout_seconds
-        self.use_filio = use_fileio
 
     @property
     def filemetadata_path_by_external_id(self) -> dict[str, Path]:
@@ -160,32 +155,13 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         if filestem.lower().endswith(self.kind.lower()):
             filestem = filestem[: -len(self.kind)].rstrip(".")
 
-        if self.use_filio:
-            for item in raw_list:
-                if "metadata" not in item:
-                    item["metadata"] = {}
-                if "secrets" in item:
-                    item["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(item["secrets"])
-                external_id = self.get_id(item).external_id
-                self._code_bundle.map_sidecar_paths(filepath, filestem, [external_id])
-        else:
-            if filepath.parent.name != self.folder_name:
-                # Functions configs needs to be in the root function folder.
-                # This is to allow arbitrary YAML files inside the function code folder.
-                return []
-            if self.resource_build_path is None:
-                raise ValueError("build_path must be set to compare functions as function code must be compared.")
-            for item in raw_list:
-                item_id = self.get_id(item)
-                external_id = item_id.external_id
-                function_rootdir = Path(self.resource_build_path / external_id)
-                self.function_dir_by_external_id[external_id] = function_rootdir
-                if "metadata" not in item:
-                    item["metadata"] = {}
-                value = self._create_hash_values(function_rootdir)
-                item["metadata"][self._MetadataKey.function_hash] = value
-                if "secrets" in item:
-                    item["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(item["secrets"])
+        for item in raw_list:
+            if "metadata" not in item:
+                item["metadata"] = {}
+            if "secrets" in item:
+                item["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(item["secrets"])
+            external_id = self.get_id(item).external_id
+            self._code_bundle.map_sidecar_paths(filepath, filestem, [external_id])
         return raw_list
 
     @classmethod
@@ -344,38 +320,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
     def create(self, items: Sequence[FunctionRequest]) -> list[FunctionResponse]:
         if not self._is_activated("create"):
             return []
-        if self.use_filio:
-            return self._create_with_fileio(items)
-        else:
-            return self._legacy_create(items)
-
-    def _legacy_create(self, items: Sequence[FunctionRequest]) -> list[FunctionResponse]:
-        if self.resource_build_path is None:
-            raise ValueError("build_path must be set to compare functions as function code must be compared.")
-        created: list[FunctionResponse] = []
-        for item in items:
-            external_id = item.external_id or item.name
-            file_id = self._upload_function_code(external_id, item)
-            failed_upload, elapsed_time = self.client.tool.filemetadata.await_file_uploaded(
-                [file_id], timeout_seconds=self._file_upload_timeout_seconds
-            )
-            if file_id in failed_upload:
-                raise ResourceCreationError(
-                    f"Failed to create function {external_id}. CDF API timed out after {elapsed_time:.0f} "
-                    "seconds while waiting for the function code to be uploaded. Wait and try again.\nIf the"
-                    " problem persists, please contact Cognite support."
-                    "You can increase the timeout by setting the 'file_upload_timeout_seconds' parameter in "
-                    f"the CDF TOML configuration file. Current value: {self._file_upload_timeout_seconds} seconds."
-                )
-
-            # Create a copy with the file_id set
-            item_to_create = FunctionRequest.model_validate({**item.dump(), "fileId": file_id.id})
-            result = self.client.tool.functions.create([item_to_create])
-            if result:
-                created_item = result[0]
-                self._warn_if_cpu_or_memory_changed(created_item, item)
-                created.append(created_item)
-        return created
+        return self._create_with_fileio(items)
 
     def _create_with_fileio(self, items: Sequence[FunctionRequest]) -> list[FunctionResponse]:
         cognite_files, filemetadata_files = self._as_file_by_external_id(items)
@@ -542,8 +487,8 @@ class FunctionScheduleIO(
     _hash_key = "cdf-auth"
     _description_character_limit = 500
 
-    def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
-        super().__init__(client, build_path, console)
+    def __init__(self, client: ToolkitClient):
+        super().__init__(client)
         self.authentication_by_id: dict[FunctionScheduleId, ClientCredentials] = {}
 
     @property
@@ -641,7 +586,7 @@ class FunctionScheduleIO(
         for id_ in ids:
             names_by_function[id_.function_external_id].add(id_.name)
         function_external_ids = [ExternalId(external_id=ext_id) for ext_id in names_by_function]
-        functions = FunctionIO(self.client, None, None).retrieve(function_external_ids)
+        functions = FunctionIO(self.client).retrieve(function_external_ids)
         schedules: list[FunctionScheduleResponse] = []
         for func in functions:
             func_external_id = cast(str, func.external_id)

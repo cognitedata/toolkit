@@ -7,7 +7,6 @@ from typing import Any, Literal, cast, final
 from cognite.client._version import __version__ as CogniteSDKVersion
 from packaging.requirements import Requirement
 from pydantic import ValidationError
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -59,17 +58,10 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
 
     extra_kinds = frozenset({FileMetadataCRUD.kind})
 
-    def __init__(
-        self,
-        client: ToolkitClient,
-        build_dir: Path | None,
-        console: Console | None = None,
-        use_fileio: bool = True,
-    ):
-        super().__init__(client, build_dir, console)
+    def __init__(self, client: ToolkitClient):
+        super().__init__(client)
         self._source_file_by_external_id: dict[str, Path] = {}
         self.filemetadata_by_external_id: dict[str, Path] = {}
-        self.use_fileio = use_fileio
 
     @property
     def display_name(self) -> str:
@@ -197,13 +189,9 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
         for item in raw_list:
             external_id = self.get_id(item).external_id
-            if self.use_fileio:
-                if (filemeta := filepath.parent / f"{filestem}.{FileMetadataCRUD.kind}.yaml").is_file():
-                    self.filemetadata_by_external_id[external_id] = filemeta
-            else:
-                self._source_file_by_external_id[external_id] = filepath
-                content = self._as_json_string(filepath.with_name(external_id), item["entrypoint"])
-                item[self._metadata_hash_key] = calculate_hash(content, shorten=True)
+            if (filemeta := filepath.parent / f"{filestem}.{FileMetadataCRUD.kind}.yaml").is_file():
+                self.filemetadata_by_external_id[external_id] = filemeta
+
         return raw_list
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> StreamlitRequest:
@@ -265,26 +253,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         result.get_success_or_raise(request)
 
     def create(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        if self.use_fileio:
-            return self._create_with_fileio(items)
-        else:
-            return self._create_legacy(items)
-
-    def _create_legacy(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        created: list[StreamlitResponse] = []
-        for item in items:
-            source_file = self._source_file_by_external_id[item.external_id]
-            content = self._as_json_string(source_file.with_name(item.external_id), item.entrypoint)
-            responses = self.client.tool.streamlit.create([item])
-            for response in responses:
-                if not response.upload_url:
-                    raise ToolkitRequiredValueError("Create response missing upload_url.")
-                self._upload_content(response.upload_url, content)
-                created.append(response)
-        return created
-
-    def _create_with_fileio(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        fileio = FileMetadataCRUD(self.client, None, None)
+        fileio = FileMetadataCRUD(self.client)
         try:
             filepaths = [self.filemetadata_by_external_id[item.external_id] for item in items]
         except KeyError as e:
@@ -299,26 +268,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         return self.client.tool.streamlit.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        if self.use_fileio:
-            return self._update_with_fileio(items)
-        else:
-            return self._update_legacy(items)
-
-    def _update_legacy(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        updated: list[StreamlitResponse] = []
-        for item in items:
-            source_file = self._source_file_by_external_id[item.external_id]
-            content = self._as_json_string(source_file.with_name(item.external_id), item.entrypoint)
-            responses = self.client.tool.streamlit.create([item], overwrite=True)
-            for response in responses:
-                if not response.upload_url:
-                    raise ToolkitRequiredValueError("Create response missing upload_url for content upload.")
-                self._upload_content(response.upload_url, content)
-                updated.append(response)
-        return updated
-
-    def _update_with_fileio(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        fileio = FileMetadataCRUD(self.client, None, None)
+        fileio = FileMetadataCRUD(self.client)
         try:
             filepaths = [self.filemetadata_by_external_id[item.external_id] for item in items]
         except KeyError as e:

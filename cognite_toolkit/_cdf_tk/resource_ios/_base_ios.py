@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import (
@@ -14,11 +13,9 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     T_RequestResource,
     T_ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
-from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
@@ -31,105 +28,6 @@ else:
     from typing_extensions import Self
 
 
-class Loader(ABC):
-    """This is the base class for all loaders
-
-    Args:
-        client (ToolkitClient): The client to use for interacting with the CDF API.
-        build_dir (Path): The path to the build directory
-
-    Class attributes:
-        folder_name: The name of the folder in the build directory where the files are located. This should be set in all subclasses.
-        kind: The stem of the resource type
-        dependencies: A set of loaders that must be loaded before this loader.
-        sub_folder_name: The name of the default subfolder name in the resource directory. This is used, for example,
-            when dumping data models to put containers and views into sub directories.
-        extra_kinds: These are kinds of extras. For example, in the functions folders, CogniteFile and FileMetadata is allowed
-            as these contain function code.
-    """
-
-    folder_name: str
-    kind: str
-    dependencies: "frozenset[type[ResourceIO]]" = frozenset()
-    _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
-    _doc_url: str = ""
-    sub_folder_name: str | None = None
-    extra_kinds: frozenset[str] = frozenset()
-
-    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None) -> None:
-        self.client = client
-        self.resource_build_path: Path | None = None
-        if build_dir is not None and build_dir.name == self.folder_name:
-            raise ValueError(f"Build directory cannot be the same as the resource folder name: {self.folder_name}")
-        elif build_dir is not None:
-            self.resource_build_path = build_dir / self.folder_name
-        self.console = console or client.console
-
-    @classmethod
-    def as_resource_type(cls) -> "ResourceType":
-        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ResourceType
-
-        return ResourceType(kind=cls.kind, resource_folder=cls.folder_name)
-
-    @classmethod
-    def create_loader(
-        cls,
-        client: ToolkitClient,
-        build_dir: Path | None = None,
-        console: Console | None = None,
-    ) -> Self:
-        return cls(client, build_dir, console)
-
-    @property
-    def display_name(self) -> str:
-        return self.folder_name
-
-    @classmethod
-    def doc_url(cls) -> str:
-        return cls._doc_base_url + cls._doc_url
-
-    def find_files(self, dir_or_file: Path | None = None) -> list[Path]:
-        """Find all files that are supported by this loader in the given directory or file.
-
-        Args:
-            dir_or_file (Path): The directory or file to search in. If no path is given,
-                the build directory is used.
-
-        Returns:
-            list[Path]: A sorted list of all files that are supported by this loader.
-
-        """
-        dir_or_file = dir_or_file or self.resource_build_path
-        if dir_or_file is None:
-            raise ValueError("No 'dir_or_file' or 'build_path' is set.")
-        if dir_or_file.is_file():
-            if not self.is_supported_file(dir_or_file):
-                raise ValueError("Invalid file type")
-            return [dir_or_file]
-        elif dir_or_file.is_dir():
-            return sorted([file for file in dir_or_file.rglob("*") if self.is_supported_file(file)])
-        else:
-            return []
-
-    @classmethod
-    def any_supported_files(cls, directory: Path) -> bool:
-        return any(cls.is_supported_file(file) for file in directory.glob("**/*"))
-
-    @classmethod
-    def is_supported_file(cls, file: Path) -> bool:
-        """Check if hte file is supported by this loader.
-
-        Args:
-            file: The filepath to check.
-
-        Returns:
-            bool: True if the file is supported, False otherwise.
-
-        """
-        return file.suffix in YAML_SUFFIX and file.stem.casefold().endswith(cls.kind.casefold())
-
-
-T_Loader = TypeVar("T_Loader", bound=Loader)
 T_YamlResource = TypeVar("T_YamlResource")
 
 
@@ -165,14 +63,10 @@ class SuccessExtra(ReadExtra):
     )
 
 
-class ResourceIO(
-    Loader,
-    ABC,
-    Generic[T_Identifier, T_RequestResource, T_ResponseResource, T_YamlResource],
-):
-    """This is the base class for all resource CRUD.
+class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResource, T_YamlResource]):
+    """This is the base class for all resources input/output to CDF and file.
 
-    A resource loader consists of the following
+    A resource IO consists of the following
         - A CRUD (Create, Retrieve, Update, Delete) interface for interacting with the CDF API.
         - Serialization/Deserialization of the resources between YAML and the cognite-sdk data classes used in the
           CRUD interface.
@@ -183,6 +77,12 @@ class ResourceIO(
         resource_write_cls: The API write data class for the resource.
         resource_cls: The API read data class for the resource.
         yaml_cls: The File format for this resource. This is used to validate the user input.
+        folder_name: The name of the folder in the build directory where the files are located. This should be set in all subclasses.
+        kind: The stem of the resource type
+        sub_folder_name: The name of the default subfolder name in the resource directory. This is used, for example,
+            when dumping data models to put containers and views into subdirectories.
+        extra_kinds: These are kinds of extras. For example, in the functions folders, CogniteFile and FileMetadata is allowed
+            as these contain function code.
         support_drop: Whether the resource supports the drop flag.
         support_update: Whether the resource supports the update operation.
         dependencies: A set of other resource resource_ios that must be loaded before this crud.
@@ -194,7 +94,14 @@ class ResourceIO(
     resource_write_cls: type[T_RequestResource]
     resource_cls: type[T_ResponseResource]
     yaml_cls: type[ToolkitResource]
+    folder_name: str
+    kind: str
+
     # Optional to set in the subclass
+    _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
+    _doc_url: str = ""
+    sub_folder_name: str | None = None
+    extra_kinds: frozenset[str] = frozenset()
     support_drop = True
     support_update = True
     drop_confirmation_message: ClassVar[str | None] = None
@@ -208,6 +115,10 @@ class ResourceIO(
     # supports having the query in a separate .sql file. This is the property were the extra content should be placed,
     # for example, the Transformation resource has the query property that is used to store the query content.
     extra_content_property: str | None = None
+
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+        self.console = client.console
 
     # The methods that must be implemented in the subclass
     @classmethod
@@ -305,47 +216,6 @@ class ResourceIO(
         raise NotImplementedError(f"get_dependencies must be implemented for {cls.__name__}.")
 
     @classmethod
-    def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
-        """Check the item for any issues.
-
-        This is intended to be overwritten in subclasses that require special checking of the item.
-
-        Example, it is used in the WorkflowVersionLoader to check that all tasks dependsOn tasks that are in the same
-        workflow.
-
-        Args:
-            item (dict): The item to check.
-            filepath (Path): The path to the file where the item is located.
-            element_no (int): The element number in the file. This is used to provide better error messages.
-                None if the item is an object and not a list.
-
-        Returns:
-            list[ToolkitWarning]: A list of warnings.
-        """
-        return []
-
-    @classmethod
-    def get_internal_id(cls, item: T_ResponseResource | dict) -> int:
-        raise NotImplementedError(f"{cls.__name__} does not have an internal id.")
-
-    @classmethod
-    def _split_ids(cls, ids: T_Identifier | int | Sequence[T_Identifier | int] | None) -> tuple[list[int], list[str]]:
-        # Used by subclasses to split the ids into external and internal ids
-        if ids is None:
-            return [], []
-        if isinstance(ids, int):
-            return [ids], []
-        if isinstance(ids, str):
-            return [], [ids]
-        if isinstance(ids, ExternalId):
-            return [], [ids.external_id]
-        if isinstance(ids, Sequence):
-            return [id for id in ids if isinstance(id, int)], [
-                id if isinstance(id, str) else id.external_id for id in ids if isinstance(id, str | ExternalId)
-            ]
-        raise ValueError(f"Invalid ids: {ids}")
-
-    @classmethod
     def safe_read(cls, filepath: Path | str) -> str:
         """Reads the file and returns the content. This is intended to be overwritten in subclasses that require special
         handling of the files content. For example, Data Models need to quote the value on the version key to ensure
@@ -437,6 +307,60 @@ class ResourceIO(
         yield
 
     # Helper methods
+    @classmethod
+    def as_resource_type(cls) -> "ResourceType":
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ResourceType
+
+        return ResourceType(kind=cls.kind, resource_folder=cls.folder_name)
+
+    @classmethod
+    def create_io(cls, client: ToolkitClient) -> Self:
+        return cls(client)
+
+    @property
+    def display_name(self) -> str:
+        return self.folder_name
+
+    @classmethod
+    def doc_url(cls) -> str:
+        return cls._doc_base_url + cls._doc_url
+
+    def find_files(self, dir_or_file: Path) -> list[Path]:
+        """Find all files that are supported by this loader in the given directory or file.
+
+        Args:
+            dir_or_file (Path): The directory or file to search in. If no path is given,
+                the build directory is used.
+
+        Returns:
+            list[Path]: A sorted list of all files that are supported by this loader.
+
+        """
+        dir_or_file = dir_or_file
+        if dir_or_file is None:
+            raise ValueError("No 'dir_or_file' or 'build_path' is set.")
+        if dir_or_file.is_file():
+            if not self.is_supported_file(dir_or_file):
+                raise ValueError("Invalid file type")
+            return [dir_or_file]
+        elif dir_or_file.is_dir():
+            return sorted([file for file in dir_or_file.rglob("*") if self.is_supported_file(file)])
+        else:
+            return []
+
+    @classmethod
+    def is_supported_file(cls, file: Path) -> bool:
+        """Check if hte file is supported by this loader.
+
+        Args:
+            file: The filepath to check.
+
+        Returns:
+            bool: True if the file is supported, False otherwise.
+
+        """
+        return file.suffix in YAML_SUFFIX and file.stem.casefold().endswith(cls.kind.casefold())
+
     @classmethod
     def get_ids(cls, items: Sequence[T_RequestResource | T_ResponseResource | dict]) -> list[T_Identifier]:
         return [cls.get_id(item) for item in items]

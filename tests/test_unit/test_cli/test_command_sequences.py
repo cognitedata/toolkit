@@ -25,10 +25,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParse
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_ios import (
-    RESOURCE_CRUD_BY_FOLDER_NAME,
-    Loader,
-)
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_BY_FOLDER_NAME, ResourceIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from tests.data import BUILDABLE_PACKAGE, COMPLETE_ORG, COMPLETE_ORG_ALPHA_FLAGS
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -272,7 +269,7 @@ def test_complete_org_is_complete() -> None:
         config_yaml=COMPLETE_ORG / "config.dev.yaml",
         user_selected_modules=[f"{MODULES}/"],
     )
-    used_loader_by_folder_name: dict[str, set[type[Loader]]] = defaultdict(set)
+    used_loader_by_folder_name: dict[str, set[type[ResourceIO]]] = defaultdict(set)
 
     for module in module_scan.modules:
         for resource_folder, files in module.resource_files_by_folder.items():

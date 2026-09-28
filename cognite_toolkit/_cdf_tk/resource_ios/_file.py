@@ -16,8 +16,6 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Literal, final
 
-from rich.console import Console
-
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import (
@@ -91,11 +89,9 @@ class FileMetadataCRUD(ResourceContainerIO[ExternalId, FileMetadataRequest, File
     def __init__(
         self,
         client: ToolkitClient,
-        build_dir: Path | None,
-        console: Console | None = None,
         support_upload: bool = True,
     ) -> None:
-        super().__init__(client, build_dir, console)
+        super().__init__(client)
         self._filepath_by_external_id: dict[str, Path] = {}
         self.support_upload = support_upload
 
@@ -361,11 +357,9 @@ class CogniteFileCRUD(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFil
     def __init__(
         self,
         client: ToolkitClient,
-        build_dir: Path | None,
-        console: Console | None = None,
         support_upload: bool = True,
     ) -> None:
-        super().__init__(client, build_dir, console)
+        super().__init__(client)
         self._filepath_by_node_id: dict[NodeId, Path] = {}
         self.support_upload = support_upload
 

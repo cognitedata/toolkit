@@ -1,8 +1,5 @@
 from collections.abc import Hashable, Iterable, Sequence, Sized
-from pathlib import Path
 from typing import Any, Literal, final
-
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -181,11 +178,9 @@ class SimulatorModelRevisionIO(
     def __init__(
         self,
         client: ToolkitClient,
-        build_path: Path | None,
-        console: Console | None,
         file_upload_timeout_seconds: float = CDF_TOML.cdf.file_upload_timeout_seconds,
     ):
-        super().__init__(client, build_path, console)
+        super().__init__(client)
         self._file_upload_timeout_seconds = file_upload_timeout_seconds
 
     @property

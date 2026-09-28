@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Any, Literal, final
 
 from cognite.client.data_classes import ClientCredentials
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -524,8 +523,8 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
     class _MetadataKey:
         secret_hash = "cognite-toolkit-auth-hash"
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
-        super().__init__(client, build_dir, console)
+    def __init__(self, client: ToolkitClient):
+        super().__init__(client)
         self._authentication_by_id: dict[str, ClientCredentials] = {}
 
     @property

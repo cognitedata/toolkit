@@ -110,7 +110,7 @@ class TestSkillIO:
         assert extras[0].source_path == specific_sidecar
 
     def test_split_resource_emits_sidecar_when_missing(self, tmp_path: Path) -> None:
-        skill_io = SkillIO(ToolkitClientMock(), None)
+        skill_io = SkillIO(ToolkitClientMock())
         base_yaml = tmp_path / "my.Skill.yaml"
         split = list(
             skill_io.split_resource(
@@ -128,7 +128,7 @@ class TestSkillIO:
         assert split[1] == (base_yaml, {"externalId": "my_other_skill"})
 
     def test_split_resource_normalizes_legacy_sibling_sidecar_path(self, tmp_path: Path) -> None:
-        skill_io = SkillIO(ToolkitClientMock(), None)
+        skill_io = SkillIO(ToolkitClientMock())
         base_yaml = tmp_path / "my.Skill.yaml"
         existing = base_yaml.with_suffix(".md")
         existing.write_text(_SKILL_CONTENT, encoding="utf-8")
@@ -148,7 +148,7 @@ class TestSkillIO:
         assert split[1] == (base_yaml, {"externalId": "my_other_skill"})
 
     def test_split_resource_uses_deterministic_explicit_sidecar_path(self, tmp_path: Path) -> None:
-        skill_io = SkillIO(ToolkitClientMock(), None)
+        skill_io = SkillIO(ToolkitClientMock())
         base_yaml = tmp_path / "my.Skill.yaml"
         legacy_sibling = base_yaml.with_suffix(".md")
         legacy_sibling.write_text(_SKILL_CONTENT, encoding="utf-8")
@@ -166,7 +166,7 @@ class TestSkillIO:
         assert split[0][0] == tmp_path / "my_other_skill.Skill.md"
 
     def test_dump_resource_returns_full_request_equivalent_data(self) -> None:
-        skill_io = SkillIO(ToolkitClientMock(), None)
+        skill_io = SkillIO(ToolkitClientMock())
         response = SkillResponse(
             external_id="my_skill",
             name="test-skill",

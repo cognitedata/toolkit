@@ -83,7 +83,7 @@ class FileContentIO(UploadableDataIO[FileContentSelector, MetadataWithFilePath, 
 
     def __init__(self, client: ToolkitClient, target_dir: Path = Path.cwd()) -> None:
         super().__init__(client)
-        self._crud = FileMetadataCRUD(client, None, None)
+        self._crud = FileMetadataCRUD(client)
         self._target_dir = target_dir
 
     def stream_data(

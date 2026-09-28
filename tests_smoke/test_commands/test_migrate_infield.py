@@ -186,9 +186,7 @@ def infield_legacy(
         source = instance.sources[0]
         if isinstance(source.source, ViewId):
             to_create_by_view_id[source.source].append(instance)
-    sorted_views, _ = ViewIO(toolkit_client, None, None).topological_sort_container_constraints(
-        list(to_create_by_view_id.keys())
-    )
+    sorted_views, _ = ViewIO(toolkit_client).topological_sort_container_constraints(list(to_create_by_view_id.keys()))
 
     # Ensure clean state
     # Cleanup
