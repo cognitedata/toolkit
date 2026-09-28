@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import (
     ENTITY_BY_SOURCE_VIEW_EXTERNAL_ID,
     SOURCE_DATA_TYPE_BY_VIEW_EXTERNAL_ID,
     create_apm_source_data_mappings,
+    get_first_instance_space,
     resolve_apm_source_data_instance_spaces,
     resolve_source_data_view_ids,
 )
@@ -235,11 +236,19 @@ class InFieldUserInput:
 
     @property
     def _target_candidates(self) -> set[str]:
-        return {
-            config.data_storage.app_instance_space
-            for config in self.lookup.cdm_configs
-            if config.data_storage and config.data_storage.app_instance_space
-        }
+        if self.operation == "Infield data":
+            return {
+                config.data_storage.app_instance_space
+                for config in self.lookup.cdm_configs
+                if config.data_storage and config.data_storage.app_instance_space
+            }
+        else:
+            return {
+                space
+                for config in self.lookup.cdm_configs
+                for type_key in SOURCE_DATA_TYPE_BY_VIEW_EXTERNAL_ID.values()
+                if (space := get_first_instance_space(config.data_filters, type_key)) is not None
+            }
 
     def _get_space_stats(self, spaces: set[str]) -> dict[str, SpaceStatistics]:
         return {stat.space: stat for stat in self.client.data_modeling.statistics.spaces.retrieve(list(spaces))}
