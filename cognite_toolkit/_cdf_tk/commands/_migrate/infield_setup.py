@@ -495,9 +495,7 @@ class InFieldSetup:
         source_views: dict[str, ViewId],
     ) -> FDMtoCDMMapper:
         """Creates a data mapper for APM_SourceData migration based on the provided mappings and migration spaces."""
-        instance_id_mapper = self._create_instance_id_mappers(
-            migration_spaces, passthrough={"cognite_app_data": "cognite_app_data"}
-        )
+        instance_id_mapper = self._create_instance_id_mappers(migration_spaces, passthrough={})
         apm_asset_properties = {"assetExternalId", "assetExternalIds"}
         custom_mappings: list[CustomConnectionMapping] = [
             InFieldAssetMapping(

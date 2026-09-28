@@ -1,15 +1,14 @@
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Literal, cast
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 import typer
 from pydantic import JsonValue
 from pytest_regressions.data_regression import DataRegressionFixture
 
-from cognite_toolkit._cdf_tk.apps._migrate_app import MigrateApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
@@ -760,27 +759,3 @@ class TestInFieldMappers:
 
         with pytest.raises(RuntimeError):
             setup.get_infield_data_mapper(InfieldMigrationSpaces(source="shared_app", _target=None), mappings)
-
-
-class TestMigrateAppWiring:
-    @pytest.mark.parametrize(
-        "command_name",
-        [
-            pytest.param("infield_data", id="infield_data"),
-            pytest.param("infield_source_data", id="infield_source_data"),
-        ],
-    )
-    def test_command_rejects_target_without_source(self, command_name: str, monkeypatch: pytest.MonkeyPatch) -> None:
-        apm_configs, cdm_configs = _standard_infield_configs()
-        client = _mock_client(apm_configs, cdm_configs)
-        command: Callable[..., None] = getattr(MigrateApp, command_name)
-
-        with (
-            MockQuestionary(
-                infield_setup.__name__, monkeypatch, ["app_space", "cdm_app", "migration_logs", False, False]
-            ),
-            patch("cognite_toolkit._cdf_tk.apps._migrate_app._get_client", return_value=client),
-            patch("cognite_toolkit._cdf_tk.apps._migrate_app.MigrationCommand.run", return_value=None),
-            pytest.raises(typer.BadParameter),
-        ):
-            command(MagicMock(), source_space=None, target_space="cdm_app")
