@@ -38,7 +38,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.location_split import COGNITE_SOL
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceViewSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
 from tests.test_unit.utils import MockQuestionary
 
 Operation = Literal["Infield data", "APM_SourceData"]
@@ -125,12 +124,21 @@ def _observation_mappings(view: ViewId) -> dict[str, JsonValue]:
     return {"observation": [{"view": {"space": view.space, "externalId": view.external_id, "version": view.version}}]}
 
 
+class _RecordingConsole:
+    def __init__(self) -> None:
+        self.printed: list[tuple[object, ...]] = []
+
+    def print(self, *objects: object, **_kwargs: object) -> None:
+        self.printed.append(objects)
+
+
 def _mock_client(
     apm_configs: Sequence[APMConfigResponse],
     cdm_configs: Sequence[InFieldCDMLocationConfigResponse],
     existing_spaces: set[str] | None = None,
 ) -> ToolkitClient:
     client = MagicMock()
+    client.console = _RecordingConsole()
     client.infield.apm_config.list.return_value = list(apm_configs)
     client.infield.cdm_config.list.return_value = list(cdm_configs)
 
@@ -433,13 +441,7 @@ class TestInFieldSpaceSelection:
         ):
             user_input.prompt_migration_spaces()
 
-    def test_interactive_does_not_warn_about_partially_missing_spaces(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        printed: list[str] = []
-
-        def _spy(self: HighSeverityWarning, include_timestamp: bool = False, console: object = None) -> None:
-            printed.append(self.get_message())
-
-        monkeypatch.setattr(HighSeverityWarning, "print_warning", _spy)
+    def test_interactive_warns_about_partially_missing_spaces(self, monkeypatch: pytest.MonkeyPatch) -> None:
         client = _mock_client(
             [_apm(_root("loc1", "ASSET_1", "app_space"), _root("loc2", "ASSET_2", "other_space"))],
             [_cdm("loc", "cdm_app")],
@@ -448,23 +450,29 @@ class TestInFieldSpaceSelection:
         user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
         with MockQuestionary(infield_setup.__name__, monkeypatch, ["app_space", "cdm_app"]):
-            user_input.prompt_migration_spaces()
+            spaces = user_input.prompt_migration_spaces()
 
-        assert printed == []
+        console = cast(_RecordingConsole, client.console)
+        assert (spaces, console.printed) == (
+            InfieldMigrationSpaces(source="app_space", _target="cdm_app"),
+            [
+                (
+                    "[bold red]WARNING [HIGH]:[/]",
+                    "The following source spaces do not exist or cannot be accessed: other_space.",
+                )
+            ],
+        )
 
     def test_cancelled_target_prompt_is_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
         apm_configs, cdm_configs = _standard_infield_configs()
         client = _mock_client(apm_configs, cdm_configs)
         user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
-        setup = InFieldSetup(user_input.client, user_input.lookup)
 
         with (
             MockQuestionary(infield_setup.__name__, monkeypatch, ["app_space", None]),
             pytest.raises(typer.BadParameter),
         ):
-            spaces = user_input.prompt_migration_spaces()
-            user_input.lookup.source_space = spaces.source
-            setup.get_infield_data_mapper(spaces, setup.infield_mappings(spaces))
+            user_input.prompt_migration_spaces()
 
 
 class TestInFieldMappingsAndSelectors:
@@ -624,8 +632,8 @@ class TestInFieldMappingsAndSelectors:
         )
         operation = next(mapping for mapping in mappings if mapping.source_view.external_id == "APM_Operation")
 
-        console_print = cast(MagicMock, lookup.client.console.print)
-        assert (operation.destination_view.external_id, console_print.called) == ("CogniteOperation", True)
+        console = cast(_RecordingConsole, lookup.client.console)
+        assert (operation.destination_view.external_id, bool(console.printed)) == ("CogniteOperation", True)
 
     def test_conflicting_destination_views_across_targets_raise(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _patch_targets(monkeypatch, {"ASSET_1": "cdm_a", "ASSET_2": "cdm_b"})
