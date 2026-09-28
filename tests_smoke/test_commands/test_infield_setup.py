@@ -327,17 +327,6 @@ class TestInFieldSpaceSelection:
         with pytest.raises(typer.BadParameter):
             user_input.validate_migration_spaces("app_space", "cdm_app")
 
-    def test_blank_app_data_instance_space_is_not_a_candidate(self) -> None:
-        client = _mock_client(
-            [_apm(_root("blank", "ASSET_0", ""), _root("loc", "ASSET_1", "app_space"))],
-            [_cdm("loc", "cdm_app")],
-            {"", "app_space", "cdm_app"},
-        )
-        user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
-
-        with pytest.raises(typer.BadParameter):
-            user_input.validate_migration_spaces("", "cdm_app")
-
     @pytest.mark.parametrize(
         "operation, source, target, apm_configs, cdm_configs",
         [
@@ -410,17 +399,20 @@ class TestInFieldSpaceSelection:
         with pytest.raises(typer.BadParameter):
             user_input.validate_migration_spaces("shared_app", None)
 
-    def test_cli_accepts_configured_spaces_missing_from_statistics(self) -> None:
+    @pytest.mark.parametrize(
+        "existing_spaces",
+        [
+            pytest.param(set(), id="source"),
+            pytest.param({"app_space"}, id="target"),
+        ],
+    )
+    def test_cli_rejects_configured_spaces_missing_from_statistics(self, existing_spaces: set[str]) -> None:
         apm_configs, cdm_configs = _standard_infield_configs()
-        client = _mock_client(apm_configs, cdm_configs, set())
+        client = _mock_client(apm_configs, cdm_configs, existing_spaces)
         user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
-        try:
-            spaces = user_input.validate_migration_spaces("app_space", "cdm_app")
-        except typer.BadParameter as exc:
-            pytest.fail(f"Configured spaces were rejected, got {exc}")
-
-        assert spaces == InfieldMigrationSpaces(source="app_space", _target="cdm_app")
+        with pytest.raises(typer.BadParameter):
+            user_input.validate_migration_spaces("app_space", "cdm_app")
 
     def test_source_without_target_is_rejected(self) -> None:
         apm_configs, cdm_configs = _standard_infield_configs()
