@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import typer
 from pydantic import JsonValue
+from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.apps._migrate_app import MigrateApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -18,15 +19,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import DataStorage, InFieldCDMLocationConfigResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands._migrate import infield_setup
-from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import resolve_apm_source_data_view_ids
+from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import (
+    create_apm_source_data_mappings,
+    resolve_apm_source_data_view_ids,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import InstanceMappingError
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import FDMtoCDMMapper
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
     DIRECT_RELATION_EDGE_TIEBREAKERS,
     create_infield_data_mappings,
-    create_infield_schedule_selector,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.infield_setup import (
     InFieldLookup,
@@ -148,17 +150,6 @@ def _mock_client(
 
     client.data_modeling.statistics.spaces.retrieve.side_effect = retrieve
     return cast(ToolkitClient, client)
-
-
-def _setup(
-    operation: Operation,
-    apm_configs: Sequence[APMConfigResponse] | None = None,
-    cdm_configs: Sequence[InFieldCDMLocationConfigResponse] | None = None,
-    existing_spaces: set[str] | None = None,
-) -> tuple[InFieldSetup, InFieldLookup]:
-    client = _mock_client(apm_configs or [], cdm_configs or [], existing_spaces)
-    lookup = InFieldLookup(client, operation)
-    return InFieldSetup(client, lookup), lookup
 
 
 def _patch_targets(monkeypatch: pytest.MonkeyPatch, targets: dict[str, str] | None = None) -> dict[str, str]:
@@ -477,10 +468,11 @@ class TestInFieldSpaceSelection:
 
 class TestInFieldMappingsAndSelectors:
     def test_skip_observations_drops_field_observation_mapping(self) -> None:
-        setup, _lookup = _setup(
-            "Infield data",
-            cdm_configs=[_cdm("loc", "cdm_app", view_mappings=_observation_mappings(CUSTOM_OBSERVATION_VIEW))],
+        client = _mock_client(
+            [], [_cdm("loc", "cdm_app", view_mappings=_observation_mappings(CUSTOM_OBSERVATION_VIEW))]
         )
+        lookup = InFieldLookup(client, "Infield data")
+        setup = InFieldSetup(client, lookup)
         mappings = setup.infield_mappings(InfieldMigrationSpaces(source="app_space", _target="cdm_app"), True)
 
         assert [
@@ -490,10 +482,11 @@ class TestInFieldMappingsAndSelectors:
         ] == []
 
     def test_custom_observation_view_replaces_field_observation(self) -> None:
-        setup, _lookup = _setup(
-            "Infield data",
-            cdm_configs=[_cdm("loc", "cdm_app", view_mappings=_observation_mappings(CUSTOM_OBSERVATION_VIEW))],
+        client = _mock_client(
+            [], [_cdm("loc", "cdm_app", view_mappings=_observation_mappings(CUSTOM_OBSERVATION_VIEW))]
         )
+        lookup = InFieldLookup(client, "Infield data")
+        setup = InFieldSetup(client, lookup)
 
         mappings = setup.infield_mappings(InfieldMigrationSpaces(source="app_space", _target="cdm_app"))
         observation = next(mapping for mapping in mappings if mapping.source_view.external_id == "Observation")
@@ -501,81 +494,83 @@ class TestInFieldMappingsAndSelectors:
         assert observation.destination_view == CUSTOM_OBSERVATION_VIEW
 
     def test_custom_observation_view_is_scoped_to_selected_target(self) -> None:
-        setup, _lookup = _setup(
-            "Infield data",
-            cdm_configs=[
+        client = _mock_client(
+            [],
+            [
                 _cdm("loc1", "cdm_app", view_mappings=_observation_mappings(CUSTOM_OBSERVATION_VIEW)),
                 _cdm("loc2", "other_app", view_mappings=_observation_mappings(OTHER_OBSERVATION_VIEW)),
             ],
         )
+        lookup = InFieldLookup(client, "Infield data")
+        setup = InFieldSetup(client, lookup)
         mappings = setup.infield_mappings(InfieldMigrationSpaces(source="app_space", _target="cdm_app"))
         observation = next(mapping for mapping in mappings if mapping.source_view.external_id == "Observation")
 
         assert observation.destination_view == CUSTOM_OBSERVATION_VIEW
 
     def test_conflicting_observation_views_raise(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        _patch_targets(monkeypatch, {"ASSET_1": "cdm_a", "ASSET_2": "cdm_b"})
-        setup, lookup = _setup(
-            "Infield data",
-            cdm_configs=[
+        client = _mock_client(
+            [],
+            [
                 _cdm("loc1", "cdm_a", view_mappings=_observation_mappings(CUSTOM_OBSERVATION_VIEW)),
                 _cdm("loc2", "cdm_b", view_mappings=_observation_mappings(OTHER_OBSERVATION_VIEW)),
             ],
         )
+        lookup = InFieldLookup(client, "Infield data")
+        setup = InFieldSetup(client, lookup)
         lookup.source_space = "shared_app"
 
         with pytest.raises(ToolkitMigrationError):
             setup.infield_mappings(InfieldMigrationSpaces(source="shared_app", _target=None))
 
-    def test_infield_data_selectors(self) -> None:
-        source = "app_space"
+    def test_infield_data_selectors(self, data_regression: DataRegressionFixture) -> None:
         mappings = create_infield_data_mappings()
         selectors = InFieldSetup.get_infield_data_selectors(
-            InfieldMigrationSpaces(source=source, _target="cdm_app"), mappings
+            InfieldMigrationSpaces(source="app_space", _target="cdm_app"), mappings
         )
-        schedule_selector = create_infield_schedule_selector(instance_space=source)
 
-        summary: list[tuple[str, object]] = []
-        for mapping, selector in zip(mappings, selectors, strict=True):
-            if mapping.source_view.external_id == "Schedule":
-                summary.append(("Schedule", selector == schedule_selector))
-                continue
-            if not isinstance(selector, InstanceViewSelector):
-                summary.append((mapping.source_view.external_id, type(selector).__name__))
-                continue
-            edge_types = tuple(dict.fromkeys(mapping.edge_mapping or {})) or None
-            summary.append(
-                (
-                    mapping.source_view.external_id,
-                    (
-                        selector.endpoint,
-                        selector.instance_spaces,
-                        selector.edge_types,
-                        selector.edge_types == edge_types,
-                    ),
-                )
-            )
+        data_regression.check(
+            {
+                "selectors": [
+                    {
+                        "sourceView": mapping.source_view.external_id,
+                        "selector": selector.model_dump(mode="json", by_alias=True, exclude_none=True),
+                    }
+                    for mapping, selector in zip(mappings, selectors, strict=True)
+                ]
+            }
+        )
 
-        expected: list[tuple[str, object]] = []
-        for mapping in mappings:
-            if mapping.source_view.external_id == "Schedule":
-                expected.append(("Schedule", True))
-                continue
-            expected.append((mapping.source_view.external_id, ("sync", (source,), _selector_edge_types(mapping), True)))
+    def test_infield_source_selectors(self, data_regression: DataRegressionFixture) -> None:
+        mappings = create_apm_source_data_mappings()
+        selectors = InFieldSetup.get_infield_source_selectors(
+            InfieldMigrationSpaces(source="source_space", _target="cdm_source"), mappings
+        )
 
-        assert summary == expected
+        data_regression.check(
+            {
+                "selectors": [
+                    {
+                        "sourceView": mapping.source_view.external_id,
+                        "selector": selector.model_dump(mode="json", by_alias=True, exclude_none=True),
+                    }
+                    for mapping, selector in zip(mappings, selectors, strict=True)
+                ]
+            }
+        )
 
     def test_source_selectors_use_mapping_views(self) -> None:
-        setup, lookup = _setup(
-            "APM_SourceData",
-            apm_configs=[
+        client = _mock_client(
+            [
                 _apm(
                     _root("loc", "ASSET_1", "app_space", "source_space"),
                     view_mappings={"activity": CUSTOM_ACTIVITY_VIEW.dump()},
                 )
             ],
-            cdm_configs=[_cdm("loc", "cdm_app", SOURCE_DATA_FILTERS)],
+            [_cdm("loc", "cdm_app", SOURCE_DATA_FILTERS)],
         )
+        lookup = InFieldLookup(client, "APM_SourceData")
+        setup = InFieldSetup(client, lookup)
         spaces = InfieldMigrationSpaces(source="source_space", _target="cdm_source")
         mappings = setup.create_source_mappings(spaces, resolve_apm_source_data_view_ids(lookup.apm_configs))
         selectors = InFieldSetup.get_infield_source_selectors(spaces, mappings)
@@ -599,9 +594,9 @@ class TestInFieldMappingsAndSelectors:
         ) == (CUSTOM_ACTIVITY_VIEW, CUSTOM_ACTIVITY_VIEW.space, CUSTOM_ACTIVITY_VIEW.version, ("source_space",), "sync")
 
     def test_custom_destination_views_are_remapped(self) -> None:
-        setup, lookup = _setup(
-            "APM_SourceData",
-            cdm_configs=[
+        client = _mock_client(
+            [],
+            [
                 _cdm(
                     "loc",
                     "cdm_app",
@@ -610,6 +605,8 @@ class TestInFieldMappingsAndSelectors:
                 )
             ],
         )
+        lookup = InFieldLookup(client, "APM_SourceData")
+        setup = InFieldSetup(client, lookup)
         mappings = setup.create_source_mappings(
             InfieldMigrationSpaces(source="source_space", _target="cdm_source"),
             resolve_apm_source_data_view_ids(lookup.apm_configs),
@@ -619,13 +616,15 @@ class TestInFieldMappingsAndSelectors:
         assert operation.destination_view == CUSTOM_OPERATION_VIEW
 
     def test_conflicting_views_in_one_target_fall_back_to_default(self) -> None:
-        setup, lookup = _setup(
-            "APM_SourceData",
-            cdm_configs=[
+        client = _mock_client(
+            [],
+            [
                 _cdm("loc1", "cdm_app", SOURCE_DATA_FILTERS, {"operation": CUSTOM_OPERATION_VIEW.dump()}),
                 _cdm("loc2", "cdm_app", SOURCE_DATA_FILTERS, {"operation": OTHER_OPERATION_VIEW.dump()}),
             ],
         )
+        lookup = InFieldLookup(client, "APM_SourceData")
+        setup = InFieldSetup(client, lookup)
         mappings = setup.create_source_mappings(
             InfieldMigrationSpaces(source="source_space", _target="cdm_source"),
             resolve_apm_source_data_view_ids(lookup.apm_configs),
@@ -637,9 +636,9 @@ class TestInFieldMappingsAndSelectors:
 
     def test_conflicting_destination_views_across_targets_raise(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _patch_targets(monkeypatch, {"ASSET_1": "cdm_a", "ASSET_2": "cdm_b"})
-        setup, lookup = _setup(
-            "APM_SourceData",
-            cdm_configs=[
+        client = _mock_client(
+            [],
+            [
                 _cdm(
                     "loc1",
                     "cdm_a",
@@ -654,6 +653,8 @@ class TestInFieldMappingsAndSelectors:
                 ),
             ],
         )
+        lookup = InFieldLookup(client, "APM_SourceData")
+        setup = InFieldSetup(client, lookup)
         lookup.source_space = "shared_source"
 
         with pytest.raises(ToolkitMigrationError):
@@ -661,10 +662,6 @@ class TestInFieldMappingsAndSelectors:
                 InfieldMigrationSpaces(source="shared_source", _target=None),
                 resolve_apm_source_data_view_ids(lookup.apm_configs),
             )
-
-
-def _selector_edge_types(mapping: ViewToViewMapping) -> tuple[object, ...] | None:
-    return tuple(dict.fromkeys(mapping.edge_mapping or {})) or None
 
 
 class TestInFieldMappers:
@@ -678,9 +675,9 @@ class TestInFieldMappers:
     def test_non_split_instance_id_mapping(
         self, operation: Operation, source_space: str, target_space: str, passthrough: bool
     ) -> None:
-        setup, lookup = _setup(
-            operation, [_apm(_root("loc", "ASSET_1", "app_space", "source_space"))], [_cdm("loc", "cdm_app")]
-        )
+        client = _mock_client([_apm(_root("loc", "ASSET_1", "app_space", "source_space"))], [_cdm("loc", "cdm_app")])
+        lookup = InFieldLookup(client, operation)
+        setup = InFieldSetup(client, lookup)
         spaces = InfieldMigrationSpaces(source=source_space, _target=target_space)
         mapper = _mapper(setup, lookup, spaces)
 
@@ -707,7 +704,9 @@ class TestInFieldMappers:
         self, operation: Operation, passthrough: bool, target_kind: str, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         seen = _patch_targets(monkeypatch)
-        setup, lookup = _setup(operation, [_shared_apm()], [_cdm("loc1", "cdm_a"), _cdm("loc2", "cdm_b")])
+        client = _mock_client([_shared_apm()], [_cdm("loc1", "cdm_a"), _cdm("loc2", "cdm_b")])
+        lookup = InFieldLookup(client, operation)
+        setup = InFieldSetup(client, lookup)
         lookup.source_space = "shared_space"
         spaces = InfieldMigrationSpaces(source="shared_space", _target=None)
         mapper = _mapper(setup, lookup, spaces)
@@ -725,7 +724,9 @@ class TestInFieldMappers:
         )
 
     def test_missing_schedule_mapping_raises(self) -> None:
-        setup, _lookup = _setup("Infield data")
+        client = _mock_client([], [])
+        lookup = InFieldLookup(client, "Infield data")
+        setup = InFieldSetup(client, lookup)
         mappings = [
             mapping for mapping in create_infield_data_mappings() if mapping.source_view.external_id != "Schedule"
         ]
@@ -735,7 +736,9 @@ class TestInFieldMappers:
 
     def test_missing_solution_tag_mapping_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _patch_targets(monkeypatch)
-        setup, lookup = _setup("Infield data")
+        client = _mock_client([], [])
+        lookup = InFieldLookup(client, "Infield data")
+        setup = InFieldSetup(client, lookup)
         lookup.source_space = "shared_app"
         mappings = [
             mapping for mapping in create_infield_data_mappings() if mapping.source_view != COGNITE_SOLUTION_TAG_VIEW_ID

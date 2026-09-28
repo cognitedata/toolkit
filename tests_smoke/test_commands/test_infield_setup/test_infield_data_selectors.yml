@@ -1,0 +1,152 @@
+selectors:
+- selector:
+    endpoint: sync
+    instanceSpaces:
+    - app_space
+    instanceType: node
+    kind: Instances
+    type: instanceView
+    view:
+      externalId: CogniteSolutionTag
+      space: cdf_apps_shared
+      version: v1
+  sourceView: CogniteSolutionTag
+- selector:
+    endpoint: sync
+    instanceSpaces:
+    - app_space
+    instanceType: node
+    kind: Instances
+    type: instanceView
+    view:
+      externalId: Template
+      space: cdf_apm
+      version: v8
+  sourceView: Template
+- selector:
+    endpoint: sync
+    instanceSpaces:
+    - app_space
+    instanceType: node
+    kind: Instances
+    type: instanceView
+    view:
+      externalId: Checklist
+      space: cdf_apm
+      version: v7
+  sourceView: Checklist
+- selector:
+    endpoint: sync
+    instanceSpaces:
+    - app_space
+    instanceType: node
+    kind: Instances
+    type: instanceView
+    view:
+      externalId: Observation
+      space: cdf_apm
+      version: v5
+  sourceView: Observation
+- selector:
+    edgeTypes:
+    - direction: inwards
+      type:
+        externalId: referenceTemplateItems
+        space: cdf_apm
+    endpoint: sync
+    instanceSpaces:
+    - app_space
+    instanceType: node
+    kind: Instances
+    type: instanceView
+    view:
+      externalId: TemplateItem
+      space: cdf_apm
+      version: v7
+  sourceView: TemplateItem
+- selector:
+    edgeTypes:
+    - direction: inwards
+      type:
+        externalId: referenceChecklistItems
+        space: cdf_apm
+    - direction: outwards
+      type:
+        externalId: referenceObservations
+        space: cdf_apm
+    endpoint: sync
+    instanceSpaces:
+    - app_space
+    instanceType: node
+    kind: Instances
+    type: instanceView
+    view:
+      externalId: ChecklistItem
+      space: cdf_apm
+      version: v7
+  sourceView: ChecklistItem
+- selector:
+    edgeTypes:
+    - direction: inwards
+      type:
+        externalId: referenceMeasurements
+        space: cdf_apm
+    endpoint: sync
+    instanceSpaces:
+    - app_space
+    instanceType: node
+    kind: Instances
+    type: instanceView
+    view:
+      externalId: MeasurementReading
+      space: cdf_apm
+      version: v4
+  sourceView: MeasurementReading
+- selector:
+    endpoint: sync
+    instanceSpaces:
+    - app_space
+    instanceType: node
+    kind: Instances
+    type: instanceView
+    view:
+      externalId: ConditionalAction
+      space: cdf_apm
+      version: v1
+  sourceView: ConditionalAction
+- selector:
+    endpoint: sync
+    instanceSpaces:
+    - app_space
+    instanceType: node
+    kind: Instances
+    type: instanceView
+    view:
+      externalId: Condition
+      space: cdf_apm
+      version: v1
+  sourceView: Condition
+- selector:
+    endpoint: sync
+    instanceSpaces:
+    - app_space
+    instanceType: node
+    kind: Instances
+    type: instanceView
+    view:
+      externalId: Action
+      space: cdf_apm
+      version: v1
+  sourceView: Action
+- selector:
+    endpoint: sync
+    includeRoot: true
+    kind: Instances
+    query: '{"with_":{"template":{"limit":1,"nodes":{"filter":{"and":[{"hasData":[{"type":"view","space":"cdf_apm","externalId":"Template","version":"v8"}]},{"equals":{"property":["node","space"],"value":"app_space"}}]}}},"templateEdges":{"limit":1000,"edges":{"from_":"template","chain_to":"source","direction":"outwards","filter":{"equals":{"property":["edge","type"],"value":{"space":"cdf_apm","externalId":"referenceTemplateItems"}}}}},"templateItem":{"limit":1000,"nodes":{"from_":"templateEdges","chain_to":"destination","filter":{"hasData":[{"type":"view","space":"cdf_apm","externalId":"TemplateItem","version":"v7"}]}}},"templateItemEdges":{"limit":1000,"edges":{"from_":"templateItem","chain_to":"source","direction":"outwards","filter":{"equals":{"property":["edge","type"],"value":{"space":"cdf_apm","externalId":"referenceSchedules"}}}}},"schedules":{"limit":1000,"nodes":{"from_":"templateItemEdges","chain_to":"destination","filter":{"hasData":[{"type":"view","space":"cdf_apm","externalId":"Schedule","version":"v4"}]}}}},"select":{"schedules":{"sources":[{"source":{"space":"cdf_apm","externalId":"Schedule","version":"v4","type":"view"},"properties":["*"]}]},"template":{"sources":[{"source":{"space":"cdf_apm","externalId":"Template","version":"v8","type":"view"},"properties":["*"]}]},"templateItemEdges":{},"templateEdges":{}},"allow_expired_cursors_and_accept_missed_deletes":true}'
+    root: template
+    subselections:
+    - schedules
+    - templateItemEdges
+    - templateEdges
+    type: instanceQuery
+  sourceView: Schedule
