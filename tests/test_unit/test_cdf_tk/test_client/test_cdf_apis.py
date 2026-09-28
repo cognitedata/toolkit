@@ -50,7 +50,20 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation
     ChartScheduledCalculationRequest,
     ChartScheduledCalculationResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeResponse, NodeResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    AvgAggregate,
+    CountAggregate,
+    EdgeResponse,
+    HistogramAggregate,
+    HistogramBucket,
+    InstanceAggregateRequest,
+    InstanceAggregateResponse,
+    InstanceAggregateResult,
+    InstanceAggregateValue,
+    NodeResponse,
+    QueryTargetUnit,
+    QueryUnitReference,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import DocumentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
@@ -1164,6 +1177,147 @@ class TestCDFResourceAPI:
             api.search(view=view, limit=0)
         with pytest.raises(ValueError, match="Limit must be between 1 and 1000"):
             api.search(view=view, limit=1001)
+
+    def test_instances_api_aggregate_payload(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_config
+        api = InstancesAPI(HTTPClient(config))
+        aggregate_url = config.create_api_url("/models/instances/aggregate")
+        captured: dict[str, Any] = {}
+        response_body = {
+            "items": [
+                {
+                    "instanceType": "node",
+                    "group": {"name": "PumpName1"},
+                    "aggregates": [
+                        {"aggregate": "avg", "property": "duration", "value": 0.2},
+                        {
+                            "aggregate": "histogram",
+                            "property": "duration",
+                            "interval": 10.0,
+                            "buckets": [{"start": 0.0, "count": 2}],
+                        },
+                    ],
+                }
+            ]
+        }
+
+        def aggregate_callback(request: httpx2.Request) -> httpx2.Response:
+            raw = request.content
+            if len(raw) >= 2 and raw[:2] == b"\x1f\x8b":
+                raw = gzip.decompress(raw)
+            captured.update(json.loads(raw))
+            return httpx2.Response(status_code=200, json=response_body)
+
+        respx_mock.post(aggregate_url).mock(side_effect=aggregate_callback)
+        view = ViewId(space="my_space", external_id="Asset", version="v1")
+        filter_ = {"equals": {"property": ["node", "space"], "value": "my_space"}}
+        result = api.aggregate(
+            "pump",
+            view,
+            filter=filter_,
+            instance_type="node",
+            limit=25,
+            properties=["name", "description"],
+            aggregates=[
+                AvgAggregate(property="duration"),
+                HistogramAggregate(property="duration", interval=10),
+            ],
+            group_by=["name"],
+            operator="AND",
+            target_units=[QueryTargetUnit(property="duration", unit=QueryUnitReference(external_id="minutes"))],
+            include_typing=False,
+        )
+
+        assert captured == {
+            "query": "pump",
+            "view": view.dump(include_type=True),
+            "filter": filter_,
+            "instanceType": "node",
+            "limit": 25,
+            "properties": ["name", "description"],
+            "aggregates": [
+                {"avg": {"property": "duration"}},
+                {"histogram": {"property": "duration", "interval": 10.0}},
+            ],
+            "groupBy": ["name"],
+            "operator": "AND",
+            "targetUnits": [{"property": "duration", "unit": {"externalId": "minutes"}}],
+            "includeTyping": False,
+        }
+        assert result == InstanceAggregateResponse(
+            items=[
+                InstanceAggregateResult(
+                    instance_type="node",
+                    group={"name": "PumpName1"},
+                    aggregates=[
+                        InstanceAggregateValue(aggregate="avg", property="duration", value=0.2),
+                        InstanceAggregateValue(
+                            aggregate="histogram",
+                            property="duration",
+                            interval=10.0,
+                            buckets=[HistogramBucket(start=0.0, count=2)],
+                        ),
+                    ],
+                )
+            ]
+        )
+
+    def test_instances_api_aggregate_request_ignores_other_parameters(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_config
+        api = InstancesAPI(HTTPClient(config))
+        aggregate_url = config.create_api_url("/models/instances/aggregate")
+        captured: dict[str, Any] = {}
+
+        def aggregate_callback(request: httpx2.Request) -> httpx2.Response:
+            raw = request.content
+            if len(raw) >= 2 and raw[:2] == b"\x1f\x8b":
+                raw = gzip.decompress(raw)
+            captured.update(json.loads(raw))
+            return httpx2.Response(status_code=200, json={"items": []})
+
+        respx_mock.post(aggregate_url).mock(side_effect=aggregate_callback)
+        aggregate_request = InstanceAggregateRequest.model_validate(
+            {
+                "view": {"space": "my_space", "externalId": "Asset", "version": "v1"},
+                "query": "from-request",
+                "aggregates": [{"count": {"property": "externalId"}}],
+                "limit": 10,
+                "instanceType": "edge",
+            }
+        )
+        result = api.aggregate(
+            aggregate_request,
+            view=ViewId(space="other_space", external_id="Ignored", version="v9"),
+            filter={"equals": {"property": ["node", "space"], "value": "ignored"}},
+            limit=0,
+        )
+
+        assert {
+            "items": result.items,
+            "body": captured,
+            "aggregate": type(aggregate_request.aggregates[0]) if aggregate_request.aggregates else None,
+        } == {
+            "items": [],
+            "body": aggregate_request.dump(),
+            "aggregate": CountAggregate,
+        }
+
+    def test_instances_api_aggregate_requires_view(self, toolkit_config: ToolkitClientConfig) -> None:
+        api = InstancesAPI(HTTPClient(toolkit_config))
+        with pytest.raises(ValueError, match="view is required"):
+            api.aggregate("pump")
+
+    def test_instances_api_aggregate_limit_validation(self, toolkit_config: ToolkitClientConfig) -> None:
+        api = InstancesAPI(HTTPClient(toolkit_config))
+        view = ViewId(space="my_space", external_id="Asset", version="v1")
+        with pytest.raises(ValueError, match="Limit must be between 1 and 1000"):
+            api.aggregate(view=view, limit=0)
+        with pytest.raises(ValueError, match="Limit must be between 1 and 1000"):
+            api.aggregate(None, view, limit=1001)
 
     def test_records_api_retrieve_sync(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         config = toolkit_config
