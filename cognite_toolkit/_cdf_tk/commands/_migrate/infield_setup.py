@@ -72,7 +72,7 @@ class InfieldMigrationSpaces:
     @property
     def target(self) -> str:
         if self._target is None:
-            raise ValueError("Target space is None, cannot access target_space property.")
+            raise RuntimeError("Bug in Toolkit. Target space is None, cannot access target_space property.")
         return self._target
 
     @property
