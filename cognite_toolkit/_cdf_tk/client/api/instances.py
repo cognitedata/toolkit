@@ -285,41 +285,24 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
     @overload
     def aggregate(
         self,
-        query: InstanceAggregateRequest,
-        view: ViewId | None = None,
-        filter: dict[str, JsonValue] | None = None,
-        instance_type: Literal["node", "edge"] | None = None,
-        limit: int = 100,
-        properties: list[str] | None = None,
-        aggregates: list[InstanceAggregateDefinition] | None = None,
-        group_by: list[str] | None = None,
-        operator: Literal["AND", "OR"] | None = None,
-        target_units: list[QueryTargetUnit] | None = None,
-        include_typing: bool | None = None,
-    ) -> InstanceAggregateResponse: ...
-
-    @overload
-    def aggregate(
-        self,
-        query: str | None,
-        view: ViewId,
-        filter: dict[str, JsonValue] | None = None,
-        instance_type: Literal["node", "edge"] | None = None,
-        limit: int = 100,
-        properties: list[str] | None = None,
-        aggregates: list[InstanceAggregateDefinition] | None = None,
-        group_by: list[str] | None = None,
-        operator: Literal["AND", "OR"] | None = None,
-        target_units: list[QueryTargetUnit] | None = None,
-        include_typing: bool | None = None,
-    ) -> InstanceAggregateResponse: ...
-
-    @overload
-    def aggregate(
-        self,
+        view_or_request: InstanceAggregateRequest,
         query: str | None = None,
-        *,
-        view: ViewId,
+        filter: dict[str, JsonValue] | None = None,
+        instance_type: Literal["node", "edge"] | None = None,
+        limit: int = 100,
+        properties: list[str] | None = None,
+        aggregates: list[InstanceAggregateDefinition] | None = None,
+        group_by: list[str] | None = None,
+        operator: Literal["AND", "OR"] | None = None,
+        target_units: list[QueryTargetUnit] | None = None,
+        include_typing: bool | None = None,
+    ) -> InstanceAggregateResponse: ...
+
+    @overload
+    def aggregate(
+        self,
+        view_or_request: ViewId,
+        query: str | None = None,
         filter: dict[str, JsonValue] | None = None,
         instance_type: Literal["node", "edge"] | None = None,
         limit: int = 100,
@@ -333,8 +316,8 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
 
     def aggregate(
         self,
-        query: str | InstanceAggregateRequest | None = None,
-        view: ViewId | None = None,
+        view_or_request: ViewId | InstanceAggregateRequest,
+        query: str | None = None,
         filter: dict[str, JsonValue] | None = None,
         instance_type: Literal["node", "edge"] | None = None,
         limit: int = 100,
@@ -349,15 +332,13 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
 
         This uses the ``POST /models/instances/aggregate`` endpoint.
 
-        The first argument is either a query string or an ``InstanceAggregateRequest``.
-        When it is a request, the remaining arguments are ignored. Otherwise pass the query
-        string (or ``None``) together with ``view`` and the other aggregate parameters.
-        ``view`` is required in that case.
+        The first argument is either a ``ViewId`` or an ``InstanceAggregateRequest``.
+        When it is a request, the remaining arguments are ignored.
 
         Args:
-            query: Query string matched against text properties, or a complete aggregate request.
+            view_or_request: View to aggregate over, or a complete aggregate request.
                 When this is an ``InstanceAggregateRequest``, every other argument is ignored.
-            view: View to aggregate over. Required unless ``query`` is an ``InstanceAggregateRequest``.
+            query: Query string matched against text properties.
             filter: Optional DMS filter expression.
             instance_type: Whether to aggregate nodes or edges. Defaults to nodes when omitted.
             limit: Maximum number of grouped results to return. Default is 100, maximum is 1000.
@@ -373,12 +354,12 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
 
         See `API docs <https://api-docs.cognite.com/20230101/tag/Instances/operation/aggregateInstances>`_.
         """
-        if isinstance(query, InstanceAggregateRequest):
-            aggregate_request = query
+        if isinstance(view_or_request, InstanceAggregateRequest):
+            aggregate_request = view_or_request
         else:
             aggregate_request = self._aggregate_request_from_parameters(
+                view=view_or_request,
                 query=query,
-                view=view,
                 filter=filter,
                 instance_type=instance_type,
                 limit=limit,
@@ -401,8 +382,8 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
 
     def _aggregate_request_from_parameters(
         self,
+        view: ViewId,
         query: str | None,
-        view: ViewId | None,
         filter: dict[str, JsonValue] | None,
         instance_type: Literal["node", "edge"] | None,
         limit: int,
@@ -413,8 +394,6 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         target_units: list[QueryTargetUnit] | None,
         include_typing: bool | None,
     ) -> InstanceAggregateRequest:
-        if view is None:
-            raise ValueError("view is required when query is not an InstanceAggregateRequest.")
         aggregate_endpoint = self._method_endpoint_map["aggregate"]
         if not 0 < limit <= aggregate_endpoint.item_limit:
             raise ValueError(f"Limit must be between 1 and {aggregate_endpoint.item_limit}, got {limit}.")

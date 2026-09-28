@@ -1140,6 +1140,28 @@ class TestCDFResourceAPI:
         assert len(searched) == 1
         assert searched[0].dump() == example
 
+        # Test aggregate (POST /models/instances/aggregate)
+        aggregate_url = config.create_api_url("/models/instances/aggregate")
+        respx_mock.post(aggregate_url).mock(
+            return_value=httpx2.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "instanceType": "node",
+                            "aggregates": [{"aggregate": "count", "property": "externalId", "value": 1}],
+                        }
+                    ]
+                },
+            )
+        )
+        aggregated = api.aggregate(
+            ViewId(space="my_space", external_id="Asset", version="v1"),
+            aggregates=[CountAggregate(property="externalId")],
+            limit=10,
+        )
+        assert [value.value for item in aggregated.items for value in item.aggregates] == [1]
+
     def test_instances_api_search_payload(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
     ) -> None:
@@ -1214,8 +1236,8 @@ class TestCDFResourceAPI:
         view = ViewId(space="my_space", external_id="Asset", version="v1")
         filter_ = {"equals": {"property": ["node", "space"], "value": "my_space"}}
         result = api.aggregate(
-            "pump",
             view,
+            "pump",
             filter=filter_,
             instance_type="node",
             limit=25,
@@ -1291,9 +1313,10 @@ class TestCDFResourceAPI:
         )
         result = api.aggregate(
             aggregate_request,
-            view=ViewId(space="other_space", external_id="Ignored", version="v9"),
+            "ignored",
             filter={"equals": {"property": ["node", "space"], "value": "ignored"}},
             limit=0,
+            aggregates=[AvgAggregate(property="other")],
         )
 
         assert {
@@ -1306,18 +1329,13 @@ class TestCDFResourceAPI:
             "aggregate": CountAggregate,
         }
 
-    def test_instances_api_aggregate_requires_view(self, toolkit_config: ToolkitClientConfig) -> None:
-        api = InstancesAPI(HTTPClient(toolkit_config))
-        with pytest.raises(ValueError, match="view is required"):
-            api.aggregate("pump")
-
     def test_instances_api_aggregate_limit_validation(self, toolkit_config: ToolkitClientConfig) -> None:
         api = InstancesAPI(HTTPClient(toolkit_config))
         view = ViewId(space="my_space", external_id="Asset", version="v1")
         with pytest.raises(ValueError, match="Limit must be between 1 and 1000"):
-            api.aggregate(view=view, limit=0)
+            api.aggregate(view, limit=0)
         with pytest.raises(ValueError, match="Limit must be between 1 and 1000"):
-            api.aggregate(None, view, limit=1001)
+            api.aggregate(view, limit=1001)
 
     def test_records_api_retrieve_sync(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         config = toolkit_config
