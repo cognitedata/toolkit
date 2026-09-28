@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import InstanceViewSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
+from tests.test_unit.utils import MockQuestionary
 
 Operation = Literal["Infield data", "APM_SourceData"]
 
@@ -124,15 +125,6 @@ def _observation_mappings(view: ViewId) -> dict[str, JsonValue]:
     return {"observation": [{"view": {"space": view.space, "externalId": view.external_id, "version": view.version}}]}
 
 
-def _source_view_mapping(view: ViewId) -> dict[str, JsonValue]:
-    mapping: dict[str, JsonValue] = {
-        "space": view.space,
-        "externalId": view.external_id,
-        "version": view.version,
-    }
-    return mapping
-
-
 def _mock_client(
     apm_configs: Sequence[APMConfigResponse],
     cdm_configs: Sequence[InFieldCDMLocationConfigResponse],
@@ -150,16 +142,6 @@ def _mock_client(
     return cast(ToolkitClient, client)
 
 
-def _user_input(
-    operation: Operation,
-    apm_configs: Sequence[APMConfigResponse],
-    cdm_configs: Sequence[InFieldCDMLocationConfigResponse],
-    existing_spaces: set[str] | None = None,
-) -> InFieldUserInput:
-    client = _mock_client(apm_configs, cdm_configs, existing_spaces)
-    return InFieldUserInput(client, InFieldLookup(client, operation))
-
-
 def _setup(
     operation: Operation,
     apm_configs: Sequence[APMConfigResponse] | None = None,
@@ -171,24 +153,24 @@ def _setup(
     return InFieldSetup(client, lookup), lookup
 
 
-def _patch_targets(monkeypatch: pytest.MonkeyPatch, targets: dict[str, str] | None = None) -> dict[str, str]:
-    seen: dict[str, str] = {}
-    resolved = targets or {"ASSET_1": "cdm_a", "ASSET_2": "cdm_b"}
-
-    def _fake(
-        client: ToolkitClient,
-        *,
-        source_space: str,
-        apm_configs: object,
-        cdm_configs: object,
-        target_kind: str,
-    ) -> dict[str, str]:
-        seen["target_kind"] = target_kind
-        seen["source_space"] = source_space
-        return resolved
-
-    monkeypatch.setattr(infield_setup, "build_target_by_root_asset", _fake)
-    return seen
+# def _patch_targets(monkeypatch: pytest.MonkeyPatch, targets: dict[str, str] | None = None) -> dict[str, str]:
+#     seen: dict[str, str] = {}
+#     resolved = targets or {"ASSET_1": "cdm_a", "ASSET_2": "cdm_b"}
+#
+#     def _fake(
+#         client: ToolkitClient,
+#         *,
+#         source_space: str,
+#         apm_configs: object,
+#         cdm_configs: object,
+#         target_kind: str,
+#     ) -> dict[str, str]:
+#         seen["target_kind"] = target_kind
+#         seen["source_space"] = source_space
+#         return resolved
+#
+#     monkeypatch.setattr(infield_setup, "build_target_by_root_asset", _fake)
+#     return seen
 
 
 def _mapped_space(mapper: FDMtoCDMMapper, space: str) -> str | None:
@@ -198,39 +180,6 @@ def _mapped_space(mapper: FDMtoCDMMapper, space: str) -> str | None:
         ).space
     except (InstanceMappingError, RuntimeError):
         return None
-
-
-class _Prompts:
-    def __init__(self, selections: list[object]) -> None:
-        self._selections = list(selections)
-        self.messages: list[str] = []
-        self.path_defaults: list[str] = []
-        self.confirm_defaults: list[bool] = []
-
-    def install(self, monkeypatch: pytest.MonkeyPatch) -> "_Prompts":
-        monkeypatch.setattr(infield_setup.questionary, "select", self._select)
-        monkeypatch.setattr(infield_setup.questionary, "path", self._path)
-        monkeypatch.setattr(infield_setup.questionary, "confirm", self._confirm)
-        return self
-
-    def _select(self, message: str, choices: list[object]) -> MagicMock:
-        self.messages.append(message)
-        value = self._selections.pop(0) if self._selections else None
-        asked = MagicMock()
-        asked.unsafe_ask.return_value = value
-        return asked
-
-    def _path(self, message: str, default: str) -> MagicMock:
-        self.path_defaults.append(default)
-        asked = MagicMock()
-        asked.unsafe_ask.return_value = default
-        return asked
-
-    def _confirm(self, message: str, default: bool) -> MagicMock:
-        self.confirm_defaults.append(default)
-        asked = MagicMock()
-        asked.unsafe_ask.return_value = default
-        return asked
 
 
 def _standard_infield_configs() -> tuple[list[APMConfigResponse], list[InFieldCDMLocationConfigResponse]]:
@@ -249,16 +198,16 @@ def _shared_apm() -> APMConfigResponse:
 
 class TestInFieldSpaceSelection:
     def test_infield_data_accepts_app_spaces(self) -> None:
-        apm_configs, cdm_configs = _standard_infield_configs()
-        user_input = _user_input("Infield data", apm_configs, cdm_configs)
+        client = _mock_client(*_standard_infield_configs())
+        user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
         assert user_input.validate_migration_spaces("app_space", "cdm_app") == InfieldMigrationSpaces(
             source="app_space", _target="cdm_app"
         )
 
     def test_infield_data_rejects_source_data_space(self) -> None:
-        apm_configs, cdm_configs = _standard_infield_configs()
-        user_input = _user_input("Infield data", apm_configs, cdm_configs)
+        client = _mock_client(*_standard_infield_configs())
+        user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
         with pytest.raises(typer.BadParameter, match="Source space 'source_space' is not a valid source"):
             user_input.validate_migration_spaces("source_space", "cdm_app")
@@ -275,8 +224,8 @@ class TestInFieldSpaceSelection:
         ],
     )
     def test_invalid_space_names_match_legacy_messages(self, space_label: str, user_space: str, match: str) -> None:
-        apm_configs, cdm_configs = _standard_infield_configs()
-        user_input = _user_input("Infield data", apm_configs, cdm_configs)
+        client = _mock_client(*_standard_infield_configs())
+        user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
         source, target = ("app_space", user_space) if space_label == "target" else (user_space, "cdm_app")
 
         with pytest.raises(typer.BadParameter, match=match):
@@ -284,7 +233,8 @@ class TestInFieldSpaceSelection:
 
     def test_location_split_accepts_source_without_target(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _set_location_split(monkeypatch, True)
-        user_input = _user_input("Infield data", [_shared_apm()], [_cdm("loc", app_instance_space="cdm_app")])
+        client = _mock_client([_shared_apm()], [_cdm("loc", app_instance_space="cdm_app")])
+        user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
         assert user_input.validate_migration_spaces("shared_app", None) == InfieldMigrationSpaces(
             source="shared_app", _target=None
@@ -292,37 +242,38 @@ class TestInFieldSpaceSelection:
 
     def test_location_split_rejects_explicit_target(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _set_location_split(monkeypatch, True)
-        user_input = _user_input("Infield data", [_shared_apm()], [_cdm("loc", app_instance_space="cdm_app")])
+        client = _mock_client([_shared_apm()], [_cdm("loc", app_instance_space="cdm_app")])
+        user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
         with pytest.raises(typer.BadParameter, match="shared by multiple InField locations"):
             user_input.validate_migration_spaces("shared_app", "cdm_app")
 
     def test_interactive_selects_source_and_target(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        prompts = _Prompts(["app_space", "cdm_app"]).install(monkeypatch)
-        apm_configs, cdm_configs = _standard_infield_configs()
-        user_input = _user_input("Infield data", apm_configs, cdm_configs)
+        client = _mock_client(*_standard_infield_configs())
+        user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
-        assert (
-            user_input.prompt_migration_spaces(),
-            len(prompts.messages),
-        ) == (InfieldMigrationSpaces(source="app_space", _target="cdm_app"), 2)
+        with MockQuestionary(infield_setup.__name__, monkeypatch, ["app_space", "cdm_app"]) as prompts:
+            spaces = user_input.prompt_migration_spaces()
+
+        assert spaces == InfieldMigrationSpaces(source="app_space", _target="cdm_app")
 
     def test_interactive_location_split_skips_target_prompt(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _set_location_split(monkeypatch, True)
-        prompts = _Prompts(["shared_app"]).install(monkeypatch)
-        user_input = _user_input("Infield data", [_shared_apm()], [_cdm("loc", app_instance_space="cdm_app")])
+        client = _mock_client([_shared_apm()], [_cdm("loc", app_instance_space="cdm_app")])
+        user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
-        assert (user_input.prompt_migration_spaces(), len(prompts.messages)) == (
-            InfieldMigrationSpaces(source="shared_app", _target=None),
-            1,
-        )
+        with MockQuestionary(infield_setup.__name__, monkeypatch, ["shared_app"]):
+            spaces = user_input.prompt_migration_spaces()
+
+        assert spaces == InfieldMigrationSpaces(source="shared_app", _target=None)
 
     def test_prompt_flags_returns_answers(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        prompts = _Prompts([]).install(monkeypatch)
         log_dir = tmp_path / "migration_logs"
 
-        assert InFieldUserInput.prompt_flags(log_dir, dry_run=False, verbose=True) == (log_dir, False, True)
-        assert prompts.confirm_defaults == [False, True]
+        with MockQuestionary(infield_setup.__name__, monkeypatch, [str(log_dir), False, True]):
+            result = InFieldUserInput.prompt_flags(log_dir, dry_run=False, verbose=True)
+
+        assert result == (log_dir, False, True)
 
     @pytest.mark.parametrize(
         "operation, source, target, apm_configs, cdm_configs",
@@ -361,7 +312,8 @@ class TestInFieldSpaceSelection:
         apm_configs: list[APMConfigResponse],
         cdm_configs: list[InFieldCDMLocationConfigResponse],
     ) -> None:
-        user_input = _user_input(operation, apm_configs, cdm_configs, {source, target, "app_space", "cdm_app"})
+        client = _mock_client(apm_configs, cdm_configs, {source, target, "app_space", "cdm_app"})
+        user_input = InFieldUserInput(client, InFieldLookup(client, operation))
 
         try:
             spaces = user_input.validate_migration_spaces(source, target)
@@ -371,22 +323,21 @@ class TestInFieldSpaceSelection:
         assert spaces == InfieldMigrationSpaces(source=source, _target=target)
 
     def test_apm_source_data_rejects_app_data_spaces(self) -> None:
-        user_input = _user_input(
-            "APM_SourceData",
-            [_apm(_root("loc", "ASSET_1", "app_space", "source_space"))],
-            [_cdm("loc", "cdm_app", SOURCE_DATA_FILTERS)],
+        client = _mock_client(
+            [_apm(_root("loc", "ASSET_1", "app_space", "source_space"))], [_cdm("loc", "cdm_app", SOURCE_DATA_FILTERS)]
         )
+        user_input = InFieldUserInput(client, InFieldLookup(client, "APM_SourceData"))
 
         with pytest.raises(typer.BadParameter, match="not a valid source"):
             user_input.validate_migration_spaces("app_space", "cdm_app")
 
     def test_blank_app_data_instance_space_is_not_a_candidate(self) -> None:
-        user_input = _user_input(
-            "Infield data",
+        client = _mock_client(
             [_apm(_root("blank", "ASSET_0", ""), _root("loc", "ASSET_1", "app_space"))],
             [_cdm("loc", "cdm_app")],
             {"", "app_space", "cdm_app"},
         )
+        user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
         with pytest.raises(typer.BadParameter, match="not a valid source"):
             user_input.validate_migration_spaces("", "cdm_app")
@@ -441,7 +392,8 @@ class TestInFieldSpaceSelection:
         cdm_configs: list[InFieldCDMLocationConfigResponse],
         match: str,
     ) -> None:
-        user_input = _user_input(operation, apm_configs, cdm_configs)
+        client = _mock_client(apm_configs, cdm_configs)
+        user_input = InFieldUserInput(client, InFieldLookup(client, operation))
 
         with pytest.raises(typer.BadParameter, match=match):
             user_input.validate_migration_spaces(source, target)
@@ -464,22 +416,27 @@ class TestInFieldSpaceSelection:
     def test_interactive_missing_configuration_uses_legacy_error(
         self, operation: Operation, match: str, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        _Prompts(["unused", "unused"]).install(monkeypatch)
-        user_input = _user_input(operation, [], [])
+        client = _mock_client([], [])
+        user_input = InFieldUserInput(client, InFieldLookup(client, operation))
 
-        with pytest.raises(typer.BadParameter, match=match):
+        with (
+            MockQuestionary(infield_setup.__name__, monkeypatch, ["unused", "unused"]),
+            pytest.raises(typer.BadParameter, match=match),
+        ):
             user_input.prompt_migration_spaces()
 
     def test_location_split_still_requires_target_configuration(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _set_location_split(monkeypatch, True)
-        user_input = _user_input("Infield data", [_shared_apm()], [])
+        client = _mock_client([_shared_apm()], [])
+        user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
         with pytest.raises(typer.BadParameter, match="No InfieldOnCDM Configurations with app instance space found"):
             user_input.validate_migration_spaces("shared_app", None)
 
     def test_cli_accepts_configured_spaces_missing_from_statistics(self) -> None:
         apm_configs, cdm_configs = _standard_infield_configs()
-        user_input = _user_input("Infield data", apm_configs, cdm_configs, existing_spaces=set())
+        client = _mock_client(apm_configs, cdm_configs, set())
+        user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
         try:
             spaces = user_input.validate_migration_spaces("app_space", "cdm_app")
@@ -492,7 +449,8 @@ class TestInFieldSpaceSelection:
 
     def test_source_without_target_requires_both_arguments(self) -> None:
         apm_configs, cdm_configs = _standard_infield_configs()
-        user_input = _user_input("Infield data", apm_configs, cdm_configs)
+        client = _mock_client(apm_configs, cdm_configs)
+        user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
         with pytest.raises(
             typer.BadParameter,
@@ -501,78 +459,58 @@ class TestInFieldSpaceSelection:
             user_input.validate_migration_spaces("app_space", None)
 
     def test_interactive_raises_when_source_spaces_are_inaccessible(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        _Prompts(["app_space", "cdm_app"]).install(monkeypatch)
         apm_configs, cdm_configs = _standard_infield_configs()
-        user_input = _user_input("Infield data", apm_configs, cdm_configs, existing_spaces=set())
+        client = _mock_client(apm_configs, cdm_configs, set())
+        user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
-        with pytest.raises(typer.BadParameter, match="do not exist or cannot be accessed"):
+        with (
+            MockQuestionary(infield_setup.__name__, monkeypatch, ["app_space", "cdm_app"]),
+            pytest.raises(typer.BadParameter, match="do not exist or cannot be accessed"),
+        ):
             user_input.prompt_migration_spaces()
 
     def test_interactive_raises_when_target_spaces_are_inaccessible(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        _Prompts(["app_space", "cdm_app"]).install(monkeypatch)
         apm_configs, cdm_configs = _standard_infield_configs()
-        user_input = _user_input("Infield data", apm_configs, cdm_configs, existing_spaces={"app_space"})
+        client = _mock_client(apm_configs, cdm_configs, {"app_space"})
+        user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
-        with pytest.raises(typer.BadParameter, match="Please create the instance space or ensure you can access it"):
+        with (
+            MockQuestionary(infield_setup.__name__, monkeypatch, ["app_space", "cdm_app"]),
+            pytest.raises(typer.BadParameter, match="Please create the instance space or ensure you can access it"),
+        ):
             user_input.prompt_migration_spaces()
 
     def test_interactive_does_not_warn_about_partially_missing_spaces(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        _Prompts(["app_space", "cdm_app"]).install(monkeypatch)
         printed: list[str] = []
 
         def _spy(self: HighSeverityWarning, include_timestamp: bool = False, console: object = None) -> None:
             printed.append(self.get_message())
 
         monkeypatch.setattr(HighSeverityWarning, "print_warning", _spy)
-        user_input = _user_input(
-            "Infield data",
+        client = _mock_client(
             [_apm(_root("loc1", "ASSET_1", "app_space"), _root("loc2", "ASSET_2", "other_space"))],
             [_cdm("loc", "cdm_app")],
             {"app_space", "cdm_app"},
         )
+        user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
 
-        user_input.prompt_migration_spaces()
+        with MockQuestionary(infield_setup.__name__, monkeypatch, ["app_space", "cdm_app"]):
+            user_input.prompt_migration_spaces()
 
         assert printed == []
 
-    @pytest.mark.parametrize(
-        "operation, legacy_label",
-        [
-            pytest.param("Infield data", "Infield data", id="infield_data"),
-            pytest.param("APM_SourceData", "APM_SourceData", id="apm_source_data"),
-        ],
-    )
-    def test_interactive_prompt_text_matches_legacy(
-        self, operation: Operation, legacy_label: str, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        prompts = _Prompts(["app_space", "cdm_app"]).install(monkeypatch)
-        apm_configs, cdm_configs = _standard_infield_configs()
-        user_input = _user_input(operation, apm_configs, cdm_configs)
-
-        user_input.prompt_migration_spaces()
-
-        assert prompts.messages == [
-            f"Select the instance space to migrate {legacy_label} from:",
-            f"Select the instance space to migrate {legacy_label} to:",
-        ]
-
-    def test_prompt_flags_uses_plain_log_dir_string(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        prompts = _Prompts([]).install(monkeypatch)
-        log_dir = tmp_path / "nested"
-
-        InFieldUserInput.prompt_flags(log_dir, dry_run=False, verbose=False)
-
-        assert prompts.path_defaults == [str(log_dir)]
-
     def test_cancelled_target_prompt_uses_legacy_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        _Prompts(["app_space", None]).install(monkeypatch)
         apm_configs, cdm_configs = _standard_infield_configs()
-        user_input = _user_input("Infield data", apm_configs, cdm_configs)
+        client = _mock_client(apm_configs, cdm_configs)
+        user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
         setup = InFieldSetup(user_input.client, user_input.lookup)
 
-        with pytest.raises(
-            typer.BadParameter,
-            match="Bug in Toolkit: target space is required for non-split Infield data migration",
+        with (
+            MockQuestionary(infield_setup.__name__, monkeypatch, ["app_space", None]),
+            pytest.raises(
+                typer.BadParameter,
+                match="Bug in Toolkit: target space is required for non-split Infield data migration",
+            ),
         ):
             spaces = user_input.prompt_migration_spaces()
             user_input.lookup.source_space = spaces.source
@@ -675,7 +613,7 @@ class TestInFieldMappingsAndSelectors:
             apm_configs=[
                 _apm(
                     _root("loc", "ASSET_1", "app_space", "source_space"),
-                    view_mappings={"activity": _source_view_mapping(CUSTOM_ACTIVITY_VIEW)},
+                    view_mappings={"activity": CUSTOM_ACTIVITY_VIEW.dump()},
                 )
             ],
             cdm_configs=[_cdm("loc", "cdm_app", SOURCE_DATA_FILTERS)],
@@ -710,7 +648,7 @@ class TestInFieldMappingsAndSelectors:
                     "loc",
                     "cdm_app",
                     SOURCE_DATA_FILTERS,
-                    {"operation": _source_view_mapping(CUSTOM_OPERATION_VIEW)},
+                    {"operation": CUSTOM_OPERATION_VIEW.dump()},
                 )
             ],
         )
@@ -726,10 +664,8 @@ class TestInFieldMappingsAndSelectors:
         setup, lookup = _setup(
             "APM_SourceData",
             cdm_configs=[
-                _cdm(
-                    "loc1", "cdm_app", SOURCE_DATA_FILTERS, {"operation": _source_view_mapping(CUSTOM_OPERATION_VIEW)}
-                ),
-                _cdm("loc2", "cdm_app", SOURCE_DATA_FILTERS, {"operation": _source_view_mapping(OTHER_OPERATION_VIEW)}),
+                _cdm("loc1", "cdm_app", SOURCE_DATA_FILTERS, {"operation": CUSTOM_OPERATION_VIEW.dump()}),
+                _cdm("loc2", "cdm_app", SOURCE_DATA_FILTERS, {"operation": OTHER_OPERATION_VIEW.dump()}),
             ],
         )
         mappings = setup.create_source_mappings(
@@ -742,7 +678,7 @@ class TestInFieldMappingsAndSelectors:
         assert (operation.destination_view.external_id, console_print.called) == ("CogniteOperation", True)
 
     def test_conflicting_destination_views_across_targets_raise(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        _patch_targets(monkeypatch, {"ASSET_1": "cdm_a", "ASSET_2": "cdm_b"})
+        # _patch_targets(monkeypatch, {"ASSET_1": "cdm_a", "ASSET_2": "cdm_b"})
         setup, lookup = _setup(
             "APM_SourceData",
             cdm_configs=[
@@ -750,13 +686,13 @@ class TestInFieldMappingsAndSelectors:
                     "loc1",
                     "cdm_a",
                     {"operations": {"instanceSpaces": ["cdm_a"]}},
-                    {"operation": _source_view_mapping(CUSTOM_OPERATION_VIEW)},
+                    {"operation": CUSTOM_OPERATION_VIEW.dump()},
                 ),
                 _cdm(
                     "loc2",
                     "cdm_b",
                     {"operations": {"instanceSpaces": ["cdm_b"]}},
-                    {"operation": _source_view_mapping(OTHER_OPERATION_VIEW)},
+                    {"operation": OTHER_OPERATION_VIEW.dump()},
                 ),
             ],
         )
@@ -812,7 +748,7 @@ class TestInFieldMappers:
     def test_location_split_instance_id_mapping_matches_legacy(
         self, operation: Operation, passthrough: bool, target_kind: str, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        seen = _patch_targets(monkeypatch)
+        # seen = _patch_targets(monkeypatch)
         setup, lookup = _setup(operation, [_shared_apm()], [_cdm("loc1", "cdm_a"), _cdm("loc2", "cdm_b")])
         lookup.source_space = "legacy_space"
         spaces = InfieldMigrationSpaces(source="legacy_space", _target=None)
@@ -849,7 +785,7 @@ class TestInFieldMappers:
             pytest.fail("Expected ValueError for a missing Schedule mapping")
 
     def test_missing_solution_tag_mapping_raises_legacy_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        _patch_targets(monkeypatch)
+        # _patch_targets(monkeypatch)
         setup, lookup = _setup("Infield data")
         lookup.source_space = "shared_app"
         mappings = [
@@ -885,12 +821,14 @@ class TestMigrateAppWiring:
         ],
     )
     def test_command_rejects_target_without_source(self, command_name: str, monkeypatch: pytest.MonkeyPatch) -> None:
-        _Prompts(["app_space", "cdm_app"]).install(monkeypatch)
         apm_configs, cdm_configs = _standard_infield_configs()
         client = _mock_client(apm_configs, cdm_configs)
         command: Callable[..., None] = getattr(MigrateApp, command_name)
 
         with (
+            MockQuestionary(
+                infield_setup.__name__, monkeypatch, ["app_space", "cdm_app", "migration_logs", False, False]
+            ),
             patch("cognite_toolkit._cdf_tk.apps._migrate_app._get_client", return_value=client),
             patch("cognite_toolkit._cdf_tk.apps._migrate_app.MigrationCommand.run", return_value=None),
             pytest.raises(

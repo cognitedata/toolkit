@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import (
     ENTITY_BY_SOURCE_VIEW_EXTERNAL_ID,
     SOURCE_DATA_TYPE_BY_VIEW_EXTERNAL_ID,
     create_apm_source_data_mappings,
+    resolve_apm_source_data_instance_spaces,
     resolve_source_data_view_ids,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
@@ -221,13 +222,16 @@ class InFieldUserInput:
 
     @cached_property
     def _source_candidates(self) -> set[str]:
-        return {
-            location.app_data_instance_space
-            for config in self.lookup.apm_configs
-            if config.feature_configuration
-            for location in config.feature_configuration.root_location_configurations or []
-            if location.app_data_instance_space is not None
-        }
+        if self.operation == "Infield data":
+            return {
+                location.app_data_instance_space
+                for config in self.lookup.apm_configs
+                if config.feature_configuration
+                for location in config.feature_configuration.root_location_configurations or []
+                if location.app_data_instance_space is not None
+            }
+        else:
+            return resolve_apm_source_data_instance_spaces(self.lookup.apm_configs)
 
     @property
     def _target_candidates(self) -> set[str]:
