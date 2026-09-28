@@ -594,6 +594,9 @@ class MockQuestionary:
     def confirm(self, *_: Any, **__: Any) -> MockQuestion:
         return MockQuestion(self.answers.pop(0))
 
+    def path(self, *_: Any, **__: Any) -> MockQuestion:
+        return MockQuestion(self.answers.pop(0))
+
     def checkbox(self, *_: Any, choices: list[Choice], **__: Any) -> MockQuestion:
         return MockQuestion(self.answers.pop(0), choices)
 
@@ -601,7 +604,7 @@ class MockQuestionary:
         return MockQuestion(self.answers.pop(0))
 
     def __enter__(self) -> MockQuestionary:
-        for method in [self.select, self.confirm, self.checkbox, self.text]:
+        for method in [self.select, self.confirm, self.checkbox, self.text, self.path]:
             for module_target in self.module_targets:
                 self.monkeypatch.setattr(f"{module_target}.questionary.{method.__name__}", method)
         return self
