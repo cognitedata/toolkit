@@ -187,6 +187,11 @@ class InFieldUserInput:
 
     def _is_valid_space(self, user_space: str, candidates: set[str], space_label: Literal["source", "target"]) -> None:
         """Checks if the user-provided space is valid and exists in the candidates. Raises a BadParameter exception if not."""
+        if not candidates:
+            raise typer.BadParameter(
+                f"No {space_label} spaces are available for {self.operation} migration. "
+                "Please ensure the CDF instance has the appropriate InField configurations deployed."
+            )
         if user_space not in candidates:
             raise typer.BadParameter(
                 f"{space_label.capitalize()} space '{user_space}' is not a valid {space_label} for {self.operation} migration. "
