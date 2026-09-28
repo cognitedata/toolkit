@@ -180,6 +180,10 @@ class InFieldUserInput:
                 f"The following {space_label} spaces do not exist or cannot be accessed: {humanize_collection(missing)}."
             ).print_warning(console=self.client.console)
         stats = [existing_candidates[space] for space in candidates if space in existing_candidates]
+        if not stats:
+            raise typer.BadParameter(
+                f"No {space_label} spaces exist or can be accessed for {self.operation} migration."
+            )
         selected_space = questionary.select(
             f"Select the {space_label} instance space for {self.operation} migration:",
             choices=[
