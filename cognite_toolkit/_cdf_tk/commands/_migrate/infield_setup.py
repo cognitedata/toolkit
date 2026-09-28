@@ -7,6 +7,7 @@ from typing import Literal
 import questionary
 import typer
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
+from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
@@ -14,8 +15,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMCon
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeOrEdgeRequest, NodeOrEdgeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
+from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import (
+    ENTITY_BY_SOURCE_VIEW_EXTERNAL_ID,
+    SOURCE_DATA_TYPE_BY_VIEW_EXTERNAL_ID,
+    create_apm_source_data_mappings,
+    resolve_source_data_view_ids,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
+    APMSourceDataMaintenanceOrderMapping,
     ConnectionCreator,
+    CustomConnectionMapping,
     InFieldAssetMapping,
     InFieldConditionMapping,
     InFieldObservationSapStatusMapping,
@@ -260,9 +269,7 @@ class InFieldSetup:
 
         # If a custom observation view is configured for the target space (e.g. to support SAP writeback),
         # migrate Observations onto it instead of the default FieldObservation view.
-        target_spaces = (
-            {migration_spaces.target} if not migration_spaces.is_location_split else self.lookup.target_spaces
-        )
+        target_spaces = self._get_target_spaces(migration_spaces)
         custom_observation_views = {
             resolve_observation_view_id(self.lookup.cdm_configs, space) for space in target_spaces
         }
@@ -389,3 +396,123 @@ class InFieldSetup:
             self.client, connection_creator, solution_tag_mapping, self.lookup.target_spaces
         )
         return solution_tag_mapper
+
+    def create_source_mappings(
+        self, migration_spaces: InfieldMigrationSpaces, source_views: dict[str, ViewId]
+    ) -> list[ViewToViewMapping]:
+        mappings = create_apm_source_data_mappings()
+        target_spaces = self._get_target_spaces(migration_spaces)
+
+        custom_views: dict[str, ViewId | None] = {}
+        for space in target_spaces:
+            space_custom_views, custom_view_warnings = resolve_source_data_view_ids(self.lookup.cdm_configs, space)
+            for warning in custom_view_warnings:
+                self.client.console.print(
+                    Panel(
+                        warning,
+                        title="Conflicting custom view configuration detected",
+                        expand=False,
+                        border_style="yellow",
+                    )
+                )
+            for type_key in SOURCE_DATA_TYPE_BY_VIEW_EXTERNAL_ID.values():
+                view_id = space_custom_views.get(type_key)
+                if type_key in custom_views and custom_views[type_key] != view_id:
+                    raise ToolkitMigrationError(
+                        f"Target locations disagree on the custom {type_key} view: {custom_views[type_key]!s} vs {view_id!s}."
+                    )
+                custom_views[type_key] = view_id
+        custom_views = {type_key: view_id for type_key, view_id in custom_views.items() if view_id is not None}
+        if custom_views:
+            # Custom maintenanceOrder/operation/notification views, keyed off the original APM source view IDs.
+            remapped: list[ViewToViewMapping] = []
+            for mapping in mappings:
+                source_type_key = SOURCE_DATA_TYPE_BY_VIEW_EXTERNAL_ID.get(mapping.source_view.external_id)
+                if source_type_key is not None and source_type_key in custom_views:
+                    mapping = mapping.model_copy(update={"destination_view": custom_views[source_type_key]})
+                remapped.append(mapping)
+            mappings = remapped
+        remapped_source: list[ViewToViewMapping] = []
+        for mapping in mappings:
+            source_entity = ENTITY_BY_SOURCE_VIEW_EXTERNAL_ID.get(mapping.source_view.external_id)
+            if source_entity is not None and source_entity in source_views:
+                mapping = mapping.model_copy(update={"source_view": source_views[source_entity]})
+            remapped_source.append(mapping)
+        mappings = remapped_source
+        return mappings
+
+    def _get_target_spaces(self, migration_spaces: InfieldMigrationSpaces) -> set[str]:
+        target_spaces = (
+            {migration_spaces.target} if not migration_spaces.is_location_split else self.lookup.target_spaces
+        )
+        return target_spaces
+
+    @classmethod
+    def get_infield_source_selectors(
+        cls, migration_spaces: InfieldMigrationSpaces, mappings: list[ViewToViewMapping]
+    ) -> list[InstanceSelector]:
+        """Creates instance selectors for APM_SourceData migration based on the provided mappings and migration spaces."""
+        return [
+            InstanceViewSelector(
+                view=SelectedView(
+                    space=mapping.source_view.space,
+                    external_id=mapping.source_view.external_id,
+                    version=mapping.source_view.version,
+                ),
+                instance_spaces=(migration_spaces.source,),
+                endpoint="sync",
+            )
+            for mapping in mappings
+        ]
+
+    def get_infield_source_mapper(
+        self,
+        migration_spaces: InfieldMigrationSpaces,
+        mappings: list[ViewToViewMapping],
+        source_views: dict[str, ViewId],
+    ) -> FDMtoCDMMapper:
+        """Creates a data mapper for APM_SourceData migration based on the provided mappings and migration spaces."""
+        instance_id_mapper = self._create_instance_id_mappers(
+            migration_spaces, passthrough={"cognite_app_data": "cognite_app_data"}
+        )
+        apm_asset_properties = {"assetExternalId", "assetExternalIds"}
+        custom_mappings: list[CustomConnectionMapping] = [
+            InFieldAssetMapping(
+                self.client,
+                extra_asset_view_properties=[
+                    (m.source_view, source_prop)
+                    for m in mappings
+                    for source_prop in m.container_mapping
+                    if source_prop in apm_asset_properties
+                ],
+            ),
+            APMSourceDataMaintenanceOrderMapping(
+                migration_spaces.source,
+                instance_id_mapper,
+                resolved_operation_view=source_views.get("operation"),
+            ),
+        ]
+        connection_creator = ConnectionCreator(
+            self.client,
+            instance_id_mapper=instance_id_mapper,
+            custom_mappings=custom_mappings,
+        )
+        if not migration_spaces.is_location_split:
+            return FDMtoCDMMapper(self.client, mappings, connection_creator=connection_creator)
+
+        location_split_id_mapper = (
+            instance_id_mapper if isinstance(instance_id_mapper, LocationSplitInstanceIdMapper) else None
+        )
+        if not location_split_id_mapper:
+            raise RuntimeError(
+                "Toolkit bug: LocationSplitInstanceIdMapper should be used for location split migrations."
+            )
+
+        return LocationSplitFDMtoCDMMapper(
+            self.client,
+            mappings,
+            connection_creator,
+            location_split_id_mapper,
+            self.lookup.target_by_root_asset,
+            source_views=source_views,
+        )
