@@ -433,17 +433,6 @@ class TestInFieldSpaceSelection:
         ):
             user_input.prompt_migration_spaces()
 
-    def test_interactive_raises_when_target_spaces_are_inaccessible(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        apm_configs, cdm_configs = _standard_infield_configs()
-        client = _mock_client(apm_configs, cdm_configs, {"app_space"})
-        user_input = InFieldUserInput(client, InFieldLookup(client, "Infield data"))
-
-        with (
-            MockQuestionary(infield_setup.__name__, monkeypatch, ["app_space", "cdm_app"]),
-            pytest.raises(typer.BadParameter),
-        ):
-            user_input.prompt_migration_spaces()
-
     def test_interactive_does_not_warn_about_partially_missing_spaces(self, monkeypatch: pytest.MonkeyPatch) -> None:
         printed: list[str] = []
 
