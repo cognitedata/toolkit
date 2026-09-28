@@ -1669,6 +1669,13 @@ class MigrateApp(typer.Typer):
             migration_spaces = user_input.validate_migration_spaces(source_space, target_space)
 
         lookup.source_space = migration_spaces.source
+        if migration_spaces.is_location_split:
+            cls._print_location_split_plan(
+                client,
+                source_space=migration_spaces.source,
+                target_by_root_asset=lookup.target_by_root_asset,
+                label="Infield data",
+            )
 
         setup = InFieldSetup(client, lookup)
         infield_mappings = setup.infield_mappings(migration_spaces, skip_observations)
