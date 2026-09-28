@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from ._agent import AgentIO
 from ._app import AppIO, AppVersionIO
 from ._auth import GroupAllScopedCRUD, GroupIO, SecurityCategoryIO
-from ._base_ios import Loader, ResourceContainerIO, ResourceIO
+from ._base_ios import ResourceContainerIO, ResourceIO
 from ._classic import AssetIO, EventIO, SequenceIO, SequenceRowIO
 from ._configuration import SearchConfigIO
 from ._data_organization import DataSetsIO, LabelIO
@@ -96,8 +96,8 @@ if not FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
 if not FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES):
     _EXCLUDED_CRUDS.add(ExternalDataSourceIO)
 
-CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[Loader]]] = defaultdict(list)
-CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
+CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
+CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
 for _loader in itertools.chain(
     ResourceIO.__subclasses__(),
     ResourceContainerIO.__subclasses__(),
@@ -168,7 +168,7 @@ ResourceTypes: TypeAlias = Literal[
 ]
 
 
-def get_crud(resource_dir: str, kind: str) -> type[Loader]:
+def get_crud(resource_dir: str, kind: str) -> type[ResourceIO]:
     for loader in CRUDS_BY_FOLDER_NAME[resource_dir]:
         if loader.kind == kind:
             return loader

@@ -90,11 +90,11 @@ class AssetCentricIO(
                 ExternalId(external_id=data_set_external_id)
                 for data_set_external_id in self.client.lookup.data_sets.external_id(list(data_set_ids))
             ]
-            yield from self._configurations(data_set_external_ids, DataSetsIO.create_loader(self.client))
+            yield from self._configurations(data_set_external_ids, DataSetsIO.create_io(self.client))
 
         yield from self._configurations(
             [ExternalId(external_id=label) for label in self._downloaded_labels_by_selector[selector]],
-            LabelIO.create_loader(self.client),
+            LabelIO.create_io(self.client),
         )
 
     def _get_classic_filter(self, selector: AssetCentricSelector) -> ClassicFilter:
@@ -267,7 +267,7 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
-        self._crud = AssetIO.create_loader(self.client)
+        self._crud = AssetIO.create_io(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:
@@ -434,7 +434,7 @@ class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
-        self._crud = FileMetadataCRUD.create_loader(self.client)
+        self._crud = FileMetadataCRUD.create_io(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:
@@ -556,7 +556,7 @@ class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRe
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
-        self._crud = TimeSeriesCRUD.create_loader(self.client)
+        self._crud = TimeSeriesCRUD.create_io(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:
@@ -683,7 +683,7 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
-        self._crud = EventIO.create_loader(self.client)
+        self._crud = EventIO.create_io(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:

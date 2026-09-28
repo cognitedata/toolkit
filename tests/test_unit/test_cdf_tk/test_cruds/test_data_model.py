@@ -66,9 +66,7 @@ class TestDataModelLoader:
             name=None,
         ).dump_yaml()
 
-        loader = DataModelIO.create_loader(
-            env_vars_with_client.get_client(),
-        )
+        loader = DataModelIO.create_io(env_vars_with_client.get_client())
         assert to_deploy_status(local_data_model, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     def test_are_equal_version_int(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
@@ -92,7 +90,7 @@ views:
             name=None,
             is_global=False,
         )
-        loader = DataModelIO.create_loader(env_vars_with_client_cheap.get_client())
+        loader = DataModelIO.create_io(env_vars_with_client_cheap.get_client())
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_yaml
         # The load filepath method ensures version is read as an int.
@@ -107,7 +105,7 @@ class TestGraphQLLoader:
     def test_deployment_order(
         self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        loader = GraphQLCRUD.create_loader(env_vars_with_client.get_client())
+        loader = GraphQLCRUD.create_io(env_vars_with_client.get_client())
         # The first model is dependent on the second model
         first_file = self._create_mock_file(
             """
@@ -139,7 +137,7 @@ type GeneratingUnit {
         assert created[1].external_id == "WindTurbineModel"
 
     def test_raise_cycle_error(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
-        loader = GraphQLCRUD.create_loader(env_vars_with_client_cheap.get_client())
+        loader = GraphQLCRUD.create_io(env_vars_with_client_cheap.get_client())
         # The two models are dependent on each other
         first_file = self._create_mock_file(
             """type WindTurbine @import(dataModel: {externalId: "SolarModel", version: "v1", space: "second_space"}) {
@@ -176,7 +174,7 @@ name: String}""",
             "AssetHierarchyDOM",
             "3_0_2",
         )
-        loader = GraphQLCRUD.create_loader(env_vars_with_client_cheap.get_client())
+        loader = GraphQLCRUD.create_io(env_vars_with_client_cheap.get_client())
 
         items = loader.load_resource_file(file, {})
 
@@ -213,7 +211,7 @@ name: String}""",
         yaml_file.parent = MagicMock(spec=Path)
         yaml_file.parent.__truediv__ = MagicMock(return_value=custom_graphql_file)
 
-        loader = GraphQLCRUD.create_loader(env_vars_with_client_cheap.get_client())
+        loader = GraphQLCRUD.create_io(env_vars_with_client_cheap.get_client())
         items = loader.load_resource_file(yaml_file, {})
 
         assert len(items) == 1
@@ -285,7 +283,7 @@ class TestViewLoader:
             client.tool.views.retrieve.return_value = parent_grandparent_view
             parent = ViewId(space="space", external_id="Parent", version="v1")
             grandparent = ViewId(space="space", external_id="GrandParent", version="v1")
-            loader = ViewIO(client, Path("build_dir"), None, topological_sort_implements=True)
+            loader = ViewIO(client, topological_sort_implements=True)
             actual = loader.topological_sort_implements(
                 [
                     parent,
@@ -304,7 +302,7 @@ class TestViewLoader:
 
         with monkeypatch_toolkit_client() as client, pytest.raises(ToolkitCycleError) as exc_info:
             client.tool.views.retrieve.return_value = parent_grandparent_view
-            loader = ViewIO(client, Path("build_dir"), None, topological_sort_implements=True)
+            loader = ViewIO(client, topological_sort_implements=True)
             loader.topological_sort_implements(
                 [
                     parent,
@@ -329,7 +327,7 @@ class TestViewLoader:
             "version": "v1",
             "implements": [{"space": "space", "externalId": "OtherView", "version": "v1"}],
         }
-        io = ViewIO.create_loader(toolkit_client_cheap)
+        io = ViewIO.create_io(toolkit_client_cheap)
 
         dumped = io.dump_resource(response, local)
         assert dumped == local
@@ -394,7 +392,7 @@ class TestViewDeployTopologicalSort:
         dependency_view = ViewRequest(space="sp_space", external_id="Dependency", version="v1")
 
         with monkeypatch_toolkit_client() as client:
-            loader = ViewIO(client, Path("build_dir"), None)
+            loader = ViewIO(client, topological_sort_implements=True)
             batches = loader._compute_deploy_batches([dependent_view, dependency_view])
 
         flat_ids = [view.external_id for batch in batches for view in batch]
@@ -423,7 +421,7 @@ class TestViewDeployTopologicalSort:
         ]
 
         with monkeypatch_toolkit_client() as client:
-            loader = ViewIO(client, Path("build_dir"), None)
+            loader = ViewIO(client)
             batches = loader._compute_deploy_batches(views)
 
         assert len(batches) == 1, "All views in one SCC should stay in a single batch"
@@ -444,7 +442,7 @@ class TestViewDeployTopologicalSort:
         )
 
         with monkeypatch_toolkit_client() as client:
-            loader = ViewIO(client, Path("build_dir"), None)
+            loader = ViewIO(client)
             with pytest.raises(ToolkitCycleError):
                 loader._compute_deploy_batches([view_a, view_b])
 

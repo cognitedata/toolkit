@@ -486,7 +486,7 @@ class AuthCommand(ToolkitCommand):
                 # Assets and relationships are not supported on DATA_MODELING_ONLY projects.
                 continue
 
-            crud = crud_cls.create_loader(client)
+            crud = crud_cls.create_io(client)
             try:
                 warning_str = crud.prerequisite_warning()
             except (ToolkitAPIError, CogniteAPIError):

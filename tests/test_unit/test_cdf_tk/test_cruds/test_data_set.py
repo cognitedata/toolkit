@@ -13,7 +13,7 @@ class TestDataSetsLoader:
     def test_upsert_data_set(
         self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
     ):
-        loader = DataSetsIO.create_loader(env_vars_with_client.get_client())
+        loader = DataSetsIO.create_io(env_vars_with_client.get_client())
         filepath = LOAD_DATA / "data_sets" / "1.my_datasets.yaml"
         raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
         assert len(raw_list) == 2

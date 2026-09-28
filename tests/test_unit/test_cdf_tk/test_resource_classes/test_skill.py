@@ -58,7 +58,7 @@ class TestSkillYAML:
     def test_alpha_skill_files_have_valid_yaml_structure(self) -> None:
 
         path = next(path for path in (COMPLETE_ORG_ALPHA_FLAGS / MODULES).rglob("*Skill.yaml"))
-        data = SkillIO(ToolkitClientMock(), None).load_resource_file(path)[0]
+        data = SkillIO(ToolkitClientMock()).load_resource_file(path)[0]
         loaded = SkillYAML.model_validate(data)
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 

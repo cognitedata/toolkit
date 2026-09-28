@@ -270,8 +270,8 @@ class TestCheckNoOutOfScopeViewReferences:
         ]
         raises_ctx = pytest.raises(ToolkitValueError, match=error_match) if should_raise else nullcontext()
         with (
-            patch.object(ContainerCRUD, "create_loader", return_value=mock_container_crud),
-            patch.object(ViewIO, "create_loader", return_value=mock_view_crud),
+            patch.object(ContainerCRUD, "create_io", return_value=mock_container_crud),
+            patch.object(ViewIO, "create_io", return_value=mock_view_crud),
             raises_ctx,
         ):
             cmd._validate_plan_container_references(client, plan, DeployOptions(drop=True, operation=operation))
@@ -289,7 +289,7 @@ class TestDeployResourcesSpecialUpsertHandling:
 
         with monkeypatch_toolkit_client() as client:
             client.tool.views.create.side_effect = lambda items: list(items)
-            loader = ViewIO(client, Path("build_dir"), None)
+            loader = ViewIO(client)
             resources: ResourceToDeploy = ResourceToDeploy(to_create=[derived_view], to_update=[base_view])
             result = DeployV2Command.deploy_resources(loader, resources, set())
 

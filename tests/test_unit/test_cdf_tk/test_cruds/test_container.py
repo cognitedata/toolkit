@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -48,7 +47,7 @@ class TestContainerCRUD:
     def test_unchanged_used_for_not_set(
         self, toolkit_client_approval: ApprovalToolkitClient, cdf_container: ContainerResponse
     ) -> None:
-        crud = ContainerCRUD.create_loader(toolkit_client_approval.mock_client)
+        crud = ContainerCRUD.create_io(toolkit_client_approval.mock_client)
         raw_file = """space: sp_enterprise_process_industry_full
 externalId: Toolkit360Image
 properties:
@@ -71,7 +70,7 @@ indexes: {}
         assert "usedFor" in dumped_no_local
 
     def test_only_in_cdf_properties_listed(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        crud = ContainerCRUD.create_loader(toolkit_client_approval.mock_client)
+        crud = ContainerCRUD.create_io(toolkit_client_approval.mock_client)
         item_id = ContainerId(space="my_space", external_id="MyContainer")
 
         local_dict = {"properties": {"name": {"type": {"type": "text"}}}}
@@ -92,7 +91,7 @@ indexes: {}
     def test_dump_resource_normalizes_empty_constraints_and_indexes_to_local_shape(
         self, toolkit_client_cheap: ToolkitClient, cdf_container: ContainerResponse
     ) -> None:
-        crud = ContainerCRUD.create_loader(toolkit_client_cheap)
+        crud = ContainerCRUD.create_io(toolkit_client_cheap)
 
         local_with_null = {"constraints": None, "indexes": None}
         dumped = crud.dump_resource(cdf_container, local_with_null)
@@ -148,7 +147,7 @@ class TestContainerDeployTopologicalSort:
         )
 
         with monkeypatch_toolkit_client() as client:
-            loader = ContainerCRUD(client, Path("build_dir"), None)
+            loader = ContainerCRUD(client)
             batches = loader._compute_deploy_batches([dependent_container, dependency_container])
 
         flat_ids = [container.external_id for batch in batches for container in batch]
@@ -176,7 +175,7 @@ class TestContainerDeployTopologicalSort:
         ]
 
         with monkeypatch_toolkit_client() as client:
-            loader = ContainerCRUD(client, Path("build_dir"), None)
+            loader = ContainerCRUD(client)
             batches = loader._compute_deploy_batches([*dependents, dependency_container])
 
         assert len(batches) > 1, "Should split into multiple batches given the batch limit"
@@ -203,7 +202,7 @@ class TestContainerDeployTopologicalSort:
         ]
 
         with monkeypatch_toolkit_client() as client:
-            loader = ContainerCRUD(client, Path("build_dir"), None)
+            loader = ContainerCRUD(client)
             batches = loader._compute_deploy_batches(containers)
 
         assert len(batches) == 1, (

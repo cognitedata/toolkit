@@ -201,7 +201,7 @@ class TestPullV2Command:
             to_write=to_write,
             resources=resources,
             environment_variables={},
-            resource_io=loader_type.create_loader(toolkit_client_cheap),
+            resource_io=loader_type.create_io(toolkit_client_cheap),
             source_file=source_file,
         )
         assert not extra_files, "This tests does not support testing extra files"

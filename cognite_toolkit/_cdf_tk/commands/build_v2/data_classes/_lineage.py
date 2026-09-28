@@ -1,7 +1,7 @@
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar
 
 import yaml
 from pydantic import (
@@ -30,7 +30,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.resource_ios import ResourceIO, get_crud
+from cognite_toolkit._cdf_tk.resource_ios import get_crud
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     calculate_hash,
@@ -86,7 +86,7 @@ class ResourceLineageItem(_BaseLineageModel):
         content = BuildVariable.substitute(
             safe_read(organization_path / self.source_file), self.variables, self.source_file.suffix
         )
-        resource_io = cast(type[ResourceIO], get_crud(self.type.resource_folder, self.type.kind))
+        resource_io = get_crud(self.type.resource_folder, self.type.kind)
         raw = load_yaml_inject_variables(
             content,
             environment_variables,

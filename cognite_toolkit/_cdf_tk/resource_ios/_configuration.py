@@ -1,8 +1,5 @@
 from collections.abc import Hashable, Iterable, Sequence
-from pathlib import Path
 from typing import Any, Literal, final
-
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -35,8 +32,8 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
     _doc_base_url = "https://api-docs.cogheim.net/redoc/#tag/"
     _doc_url = "Search-Config/operation/upsertSearchConfigViews"
 
-    def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
-        super().__init__(client, build_path, console)
+    def __init__(self, client: ToolkitClient):
+        super().__init__(client)
         self._internal_id_by_view: dict[ViewNoVersionId, int] | None = None
 
     @property

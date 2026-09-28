@@ -592,7 +592,7 @@ class TestDeployResourcesValidationError:
         an unexpected JSON structure that will cause a pydantic ValidationError.
         """
         client = ToolkitClient(config=toolkit_config)
-        crud = SpaceCRUD.create_loader(client)
+        crud = SpaceCRUD.create_io(client)
 
         resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy()
         resources.to_create = [SpaceRequest(space="my_space")]
@@ -660,7 +660,7 @@ class TestCategorizeResources:
         dataset_raw = {"externalId": "my_dataset", "name": "My DataSet"}
         request = DataSetRequest.model_validate(dataset_raw)
         result = DeployV2Command.categorize_resources(
-            DataSetsIO.create_loader(toolkit_client_cheap),
+            DataSetsIO.create_io(toolkit_client_cheap),
             resource_by_id={
                 request.as_id(): ReadResource(request, dataset_raw, [MagicMock()]),
             },
@@ -765,7 +765,7 @@ class TestDeployResourcesRelatedInsights:
         client = MagicMock()
         client.console = Console(file=console_output, width=200)
         client.tool.spaces.create.side_effect = ToolkitAPIError("API failed")
-        crud = SpaceCRUD.create_loader(client)
+        crud = SpaceCRUD.create_io(client)
         with pytest.raises(ResourceCreationError, match="Likely causes detected during"):
             DeployV2Command.deploy_resources(
                 crud, resources, skipped_cruds=set(), insights_by_resource=insights_by_resource
