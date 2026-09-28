@@ -679,7 +679,14 @@ class TestInFieldMappers:
         lookup = InFieldLookup(client, operation)
         setup = InFieldSetup(client, lookup)
         spaces = InfieldMigrationSpaces(source=source_space, _target=target_space)
-        mapper = _mapper(setup, lookup, spaces)
+        mapper: FDMtoCDMMapper
+        if lookup.operation == "Infield data":
+            mapper = setup.get_infield_data_mapper(spaces, setup.infield_mappings(spaces))
+        else:
+            source_views = resolve_apm_source_data_view_ids(lookup.apm_configs)
+            mapper = setup.get_infield_source_mapper(
+                spaces, setup.create_source_mappings(spaces, source_views), source_views
+            )
 
         assert (
             type(mapper).__name__,
@@ -709,7 +716,14 @@ class TestInFieldMappers:
         setup = InFieldSetup(client, lookup)
         lookup.source_space = "shared_space"
         spaces = InfieldMigrationSpaces(source="shared_space", _target=None)
-        mapper = _mapper(setup, lookup, spaces)
+        mapper: FDMtoCDMMapper
+        if lookup.operation == "Infield data":
+            mapper = setup.get_infield_data_mapper(spaces, setup.infield_mappings(spaces))
+        else:
+            source_views = resolve_apm_source_data_view_ids(lookup.apm_configs)
+            mapper = setup.get_infield_source_mapper(
+                spaces, setup.create_source_mappings(spaces, source_views), source_views
+            )
 
         assert (
             type(mapper).__name__,
@@ -746,13 +760,6 @@ class TestInFieldMappers:
 
         with pytest.raises(RuntimeError):
             setup.get_infield_data_mapper(InfieldMigrationSpaces(source="shared_app", _target=None), mappings)
-
-
-def _mapper(setup: InFieldSetup, lookup: InFieldLookup, spaces: InfieldMigrationSpaces) -> FDMtoCDMMapper:
-    if lookup.operation == "Infield data":
-        return setup.get_infield_data_mapper(spaces, setup.infield_mappings(spaces))
-    source_views = resolve_apm_source_data_view_ids(lookup.apm_configs)
-    return setup.get_infield_source_mapper(spaces, setup.create_source_mappings(spaces, source_views), source_views)
 
 
 class TestMigrateAppWiring:
