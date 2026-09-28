@@ -116,7 +116,7 @@ class InFieldLookup:
             source_space=self.source_space,
             apm_configs=self.apm_configs,
             cdm_configs=self.cdm_configs,
-            target_kind={"Infield data": "app_data", "APM_SourceData": "source_data"}[self.operation],  # type: ignore[arg-type]
+            target_kind="app_data" if self.operation == "Infield data" else "source_data",
         )
 
     @cached_property
