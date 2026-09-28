@@ -397,24 +397,19 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         aggregate_endpoint = self._method_endpoint_map["aggregate"]
         if not 0 < limit <= aggregate_endpoint.item_limit:
             raise ValueError(f"Limit must be between 1 and {aggregate_endpoint.item_limit}, got {limit}.")
-
-        optional: dict[str, Any] = {
-            "query": query,
-            "properties": properties,
-            "aggregates": aggregates,
-            "group_by": group_by,
-            "filter": filter,
-            "operator": operator,
-            "instance_type": instance_type,
-            "target_units": target_units,
-            "include_typing": include_typing,
-        }
-        payload: dict[str, Any] = {
-            "view": view,
-            "limit": limit,
-            **{key: value for key, value in optional.items() if value is not None},
-        }
-        return InstanceAggregateRequest.model_validate(payload)
+        return InstanceAggregateRequest(
+            view=view,
+            limit=limit,
+            query=query,
+            properties=properties,
+            aggregates=aggregates,
+            group_by=group_by,
+            filter=filter,
+            operator=operator,
+            instance_type=instance_type,
+            target_units=target_units,
+            include_typing=include_typing,
+        )
 
     def list(
         self, filter: InstanceFilter | None = None, limit: int | None = 100, endpoint: QueryEndpoint = "query"
