@@ -928,8 +928,8 @@ class BuildV2Command(ToolkitCommand):
             return FailedReadYAMLFile(
                 source_path=resource_file, error=f"Failed to read resource file: {read_error!s}", code="READ-ERROR"
             )
-        # Ignore in file
-        rules_ignored = self._get_ignore_rule_codes(content)
+        # Ignore rules in file?
+        rules_ignore = self._get_ignore_rule_codes(content)
 
         # Content read successfully.
         substituted_content = content
@@ -965,14 +965,14 @@ class BuildV2Command(ToolkitCommand):
                 unresolved_variables=unresolved_variables,
             )
 
-        resource_type = ResourceType(resource_folder=crud_class.folder_name, kind=crud_class.kind)
+        resource_type = crud_class.as_resource_type()
         args: dict[str, Any] = dict(
             source_path=resource_file,
             source_hash=file_hash,
             resource_type=resource_type,
             line_count=line_count,
             unresolved_variables=unresolved_variables,
-            rules_ignore=rules_ignored,
+            rules_ignore=rules_ignore,
         )
 
         if isinstance(parsed_yaml, dict):
