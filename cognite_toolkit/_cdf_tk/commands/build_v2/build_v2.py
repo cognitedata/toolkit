@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildInput,
     BuildLineage,
     BuildParameters,
+    BuildVariable,
     BuiltModule,
     ConfigYAML,
     InsightList,
@@ -48,7 +49,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
-    BuildVariable,
     FailedReadYAMLFile,
     IgnoredFile,
     ModuleId,
@@ -976,42 +976,66 @@ class BuildV2Command(ToolkitCommand):
         )
 
         if isinstance(parsed_yaml, dict):
-            toolkit_resource: ToolkitResource | None = None
-            syntax_error: ModelSyntaxError | None = None
-            syntax_warnings: list[ModelSyntaxWarning] = []
+            return self._validate_single_resource(args, crud_class, parsed_yaml, resource_file, variables)
+        elif isinstance(parsed_yaml, list):
+            return self._validate_multi_resource(args, crud_class, parsed_yaml, resource_file, variables)
+        else:
+            raise RuntimeError(
+                "Toolkit bug: parsed YAML content is neither a dict, a list or empty. Please report this issue."
+            )
+
+    def _validate_single_resource(
+        self,
+        args: dict[str, Any],
+        crud_class: type[ResourceIO[Any, Any, Any, Any]],
+        parsed_yaml: dict[str, Any],
+        resource_file: Path,
+        variables: list[BuildVariable],
+    ) -> SuccessfulReadYAMLFile:
+        toolkit_resource: ToolkitResource | None = None
+        syntax_error: ModelSyntaxError | None = None
+        syntax_warnings: list[ModelSyntaxWarning] = []
+        try:
+            toolkit_resource = crud_class.yaml_cls.model_validate(parsed_yaml, extra="forbid")
+            identifier = toolkit_resource.as_id()
+            syntax_warnings = toolkit_resource.syntax_warnings(resource_file)
+        except ValidationError as errors:
+            syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file)
+            if syntax_warning is not None:
+                syntax_warnings = [syntax_warning]
             try:
-                toolkit_resource = crud_class.yaml_cls.model_validate(parsed_yaml, extra="forbid")
-                identifier = toolkit_resource.as_id()
-                syntax_warnings = toolkit_resource.syntax_warnings(resource_file)
-            except ValidationError as errors:
-                syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file)
-                if syntax_warning is not None:
-                    syntax_warnings = [syntax_warning]
-                try:
-                    identifier = crud_class.get_id(parsed_yaml)
-                except KeyError:
-                    return SuccessfulReadYAMLFile(
-                        syntax_error=syntax_error,
-                        syntax_warnings=syntax_warnings,
-                        resources=[],
-                        **args,
-                    )
+                identifier = crud_class.get_id(parsed_yaml)
+            except KeyError:
+                return SuccessfulReadYAMLFile(
+                    syntax_error=syntax_error,
+                    syntax_warnings=syntax_warnings,
+                    resources=[],
+                    **args,
+                )
 
-            extra_files = self._substitute_variables_extra_content(
-                crud_class.get_extra_files(resource_file, identifier, parsed_yaml), variables
-            )
+        extra_files = self._substitute_variables_extra_content(
+            crud_class.get_extra_files(resource_file, identifier, parsed_yaml), variables
+        )
 
-            return SuccessfulReadYAMLFile(
-                syntax_error=syntax_error,
-                syntax_warnings=syntax_warnings,
-                resources=[
-                    ReadResource(
-                        raw=parsed_yaml, identifier=identifier, validated=toolkit_resource, extra_files=extra_files
-                    )
-                ],
-                **args,
-            )
-        # Is instance list
+        return SuccessfulReadYAMLFile(
+            syntax_error=syntax_error,
+            syntax_warnings=syntax_warnings,
+            resources=[
+                ReadResource(
+                    raw=parsed_yaml, identifier=identifier, validated=toolkit_resource, extra_files=extra_files
+                )
+            ],
+            **args,
+        )
+
+    def _validate_multi_resource(
+        self,
+        args: dict[str, Any],
+        crud_class: type[ResourceIO[Any, Any, Any, Any]],
+        parsed_yaml: list[dict[str, Any]],
+        resource_file: Path,
+        variables: list[BuildVariable],
+    ) -> SuccessfulReadYAMLFile:
         # MyPy complains as the yaml_cls type is determined at runtime,
         # and thus not available to te static type checker.
         adapter = TypeAdapter[list[crud_class.yaml_cls]](list[crud_class.yaml_cls])  # type: ignore[name-defined]
