@@ -1,5 +1,6 @@
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Literal, TypeVar, cast
 
@@ -33,6 +34,33 @@ _KeyT = TypeVar("_KeyT")
 _ReferenceStatus = Literal["ok", "not_direct", "missing"]
 _LocalContainer = tuple[BuiltResource, ContainerRequest]
 _LocalView = tuple[BuiltResource, ViewRequest]
+
+
+@dataclass(frozen=True)
+class _ContainerPropertyReference:
+    """A view property mapped onto a container property."""
+
+    container_id: ContainerId
+    property_identifier: str
+    resources: tuple[BuiltResource, ...]
+
+    @property
+    def label(self) -> str:
+        return f"{self.container_id}.{self.property_identifier}"
+
+
+@dataclass(frozen=True)
+class _ReverseDirectRelationReference:
+    """A reverse direct relation pointing at a property through a view or container."""
+
+    through: ContainerDirectId | ViewDirectId
+    resources: tuple[BuiltResource, ...]
+
+
+@dataclass(frozen=True)
+class _SchemaReferences:
+    container_properties: tuple[_ContainerPropertyReference, ...]
+    reverse_direct_relations: tuple[_ReverseDirectRelationReference, ...]
 
 
 class DataModelingRuleSet(ToolkitGlobalRuleSet):
@@ -71,7 +99,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
         if not Flags.ALPHA_RULES.is_enabled():
             return
-        yield from self._validate_references()
+        yield from self._check_schema_references()
         if self.client is not None:
             yield from self._validate_data_modeling_changes(self.client)
 
@@ -84,7 +112,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         """
         yield from DependencyRuleSet(self.modules, client)._validate_data_modeling_changes(client)
 
-    def _validate_references(self) -> Iterable[ConsistencyError | InternalValidatorException]:
+    def _check_schema_references(self) -> Iterable[ConsistencyError | InternalValidatorException]:
         try:
             local_containers = self._load_containers()
             local_views = self._load_views()
@@ -94,37 +122,71 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                 source="DataModeling",
             )
             return
+        references = self._find_references(local_views)
+        yield from self._validate_references(references, local_containers, local_views)
 
-        container_refs: dict[tuple[ContainerId, str], list[BuiltResource]] = defaultdict(list)
-        reverse_refs: dict[ContainerDirectId | ViewDirectId, list[BuiltResource]] = defaultdict(list)
+    @classmethod
+    def _find_references(cls, local_views: dict[ViewId, _LocalView]) -> _SchemaReferences:
+        container_properties: dict[tuple[ContainerId, str], list[BuiltResource]] = defaultdict(list)
+        reverse_relations: dict[ContainerDirectId | ViewDirectId, list[BuiltResource]] = defaultdict(list)
         for resource, view in local_views.values():
-            self._collect_view_dependencies(resource, view, container_refs, reverse_refs)
+            for prop in (view.properties or {}).values():
+                if isinstance(prop, ViewCorePropertyRequest):
+                    cls._append(container_properties, (prop.container, prop.container_property_identifier), resource)
+                elif isinstance(prop, ReverseDirectRelationProperty):
+                    cls._append(reverse_relations, prop.through, resource)
+        return _SchemaReferences(
+            container_properties=tuple(
+                _ContainerPropertyReference(container_id, property_identifier, tuple(resources))
+                for (container_id, property_identifier), resources in container_properties.items()
+            ),
+            reverse_direct_relations=tuple(
+                _ReverseDirectRelationReference(through, tuple(resources))
+                for through, resources in reverse_relations.items()
+            ),
+        )
 
-        missing_properties: dict[tuple[ContainerId, str], list[BuiltResource]] = {}
-        for key, resources in container_refs.items():
-            container_id, property_identifier = key
-            if self._container_property(container_id, property_identifier, local_containers, {}) is not None:
-                continue
-            missing_properties[key] = resources
+    def _validate_references(
+        self,
+        references: _SchemaReferences,
+        local_containers: dict[ContainerId, _LocalContainer],
+        local_views: dict[ViewId, _LocalView],
+    ) -> Iterable[ConsistencyError | InternalValidatorException]:
+        missing_properties: list[_ContainerPropertyReference] = []
+        for property_ref in references.container_properties:
+            if (
+                self._container_property(
+                    property_ref.container_id, property_ref.property_identifier, local_containers, {}
+                )
+                is None
+            ):
+                missing_properties.append(property_ref)
 
-        missing_reverses: dict[ContainerDirectId | ViewDirectId, list[BuiltResource]] = {}
-        for through, resources in reverse_refs.items():
-            status = self._reverse_status(through, local_views, local_containers, {}, {})
-            if status == "ok":
-                continue
+        invalid_reverses: list[_ReverseDirectRelationReference] = []
+        missing_reverses: list[_ReverseDirectRelationReference] = []
+        for relation_ref in references.reverse_direct_relations:
+            status = self._reverse_status(relation_ref.through, local_views, local_containers, {}, {})
             if status == "not_direct":
-                yield self._not_direct_error(through, resources)
-                continue
-            missing_reverses[through] = resources
+                invalid_reverses.append(relation_ref)
+            elif status == "missing":
+                missing_reverses.append(relation_ref)
 
+        yield from (self._not_direct_error(relation_ref) for relation_ref in invalid_reverses)
         if not missing_properties and not missing_reverses:
             return
-
         if self.client is None:
             yield from self._unverified_properties(missing_properties)
             yield from self._unverified_reverses(missing_reverses)
             return
+        yield from self._validate_missing_in_cdf(missing_properties, missing_reverses, local_containers, local_views)
 
+    def _validate_missing_in_cdf(
+        self,
+        missing_properties: list[_ContainerPropertyReference],
+        missing_reverses: list[_ReverseDirectRelationReference],
+        local_containers: dict[ContainerId, _LocalContainer],
+        local_views: dict[ViewId, _LocalView],
+    ) -> Iterable[ConsistencyError | InternalValidatorException]:
         container_ids, view_ids = self._ids_to_fetch(missing_properties, missing_reverses, local_views)
         cdf_containers, container_error = self._retrieve_containers(container_ids)
         if container_error is not None:
@@ -134,60 +196,49 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             yield view_error
 
         if container_error is None:
-            for (container_id, property_identifier), resources in missing_properties.items():
+            for property_ref in missing_properties:
                 if (
-                    self._container_property(container_id, property_identifier, local_containers, cdf_containers)
-                    is not None
+                    self._container_property(
+                        property_ref.container_id, property_ref.property_identifier, local_containers, cdf_containers
+                    )
+                    is None
                 ):
-                    continue
-                yield self._unknown_property_error(container_id, property_identifier, resources)
+                    yield self._unknown_property_error(property_ref)
 
-        for through, resources in missing_reverses.items():
-            needs_container, needs_view = self._reverse_remote_need(through, local_views)
+        for relation_ref in missing_reverses:
+            needs_container, needs_view = self._reverse_remote_need(relation_ref.through, local_views)
             if (needs_container and container_error is not None) or (needs_view and view_error is not None):
                 continue
-            status = self._reverse_status(through, local_views, local_containers, cdf_views, cdf_containers)
+            status = self._reverse_status(
+                relation_ref.through, local_views, local_containers, cdf_views, cdf_containers
+            )
             if status == "ok":
                 continue
             if status == "not_direct":
-                yield self._not_direct_error(through, resources)
+                yield self._not_direct_error(relation_ref)
                 continue
-            yield self._unknown_reverse_error(through, resources)
-
-    @classmethod
-    def _collect_view_dependencies(
-        cls,
-        resource: BuiltResource,
-        view: ViewRequest,
-        container_refs: dict[tuple[ContainerId, str], list[BuiltResource]],
-        reverse_refs: dict[ContainerDirectId | ViewDirectId, list[BuiltResource]],
-    ) -> None:
-        for prop in (view.properties or {}).values():
-            if isinstance(prop, ViewCorePropertyRequest):
-                cls._append(container_refs, (prop.container, prop.container_property_identifier), resource)
-            elif isinstance(prop, ReverseDirectRelationProperty):
-                cls._append(reverse_refs, prop.through, resource)
+            yield self._unknown_reverse_error(relation_ref)
 
     def _ids_to_fetch(
         self,
-        missing_properties: dict[tuple[ContainerId, str], list[BuiltResource]],
-        missing_reverses: dict[ContainerDirectId | ViewDirectId, list[BuiltResource]],
+        missing_properties: list[_ContainerPropertyReference],
+        missing_reverses: list[_ReverseDirectRelationReference],
         local_views: dict[ViewId, _LocalView],
     ) -> tuple[set[ContainerId], set[ViewId]]:
-        container_ids = {container_id for container_id, _ in missing_properties}
+        container_ids = {ref.container_id for ref in missing_properties}
         view_ids: set[ViewId] = set()
-        for through in missing_reverses:
-            needs_container, needs_view = self._reverse_remote_need(through, local_views)
-            if isinstance(through, ContainerDirectId) and needs_container:
-                container_ids.add(through.source)
+        for ref in missing_reverses:
+            needs_container, needs_view = self._reverse_remote_need(ref.through, local_views)
+            if isinstance(ref.through, ContainerDirectId) and needs_container:
+                container_ids.add(ref.through.source)
                 continue
-            if not isinstance(through, ViewDirectId):
+            if not isinstance(ref.through, ViewDirectId):
                 continue
             if needs_view:
-                view_ids.add(through.source)
+                view_ids.add(ref.through.source)
                 continue
-            local = local_views.get(through.source)
-            prop = (local[1].properties or {}).get(through.identifier) if local is not None else None
+            local = local_views.get(ref.through.source)
+            prop = (local[1].properties or {}).get(ref.through.identifier) if local is not None else None
             if isinstance(prop, ViewCorePropertyRequest):
                 container_ids.add(prop.container)
         return container_ids, view_ids
@@ -338,76 +389,64 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         return {item.as_id(): item for item in items}, None
 
     def _unverified_properties(
-        self, missing_properties: dict[tuple[ContainerId, str], list[BuiltResource]]
+        self, missing_properties: list[_ContainerPropertyReference]
     ) -> Iterable[ConsistencyError]:
-        for (container_id, property_identifier), resources in missing_properties.items():
-            reference = f"{container_id}.{property_identifier}"
+        for ref in missing_properties:
             yield ConsistencyError(
                 code=self.UNVERIFIED_REFERENCE,
                 message=(
-                    f"Missing container property '{reference}'. It is referenced by {self._reference_string(resources)}."
+                    f"Missing container property '{ref.label}'. "
+                    f"It is referenced by {self._reference_string(ref.resources)}."
                 ),
                 fix=(
                     "Provide credentials to enable CDF verification. "
                     "Or ensure that the container property exists or remove the reference to it."
                 ),
-                source_files=self._source_files(resources),
+                source_files=self._source_files(ref.resources),
             )
 
     def _unverified_reverses(
-        self, missing_reverses: dict[ContainerDirectId | ViewDirectId, list[BuiltResource]]
+        self, missing_reverses: list[_ReverseDirectRelationReference]
     ) -> Iterable[ConsistencyError]:
-        for through, resources in missing_reverses.items():
+        for ref in missing_reverses:
             yield ConsistencyError(
                 code=self.UNVERIFIED_REFERENCE,
                 message=(
-                    f"Missing direct relation '{through}'. It is referenced by {self._reference_string(resources)}."
+                    f"Missing direct relation '{ref.through}'. "
+                    f"It is referenced by {self._reference_string(ref.resources)}."
                 ),
                 fix=(
                     "Provide credentials to enable CDF verification. "
                     "Or ensure that the direct relation exists or remove the reference to it."
                 ),
-                source_files=self._source_files(resources),
+                source_files=self._source_files(ref.resources),
             )
 
-    def _unknown_property_error(
-        self,
-        container_id: ContainerId,
-        property_identifier: str,
-        resources: list[BuiltResource],
-    ) -> ConsistencyError:
+    def _unknown_property_error(self, ref: _ContainerPropertyReference) -> ConsistencyError:
         return ConsistencyError(
             code=self.UNKNOWN_REFERENCE,
-            message=f"Unknown reference to container property '{container_id}.{property_identifier}'",
+            message=f"Unknown reference to container property '{ref.label}'",
             fix="Ensure that the container property exists or remove the reference to it.",
-            source_files=self._source_files(resources),
+            source_files=self._source_files(ref.resources),
         )
 
-    def _unknown_reverse_error(
-        self,
-        through: ContainerDirectId | ViewDirectId,
-        resources: list[BuiltResource],
-    ) -> ConsistencyError:
+    def _unknown_reverse_error(self, ref: _ReverseDirectRelationReference) -> ConsistencyError:
         return ConsistencyError(
             code=self.UNKNOWN_REFERENCE,
-            message=f"Unknown reference to direct relation '{through}'",
+            message=f"Unknown reference to direct relation '{ref.through}'",
             fix="Ensure that the direct relation exists or remove the reference to it.",
-            source_files=self._source_files(resources),
+            source_files=self._source_files(ref.resources),
         )
 
-    def _not_direct_error(
-        self,
-        through: ContainerDirectId | ViewDirectId,
-        resources: list[BuiltResource],
-    ) -> ConsistencyError:
+    def _not_direct_error(self, ref: _ReverseDirectRelationReference) -> ConsistencyError:
         return ConsistencyError(
             code=self.INVALID_REFERENCE,
             message=(
-                f"Reverse direct relation through '{through}' points at '{through.identifier}', "
+                f"Reverse direct relation through '{ref.through}' points at '{ref.through.identifier}', "
                 "which is not a direct relation."
             ),
             fix="Point the reverse direct relation at a property of type direct.",
-            source_files=self._source_files(resources),
+            source_files=self._source_files(ref.resources),
         )
 
     @staticmethod
@@ -417,11 +456,11 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             resources.append(resource)
 
     @staticmethod
-    def _source_files(resources: list[BuiltResource]) -> list[AbsoluteFilePath]:
+    def _source_files(resources: Sequence[BuiltResource]) -> list[AbsoluteFilePath]:
         return list(dict.fromkeys(resource.source_path for resource in resources))
 
     @staticmethod
-    def _reference_string(resources: list[BuiltResource]) -> str:
+    def _reference_string(resources: Sequence[BuiltResource]) -> str:
         return " - ".join(
             f"{resource.identifier!s} in {relative_to_if_possible(resource.source_path).as_posix()!r}"
             for resource in resources
