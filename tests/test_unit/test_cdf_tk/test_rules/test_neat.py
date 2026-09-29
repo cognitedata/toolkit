@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.rules import NeatRuleSet
 
 
@@ -26,7 +27,31 @@ class TestApplyToolkitGovernedSpaces:
         assert schema.governed_space_set() == {"dm_space", "records_space", "view_space"}
 
 
+@pytest.fixture(autouse=True)
+def alpha_rules_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        FeatureFlag,
+        "is_enabled",
+        lambda flag: flag is Flags.ALPHA_RULES and False,
+    )
+
+
+@pytest.fixture(autouse=True)
+def alpha_rules_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        FeatureFlag,
+        "is_enabled",
+        lambda flag: flag is Flags.ALPHA_RULES and True,
+    )
+
+
 class TestNeatRuleSetStatus:
+    @pytest.mark.usefixtures("alpha_rules_enabled")
+    def test_get_status_skip_on_alpha_rules_enabled(self) -> None:
+        status = NeatRuleSet(modules=[]).get_status()
+        assert status.code == "skip"
+
+    @pytest.mark.usefixtures("alpha_rules_disabled")
     @patch.object(NeatRuleSet, "installed", return_value=True)
     def test_get_status_unavailable_when_installed_without_client(self, _installed: object) -> None:
         status = NeatRuleSet(modules=[]).get_status()
@@ -36,6 +61,7 @@ class TestNeatRuleSetStatus:
         assert "Neat is installed" in status.message
         assert "cdf auth init" in status.message
 
+    @pytest.mark.usefixtures("alpha_rules_disabled")
     @patch.object(NeatRuleSet, "installed", return_value=True)
     def test_get_status_ready_when_installed_with_client(self, _installed: object) -> None:
         status = NeatRuleSet(modules=[], client=MagicMock()).get_status()
@@ -44,6 +70,7 @@ class TestNeatRuleSetStatus:
         assert status.message is not None
         assert "Neat is installed" in status.message
 
+    @pytest.mark.usefixtures("alpha_rules_disabled")
     @patch.object(NeatRuleSet, "installed", return_value=False)
     def test_get_status_suggests_uv_when_running_under_uv(
         self, _installed: object, monkeypatch: pytest.MonkeyPatch
@@ -56,6 +83,7 @@ class TestNeatRuleSetStatus:
         assert "uv add cognite-neat" in status.message
         assert "pip install cognite-neat" not in status.message
 
+    @pytest.mark.usefixtures("alpha_rules_disabled")
     @patch.object(NeatRuleSet, "installed", return_value=False)
     def test_get_status_suggests_pip_without_uv(self, _installed: object, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("UV", raising=False)
