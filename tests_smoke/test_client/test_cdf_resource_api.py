@@ -91,6 +91,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartDat
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerResponse,
+    CountAggregate,
     DataModelResponse,
     EdgeRequest,
     EdgeResponse,
@@ -1400,6 +1401,17 @@ class TestCDFResourceAPI:
                 _ = client.tool.instances.search(view=smoke_view.as_id(), limit=2)
             except ToolkitAPIError as e:
                 raise EndpointAssertionError(search_endpoint.path, f"Searching instances failed: {e!s}") from e
+
+            # Aggregate instances
+            aggregate_endpoint = client.tool.instances._method_endpoint_map["aggregate"]
+            try:
+                _ = client.tool.instances.aggregate(
+                    smoke_view.as_id(),
+                    aggregates=[CountAggregate(property="name")],
+                    limit=2,
+                )
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(aggregate_endpoint.path, f"Aggregating instances failed: {e!s}") from e
 
         finally:
             # Clean up
