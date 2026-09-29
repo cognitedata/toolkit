@@ -275,7 +275,7 @@ class TestContainerPropertyReferences:
 
         insights = [insight for insight in rule.validate() if isinstance(insight, ConsistencyError)]
         assert [(insight.code, "my_space:MyContainer.name" in insight.message) for insight in insights] == [
-            (DataModelingRuleSet.UNVERIFIED_REFERENCE, True)
+            (DataModelingRuleSet.UNVERIFIED_PROPERTY_REFERENCE, True)
         ]
 
     @pytest.mark.usefixtures("alpha_rules_enabled")
@@ -294,7 +294,7 @@ class TestContainerPropertyReferences:
 
         insights = [insight for insight in rule.validate() if isinstance(insight, ConsistencyError)]
         assert [(insight.code, "my_space:MyContainer.name" in insight.message) for insight in insights] == [
-            (DataModelingRuleSet.UNKNOWN_REFERENCE, True)
+            (DataModelingRuleSet.UNKNOWN_PROPERTY_REFERENCE, True)
         ]
 
     @pytest.mark.usefixtures("alpha_rules_enabled")
@@ -349,7 +349,7 @@ class TestReverseDirectRelations:
 
         insights = [insight for insight in rule.validate() if isinstance(insight, ConsistencyError)]
         assert [(insight.code, "not a direct relation" in insight.message) for insight in insights] == [
-            (DataModelingRuleSet.INVALID_REFERENCE, True)
+            (DataModelingRuleSet.INVALID_PROPERTY_REFERENCE, True)
         ]
 
     @pytest.mark.usefixtures("alpha_rules_enabled")
@@ -369,7 +369,7 @@ class TestReverseDirectRelations:
         )
 
         insights = [insight for insight in rule.validate() if isinstance(insight, ConsistencyError)]
-        assert [insight.code for insight in insights] == [DataModelingRuleSet.INVALID_REFERENCE]
+        assert [insight.code for insight in insights] == [DataModelingRuleSet.INVALID_PROPERTY_REFERENCE]
 
     @pytest.mark.usefixtures("alpha_rules_enabled")
     def test_missing_reverse_without_client_is_unverified(self, tmp_path: Path) -> None:
@@ -378,7 +378,7 @@ class TestReverseDirectRelations:
 
         insights = [insight for insight in rule.validate() if isinstance(insight, ConsistencyError)]
         assert [(insight.code, "direct relation" in insight.message) for insight in insights] == [
-            (DataModelingRuleSet.UNVERIFIED_REFERENCE, True)
+            (DataModelingRuleSet.UNVERIFIED_PROPERTY_REFERENCE, True)
         ]
 
     @pytest.mark.usefixtures("alpha_rules_enabled")
@@ -396,7 +396,7 @@ class TestReverseDirectRelations:
         rule = DataModelingRuleSet(modules=[_module([(reverse_view, ViewIO, VIEW_ID)])], client=client)
 
         insights = [insight for insight in rule.validate() if isinstance(insight, ConsistencyError)]
-        assert [insight.code for insight in insights] == [DataModelingRuleSet.INVALID_REFERENCE]
+        assert [insight.code for insight in insights] == [DataModelingRuleSet.INVALID_PROPERTY_REFERENCE]
 
     @pytest.mark.usefixtures("alpha_rules_enabled")
     def test_reverse_missing_in_cdf_is_unknown(self, tmp_path: Path) -> None:
@@ -405,7 +405,7 @@ class TestReverseDirectRelations:
         rule = DataModelingRuleSet(modules=[_module([(reverse_view, ViewIO, VIEW_ID)])], client=client)
 
         insights = [insight for insight in rule.validate() if isinstance(insight, ConsistencyError)]
-        assert [insight.code for insight in insights] == [DataModelingRuleSet.UNKNOWN_REFERENCE]
+        assert [insight.code for insight in insights] == [DataModelingRuleSet.UNKNOWN_PROPERTY_REFERENCE]
 
 
 class TestDataModelingChangesMove:

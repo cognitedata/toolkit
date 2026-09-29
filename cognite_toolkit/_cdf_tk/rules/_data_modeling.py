@@ -73,9 +73,9 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
 
     CODE_PREFIX = "DATA-MODELING"
     DISPLAY_NAME = "Data modeling checks"
-    UNKNOWN_REFERENCE = "UNKNOWN-REFERENCE"
-    UNVERIFIED_REFERENCE = "UNVERIFIED-REFERENCE"
-    INVALID_REFERENCE = "INVALID-REFERENCE"
+    UNKNOWN_PROPERTY_REFERENCE = "UNKNOWN-REFERENCE"
+    UNVERIFIED_PROPERTY_REFERENCE = "UNVERIFIED-PROPERTY-REFERENCE"
+    INVALID_PROPERTY_REFERENCE = "INVALID-PROPERTY-REFERENCE"
 
     def get_status(self) -> RuleSetStatus:
         if not Flags.ALPHA_RULES.is_enabled():
@@ -152,7 +152,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         local_containers: dict[ContainerId, _LocalContainer],
         local_views: dict[ViewId, _LocalView],
     ) -> Iterable[ConsistencyError | InternalValidatorException]:
-        missing_properties: list[_ContainerPropertyReference] = []
+        missing_container_properties: list[_ContainerPropertyReference] = []
         for property_ref in references.container_properties:
             if (
                 self._container_property(
@@ -160,7 +160,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                 )
                 is None
             ):
-                missing_properties.append(property_ref)
+                missing_container_properties.append(property_ref)
 
         invalid_reverses: list[_ReverseDirectRelationReference] = []
         missing_reverses: list[_ReverseDirectRelationReference] = []
@@ -172,13 +172,15 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                 missing_reverses.append(relation_ref)
 
         yield from (self._not_direct_error(relation_ref) for relation_ref in invalid_reverses)
-        if not missing_properties and not missing_reverses:
+        if not missing_container_properties and not missing_reverses:
             return
         if self.client is None:
-            yield from self._unverified_properties(missing_properties)
+            yield from self._unverified_properties(missing_container_properties)
             yield from self._unverified_reverses(missing_reverses)
             return
-        yield from self._validate_missing_in_cdf(missing_properties, missing_reverses, local_containers, local_views)
+        yield from self._validate_missing_in_cdf(
+            missing_container_properties, missing_reverses, local_containers, local_views
+        )
 
     def _validate_missing_in_cdf(
         self,
@@ -393,7 +395,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     ) -> Iterable[ConsistencyError]:
         for ref in missing_properties:
             yield ConsistencyError(
-                code=self.UNVERIFIED_REFERENCE,
+                code=self.UNVERIFIED_PROPERTY_REFERENCE,
                 message=(
                     f"Missing container property '{ref.label}'. "
                     f"It is referenced by {self._reference_string(ref.resources)}."
@@ -410,7 +412,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     ) -> Iterable[ConsistencyError]:
         for ref in missing_reverses:
             yield ConsistencyError(
-                code=self.UNVERIFIED_REFERENCE,
+                code=self.UNVERIFIED_PROPERTY_REFERENCE,
                 message=(
                     f"Missing direct relation '{ref.through}'. "
                     f"It is referenced by {self._reference_string(ref.resources)}."
@@ -424,7 +426,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
 
     def _unknown_property_error(self, ref: _ContainerPropertyReference) -> ConsistencyError:
         return ConsistencyError(
-            code=self.UNKNOWN_REFERENCE,
+            code=self.UNKNOWN_PROPERTY_REFERENCE,
             message=f"Unknown reference to container property '{ref.label}'",
             fix="Ensure that the container property exists or remove the reference to it.",
             source_files=self._source_files(ref.resources),
@@ -432,7 +434,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
 
     def _unknown_reverse_error(self, ref: _ReverseDirectRelationReference) -> ConsistencyError:
         return ConsistencyError(
-            code=self.UNKNOWN_REFERENCE,
+            code=self.UNKNOWN_PROPERTY_REFERENCE,
             message=f"Unknown reference to direct relation '{ref.through}'",
             fix="Ensure that the direct relation exists or remove the reference to it.",
             source_files=self._source_files(ref.resources),
@@ -440,7 +442,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
 
     def _not_direct_error(self, ref: _ReverseDirectRelationReference) -> ConsistencyError:
         return ConsistencyError(
-            code=self.INVALID_REFERENCE,
+            code=self.INVALID_PROPERTY_REFERENCE,
             message=(
                 f"Reverse direct relation through '{ref.through}' points at '{ref.through.identifier}', "
                 "which is not a direct relation."
