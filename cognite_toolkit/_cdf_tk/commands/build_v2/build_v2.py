@@ -879,38 +879,49 @@ class BuildV2Command(ToolkitCommand):
                 continue
             class_by_kind = {crud_class.kind.lower(): crud_class for crud_class in crud_classes}
             for resource_file in resource_files:
-                ignored, failed = self._validate_filename(resource_file, resource_folder, class_by_kind)
+                ignored, failed, crud_class = self._validate_filename(resource_file, resource_folder, class_by_kind)
                 if ignored:
                     ignored_files.append(ignored)
                     continue
-                if failed:
+                elif failed:
                     result: ReadYAMLFile = failed
+                elif crud_class is not None:
+                    result = self._read_resource_file(resource_file, crud_class, source.variables)
                 else:
-                    kind_key = resource_file.stem.rsplit(".", maxsplit=1)[-1].lower()
-                    result = self._read_resource_file(resource_file, class_by_kind[kind_key], source.variables)
+                    raise RuntimeError(
+                        "Toolkit bug: _validate_filename returned None for ignored, failed and crud_class. Please report this issue."
+                    )
                 resources.append(result)
         return Module(id=source.as_id(), files=resources, ignored_files=ignored_files)
 
     @classmethod
     def _validate_filename(
         cls, resource_file: Path, resource_folder: str, class_by_kind: dict[str, type[ResourceIO]]
-    ) -> tuple[IgnoredFile | None, FailedReadYAMLFile | None]:
+    ) -> tuple[IgnoredFile | None, FailedReadYAMLFile | None, type[ResourceIO[Any, Any, Any, Any]] | None]:
         if "." not in resource_file.stem:
-            return IgnoredFile(
-                filepath=resource_file,
-                code="MISSING-SUFFIX",
-                reason=f"Resource file '{resource_file.stem!r}' is ignored because it does not have a suffix to indicate resource kind.",
-                fix=f"Rename it with an appropriate kind: {resource_file.stem}.<kind>{resource_file.suffix}.",
-            ), None
+            return (
+                IgnoredFile(
+                    filepath=resource_file,
+                    code="MISSING-SUFFIX",
+                    reason=f"Resource file '{resource_file.stem!r}' is ignored because it does not have a suffix to indicate resource kind.",
+                    fix=f"Rename it with an appropriate kind: {resource_file.stem}.<kind>{resource_file.suffix}.",
+                ),
+                None,
+                None,
+            )
         kind = resource_file.stem.rsplit(".", maxsplit=1)[-1]
         kind_key = kind.lower()
         if kind_key not in class_by_kind:
-            return None, FailedReadYAMLFile(
-                source_path=resource_file,
-                code="INVALID-KIND",
-                error=f"Resource file '{resource_file.name!r}' has unknown resource kind '{kind}' for folder '{resource_folder}'",
+            return (
+                None,
+                FailedReadYAMLFile(
+                    source_path=resource_file,
+                    code="INVALID-KIND",
+                    error=f"Resource file '{resource_file.name!r}' has unknown resource kind '{kind}' for folder '{resource_folder}'",
+                ),
+                None,
             )
-        return None, None
+        return None, None, class_by_kind[kind_key]
 
     def _read_resource_file(
         self,
@@ -1050,7 +1061,14 @@ class BuildV2Command(ToolkitCommand):
 
         for tk_resource, raw in zip_longest(toolkit_resources, parsed_yaml, fillvalue=None):
             if tk_resource is None:
-                identifier = crud_class.get_id(raw)
+                try:
+                    identifier = crud_class.get_id(raw)
+                except KeyError:
+                    return FailedReadYAMLFile(
+                        source_path=result.source_path,
+                        code="READ-ERROR",
+                        error=f"Failed to get identifier for resource in file '{resource_file.name!r}' after validation error.",
+                    )
             else:
                 identifier = tk_resource.as_id()
                 result.syntax_warnings.extend(tk_resource.syntax_warnings(resource_file))
