@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.client.api.hosted_extractor_sources import HostedEx
 from cognite_toolkit._cdf_tk.client.api.labels import LabelsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI
 from cognite_toolkit._cdf_tk.client.api.relationships import RelationshipsAPI
+from cognite_toolkit._cdf_tk.client.api.sap_writeback import SAPEndpointsAPI, SAPInstancesAPI, SchemaMappingsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.sequences import SequencesAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_model_revisions import SimulatorModelRevisionsAPI
@@ -126,6 +127,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.relationship import Relatio
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     ResourceViewMappingRequest,
     ResourceViewMappingResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.sap_writeback import (
+    SAPEndpointRequest,
+    SAPEndpointResponse,
+    SAPInstanceRequest,
+    SAPInstanceResponse,
+    SchemaMappingRequest,
+    SchemaMappingResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import (
     SearchConfigRequest,
@@ -795,6 +804,30 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "externalId": "my-app",
             "name": "My App",
         },
+        SAPInstanceResponse: {
+            "externalId": "sap_instance_001",
+            "gatewayUrl": "https://sap.example.com",
+            "client": 100,
+            "username": "sap-user",
+            # Password is required to create an instance and is not returned by the API.
+            "password": "secret",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        SAPEndpointResponse: {
+            "externalId": "sap_endpoint_001",
+            "endpointType": "notification",
+            "instanceId": "sap_instance_001",
+            "mappingId": "schema_mapping_001",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        SchemaMappingResponse: {
+            "externalId": "schema_mapping_001",
+            "expression": '{ "SAPFieldA": input.CDFFieldA }',
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
     }
     try:
         return responses[resource_cls]
@@ -1277,4 +1310,31 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(RecordResponse),
         ),
         id="Record",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SAPInstanceResponse,
+            request_cls=SAPInstanceRequest,
+            example_data=get_example_minimum_responses(SAPInstanceResponse),
+            api_class=SAPInstancesAPI,
+        ),
+        id="SAPInstance",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SAPEndpointResponse,
+            request_cls=SAPEndpointRequest,
+            example_data=get_example_minimum_responses(SAPEndpointResponse),
+            api_class=SAPEndpointsAPI,
+        ),
+        id="SAPEndpoint",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SchemaMappingResponse,
+            request_cls=SchemaMappingRequest,
+            example_data=get_example_minimum_responses(SchemaMappingResponse),
+            api_class=SchemaMappingsAPI,
+        ),
+        id="SchemaMapping",
     )
