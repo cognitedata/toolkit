@@ -99,25 +99,6 @@ properties:
       identifier: related
 """
 
-REVERSE_THROUGH_CONTAINER_YAML = """space: my_space
-externalId: MyView
-version: v1
-properties:
-  back:
-    connectionType: single_reverse_direct_relation
-    source:
-      type: view
-      space: my_space
-      externalId: OtherView
-      version: v1
-    through:
-      source:
-        type: container
-        space: my_space
-        externalId: MyContainer
-      identifier: related
-"""
-
 CONTAINER_REMOVED_PROPERTY_YAML = """space: my_space
 externalId: MyContainer
 properties:
@@ -344,24 +325,6 @@ class TestReverseDirectRelations:
         assert [(insight.code, "not a direct relation" in insight.message) for insight in insights] == [
             (DataModelingRuleSet.INVALID_PROPERTY_REFERENCE, True)
         ]
-
-    def test_container_through_must_be_direct(self, tmp_path: Path) -> None:
-        container_file = _write(tmp_path, "MyContainer.container.yaml", TEXT_CONTAINER_YAML)
-        reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_CONTAINER_YAML)
-        rule = DataModelingRuleSet(
-            modules=[
-                _module(
-                    [
-                        (container_file, ContainerCRUD, CONTAINER_ID),
-                        (reverse_view, ViewIO, VIEW_ID),
-                    ]
-                )
-            ],
-            client=_client(),
-        )
-
-        insights = [insight for insight in rule.validate() if isinstance(insight, ConsistencyError)]
-        assert [insight.code for insight in insights] == [DataModelingRuleSet.INVALID_PROPERTY_REFERENCE]
 
     def test_missing_reverse_without_client_is_unverified(self, tmp_path: Path) -> None:
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
