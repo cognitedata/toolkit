@@ -27,7 +27,7 @@ class TestApplyToolkitGovernedSpaces:
         assert schema.governed_space_set() == {"dm_space", "records_space", "view_space"}
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture()
 def alpha_rules_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         FeatureFlag,
@@ -36,7 +36,7 @@ def alpha_rules_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture()
 def alpha_rules_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         FeatureFlag,
