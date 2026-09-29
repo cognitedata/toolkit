@@ -879,29 +879,38 @@ class BuildV2Command(ToolkitCommand):
                 continue
             class_by_kind = {crud_class.kind.lower(): crud_class for crud_class in crud_classes}
             for resource_file in resource_files:
-                if "." not in resource_file.stem:
-                    ignored_files.append(
-                        IgnoredFile(
-                            filepath=resource_file,
-                            code="MISSING-SUFFIX",
-                            reason=f"Resource file '{resource_file.stem!r}' is ignored because it does not have a suffix to indicate resource kind.",
-                            fix=f"Rename it with an appropriate kind: {resource_file.stem}.<kind>{resource_file.suffix}.",
-                        )
-                    )
+                ignored, failed = self._validate_filename(resource_file, resource_folder, class_by_kind)
+                if ignored:
+                    ignored_files.append(ignored)
                     continue
-                kind = resource_file.stem.rsplit(".", maxsplit=1)[-1]
-                kind_key = kind.lower()
-                if kind_key not in class_by_kind:
-                    resources.append(
-                        FailedReadYAMLFile(
-                            source_path=resource_file,
-                            code="INVALID-KIND",
-                            error=f"Resource file '{resource_file.name!r}' has unknown resource kind '{kind}' for folder '{resource_folder}'",
-                        )
-                    )
-                    continue
-                resources.append(self._read_resource_file(resource_file, class_by_kind[kind_key], source.variables))
+                if failed:
+                    result: ReadYAMLFile = failed
+                else:
+                    kind_key = resource_file.stem.rsplit(".", maxsplit=1)[-1].lower()
+                    result = self._read_resource_file(resource_file, class_by_kind[kind_key], source.variables)
+                resources.append(result)
         return Module(id=source.as_id(), files=resources, ignored_files=ignored_files)
+
+    @classmethod
+    def _validate_filename(
+        cls, resource_file: Path, resource_folder: str, class_by_kind: dict[str, type[ResourceIO]]
+    ) -> tuple[IgnoredFile | None, FailedReadYAMLFile | None]:
+        if "." not in resource_file.stem:
+            return IgnoredFile(
+                filepath=resource_file,
+                code="MISSING-SUFFIX",
+                reason=f"Resource file '{resource_file.stem!r}' is ignored because it does not have a suffix to indicate resource kind.",
+                fix=f"Rename it with an appropriate kind: {resource_file.stem}.<kind>{resource_file.suffix}.",
+            ), None
+        kind = resource_file.stem.rsplit(".", maxsplit=1)[-1]
+        kind_key = kind.lower()
+        if kind_key not in class_by_kind:
+            return None, FailedReadYAMLFile(
+                source_path=resource_file,
+                code="INVALID-KIND",
+                error=f"Resource file '{resource_file.name!r}' has unknown resource kind '{kind}' for folder '{resource_folder}'",
+            )
+        return None, None
 
     def _read_resource_file(
         self,
