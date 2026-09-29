@@ -39,10 +39,12 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
 
     def get_status(self) -> RuleSetStatus:
         if self.client is None:
-            message = "No client provided, will only validate dependencies between resources within the provided modules, but not validate against CDF."
+            return RuleSetStatus(
+                code="reduced",
+                message="No client provided, will only validate dependencies between resources within the provided modules, but not validate against CDF.",
+            )
         else:
-            message = "Will validate dependencies and state changes against CDF."
-        return RuleSetStatus(code="ready", message=message)
+            return RuleSetStatus(code="ready", message="Will validate dependencies and state changes against CDF.")
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
         yield from self._validate_dependencies()
