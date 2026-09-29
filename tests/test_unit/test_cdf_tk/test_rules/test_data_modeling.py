@@ -226,32 +226,30 @@ def _view_property(container_property_identifier: str, direct: bool) -> ViewCore
 
 
 @pytest.mark.usefixtures("alpha_rules_disabled")
-def test_get_status_skip_when_alpha_rules_disabled() -> None:
-    status = DataModelingRuleSet(modules=[], client=MagicMock()).get_status()
-    assert status.code == "skip"
+class TestAlphaRulesDisabled:
+    def test_get_status_skip_when_alpha_rules_disabled(self) -> None:
+        status = DataModelingRuleSet(modules=[], client=MagicMock()).get_status()
+        assert status.code == "skip"
+
+    def test_validate_is_skipped_when_alpha_rules_disabled(self, tmp_path: Path) -> None:
+        view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
+        rule = DataModelingRuleSet(modules=[_module([(view_file, ViewIO, VIEW_ID)])])
+        assert list(rule.validate()) == []
 
 
 @pytest.mark.usefixtures("alpha_rules_enabled")
-def test_get_status_reduced_without_client() -> None:
-    status = DataModelingRuleSet(modules=[]).get_status()
-    assert (status.code, "within the provided modules" in (status.message or "")) == ("reduced", True)
+class TestAlphaRulesEnabled:
+    def test_get_status_reduced_without_client(self) -> None:
+        status = DataModelingRuleSet(modules=[]).get_status()
+        assert (status.code, "within the provided modules" in (status.message or "")) == ("reduced", True)
+
+    def test_get_status_ready_with_client(self) -> None:
+        status = DataModelingRuleSet(modules=[], client=MagicMock()).get_status()
+        assert (status.code, "state changes" in (status.message or "")) == ("ready", True)
 
 
 @pytest.mark.usefixtures("alpha_rules_enabled")
-def test_get_status_ready_with_client() -> None:
-    status = DataModelingRuleSet(modules=[], client=MagicMock()).get_status()
-    assert (status.code, "state changes" in (status.message or "")) == ("ready", True)
-
-
-@pytest.mark.usefixtures("alpha_rules_disabled")
-def test_validate_is_skipped_when_alpha_rules_disabled(tmp_path: Path) -> None:
-    view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
-    rule = DataModelingRuleSet(modules=[_module([(view_file, ViewIO, VIEW_ID)])])
-    assert list(rule.validate()) == []
-
-
 class TestContainerPropertyReferences:
-    @pytest.mark.usefixtures("alpha_rules_enabled")
     def test_local_container_property_is_accepted(self, tmp_path: Path) -> None:
         container_file = _write(tmp_path, "MyContainer.container.yaml", CONTAINER_YAML)
         view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
@@ -268,7 +266,6 @@ class TestContainerPropertyReferences:
 
         assert list(rule.validate()) == []
 
-    @pytest.mark.usefixtures("alpha_rules_enabled")
     def test_missing_local_property_without_client_is_unverified(self, tmp_path: Path) -> None:
         view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
         rule = DataModelingRuleSet(modules=[_module([(view_file, ViewIO, VIEW_ID)])])
@@ -278,7 +275,6 @@ class TestContainerPropertyReferences:
             (DataModelingRuleSet.UNVERIFIED_PROPERTY_REFERENCE, True)
         ]
 
-    @pytest.mark.usefixtures("alpha_rules_enabled")
     def test_property_found_in_cdf_is_accepted(self, tmp_path: Path) -> None:
         view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
         client = _client(containers=[_cdf_container({"name": ContainerPropertyDefinition(type=TextProperty())})])
@@ -286,7 +282,6 @@ class TestContainerPropertyReferences:
 
         assert list(rule.validate()) == []
 
-    @pytest.mark.usefixtures("alpha_rules_enabled")
     def test_property_missing_in_cdf_is_unknown(self, tmp_path: Path) -> None:
         view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
         client = _client(containers=[_cdf_container({})])
@@ -297,7 +292,6 @@ class TestContainerPropertyReferences:
             (DataModelingRuleSet.UNKNOWN_PROPERTY_REFERENCE, True)
         ]
 
-    @pytest.mark.usefixtures("alpha_rules_enabled")
     def test_container_retrieve_error_is_reported(self, tmp_path: Path) -> None:
         view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
         client = _client()
@@ -310,8 +304,8 @@ class TestContainerPropertyReferences:
         ]
 
 
+@pytest.mark.usefixtures("alpha_rules_enabled")
 class TestReverseDirectRelations:
-    @pytest.mark.usefixtures("alpha_rules_enabled")
     def test_local_view_direct_relation_is_accepted(self, tmp_path: Path) -> None:
         container_file = _write(tmp_path, "MyContainer.container.yaml", DIRECT_CONTAINER_YAML)
         mapped_view = _write(tmp_path, "OtherView.view.yaml", MAPPED_VIEW_YAML)
@@ -330,7 +324,6 @@ class TestReverseDirectRelations:
 
         assert list(rule.validate()) == []
 
-    @pytest.mark.usefixtures("alpha_rules_enabled")
     def test_local_property_that_is_not_direct_is_rejected(self, tmp_path: Path) -> None:
         container_file = _write(tmp_path, "MyContainer.container.yaml", TEXT_CONTAINER_YAML)
         mapped_view = _write(tmp_path, "OtherView.view.yaml", MAPPED_VIEW_YAML)
@@ -352,7 +345,6 @@ class TestReverseDirectRelations:
             (DataModelingRuleSet.INVALID_PROPERTY_REFERENCE, True)
         ]
 
-    @pytest.mark.usefixtures("alpha_rules_enabled")
     def test_container_through_must_be_direct(self, tmp_path: Path) -> None:
         container_file = _write(tmp_path, "MyContainer.container.yaml", TEXT_CONTAINER_YAML)
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_CONTAINER_YAML)
@@ -371,7 +363,6 @@ class TestReverseDirectRelations:
         insights = [insight for insight in rule.validate() if isinstance(insight, ConsistencyError)]
         assert [insight.code for insight in insights] == [DataModelingRuleSet.INVALID_PROPERTY_REFERENCE]
 
-    @pytest.mark.usefixtures("alpha_rules_enabled")
     def test_missing_reverse_without_client_is_unverified(self, tmp_path: Path) -> None:
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
         rule = DataModelingRuleSet(modules=[_module([(reverse_view, ViewIO, VIEW_ID)])])
@@ -381,7 +372,6 @@ class TestReverseDirectRelations:
             (DataModelingRuleSet.UNVERIFIED_PROPERTY_REFERENCE, True)
         ]
 
-    @pytest.mark.usefixtures("alpha_rules_enabled")
     def test_direct_relation_found_on_cdf_view_is_accepted(self, tmp_path: Path) -> None:
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
         client = _client(views=[_cdf_view(OTHER_VIEW_ID, {"related": _view_property("related", direct=True)})])
@@ -389,7 +379,6 @@ class TestReverseDirectRelations:
 
         assert list(rule.validate()) == []
 
-    @pytest.mark.usefixtures("alpha_rules_enabled")
     def test_cdf_view_property_that_is_not_direct_is_rejected(self, tmp_path: Path) -> None:
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
         client = _client(views=[_cdf_view(OTHER_VIEW_ID, {"related": _view_property("related", direct=False)})])
@@ -398,7 +387,6 @@ class TestReverseDirectRelations:
         insights = [insight for insight in rule.validate() if isinstance(insight, ConsistencyError)]
         assert [insight.code for insight in insights] == [DataModelingRuleSet.INVALID_PROPERTY_REFERENCE]
 
-    @pytest.mark.usefixtures("alpha_rules_enabled")
     def test_reverse_missing_in_cdf_is_unknown(self, tmp_path: Path) -> None:
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
         client = _client(views=[_cdf_view(OTHER_VIEW_ID, {})])
@@ -408,8 +396,8 @@ class TestReverseDirectRelations:
         assert [insight.code for insight in insights] == [DataModelingRuleSet.UNKNOWN_PROPERTY_REFERENCE]
 
 
+@pytest.mark.usefixtures("alpha_rules_enabled")
 class TestDataModelingChangesMove:
-    @pytest.mark.usefixtures("alpha_rules_enabled")
     def test_state_changes_run_here_and_are_skipped_by_dependency_rules(self, tmp_path: Path) -> None:
         container_file = _write(tmp_path, "MyContainer.container.yaml", CONTAINER_REMOVED_PROPERTY_YAML)
         module = _module([(container_file, ContainerCRUD, CONTAINER_ID)])
