@@ -15,10 +15,12 @@ def data_set_scope_from_ids(data_set_ids: Iterable[int | None]) -> ScopeDefiniti
         if data_set_id is None:
             return AllScope()
         ids.add(data_set_id)
+    if not ids:
+        return DataSetScope(ids=[])
     known_ids = {data_set_id for data_set_id in ids if data_set_id != DRY_RUN_ID}
     if not known_ids:
         # Dry-run placeholder IDs are not valid CDF dataset IDs (used when the dataset is only in the module).
-        return AllScope()
+        return DataSetScope(ids=[])
     return DataSetScope(ids=sorted(known_ids))
 
 

@@ -10,7 +10,6 @@ from cognite.client.data_classes._base import CogniteResource
 from cognite.client.data_classes.capabilities import Capability, EventsAcl, FilesAcl
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
@@ -132,10 +131,6 @@ class TestLookup:
         assert result2 == ["ext-1"]
 
         assert len(rsps.calls) == 1  # Cached result used for second call
-
-    def test_external_id_skips_dry_run_placeholder(self, toolkit_config: ToolkitClientConfig) -> None:
-        client = ToolkitClient(config=toolkit_config)
-        assert client.lookup.data_sets.external_id(DRY_RUN_ID) is None
 
     @staticmethod
     def _create_resources(resource_cls: type[CogniteResource], N: int) -> list[CogniteResource]:

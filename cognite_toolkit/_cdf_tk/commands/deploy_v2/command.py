@@ -37,7 +37,7 @@ from cognite_toolkit._cdf_tk.commands._utils import (
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList
-from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
+from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -955,17 +955,24 @@ class DeployV2Command(ToolkitCommand):
         """Return the list of dataset ids that are referenced by the given resources."""
         data_set_ids: set[int] = set()
         for resource in resources:
-            if hasattr(resource, "data_set_id") and resource.data_set_id is not None:
+            if (
+                hasattr(resource, "data_set_id")
+                and resource.data_set_id is not None
+                and resource.data_set_id != DRY_RUN_ID
+            ):
                 data_set_ids.add(resource.data_set_id)
         return list(data_set_ids)
 
     @classmethod
     def _write_protected_datasets(cls, client: ToolkitClient, ids: list[int]) -> set[int]:
         """Return the set of dataset ids that are write-protected for the given client."""
+        known_ids = [id_ for id_ in ids if id_ != DRY_RUN_ID]
+        if not known_ids:
+            return set()
         # We use cache_response=True to avoid making multiple requests for the same dataset ids as this is in a hot-loop.
         return {
             dataset.id
-            for dataset in client.tool.datasets.retrieve([InternalId(id=id_) for id_ in ids], cache_response=True)
+            for dataset in client.tool.datasets.retrieve([InternalId(id=id_) for id_ in known_ids], cache_response=True)
             if dataset.write_protected is True
         }
 

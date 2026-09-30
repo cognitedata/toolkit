@@ -133,7 +133,7 @@ class LookUpAPI(ToolkitAPI, ABC):
 
         """
         ids = [id] if isinstance(id, int) else id
-        need_lookup = [id_ for id_ in ids if id_ not in self._reverse_cache and id_ != 0 and id_ != self.dry_run_id]
+        need_lookup = [id_ for id_ in ids if id_ not in self._reverse_cache if id_ != 0]
         if need_lookup:
             self._do_lookup_internal_ids(need_lookup)
 
@@ -144,9 +144,6 @@ class LookUpAPI(ToolkitAPI, ABC):
             return [id_ for id_ in external_ids if id_ is not None]
 
     def _do_lookup_internal_ids(self, ids: list[int]) -> None:
-        ids = [id_ for id_ in ids if id_ != self.dry_run_id]
-        if not ids:
-            return None
         try:
             found_by_id = self._external_id(ids)
         except CogniteAPIError as e:
@@ -178,8 +175,6 @@ class LookUpAPI(ToolkitAPI, ABC):
         if id == 0:
             # Reverse of looking up an empty string.
             return ""
-        if id == self.dry_run_id:
-            return None
         return self._reverse_cache.get(id)
 
     @abstractmethod
