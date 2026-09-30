@@ -10,6 +10,11 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Ins
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module, SuccessfulReadYAMLFile
 from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
+EXECUTE_RULE_STATUS: tuple[Literal["ready", "reduced", "skip", "unavailable"], ...] = (
+    "ready",
+    "reduced",
+)
+
 
 class ToolkitLocalRule(ABC):
     """Rule validating a module
