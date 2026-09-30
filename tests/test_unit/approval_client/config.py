@@ -215,8 +215,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sap_writeback import (
     SAPInstanceResponse,
     SchemaMappingRequest,
     SchemaMappingResponse,
-    WritebackRequestRequest,
-    WritebackRequestResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import (
     SearchConfigResponse,
@@ -1409,17 +1407,6 @@ API_RESOURCES = [
         api_name="sap_writeback.mappings",
         resource_cls=SchemaMappingResponse,
         _write_cls=SchemaMappingRequest,
-        methods={
-            "create": [Method(api_class_method="create", mock_class_method="create")],
-            "retrieve": [
-                Method(api_class_method="retrieve", mock_class_method="retrieve"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="sap_writeback",
-        resource_cls=WritebackRequestResponse,
-        _write_cls=WritebackRequestRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [

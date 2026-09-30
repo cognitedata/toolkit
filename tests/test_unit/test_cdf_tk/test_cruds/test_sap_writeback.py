@@ -3,24 +3,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WritebackRequestId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.sap_writeback import SAPInstanceRequest, SAPInstanceResponse
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME, CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA
-from cognite_toolkit._cdf_tk.resource_ios._sap_writeback import (
-    SAPEndpointIO,
-    SAPInstanceIO,
-    SchemaMappingIO,
-    WritebackRequestIO,
-)
-from cognite_toolkit._cdf_tk.yaml_classes import (
-    SAPEndpointYAML,
-    SAPInstanceYAML,
-    SchemaMappingYAML,
-    WritebackRequestYAML,
-)
+from cognite_toolkit._cdf_tk.resource_ios._sap_writeback import SAPEndpointIO, SAPInstanceIO, SchemaMappingIO
+from cognite_toolkit._cdf_tk.yaml_classes import SAPEndpointYAML, SAPInstanceYAML, SchemaMappingYAML
 from tests.data import COMPLETE_ORG_ALPHA_FLAGS
 from tests.test_unit.utils import find_resources
 
@@ -28,7 +17,6 @@ _YAML_CLS_BY_KIND = {
     "SAPInstance": SAPInstanceYAML,
     "SAPEndpoint": SAPEndpointYAML,
     "SchemaMapping": SchemaMappingYAML,
-    "WritebackRequest": WritebackRequestYAML,
 }
 
 
@@ -49,7 +37,7 @@ class TestSAPWritebackExamples:
 class TestSAPWritebackIO:
     def test_registered_behind_sap_writeback_flag(self) -> None:
         included = {loader.kind for loader in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA["SAPwritebacks"]}
-        assert included == {"SAPInstance", "SAPEndpoint", "SchemaMapping", "WritebackRequest"}
+        assert included == {"SAPInstance", "SAPEndpoint", "SchemaMapping"}
         assert all(
             loader.folder_name == "SAPwritebacks" for loader in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA["SAPwritebacks"]
         )
@@ -102,31 +90,3 @@ class TestSAPWritebackIO:
             password="secret",
         )
         assert set(io.sensitive_strings(request)) == {"secret"}
-
-    def test_writeback_request_id_is_not_sent_on_create(self) -> None:
-        client = MagicMock()
-        client.sap_writeback.create.return_value = []
-        io = WritebackRequestIO(client)
-        loaded = io.load_resource(
-            {
-                "requestId": "request-001",
-                "endpointId": "sap_endpoint_001",
-                "status": "pending",
-                "request": [{"key": "observation-1", "payload": {"NotificationText": "Test"}}],
-            }
-        )
-
-        assert io.get_id(loaded) == WritebackRequestId(request_id="request-001")
-        io.create([loaded])
-        sent = client.sap_writeback.create.call_args.args[0]
-        assert [item.dump() for item in sent] == [
-            {
-                "endpointId": "sap_endpoint_001",
-                "request": [{"key": "observation-1", "payload": {"NotificationText": "Test"}}],
-            }
-        ]
-
-    def test_writeback_request_cannot_be_deleted(self) -> None:
-        io = WritebackRequestIO(MagicMock())
-        with pytest.raises(ToolkitNotSupported, match="cannot be deleted"):
-            io.delete([WritebackRequestId(request_id="request-001")])

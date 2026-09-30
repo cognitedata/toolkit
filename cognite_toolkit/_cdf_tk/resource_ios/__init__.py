@@ -53,7 +53,7 @@ from ._migration import ResourceViewMappingIO
 from ._raw import RawDatabaseCRUD, RawTableCRUD
 from ._relationship import RelationshipIO
 from ._rulesets import RuleSetIO, RuleSetVersionIO
-from ._sap_writeback import SAPEndpointIO, SAPInstanceIO, SchemaMappingIO, WritebackRequestIO
+from ._sap_writeback import SAPEndpointIO, SAPInstanceIO, SchemaMappingIO
 from ._signal_sink import SignalSinkIO
 from ._signal_subscription import SignalSubscriptionIO
 from ._simulators import (
@@ -100,7 +100,6 @@ if not FeatureFlag.is_enabled(Flags.SAP_WRITEBACK):
     _EXCLUDED_CRUDS.add(SAPInstanceIO)
     _EXCLUDED_CRUDS.add(SAPEndpointIO)
     _EXCLUDED_CRUDS.add(SchemaMappingIO)
-    _EXCLUDED_CRUDS.add(WritebackRequestIO)
 
 CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
 CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
@@ -260,6 +259,5 @@ __all__ = [
     "WorkflowIO",
     "WorkflowTriggerIO",
     "WorkflowVersionIO",
-    "WritebackRequestIO",
     "get_crud",
 ]
