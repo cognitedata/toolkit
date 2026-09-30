@@ -229,6 +229,7 @@ class HTTPClient:
                     f"Rate limit exceeded for the {short_url!r} endpoint. Retrying after {retry_after} seconds."
                 ).print_warning(console=self._console)
             request.status_attempt += 1
+            request.retried_status_codes.append(response.status_code)
             time.sleep(retry_after)
             return request
 
@@ -238,6 +239,7 @@ class HTTPClient:
         should_retry = response.status_code in retry_status_codes or error_details.is_auto_retryable is True
         if request.status_attempt < self._max_retries and should_retry:
             request.status_attempt += 1
+            request.retried_status_codes.append(response.status_code)
             time.sleep(self._backoff_time(request.total_attempts))
             return request
         return None
@@ -451,6 +453,7 @@ class HTTPClient:
             status_attempts = request.status_attempt
             if 500 <= response.status_code < 600:
                 status_attempts += 1
+                request.retried_status_codes.append(response.status_code)
             splits = request.split(status_attempts=status_attempts, error_message=error_details.message)
             if splits[0].tracker and splits[0].tracker.limit_reached():
                 return [

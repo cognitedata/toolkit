@@ -136,6 +136,7 @@ class BaseRequestMessage(HTTPBaseModel, ABC):
     connect_attempt: int = 0
     read_attempt: int = 0
     status_attempt: int = 0
+    retried_status_codes: list[int] = Field(default_factory=list)
     api_version: str | None = None
     disable_gzip: bool = False
     content_length: int | None = None
