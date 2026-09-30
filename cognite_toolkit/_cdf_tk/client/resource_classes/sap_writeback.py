@@ -154,7 +154,9 @@ class WritebackRequestItem(BaseModelObject):
 
 
 class WritebackResponseItem(BaseModelObject):
-    payload: dict[str, JsonValue]
+    key: str | None = None
+    payload: dict[str, JsonValue] | None = None
+    sap_object_id: str | None = None
 
 
 class WritebackRequestRequest(RequestResource):
