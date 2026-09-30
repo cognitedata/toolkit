@@ -142,18 +142,8 @@ class SAPInstanceIO(ResourceIO[ExternalId, SAPInstanceRequest, SAPInstanceRespon
         return []
 
     def dump_resource(self, resource: SAPInstanceResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        # The API does not return the password. Keep the local value so deploy can compare the instance
-        # without treating every password as a change.
-        dumped: dict[str, Any] = {
-            "externalId": resource.external_id,
-            "gatewayUrl": resource.gateway_url,
-            "client": resource.client,
-            "username": resource.username,
-        }
-        local = local or {}
-        if "password" in local:
-            dumped["password"] = local["password"]
-        return dumped
+        # We will always redeploy SAP instances in case the password has changed.
+        return resource.model_dump(exclude={"created_time", "last_updated_time"}, by_alias=True)
 
     def sensitive_strings(self, item: SAPInstanceRequest) -> Iterable[str]:
         yield item.password
