@@ -229,6 +229,7 @@ class HTTPClient:
                     f"Rate limit exceeded for the {short_url!r} endpoint. Retrying after {retry_after} seconds."
                 ).print_warning(console=self._console)
             request.status_attempt += 1
+            request.retried_status_codes.append(response.status_code)
             time.sleep(retry_after)
             return request
 
