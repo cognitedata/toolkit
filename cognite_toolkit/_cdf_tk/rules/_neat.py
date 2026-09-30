@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ModelSyntaxError,
     Recommendation,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import DataModelIO
 
 from ._base import InternalValidatorException, RuleSetStatus, ToolkitGlobalRuleSet
@@ -25,6 +26,11 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
     DISPLAY_NAME = "Data modeling checks"
 
     def get_status(self) -> RuleSetStatus:
+        if Flags.ALPHA_RULES.is_enabled():
+            return RuleSetStatus(
+                code="skip",
+                message="Neat is not compatible with the alpha validation rules (those are duplicates). Disable the alpha rules to enable Neat validation.",
+            )
         if self.installed():
             if self.client:
                 return RuleSetStatus(

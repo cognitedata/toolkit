@@ -1439,8 +1439,6 @@ class GraphQLCRUD(
     _doc_url = "Data-models/operation/createDataModels"
     _hash_name = "CDFToolkitHash:"
 
-    extra_content_property = "dml"
-
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
         self._graphql_filepath_cache: dict[DataModelId, Path] = {}
