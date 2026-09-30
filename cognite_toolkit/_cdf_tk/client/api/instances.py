@@ -30,6 +30,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     T_WrappedInstanceRequest,
     T_WrappedInstanceResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._aggregate import (
+    InstanceAggregateDefinition,
+    InstanceAggregateRequest,
+    InstanceAggregateResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import (
     QueryDebugParameters,
@@ -41,6 +46,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import
     QueryResponseUntyped,
     QuerySelect,
     QuerySelectSource,
+    QueryTargetUnit,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.file import create_logfile_stem, sanitize_filename
@@ -54,6 +60,7 @@ METHOD_MAP: dict[APIMethod, Endpoint] = {
     "delete": Endpoint(method="POST", path="/models/instances/delete", item_limit=1000),
     "list": Endpoint(method="POST", path="/models/instances/list", item_limit=1000),
     "search": Endpoint(method="POST", path="/models/instances/search", item_limit=1000),
+    "aggregate": Endpoint(method="POST", path="/models/instances/aggregate", item_limit=1000),
 }
 QUERY_ENDPOINT = Endpoint(method="POST", path="/models/instances/query", item_limit=1000)
 SYNC_ENDPOINT = Endpoint(method="POST", path="/models/instances/sync", item_limit=1000)
@@ -274,6 +281,135 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         )
         response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         return self._validate_page_response(response).items
+
+    @overload
+    def aggregate(
+        self,
+        view_or_request: InstanceAggregateRequest,
+        query: str | None = None,
+        filter: dict[str, JsonValue] | None = None,
+        instance_type: Literal["node", "edge"] | None = None,
+        limit: int = 100,
+        properties: list[str] | None = None,
+        aggregates: list[InstanceAggregateDefinition] | None = None,
+        group_by: list[str] | None = None,
+        operator: Literal["AND", "OR"] | None = None,
+        target_units: list[QueryTargetUnit] | None = None,
+        include_typing: bool | None = None,
+    ) -> InstanceAggregateResponse: ...
+
+    @overload
+    def aggregate(
+        self,
+        view_or_request: ViewId,
+        query: str | None = None,
+        filter: dict[str, JsonValue] | None = None,
+        instance_type: Literal["node", "edge"] | None = None,
+        limit: int = 100,
+        properties: list[str] | None = None,
+        aggregates: list[InstanceAggregateDefinition] | None = None,
+        group_by: list[str] | None = None,
+        operator: Literal["AND", "OR"] | None = None,
+        target_units: list[QueryTargetUnit] | None = None,
+        include_typing: bool | None = None,
+    ) -> InstanceAggregateResponse: ...
+
+    def aggregate(
+        self,
+        view_or_request: ViewId | InstanceAggregateRequest,
+        query: str | None = None,
+        filter: dict[str, JsonValue] | None = None,
+        instance_type: Literal["node", "edge"] | None = None,
+        limit: int = 100,
+        properties: list[str] | None = None,
+        aggregates: list[InstanceAggregateDefinition] | None = None,
+        group_by: list[str] | None = None,
+        operator: Literal["AND", "OR"] | None = None,
+        target_units: list[QueryTargetUnit] | None = None,
+        include_typing: bool | None = None,
+    ) -> InstanceAggregateResponse:
+        """Aggregate data across nodes or edges.
+
+        This uses the ``POST /models/instances/aggregate`` endpoint.
+
+        The first argument is either a ``ViewId`` or an ``InstanceAggregateRequest``.
+        When it is a request, the remaining arguments are ignored.
+
+        Args:
+            view_or_request: View to aggregate over, or a complete aggregate request.
+                When this is an ``InstanceAggregateRequest``, every other argument is ignored.
+            query: Query string matched against text properties.
+            filter: Optional DMS filter expression.
+            instance_type: Whether to aggregate nodes or edges. Defaults to nodes when omitted.
+            limit: Maximum number of grouped results to return. Default is 100, maximum is 1000.
+            properties: Properties the query string is applied to. Text fields are searched when omitted.
+            aggregates: Up to five aggregates to compute. When omitted, ``group_by`` returns unique values.
+            group_by: Up to five properties to group the results by.
+            operator: How multiple query terms are combined. ``OR`` matches any term, ``AND`` matches all.
+            target_units: Properties to convert to another unit.
+            include_typing: Whether to return property type information.
+
+        Returns:
+            Aggregation results, including property typing when requested.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Instances/operation/aggregateInstances>`_.
+        """
+        if isinstance(view_or_request, InstanceAggregateRequest):
+            aggregate_request = view_or_request
+        else:
+            aggregate_request = self._aggregate_request_from_parameters(
+                view=view_or_request,
+                query=query,
+                filter=filter,
+                instance_type=instance_type,
+                limit=limit,
+                properties=properties,
+                aggregates=aggregates,
+                group_by=group_by,
+                operator=operator,
+                target_units=target_units,
+                include_typing=include_typing,
+            )
+
+        aggregate_endpoint = self._method_endpoint_map["aggregate"]
+        request = RequestMessage(
+            endpoint_url=self._make_url(aggregate_endpoint.path),
+            method=aggregate_endpoint.method,
+            body_content=aggregate_request.dump(),
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        return InstanceAggregateResponse.model_validate_json(response.body)
+
+    def _aggregate_request_from_parameters(
+        self,
+        view: ViewId,
+        query: str | None,
+        filter: dict[str, JsonValue] | None,
+        instance_type: Literal["node", "edge"] | None,
+        limit: int,
+        properties: list[str] | None,
+        aggregates: list[InstanceAggregateDefinition] | None,
+        group_by: list[str] | None,
+        operator: Literal["AND", "OR"] | None,
+        target_units: list[QueryTargetUnit] | None,
+        include_typing: bool | None,
+    ) -> InstanceAggregateRequest:
+        aggregate_endpoint = self._method_endpoint_map["aggregate"]
+        if not 0 < limit <= aggregate_endpoint.item_limit:
+            raise ValueError(f"Limit must be between 1 and {aggregate_endpoint.item_limit}, got {limit}.")
+        return InstanceAggregateRequest(
+            view=view,
+            limit=limit,
+            query=query,
+            properties=properties,
+            aggregates=aggregates,
+            group_by=group_by,
+            filter=filter,
+            operator=operator,
+            instance_type=instance_type,
+            target_units=target_units,
+            include_typing=include_typing,
+        )
 
     def list(
         self, filter: InstanceFilter | None = None, limit: int | None = 100, endpoint: QueryEndpoint = "query"

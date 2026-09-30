@@ -13,6 +13,20 @@ from cognite_toolkit._cdf_tk.client.identifiers._data_modeling import (
     ViewNoVersionId,
 )
 
+from ._aggregate import (
+    AvgAggregate,
+    CountAggregate,
+    HistogramAggregate,
+    HistogramBucket,
+    InstanceAggregateDefinition,
+    InstanceAggregateRequest,
+    InstanceAggregateResponse,
+    InstanceAggregateResult,
+    InstanceAggregateValue,
+    MaxAggregate,
+    MinAggregate,
+    SumAggregate,
+)
 from ._constraints import (
     Constraint,
     ConstraintAdapter,
@@ -126,6 +140,7 @@ from ._wrapped import (
 )
 
 __all__ = [
+    "AvgAggregate",
     "BooleanProperty",
     "BtreeIndex",
     "ConnectionPropertyDefinition",
@@ -143,6 +158,7 @@ __all__ = [
     "ContainerPropertyDefinition",
     "ContainerRequest",
     "ContainerResponse",
+    "CountAggregate",
     "DataModelId",
     "DataModelNoVersionId",
     "DataModelRequest",
@@ -162,9 +178,16 @@ __all__ = [
     "Float32Property",
     "Float64Property",
     "FloatProperty",
+    "HistogramAggregate",
+    "HistogramBucket",
     "Index",
     "IndexAdapter",
     "IndexDefinition",
+    "InstanceAggregateDefinition",
+    "InstanceAggregateRequest",
+    "InstanceAggregateResponse",
+    "InstanceAggregateResult",
+    "InstanceAggregateValue",
     "InstanceDefinition",
     "InstanceRequest",
     "InstanceResponse",
@@ -176,6 +199,8 @@ __all__ = [
     "InvertedIndex",
     "JSONProperty",
     "ListablePropertyTypeDefinition",
+    "MaxAggregate",
+    "MinAggregate",
     "MultiEdgeProperty",
     "MultiReverseDirectRelationPropertyRequest",
     "MultiReverseDirectRelationPropertyResponse",
@@ -210,6 +235,7 @@ __all__ = [
     "SpaceId",
     "SpaceRequest",
     "SpaceResponse",
+    "SumAggregate",
     "T_InstancesListRequest",
     "T_InstancesListResponse",
     "T_WrappedInstanceRequest",

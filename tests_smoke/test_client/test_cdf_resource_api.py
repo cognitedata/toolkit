@@ -33,6 +33,7 @@ from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessions
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.ruleset_versions import RuleSetVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.rulesets import RuleSetsAPI
+from cognite_toolkit._cdf_tk.client.api.sap_writeback import SAPEndpointsAPI, SAPInstancesAPI, SAPWritebackAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.sequence_rows import SequenceRowsAPI
@@ -91,6 +92,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartDat
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerResponse,
+    CountAggregate,
     DataModelResponse,
     EdgeRequest,
     EdgeResponse,
@@ -170,6 +172,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.ruleset import RuleSetReque
 from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
     RuleSetVersionRequest,
     RuleSetVersionResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.sap_writeback import (
+    SAPEndpointRequest,
+    SAPEndpointResponse,
+    SAPInstanceRequest,
+    SAPInstanceResponse,
+    SchemaMappingResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigRequest, SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
@@ -322,6 +331,12 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         AlertChannelsAPI,
         # Do not have secret in the response, so cannot be recreated from the response.
         TransformationExternalDataSourcesAPI,
+        # Password is not returned, so the created instance cannot be turned back into a request.
+        # Endpoints depend on an existing instance.
+        SAPInstancesAPI,
+        SAPEndpointsAPI,
+        # Creating a request sends it to SAP and requires an existing endpoint.
+        SAPWritebackAPI,
     }
 )
 
@@ -743,6 +758,28 @@ ex:Oslo_Facility
                         "containerPropertyIdentifier": "name",
                     },
                 },
+            }
+        ],
+        SAPInstanceResponse: [
+            {
+                "externalId": "smoke-test-sap-instance",
+                "gatewayUrl": "https://sap.example.com",
+                "client": 100,
+                "username": "smoke-test",
+                "password": "smoke-test",
+            }
+        ],
+        SAPEndpointResponse: [
+            {
+                "externalId": "smoke-test-sap-endpoint",
+                "endpointType": "notification",
+                "instanceId": "smoke-test-sap-instance",
+            }
+        ],
+        SchemaMappingResponse: [
+            {
+                "externalId": "smoke-test-schema-mapping",
+                "expression": '{ "SAPFieldA": input.CDFFieldA }',
             }
         ],
         DataModelResponse: [
@@ -1400,6 +1437,17 @@ class TestCDFResourceAPI:
                 _ = client.tool.instances.search(view=smoke_view.as_id(), limit=2)
             except ToolkitAPIError as e:
                 raise EndpointAssertionError(search_endpoint.path, f"Searching instances failed: {e!s}") from e
+
+            # Aggregate instances
+            aggregate_endpoint = client.tool.instances._method_endpoint_map["aggregate"]
+            try:
+                _ = client.tool.instances.aggregate(
+                    smoke_view.as_id(),
+                    aggregates=[CountAggregate(property="name")],
+                    limit=2,
+                )
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(aggregate_endpoint.path, f"Aggregating instances failed: {e!s}") from e
 
         finally:
             # Clean up
@@ -2697,6 +2745,92 @@ class TestCDFResourceAPI:
                 client.charts.scheduled_calculations.delete([calc_id])
             except ToolkitAPIError:
                 pass
+
+    def test_sap_writeback_crudl(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+        instances = client.sap_writeback.instances
+        endpoints = client.sap_writeback.endpoints
+
+        instance_request = SAPInstanceRequest.model_validate(get_examples_minimum_requests(SAPInstanceResponse)[0])
+        endpoint_request = SAPEndpointRequest.model_validate(get_examples_minimum_requests(SAPEndpointResponse)[0])
+        instance_id = instance_request.as_id()
+        endpoint_id = endpoint_request.as_id()
+
+        endpoints.delete([endpoint_id], ignore_unknown_ids=True)
+        instances.delete([instance_id], ignore_unknown_ids=True, force=True)
+
+        try:
+            instance_endpoints = instances._method_endpoint_map
+            try:
+                created_instances = instances.create([instance_request])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(
+                    instance_endpoints["create"].path, f"Create method failed with error: {e!s}"
+                ) from e
+            if len(created_instances) != 1 or created_instances[0].as_id() != instance_id:
+                raise EndpointAssertionError(
+                    instance_endpoints["create"].path, "Created SAP instance does not match the requested ID."
+                )
+
+            try:
+                retrieved_instances = instances.retrieve([instance_id])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(
+                    instance_endpoints["retrieve"].path, f"Retrieve method failed with error: {e!s}"
+                ) from e
+            if len(retrieved_instances) != 1 or retrieved_instances[0].as_id() != instance_id:
+                raise EndpointAssertionError(
+                    instance_endpoints["retrieve"].path, "Retrieved SAP instance does not match the requested ID."
+                )
+
+            try:
+                listed_instances = self.wait_until_has_value(lambda: list(instances.list(limit=1)))
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(
+                    instance_endpoints["list"].path, f"List method failed with error: {e!s}"
+                ) from e
+            if len(listed_instances) == 0:
+                raise EndpointAssertionError(
+                    instance_endpoints["list"].path, "Expected at least 1 listed instance, got 0"
+                )
+
+            endpoint_endpoints = endpoints._method_endpoint_map
+            self.assert_endpoint_method(
+                lambda: endpoints.create([endpoint_request]),
+                "create",
+                endpoint_endpoints["create"],
+                endpoint_id,
+            )
+            self.assert_endpoint_method(
+                lambda: endpoints.retrieve([endpoint_id]),
+                "retrieve",
+                endpoint_endpoints["retrieve"],
+                endpoint_id,
+            )
+            try:
+                listed_endpoints = self.wait_until_has_value(lambda: list(endpoints.list(limit=1)))
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(
+                    endpoint_endpoints["list"].path, f"List method failed with error: {e!s}"
+                ) from e
+            if len(listed_endpoints) == 0:
+                raise EndpointAssertionError(
+                    endpoint_endpoints["list"].path, "Expected at least 1 listed endpoint, got 0"
+                )
+
+            try:
+                connection = endpoints.verify(endpoint_id)
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(
+                    endpoints._verify_endpoint.path, f"Verify method failed with error: {e!s}"
+                ) from e
+            if not connection.status:
+                raise EndpointAssertionError(
+                    endpoints._verify_endpoint.path, "Verify response did not include a status."
+                )
+        finally:
+            endpoints.delete([endpoint_id], ignore_unknown_ids=True)
+            instances.delete([instance_id], ignore_unknown_ids=True, force=True)
 
     def test_upload_large_file(
         self, toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse, tmp_path: Path

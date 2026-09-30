@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildInput,
     BuildLineage,
     BuildParameters,
+    BuildVariable,
     BuiltModule,
     ConfigYAML,
     InsightList,
@@ -48,7 +49,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
-    BuildVariable,
     FailedReadYAMLFile,
     IgnoredFile,
     ModuleId,
@@ -72,7 +72,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus
+from cognite_toolkit._cdf_tk.rules._base import EXECUTE_RULE_STATUS, RuleSetStatus
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -879,29 +879,49 @@ class BuildV2Command(ToolkitCommand):
                 continue
             class_by_kind = {crud_class.kind.lower(): crud_class for crud_class in crud_classes}
             for resource_file in resource_files:
-                if "." not in resource_file.stem:
-                    ignored_files.append(
-                        IgnoredFile(
-                            filepath=resource_file,
-                            code="MISSING-SUFFIX",
-                            reason=f"Resource file '{resource_file.stem!r}' is ignored because it does not have a suffix to indicate resource kind.",
-                            fix=f"Rename it with an appropriate kind: {resource_file.stem}.<kind>{resource_file.suffix}.",
-                        )
-                    )
+                ignored, failed, crud_class = self._validate_filename(resource_file, resource_folder, class_by_kind)
+                if ignored:
+                    ignored_files.append(ignored)
                     continue
-                kind = resource_file.stem.rsplit(".", maxsplit=1)[-1]
-                kind_key = kind.lower()
-                if kind_key not in class_by_kind:
-                    resources.append(
-                        FailedReadYAMLFile(
-                            source_path=resource_file,
-                            code="INVALID-KIND",
-                            error=f"Resource file '{resource_file.name!r}' has unknown resource kind '{kind}' for folder '{resource_folder}'",
-                        )
+                elif failed:
+                    result: ReadYAMLFile = failed
+                elif crud_class is not None:
+                    result = self._read_resource_file(resource_file, crud_class, source.variables)
+                else:
+                    raise RuntimeError(
+                        "Toolkit bug: _validate_filename returned None for ignored, failed and crud_class. Please report this issue."
                     )
-                    continue
-                resources.append(self._read_resource_file(resource_file, class_by_kind[kind_key], source.variables))
+                resources.append(result)
         return Module(id=source.as_id(), files=resources, ignored_files=ignored_files)
+
+    @classmethod
+    def _validate_filename(
+        cls, resource_file: Path, resource_folder: str, class_by_kind: dict[str, type[ResourceIO]]
+    ) -> tuple[IgnoredFile | None, FailedReadYAMLFile | None, type[ResourceIO[Any, Any, Any, Any]] | None]:
+        if "." not in resource_file.stem:
+            return (
+                IgnoredFile(
+                    filepath=resource_file,
+                    code="MISSING-SUFFIX",
+                    reason=f"Resource file '{resource_file.stem!r}' is ignored because it does not have a suffix to indicate resource kind.",
+                    fix=f"Rename it with an appropriate kind: {resource_file.stem}.<kind>{resource_file.suffix}.",
+                ),
+                None,
+                None,
+            )
+        kind = resource_file.stem.rsplit(".", maxsplit=1)[-1]
+        kind_key = kind.lower()
+        if kind_key not in class_by_kind:
+            return (
+                None,
+                FailedReadYAMLFile(
+                    source_path=resource_file,
+                    code="INVALID-KIND",
+                    error=f"Resource file '{resource_file.name!r}' has unknown resource kind '{kind}' for folder '{resource_folder}'",
+                ),
+                None,
+            )
+        return None, None, class_by_kind[kind_key]
 
     def _read_resource_file(
         self,
@@ -919,8 +939,8 @@ class BuildV2Command(ToolkitCommand):
             return FailedReadYAMLFile(
                 source_path=resource_file, error=f"Failed to read resource file: {read_error!s}", code="READ-ERROR"
             )
-        # Ignore in file
-        rules_ignored = self._get_ignore_rule_codes(content)
+        # Ignore rules in file?
+        rules_ignore = self._get_ignore_rule_codes(content)
 
         # Content read successfully.
         substituted_content = content
@@ -929,8 +949,43 @@ class BuildV2Command(ToolkitCommand):
             substituted_content = crud_class.substitute_variables_content(content, variables)
 
         unresolved_variables = self._find_unresolved_variables(substituted_content)
+        parsed_yaml = self._parse_yaml(substituted_content, unresolved_variables, resource_file)
+
+        if isinstance(parsed_yaml, FailedReadYAMLFile):
+            return parsed_yaml
+        elif parsed_yaml is None:
+            return FailedReadYAMLFile(
+                source_path=resource_file,
+                code="EMPTY-FILE",
+                error="The YAML file is empty. Please add content to the file or remove it if it is not needed.",
+                unresolved_variables=unresolved_variables,
+            )
+        resource_type = crud_class.as_resource_type()
+        result = SuccessfulReadYAMLFile(
+            source_path=resource_file,
+            source_hash=file_hash,
+            resource_type=resource_type,
+            line_count=line_count,
+            unresolved_variables=unresolved_variables,
+            rules_ignore=rules_ignore,
+            resources=[],  # Will be filled in later after validation
+        )
+
+        if isinstance(parsed_yaml, dict):
+            return self._validate_single_resource(parsed_yaml, result, crud_class, resource_file, variables)
+        elif isinstance(parsed_yaml, list):
+            return self._validate_multi_resource(parsed_yaml, result, crud_class, resource_file, variables)
+        else:
+            raise RuntimeError(
+                "Toolkit bug: parsed YAML content is neither a dict, a list or empty. Please report this issue."
+            )
+
+    @classmethod
+    def _parse_yaml(
+        cls, content: str, unresolved_variables: list[str], resource_file: Path
+    ) -> dict[str, Any] | list[dict[str, Any]] | None | FailedReadYAMLFile:
         try:
-            parsed_yaml = read_yaml_content(substituted_content)
+            return read_yaml_content(content)
         except yaml.YAMLError as yaml_error:
             if unresolved_variables:
                 quoted_variables = humanize_collection([f"{variable!r}" for variable in unresolved_variables])
@@ -948,87 +1003,82 @@ class BuildV2Command(ToolkitCommand):
                 unresolved_variables=unresolved_variables,
             )
 
-        if parsed_yaml is None:
-            return FailedReadYAMLFile(
-                source_path=resource_file,
-                code="EMPTY-FILE",
-                error="The YAML file is empty. Please add content to the file or remove it if it is not needed.",
-                unresolved_variables=unresolved_variables,
-            )
+    def _validate_single_resource(
+        self,
+        parsed_yaml: dict[str, Any],
+        result: SuccessfulReadYAMLFile,
+        crud_class: type[ResourceIO[Any, Any, Any, Any]],
+        resource_file: Path,
+        variables: list[BuildVariable],
+    ) -> ReadYAMLFile:
+        toolkit_resource: ToolkitResource | None = None
+        try:
+            toolkit_resource = crud_class.yaml_cls.model_validate(parsed_yaml, extra="forbid")
+            identifier = toolkit_resource.as_id()
+            result.syntax_warnings.extend(toolkit_resource.syntax_warnings(resource_file))
+        except ValidationError as errors:
+            syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file)
+            if syntax_warning is not None:
+                result.syntax_warnings.append(syntax_warning)
+            result.syntax_error = syntax_error
+            try:
+                identifier = crud_class.get_id(parsed_yaml)
+            except KeyError:
+                return FailedReadYAMLFile(
+                    source_path=result.source_path,
+                    code="READ-ERROR",
+                    error=f"Failed to get identifier for resource file '{resource_file.name!r}' after validation error: {errors!s}",
+                )
 
-        resource_type = ResourceType(resource_folder=crud_class.folder_name, kind=crud_class.kind)
-        args: dict[str, Any] = dict(
-            source_path=resource_file,
-            source_hash=file_hash,
-            resource_type=resource_type,
-            line_count=line_count,
-            unresolved_variables=unresolved_variables,
-            rules_ignore=rules_ignored,
+        extra_files = self._substitute_variables_extra_content(
+            crud_class.get_extra_files(resource_file, identifier, parsed_yaml), variables
         )
 
-        if isinstance(parsed_yaml, dict):
-            toolkit_resource: ToolkitResource | None = None
-            syntax_error: ModelSyntaxError | None = None
-            syntax_warnings: list[ModelSyntaxWarning] = []
-            try:
-                toolkit_resource = crud_class.yaml_cls.model_validate(parsed_yaml, extra="forbid")
-                identifier = toolkit_resource.as_id()
-                syntax_warnings = toolkit_resource.syntax_warnings(resource_file)
-            except ValidationError as errors:
-                syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file)
-                if syntax_warning is not None:
-                    syntax_warnings = [syntax_warning]
-                try:
-                    identifier = crud_class.get_id(parsed_yaml)
-                except KeyError:
-                    return SuccessfulReadYAMLFile(
-                        syntax_error=syntax_error,
-                        syntax_warnings=syntax_warnings,
-                        resources=[],
-                        **args,
-                    )
+        result.resources.append(
+            ReadResource(raw=parsed_yaml, identifier=identifier, validated=toolkit_resource, extra_files=extra_files)
+        )
+        return result
 
-            extra_files = self._substitute_variables_extra_content(
-                crud_class.get_extra_files(resource_file, identifier, parsed_yaml), variables
-            )
-
-            return SuccessfulReadYAMLFile(
-                syntax_error=syntax_error,
-                syntax_warnings=syntax_warnings,
-                resources=[
-                    ReadResource(
-                        raw=parsed_yaml, identifier=identifier, validated=toolkit_resource, extra_files=extra_files
-                    )
-                ],
-                **args,
-            )
-        # Is instance list
+    def _validate_multi_resource(
+        self,
+        parsed_yaml: list[dict[str, Any]],
+        result: SuccessfulReadYAMLFile,
+        crud_class: type[ResourceIO[Any, Any, Any, Any]],
+        resource_file: Path,
+        variables: list[BuildVariable],
+    ) -> ReadYAMLFile:
         # MyPy complains as the yaml_cls type is determined at runtime,
         # and thus not available to te static type checker.
         adapter = TypeAdapter[list[crud_class.yaml_cls]](list[crud_class.yaml_cls])  # type: ignore[name-defined]
         toolkit_resources: list[ToolkitResource] = []
-        syntax_error = None
-        syntax_warnings = []
         try:
             toolkit_resources = adapter.validate_python(parsed_yaml)
         except ValidationError as errors:
             syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file)
             if syntax_warning is not None:
-                syntax_warnings = [syntax_warning]
-        read_resources: list[ReadResource[ToolkitResource]] = []
+                result.syntax_warnings.append(syntax_warning)
+            result.syntax_error = syntax_error
+
         for tk_resource, raw in zip_longest(toolkit_resources, parsed_yaml, fillvalue=None):
             if tk_resource is None:
-                identifier = crud_class.get_id(raw)
+                try:
+                    identifier = crud_class.get_id(raw)
+                except KeyError:
+                    return FailedReadYAMLFile(
+                        source_path=result.source_path,
+                        code="READ-ERROR",
+                        error=f"Failed to get identifier for resource in file '{resource_file.name!r}' after validation error.",
+                    )
             else:
                 identifier = tk_resource.as_id()
-                syntax_warnings.extend(tk_resource.syntax_warnings(resource_file))
+                result.syntax_warnings.extend(tk_resource.syntax_warnings(resource_file))
             # We know that the parse_yaml list will always be longer than tk_resource
             # thus raw will never be None.
             raw_dict = cast(dict[str, Any], raw)
             extra_files = self._substitute_variables_extra_content(
                 crud_class.get_extra_files(resource_file, identifier, raw_dict), variables
             )
-            read_resources.append(
+            result.resources.append(
                 ReadResource(
                     raw=raw_dict,
                     identifier=identifier,
@@ -1036,12 +1086,7 @@ class BuildV2Command(ToolkitCommand):
                     extra_files=extra_files,
                 )
             )
-        return SuccessfulReadYAMLFile(
-            syntax_error=syntax_error,
-            syntax_warnings=syntax_warnings,
-            resources=read_resources,
-            **args,
-        )
+        return result
 
     @classmethod
     def _get_ignore_rule_codes(cls, content: str) -> set[str]:
@@ -1262,11 +1307,11 @@ class BuildV2Command(ToolkitCommand):
 
     def _run_validation(self, plan: list[ValidationStep], console: Console) -> list[ValidationResult]:
         with Progress(console=console) as progress:
-            ready_step_count = sum(1 for step in plan if step.status.code == "ready")
+            ready_step_count = sum(1 for step in plan if step.status.code in EXECUTE_RULE_STATUS)
             validating_task = progress.add_task("Checking modules", total=ready_step_count)
             validation_results: list[ValidationResult] = []
             for step in plan:
-                if step.status.code != "ready":
+                if step.status.code not in EXECUTE_RULE_STATUS:
                     continue
                 display_name = step.rule.DISPLAY_NAME
                 progress.update(validating_task, description=f"Running '{display_name}'...")
