@@ -61,6 +61,7 @@ dev = [
     "types-toml >=0.10.8.20240310",
     "twine >=6.0.0",
     "toml >=0.10.2; python_version >= '3.11'",
+    "cognite-neat >=1.0.43",
     "pytest-cov >=6.0.0",
     "setuptools >=75.0.0",
     "fastparquet >=2024.5.0",
@@ -81,9 +82,7 @@ table = [
 sql = [
     "sqlparse >=0.5.3",
 ]
-v08 = [
-    "cognite-neat >=1.0.43"
-]
+
 run-function-app = [
     "cognite-function-apps[cli]>=0.15.0",
 ]
