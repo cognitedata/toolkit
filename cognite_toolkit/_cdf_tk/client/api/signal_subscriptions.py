@@ -17,7 +17,7 @@ class SignalSubscriptionsAPI(CDFResourceAPI[SignalSubscriptionResponse]):
             method_endpoint_map={
                 "create": Endpoint(method="POST", path="/processes/signals/subscriptions", item_limit=10),
                 "update": Endpoint(method="POST", path="/processes/signals/subscriptions/update", item_limit=10),
-                "delete": Endpoint(method="POST", path="/processes/signals/subscriptions/delete", item_limit=100),
+                "delete": Endpoint(method="POST", path="/processes/signals/subscriptions/delete", item_limit=10),
                 "list": Endpoint(method="POST", path="/processes/signals/subscriptions/list", item_limit=100),
             },
             api_version="alpha",
