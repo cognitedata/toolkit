@@ -11,8 +11,11 @@ from rich.prompt import Prompt
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands.auth import CLIENT_NAME
+from cognite_toolkit._cdf_tk.commands.auth.oidc import refresh_session_tokens
+from cognite_toolkit._cdf_tk.commands.auth.session_store import StoredSession
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 
-_LOGIN_FLOW: TypeAlias = Literal["infer", "client_credentials", "interactive", "token"]
+_LOGIN_FLOW: TypeAlias = Literal["infer", "client_credentials", "interactive", "token", "session"]
 _VALID_LOGIN_FLOWS = get_args(_LOGIN_FLOW)
 
 
@@ -183,11 +186,15 @@ class EnvironmentVariables:
             "client_credentials": self.get_oauth_client_credentials,
             "interactive": self.get_oauth_interactive,
             "token": self.get_token,
+            "session": self.get_session,
         }
         if self.LOGIN_FLOW in method_by_flow:
             return method_by_flow[self.LOGIN_FLOW]()
         key_options: list[tuple[str, ...]] = []
-        for method in method_by_flow.values():
+        # Session is never inferred, it must be explicitly selected with LOGIN_FLOW=session.
+        for flow, method in method_by_flow.items():
+            if flow == "session":
+                continue
             try:
                 return method()
             except KeyError as e:
@@ -226,6 +233,26 @@ class EnvironmentVariables:
         if not self.CDF_TOKEN:
             raise KeyError("TOKEN must be set in the environment", "TOKEN")
         return Token(self.CDF_TOKEN)
+
+    def get_session(self) -> Token:
+        session = self._require_fresh_session()
+
+        # Token calls this factory while holding its own threading.Lock, so the
+        # nonlocal session read/refresh below is already serialized across threads.
+        def token_factory() -> str:
+            nonlocal session
+            if session.token_state() != "VALID":
+                session = self._require_fresh_session()
+            return session.access_token
+
+        return Token(token_factory)
+
+    @staticmethod
+    def _require_fresh_session() -> StoredSession:
+        session = StoredSession.ensure_fresh(refresh_session_tokens)
+        if session is None:
+            raise AuthenticationError("Not signed in. Run `cdf auth login` to sign in.")
+        return session
 
     def get_client(self, enable_set_pending_ids: bool = False) -> ToolkitClient:
         config = ToolkitClientConfig(
@@ -290,6 +317,12 @@ def _prompt_user() -> EnvironmentVariables:
     if login_flow == "token":
         token = Prompt.ask("Enter token")
         variables.CDF_TOKEN = token
+        return variables
+    if login_flow == "session":
+        # Uses the stored session from `cdf auth login`; no extra variables are needed.
+        return variables
+    if login_flow == "session":
+        # Uses the stored session from `cdf auth login`; no extra variables are needed.
         return variables
 
     variables.IDP_CLIENT_ID = Prompt.ask("Enter IDP Client ID")
