@@ -401,8 +401,8 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     f"It is referenced by {self._reference_string(ref.resources)}."
                 ),
                 fix=(
-                    "Provide credentials to enable CDF verification. "
-                    "Or ensure that the container property exists or remove the reference to it."
+                    "Provide credentials to enable CDF verification, or manually either:"
+                    "1) ensure that the container property exists, or 2) remove the reference to it."
                 ),
                 source_files=self._source_files(ref.resources),
             )
@@ -418,8 +418,8 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     f"It is referenced by {self._reference_string(ref.resources)}."
                 ),
                 fix=(
-                    "Provide credentials to enable CDF verification. "
-                    "Or ensure that the direct relation exists or remove the reference to it."
+                    "Provide credentials to enable CDF verification, or manually either:"
+                    "1) ensure that the container property exists, or 2) remove the reference to it."
                 ),
                 source_files=self._source_files(ref.resources),
             )
