@@ -45,6 +45,7 @@ from ._identifiers import (
     UserProfileId,
     WorkflowExecutionId,
     WorkflowVersionId,
+    WritebackRequestId,
 )
 from ._migration import AssetCentricExternalId
 
@@ -95,4 +96,5 @@ __all__ = [
     "ViewUntypedId",
     "WorkflowExecutionId",
     "WorkflowVersionId",
+    "WritebackRequestId",
 ]
