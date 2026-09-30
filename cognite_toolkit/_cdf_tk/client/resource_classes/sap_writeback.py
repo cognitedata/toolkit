@@ -173,6 +173,7 @@ class WritebackRequestResponse(ResponseResource[WritebackRequestRequest]):
     request_id: str
     status: WritebackRequestStatus | str
     request: list[WritebackResponseItem]
+    error_message: str | None = None
     created_time: int
     last_updated_time: int
 
