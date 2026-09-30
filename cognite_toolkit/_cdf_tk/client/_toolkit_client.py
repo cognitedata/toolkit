@@ -38,6 +38,7 @@ from .api.raw import RawAPI
 from .api.records import RecordsAPI
 from .api.relationships import RelationshipsAPI
 from .api.rulesets import RuleSetsAPI
+from .api.sap_writeback import SAPWritebackAPI
 from .api.search_config import SearchConfigurationsAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
@@ -130,6 +131,7 @@ class ToolkitClient(CogniteClient):
         self.records = RecordsAPI(http_client)
         self.streams = StreamsAPI(http_client)
         self.alerts = AlertsAPI(http_client)
+        self.sap_writeback = SAPWritebackAPI(http_client)
 
     @property
     def config(self) -> ToolkitClientConfig:

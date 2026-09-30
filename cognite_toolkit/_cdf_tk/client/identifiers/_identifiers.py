@@ -302,6 +302,18 @@ class RuleSetVersionId(Identifier):
         return f"{self.rule_set_external_id}.{self.version}"
 
 
+class WritebackRequestId(Identifier):
+    request_id: str
+
+    def __str__(self) -> str:
+        return f"requestId='{self.request_id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"requestId-{self.request_id}"
+        return self.request_id
+
+
 class SignalSinkId(Identifier):
     type: Literal["email", "user"]
     external_id: str

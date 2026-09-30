@@ -80,6 +80,7 @@ from .api.records import RecordsAPI
 from .api.relationships import RelationshipsAPI
 from .api.ruleset_versions import RuleSetVersionsAPI
 from .api.rulesets import RuleSetsAPI
+from .api.sap_writeback import SAPEndpointsAPI, SAPInstancesAPI, SAPWritebackAPI, SchemaMappingsAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequence_rows import SequenceRowsAPI
 from .api.sequences import SequencesAPI
@@ -247,6 +248,10 @@ class ToolkitClientMock(CogniteClientMock):
 
         self.records = MagicMock(spec=RecordsAPI)
         self.streams = MagicMock(spec=StreamsAPI)
+        self.sap_writeback = MagicMock(spec=SAPWritebackAPI)
+        self.sap_writeback.instances = MagicMock(spec_set=SAPInstancesAPI)
+        self.sap_writeback.endpoints = MagicMock(spec_set=SAPEndpointsAPI)
+        self.sap_writeback.mappings = MagicMock(spec_set=SchemaMappingsAPI)
 
         # This is a helper API, not a real API.
         self.token = LegacyTokenAPI(self)
