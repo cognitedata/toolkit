@@ -1013,7 +1013,7 @@ class BuildV2Command(ToolkitCommand):
     ) -> ReadYAMLFile:
         toolkit_resource: ToolkitResource | None = None
         try:
-            toolkit_resource = crud_class.yaml_cls.model_validate(parsed_yaml, extra="forbid")
+            toolkit_resource = crud_class.validate_object(parsed_yaml, extra="forbid")
             identifier = toolkit_resource.as_id()
             result.syntax_warnings.extend(toolkit_resource.syntax_warnings(resource_file))
         except ValidationError as errors:
@@ -1052,6 +1052,7 @@ class BuildV2Command(ToolkitCommand):
         adapter = TypeAdapter[list[crud_class.yaml_cls]](list[crud_class.yaml_cls])  # type: ignore[name-defined]
         toolkit_resources: list[ToolkitResource] = []
         try:
+            toolkit_resources = crud_class.validate_list(parsed_yaml, extra="forbid")
             toolkit_resources = adapter.validate_python(parsed_yaml)
         except ValidationError as errors:
             syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file)

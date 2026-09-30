@@ -1,10 +1,11 @@
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Sized
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import (
@@ -114,6 +115,37 @@ class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResourc
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
         self.console = client.console
+
+    @classmethod
+    def validate_object(
+        cls, resource: dict[str, Any], extra: Literal["allow", "ignore", "forbid"] = "forbid"
+    ) -> T_YamlResource:
+        """Validates the resource against the yaml_cls. This is used to validate the user input."""
+        return cls._get_yaml_cls().validate_python(resource, extra=extra)
+
+    @classmethod
+    def validate_list(
+        cls, resource: list[dict[str, Any]], extra: Literal["allow", "ignore", "forbid"] = "forbid"
+    ) -> list[T_YamlResource]:
+        """Validates the resource against the yaml_cls. This is used to validate the user input."""
+        return cls._get_list_wrapped_yaml_cls().validate_python(resource, extra=extra)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def _get_yaml_cls(
+        cls,
+    ) -> TypeAdapter[T_YamlResource]:
+        """Returns a TypeAdapter for the yaml_cls. This is used to validate the user input."""
+        return TypeAdapter[T_YamlResource](cls.yaml_cls)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def _get_list_wrapped_yaml_cls(
+        cls,
+    ) -> TypeAdapter[list[T_YamlResource]]:
+        """Returns a TypeAdapter for a list of yaml_cls. This is used to validate the user input."""
+        # We know that cls.yaml_cls is defined.
+        return TypeAdapter[list[T_YamlResource]](list[cls.yaml_cls])  # type: ignore[name-defined]
 
     # The methods that must be implemented in the subclass
     @classmethod
