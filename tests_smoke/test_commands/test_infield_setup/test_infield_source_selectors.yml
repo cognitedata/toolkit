@@ -1,0 +1,37 @@
+selectors:
+- selector:
+    endpoint: sync
+    instanceSpaces:
+    - source_space
+    instanceType: node
+    kind: Instances
+    type: instanceView
+    view:
+      externalId: APM_Activity
+      space: APM_SourceData
+      version: '1'
+  sourceView: APM_Activity
+- selector:
+    endpoint: sync
+    instanceSpaces:
+    - source_space
+    instanceType: node
+    kind: Instances
+    type: instanceView
+    view:
+      externalId: APM_Operation
+      space: APM_SourceData
+      version: '1'
+  sourceView: APM_Operation
+- selector:
+    endpoint: sync
+    instanceSpaces:
+    - source_space
+    instanceType: node
+    kind: Instances
+    type: instanceView
+    view:
+      externalId: APM_Notification
+      space: APM_SourceData
+      version: '1'
+  sourceView: APM_Notification
