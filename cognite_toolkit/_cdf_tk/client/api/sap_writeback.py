@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WritebackRequestId
 from cognite_toolkit._cdf_tk.client.resource_classes.sap_writeback import (
     SAPEndpointConnectionCheck,
     SAPEndpointRequest,
@@ -16,6 +16,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sap_writeback import (
     SAPInstanceResponse,
     SchemaMappingRequest,
     SchemaMappingResponse,
+    WritebackRequestRequest,
+    WritebackRequestResponse,
 )
 
 _ITEM_LIMIT = 100
@@ -296,10 +298,81 @@ class SchemaMappingsAPI(CDFResourceAPI[SchemaMappingResponse]):
         return self._list(limit=limit)
 
 
-class SAPWritebackAPI:
-    """SAP writeback configuration: instances, endpoints, and schema mappings."""
+class SAPWritebackAPI(CDFResourceAPI[WritebackRequestResponse]):
+    """API for SAP writeback requests, plus instance, endpoint, and schema mapping configuration."""
 
     def __init__(self, http_client: HTTPClient) -> None:
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                "create": Endpoint(method="POST", path="/writeback/sap/requests", item_limit=1),
+                "retrieve": Endpoint(method="POST", path="/writeback/sap/requests/byids", item_limit=_ITEM_LIMIT),
+                "list": Endpoint(method="GET", path="/writeback/sap/requests", item_limit=_ITEM_LIMIT),
+            },
+        )
         self.instances = SAPInstancesAPI(http_client)
         self.endpoints = SAPEndpointsAPI(http_client)
         self.mappings = SchemaMappingsAPI(http_client)
+
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[WritebackRequestResponse]:
+        return PagedResponse[WritebackRequestResponse].model_validate_json(response.body)
+
+    def create(self, items: Sequence[WritebackRequestRequest]) -> list[WritebackRequestResponse]:
+        """Create writeback requests.
+
+        The API accepts one request per call. Larger sequences are sent as separate calls.
+
+        Args:
+            items: Writeback requests to create.
+        Returns:
+            The created writeback requests.
+        """
+        return self._request_item_response(items, "create")
+
+    def retrieve(
+        self, items: Sequence[WritebackRequestId], ignore_unknown_ids: bool = False
+    ) -> list[WritebackRequestResponse]:
+        """Retrieve writeback requests by request ID.
+
+        Args:
+            items: Request IDs to retrieve. At most 100 per request.
+            ignore_unknown_ids: Ignore request IDs that are not found.
+        Returns:
+            The retrieved writeback requests.
+        """
+        return self._request_item_response(
+            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
+        )
+
+    def paginate(self, limit: int = 100, cursor: str | None = None) -> PagedResponse[WritebackRequestResponse]:
+        """Fetch one page of writeback requests.
+
+        Args:
+            limit: Maximum number of requests to return. The server caps this at 100.
+            cursor: Cursor for the next page.
+        Returns:
+            One page of writeback requests.
+        """
+        return self._paginate(cursor=cursor, limit=limit)
+
+    def iterate(self, limit: int | None = 100) -> Iterable[list[WritebackRequestResponse]]:
+        """Iterate over writeback requests.
+
+        Args:
+            limit: Maximum number of requests to return in total. None returns all requests.
+        Returns:
+            Pages of writeback requests.
+        """
+        return self._iterate(limit=limit)
+
+    def list(self, limit: int | None = 100) -> list[WritebackRequestResponse]:
+        """List writeback requests.
+
+        Args:
+            limit: Maximum number of requests to return. None returns all requests.
+        Returns:
+            Writeback requests. Listed items omit the request payload.
+        """
+        return self._list(limit=limit)

@@ -135,6 +135,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sap_writeback import (
     SAPInstanceResponse,
     SchemaMappingRequest,
     SchemaMappingResponse,
+    WritebackRequestRequest,
+    WritebackRequestResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import (
     SearchConfigRequest,
@@ -828,6 +830,13 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
+        WritebackRequestResponse: {
+            "requestId": "request-001",
+            "status": "pending",
+            "request": [{"key": "observation-1", "payload": {"NotificationText": "Test"}}],
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
     }
     try:
         return responses[resource_cls]
@@ -1337,4 +1346,14 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             api_class=SchemaMappingsAPI,
         ),
         id="SchemaMapping",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=WritebackRequestResponse,
+            request_cls=WritebackRequestRequest,
+            example_data=get_example_minimum_responses(WritebackRequestResponse),
+            is_as_request_possible=False,
+            # The request ID is assigned by the API, and the create payload is not returned.
+        ),
+        id="WritebackRequest",
     )

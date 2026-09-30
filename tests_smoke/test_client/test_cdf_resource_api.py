@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessions
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.ruleset_versions import RuleSetVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.rulesets import RuleSetsAPI
-from cognite_toolkit._cdf_tk.client.api.sap_writeback import SAPEndpointsAPI, SAPInstancesAPI
+from cognite_toolkit._cdf_tk.client.api.sap_writeback import SAPEndpointsAPI, SAPInstancesAPI, SAPWritebackAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.sequence_rows import SequenceRowsAPI
@@ -335,6 +335,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # Endpoints depend on an existing instance.
         SAPInstancesAPI,
         SAPEndpointsAPI,
+        # Creating a request sends it to SAP and requires an existing endpoint.
+        SAPWritebackAPI,
     }
 )
 
