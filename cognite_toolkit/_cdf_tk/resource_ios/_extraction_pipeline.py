@@ -82,7 +82,6 @@ class ExtractionPipelineIO(
     kind = "ExtractionPipeline"
     dependencies = frozenset({DataSetsIO, RawDatabaseCRUD, RawTableCRUD, GroupAllScopedCRUD})
     yaml_cls = ExtractionPipelineYAML
-    extra_content_property = "documentation"
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
     @property
