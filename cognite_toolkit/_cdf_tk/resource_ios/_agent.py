@@ -48,7 +48,6 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
     resource_write_cls = AgentRequest
     kind = "Agent"
     yaml_cls = AgentYAML
-    extra_content_property = "instructions"
     dependencies = frozenset(
         {FunctionIO, DataModelIO, *({SkillIO} if FeatureFlag.is_enabled(Flags.AGENT_SKILLS) else set())}
     )
