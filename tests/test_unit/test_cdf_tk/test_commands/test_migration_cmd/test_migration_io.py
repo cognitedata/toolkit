@@ -32,7 +32,9 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.dataio import AssetDataIO, DataItem, Page
+from cognite_toolkit._cdf_tk.dataio.logger import FileWithAggregationLogger, ItemsResult, LabelResult, Severity
 from cognite_toolkit._cdf_tk.dataio.selectors import ThreeDModelIdSelector
+from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter
 
 
 @pytest.fixture(scope="module")
@@ -267,6 +269,102 @@ class TestThreeDAssetMappingMigrationIO:
             )
 
         assert len(respx_mock.calls) == 4  # 1 model list, 2 mapping list, 1 uploads (since we pass in all at once)
+
+    def test_same_page_duplicate_is_logged_separately(
+        self, toolkit_client: ToolkitClient, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_client.config
+        model_id = 37
+        revision_id = 101
+        respx_mock.get(config.create_api_url("/3d/models")).mock(
+            return_value=Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "name": "model_37",
+                            "id": model_id,
+                            "createdTime": 1,
+                            "lastRevisionInfo": {"revisionId": revision_id},
+                            "space": "mySpace",
+                        }
+                    ],
+                    "nextCursor": None,
+                },
+            )
+        )
+        model_endpoint = f"/3d/models/{model_id}/revisions/{revision_id}/mappings"
+        respx_mock.post(config.create_api_url(f"{model_endpoint}/list")).mock(
+            side_effect=[
+                Response(
+                    status_code=200,
+                    json={
+                        "items": [
+                            {"nodeId": 1, "assetId": 10},
+                            {"nodeId": 1, "assetId": 10},
+                        ],
+                        "nextCursor": "cursor_1",
+                    },
+                ),
+                Response(
+                    status_code=200,
+                    json={
+                        "items": [
+                            {"nodeId": 1, "assetId": 10},
+                            {"nodeId": 2, "assetId": 20},
+                        ],
+                        "nextCursor": None,
+                    },
+                ),
+            ]
+        )
+        io = ThreeDAssetMappingMigrationIO(toolkit_client, object_3D_space="mySpace", cad_node_space="mySpace")
+        writer = MagicMock(spec=NDJsonWriter)
+        with FileWithAggregationLogger(writer) as logger:
+            io.logger = logger
+            pages = list(io.stream_data(ThreeDModelIdSelector(ids=(model_id,))))
+            results = logger.finalize(is_dry_run=False)
+
+        original_id = f"AssetMapping_{model_id}_{revision_id}_1_10"
+        written = writer.write_chunks.call_args.args[0]
+        assert {
+            "tracking_ids": [item.tracking_id for page in pages for item in page.items],
+            "log_entries": written,
+            "results": results,
+        } == {
+            "tracking_ids": [original_id, f"AssetMapping_{model_id}_{revision_id}_2_20"],
+            "log_entries": [
+                {
+                    "id": f"{original_id}_duplicate_1",
+                    "label": "Skipped",
+                    "severity": Severity.skipped.value,
+                    "attributes": None,
+                    "attributeDisplayName": None,
+                    "message": "Duplicate asset mapping found.",
+                    "source": ThreeDAssetMappingMigrationIO.KIND,
+                    "destination": "3D asset mappings",
+                },
+                {
+                    "id": f"{original_id}_duplicate_2",
+                    "label": "Skipped",
+                    "severity": Severity.skipped.value,
+                    "attributes": None,
+                    "attributeDisplayName": None,
+                    "message": "Duplicate asset mapping found.",
+                    "source": ThreeDAssetMappingMigrationIO.KIND,
+                    "destination": "3D asset mappings",
+                },
+            ],
+            "results": [
+                ItemsResult(
+                    status="skipped",
+                    count=2,
+                    severity=Severity.skipped.value,
+                    labels=[LabelResult(label="Skipped", count=2)],
+                ),
+                ItemsResult(status="success", count=2, severity=Severity.info.value),
+            ],
+        }
 
     def test_invalid_methods(self, toolkit_client: ToolkitClient) -> None:
         """Migration IO is not expected to serialize/deserialize."""
