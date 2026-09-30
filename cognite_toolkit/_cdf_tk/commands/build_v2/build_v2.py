@@ -72,7 +72,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus
+from cognite_toolkit._cdf_tk.rules._base import EXECUTE_RULE_STATUS, RuleSetStatus
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -1307,11 +1307,11 @@ class BuildV2Command(ToolkitCommand):
 
     def _run_validation(self, plan: list[ValidationStep], console: Console) -> list[ValidationResult]:
         with Progress(console=console) as progress:
-            ready_step_count = sum(1 for step in plan if step.status.code == "ready")
+            ready_step_count = sum(1 for step in plan if step.status.code in EXECUTE_RULE_STATUS)
             validating_task = progress.add_task("Checking modules", total=ready_step_count)
             validation_results: list[ValidationResult] = []
             for step in plan:
-                if step.status.code != "ready":
+                if step.status.code not in EXECUTE_RULE_STATUS:
                     continue
                 display_name = step.rule.DISPLAY_NAME
                 progress.update(validating_task, description=f"Running '{display_name}'...")

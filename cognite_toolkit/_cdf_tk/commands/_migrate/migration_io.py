@@ -825,6 +825,10 @@ class ThreeDAssetMappingMigrationIO(
         # We can only migrate asset mappings for 3D models that are already migrated to data modeling.
         self._3D_io = ThreeDMigrationIO(client, data_model_type="data modeling")
 
+    @staticmethod
+    def _tracking_id(item: AssetMappingClassicResponse) -> str:
+        return f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.node_id!s}_{item.asset_id!s}"
+
     def stream_data(
         self,
         selector: ThreeDSelector,
@@ -835,6 +839,7 @@ class ThreeDAssetMappingMigrationIO(
         for three_d_page in self._3D_io.stream_data(selector, None):
             for data_item in three_d_page.items:
                 seen_mappings: set[tuple[int, int, int, int]] = set()  # (model_id, revision_id, node_id, asset_id)
+                duplicate_counts: dict[tuple[int, int, int, int], int] = {}
                 model = data_item.item
                 if model.last_revision_info is None or model.last_revision_info.revision_id is None:
                     continue
@@ -861,9 +866,11 @@ class ThreeDAssetMappingMigrationIO(
                             item.asset_id if item.asset_id is not None else -1,
                         )
                         if mapping_key in seen_mappings:
+                            occurrence = duplicate_counts.get(mapping_key, 0) + 1
+                            duplicate_counts[mapping_key] = occurrence
                             skipped_entries.append(
                                 MigrationEntryV2(
-                                    id=f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.node_id!s}_{item.asset_id!s}",
+                                    id=f"{self._tracking_id(item)}_duplicate_{occurrence}",
                                     label="Skipped",
                                     message="Duplicate asset mapping found.",
                                     severity=Severity.skipped,
@@ -875,6 +882,9 @@ class ThreeDAssetMappingMigrationIO(
                             seen_mappings.add(mapping_key)
                             unique_items.append(item)
                     if skipped_entries:
+                        # Register before logging so the aggregation logger does not treat the skip as an
+                        # unregistered id, then as a second registration of the mapping that is uploaded.
+                        self.logger.register([entry.id for entry in skipped_entries])
                         self.logger.log(skipped_entries)
                     total += len(unique_items)
                     if unique_items:
@@ -886,7 +896,7 @@ class ThreeDAssetMappingMigrationIO(
                                 worker_id="main",
                                 items=[
                                     DataItem(
-                                        tracking_id=f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.node_id!s}_{item.asset_id!s}",
+                                        tracking_id=self._tracking_id(item),
                                         item=item,
                                     )
                                     for item in unique_items
