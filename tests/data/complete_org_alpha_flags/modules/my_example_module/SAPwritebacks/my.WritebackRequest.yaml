@@ -1,0 +1,6 @@
+requestId: request-001
+endpointId: sap_endpoint_001
+request:
+  - key: observation-1
+    payload:
+      NotificationText: Test

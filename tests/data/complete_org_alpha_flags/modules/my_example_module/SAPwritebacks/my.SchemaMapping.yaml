@@ -1,0 +1,2 @@
+externalId: schema_mapping_001
+expression: '{ "SAPFieldA": input.CDFFieldA }'

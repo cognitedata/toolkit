@@ -208,6 +208,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
     RuleSetVersionRequest,
     RuleSetVersionResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.sap_writeback import (
+    SAPEndpointRequest,
+    SAPEndpointResponse,
+    SAPInstanceRequest,
+    SAPInstanceResponse,
+    SchemaMappingRequest,
+    SchemaMappingResponse,
+    WritebackRequestRequest,
+    WritebackRequestResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import (
     SearchConfigResponse,
 )
@@ -1370,6 +1380,50 @@ API_RESOURCES = [
                 Method(api_class_method="retrieve", mock_class_method="retrieve"),
                 Method(api_class_method="iterate", mock_class_method="iterate"),
                 Method(api_class_method="list", mock_class_method="list"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="sap_writeback.instances",
+        resource_cls=SAPInstanceResponse,
+        _write_cls=SAPInstanceRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="sap_writeback.endpoints",
+        resource_cls=SAPEndpointResponse,
+        _write_cls=SAPEndpointRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="sap_writeback.mappings",
+        resource_cls=SchemaMappingResponse,
+        _write_cls=SchemaMappingRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="sap_writeback",
+        resource_cls=WritebackRequestResponse,
+        _write_cls=WritebackRequestRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
             ],
         },
     ),

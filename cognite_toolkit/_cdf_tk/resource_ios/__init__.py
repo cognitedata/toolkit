@@ -53,6 +53,7 @@ from ._migration import ResourceViewMappingIO
 from ._raw import RawDatabaseCRUD, RawTableCRUD
 from ._relationship import RelationshipIO
 from ._rulesets import RuleSetIO, RuleSetVersionIO
+from ._sap_writeback import SAPEndpointIO, SAPInstanceIO, SchemaMappingIO, WritebackRequestIO
 from ._signal_sink import SignalSinkIO
 from ._signal_subscription import SignalSubscriptionIO
 from ._simulators import (
@@ -95,6 +96,11 @@ if not FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
     _EXCLUDED_CRUDS.add(SkillIO)
 if not FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES):
     _EXCLUDED_CRUDS.add(ExternalDataSourceIO)
+if not FeatureFlag.is_enabled(Flags.SAP_WRITEBACK):
+    _EXCLUDED_CRUDS.add(SAPInstanceIO)
+    _EXCLUDED_CRUDS.add(SAPEndpointIO)
+    _EXCLUDED_CRUDS.add(SchemaMappingIO)
+    _EXCLUDED_CRUDS.add(WritebackRequestIO)
 
 CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
 CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
@@ -160,6 +166,7 @@ ResourceTypes: TypeAlias = Literal[
     "functions",
     "raw",
     "rulesets",
+    "SAPwritebacks",
     "signals",
     "simulators",
     "streams",
@@ -227,6 +234,9 @@ __all__ = [
     "ResourceTypes",
     "RuleSetIO",
     "RuleSetVersionIO",
+    "SAPEndpointIO",
+    "SAPInstanceIO",
+    "SchemaMappingIO",
     "SearchConfigIO",
     "SecurityCategoryIO",
     "SequenceIO",
@@ -250,5 +260,6 @@ __all__ = [
     "WorkflowIO",
     "WorkflowTriggerIO",
     "WorkflowVersionIO",
+    "WritebackRequestIO",
     "get_crud",
 ]
