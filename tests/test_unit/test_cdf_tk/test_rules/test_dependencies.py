@@ -29,6 +29,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId, ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     ContainerCRUD,
     DataModelIO,
@@ -363,6 +364,18 @@ class TestDependencyRuleSetDataModelingChanges:
     """Integration-level tests: verifying that the CRUD wiring, aggregation and message/code plumbing in
     ``_validate_data_modeling_changes`` behaves correctly. Edge cases of the underlying predicates are
     covered by ``TestIsDisallowedContainerPropertyChange``/``TestIsDisallowedViewPropertyChange`` instead."""
+
+    @pytest.fixture(autouse=True)
+    def _disable_alpha_rules(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Alpha rules move these checks to DataModelingRuleSet. Keep this class on the non-alpha path.
+        original = FeatureFlag.is_enabled.__wrapped__
+
+        def _is_enabled(flag: Flags) -> bool:
+            if flag is Flags.ALPHA_RULES:
+                return False
+            return original(flag)
+
+        monkeypatch.setattr(FeatureFlag, "is_enabled", _is_enabled)
 
     @pytest.mark.parametrize(
         "local_yaml, cdf_properties, cdf_description, cdf_used_for, expected_codes, expected_message_fragment",

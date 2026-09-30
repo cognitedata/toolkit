@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltR
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, Insight
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import URL
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, DataModelIO, ResourceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
@@ -48,7 +49,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
         yield from self._validate_dependencies()
-        if self.client is not None:
+        if self.client is not None and not Flags.ALPHA_RULES.is_enabled():
             yield from self._validate_data_modeling_changes(self.client)
 
     def _validate_dependencies(self) -> Iterable[Insight | InternalValidatorException]:
