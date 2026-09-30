@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WritebackRequestId
 from cognite_toolkit._cdf_tk.client.resource_classes.sap_writeback import (
     SAPEndpointConnectionCheck,
-    WritebackRequestItemRequest,
+    WritebackRequestItem,
     WritebackRequestRequest,
 )
 
@@ -78,53 +78,43 @@ class TestSAPEndpointsAPI:
         }
 
     def test_verify_unwraps_error_envelope(self) -> None:
-        result = SAPEndpointConnectionCheck.model_validate(
-            {"error": {"status": "success", "detail": "Connected", "errorMessage": "none"}}
-        )
-
-        assert result.dump() == {"status": "success", "detail": "Connected", "errorMessage": "none"}
+        raw = {"error": {"status": "success", "detail": "Connected"}}
+        assert SAPEndpointConnectionCheck.model_validate(raw).dump() == raw
 
 
 class TestSAPWritebackAPI:
     @pytest.mark.usefixtures("disable_gzip")
     def test_create_retrieve_and_list(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         api = SAPWritebackAPI(HTTPClient(toolkit_config))
-        created_item = {
+        create_response_item = {
             "requestId": "request-001",
             "status": "pending",
             "request": [{"payload": {"NotificationText": "Test"}}],
             "createdTime": 1730204346000,
             "lastUpdatedTime": 1730204346000,
         }
-        retrieved_item = {
+        response_item = {
             "requestId": "request-001",
             "status": "done",
-            "request": [{"payload": {"NotificationText": "Test"}, "sapObjectId": "10129745"}],
-            "createdTime": 1730204346000,
-            "lastUpdatedTime": 1730204347000,
-        }
-        listed_item = {
-            "requestId": "request-001",
-            "status": "done",
-            "request": [{"sapObjectId": "10129745"}],
+            "request": [{"payload": {"NotificationText": "Test"}}],
             "createdTime": 1730204346000,
             "lastUpdatedTime": 1730204347000,
         }
         respx_mock.post(api._make_url("/writeback/sap/requests")).mock(
-            return_value=httpx2.Response(status_code=200, json={"items": [created_item]})
+            return_value=httpx2.Response(status_code=200, json={"items": [create_response_item]})
         )
         respx_mock.post(api._make_url("/writeback/sap/requests/byids")).mock(
-            return_value=httpx2.Response(status_code=200, json={"items": [retrieved_item]})
+            return_value=httpx2.Response(status_code=200, json={"items": [response_item]})
         )
         respx_mock.get(api._make_url("/writeback/sap/requests")).mock(
-            return_value=httpx2.Response(status_code=200, json={"items": [listed_item]})
+            return_value=httpx2.Response(status_code=200, json={"items": [response_item]})
         )
 
         created = api.create(
             [
                 WritebackRequestRequest(
                     endpoint_id="sap_endpoint_001",
-                    request=[WritebackRequestItemRequest(payload={"NotificationText": "Test"})],
+                    request=[WritebackRequestItem(payload={"NotificationText": "Test"})],
                 )
             ]
         )
@@ -138,7 +128,7 @@ class TestSAPWritebackAPI:
             "retrieve_request": json.loads(respx_mock.calls[1].request.content),
             "listed": [item.dump() for item in listed],
         } == {
-            "created": [created_item],
+            "created": [create_response_item],
             "create_request": {
                 "items": [
                     {
@@ -147,7 +137,7 @@ class TestSAPWritebackAPI:
                     }
                 ]
             },
-            "retrieved": [retrieved_item],
+            "retrieved": [response_item],
             "retrieve_request": {"items": [{"requestId": "request-001"}], "ignoreUnknownIds": False},
-            "listed": [listed_item],
+            "listed": [response_item],
         }

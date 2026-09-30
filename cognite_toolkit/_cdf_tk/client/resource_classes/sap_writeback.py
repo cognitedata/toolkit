@@ -1,6 +1,6 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, JsonValue, model_validator
+from pydantic import Field, JsonValue, model_serializer, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -84,6 +84,12 @@ class SAPEndpointConnectionCheck(BaseModelObject):
             return value["error"]
         return value
 
+    @model_serializer(mode="wrap")
+    def _wrap_error_envelope(self, handler: Any) -> Any:
+        # Reverse of ``_unwrap_error_envelope``: nest the check back under ``error``
+        # to restore the OpenAPI response envelope shape.
+        return {"error": handler(self)}
+
 
 class SchemaMapping(BaseModelObject):
     """In-flight transformation from CDF entities to SAP S/4HANA entities."""
@@ -136,8 +142,7 @@ SapFileReference = Annotated[CDFClassicFileReference | CDMFileReference, Field(d
 
 class WritebackRequestItem(BaseModelObject):
     key: str | None = None
-    payload: dict[str, JsonValue] | None = None
-    sap_object_id: str | None = None
+    payload: dict[str, JsonValue]
     file_id: str | None = None
     file_reference: SapFileReference | None = None
 
@@ -148,7 +153,7 @@ class WritebackRequestItem(BaseModelObject):
         return self
 
 
-class WritebackRequestItemRequest(WritebackRequestItem):
+class WritebackResponseItem(BaseModelObject):
     payload: dict[str, JsonValue]
 
 
@@ -156,7 +161,7 @@ class WritebackRequestRequest(RequestResource):
     """Request resource for creating a writeback request."""
 
     endpoint_id: str
-    request: list[WritebackRequestItemRequest]
+    request: list[WritebackRequestItem]
 
     def as_id(self) -> WritebackRequestId:
         raise ValueError("A writeback request ID is assigned when the request is created")
@@ -165,7 +170,7 @@ class WritebackRequestRequest(RequestResource):
 class WritebackRequestResponse(ResponseResource[WritebackRequestRequest]):
     request_id: str
     status: WritebackRequestStatus | str
-    request: list[WritebackRequestItem]
+    request: list[WritebackResponseItem]
     created_time: int
     last_updated_time: int
 
