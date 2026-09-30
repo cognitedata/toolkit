@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
     SessionsAcl,
 )
+from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitRequiredValueError,
@@ -205,9 +206,11 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
 
         if items and self.data_set_id_by_external_id:
             dataset_ids = [
-                self.data_set_id_by_external_id[item.external_id]
+                data_set_id
                 for item in items
-                if item.external_id and item.external_id in self.data_set_id_by_external_id
+                if item.external_id
+                and (data_set_id := self.data_set_id_by_external_id.get(item.external_id)) is not None
+                and data_set_id != DRY_RUN_ID
             ]
             if dataset_ids:
                 file_scope = cap.FilesAcl.Scope.DataSet(dataset_ids)

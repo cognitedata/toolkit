@@ -61,6 +61,7 @@ from cognite_toolkit._cdf_tk.utils import (
     sanitize_filename,
     stringify_value_by_key_in_yaml,
 )
+from cognite_toolkit._cdf_tk.utils.acl_helper import data_set_scope_from_ids
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import ExtractionPipelineConfigYAML, ExtractionPipelineYAML
 
@@ -90,7 +91,7 @@ class ExtractionPipelineIO(
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[ExtractionPipelineRequest]) -> ScopeDefinition:
-        return DataSetScope(ids=list({item.data_set_id for item in items}))
+        return data_set_scope_from_ids(item.data_set_id for item in items)
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
