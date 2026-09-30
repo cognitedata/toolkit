@@ -18,7 +18,7 @@ class SAPInstance(BaseModelObject):
     external_id: str
     gateway_url: str
     client: int
-    username: str | None = None
+    username: str
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
@@ -30,7 +30,6 @@ class SAPInstanceRequest(SAPInstance, RequestResource):
     ``password`` is required to create an instance and is not returned by the API.
     """
 
-    username: str
     password: str
 
 
@@ -47,7 +46,7 @@ class SAPEndpoint(BaseModelObject):
     """Configuration for an SAP S/4HANA OData endpoint used by writeback."""
 
     external_id: str
-    endpoint_type: SAPEndpointType
+    endpoint_type: SAPEndpointType | str
     instance_id: str
     mapping_id: str | None = None
 
@@ -73,7 +72,6 @@ class SAPEndpointConnectionCheck(BaseModelObject):
 
     status: str
     detail: str | None = None
-    error_message: str | None = None
 
     @model_validator(mode="before")
     @classmethod
