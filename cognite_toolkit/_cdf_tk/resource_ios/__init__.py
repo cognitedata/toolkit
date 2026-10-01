@@ -136,12 +136,7 @@ RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND: dict[str, dict[str, type[ResourceIO]]] = {
 CRUD_LIST = list(itertools.chain.from_iterable(CRUDS_BY_FOLDER_NAME.values()))
 RESOURCE_CRUD_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceIO)]
 RESOURCE_CRUD_CONTAINER_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceContainerIO)]
-KINDS_BY_FOLDER_NAME: dict[str, set[str]] = {}
-for crud in CRUD_LIST:
-    if crud.folder_name not in KINDS_BY_FOLDER_NAME:
-        KINDS_BY_FOLDER_NAME[crud.folder_name] = set()
-    KINDS_BY_FOLDER_NAME[crud.folder_name].add(crud.kind)
-del crud  # cleanup module namespace
+
 
 ResourceTypes: TypeAlias = Literal[
     "3dmodels",
@@ -189,7 +184,6 @@ def get_crud(resource_dir: str, kind: str) -> type[ResourceIO]:
 __all__ = [
     "CRUDS_BY_FOLDER_NAME",
     "CRUD_LIST",
-    "KINDS_BY_FOLDER_NAME",
     "RESOURCE_CRUD_BY_FOLDER_NAME",
     "RESOURCE_CRUD_CONTAINER_LIST",
     "RESOURCE_CRUD_LIST",
