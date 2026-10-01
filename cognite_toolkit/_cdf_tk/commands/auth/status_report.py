@@ -16,7 +16,7 @@ from rich.text import Text
 from cognite_toolkit._cdf_tk import resource_ios
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, Scope, TableScope
+from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, AllScope, Scope, TableScope
 from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import scope_intersection
 from cognite_toolkit._cdf_tk.client.resource_classes.project import OrganizationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.token import FlatCapabilities
@@ -141,7 +141,7 @@ def _load_environment() -> tuple[EnvironmentVariables | None, Exception | None]:
 def auth_status_from_runtime() -> AuthStatus:
     """Load credentials from the environment and describe the resulting CDF access."""
     environment, error = _load_environment()
-    return collect_auth_status(failure=error or _MISSING_CREDENTIALS, environment=environment)
+    return collect_auth_status(failure=error, environment=environment)
 
 
 def collect_auth_status(
@@ -149,7 +149,8 @@ def collect_auth_status(
     environment: EnvironmentVariables | None = None,
     failure: Exception | None = None,
 ) -> AuthStatus:
-    """Build the authentication report. Does not read the process environment or print anything."""
+    """Build the authentication report from the Toolkit client, environment, and any error that occurred
+    while loading credentials."""
     if failure is not None:
         return _unauthenticated(environment, failure)
 
@@ -163,10 +164,10 @@ def collect_auth_status(
 
     try:
         inspected = client.tool.token.inspect()
-    except (ToolkitAPIError, CogniteAPIError, AuthenticationError, AuthorizationError) as exc:
+    except (ToolkitAPIError, AuthenticationError, AuthorizationError) as exc:
         return _unauthenticated(environment, exc)
 
-    current_project = _current_project(client, inspected.project)
+    current_project = client.config.project
     identity_provider = _identity_provider(client, environment)
     status_by_project = _data_modeling_by_project(client)
     projects = [
@@ -193,7 +194,7 @@ def collect_auth_status(
     )
 
 
-def describe_identity_provider(organization: OrganizationResponse) -> IdentityProvider | None:
+def _describe_identity_provider(organization: OrganizationResponse) -> IdentityProvider | None:
     """Name the identity provider configured on the CDF project."""
     oidc = organization.oidc_configuration
     if oidc is None:
@@ -266,6 +267,22 @@ def resources_from_capabilities(
     return accessible, checked
 
 
+def _scope_for_action(capabilities: FlatCapabilities, acl: Acl, action: str) -> Scope | None:
+    """Return the scope granted for an ACL action.
+
+    A capability that contains an action this version does not model is kept as an ``UnknownAcl`` so the
+    original payload can round-trip. The known actions on that capability are still valid deploy access, so
+    match on ACL name when the concrete class is not in the map.
+    """
+    scope = capabilities.get((type(acl), acl.acl_name, action))
+    if scope is not None:
+        return scope
+    for (_, acl_name, stored_action), stored_scope in capabilities.items():
+        if acl_name == acl.acl_name and stored_action == action:
+            return stored_scope
+    return None
+
+
 def resolve_action_access(
     io_cls: type[ResourceIO],
     capabilities: FlatCapabilities,
@@ -283,7 +300,7 @@ def resolve_action_access(
         found_scopes: list[Scope] = []
         acl_missing: list[str] = []
         for acl_action in acl.actions:
-            scope = capabilities.get((type(acl), acl.acl_name, acl_action))
+            scope = _scope_for_action(capabilities, acl, acl_action)
             if scope is None:
                 acl_missing.append(acl_action)
                 continue
@@ -354,7 +371,7 @@ def _unauthenticated(environment: EnvironmentVariables | None, failure: Exceptio
     )
 
 
-def _failure_message(failure: Exception | None) -> str:
+def _failure_message(failure: Exception | str | None) -> str:
     if failure is None:
         return "The credentials were rejected."
     message = str(failure).strip() or "The credentials were rejected."
@@ -371,8 +388,8 @@ def _method_label(environment: EnvironmentVariables | None) -> str:
 
 def _identity_provider(client: ToolkitClient, environment: EnvironmentVariables | None) -> IdentityProvider | None:
     try:
-        described = describe_identity_provider(client.project.organization())
-    except (ToolkitAPIError, CogniteAPIError, AuthorizationError):
+        described = _describe_identity_provider(client.project.organization())
+    except (ToolkitAPIError, AuthorizationError):
         described = None
     if described is not None:
         return described
@@ -455,15 +472,6 @@ def _session_details(environment: EnvironmentVariables | None) -> SessionDetails
         refresh_token_expires_at=metadata.refresh_token_expires_at,
         state=metadata.token_state(),
     )
-
-
-def _current_project(client: ToolkitClient, inspected_project: str) -> str | None:
-    configured = getattr(client.config, "project", None)
-    if isinstance(configured, str) and configured.strip():
-        return configured.strip()
-    if inspected_project.strip():
-        return inspected_project.strip()
-    return None
 
 
 def _cluster_name(client: ToolkitClient) -> str | None:

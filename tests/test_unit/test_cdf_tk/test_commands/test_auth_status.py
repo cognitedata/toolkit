@@ -34,8 +34,8 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.auth.data_classes import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.auth.session_store import SessionMetadata, StoredSession
 from cognite_toolkit._cdf_tk.commands.auth.status_report import (
+    _describe_identity_provider,
     collect_auth_status,
-    describe_identity_provider,
     format_action_access,
     render_auth_status,
     resolve_action_access,
@@ -146,13 +146,13 @@ class TestIdentityProvider:
     def test_describe_identity_provider(
         self, token_url: str, expected: tuple[str, str | None, tuple[str, ...]]
     ) -> None:
-        described = describe_identity_provider(_organization(token_url))
+        described = _describe_identity_provider(_organization(token_url))
         assert (None if described is None else (described.name, described.tenant, described.access_claims)) == expected
 
     def test_missing_oidc_configuration(self) -> None:
         organization = _organization("https://auth.cognite.com/oauth2/token")
         organization.oidc_configuration = None
-        assert describe_identity_provider(organization) is None
+        assert _describe_identity_provider(organization) is None
 
 
 class TestAuthStatus:
@@ -255,6 +255,39 @@ class TestAuthStatus:
             None if report.session is None else report.session.organization,
             None if report.session is None else report.session.state,
         ) == (True, "Session", "Cognite IDP", "acme", "VALID")
+
+    def test_unrecognized_actions_do_not_hide_deploy_access(self) -> None:
+        payloads = [
+            {
+                "groupsAcl": {
+                    "actions": ["LIST", "READ", "CREATE", "UPDATE", "DELETE", "FUTURE"],
+                    "scope": {"all": {}},
+                }
+            },
+            {
+                "securityCategoriesAcl": {
+                    "actions": ["LIST", "MEMBEROF", "CREATE", "UPDATE", "DELETE", "FUTURE"],
+                    "scope": {"all": {}},
+                }
+            },
+            {"sessionsAcl": {"actions": ["LIST", "CREATE", "DELETE", "FUTURE"], "scope": {"all": {}}}},
+        ]
+        inspected = InspectResponse(
+            subject="user",
+            projects=[InspectProjectInfo(project_url_name=CDF_PROJECT, groups=[1])],
+            project=CDF_PROJECT,
+            capabilities=[
+                InspectCapability.model_validate({**payload, "projectScope": {"allProjects": {}}})
+                for payload in payloads
+            ],
+        )
+        resources, _ = resources_from_capabilities(inspected.to_project_capabilities(CDF_PROJECT), "HYBRID")
+        assert {item.io_name for item in resources} == {
+            "FunctionScheduleIO",
+            "GroupAllScopedCRUD",
+            "GroupResourceScopedCRUD",
+            "SecurityCategoryIO",
+        }
 
     def test_group_read_requires_every_action(self) -> None:
         capabilities = FlatCapabilities({(GroupsAcl, "groupsAcl", "READ"): AllScope()}, name=CDF_PROJECT, groups=[])
