@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
+from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils import read_yaml_content
@@ -60,16 +61,29 @@ capabilities:
         },
         id="Error in second group",
     )
+    yield pytest.param(
+        """name: group1
+sourceId: '1234567890123456789'
+members: allUserAccounts
+""",
+        {"Invalid group definition: Cannot have both 'sourceId' and 'members'. Please specify only one."},
+        id="Both sourceId and members present",
+    )
 
 
-class TestTimeSeriesTK:
+@pytest.fixture(scope="session")
+def group_adapter() -> TypeAdapter[GroupYAML]:
+    return TypeAdapter(GroupYAML)
+
+
+class TestGroupYAML:
     @pytest.mark.parametrize("data", list(find_resources("Group")))
-    def test_load_valid_timeseries(self, data: dict[str, object]) -> None:
-        loaded = GroupYAML.model_validate(data)
+    def test_load_valid_groups(self, data: dict[str, object], group_adapter: TypeAdapter[GroupYAML]) -> None:
+        loaded = group_adapter.validate_python(data)
 
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
-    def test_load_group_with_attributes(self) -> None:
+    def test_load_group_with_attributes(self, group_adapter: TypeAdapter[GroupYAML]) -> None:
         data = {
             "name": "group-with-app-ids",
             "sourceId": "1234567890123456789",
@@ -79,12 +93,14 @@ class TestTimeSeriesTK:
                 },
             },
         }
-        loaded = GroupYAML.model_validate(data)
+        loaded = group_adapter.validate_python(data)
 
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
     @pytest.mark.parametrize("content, expected_errors", list(invalid_group_test_cases()))
-    def test_invalid_group_error_messages(self, content: str, expected_errors: set[str]) -> None:
+    def test_invalid_group_error_messages(
+        self, content: str, expected_errors: set[str], group_adapter: TypeAdapter[GroupYAML]
+    ) -> None:
         """Test the validate_resource_yaml function for GroupYAML."""
         data = read_yaml_content(content)
 

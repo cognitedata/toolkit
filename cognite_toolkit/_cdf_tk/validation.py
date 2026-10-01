@@ -30,7 +30,7 @@ class _GroupEntry(NamedTuple):
 
 
 def validate_resource_yaml_pydantic(
-    data: dict[str, object] | list[dict[str, object]], validation_cls: type[BaseModelResource], source_file: Path
+    data: dict[str, object] | list[dict[str, object]], validation_cls: type[BaseModelResource] | Any, source_file: Path
 ) -> WarningList:
     """Validates the resource given as a dictionary or list of dictionaries with the given pydantic model.
 
@@ -46,7 +46,10 @@ def validate_resource_yaml_pydantic(
     warning_list: WarningList = WarningList()
     try:
         if isinstance(data, dict):
-            validation_cls.model_validate(data, strict=True)
+            if isinstance(data, BaseModel):
+                validation_cls.model_validate(data)
+            else:
+                TypeAdapter(validation_cls).validate_python(data)
         elif isinstance(data, list):
             TypeAdapter(list[validation_cls]).validate_python(data)  # type: ignore[valid-type]
         else:

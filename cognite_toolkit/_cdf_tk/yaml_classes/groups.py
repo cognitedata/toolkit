@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import Field, model_serializer
-from pydantic.functional_validators import BeforeValidator
+from pydantic.functional_validators import PlainValidator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.client.identifiers import NameId
@@ -71,16 +71,30 @@ class CDFGroupYAML(BaseGroupYAML):
     members: list[str] | Literal["allUserAccounts"]
 
 
-def _discriminate_group_type(data: dict[str, Any]) -> type[BaseGroupYAML]:
+def _validate_group(data: Any) -> BaseGroupYAML:
+    """Validates the data as either an ExternalGroupYAML or a CDFGroupYAML.
+
+    The group type is determined by the presence of 'sourceId' (external) or 'members' (CDF).
+    We dispatch to the subclass directly instead of using a Pydantic (tagged) union, as the union
+    would add the member/tag name to the error locations, making error messages harder to read.
+    """
+    if isinstance(data, BaseGroupYAML):
+        return data
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected a group definition (dictionary). Got {type(data).__name__}.")
     if "sourceId" in data and "members" in data:
         raise ValueError(
             "Invalid group definition: Cannot have both 'sourceId' and 'members'. Please specify only one."
         )
     elif "sourceId" in data:
-        return ExternalGroupYAML
+        # Copy to avoid mutating the input data.
+        return ExternalGroupYAML.model_validate({**data, "groupType": "external"})
     elif "members" in data:
-        return CDFGroupYAML
+        return CDFGroupYAML.model_validate({**data, "groupType": "cdf"})
     raise ValueError("Missing required field: Either 'sourceId' or 'members'")
 
 
-GroupYAML = Annotated[CDFGroupYAML | ExternalGroupYAML, BeforeValidator(_discriminate_group_type)]
+GroupYAML = Annotated[
+    CDFGroupYAML | ExternalGroupYAML,
+    PlainValidator(_validate_group, json_schema_input_type=CDFGroupYAML | ExternalGroupYAML),
+]
