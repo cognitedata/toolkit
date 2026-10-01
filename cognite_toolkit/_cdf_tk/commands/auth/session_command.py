@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import questionary
 from rich import print
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.auth.cogidp import SessionProject, fetch_session_user_info
 from cognite_toolkit._cdf_tk.commands.auth.data_classes import EnvironmentVariables, LoginFlow
@@ -84,7 +85,8 @@ class AuthSessionCommand(ToolkitCommand):
         StoredSession.clear()
         print(f"[green]Signed out from organization {metadata.org}.[/green]")
 
-    def status(self) -> None:
+    @classmethod
+    def status(cls, client: ToolkitClient, verbose: bool = False) -> None:
         try:
             session = StoredSession.ensure_fresh(refresh_session_tokens)
         except (SessionExpiredError, AuthenticationError) as exc:

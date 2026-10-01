@@ -166,7 +166,18 @@ class AuthApp(typer.Typer):
         cmd = AuthCommand()
         cmd.run(AuthSessionCommand().logout)
 
-    def status(self) -> None:
+    def status(
+        self,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
         """Show the current persisted CogIdP session."""
         cmd = AuthCommand()
-        cmd.run(AuthSessionCommand().status)
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd.run(lambda: AuthSessionCommand().status(client, verbose=verbose))
