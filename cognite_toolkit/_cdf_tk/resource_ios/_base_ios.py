@@ -63,58 +63,19 @@ class SuccessExtra(ReadExtra):
         False, description="Whether the extra content should be written to the build directory."
     )
 
+class ResourceBuildIO(ABC, Generic[T_Identifier, T_YamlResource]):
+    """This is the base class for all resources that can be built.
 
-class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResource, T_YamlResource]):
-    """This is the base class for all resources input/output to CDF and file.
+    This means it contains the serialization/deserialization of the resources, but not the CRUD interface
+    for interacting with the CDF API.
 
-    A resource IO consists of the following
-        - A CRUD (Create, Retrieve, Update, Delete) interface for interacting with the CDF API.
-        - Serialization/Deserialization of the resources between YAML and the cognite-sdk data classes used in the
-          CRUD interface.
-
-    All resources supported by the cognite_toolkit should implement a CRUD.
-
-    Class attributes:
-        resource_write_cls: The API write data class for the resource.
-        resource_cls: The API read data class for the resource.
-        yaml_cls: The File format for this resource. This is used to validate the user input.
-        folder_name: The name of the folder in the build directory where the files are located. This should be set in all subclasses.
-        kind: The stem of the resource type
-        sub_folder_name: The name of the default subfolder name in the resource directory. This is used, for example,
-            when dumping data models to put containers and views into subdirectories.
-        extra_kinds: These are kinds of extras. For example, in the functions folders, CogniteFile and FileMetadata is allowed
-            as these contain function code.
-        support_drop: Whether the resource supports the drop flag.
-        support_update: Whether the resource supports the update operation.
-        dependencies: A set of other resource resource_ios that must be loaded before this crud.
-        parent_resource: A set of other resource resource_ios that are parent resources to this resource. This is used
-            to determine if the iterate method should return any resources when filtering by parent ids.
     """
-
-    # Must be set in the subclass
-    resource_write_cls: type[T_RequestResource]
-    resource_cls: type[T_ResponseResource]
     yaml_cls: TypeForm[T_YamlResource]
     folder_name: str
     kind: str
 
-    # Optional to set in the subclass
-    _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
-    _doc_url: str = ""
     sub_folder_name: str | None = None
     extra_kinds: frozenset[str] = frozenset()
-    support_drop = True
-    support_update = True
-    drop_confirmation_message: ClassVar[str | None] = None
-    dependencies: "frozenset[type[ResourceIO]]" = frozenset()
-    # For example, TransformationNotification and Schedule has Transformation as the parent resource
-    # This is used in the iterate method to ensure that nothing is returned if
-    # the resource type does not have a parent resource.
-    parent_resource: "frozenset[type[ResourceIO]]" = frozenset()
-
-    def __init__(self, client: ToolkitClient) -> None:
-        self.client = client
-        self.console = client.console
 
     @classmethod
     def validate_object(
@@ -146,6 +107,95 @@ class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResourc
         """Returns a TypeAdapter for a list of yaml_cls. This is used to validate the user input."""
         # We know that cls.yaml_cls is defined.
         return TypeAdapter[list[T_YamlResource]](list[cls.yaml_cls])  # type: ignore[name-defined]
+
+    @classmethod
+    @abstractmethod
+    def get_dependencies(cls, resource: T_YamlResource) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        """Returns dependencies for a given resource.
+        This is used to determine the order of deployment and to check for missing dependencies.
+
+        Args:
+            resource: The resource to get dependencies for.
+
+        """
+        raise NotImplementedError(f"get_dependencies must be implemented for {cls.__name__}.")
+
+    @classmethod
+    def safe_read(cls, filepath: Path | str) -> str:
+        """Reads the file and returns the content. This is intended to be overwritten in subclasses that require special
+        handling of the files content. For example, Data Models need to quote the value on the version key to ensure
+        it is parsed as a string."""
+        return safe_read(filepath, encoding=BUILD_FOLDER_ENCODING)
+
+
+    @classmethod
+    def as_resource_type(cls) -> "ResourceType":
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ResourceType
+
+        return ResourceType(kind=cls.kind, resource_folder=cls.folder_name)
+
+    @classmethod
+    def get_extra_files(cls, filepath: Path, identifier: T_Identifier, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        yield from ()
+
+    @classmethod
+    def substitute_variables_content(cls, content: str, variables: "list[BuildVariable]") -> str:
+        """Variable substitution in the content of a file. This is used in the build command.
+
+        This is overwritten in the TransformationIO to handle substitution in the query field.
+        """
+        # To avoid circular import
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
+
+        return BuildVariable.substitute(content, variables, ".yaml")
+
+
+class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResource, T_YamlResource], ResourceBuildIO[T_Identifier, T_YamlResource]):
+    """This is the base class for all resources input/output to CDF and file.
+
+    A resource IO consists of the following
+        - A CRUD (Create, Retrieve, Update, Delete) interface for interacting with the CDF API.
+        - Serialization/Deserialization of the resources between YAML and the cognite-sdk data classes used in the
+          CRUD interface.
+
+    All resources supported by the cognite_toolkit should implement a CRUD.
+
+    Class attributes:
+        resource_write_cls: The API write data class for the resource.
+        resource_cls: The API read data class for the resource.
+        yaml_cls: The File format for this resource. This is used to validate the user input.
+        folder_name: The name of the folder in the build directory where the files are located. This should be set in all subclasses.
+        kind: The stem of the resource type
+        sub_folder_name: The name of the default subfolder name in the resource directory. This is used, for example,
+            when dumping data models to put containers and views into subdirectories.
+        extra_kinds: These are kinds of extras. For example, in the functions folders, CogniteFile and FileMetadata is allowed
+            as these contain function code.
+        support_drop: Whether the resource supports the drop flag.
+        support_update: Whether the resource supports the update operation.
+        dependencies: A set of other resource resource_ios that must be loaded before this crud.
+        parent_resource: A set of other resource resource_ios that are parent resources to this resource. This is used
+            to determine if the iterate method should return any resources when filtering by parent ids.
+    """
+
+    # Must be set in the subclass
+    resource_write_cls: type[T_RequestResource]
+    resource_cls: type[T_ResponseResource]
+
+    # Optional to set in the subclass
+    _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
+    _doc_url: str = ""
+    support_drop = True
+    support_update = True
+    drop_confirmation_message: ClassVar[str | None] = None
+    dependencies: "frozenset[type[ResourceIO]]" = frozenset()
+    # For example, TransformationNotification and Schedule has Transformation as the parent resource
+    # This is used in the iterate method to ensure that nothing is returned if
+    # the resource type does not have a parent resource.
+    parent_resource: "frozenset[type[ResourceIO]]" = frozenset()
+
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+        self.console = client.console
 
     # The methods that must be implemented in the subclass
     @classmethod
@@ -229,25 +279,6 @@ class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResourc
         to work. For example, the InfieldV1CRUD and the ResourceViewMappingCRUD.
         """
         return None
-
-    @classmethod
-    @abstractmethod
-    def get_dependencies(cls, resource: T_YamlResource) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
-        """Returns dependencies for a given resource.
-        This is used to determine the order of deployment and to check for missing dependencies.
-
-        Args:
-            resource: The resource to get dependencies for.
-
-        """
-        raise NotImplementedError(f"get_dependencies must be implemented for {cls.__name__}.")
-
-    @classmethod
-    def safe_read(cls, filepath: Path | str) -> str:
-        """Reads the file and returns the content. This is intended to be overwritten in subclasses that require special
-        handling of the files content. For example, Data Models need to quote the value on the version key to ensure
-        it is parsed as a string."""
-        return safe_read(filepath, encoding=BUILD_FOLDER_ENCODING)
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
@@ -333,16 +364,12 @@ class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResourc
         return
         yield
 
-    # Helper methods
-    @classmethod
-    def as_resource_type(cls) -> "ResourceType":
-        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ResourceType
-
-        return ResourceType(kind=cls.kind, resource_folder=cls.folder_name)
 
     @classmethod
     def create_io(cls, client: ToolkitClient) -> Self:
         return cls(client)
+
+        # Helper methods
 
     @property
     def display_name(self) -> str:
@@ -399,21 +426,6 @@ class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResourc
         raise NotImplementedError(
             f"Bug in CogniteToolkit 'as_str' is not implemented for {cls.__name__.removesuffix('Loader')}."
         )
-
-    @classmethod
-    def get_extra_files(cls, filepath: Path, identifier: T_Identifier, item: dict[str, Any]) -> Iterable[ReadExtra]:
-        yield from ()
-
-    @classmethod
-    def substitute_variables_content(cls, content: str, variables: "list[BuildVariable]") -> str:
-        """Variable substitution in the content of a file. This is used in the build command.
-
-        This is overwritten in the TransformationIO to handle substitution in the query field.
-        """
-        # To avoid circular import
-        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
-
-        return BuildVariable.substitute(content, variables, ".yaml")
 
     def load_resource_files(
         self,
