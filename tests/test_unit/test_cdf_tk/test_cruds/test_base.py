@@ -188,6 +188,8 @@ def test_resource_types_is_up_to_date() -> None:
         extra.discard("apps")
     if not FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
         extra.discard("skills")
+    if not FeatureFlag.is_enabled(Flags.SAP_WRITEBACK):
+        extra.discard("SAPwritebacks")
     if not FeatureFlag.is_enabled(Flags.SIGNALS):
         extra.discard("signals")
     assert not missing, f"Missing {missing=}"

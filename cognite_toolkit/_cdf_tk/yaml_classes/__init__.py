@@ -43,6 +43,7 @@ from .raw_database_table import DatabaseYAML, TableYAML
 from .relationship import RelationshipYAML
 from .ruleset import RuleSetYAML
 from .ruleset_version import RuleSetVersionYAML
+from .sap_writeback import SAPEndpointYAML, SAPInstanceYAML, SchemaMappingYAML
 from .search_config import SearchConfigYAML
 from .securitycategories import SecurityCategoriesYAML
 from .sequence import SequenceRowYAML, SequenceYAML
@@ -105,6 +106,9 @@ __all__ = [
     "ResourceViewMappingYAML",
     "RuleSetVersionYAML",
     "RuleSetYAML",
+    "SAPEndpointYAML",
+    "SAPInstanceYAML",
+    "SchemaMappingYAML",
     "SearchConfigYAML",
     "SecurityCategoriesYAML",
     "SequenceRowYAML",

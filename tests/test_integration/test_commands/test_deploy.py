@@ -21,6 +21,8 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ExternalDataSourceIO,
     HostedExtractorDestinationIO,
     HostedExtractorSourceIO,
+    SAPEndpointIO,
+    SAPInstanceIO,
 )
 from cognite_toolkit._cdf_tk.resource_ios._data_product import DataProductIO
 from cognite_toolkit._cdf_tk.resource_ios._data_product_version import DataProductVersionIO
@@ -103,6 +105,11 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
             clear=True,
         ),
     ):
+        # Delete SAP Instance as we do not have a SAP instance to test against. This is a workaround to avoid the test failing.
+        next(build_dir.glob(f"{SAPInstanceIO.folder_name}/*{SAPInstanceIO.kind}.yaml")).unlink()
+        # We cannot create a SAP endpoint without a SAP instance. This is a workaround to avoid the test failing.
+        next(build_dir.glob(f"{SAPEndpointIO.folder_name}/*{SAPEndpointIO.kind}.yaml")).unlink()
+
         deploy_command.deploy(
             env_vars=env_vars,
             user_build_dir=build_dir,

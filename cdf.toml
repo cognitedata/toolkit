@@ -24,6 +24,7 @@ custom-apps = true
 external-data-sources = true
 signals = false
 api = true
+sap-writeback = true
 v09 = true
 
 [plugins]

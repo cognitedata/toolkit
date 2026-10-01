@@ -154,7 +154,9 @@ class WritebackRequestItem(BaseModelObject):
 
 
 class WritebackResponseItem(BaseModelObject):
-    payload: dict[str, JsonValue]
+    key: str | None = None  # Return on retrieve and list endpoints,
+    payload: dict[str, JsonValue] | None = None  # Returned on retrieve and create endpoints
+    sap_object_id: str | None = None  # Returned on retrieve and list endpoints
 
 
 class WritebackRequestRequest(RequestResource):
@@ -171,6 +173,7 @@ class WritebackRequestResponse(ResponseResource[WritebackRequestRequest]):
     request_id: str
     status: WritebackRequestStatus | str
     request: list[WritebackResponseItem]
+    error_message: str | None = None
     created_time: int
     last_updated_time: int
 

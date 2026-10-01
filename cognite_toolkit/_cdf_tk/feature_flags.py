@@ -94,6 +94,10 @@ class Flags(Enum):
         visible=True,
         description="Enables support for transformation external data sources (OneLake / Fabric)",
     )
+    SAP_WRITEBACK = FlagMetadata(
+        visible=True,
+        description="Enables support for SAP writeback resources",
+    )
     RECORD_VIEWS = FlagMetadata(
         visible=True,
         description="Enables support for record-backed views (streamId on views)",

@@ -1,0 +1,5 @@
+externalId: sap_instance_001
+gatewayUrl: https://sap.example.com
+client: 100
+username: sap-user
+password: ${IDP_CLIENT_SECRET}

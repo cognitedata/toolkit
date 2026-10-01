@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import httpx2
 import pytest
@@ -631,6 +631,45 @@ class TestDeployResourcesValidationError:
                 "type": "missing",
             }
         ]
+
+
+class TestDeployResourcesRetryDump:
+    """Tests that a retried create failure dumps the request, including which status codes were retried."""
+
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_create_dumps_request_after_502_retry_then_409(
+        self, toolkit_config: ToolkitClientConfig, tmp_path: Path
+    ) -> None:
+        """A 502 is retried once, then a 409 fails and the request is written with retriedStatusCodes [502]."""
+        client = ToolkitClient(config=toolkit_config)
+        crud = SpaceCRUD.create_io(client)
+
+        resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy()
+        resources.to_create = [SpaceRequest(space="my_space")]
+
+        spaces_url = toolkit_config.create_api_url("/models/spaces")
+
+        with respx.mock() as mock_router:
+            mock_router.post(spaces_url).mock(
+                side_effect=[
+                    httpx2.Response(status_code=502, json={"error": {"code": 502, "message": "Bad Gateway"}}),
+                    httpx2.Response(status_code=409, json={"error": {"code": 409, "message": "Conflict"}}),
+                ]
+            )
+
+            with patch("time.sleep"), pytest.raises(ResourceCreationError):
+                DeployV2Command.deploy_resources(crud, resources, skipped_cruds=set(), deploy_dir=tmp_path)
+
+            assert len(mock_router.calls) == 2
+
+        debug_files = list(tmp_path.glob("*.json"))
+        assert len(debug_files) == 1
+        dumped = json.loads(debug_files[0].read_text(encoding="utf-8"))
+        assert dumped["retriedStatusCodes"] == [502]
+        assert dumped["requestBody"] == {"items": [{"space": "my_space"}]}
+        assert dumped["method"] == "POST"
+        assert dumped["url"] == spaces_url
+        assert dumped["statusCode"] == 409
 
 
 class TestDetectKeyColumn:

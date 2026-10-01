@@ -38,6 +38,10 @@ class ToolkitAPIError(Exception):
         if self.request:
             debug_info["url"] = self.request.endpoint_url
             debug_info["method"] = self.request.method
+            debug_info["statusAttempts"] = self.request.status_attempt
+            debug_info["retriedStatusCodes"] = self.request.retried_status_codes
+            debug_info["readAttempts"] = self.request.read_attempt
+            debug_info["connectAttempts"] = self.request.connect_attempt
             if self.request.parameters:
                 debug_info["requestParameters"] = self.request.parameters
             if self.request.body_content:
