@@ -304,6 +304,7 @@ def render_auth_status(
     status: AuthStatus,
     verbose: bool = False,
     all_projects: bool = False,
+    show_missing: bool = False,
     console: Console | None = None,
 ) -> None:
     """Print an authentication report. All wording and layout lives here."""
@@ -323,7 +324,7 @@ def render_auth_status(
     if not verbose:
         console.print(
             "\n[dim]Run with --verbose to list capabilities and toolkit resources for the current project. "
-            "Add --all to include every project.[/dim]"
+            "Add --all to include every project, and --show-missing to include resources you cannot access.[/dim]"
         )
         return
 
@@ -336,7 +337,7 @@ def render_auth_status(
         console.print("\n[dim]Showing the current project. Pass --all to include every project.[/dim]")
     console.print()
     for project in detailed:
-        console.print(_verbose_project(project))
+        console.print(_verbose_project(project, show_missing=show_missing))
         console.print()
 
 
@@ -563,14 +564,14 @@ def _projects_table(projects: list[ProjectAccess]) -> Table:
     return table
 
 
-def _verbose_project(project: ProjectAccess) -> RenderableType:
+def _verbose_project(project: ProjectAccess, show_missing: bool = False) -> RenderableType:
     title = Text(project.name)
     if project.is_current:
         title.append("  current", style="dim")
     return Group(
         Rule(title, style="cyan" if project.is_current else "white", align="left"),
         _capability_table(project),
-        _resource_table(project),
+        _resource_table(project, show_missing=show_missing),
     )
 
 
@@ -589,16 +590,20 @@ def _capability_table(project: ProjectAccess) -> Table:
     return table
 
 
-def _resource_table(project: ProjectAccess) -> Table:
-    table = Table(title="Toolkit resources", expand=False)
+def _resource_table(project: ProjectAccess, show_missing: bool = False) -> Table:
+    resources = project.resources
+    if not show_missing:
+        resources = [resource for resource in resources if resource.read.granted or resource.write.granted]
+    caption = None if show_missing else f"{len(resources)} of {project.resource_types_checked} toolkit resource types"
+    table = Table(title="Toolkit resources", caption=caption, caption_style="dim", expand=False)
     table.add_column("Resource", overflow="fold")
     table.add_column("Folder", overflow="fold")
     table.add_column("Read", overflow="fold")
     table.add_column("Write", overflow="fold")
-    if not project.resources:
+    if not resources:
         table.add_row("[dim]None[/dim]", "—", "—", "—")
         return table
-    for resource in project.resources:
+    for resource in resources:
         table.add_row(
             escape(resource_label(resource.io_name)),
             escape(resource.folder_name),

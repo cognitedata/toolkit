@@ -82,7 +82,7 @@ class AuthSessionCommand(ToolkitCommand):
         StoredSession.clear()
         print(f"[green]Signed out from organization {metadata.org}.[/green]")
 
-    def status(self, verbose: bool = False, all_projects: bool = False) -> None:
+    def status(self, verbose: bool = False, all_projects: bool = False, show_missing: bool = False) -> None:
         """Show whether you are authenticated, how, and which CDF projects you can access."""
         report = auth_status_from_runtime()
-        render_auth_status(report, verbose=verbose, all_projects=all_projects)
+        render_auth_status(report, verbose=verbose, all_projects=all_projects, show_missing=show_missing)

@@ -331,6 +331,10 @@ class TestAuthStatus:
         all_console = Console(file=all_buffer, width=120, force_terminal=False, no_color=True, highlight=False)
         render_auth_status(report, verbose=True, all_projects=True, console=all_console)
         all_text = all_buffer.getvalue()
+        missing_buffer = StringIO()
+        missing_console = Console(file=missing_buffer, width=120, force_terminal=False, no_color=True, highlight=False)
+        render_auth_status(report, verbose=True, show_missing=True, console=missing_console)
+        missing_text = missing_buffer.getvalue()
         assert {
             "authenticated": "Yes" in text,
             "method": "Service principal" in text,
@@ -342,6 +346,8 @@ class TestAuthStatus:
             "all_projects": "eventsAcl" in all_text,
             "scope": "all" in text,
             "summary_only_hint": "Run with --verbose" not in text,
+            "hides_missing_event": "Event" not in text and "toolkit resource types" in text,
+            "shows_missing_event": "Event" in missing_text and "No access" in missing_text,
         } == {
             "authenticated": True,
             "method": True,
@@ -353,6 +359,8 @@ class TestAuthStatus:
             "all_projects": True,
             "scope": True,
             "summary_only_hint": True,
+            "hides_missing_event": True,
+            "shows_missing_event": True,
         }
 
     def test_resource_label_drops_io_suffix(self) -> None:
