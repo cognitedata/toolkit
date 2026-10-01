@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.commands._utils import (
     validate_soft_delete_capacity,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ResourceType
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
@@ -65,6 +65,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     SpaceIO,
     ViewIO,
 )
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceType
 from cognite_toolkit._cdf_tk.tk_warnings import (
     EnvironmentVariableMissingWarning,
     LowSeverityWarning,

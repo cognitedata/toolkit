@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, ResourceType
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -63,6 +63,28 @@ class SuccessExtra(ReadExtra):
         False, description="Whether the extra content should be written to the build directory."
     )
 
+
+class ResourceType(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    resource_folder: str
+    kind: str
+
+    @property
+    def crud_cls(self) -> "type[ResourceIO]":
+        from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND
+
+        kind = self.kind
+        folder_name = self.resource_folder
+        return RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[folder_name][kind]
+
+    def load_identifier(self, data: dict[str, Any]) -> Identifier:
+        return self.crud_cls.get_id(data)
+
+    def __str__(self) -> str:
+        return f"{self.kind} ({self.resource_folder})"
+
+
 class ResourceBuildIO(ABC, Generic[T_Identifier, T_YamlResource]):
     """This is the base class for all resources that can be built.
 
@@ -70,6 +92,7 @@ class ResourceBuildIO(ABC, Generic[T_Identifier, T_YamlResource]):
     for interacting with the CDF API.
 
     """
+
     yaml_cls: TypeForm[T_YamlResource]
     folder_name: str
     kind: str
@@ -127,11 +150,8 @@ class ResourceBuildIO(ABC, Generic[T_Identifier, T_YamlResource]):
         it is parsed as a string."""
         return safe_read(filepath, encoding=BUILD_FOLDER_ENCODING)
 
-
     @classmethod
     def as_resource_type(cls) -> "ResourceType":
-        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ResourceType
-
         return ResourceType(kind=cls.kind, resource_folder=cls.folder_name)
 
     @classmethod
@@ -150,7 +170,10 @@ class ResourceBuildIO(ABC, Generic[T_Identifier, T_YamlResource]):
         return BuildVariable.substitute(content, variables, ".yaml")
 
 
-class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResource, T_YamlResource], ResourceBuildIO[T_Identifier, T_YamlResource]):
+class ResourceIO(
+    ResourceBuildIO[T_Identifier, T_YamlResource],
+    Generic[T_Identifier, T_RequestResource, T_ResponseResource, T_YamlResource],
+):
     """This is the base class for all resources input/output to CDF and file.
 
     A resource IO consists of the following
@@ -363,7 +386,6 @@ class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResourc
         """
         return
         yield
-
 
     @classmethod
     def create_io(cls, client: ToolkitClient) -> Self:

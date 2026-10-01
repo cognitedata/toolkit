@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.resource_ios import get_crud
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceType
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     calculate_hash,
@@ -40,7 +41,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
-from ._module import BuildVariable, ResourceType
+from ._module import BuildVariable
 from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath
 
 

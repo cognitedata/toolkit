@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     InternalValidatorException,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId, ResourceType
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
@@ -38,6 +38,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     TimeSeriesIO,
     ViewIO,
 )
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceType
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 
 CONTAINER_ID = ContainerId(space="my_space", external_id="MyContainer")

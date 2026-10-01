@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from ._agent import AgentIO
 from ._app import AppIO, AppVersionIO
 from ._auth import GroupAllScopedIO, GroupIO, SecurityCategoryIO
-from ._base_ios import ResourceContainerIO, ResourceIO
+from ._base_ios import ResourceBuildIO, ResourceContainerIO, ResourceIO, ResourceType
 from ._classic import AssetIO, EventIO, SequenceIO, SequenceRowIO
 from ._configuration import SearchConfigIO
 from ._data_organization import DataSetsIO, LabelIO
@@ -228,8 +228,10 @@ __all__ = [
     "RawDatabaseIO",
     "RawTableIO",
     "RelationshipIO",
+    "ResourceBuildIO",
     "ResourceContainerIO",
     "ResourceIO",
+    "ResourceType",
     "ResourceTypes",
     "RuleSetIO",
     "RuleSetVersionIO",
