@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
 from ._agent import AgentIO
 from ._app import AppIO, AppVersionIO
-from ._auth import GroupAllScopedCRUD, GroupIO, SecurityCategoryIO
+from ._auth import GroupAllScopedIO, GroupIO, SecurityCategoryIO
 from ._base_ios import ResourceContainerIO, ResourceIO
 from ._classic import AssetIO, EventIO, SequenceIO, SequenceRowIO
 from ._configuration import SearchConfigIO
@@ -40,7 +40,7 @@ from ._extraction_pipeline import ExtractionPipelineConfigIO, ExtractionPipeline
 from ._fieldops import InFieldCDMLocationConfigIO, InFieldLocationConfigIO, InfieldV1IO
 from ._file import CogniteFileIO, FileMetadataIO
 from ._function import FunctionIO, FunctionScheduleIO
-from ._group_scoped import GroupResourceScopedCRUD
+from ._group_scoped import GroupResourceScopedIO
 from ._hosted_extractors import (
     HostedExtractorDestinationIO,
     HostedExtractorJobIO,
@@ -213,9 +213,9 @@ __all__ = [
     "FileMetadataIO",
     "FunctionIO",
     "FunctionScheduleIO",
-    "GroupAllScopedCRUD",
+    "GroupAllScopedIO",
     "GroupIO",
-    "GroupResourceScopedCRUD",
+    "GroupResourceScopedIO",
     "HostedExtractorDestinationIO",
     "HostedExtractorJobIO",
     "HostedExtractorMappingIO",

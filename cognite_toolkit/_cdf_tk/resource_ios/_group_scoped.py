@@ -29,7 +29,7 @@ from ._timeseries import TimeSeriesIO
 
 
 @final
-class GroupResourceScopedCRUD(GroupIO):
+class GroupResourceScopedIO(GroupIO):
     dependencies = frozenset(
         {
             SpaceIO,

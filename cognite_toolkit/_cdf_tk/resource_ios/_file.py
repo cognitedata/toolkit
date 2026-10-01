@@ -65,7 +65,7 @@ from cognite_toolkit._cdf_tk.utils.text import suffix_description
 from cognite_toolkit._cdf_tk.utils.time import convert_data_modelling_timestamp
 from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML
 
-from ._auth import GroupAllScopedCRUD, SecurityCategoryIO
+from ._auth import GroupAllScopedIO, SecurityCategoryIO
 from ._classic import AssetIO
 from ._data_organization import DataSetsIO, LabelIO
 from ._datamodel import NodeIO, SpaceIO, ViewIO
@@ -79,7 +79,7 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
     resource_write_cls = FileMetadataRequest
     yaml_cls = FileMetadataYAML
     kind: str = "FileMetadata"
-    dependencies = frozenset({DataSetsIO, GroupAllScopedCRUD, LabelIO, AssetIO})
+    dependencies = frozenset({DataSetsIO, GroupAllScopedIO, LabelIO, AssetIO})
 
     _doc_url = "Files/operation/initFileUpload"
 
@@ -345,7 +345,7 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
     resource_cls = CogniteFileResponse
     resource_write_cls = CogniteFileRequest
     yaml_cls = CogniteFileYAML
-    dependencies = frozenset({GroupAllScopedCRUD, SpaceIO, ViewIO})
+    dependencies = frozenset({GroupAllScopedIO, SpaceIO, ViewIO})
 
     _doc_url = "Files/operation/initFileUpload"
     # 128,000 bytes (UTF-8) is the maximum, worse case utf-8 will use 4 bytes per character

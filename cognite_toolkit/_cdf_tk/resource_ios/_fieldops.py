@@ -41,11 +41,11 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
 from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import DataFilter
 from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ViewReference
 
-from ._auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedIO
 from ._classic import AssetIO
 from ._data_organization import DataSetsIO
 from ._datamodel import SpaceIO, ViewIO
-from ._group_scoped import GroupResourceScopedCRUD
+from ._group_scoped import GroupResourceScopedIO
 
 
 @final
@@ -55,7 +55,7 @@ class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse, In
     resource_write_cls = APMConfigRequest
     kind = "InfieldV1"
     yaml_cls = InfieldV1YAML
-    dependencies = frozenset({DataSetsIO, AssetIO, SpaceIO, GroupAllScopedCRUD, GroupResourceScopedCRUD})
+    dependencies = frozenset({DataSetsIO, AssetIO, SpaceIO, GroupAllScopedIO, GroupResourceScopedIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
     _root_location_filters: tuple[str, ...] = ("general", "assets", "files", "timeseries")
     _group_keys: tuple[str, ...] = ("templateAdmins", "checklistAdmins")
@@ -134,9 +134,9 @@ class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse, In
             if config.source_data_instance_space:
                 yield SpaceIO, SpaceId(space=config.source_data_instance_space)
             for group in config.template_admins or []:
-                yield GroupResourceScopedCRUD, NameId(name=group)
+                yield GroupResourceScopedIO, NameId(name=group)
             for group in config.checklist_admins or []:
-                yield GroupResourceScopedCRUD, NameId(name=group)
+                yield GroupResourceScopedIO, NameId(name=group)
             if not config.data_filters:
                 continue
             for filter_ in [
@@ -246,7 +246,7 @@ class InFieldLocationConfigIO(
     resource_write_cls = InFieldLocationConfigRequest
     kind = "InFieldLocationConfig"
     yaml_cls = InfieldLocationConfigYAML
-    dependencies = frozenset({SpaceIO, GroupAllScopedCRUD, GroupResourceScopedCRUD})
+    dependencies = frozenset({SpaceIO, GroupAllScopedIO, GroupResourceScopedIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @property
@@ -279,9 +279,9 @@ class InFieldLocationConfigIO(
     def get_dependencies(cls, resource: InfieldLocationConfigYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
         if resource.access_management:
             for group_name in resource.access_management.checklist_admins or []:
-                yield GroupResourceScopedCRUD, NameId(name=group_name)
+                yield GroupResourceScopedIO, NameId(name=group_name)
             for group_name in resource.access_management.template_admins or []:
-                yield GroupAllScopedCRUD, NameId(name=group_name)
+                yield GroupAllScopedIO, NameId(name=group_name)
         if resource.app_instance_space:
             yield SpaceIO, SpaceId(space=resource.app_instance_space)
 
@@ -350,7 +350,7 @@ class InFieldCDMLocationConfigIO(
     resource_write_cls = InFieldCDMLocationConfigRequest
     kind = "InFieldCDMLocationConfig"
     yaml_cls = InFieldCDMLocationConfigYAML
-    dependencies = frozenset({SpaceIO, GroupAllScopedCRUD, GroupResourceScopedCRUD, ViewIO})
+    dependencies = frozenset({SpaceIO, GroupAllScopedIO, GroupResourceScopedIO, ViewIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @property

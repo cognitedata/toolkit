@@ -148,7 +148,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import (
     ViewReference,
 )
 
-from ._auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedIO
 
 
 @final
@@ -159,7 +159,7 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
     resource_write_cls = SpaceRequest
     kind = "Space"
     yaml_cls = SpaceYAML
-    dependencies = frozenset({GroupAllScopedCRUD})
+    dependencies = frozenset({GroupAllScopedIO})
     _doc_url = "Spaces/operation/ApplySpaces"
     delete_recreate_limit_seconds: int = 10
 

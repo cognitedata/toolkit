@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_LIST,
     FunctionIO,
     FunctionScheduleIO,
-    GroupResourceScopedCRUD,
+    GroupResourceScopedIO,
     HostedExtractorDestinationIO,
     HostedExtractorSourceIO,
     LocationFilterIO,
@@ -88,7 +88,7 @@ class TestFormatConsistency:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
-        elif Loader in [GroupResourceScopedCRUD]:
+        elif Loader in [GroupResourceScopedIO]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
         elif Loader in [LocationFilterIO]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires special handling")
@@ -133,7 +133,7 @@ class TestFormatConsistency:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
-        elif Loader in [GroupResourceScopedCRUD]:
+        elif Loader in [GroupResourceScopedIO]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
         elif Loader in [LocationFilterIO]:
             # TODO: https://cognitedata.atlassian.net/browse/CDF-22363

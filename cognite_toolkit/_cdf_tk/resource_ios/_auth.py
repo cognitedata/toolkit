@@ -452,7 +452,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
 
 @final
-class GroupAllScopedCRUD(GroupIO):
+class GroupAllScopedIO(GroupIO):
     def __init__(self, client: ToolkitClient):
         super().__init__(client, "all_scoped_only")
 
@@ -468,7 +468,7 @@ class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCat
     kind = "SecurityCategory"
     yaml_cls = SecurityCategoriesYAML
     folder_name = "auth"
-    dependencies = frozenset({GroupAllScopedCRUD})
+    dependencies = frozenset({GroupAllScopedIO})
     _doc_url = "Security-categories/operation/createSecurityCategories"
     support_update = False
 

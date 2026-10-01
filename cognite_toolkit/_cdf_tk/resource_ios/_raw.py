@@ -42,7 +42,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceContainerIO, 
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_list_write_actions
 from cognite_toolkit._cdf_tk.yaml_classes import DatabaseYAML, TableYAML
 
-from ._auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedIO
 
 
 @final
@@ -53,7 +53,7 @@ class RawDatabaseIO(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDa
     resource_write_cls = RAWDatabaseRequest
     kind = "Database"
     yaml_cls = DatabaseYAML
-    dependencies = frozenset({GroupAllScopedCRUD})
+    dependencies = frozenset({GroupAllScopedIO})
     support_update = False
     _doc_url = "Raw/operation/createDBs"
 
@@ -158,7 +158,7 @@ class RawTableIO(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableRespon
     kind = "Table"
     yaml_cls = TableYAML
     support_update = False
-    dependencies = frozenset({RawDatabaseIO, GroupAllScopedCRUD})
+    dependencies = frozenset({RawDatabaseIO, GroupAllScopedIO})
     _doc_url = "Raw/operation/createTables"
     parent_resource = frozenset({RawDatabaseIO})
 

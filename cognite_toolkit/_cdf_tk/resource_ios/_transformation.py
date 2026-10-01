@@ -117,11 +117,11 @@ from cognite_toolkit._cdf_tk.yaml_classes.transformation_destination import (
     ViewDataSource,
 )
 
-from ._auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
 from ._datamodel import DataModelIO, SpaceIO, ViewIO
 from ._externaldata import ExternalDataSourceIO
-from ._group_scoped import GroupResourceScopedCRUD
+from ._group_scoped import GroupResourceScopedIO
 from ._raw import RawDatabaseIO, RawTableIO
 
 if TYPE_CHECKING:
@@ -155,13 +155,13 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
         {
             DataSetsIO,
             RawDatabaseIO,
-            GroupAllScopedCRUD,
+            GroupAllScopedIO,
             SpaceIO,
             ViewIO,
             DataModelIO,
             RawTableIO,
             RawDatabaseIO,
-            GroupResourceScopedCRUD,
+            GroupResourceScopedIO,
             *({ExternalDataSourceIO} if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) else set()),
         }
     )

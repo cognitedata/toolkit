@@ -39,7 +39,7 @@ from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import DataSetYAML, LabelsYAML
 
-from ._auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedIO
 
 
 @final
@@ -50,7 +50,7 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSet
     resource_write_cls = DataSetRequest
     yaml_cls = DataSetYAML
     kind = "DataSet"
-    dependencies = frozenset({GroupAllScopedCRUD})
+    dependencies = frozenset({GroupAllScopedIO})
     _doc_url = "Data-sets/operation/createDataSets"
 
     @property
@@ -143,7 +143,7 @@ class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse, LabelsYAML]):
     resource_write_cls = LabelRequest
     yaml_cls = LabelsYAML
     kind = "Label"
-    dependencies = frozenset({DataSetsIO, GroupAllScopedCRUD})
+    dependencies = frozenset({DataSetsIO, GroupAllScopedIO})
     _doc_url = "Labels/operation/createLabelDefinitions"
     support_update = False
 
