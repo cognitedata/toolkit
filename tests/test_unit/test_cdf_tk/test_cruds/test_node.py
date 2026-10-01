@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.resource_ios import NodeCRUD
+from cognite_toolkit._cdf_tk.resource_ios import NodeIO
 
 
 def _container(
@@ -108,7 +108,7 @@ class TestNodeCRUDComputeDeployBatches:
         referrer = _node("sp", "referrer_node", referrer_container_id, {"ref": ref_value})
         targets = [_node("sp", target_id, target_container_id, {}) for target_id in target_ids]
 
-        loader = NodeCRUD(toolkit_client_cheap)
+        loader = NodeIO(toolkit_client_cheap)
         loader._constrained_properties_by_source = {referrer_container_id: {"ref"}, target_container_id: set()}
         batches = loader._compute_deploy_batches([referrer, *targets])
 
@@ -124,7 +124,7 @@ class TestNodeCRUDComputeDeployBatches:
         )
         target = _node("sp", "target_node", referrer_container_id, {})
 
-        loader = NodeCRUD(toolkit_client_cheap)
+        loader = NodeIO(toolkit_client_cheap)
         loader._constrained_properties_by_source = {referrer_container_id: set()}
         batches = loader._compute_deploy_batches([referrer, target])
 
@@ -140,7 +140,7 @@ class TestNodeCRUDComputeDeployBatches:
             "sp", "child_node", category_container_id, {"parent": {"space": "sp", "externalId": "parent_node"}}
         )
 
-        loader = NodeCRUD(toolkit_client_cheap)
+        loader = NodeIO(toolkit_client_cheap)
         loader._constrained_properties_by_source = {category_container_id: {"parent"}}
         batches = loader._compute_deploy_batches([child_node, parent_node])
 
@@ -157,7 +157,7 @@ class TestNodeCRUDComputeDeployBatches:
         ]
         target = _node("sp", "target_node", target_container_id, {})
 
-        loader = NodeCRUD(toolkit_client_cheap)
+        loader = NodeIO(toolkit_client_cheap)
         loader._constrained_properties_by_source = {referrer_container_id: {"ref"}, target_container_id: set()}
         batches = loader._compute_deploy_batches([*referrers, target])
 
@@ -190,7 +190,7 @@ class TestNodeCRUDComputeDeployBatches:
             for satellite_id in satellite_ids
         ]
 
-        loader = NodeCRUD(toolkit_client_cheap)
+        loader = NodeIO(toolkit_client_cheap)
         loader._constrained_properties_by_source = {referrer_container_id: {"ref"}}
         with pytest.raises(ToolkitValueError):
             loader._compute_deploy_batches([hub, *satellites])
@@ -198,7 +198,7 @@ class TestNodeCRUDComputeDeployBatches:
     def test_direct_relation_loaded_from_raw_dict_is_picked_up(self, toolkit_client_cheap: ToolkitClient) -> None:
         referrer_container_id = ContainerId(space="sp", external_id="Referrer")
 
-        loader = NodeCRUD(toolkit_client_cheap)
+        loader = NodeIO(toolkit_client_cheap)
         referrer = loader.load_resource(
             {
                 "space": "sp",
@@ -241,7 +241,7 @@ class TestNodeCRUDLookupConstrainedProperties:
         client = MagicMock()
 
         client.tool.containers.retrieve.return_value = [container]
-        loader = NodeCRUD(client)
+        loader = NodeIO(client)
         loader._lookup_constrained_properties({container_id})
 
         assert loader._constrained_properties_by_source[container_id] == {"parent"}
@@ -258,7 +258,7 @@ class TestNodeCRUDLookupConstrainedProperties:
 
         client = MagicMock()
         client.tool.views.retrieve.return_value = [view]
-        loader = NodeCRUD(client)
+        loader = NodeIO(client)
         loader._lookup_constrained_properties({view_id})
 
         assert loader._constrained_properties_by_source[view_id] == {"parent"}
@@ -269,7 +269,7 @@ class TestNodeCRUDLookupConstrainedProperties:
         # The container cannot be resolved (not found, or no read access).
         client = MagicMock()
         client.tool.containers.retrieve.return_value = []
-        loader = NodeCRUD(client)
+        loader = NodeIO(client)
         loader._lookup_constrained_properties({unknown_container_id})
 
         assert unknown_container_id not in loader._constrained_properties_by_source

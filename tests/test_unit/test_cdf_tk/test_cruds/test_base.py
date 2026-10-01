@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_LIST,
     FunctionIO,
     FunctionScheduleIO,
-    GroupResourceScopedCRUD,
+    GroupResourceScopedIO,
     HostedExtractorDestinationIO,
     HostedExtractorSourceIO,
     LocationFilterIO,
@@ -42,6 +42,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     TransformationIO,
     WorkflowTriggerIO,
 )
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from tests.test_unit.test_cdf_tk.constants import SNAPSHOTS_DIR_ALL
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
@@ -87,7 +88,7 @@ class TestFormatConsistency:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
-        elif Loader in [GroupResourceScopedCRUD]:
+        elif Loader in [GroupResourceScopedIO]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
         elif Loader in [LocationFilterIO]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires special handling")
@@ -132,7 +133,7 @@ class TestFormatConsistency:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
-        elif Loader in [GroupResourceScopedCRUD]:
+        elif Loader in [GroupResourceScopedIO]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
         elif Loader in [LocationFilterIO]:
             # TODO: https://cognitedata.atlassian.net/browse/CDF-22363
@@ -166,6 +167,17 @@ class TestFormatConsistency:
     def test_loader_has_doc_url(self, Loader: type[ResourceIO], toolkit_client_cheap: ToolkitClient):
         loader = Loader.create_io(toolkit_client_cheap)
         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
+
+    def test_all_io_suffix_io(self) -> None:
+        """Checks that all classes that subclass ResourceIO have a name that ends with IO."""
+        ill_formed_subclasses = [
+            subclass.__name__
+            for subclass in get_concrete_subclasses(ResourceIO)
+            if not subclass.__name__.endswith("IO")
+        ]
+        assert not ill_formed_subclasses, (
+            f"Found subclasses of ResourceIO that do not end with 'IO': {ill_formed_subclasses}"
+        )
 
 
 def test_resource_types_is_up_to_date() -> None:

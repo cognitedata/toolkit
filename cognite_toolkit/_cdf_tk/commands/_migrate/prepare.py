@@ -11,10 +11,10 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
-    ContainerCRUD,
+    ContainerIO,
     DataModelIO,
     ResourceViewMappingIO,
-    SpaceCRUD,
+    SpaceIO,
     ViewIO,
 )
 
@@ -48,8 +48,8 @@ class MigrationPrepareCommand(ToolkitCommand):
             views.append(INSTANCE_SPACE_RELOCATION_SOURCE_VIEW)
 
         plan: list[DeploymentStep[Any]] = [
-            DeploymentStep(SpaceCRUD, [], resource_requests=[SPACE]),
-            DeploymentStep(ContainerCRUD, [], resource_requests=containers),
+            DeploymentStep(SpaceIO, [], resource_requests=[SPACE]),
+            DeploymentStep(ContainerIO, [], resource_requests=containers),
             DeploymentStep(ViewIO, [], resource_requests=views),
             DeploymentStep(DataModelIO, [], resource_requests=[COGNITE_MIGRATION_MODEL]),
             DeploymentStep(ResourceViewMappingIO, [], resource_requests=create_default_mappings()),

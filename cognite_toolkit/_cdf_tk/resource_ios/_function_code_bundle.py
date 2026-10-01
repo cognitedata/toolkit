@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_ha
 from cognite_toolkit._cdf_tk.utils.file import create_zip_in_memory, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML
 
-from ._file import CogniteFileCRUD, FileMetadataCRUD
+from ._file import CogniteFileIO, FileMetadataIO
 
 
 class FunctionCodeBundle:
@@ -50,8 +50,8 @@ class FunctionCodeBundle:
         return hash_value
 
     def map_sidecar_paths(self, filepath: Path, filestem: str, external_ids: Iterable[str]) -> None:
-        filemetadata = filepath.parent / f"{filestem}.{FileMetadataCRUD.kind}.yaml"
-        cognitefile = filepath.parent / f"{filestem}.{CogniteFileCRUD.kind}.yaml"
+        filemetadata = filepath.parent / f"{filestem}.{FileMetadataIO.kind}.yaml"
+        cognitefile = filepath.parent / f"{filestem}.{CogniteFileIO.kind}.yaml"
         for external_id in external_ids:
             if filemetadata.exists():
                 self.filemetadata_path_by_external_id[external_id] = filemetadata
@@ -99,7 +99,7 @@ class FunctionCodeBundle:
             yield SuccessExtra(
                 source_path=function_rootdir,
                 source_hash=source_hash,
-                suffix=f".{FileMetadataCRUD.kind}.yaml",
+                suffix=f".{FileMetadataIO.kind}.yaml",
                 content=yaml_safe_dump(
                     FileMetadataYAML(
                         name=f"{filename}.zip",
@@ -116,7 +116,7 @@ class FunctionCodeBundle:
             yield SuccessExtra(
                 source_path=function_rootdir,
                 source_hash=source_hash,
-                suffix=f".{CogniteFileCRUD.kind}.yaml",
+                suffix=f".{CogniteFileIO.kind}.yaml",
                 content=yaml_safe_dump(
                     CogniteFileYAML(
                         space=space,
@@ -158,12 +158,12 @@ class FunctionCodeBundle:
     ) -> dict[str, InternalId]:
         file_id_by_external_id: dict[str, InternalId] = {}
         if filemetadata_files:
-            fileio = FileMetadataCRUD(self.client)
+            fileio = FileMetadataIO(self.client)
             file_request = fileio.load_resource_files(list(filemetadata_files))
             fileresponse = fileio.create(file_request)
             file_id_by_external_id.update(zip(filemetadata_files.values(), (InternalId(id=f.id) for f in fileresponse)))
         if cognite_files:
-            cognitefileio = CogniteFileCRUD(self.client)
+            cognitefileio = CogniteFileIO(self.client)
             cognitefile_request = cognitefileio.load_resource_files(list(cognite_files))
             cognitefile_response = cognitefileio.create(cognitefile_request)
             dm_fileresponse = self.client.tool.filemetadata.retrieve(

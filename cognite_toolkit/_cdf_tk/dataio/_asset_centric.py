@@ -18,9 +18,9 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     AssetIO,
     DataSetsIO,
     EventIO,
-    FileMetadataCRUD,
+    FileMetadataIO,
     LabelIO,
-    TimeSeriesCRUD,
+    TimeSeriesIO,
 )
 from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetAggregator,
@@ -434,7 +434,7 @@ class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
-        self._crud = FileMetadataCRUD.create_io(self.client)
+        self._crud = FileMetadataIO.create_io(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:
@@ -556,7 +556,7 @@ class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRe
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
-        self._crud = TimeSeriesCRUD.create_io(self.client)
+        self._crud = TimeSeriesIO.create_io(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:

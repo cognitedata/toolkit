@@ -56,13 +56,13 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
-    ContainerCRUD,
-    EdgeCRUD,
-    NodeCRUD,
-    RawTableCRUD,
+    ContainerIO,
+    EdgeIO,
+    NodeIO,
+    RawTableIO,
     ResourceContainerIO,
     ResourceIO,
-    SpaceCRUD,
+    SpaceIO,
     ViewIO,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -632,7 +632,7 @@ class DeployV2Command(ToolkitCommand):
         """
         total = 0
         for step in plan:
-            if step.crud_cls not in (SpaceCRUD, NodeCRUD, EdgeCRUD):
+            if step.crud_cls not in (SpaceIO, NodeIO, EdgeIO):
                 continue
             crud = cast(ResourceContainerIO[Any, Any, Any, Any], step.crud_cls.create_io(client))
             resource_by_id = self._read_resource_files(crud, step.files, options)
@@ -641,7 +641,7 @@ class DeployV2Command(ToolkitCommand):
             existing = crud.retrieve(list(resource_by_id.keys()))
             if not existing:
                 continue
-            if step.crud_cls is SpaceCRUD:
+            if step.crud_cls is SpaceIO:
                 space_ids = [s.space for s in existing]
                 for space_stats in client.data_modeling.statistics.spaces.retrieve(space_ids) or []:
                     total += space_stats.nodes + space_stats.edges
@@ -658,7 +658,7 @@ class DeployV2Command(ToolkitCommand):
         """Raise ToolkitValueError if any container in the plan is referenced by views outside the build directory."""
         container_ids: list[ContainerId] = []
         for step in plan:
-            if step.crud_cls is not ContainerCRUD:
+            if step.crud_cls is not ContainerIO:
                 continue
             crud = step.crud_cls.create_io(client)
             resource_by_id = self._read_resource_files(crud, step.files, options)
@@ -1477,8 +1477,8 @@ class DeployV2Command(ToolkitCommand):
         for module in build_lineage.module_lineage:
             for resource in module.resource_lineage:
                 if (
-                    resource.type.resource_folder == RawTableCRUD.folder_name
-                    and resource.type.kind == RawTableCRUD.kind
+                    resource.type.resource_folder == RawTableIO.folder_name
+                    and resource.type.kind == RawTableIO.kind
                     and isinstance(resource.identifier, RawTableId)
                 ):
                     for file_type in ["csv", "parquet"]:

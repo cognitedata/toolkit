@@ -25,8 +25,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
-    ContainerCRUD,
-    SpaceCRUD,
+    ContainerIO,
+    SpaceIO,
     ViewIO,
 )
 from cognite_toolkit._cdf_tk.resource_ios._streams import StreamIO
@@ -458,9 +458,9 @@ class TestContainerCRUDGetDependencies:
             }
         )
 
-        deps = list(ContainerCRUD.get_dependencies(container))
+        deps = list(ContainerIO.get_dependencies(container))
         assert len(deps) == 1
-        assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
+        assert deps[0] == (SpaceIO, SpaceId(space="my_space"))
 
     def test_container_with_direct_node_relation(self) -> None:
         """Test Container with DirectNodeRelation dependency."""
@@ -479,10 +479,10 @@ class TestContainerCRUDGetDependencies:
             }
         )
 
-        deps = list(ContainerCRUD.get_dependencies(container))
+        deps = list(ContainerIO.get_dependencies(container))
         assert len(deps) == 2
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
-        assert (ContainerCRUD, ContainerId(space="other_space", external_id="other_container")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
+        assert (ContainerIO, ContainerId(space="other_space", external_id="other_container")) in deps
 
     def test_container_with_requires_constraint(self) -> None:
         """Test Container with RequiresConstraintDefinition dependency."""
@@ -500,10 +500,10 @@ class TestContainerCRUDGetDependencies:
             }
         )
 
-        deps = list(ContainerCRUD.get_dependencies(container))
+        deps = list(ContainerIO.get_dependencies(container))
         assert len(deps) == 2
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
-        assert (ContainerCRUD, ContainerId(space="other_space", external_id="required_container")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
+        assert (ContainerIO, ContainerId(space="other_space", external_id="required_container")) in deps
 
 
 class TestViewCRUDGetDependencies:
@@ -522,7 +522,7 @@ class TestViewCRUDGetDependencies:
 
         deps = list(ViewIO.get_dependencies(view))
         assert len(deps) == 1
-        assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
+        assert deps[0] == (SpaceIO, SpaceId(space="my_space"))
 
     def test_view_with_container_property(self) -> None:
         """Test View with ContainerViewProperty dependency."""
@@ -542,8 +542,8 @@ class TestViewCRUDGetDependencies:
 
         deps = list(ViewIO.get_dependencies(view))
         assert len(deps) == 2
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
-        assert (ContainerCRUD, ContainerId(space="container_space", external_id="my_container")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
+        assert (ContainerIO, ContainerId(space="container_space", external_id="my_container")) in deps
 
     def test_view_with_implements(self) -> None:
         """Test View with implements dependency."""
@@ -558,7 +558,7 @@ class TestViewCRUDGetDependencies:
 
         deps = list(ViewIO.get_dependencies(view))
         assert len(deps) == 2
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
         assert (ViewIO, ViewId(space="my_space", external_id="base_view", version="1")) in deps
 
     def test_view_with_edge_connection(self) -> None:
@@ -586,7 +586,7 @@ class TestViewCRUDGetDependencies:
 
         deps = list(ViewIO.get_dependencies(view))
         assert len(deps) == 2
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
         assert (ViewIO, ViewId(space="source_space", external_id="source_view", version="1")) in deps
 
     def test_view_with_reverse_direct_relation_view_through(self) -> None:
@@ -621,7 +621,7 @@ class TestViewCRUDGetDependencies:
 
         deps = list(ViewIO.get_dependencies(view))
         assert len(deps) == 3
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
         assert (ViewIO, ViewId(space="source_space", external_id="source_view", version="1")) in deps
         assert (ViewIO, ViewId(space="through_space", external_id="through_view", version="1")) in deps
 
@@ -638,7 +638,7 @@ class TestViewCRUDGetDependencies:
 
         deps = list(ViewIO.get_dependencies(view))
         assert len(deps) == 2
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
         assert (StreamIO, ExternalId(external_id="my_stream")) in deps
 
     def test_view_with_stream_id_requires_alpha_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:

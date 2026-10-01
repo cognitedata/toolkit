@@ -42,21 +42,21 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_lis
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 from cognite_toolkit._cdf_tk.yaml_classes import DatapointSubscriptionYAML, TimeSeriesYAML
 
-from ._auth import GroupAllScopedCRUD, SecurityCategoryIO
+from ._auth import GroupAllScopedIO, SecurityCategoryIO
 from ._classic import AssetIO
 from ._data_organization import DataSetsIO
-from ._datamodel import NodeCRUD
+from ._datamodel import NodeIO
 
 
 @final
-class TimeSeriesCRUD(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeriesResponse, TimeSeriesYAML]):
+class TimeSeriesIO(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeriesResponse, TimeSeriesYAML]):
     item_name = "datapoints"
     folder_name = "timeseries"
     resource_cls = TimeSeriesResponse
     resource_write_cls = TimeSeriesRequest
     yaml_cls = TimeSeriesYAML
     kind = "TimeSeries"
-    dependencies = frozenset({DataSetsIO, GroupAllScopedCRUD, AssetIO})
+    dependencies = frozenset({DataSetsIO, GroupAllScopedIO, AssetIO})
     _doc_url = "Time-series/operation/postTimeSeries"
 
     @property
@@ -189,7 +189,7 @@ class DatapointSubscriptionIO(
     resource_write_cls = DatapointSubscriptionRequest
     kind = "DatapointSubscription"
     _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
-    dependencies = frozenset({TimeSeriesCRUD, GroupAllScopedCRUD, NodeCRUD})
+    dependencies = frozenset({TimeSeriesIO, GroupAllScopedIO, NodeIO})
     yaml_cls = DatapointSubscriptionYAML
 
     _hash_key = "cdf-hash"
@@ -219,9 +219,9 @@ class DatapointSubscriptionIO(
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
         for timeseries_id in resource.time_series_ids or []:
-            yield TimeSeriesCRUD, ExternalId(external_id=timeseries_id)
+            yield TimeSeriesIO, ExternalId(external_id=timeseries_id)
         for instance_id in resource.instance_ids or []:
-            yield NodeCRUD, NodeId(space=instance_id.space, external_id=instance_id.external_id)
+            yield NodeIO, NodeId(space=instance_id.space, external_id=instance_id.external_id)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[DatapointSubscriptionRequest]) -> ScopeDefinition:

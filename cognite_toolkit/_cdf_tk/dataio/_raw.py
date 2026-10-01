@@ -7,7 +7,7 @@ from cognite.client.data_classes import Row, RowWrite
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.resource_ios import RawDatabaseCRUD, RawTableCRUD
+from cognite_toolkit._cdf_tk.resource_ios import RawDatabaseIO, RawTableIO
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
@@ -95,13 +95,13 @@ class RawIO(
 
     def configurations(self, selector: RawTableSelector) -> Iterable[StorageIOConfig]:
         yield StorageIOConfig(
-            kind=RawDatabaseCRUD.kind,
-            folder_name=RawDatabaseCRUD.folder_name,
+            kind=RawDatabaseIO.kind,
+            folder_name=RawDatabaseIO.folder_name,
             value={"dbName": selector.table.db_name},
             filename=sanitize_filename(selector.table.db_name),
         )
         yield StorageIOConfig(
-            kind=RawTableCRUD.kind, folder_name=RawTableCRUD.folder_name, value=selector.table.model_dump(by_alias=True)
+            kind=RawTableIO.kind, folder_name=RawTableIO.folder_name, value=selector.table.model_dump(by_alias=True)
         )
 
     def row_to_resource(

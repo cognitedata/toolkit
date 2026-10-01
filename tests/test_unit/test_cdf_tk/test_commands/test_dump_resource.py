@@ -86,7 +86,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ExternalDataSourceIO,
     ExtractionPipelineIO,
     FunctionIO,
-    GroupAllScopedCRUD,
+    GroupAllScopedIO,
     HostedExtractorDestinationIO,
     HostedExtractorJobIO,
     HostedExtractorMappingIO,
@@ -97,7 +97,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     SAPInstanceIO,
     SchemaMappingIO,
     SearchConfigIO,
-    SpaceCRUD,
+    SpaceIO,
     StreamlitIO,
     TransformationIO,
 )
@@ -817,7 +817,7 @@ class TestDumpGroups:
                 clean=False,
                 verbose=False,
             )
-            loader = GroupAllScopedCRUD(client)
+            loader = GroupAllScopedIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -1237,7 +1237,7 @@ class TestDumpSpaces:
                 clean=False,
                 verbose=False,
             )
-            loader = SpaceCRUD(client)
+            loader = SpaceIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2

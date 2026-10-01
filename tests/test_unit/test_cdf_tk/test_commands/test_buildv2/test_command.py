@@ -29,7 +29,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteDirPath, AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
-from cognite_toolkit._cdf_tk.resource_ios import FileMetadataCRUD, SearchConfigIO, SpaceCRUD
+from cognite_toolkit._cdf_tk.resource_ios import FileMetadataIO, SearchConfigIO, SpaceIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._datamodel import DataModelIO, ViewIO
 from cognite_toolkit._cdf_tk.resource_ios._workflow import WorkflowIO
@@ -133,7 +133,7 @@ class TestBuildCommand:
         # Set up a simple organization with modules folder.
         org = tmp_path / "org"
 
-        space_file = create_resource_file(org, SpaceCRUD, SPACE_YAML)
+        space_file = create_resource_file(org, SpaceIO, SPACE_YAML)
         dm_file = create_resource_file(org, DataModelIO, DM_YAML)
         view_file = create_resource_file(org, ViewIO, VIEW_YAML)
         _ = create_resource_file(org, WorkflowIO, WORKFLOW_YAML)
@@ -143,7 +143,7 @@ class TestBuildCommand:
 
         _ = cmd.build(parameters, tlk_client)
 
-        built_space = list(build_dir.rglob(f"*.{SpaceCRUD.kind}.yaml"))
+        built_space = list(build_dir.rglob(f"*.{SpaceIO.kind}.yaml"))
         assert len(built_space) == 1
         assert built_space[0].read_text() == space_file.read_text()
 
@@ -166,7 +166,7 @@ class TestBuildCommand:
 
         # Set up a simple organization with modules folder.
         org = tmp_path / "org"
-        resource_file = org / "modules" / "my_module" / SpaceCRUD.folder_name / f"my_space.{SpaceCRUD.kind}.yaml"
+        resource_file = org / "modules" / "my_module" / SpaceIO.folder_name / f"my_space.{SpaceIO.kind}.yaml"
         resource_file.parent.mkdir(parents=True)
         space_yaml = """space: my#space
 name: My Space
@@ -200,7 +200,7 @@ name: My Space
         # Set up a simple organization with modules folder.
         org = tmp_path / "org"
 
-        file_metadata = create_resource_file(org, FileMetadataCRUD, FILEMETADATA_YAML)
+        file_metadata = create_resource_file(org, FileMetadataIO, FILEMETADATA_YAML)
         source_txt = file_metadata.parent / "text_file.txt"
         expected_content = "this is a text file"
         source_txt.write_text(expected_content)
@@ -208,7 +208,7 @@ name: My Space
         parameters = BuildParameters(organization_dir=org, build_dir=build_dir, user_selected_modules=[f"{MODULES}/"])
         _ = cmd.build(parameters, client=None)
 
-        files = list((build_dir / FileMetadataCRUD.folder_name).iterdir())
+        files = list((build_dir / FileMetadataIO.folder_name).iterdir())
         assert len(files) == 2
         file_by_suffix = dict((file.suffix, file) for file in files)
         assert set(file_by_suffix.keys()) == {".txt", ".yaml"}
@@ -359,7 +359,7 @@ class TestReadFileSystem:
   selected:
   - modules/ignore_selection
 """)
-        resource_file = create_resource_file(tmp_path, SpaceCRUD, SPACE_YAML)
+        resource_file = create_resource_file(tmp_path, SpaceIO, SPACE_YAML)
 
         parameters = BuildParameters(
             organization_dir=tmp_path,
@@ -390,7 +390,7 @@ class TestReadFileSystem:
     selected:
     - modules/
 """)
-        _ = create_resource_file(tmp_path, SpaceCRUD, SPACE_YAML)
+        _ = create_resource_file(tmp_path, SpaceIO, SPACE_YAML)
         parameters = BuildParameters(organization_dir=tmp_path, build_dir=Path("build"), config_yaml=config_yaml)
         with pytest.raises(ToolkitValueError) as exc_info:
             BuildV2Command._read_file_system(
@@ -626,14 +626,14 @@ class TestReadResourceFile:
             pytest.param(
                 "nonexistent.Space.yaml",
                 None,
-                SpaceCRUD,
+                SpaceIO,
                 "READ-ERROR",
                 id="file_read_error",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "key: [unclosed",
-                SpaceCRUD,
+                SpaceIO,
                 "YAML-PARSE-ERROR",
                 id="yaml_parse_error",
             ),
@@ -662,7 +662,7 @@ class TestReadResourceFile:
             pytest.param(
                 "resource.Space.yaml",
                 "space: my_space\nname: My Space\n",
-                SpaceCRUD,
+                SpaceIO,
                 1,
                 False,
                 False,
@@ -671,7 +671,7 @@ class TestReadResourceFile:
             pytest.param(
                 "resource.Space.yaml",
                 'space: ""\n',
-                SpaceCRUD,
+                SpaceIO,
                 1,
                 True,
                 False,
@@ -680,7 +680,7 @@ class TestReadResourceFile:
             pytest.param(
                 "resource.Space.yaml",
                 "space: my_space\nextra_field: value\n",
-                SpaceCRUD,
+                SpaceIO,
                 1,
                 False,
                 True,
@@ -689,7 +689,7 @@ class TestReadResourceFile:
             pytest.param(
                 "resource.Space.yaml",
                 "- space: space_one\n- space: space_two\n",
-                SpaceCRUD,
+                SpaceIO,
                 2,
                 False,
                 False,
@@ -809,7 +809,7 @@ class TestTmpBuild:
     ) -> None:
         cmd = BuildV2Command()
         org = tmp_path / "org"
-        create_resource_file(org, SpaceCRUD, SPACE_YAML)
+        create_resource_file(org, SpaceIO, SPACE_YAML)
         cache_path = org / "build_cache.yaml"
 
         first_lineage = cmd.tmp_build(org, client=tlk_client)
@@ -826,7 +826,7 @@ class TestTmpBuild:
     def test_tmp_build_rebuilds_changed_module(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
         cmd = BuildV2Command()
         org = tmp_path / "org"
-        space_file = create_resource_file(org, SpaceCRUD, SPACE_YAML)
+        space_file = create_resource_file(org, SpaceIO, SPACE_YAML)
 
         first_lineage = cmd.tmp_build(org, client=tlk_client)
         first_hash = first_lineage.module_lineage[0].module_hash
@@ -849,7 +849,7 @@ class TestTmpBuild:
   - modules/
 """
         )
-        create_resource_file(org, SpaceCRUD, SPACE_YAML)
+        create_resource_file(org, SpaceIO, SPACE_YAML)
 
         cache_path = org / "build_cache.dev.yaml"
         _ = cmd.tmp_build(org, config_yaml=config_yaml, client=tlk_client)
@@ -870,7 +870,7 @@ class TestTmpBuild:
   - modules/
 """
         )
-        create_resource_file(org, SpaceCRUD, SPACE_YAML)
+        create_resource_file(org, SpaceIO, SPACE_YAML)
 
         first_lineage = cmd.tmp_build(org, config_yaml=config_yaml, client=tlk_client)
         assert first_lineage.config_hash
@@ -893,12 +893,12 @@ class TestTmpBuild:
         org = tmp_path / "org"
 
         # Create two modules.
-        module_a_file = org / MODULES / "module_a" / SpaceCRUD.folder_name / f"a.{SpaceCRUD.kind}.yaml"
+        module_a_file = org / MODULES / "module_a" / SpaceIO.folder_name / f"a.{SpaceIO.kind}.yaml"
         module_a_file.parent.mkdir(parents=True, exist_ok=True)
         module_a_file.write_text("space: space_a\nname: Space A\n")
 
         module_b_dir = org / MODULES / "module_b"
-        module_b_file = module_b_dir / SpaceCRUD.folder_name / f"b.{SpaceCRUD.kind}.yaml"
+        module_b_file = module_b_dir / SpaceIO.folder_name / f"b.{SpaceIO.kind}.yaml"
         module_b_file.parent.mkdir(parents=True, exist_ok=True)
         module_b_file.write_text("space: space_b\nname: Space B\n")
 
@@ -941,14 +941,14 @@ variables:
       space_name: substituted_space
 """
         )
-        create_resource_file(org, SpaceCRUD, "space: {{ space_name }}\nname: Space\n")
+        create_resource_file(org, SpaceIO, "space: {{ space_name }}\nname: Space\n")
 
         first_lineage = cmd.tmp_build(org, config_yaml=config_yaml, client=tlk_client)
-        first_spaces = first_lineage.get_resource_of_type(SpaceCRUD.as_resource_type())
+        first_spaces = first_lineage.get_resource_of_type(SpaceIO.as_resource_type())
         assert first_spaces[0].load_resource_dict(org, {}) == {"space": "substituted_space", "name": "Space"}
 
         second_lineage = cmd.tmp_build(org, config_yaml=config_yaml, client=tlk_client)
-        second_spaces = second_lineage.get_resource_of_type(SpaceCRUD.as_resource_type())
+        second_spaces = second_lineage.get_resource_of_type(SpaceIO.as_resource_type())
         assert second_spaces[0].variables
         assert second_spaces[0].load_resource_dict(org, {}) == {"space": "substituted_space", "name": "Space"}
 
