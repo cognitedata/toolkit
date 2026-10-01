@@ -142,7 +142,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         from ._classic import AssetIO
         from ._data_organization import DataSetsIO
         from ._data_product import DataProductIO
-        from ._datamodel import SpaceCRUD
+        from ._datamodel import SpaceIO
         from ._extraction_pipeline import ExtractionPipelineIO
         from ._location import LocationFilterIO
         from ._raw import RawDatabaseCRUD, RawTableCRUD
@@ -157,7 +157,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             scope = capability.scope
             if isinstance(scope, yaml_cap.SpaceIDScope):
                 for space_id in scope.space_ids:
-                    yield SpaceCRUD, SpaceId(space=space_id)
+                    yield SpaceIO, SpaceId(space=space_id)
             elif isinstance(scope, yaml_cap.DataProductScope):
                 for data_product_external_id in scope.external_ids:
                     yield DataProductIO, ExternalId(external_id=data_product_external_id)

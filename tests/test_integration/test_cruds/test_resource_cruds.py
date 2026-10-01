@@ -72,7 +72,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     FunctionScheduleIO,
     GroupIO,
     LabelIO,
-    NodeCRUD,
+    NodeIO,
     SkillIO,
     TransformationIO,
     ViewIO,
@@ -869,7 +869,7 @@ ignoreNullFields: true
 
 class TestNodeLoader:
     def test_update_existing_node(self, toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> None:
-        loader = NodeCRUD(toolkit_client)
+        loader = NodeIO(toolkit_client)
         view_id = ViewId(space="cdf_cdm", external_id="CogniteDescribable", version="v1")
         existing_node = NodeRequest(
             space=toolkit_space.space,

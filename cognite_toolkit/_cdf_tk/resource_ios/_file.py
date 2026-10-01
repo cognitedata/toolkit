@@ -68,7 +68,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYA
 from ._auth import GroupAllScopedCRUD, SecurityCategoryIO
 from ._classic import AssetIO
 from ._data_organization import DataSetsIO, LabelIO
-from ._datamodel import NodeCRUD, SpaceCRUD, ViewIO
+from ._datamodel import NodeIO, SpaceIO, ViewIO
 
 
 @final
@@ -345,7 +345,7 @@ class CogniteFileCRUD(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFil
     resource_cls = CogniteFileResponse
     resource_write_cls = CogniteFileRequest
     yaml_cls = CogniteFileYAML
-    dependencies = frozenset({GroupAllScopedCRUD, SpaceCRUD, ViewIO})
+    dependencies = frozenset({GroupAllScopedCRUD, SpaceIO, ViewIO})
 
     _doc_url = "Files/operation/initFileUpload"
     # 128,000 bytes (UTF-8) is the maximum, worse case utf-8 will use 4 bytes per character
@@ -514,9 +514,9 @@ class CogniteFileCRUD(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFil
 
     @classmethod
     def get_dependencies(cls, resource: CogniteFileYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
-        yield SpaceCRUD, SpaceId(space=resource.space)
+        yield SpaceIO, SpaceId(space=resource.space)
         for ref in [resource.source, resource.category, resource.type]:
             if ref:
-                yield NodeCRUD, NodeId(space=ref.space, external_id=ref.external_id)
+                yield NodeIO, NodeId(space=ref.space, external_id=ref.external_id)
         for asset in resource.assets or []:
-            yield NodeCRUD, NodeId(space=asset.space, external_id=asset.external_id)
+            yield NodeIO, NodeId(space=asset.space, external_id=asset.external_id)

@@ -28,7 +28,7 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.constants import VIEW_UPSERT_BATCH_LIMIT
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
-from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, EdgeCRUD, GraphQLCRUD, NodeCRUD, SpaceCRUD, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, EdgeIO, GraphQLIO, NodeIO, SpaceIO, ViewIO
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.utils import to_deploy_status
 
@@ -105,7 +105,7 @@ class TestGraphQLLoader:
     def test_deployment_order(
         self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        loader = GraphQLCRUD.create_io(env_vars_with_client.get_client())
+        loader = GraphQLIO.create_io(env_vars_with_client.get_client())
         # The first model is dependent on the second model
         first_file = self._create_mock_file(
             """
@@ -137,7 +137,7 @@ type GeneratingUnit {
         assert created[1].external_id == "WindTurbineModel"
 
     def test_raise_cycle_error(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
-        loader = GraphQLCRUD.create_io(env_vars_with_client_cheap.get_client())
+        loader = GraphQLIO.create_io(env_vars_with_client_cheap.get_client())
         # The two models are dependent on each other
         first_file = self._create_mock_file(
             """type WindTurbine @import(dataModel: {externalId: "SolarModel", version: "v1", space: "second_space"}) {
@@ -174,7 +174,7 @@ name: String}""",
             "AssetHierarchyDOM",
             "3_0_2",
         )
-        loader = GraphQLCRUD.create_io(env_vars_with_client_cheap.get_client())
+        loader = GraphQLIO.create_io(env_vars_with_client_cheap.get_client())
 
         items = loader.load_resource_file(file, {})
 
@@ -211,7 +211,7 @@ name: String}""",
         yaml_file.parent = MagicMock(spec=Path)
         yaml_file.parent.__truediv__ = MagicMock(return_value=custom_graphql_file)
 
-        loader = GraphQLCRUD.create_io(env_vars_with_client_cheap.get_client())
+        loader = GraphQLIO.create_io(env_vars_with_client_cheap.get_client())
         items = loader.load_resource_file(yaml_file, {})
 
         assert len(items) == 1
@@ -465,7 +465,7 @@ class TestDataModelCRUDGetDependencies:
 
         deps = list(DataModelIO.get_dependencies(data_model))
         assert len(deps) == 1
-        assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
+        assert deps[0] == (SpaceIO, SpaceId(space="my_space"))
 
     def test_datamodel_with_views(self) -> None:
         """Test DataModel with view dependencies."""
@@ -485,7 +485,7 @@ class TestDataModelCRUDGetDependencies:
 
         deps = list(DataModelIO.get_dependencies(data_model))
         assert len(deps) == 3
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
         assert (ViewIO, ViewId(space="my_space", external_id="view1", version="1")) in deps
         assert (ViewIO, ViewId(space="other_space", external_id="view2", version="1")) in deps
 
@@ -504,9 +504,9 @@ class TestNodeCRUDGetDependencies:
             }
         )
 
-        deps = list(NodeCRUD.get_dependencies(node))
+        deps = list(NodeIO.get_dependencies(node))
         assert len(deps) == 1
-        assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
+        assert deps[0] == (SpaceIO, SpaceId(space="my_space"))
 
     def test_node_with_view_sources(self) -> None:
         """Test Node with view source dependencies."""
@@ -530,9 +530,9 @@ class TestNodeCRUDGetDependencies:
             }
         )
 
-        deps = list(NodeCRUD.get_dependencies(node))
+        deps = list(NodeIO.get_dependencies(node))
         assert len(deps) == 2
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
         assert (ViewIO, ViewId(space="source_space", external_id="source_view", version="1")) in deps
 
 
@@ -553,12 +553,12 @@ class TestEdgeCRUDGetDependencies:
             }
         )
 
-        deps = list(EdgeCRUD.get_dependencies(edge))
+        deps = list(EdgeIO.get_dependencies(edge))
         assert len(deps) == 4
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
-        assert (NodeCRUD, NodeId(space="node_space", external_id="start_node")) in deps
-        assert (NodeCRUD, NodeId(space="node_space", external_id="end_node")) in deps
-        assert (NodeCRUD, NodeId(space="type_space", external_id="edge_type")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
+        assert (NodeIO, NodeId(space="node_space", external_id="start_node")) in deps
+        assert (NodeIO, NodeId(space="node_space", external_id="end_node")) in deps
+        assert (NodeIO, NodeId(space="type_space", external_id="edge_type")) in deps
 
     def test_edge_with_view_sources(self) -> None:
         """Test Edge with view source dependencies."""
@@ -585,13 +585,13 @@ class TestEdgeCRUDGetDependencies:
             }
         )
 
-        deps = list(EdgeCRUD.get_dependencies(edge))
+        deps = list(EdgeIO.get_dependencies(edge))
         assert len(deps) == 5
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
         assert (ViewIO, ViewId(space="source_space", external_id="source_view", version="1")) in deps
-        assert (NodeCRUD, NodeId(space="node_space", external_id="start_node")) in deps
-        assert (NodeCRUD, NodeId(space="node_space", external_id="end_node")) in deps
-        assert (NodeCRUD, NodeId(space="type_space", external_id="edge_type")) in deps
+        assert (NodeIO, NodeId(space="node_space", external_id="start_node")) in deps
+        assert (NodeIO, NodeId(space="node_space", external_id="end_node")) in deps
+        assert (NodeIO, NodeId(space="type_space", external_id="edge_type")) in deps
 
     def test_edge_with_node_references(self) -> None:
         """Test Edge with node start/end references."""
@@ -607,12 +607,12 @@ class TestEdgeCRUDGetDependencies:
             }
         )
 
-        deps = list(EdgeCRUD.get_dependencies(edge))
+        deps = list(EdgeIO.get_dependencies(edge))
         assert len(deps) == 4
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
-        assert (NodeCRUD, NodeId(space="node_space", external_id="start_node")) in deps
-        assert (NodeCRUD, NodeId(space="node_space", external_id="end_node")) in deps
-        assert (NodeCRUD, NodeId(space="type_space", external_id="edge_type")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
+        assert (NodeIO, NodeId(space="node_space", external_id="start_node")) in deps
+        assert (NodeIO, NodeId(space="node_space", external_id="end_node")) in deps
+        assert (NodeIO, NodeId(space="type_space", external_id="edge_type")) in deps
 
 
 class TestGraphQLCRUDGetDependencies:
@@ -631,9 +631,9 @@ class TestGraphQLCRUDGetDependencies:
             }
         )
 
-        deps = list(GraphQLCRUD.get_dependencies(graphql_model))
+        deps = list(GraphQLIO.get_dependencies(graphql_model))
         assert len(deps) == 1
-        assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
+        assert deps[0] == (SpaceIO, SpaceId(space="my_space"))
 
 
 class TestGraphQLCreatePayload:

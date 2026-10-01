@@ -45,7 +45,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import DatapointSubscriptionYAML, Time
 from ._auth import GroupAllScopedCRUD, SecurityCategoryIO
 from ._classic import AssetIO
 from ._data_organization import DataSetsIO
-from ._datamodel import NodeCRUD
+from ._datamodel import NodeIO
 
 
 @final
@@ -189,7 +189,7 @@ class DatapointSubscriptionIO(
     resource_write_cls = DatapointSubscriptionRequest
     kind = "DatapointSubscription"
     _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
-    dependencies = frozenset({TimeSeriesCRUD, GroupAllScopedCRUD, NodeCRUD})
+    dependencies = frozenset({TimeSeriesCRUD, GroupAllScopedCRUD, NodeIO})
     yaml_cls = DatapointSubscriptionYAML
 
     _hash_key = "cdf-hash"
@@ -221,7 +221,7 @@ class DatapointSubscriptionIO(
         for timeseries_id in resource.time_series_ids or []:
             yield TimeSeriesCRUD, ExternalId(external_id=timeseries_id)
         for instance_id in resource.instance_ids or []:
-            yield NodeCRUD, NodeId(space=instance_id.space, external_id=instance_id.external_id)
+            yield NodeIO, NodeId(space=instance_id.space, external_id=instance_id.external_id)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[DatapointSubscriptionRequest]) -> ScopeDefinition:

@@ -31,7 +31,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Modul
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
-    ContainerCRUD,
+    ContainerIO,
     DataModelIO,
     DataSetsIO,
     ResourceIO,
@@ -444,7 +444,7 @@ class TestDependencyRuleSetDataModelingChanges:
         client = _client_stub(
             container=[_cdf_container(cdf_properties, description=cdf_description, used_for=cdf_used_for)]
         )
-        rule = DependencyRuleSet(modules=[_built_module(yaml_file, ContainerCRUD, CONTAINER_ID)], client=client)
+        rule = DependencyRuleSet(modules=[_built_module(yaml_file, ContainerIO, CONTAINER_ID)], client=client)
 
         insights = list(rule.validate())
         assert [insight.code for insight in insights] == expected_codes
@@ -577,7 +577,7 @@ class TestDependencyRuleSetDataModelingChanges:
         yaml_file = tmp_path / "MyContainer.container.yaml"
         yaml_file.write_text(CONTAINER_YAML)
 
-        rule = DependencyRuleSet(modules=[_built_module(yaml_file, ContainerCRUD, CONTAINER_ID)])
+        rule = DependencyRuleSet(modules=[_built_module(yaml_file, ContainerIO, CONTAINER_ID)])
         assert list(rule.validate()) == []
 
     def test_get_status_mentions_data_modeling_changes_with_client(self) -> None:

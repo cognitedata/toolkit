@@ -21,7 +21,7 @@ from ._auth import GroupIO, SecurityCategoryIO
 from ._classic import AssetIO
 from ._data_organization import DataSetsIO
 from ._data_product import DataProductIO
-from ._datamodel import SpaceCRUD
+from ._datamodel import SpaceIO
 from ._extraction_pipeline import ExtractionPipelineIO
 from ._location import LocationFilterIO
 from ._raw import RawDatabaseCRUD, RawTableCRUD
@@ -32,7 +32,7 @@ from ._timeseries import TimeSeriesCRUD
 class GroupResourceScopedCRUD(GroupIO):
     dependencies = frozenset(
         {
-            SpaceCRUD,
+            SpaceIO,
             DataSetsIO,
             DataProductIO,
             ExtractionPipelineIO,

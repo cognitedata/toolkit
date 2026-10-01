@@ -47,9 +47,9 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.resource_ios import (
     InFieldCDMLocationConfigIO,
     LocationFilterIO,
-    NodeCRUD,
+    NodeIO,
     ResourceIO,
-    SpaceCRUD,
+    SpaceIO,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -155,7 +155,7 @@ class InstanceSpaceCreator(MigrationCreator):
             )
         yield ToCreateResources(
             resources=created_resources,
-            crud_cls=SpaceCRUD,
+            crud_cls=SpaceIO,
             display_name="Instance Space",
             store_linage=lambda: self.store_lineage(linage_nodes),
         )
@@ -255,7 +255,7 @@ class SourceSystemCreator(MigrationCreator):
             )
         yield ToCreateResources(
             resources=to_create,
-            crud_cls=NodeCRUD,
+            crud_cls=NodeIO,
             display_name="Source System",
             store_linage=lambda: len(to_create),
         )
@@ -372,7 +372,7 @@ class InfieldCDMConfigCreator(MigrationCreator):
 
         yield ToCreateResources(
             resources=all_spaces,
-            crud_cls=SpaceCRUD,
+            crud_cls=SpaceIO,
             display_name="Instance Spaces",
         )
         yield ToCreateResources(

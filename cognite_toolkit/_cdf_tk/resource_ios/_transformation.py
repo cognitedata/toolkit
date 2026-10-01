@@ -119,7 +119,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.transformation_destination import (
 
 from ._auth import GroupAllScopedCRUD
 from ._data_organization import DataSetsIO
-from ._datamodel import DataModelIO, SpaceCRUD, ViewIO
+from ._datamodel import DataModelIO, SpaceIO, ViewIO
 from ._externaldata import ExternalDataSourceIO
 from ._group_scoped import GroupResourceScopedCRUD
 from ._raw import RawDatabaseCRUD, RawTableCRUD
@@ -156,7 +156,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
             DataSetsIO,
             RawDatabaseCRUD,
             GroupAllScopedCRUD,
-            SpaceCRUD,
+            SpaceIO,
             ViewIO,
             DataModelIO,
             RawTableCRUD,
@@ -230,7 +230,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
                 yield RawTableCRUD, RawTableId(db_name=destination.database, name=destination.table)
             elif isinstance(destination, ViewDataSource):
                 if destination.instance_space:
-                    yield SpaceCRUD, SpaceId(space=destination.instance_space)
+                    yield SpaceIO, SpaceId(space=destination.instance_space)
                 if destination.view:
                     yield (
                         ViewIO,
@@ -242,7 +242,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
                     )
             elif isinstance(destination, DataModelSource):
                 if destination.instance_space:
-                    yield SpaceCRUD, SpaceId(space=destination.instance_space)
+                    yield SpaceIO, SpaceId(space=destination.instance_space)
                 yield (
                     DataModelIO,
                     DataModelId(

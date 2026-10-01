@@ -27,12 +27,12 @@ from ._data_organization import DataSetsIO, LabelIO
 from ._data_product import DataProductIO
 from ._data_product_version import DataProductVersionIO
 from ._datamodel import (
-    ContainerCRUD,
+    ContainerIO,
     DataModelIO,
-    EdgeCRUD,
-    GraphQLCRUD,
-    NodeCRUD,
-    SpaceCRUD,
+    EdgeIO,
+    GraphQLIO,
+    NodeIO,
+    SpaceIO,
     ViewIO,
 )
 from ._externaldata import ExternalDataSourceIO
@@ -64,7 +64,7 @@ from ._simulators import (
 )
 from ._skill import SkillIO
 from ._streams import StreamIO
-from ._three_d_model import ThreeDModelCRUD
+from ._three_d_model import ThreeDModelIO
 from ._timeseries import DatapointSubscriptionIO, TimeSeriesCRUD
 from ._transformation import (
     TransformationIO,
@@ -75,7 +75,7 @@ from ._workflow import WorkflowIO, WorkflowTriggerIO, WorkflowVersionIO
 
 _EXCLUDED_CRUDS: set[type[ResourceIO]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
-    _EXCLUDED_CRUDS.add(GraphQLCRUD)
+    _EXCLUDED_CRUDS.add(GraphQLIO)
 if not FeatureFlag.is_enabled(Flags.INFIELD):
     _EXCLUDED_CRUDS.add(InfieldV1IO)
     _EXCLUDED_CRUDS.add(InFieldLocationConfigIO)
@@ -199,13 +199,13 @@ __all__ = [
     "AppVersionIO",
     "AssetIO",
     "CogniteFileCRUD",
-    "ContainerCRUD",
+    "ContainerIO",
     "DataModelIO",
     "DataProductIO",
     "DataProductVersionIO",
     "DataSetsIO",
     "DatapointSubscriptionIO",
-    "EdgeCRUD",
+    "EdgeIO",
     "EventIO",
     "ExternalDataSourceIO",
     "ExtractionPipelineConfigIO",
@@ -224,7 +224,7 @@ __all__ = [
     "InFieldLocationConfigIO",
     "LabelIO",
     "LocationFilterIO",
-    "NodeCRUD",
+    "NodeIO",
     "RawDatabaseCRUD",
     "RawTableCRUD",
     "RelationshipIO",
@@ -247,10 +247,10 @@ __all__ = [
     "SimulatorRoutineIO",
     "SimulatorRoutineRevisionIO",
     "SkillIO",
-    "SpaceCRUD",
+    "SpaceIO",
     "StreamIO",
     "StreamlitIO",
-    "ThreeDModelCRUD",
+    "ThreeDModelIO",
     "TimeSeriesCRUD",
     "TransformationIO",
     "TransformationNotificationIO",

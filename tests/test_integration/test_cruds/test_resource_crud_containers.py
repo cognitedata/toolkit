@@ -16,8 +16,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
-from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, RawTableCRUD, TimeSeriesCRUD
-from cognite_toolkit._cdf_tk.resource_ios._three_d_model import ThreeDModelCRUD
+from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, RawTableCRUD, TimeSeriesCRUD
+from cognite_toolkit._cdf_tk.resource_ios._three_d_model import ThreeDModelIO
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
@@ -102,7 +102,7 @@ class TestContainerLoader:
         )
         container_id = [ContainerId(space=node_container.space, external_id=node_container.external_id)]
 
-        loader = ContainerCRUD(toolkit_client)
+        loader = ContainerIO(toolkit_client)
 
         try:
             assert loader.count(container_id) == 0
@@ -157,7 +157,7 @@ class TestContainerLoader:
         )
         container_id = [ContainerId(space=edge_container.space, external_id=edge_container.external_id)]
 
-        loader = ContainerCRUD(toolkit_client)
+        loader = ContainerIO(toolkit_client)
 
         try:
             assert loader.count(container_id) == 0
@@ -192,7 +192,7 @@ class Test3DModelLoader:
             },
         )
 
-        loader = ThreeDModelCRUD(toolkit_client)
+        loader = ThreeDModelIO(toolkit_client)
 
         created: list[ThreeDModelClassicResponse] | None = None
         try:
