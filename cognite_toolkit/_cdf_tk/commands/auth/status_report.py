@@ -16,7 +16,7 @@ from rich.text import Text
 from cognite_toolkit._cdf_tk import resource_ios
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, AllScope, Scope, TableScope
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, Scope, TableScope
 from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import scope_intersection
 from cognite_toolkit._cdf_tk.client.resource_classes.project import OrganizationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.token import FlatCapabilities
@@ -267,22 +267,6 @@ def resources_from_capabilities(
     return accessible, checked
 
 
-def _scope_for_action(capabilities: FlatCapabilities, acl: Acl, action: str) -> Scope | None:
-    """Return the scope granted for an ACL action.
-
-    A capability that contains an action this version does not model is kept as an ``UnknownAcl`` so the
-    original payload can round-trip. The known actions on that capability are still valid deploy access, so
-    match on ACL name when the concrete class is not in the map.
-    """
-    scope = capabilities.get((type(acl), acl.acl_name, action))
-    if scope is not None:
-        return scope
-    for (_, acl_name, stored_action), stored_scope in capabilities.items():
-        if acl_name == acl.acl_name and stored_action == action:
-            return stored_scope
-    return None
-
-
 def resolve_action_access(
     io_cls: type[ResourceIO],
     capabilities: FlatCapabilities,
@@ -291,6 +275,8 @@ def resolve_action_access(
     """Decide whether a resource type's READ or WRITE ACLs are covered, and at which scope."""
     required = list(io_cls.create_acl({action}, AllScope()))
     if not required:
+        # The ResourceIO class does not have any required ACLs, typically this is for child resources such as
+        # TransformationSchedule that assumes we check TransformationIO instead.
         return ActionAccess(applicable=False, grants=[], missing=[])
 
     grants: list[AclScopeGrant] = []
@@ -300,7 +286,7 @@ def resolve_action_access(
         found_scopes: list[Scope] = []
         acl_missing: list[str] = []
         for acl_action in acl.actions:
-            scope = _scope_for_action(capabilities, acl, acl_action)
+            scope = capabilities.get((type(acl), acl.acl_name, acl_action))
             if scope is None:
                 acl_missing.append(acl_action)
                 continue

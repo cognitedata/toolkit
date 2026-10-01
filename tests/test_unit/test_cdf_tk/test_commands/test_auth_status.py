@@ -188,7 +188,7 @@ class TestAuthStatus:
             "asset_read": format_action_access(current_resources["AssetIO"].read),
             "asset_hidden_on_data_modeling_only": "AssetIO" not in other_resources,
             "function_read": format_action_access(current_resources["FunctionIO"].read),
-            "group_read": format_action_access(current_resources["GroupAllScopedCRUD"].read),
+            "group_read": format_action_access(current_resources["GroupAllScopedIO"].read),
             "events_only_on_other": "EventIO" in other_resources and "EventIO" not in current_resources,
         } == {
             "authenticated": True,
@@ -284,8 +284,8 @@ class TestAuthStatus:
         resources, _ = resources_from_capabilities(inspected.to_project_capabilities(CDF_PROJECT), "HYBRID")
         assert {item.io_name for item in resources} == {
             "FunctionScheduleIO",
-            "GroupAllScopedCRUD",
-            "GroupResourceScopedCRUD",
+            "GroupAllScopedIO",
+            "GroupResourceScopedIO",
             "SecurityCategoryIO",
         }
 
@@ -368,5 +368,5 @@ class TestAuthStatus:
         )
         resources, _ = resources_from_capabilities(capabilities, "HYBRID")
         names = [item.io_name for item in resources]
-        expected = ["ContainerCRUD", "DataModelIO", "EdgeCRUD", "NodeCRUD", "SpaceCRUD", "ViewIO"]
+        expected = ["ContainerIO", "DataModelIO", "EdgeIO", "NodeIO", "SpaceIO", "ViewIO"]
         assert {name: names.count(name) for name in expected} == {name: 1 for name in expected}
