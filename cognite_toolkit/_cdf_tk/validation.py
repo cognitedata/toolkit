@@ -49,7 +49,7 @@ def validate_resource_yaml_pydantic(
     validation_type: Any = validation_cls
     try:
         if isinstance(data, dict):
-            if isinstance(data, BaseModel):
+            if isinstance(validation_cls, type) and issubclass(validation_cls, BaseModel):
                 validation_cls.model_validate(data, strict=True)
             else:
                 TypeAdapter(validation_cls).validate_python(data, strict=True)

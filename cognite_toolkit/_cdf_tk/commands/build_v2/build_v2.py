@@ -12,7 +12,7 @@ from typing import Any, ClassVar, Literal, cast
 
 import questionary
 import yaml
-from pydantic import JsonValue, TypeAdapter, ValidationError
+from pydantic import JsonValue, ValidationError
 from questionary import Choice
 from rich.console import Console, Group, RenderableType
 from rich.progress import Progress
@@ -1047,15 +1047,11 @@ class BuildV2Command(ToolkitCommand):
         resource_file: Path,
         variables: list[BuildVariable],
     ) -> ReadYAMLFile:
-        # MyPy complains as the yaml_cls type is determined at runtime,
-        # and thus not available to te static type checker.
-        adapter = TypeAdapter[list[crud_class.yaml_cls]](list[crud_class.yaml_cls])  # type: ignore[name-defined]
         toolkit_resources: list[ToolkitResource] = []
         try:
             toolkit_resources = crud_class.validate_list(parsed_yaml, extra="forbid")
-            toolkit_resources = adapter.validate_python(parsed_yaml)
         except ValidationError as errors:
-            syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file, adapter)
+            syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file, crud_class.yaml_cls)
             if syntax_warning is not None:
                 result.syntax_warnings.append(syntax_warning)
             result.syntax_error = syntax_error
