@@ -12,7 +12,7 @@ from typing import Any, ClassVar, Literal, cast
 
 import questionary
 import yaml
-from pydantic import JsonValue, TypeAdapter, ValidationError
+from pydantic import JsonValue, ValidationError
 from questionary import Choice
 from rich.console import Console, Group, RenderableType
 from rich.progress import Progress
@@ -1013,11 +1013,11 @@ class BuildV2Command(ToolkitCommand):
     ) -> ReadYAMLFile:
         toolkit_resource: ToolkitResource | None = None
         try:
-            toolkit_resource = crud_class.yaml_cls.model_validate(parsed_yaml, extra="forbid")
+            toolkit_resource = crud_class.validate_object(parsed_yaml, extra="forbid")
             identifier = toolkit_resource.as_id()
             result.syntax_warnings.extend(toolkit_resource.syntax_warnings(resource_file))
         except ValidationError as errors:
-            syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file)
+            syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file, crud_class.yaml_cls)
             if syntax_warning is not None:
                 result.syntax_warnings.append(syntax_warning)
             result.syntax_error = syntax_error
@@ -1047,14 +1047,11 @@ class BuildV2Command(ToolkitCommand):
         resource_file: Path,
         variables: list[BuildVariable],
     ) -> ReadYAMLFile:
-        # MyPy complains as the yaml_cls type is determined at runtime,
-        # and thus not available to te static type checker.
-        adapter = TypeAdapter[list[crud_class.yaml_cls]](list[crud_class.yaml_cls])  # type: ignore[name-defined]
         toolkit_resources: list[ToolkitResource] = []
         try:
-            toolkit_resources = adapter.validate_python(parsed_yaml)
+            toolkit_resources = crud_class.validate_list(parsed_yaml, extra="forbid")
         except ValidationError as errors:
-            syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file)
+            syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file, crud_class.yaml_cls)
             if syntax_warning is not None:
                 result.syntax_warnings.append(syntax_warning)
             result.syntax_error = syntax_error
@@ -1121,9 +1118,9 @@ class BuildV2Command(ToolkitCommand):
         return output
 
     def _create_syntax_warning(
-        self, error: ValidationError, resource_file: AbsoluteFilePath
+        self, error: ValidationError, resource_file: AbsoluteFilePath, validation_type: Any = None
     ) -> tuple[ModelSyntaxError | None, ModelSyntaxWarning | None]:
-        categorized_errors = humanize_validation_error_categorized(error) or [
+        categorized_errors = humanize_validation_error_categorized(error, validation_type) or [
             ("The YAML doesn't follow the required format.", "error")
         ]
         warning_messages = [message for message, category in categorized_errors if category == "warning"]

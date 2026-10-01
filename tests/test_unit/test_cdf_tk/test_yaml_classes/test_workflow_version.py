@@ -62,8 +62,8 @@ def invalid_workflow_version_test_cases() -> Iterable:
             },
         },
         {
-            "Missing required field in workflowDefinition.tasks[1].function.parameters: 'function'",
-            "Invalid value at workflowDefinition.tasks[1].function.retries: Input should be a valid "
+            "Missing required field in workflowDefinition.tasks[1].parameters: 'function'",
+            "Invalid value at workflowDefinition.tasks[1].retries: Input should be a valid "
             "integer. Got 'notAnInt' of type str.",
         },
         id="Wrong type for retries",
@@ -78,9 +78,9 @@ def invalid_workflow_version_test_cases() -> Iterable:
             },
         },
         {
-            "Unrecognized value for workflowDefinition.tasks[1].function.onFailure: Expected one of "
+            "Unrecognized value for workflowDefinition.tasks[1].onFailure: Expected one of "
             "'abortWorkflow' or 'skipTask'. Got 'notAValidValue'.",
-            "Missing required field in workflowDefinition.tasks[1].function.parameters: 'function'",
+            "Missing required field in workflowDefinition.tasks[1].parameters: 'function'",
         },
         id="Invalid enum value for onFailure",
     )
@@ -121,7 +121,7 @@ def invalid_workflow_version_test_cases() -> Iterable:
             },
         },
         {
-            "Invalid value at workflowDefinition.tasks[1].functionApp.parameters.functionApp.parameters: "
+            "Invalid value at workflowDefinition.tasks[1].parameters.functionApp.parameters: "
             "Dictionary should have at most 10 items after validation, not 11"
         },
         id="functionApp parameters exceeds max 10 entries",
@@ -144,7 +144,7 @@ def invalid_workflow_version_test_cases() -> Iterable:
             },
         },
         {
-            "Invalid value at workflowDefinition.tasks[1].function.lineageAnnotation.sources: List should have at "
+            "Invalid value at workflowDefinition.tasks[1].lineageAnnotation.sources: List should have at "
             "most 100 items after validation, not 101"
         },
         id="lineageAnnotation sources exceeds max 100 entries",

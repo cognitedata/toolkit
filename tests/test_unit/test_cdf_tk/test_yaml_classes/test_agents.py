@@ -62,8 +62,8 @@ def invalid_test_cases() -> Iterable:
             "Invalid value for externalId: String should have at most 128 characters",
             "Invalid value for instructions: String should have at most 32000 characters",
             "Invalid value for name: String should have at most 255 characters",
-            "Invalid value at tools[1].askDocument.description: String should have at least 10 characters",
-            "Invalid value at tools[1].askDocument.name: String should have at least 1 character",
+            "Invalid value at tools[1].description: String should have at least 10 characters",
+            "Invalid value at tools[1].name: String should have at least 1 character",
         },
         id="length-validation-errors",
     )
@@ -88,10 +88,10 @@ def invalid_test_cases() -> Iterable:
             ],
         },
         {
-            "Invalid value at tools[1].queryKnowledgeGraph.configuration.dataModels: List should have at "
+            "Invalid value at tools[1].configuration.dataModels: List should have at "
             "least 1 item after validation, not 0",
-            "Missing required field in tools[1].queryKnowledgeGraph.configuration.instanceSpaces.manual: 'spaces'",
-            "Unrecognized value for tools[1].queryKnowledgeGraph.configuration.version: Expected one of 'v1' or 'v2'. Got 'v3'.",
+            "Missing required field in tools[1].configuration.instanceSpaces: 'spaces'",
+            "Unrecognized value for tools[1].configuration.version: Expected one of 'v1' or 'v2'. Got 'v3'.",
         },
         id="nested-tool-validation-errors",
     )
@@ -121,10 +121,10 @@ def invalid_test_cases() -> Iterable:
         },
         {
             "Invalid value for externalId: String should match pattern '^[^\\x00]{1,128}$'",
-            "Invalid value at tools[1].queryKnowledgeGraph.configuration.dataModels: List should have at "
+            "Invalid value at tools[1].configuration.dataModels: List should have at "
             "most 80 items after validation, not 81",
-            "Invalid value at tools[1].queryKnowledgeGraph.description: String should have at most 1024 characters",
-            "Invalid value at tools[1].queryKnowledgeGraph.name: String should match pattern '^[^\\x00]{1,64}$'",
+            "Invalid value at tools[1].description: String should have at most 1024 characters",
+            "Invalid value at tools[1].name: String should match pattern '^[^\\x00]{1,64}$'",
         },
         id="pattern-and-nested-validation-errors",
     )

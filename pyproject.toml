@@ -50,7 +50,7 @@ Documentation = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/reso
 
 [dependency-groups]
 dev = [
-    "mypy >=1.8.0",
+    "mypy >=2.3.1",
     "pre-commit >=4.0.0",
     "pytest >=8.0.0",
     "pytest-icdiff", # Used for better diffs in pytest
@@ -142,6 +142,9 @@ follow_imports = "normal"
 ignore_missing_imports = true
 warn_redundant_casts = true
 warn_unused_ignores = true
+# To allow from typing_extension import TypeForm
+enable_incomplete_feature = ["TypeForm"]
+
 exclude = []
 plugins = ["pydantic.mypy"]
 
