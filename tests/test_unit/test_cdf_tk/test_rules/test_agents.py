@@ -14,8 +14,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltR
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
-from cognite_toolkit._cdf_tk.resource_ios import AgentIO
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceType
+from cognite_toolkit._cdf_tk.resource_ios import AgentIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._agents import AgentRuleSet
 
 

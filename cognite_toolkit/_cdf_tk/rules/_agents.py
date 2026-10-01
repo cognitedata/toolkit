@@ -8,8 +8,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     InternalValidatorException,
 )
-from cognite_toolkit._cdf_tk.resource_ios import AgentIO
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceType
+from cognite_toolkit._cdf_tk.resource_ios import AgentIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file

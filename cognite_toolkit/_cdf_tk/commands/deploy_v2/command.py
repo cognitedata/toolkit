@@ -62,10 +62,10 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RawTableIO,
     ResourceContainerIO,
     ResourceIO,
+    ResourceType,
     SpaceIO,
     ViewIO,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceType
 from cognite_toolkit._cdf_tk.tk_warnings import (
     EnvironmentVariableMissingWarning,
     LowSeverityWarning,

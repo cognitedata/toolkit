@@ -35,10 +35,10 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     DataModelIO,
     DataSetsIO,
     ResourceIO,
+    ResourceType,
     TimeSeriesIO,
     ViewIO,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceType
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 
 CONTAINER_ID = ContainerId(space="my_space", external_id="MyContainer")
