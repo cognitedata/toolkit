@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Con
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import URL
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, DataModelIO, ResourceIO, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, ResourceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 
@@ -118,7 +118,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         during ``cdf build``.
         """
         cruds: tuple[ResourceIO[Any, Any, Any, Any], ...] = (
-            ContainerCRUD(client),
+            ContainerIO(client),
             ViewIO(client),
             DataModelIO(client),
         )

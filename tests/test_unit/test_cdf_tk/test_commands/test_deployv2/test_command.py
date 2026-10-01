@@ -57,16 +57,16 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.resource_ios import (
     AssetIO,
-    CogniteFileCRUD,
-    ContainerCRUD,
+    CogniteFileIO,
+    ContainerIO,
     DataSetsIO,
     FunctionScheduleIO,
     LabelIO,
-    RawDatabaseCRUD,
-    RawTableCRUD,
+    RawDatabaseIO,
+    RawTableIO,
     ResourceIO,
-    SpaceCRUD,
-    TimeSeriesCRUD,
+    SpaceIO,
+    TimeSeriesIO,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 
@@ -207,15 +207,15 @@ class TestCreateDeploymentPlan:
                         ResourceDirectory(
                             directory=Path("build/data_modeling"),
                             files_by_crud={
-                                ContainerCRUD: [Path("build/data_modeling/my.Container.yaml")],
-                                SpaceCRUD: [Path("build/data_modeling/my.Space.yaml")],
+                                ContainerIO: [Path("build/data_modeling/my.Container.yaml")],
+                                SpaceIO: [Path("build/data_modeling/my.Space.yaml")],
                             },
                         )
                     ],
                 ),
                 [
-                    DeploymentStep(SpaceCRUD, [Path("build/data_modeling/my.Space.yaml")]),
-                    DeploymentStep(ContainerCRUD, [Path("build/data_modeling/my.Container.yaml")]),
+                    DeploymentStep(SpaceIO, [Path("build/data_modeling/my.Space.yaml")]),
+                    DeploymentStep(ContainerIO, [Path("build/data_modeling/my.Container.yaml")]),
                 ],
                 id="Topological sorting of dependencies",
             ),
@@ -226,7 +226,7 @@ class TestCreateDeploymentPlan:
                         ResourceDirectory(
                             directory=Path("build/files"),
                             files_by_crud={
-                                CogniteFileCRUD: [Path("build/files/my.CogniteFile.yaml")],
+                                CogniteFileIO: [Path("build/files/my.CogniteFile.yaml")],
                             },
                         )
                     ],
@@ -234,15 +234,13 @@ class TestCreateDeploymentPlan:
                         ResourceDirectory(
                             directory=Path("build/data_modeling"),
                             files_by_crud={
-                                SpaceCRUD: [Path("build/data_modeling/my.Space.yaml")],
+                                SpaceIO: [Path("build/data_modeling/my.Space.yaml")],
                             },
                         )
                     ],
                 ),
                 [
-                    DeploymentStep(
-                        CogniteFileCRUD, [Path("build/files/my.CogniteFile.yaml")], skipped_cruds={SpaceCRUD}
-                    ),
+                    DeploymentStep(CogniteFileIO, [Path("build/files/my.CogniteFile.yaml")], skipped_cruds={SpaceIO}),
                 ],
                 id="Skipped potential dependency",
             ),
@@ -273,7 +271,7 @@ class TestApplyPlan:
             pytest.param(
                 ApplyPlanTestCase(
                     yaml_files={"data_modeling/env.Space.yaml": "space: ${MY_VAR}\n"},
-                    crud_cls=SpaceCRUD,
+                    crud_cls=SpaceIO,
                     cdf_resources=[],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
@@ -295,7 +293,7 @@ class TestApplyPlan:
             pytest.param(
                 ApplyPlanTestCase(
                     yaml_files={"data_modeling/env.Space.yaml": "name: hello: world"},
-                    crud_cls=SpaceCRUD,
+                    crud_cls=SpaceIO,
                     cdf_resources=[],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
@@ -307,7 +305,7 @@ class TestApplyPlan:
             pytest.param(
                 ApplyPlanTestCase(
                     yaml_files={"data_modeling/my.Space.yaml": "space: my_space\n"},
-                    crud_cls=SpaceCRUD,
+                    crud_cls=SpaceIO,
                     cdf_resources=[],
                     acls_missing=True,
                     options=DeployOptions(dry_run=False),
@@ -321,7 +319,7 @@ class TestApplyPlan:
                         "data_modeling/a.Space.yaml": "space: my_space\n",
                         "data_modeling/b.Space.yaml": "space: my_space\n",
                     },
-                    crud_cls=SpaceCRUD,
+                    crud_cls=SpaceIO,
                     cdf_resources=[],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
@@ -384,7 +382,7 @@ class TestApplyPlan:
             pytest.param(
                 ApplyPlanTestCase(
                     yaml_files={"data_modeling/my.Space.yaml": "space: my_space\nname: Updated Name\n"},
-                    crud_cls=SpaceCRUD,
+                    crud_cls=SpaceIO,
                     cdf_resources=[
                         SpaceResponse(
                             space="my_space", name="Original Name", created_time=0, last_updated_time=0, is_global=False
@@ -409,7 +407,7 @@ class TestApplyPlan:
             pytest.param(
                 ApplyPlanTestCase(
                     yaml_files={"data_modeling/my.Space.yaml": "space: new_space\n"},
-                    crud_cls=SpaceCRUD,
+                    crud_cls=SpaceIO,
                     cdf_resources=[],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
@@ -430,7 +428,7 @@ class TestApplyPlan:
             pytest.param(
                 ApplyPlanTestCase(
                     yaml_files={"data_modeling/my.Space.yaml": "space: my_space\n"},
-                    crud_cls=SpaceCRUD,
+                    crud_cls=SpaceIO,
                     cdf_resources=[
                         SpaceResponse(space="my_space", created_time=0, last_updated_time=0, is_global=False)
                     ],
@@ -453,7 +451,7 @@ class TestApplyPlan:
             pytest.param(
                 ApplyPlanTestCase(
                     yaml_files={"raw/my.Database.yaml": "dbName: my_db\ntableName: my_table\n"},
-                    crud_cls=RawDatabaseCRUD,
+                    crud_cls=RawDatabaseIO,
                     cdf_resources=[RAWDatabaseResponse(name="my_db", created_time=0)],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
@@ -483,7 +481,7 @@ class TestApplyPlan:
             pytest.param(
                 ApplyPlanTestCase(
                     yaml_files={"raw/my.Table.yaml": "dbName: my_db\ntableName: my_table\nextraField: extra_value\n"},
-                    crud_cls=RawTableCRUD,
+                    crud_cls=RawTableIO,
                     cdf_resources=[RAWTableResponse(db_name="my_db", name="my_table", created_time=0)],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
@@ -554,7 +552,7 @@ class TestApplyPlan:
         else:
             client.tool.token.verify_acls.return_value = []
 
-        if issubclass(case.crud_cls, SpaceCRUD):
+        if issubclass(case.crud_cls, SpaceIO):
             client.tool.spaces.retrieve.return_value = case.cdf_resources
         elif issubclass(case.crud_cls, FunctionScheduleIO):
             client.functions.status.return_value.status = "activated"
@@ -573,9 +571,9 @@ class TestApplyPlan:
             client.tool.functions.retrieve.return_value = function_responses
             client.tool.functions.schedules.list.return_value = case.cdf_resources
             client.tool.functions.schedules.input_data.return_value = FunctionScheduleData(id=37)
-        elif issubclass(case.crud_cls, RawDatabaseCRUD):
+        elif issubclass(case.crud_cls, RawDatabaseIO):
             client.tool.raw.databases.list.return_value = case.cdf_resources
-        elif issubclass(case.crud_cls, RawTableCRUD):
+        elif issubclass(case.crud_cls, RawTableIO):
             client.tool.raw.tables.list.return_value = case.cdf_resources
         else:
             pytest.fail(f"Test case for unsupported CRUD class: {case.crud_cls}")
@@ -594,7 +592,7 @@ class TestDeployResourcesValidationError:
         an unexpected JSON structure that will cause a pydantic ValidationError.
         """
         client = ToolkitClient(config=toolkit_config)
-        crud = SpaceCRUD.create_io(client)
+        crud = SpaceIO.create_io(client)
 
         resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy()
         resources.to_create = [SpaceRequest(space="my_space")]
@@ -642,7 +640,7 @@ class TestDeployResourcesRetryDump:
     ) -> None:
         """A 502 is retried once, then a 409 fails and the request is written with retriedStatusCodes [502]."""
         client = ToolkitClient(config=toolkit_config)
-        crud = SpaceCRUD.create_io(client)
+        crud = SpaceIO.create_io(client)
 
         resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy()
         resources.to_create = [SpaceRequest(space="my_space")]
@@ -775,7 +773,7 @@ class TestReadInsightsByResource:
 
         actual = DeployV2Command.read_insights_by_resource(build_dir, lineage)
 
-        key = (SpaceCRUD.as_resource_type(), space_id)
+        key = (SpaceIO.as_resource_type(), space_id)
         assert actual is not None
         assert key in actual
         actual_insights = actual[key]
@@ -806,7 +804,7 @@ class TestDeployResourcesRelatedInsights:
         client = MagicMock()
         client.console = Console(file=console_output, width=200)
         client.tool.spaces.create.side_effect = ToolkitAPIError("API failed")
-        crud = SpaceCRUD.create_io(client)
+        crud = SpaceIO.create_io(client)
         with pytest.raises(ResourceCreationError, match="Likely causes detected during"):
             DeployV2Command.deploy_resources(
                 crud, resources, skipped_cruds=set(), insights_by_resource=insights_by_resource
@@ -852,7 +850,7 @@ class TestDeployAccessControlErrors:
         client = ToolkitClient(config=toolkit_config)
 
         with pytest.raises(AuthorizationError) as exc_info:
-            DeployV2Command.apply_plan(client, [DeploymentStep(SpaceCRUD, [yaml_file])], DeployOptions(dry_run=False))
+            DeployV2Command.apply_plan(client, [DeploymentStep(SpaceIO, [yaml_file])], DeployOptions(dry_run=False))
 
         required = DataModelsAcl(actions=["READ", "WRITE"], scope=AllScope())
         assert str(exc_info.value) == (
@@ -897,7 +895,7 @@ class TestDeployAccessControlErrors:
 
         with pytest.raises(AuthorizationError) as exc_info:
             DeployV2Command.apply_plan(
-                client, [DeploymentStep(TimeSeriesCRUD, [yaml_file])], DeployOptions(dry_run=False)
+                client, [DeploymentStep(TimeSeriesIO, [yaml_file])], DeployOptions(dry_run=False)
             )
 
         missing_owner = DataSetsAcl(actions=["OWNER"], scope=IDScope(ids=[data_set_id]))

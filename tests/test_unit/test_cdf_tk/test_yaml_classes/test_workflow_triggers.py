@@ -113,7 +113,7 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
             "workflowVersion": "v1",
             "authentication": {"clientId": "id", "clientSecret": "secret"},
         },
-        {"Invalid value at input.dict.not_json: input was not a valid JSON value"},
+        {"Invalid value at input.not_json: input was not a valid JSON value"},
         id="Invalid Json input in dataModelingQuery",
     )
 

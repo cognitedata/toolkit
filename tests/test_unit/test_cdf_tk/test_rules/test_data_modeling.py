@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId, ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, ResourceIO, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, ResourceIO, ViewIO
 from cognite_toolkit._cdf_tk.rules._data_modeling import DataModelingRuleSet
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 
@@ -238,7 +238,7 @@ class TestContainerPropertyReferences:
             modules=[
                 _module(
                     [
-                        (container_file, ContainerCRUD, CONTAINER_ID),
+                        (container_file, ContainerIO, CONTAINER_ID),
                         (view_file, ViewIO, VIEW_ID),
                     ]
                 )
@@ -295,7 +295,7 @@ class TestReverseDirectRelations:
             modules=[
                 _module(
                     [
-                        (container_file, ContainerCRUD, CONTAINER_ID),
+                        (container_file, ContainerIO, CONTAINER_ID),
                         (mapped_view, ViewIO, OTHER_VIEW_ID),
                         (reverse_view, ViewIO, VIEW_ID),
                     ]
@@ -313,7 +313,7 @@ class TestReverseDirectRelations:
             modules=[
                 _module(
                     [
-                        (container_file, ContainerCRUD, CONTAINER_ID),
+                        (container_file, ContainerIO, CONTAINER_ID),
                         (mapped_view, ViewIO, OTHER_VIEW_ID),
                         (reverse_view, ViewIO, VIEW_ID),
                     ]
@@ -363,7 +363,7 @@ class TestReverseDirectRelations:
 class TestDataModelingChangesMove:
     def test_state_changes_run_here_and_are_skipped_by_dependency_rules(self, tmp_path: Path) -> None:
         container_file = _write(tmp_path, "MyContainer.container.yaml", CONTAINER_REMOVED_PROPERTY_YAML)
-        module = _module([(container_file, ContainerCRUD, CONTAINER_ID)])
+        module = _module([(container_file, ContainerIO, CONTAINER_ID)])
         deployed_property = ContainerPropertyDefinition(
             type=TextProperty(list=False, collation="ucs_basic"),
             immutable=False,

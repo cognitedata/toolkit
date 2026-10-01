@@ -51,6 +51,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.sap_writeback import SAPEndpointResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
@@ -66,7 +67,7 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
 from cognite_toolkit._cdf_tk.resource_ios import (
     AgentIO,
-    ContainerCRUD,
+    ContainerIO,
     DataModelIO,
     DataSetsIO,
     ExternalDataSourceIO,
@@ -80,11 +81,14 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     HostedExtractorMappingIO,
     HostedExtractorSourceIO,
     LocationFilterIO,
-    NodeCRUD,
+    NodeIO,
     ResourceIO,
     ResourceViewMappingIO,
+    SAPEndpointIO,
+    SAPInstanceIO,
+    SchemaMappingIO,
     SearchConfigIO,
-    SpaceCRUD,
+    SpaceIO,
     StreamlitIO,
     TransformationIO,
     TransformationNotificationIO,
@@ -231,13 +235,13 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId]):
             yield [], model_list, model_loader, None
         if self._include_global or is_global_model:
             yield list(self.view_ids), None, ViewIO.create_io(self.client), "views"
-            yield list(self.container_ids), None, ContainerCRUD.create_io(self.client), "containers"
-            yield list(self.space_ids), None, SpaceCRUD.create_io(self.client), None
+            yield list(self.container_ids), None, ContainerIO.create_io(self.client), "containers"
+            yield list(self.space_ids), None, SpaceIO.create_io(self.client), None
         else:
             view_loader = ViewIO(self.client, topological_sort_implements=True)
             views = [view for view in view_loader.retrieve(list(self.view_ids)) if not view.is_global]
             yield [], views, view_loader, "views"
-            container_loader = ContainerCRUD.create_io(self.client)
+            container_loader = ContainerIO.create_io(self.client)
             containers = [
                 container
                 for container in container_loader.retrieve(list(self.container_ids))
@@ -245,7 +249,7 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId]):
             ]
             yield [], containers, container_loader, "containers"
 
-            space_loader = SpaceCRUD.create_io(self.client)
+            space_loader = SpaceIO.create_io(self.client)
             spaces = [space for space in space_loader.retrieve(list(self.space_ids)) if not space.is_global]
             yield [], spaces, space_loader, None
 
@@ -510,7 +514,7 @@ class NodeFinder(ResourceFinder[ViewNoVersionId]):
                 raise ToolkitResourceMissingError(f"View {identifier} not found", str(identifier))
             view_id = view[0].as_id()
 
-        loader = NodeCRUD(self.client, view_id)
+        loader = NodeIO(self.client, view_id)
         if self.is_interactive:
             count = self.client.data_modeling.instances.aggregate(
                 dm.ViewId(
@@ -905,7 +909,7 @@ class SpaceFinder(ResourceFinder[tuple[str, ...]]):
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
-        loader = SpaceCRUD.create_io(self.client)
+        loader = SpaceIO.create_io(self.client)
         yield [SpaceId(space=space) for space in self.identifier], None, loader, None
 
 
@@ -978,6 +982,66 @@ class ResourceViewMappingFinder(ResourceFinder[tuple[str, ...]]):
             yield [], selected_mappings, loader, None
         else:
             yield [ExternalId(external_id=external_id) for external_id in self.identifier], None, loader, None
+
+
+class SAPWritebackFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
+        super().__init__(client, identifier)
+        self.endpoints: list[SAPEndpointResponse] | None = None
+        self._instance_ids: set[str] = set()
+        self._mapping_ids: set[str] = set()
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        self.endpoints = self.client.sap_writeback.endpoints.list(limit=None)
+        if not self.endpoints:
+            raise ToolkitMissingResourceError("No SAP endpoints found")
+        choices = [
+            Choice(f"{endpoint.external_id} ({endpoint.endpoint_type})", value=endpoint.external_id)
+            for endpoint in sorted(self.endpoints, key=lambda endpoint: endpoint.external_id)
+        ]
+        selected_endpoint_ids: list[str] | None = questionary.checkbox(
+            "Which SAP endpoint(s) would you like to dump?",
+            choices=choices,
+            validate=lambda choices: True if choices else "You must select at least one SAP endpoint.",
+        ).unsafe_ask()
+        if not selected_endpoint_ids:
+            raise ToolkitValueError(f"No SAP endpoints selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
+        return tuple(selected_endpoint_ids)
+
+    def update(self, resources: Sequence[ResourceResponseProtocol]) -> None:
+        for resource in resources:
+            if not isinstance(resource, SAPEndpointResponse):
+                continue
+            self._instance_ids.add(resource.instance_id)
+            if resource.mapping_id:
+                self._mapping_ids.add(resource.mapping_id)
+
+    def __iter__(
+        self,
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
+        self.identifier = self._selected()
+        selected_ids = set(self.identifier)
+        endpoint_loader = SAPEndpointIO.create_io(self.client)
+        if self.endpoints:
+            selected_endpoints = [endpoint for endpoint in self.endpoints if endpoint.external_id in selected_ids]
+            yield [], selected_endpoints, endpoint_loader, None
+        else:
+            yield [ExternalId(external_id=external_id) for external_id in self.identifier], None, endpoint_loader, None
+
+        if self._instance_ids:
+            yield (
+                [ExternalId(external_id=external_id) for external_id in sorted(self._instance_ids)],
+                None,
+                SAPInstanceIO.create_io(self.client),
+                None,
+            )
+        if self._mapping_ids:
+            yield (
+                [ExternalId(external_id=external_id) for external_id in sorted(self._mapping_ids)],
+                None,
+                SchemaMappingIO.create_io(self.client),
+                None,
+            )
 
 
 class DumpResourceCommand(ToolkitCommand):

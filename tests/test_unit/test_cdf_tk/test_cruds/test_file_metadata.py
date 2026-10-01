@@ -7,7 +7,7 @@ from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
-from cognite_toolkit._cdf_tk.resource_ios import FileMetadataCRUD
+from cognite_toolkit._cdf_tk.resource_ios import FileMetadataIO
 from tests.test_unit.approval_client.client import LookUpAPIMock
 
 
@@ -26,7 +26,7 @@ $FILEPATH: some_file.txt
                 source="sharepointABC",
                 name="A file.txt",
                 data_set_id=LookUpAPIMock.create_id("ds_files"),
-                metadata={FileMetadataCRUD._MetadataKey.FILECONTENT_HASH: "hash"},
+                metadata={FileMetadataIO._MetadataKey.FILECONTENT_HASH: "hash"},
             )
         ],
         id="Single file as mapping",
@@ -50,14 +50,14 @@ $FILEPATH: some_file.txt
                 source="sharepointABC",
                 name="A file.txt",
                 data_set_id=LookUpAPIMock.create_id("ds_files"),
-                metadata={FileMetadataCRUD._MetadataKey.FILECONTENT_HASH: "hash"},
+                metadata={FileMetadataIO._MetadataKey.FILECONTENT_HASH: "hash"},
             ),
             FileMetadataRequest(
                 external_id="sharepointABC2",
                 source="sharepointABC",
                 name="Another file.txt",
                 data_set_id=LookUpAPIMock.create_id("ds_files"),
-                metadata={FileMetadataCRUD._MetadataKey.FILECONTENT_HASH: "hash"},
+                metadata={FileMetadataIO._MetadataKey.FILECONTENT_HASH: "hash"},
             ),
         ],
         id="Multiple files as array",
@@ -74,12 +74,12 @@ class TestLoadResources:
         toolkit_client_with_lookup: ToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        fileio = FileMetadataCRUD(toolkit_client_with_lookup)
+        fileio = FileMetadataIO(toolkit_client_with_lookup)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = yaml_content
         filepath.parent.glob.return_value = [Path(f) for f in files]
 
-        with patch(f"{FileMetadataCRUD.__module__}.calculate_hash", return_value="hash"):
+        with patch(f"{FileMetadataIO.__module__}.calculate_hash", return_value="hash"):
             resources = fileio.load_resource_files([filepath], is_dry_run=False)
 
         assert [resource.dump() for resource in resources] == [item.dump() for item in expected]
@@ -102,7 +102,7 @@ class TestLoadResources:
             last_updated_time=0,
             uploaded=True,
         )
-        loader = FileMetadataCRUD.create_io(toolkit_client_cheap)
+        loader = FileMetadataIO.create_io(toolkit_client_cheap)
 
         dumped = loader.dump_resource(metadata)
 
@@ -123,7 +123,7 @@ class TestFileMetadataCRUDUpdate:
     )
     def test_reupload_based_on_hash(self, cdf_hash: str, local_hash: str, expect_upload: bool) -> None:
         mock_client = MagicMock()
-        fileio = FileMetadataCRUD(mock_client, support_upload=True)
+        fileio = FileMetadataIO(mock_client, support_upload=True)
 
         def _response(h: str) -> FileMetadataResponse:
             return FileMetadataResponse(
@@ -133,7 +133,7 @@ class TestFileMetadataCRUDUpdate:
                 created_time=0,
                 last_updated_time=0,
                 uploaded=True,
-                metadata={FileMetadataCRUD._MetadataKey.FILECONTENT_HASH: h},
+                metadata={FileMetadataIO._MetadataKey.FILECONTENT_HASH: h},
             )
 
         mock_client.tool.filemetadata.retrieve.return_value = [_response(cdf_hash)]
@@ -144,7 +144,7 @@ class TestFileMetadataCRUDUpdate:
         item = FileMetadataRequest(
             external_id="f",
             name="f.txt",
-            metadata={FileMetadataCRUD._MetadataKey.FILECONTENT_HASH: local_hash},
+            metadata={FileMetadataIO._MetadataKey.FILECONTENT_HASH: local_hash},
             filepath=MagicMock(spec=Path),
         )
         fileio.update([item])

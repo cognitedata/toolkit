@@ -28,7 +28,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
-from cognite_toolkit._cdf_tk.resource_ios import FileMetadataCRUD
+from cognite_toolkit._cdf_tk.resource_ios import FileMetadataIO
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker, chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
@@ -83,7 +83,7 @@ class FileContentIO(UploadableDataIO[FileContentSelector, MetadataWithFilePath, 
 
     def __init__(self, client: ToolkitClient, target_dir: Path = Path.cwd()) -> None:
         super().__init__(client)
-        self._crud = FileMetadataCRUD(client)
+        self._crud = FileMetadataIO(client)
         self._target_dir = target_dir
 
     def stream_data(

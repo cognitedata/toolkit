@@ -41,11 +41,11 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
 from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import DataFilter
 from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ViewReference
 
-from ._auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedIO
 from ._classic import AssetIO
 from ._data_organization import DataSetsIO
-from ._datamodel import SpaceCRUD, ViewIO
-from ._group_scoped import GroupResourceScopedCRUD
+from ._datamodel import SpaceIO, ViewIO
+from ._group_scoped import GroupResourceScopedIO
 
 
 @final
@@ -55,7 +55,7 @@ class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse, In
     resource_write_cls = APMConfigRequest
     kind = "InfieldV1"
     yaml_cls = InfieldV1YAML
-    dependencies = frozenset({DataSetsIO, AssetIO, SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
+    dependencies = frozenset({DataSetsIO, AssetIO, SpaceIO, GroupAllScopedIO, GroupResourceScopedIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
     _root_location_filters: tuple[str, ...] = ("general", "assets", "files", "timeseries")
     _group_keys: tuple[str, ...] = ("templateAdmins", "checklistAdmins")
@@ -119,9 +119,9 @@ class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse, In
     @classmethod
     def get_dependencies(cls, resource: InfieldV1YAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.app_data_space_id:
-            yield SpaceCRUD, SpaceId(space=resource.app_data_space_id)
+            yield SpaceIO, SpaceId(space=resource.app_data_space_id)
         if resource.customer_data_space_id:
-            yield SpaceCRUD, SpaceId(space=resource.customer_data_space_id)
+            yield SpaceIO, SpaceId(space=resource.customer_data_space_id)
         if not resource.feature_configuration:
             return
         for config in resource.feature_configuration.root_location_configurations or []:
@@ -130,13 +130,13 @@ class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse, In
             if config.data_set_external_id:
                 yield DataSetsIO, ExternalId(external_id=config.data_set_external_id)
             if config.app_data_instance_space:
-                yield SpaceCRUD, SpaceId(space=config.app_data_instance_space)
+                yield SpaceIO, SpaceId(space=config.app_data_instance_space)
             if config.source_data_instance_space:
-                yield SpaceCRUD, SpaceId(space=config.source_data_instance_space)
+                yield SpaceIO, SpaceId(space=config.source_data_instance_space)
             for group in config.template_admins or []:
-                yield GroupResourceScopedCRUD, NameId(name=group)
+                yield GroupResourceScopedIO, NameId(name=group)
             for group in config.checklist_admins or []:
-                yield GroupResourceScopedCRUD, NameId(name=group)
+                yield GroupResourceScopedIO, NameId(name=group)
             if not config.data_filters:
                 continue
             for filter_ in [
@@ -246,7 +246,7 @@ class InFieldLocationConfigIO(
     resource_write_cls = InFieldLocationConfigRequest
     kind = "InFieldLocationConfig"
     yaml_cls = InfieldLocationConfigYAML
-    dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
+    dependencies = frozenset({SpaceIO, GroupAllScopedIO, GroupResourceScopedIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @property
@@ -279,11 +279,11 @@ class InFieldLocationConfigIO(
     def get_dependencies(cls, resource: InfieldLocationConfigYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
         if resource.access_management:
             for group_name in resource.access_management.checklist_admins or []:
-                yield GroupResourceScopedCRUD, NameId(name=group_name)
+                yield GroupResourceScopedIO, NameId(name=group_name)
             for group_name in resource.access_management.template_admins or []:
-                yield GroupAllScopedCRUD, NameId(name=group_name)
+                yield GroupAllScopedIO, NameId(name=group_name)
         if resource.app_instance_space:
-            yield SpaceCRUD, SpaceId(space=resource.app_instance_space)
+            yield SpaceIO, SpaceId(space=resource.app_instance_space)
 
     def dump_resource(
         self, resource: InFieldLocationConfigResponse, local: dict[str, Any] | None = None
@@ -350,7 +350,7 @@ class InFieldCDMLocationConfigIO(
     resource_write_cls = InFieldCDMLocationConfigRequest
     kind = "InFieldCDMLocationConfig"
     yaml_cls = InFieldCDMLocationConfigYAML
-    dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD, ViewIO})
+    dependencies = frozenset({SpaceIO, GroupAllScopedIO, GroupResourceScopedIO, ViewIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @property
@@ -386,7 +386,7 @@ class InFieldCDMLocationConfigIO(
 
     @classmethod
     def get_dependencies(cls, resource: InFieldCDMLocationConfigYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
-        yield SpaceCRUD, SpaceId(space=resource.space)
+        yield SpaceIO, SpaceId(space=resource.space)
         if resource.data_exploration_config is not None:
             for value in vars(resource.data_exploration_config).values():
                 if isinstance(value, ViewReference):
@@ -402,12 +402,12 @@ class InFieldCDMLocationConfigIO(
             for data_filter in vars(resource.data_filters).values():
                 if isinstance(data_filter, DataFilter):
                     for instance_space in data_filter.instance_spaces or []:
-                        yield (SpaceCRUD, SpaceId(space=instance_space))
+                        yield (SpaceIO, SpaceId(space=instance_space))
         if resource.data_storage is not None:
             if resource.data_storage.root_location is not None:
-                yield (SpaceCRUD, SpaceId(space=resource.data_storage.root_location.space))
+                yield (SpaceIO, SpaceId(space=resource.data_storage.root_location.space))
             if resource.data_storage.app_instance_space is not None:
-                yield (SpaceCRUD, SpaceId(space=resource.data_storage.app_instance_space))
+                yield (SpaceIO, SpaceId(space=resource.data_storage.app_instance_space))
 
     @staticmethod
     def _view_dependent_items(candidate: dict) -> Iterable[tuple[type[ResourceIO], Hashable]]:

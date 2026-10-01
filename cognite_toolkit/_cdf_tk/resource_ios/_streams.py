@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceContainerIO
 from cognite_toolkit._cdf_tk.utils.time import time_windows_ms
 from cognite_toolkit._cdf_tk.yaml_classes import StreamYAML
 
-from ._datamodel import ContainerCRUD
+from ._datamodel import ContainerIO
 
 _TIMEDELTA_ADAPTER: TypeAdapter[timedelta] = TypeAdapter(timedelta)
 
@@ -35,7 +35,7 @@ class StreamIO(ResourceContainerIO[ExternalId, StreamRequest, StreamResponse, St
     resource_write_cls = StreamRequest
     kind = "Streams"
     yaml_cls = StreamYAML
-    dependencies = frozenset({ContainerCRUD})
+    dependencies = frozenset({ContainerIO})
     _doc_url = "Streams/operation/createStream"
     support_update = False
     drop_confirmation_message = (

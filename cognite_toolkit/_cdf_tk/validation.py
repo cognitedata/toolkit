@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, NamedTuple, TypeVar
 
@@ -30,7 +32,7 @@ class _GroupEntry(NamedTuple):
 
 
 def validate_resource_yaml_pydantic(
-    data: dict[str, object] | list[dict[str, object]], validation_cls: type[BaseModelResource], source_file: Path
+    data: dict[str, object] | list[dict[str, object]], validation_cls: type[BaseModelResource] | Any, source_file: Path
 ) -> WarningList:
     """Validates the resource given as a dictionary or list of dictionaries with the given pydantic model.
 
@@ -44,15 +46,20 @@ def validate_resource_yaml_pydantic(
 
     """
     warning_list: WarningList = WarningList()
+    validation_type: Any = validation_cls
     try:
         if isinstance(data, dict):
-            validation_cls.model_validate(data, strict=True)
+            if isinstance(validation_cls, type) and issubclass(validation_cls, BaseModel):
+                validation_cls.model_validate(data, strict=True)
+            else:
+                TypeAdapter(validation_cls).validate_python(data, strict=True)
         elif isinstance(data, list):
-            TypeAdapter(list[validation_cls]).validate_python(data)  # type: ignore[valid-type]
+            validation_type = list[validation_cls]  # type: ignore[valid-type]
+            TypeAdapter(validation_type).validate_python(data, strict=True)
         else:
             raise ValueError(f"Expected a dictionary or list of dictionaries, got {type(data)}.")
     except ValidationError as e:
-        printable_errors = tuple(humanize_validation_error(e))
+        printable_errors = tuple(humanize_validation_error(e, validation_type))
         if printable_errors:
             warning_list.append(ResourceFormatWarning(source_file, printable_errors))
     return warning_list
@@ -75,10 +82,10 @@ def instantiate_class(
     try:
         return validation_cls.model_validate(data, strict=strict)
     except ValidationError as e:
-        return ResourceFormatWarning(source_file, tuple(humanize_validation_error(e)))
+        return ResourceFormatWarning(source_file, tuple(humanize_validation_error(e, validation_cls)))
 
 
-def humanize_validation_error(error: ValidationError) -> list[str]:
+def humanize_validation_error(error: ValidationError, validation_type: Any = None) -> list[str]:
     """Converts a ValidationError to a human-readable format.
 
     This overwrites the default error messages from Pydantic to be better suited for Toolkit users.
@@ -88,14 +95,17 @@ def humanize_validation_error(error: ValidationError) -> list[str]:
 
     Args:
         error: The ValidationError to convert.
+        validation_type: The type (pydantic model, annotated union, TypeAdapter, ...) that was used for the
+            validation that raised the error. If given, discriminated union tags are removed from the error
+            locations, such that the locations match the paths in the user input.
 
     Returns:
         A list of human-readable error messages.
     """
-    return [message for message, _ in humanize_validation_error_categorized(error)]
+    return [message for message, _ in humanize_validation_error_categorized(error, validation_type)]
 
 
-def humanize_validation_error_categorized(error: ValidationError) -> list[tuple[str, str]]:
+def humanize_validation_error_categorized(error: ValidationError, validation_type: Any = None) -> list[tuple[str, str]]:
     """Same as ``humanize_validation_error``, but also classifies each message as "error" or "warning".
 
     Unrecognized fields and invalid enum/literal values are classified as "warning" since they do not
@@ -103,6 +113,9 @@ def humanize_validation_error_categorized(error: ValidationError) -> list[tuple[
 
     Args:
         error: The ValidationError to convert.
+        validation_type: The type (pydantic model, annotated union, TypeAdapter, ...) that was used for the
+            validation that raised the error. If given, discriminated union tags are removed from the error
+            locations, such that the locations match the paths in the user input.
 
     Returns:
         A list of (message, category) tuples, where category is either "error" or "warning".
@@ -112,9 +125,12 @@ def humanize_validation_error_categorized(error: ValidationError) -> list[tuple[
     ordered_entries: list[_MessageEntry | _GroupEntry] = []
     field_groups_by_loc: dict[tuple[str | int, ...], dict[str, list[str]]] = {}
     item: ErrorDetails
+    core_schema = _get_core_schema(validation_type) if validation_type is not None else None
 
     for item in error.errors(include_input=True, include_url=False):
         loc = item["loc"]
+        if core_schema is not None:
+            loc = _remove_discriminator_tags(loc, core_schema)
         error_type = item["type"]
         category = "error"
         is_metadata_string_value_error = error_type == "string_type" and len(loc) >= 2 and loc[-2] == "metadata"
@@ -224,6 +240,109 @@ def humanize_validation_error_categorized(error: ValidationError) -> list[tuple[
             field_word = "field" if len(unknown) == 1 else "fields"
             errors.append((f"Unrecognized {field_word} in {path}: {humanize_collection(unknown)}. ", "warning"))
     return errors
+
+
+def _get_core_schema(validation_type: Any) -> Mapping[str, Any] | None:
+    """Returns the pydantic core schema of the given type, or None if it cannot be determined."""
+    if isinstance(validation_type, TypeAdapter):
+        return validation_type.core_schema
+    try:
+        return _get_core_schema_cached(validation_type)
+    except TypeError:
+        # Unhashable type, cannot be cached.
+        return _create_core_schema(validation_type)
+
+
+@lru_cache(maxsize=256)
+def _get_core_schema_cached(validation_type: Any) -> Mapping[str, Any] | None:
+    return _create_core_schema(validation_type)
+
+
+def _create_core_schema(validation_type: Any) -> Mapping[str, Any] | None:
+    try:
+        return TypeAdapter(validation_type).core_schema
+    except Exception:
+        return None
+
+
+def _find_field(fields: Mapping[str, Any], key: str | int) -> Mapping[str, Any] | None:
+    """Finds the field in a (model/typed-dict) fields schema matching the location key (alias or name)."""
+    if not isinstance(key, str):
+        return None
+    for name, field in fields.items():
+        alias = field.get("validation_alias")
+        if key == alias or key == name:
+            return field
+        if isinstance(alias, list) and any(isinstance(path, list) and key in path for path in alias):
+            return field
+    return None
+
+
+def _remove_discriminator_tags(loc: tuple[str | int, ...], schema: Mapping[str, Any]) -> tuple[str | int, ...]:
+    """Removes the tags of discriminated (tagged) unions from an error location.
+
+    Pydantic includes the tag of the selected union member in the error location, for example,
+    ('external', 'capabilities', 0, 'scope'). The tag is not part of the user input, so we walk the
+    core schema alongside the location and drop the location elements that correspond to union tags.
+
+    If the schema cannot be followed (e.g., plain validators, non-discriminated unions, unknown fields),
+    the remaining location is kept as is.
+    """
+    definitions: dict[str, Mapping[str, Any]] = {}
+    output: list[str | int] = []
+    current: Mapping[str, Any] = schema
+    index = 0
+    # Guard against infinite loops, e.g., self-referencing definitions that do not consume the location.
+    for _ in range(1000):
+        if index >= len(loc):
+            break
+        key = loc[index]
+        schema_type = current.get("type")
+        if schema_type == "definitions":
+            for definition in current.get("definitions", []):
+                if ref := definition.get("ref"):
+                    definitions[ref] = definition
+            current = current["schema"]
+        elif schema_type == "definition-ref":
+            if (definition := definitions.get(current.get("schema_ref", ""))) is None:
+                break
+            current = definition
+        elif schema_type == "tagged-union":
+            choice = current.get("choices", {}).get(key)
+            if not isinstance(choice, Mapping):
+                break
+            # The tag is not part of the user input, so we skip it.
+            index += 1
+            current = choice
+        elif schema_type in {"model-fields", "typed-dict-fields"}:
+            if (field := _find_field(current.get("fields", {}), key)) is None:
+                break
+            output.append(key)
+            index += 1
+            current = field["schema"]
+        elif schema_type in {"list", "set", "frozenset", "generator"}:
+            if not isinstance(key, int) or "items_schema" not in current:
+                break
+            output.append(key)
+            index += 1
+            current = current["items_schema"]
+        elif schema_type == "dict":
+            if "values_schema" not in current:
+                break
+            output.append(key)
+            index += 1
+            current = current["values_schema"]
+        elif schema_type == "json-or-python":
+            current = current["python_schema"]
+        elif schema_type == "lax-or-strict":
+            current = current["lax_schema"]
+        elif schema_type != "function-plain" and isinstance(current.get("schema"), Mapping):
+            # For example, model, nullable, default, function-before/after/wrap
+            current = current["schema"]
+        else:
+            break
+    output.extend(loc[index:])
+    return tuple(output)
 
 
 def as_json_path(loc: tuple[str | int, ...]) -> str:

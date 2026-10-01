@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     LocationFilterFinder,
     NodeFinder,
     ResourceViewMappingFinder,
+    SAPWritebackFinder,
     SearchConfigFinder,
     SpaceFinder,
     StreamlitFinder,
@@ -56,6 +57,8 @@ class DumpApp(typer.Typer):
         self.command("agents")(DumpConfigApp.dump_agents)
 
         self.command("search-config")(DumpConfigApp.dump_search_config)
+        if Flags.SAP_WRITEBACK.is_enabled():
+            self.command("sap-writeback")(DumpConfigApp.dump_sap_writeback)
         if Flags.MIGRATE.is_enabled():
             self.command("resource-view-mapping")(DumpConfigApp.dump_resource_view_mapping)
 
@@ -84,6 +87,8 @@ class DumpConfigApp(typer.Typer):
         self.command("streamlit")(DumpConfigApp.dump_streamlit)
         self.command("agents")(self.dump_agents)
         self.command("search-config")(self.dump_search_config)
+        if Flags.SAP_WRITEBACK.is_enabled():
+            self.command("sap-writeback")(self.dump_sap_writeback)
         if Flags.MIGRATE.is_enabled():
             self.command("resource-view-mapping")(self.dump_resource_view_mapping)
 
@@ -814,6 +819,55 @@ class DumpConfigApp(typer.Typer):
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 SearchConfigFinder(client, tuple([selected_view_id]) if selected_view_id else None),
+                output_dir=output_dir,
+                clean=clean,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def dump_sap_writeback(
+        ctx: typer.Context,
+        external_id: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="The external ID(s) of the SAP endpoint(s) you want to dump. "
+                "Related SAP instances and schema mappings are included. "
+                "If nothing is provided, an interactive prompt will be shown to select the SAP endpoints.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the SAP writeback files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the SAP writeback resources.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected SAP endpoints, plus related SAP instances and schema mappings, as yaml to the folder specified, defaults to /tmp."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DumpResourceCommand(client=client)
+        cmd.run(
+            lambda: cmd.dump_to_yamls(
+                SAPWritebackFinder(client, tuple(external_id) if external_id else None),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,

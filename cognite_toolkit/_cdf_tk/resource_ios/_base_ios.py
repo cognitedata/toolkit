@@ -1,10 +1,12 @@
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Sized
+from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from typing_extensions import TypeForm
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import (
@@ -17,7 +19,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import ScopeDefinitio
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
-from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, ResourceType
@@ -93,7 +94,7 @@ class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResourc
     # Must be set in the subclass
     resource_write_cls: type[T_RequestResource]
     resource_cls: type[T_ResponseResource]
-    yaml_cls: type[ToolkitResource]
+    yaml_cls: TypeForm[T_YamlResource]
     folder_name: str
     kind: str
 
@@ -114,6 +115,37 @@ class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResourc
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
         self.console = client.console
+
+    @classmethod
+    def validate_object(
+        cls, resource: dict[str, Any], extra: Literal["allow", "ignore", "forbid"] = "forbid"
+    ) -> T_YamlResource:
+        """Validates the resource against the yaml_cls. This is used to validate the user input."""
+        return cls._get_yaml_cls().validate_python(resource, extra=extra)
+
+    @classmethod
+    def validate_list(
+        cls, resource: list[dict[str, Any]], extra: Literal["allow", "ignore", "forbid"] = "forbid"
+    ) -> list[T_YamlResource]:
+        """Validates the resource against the yaml_cls. This is used to validate the user input."""
+        return cls._get_list_wrapped_yaml_cls().validate_python(resource, extra=extra)
+
+    @classmethod
+    @cache
+    def _get_yaml_cls(
+        cls,
+    ) -> TypeAdapter[T_YamlResource]:
+        """Returns a TypeAdapter for the yaml_cls. This is used to validate the user input."""
+        return TypeAdapter[T_YamlResource](cls.yaml_cls)
+
+    @classmethod
+    @cache
+    def _get_list_wrapped_yaml_cls(
+        cls,
+    ) -> TypeAdapter[list[T_YamlResource]]:
+        """Returns a TypeAdapter for a list of yaml_cls. This is used to validate the user input."""
+        # We know that cls.yaml_cls is defined.
+        return TypeAdapter[list[T_YamlResource]](list[cls.yaml_cls])  # type: ignore[name-defined]
 
     # The methods that must be implemented in the subclass
     @classmethod
@@ -169,9 +201,9 @@ class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResourc
         if parent_ids is not None and not self.parent_resource:
             return []
         if space is not None:
-            from ._datamodel import SpaceCRUD
+            from ._datamodel import SpaceIO
 
-            if SpaceCRUD not in self.dependencies:
+            if SpaceIO not in self.dependencies:
                 return []
         if data_set_external_id is not None:
             from ._data_organization import DataSetsIO

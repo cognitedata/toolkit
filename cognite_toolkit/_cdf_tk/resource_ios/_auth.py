@@ -142,11 +142,11 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         from ._classic import AssetIO
         from ._data_organization import DataSetsIO
         from ._data_product import DataProductIO
-        from ._datamodel import SpaceCRUD
+        from ._datamodel import SpaceIO
         from ._extraction_pipeline import ExtractionPipelineIO
         from ._location import LocationFilterIO
-        from ._raw import RawDatabaseCRUD, RawTableCRUD
-        from ._timeseries import TimeSeriesCRUD
+        from ._raw import RawDatabaseIO, RawTableIO
+        from ._timeseries import TimeSeriesIO
 
         for capability in resource.capabilities or []:
             if isinstance(capability, UnknownCapability) and isinstance(
@@ -157,7 +157,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             scope = capability.scope
             if isinstance(scope, yaml_cap.SpaceIDScope):
                 for space_id in scope.space_ids:
-                    yield SpaceCRUD, SpaceId(space=space_id)
+                    yield SpaceIO, SpaceId(space=space_id)
             elif isinstance(scope, yaml_cap.DataProductScope):
                 for data_product_external_id in scope.external_ids:
                     yield DataProductIO, ExternalId(external_id=data_product_external_id)
@@ -166,9 +166,9 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                     yield DataSetsIO, ExternalId(external_id=data_set_id)
             elif isinstance(scope, yaml_cap.TableScope):
                 for db_name, tables in scope.dbs_to_tables.items():
-                    yield RawDatabaseCRUD, RawDatabaseId(name=db_name)
+                    yield RawDatabaseIO, RawDatabaseId(name=db_name)
                     for table in tables:
-                        yield RawTableCRUD, RawTableId(db_name=db_name, name=table)
+                        yield RawTableIO, RawTableId(db_name=db_name, name=table)
             elif isinstance(scope, yaml_cap.ExtractionPipelineScope):
                 for extraction_pipeline_id in scope.ids:
                     yield ExtractionPipelineIO, ExternalId(external_id=extraction_pipeline_id)
@@ -182,14 +182,14 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                 elif isinstance(capability, yaml_cap.ExtractionPipelinesAcl):
                     loader = ExtractionPipelineIO
                 elif isinstance(capability, yaml_cap.TimeSeriesAcl):
-                    loader = TimeSeriesCRUD
+                    loader = TimeSeriesIO
                 elif isinstance(capability, yaml_cap.SecurityCategoriesAcl):
                     loader = SecurityCategoryIO
                 elif isinstance(capability, yaml_cap.LocationFiltersAcl):
                     loader = LocationFilterIO
                 if loader is not None:
                     for id_ in scope.ids:
-                        if loader in {TimeSeriesCRUD, LocationFilterIO, DataSetsIO, ExtractionPipelineIO}:
+                        if loader in {TimeSeriesIO, LocationFilterIO, DataSetsIO, ExtractionPipelineIO}:
                             yield loader, ExternalId(external_id=id_)
                         elif loader is SecurityCategoryIO:
                             yield loader, NameId(name=id_)
@@ -452,7 +452,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
 
 @final
-class GroupAllScopedCRUD(GroupIO):
+class GroupAllScopedIO(GroupIO):
     def __init__(self, client: ToolkitClient):
         super().__init__(client, "all_scoped_only")
 
@@ -468,7 +468,7 @@ class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCat
     kind = "SecurityCategory"
     yaml_cls = SecurityCategoriesYAML
     folder_name = "auth"
-    dependencies = frozenset({GroupAllScopedCRUD})
+    dependencies = frozenset({GroupAllScopedIO})
     _doc_url = "Security-categories/operation/createSecurityCategories"
     support_update = False
 

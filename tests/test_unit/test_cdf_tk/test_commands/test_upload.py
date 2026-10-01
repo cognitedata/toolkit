@@ -34,7 +34,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
 )
 from cognite_toolkit._cdf_tk.dataio.selectors._asset_centric import DataSetSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRepeatedUploadFailureError
-from cognite_toolkit._cdf_tk.resource_ios import RawTableCRUD
+from cognite_toolkit._cdf_tk.resource_ios import RawTableIO
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -43,7 +43,7 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 @pytest.fixture
 def raw_json_directory(tmp_path: Path) -> Path:
     """Fixture to create a temporary folder with a sample NDJSON file."""
-    configfile = tmp_path / DATA_RESOURCE_DIR / RawTableCRUD.folder_name / f"test_table.{RawTableCRUD.kind}.yaml"
+    configfile = tmp_path / DATA_RESOURCE_DIR / RawTableIO.folder_name / f"test_table.{RawTableIO.kind}.yaml"
     configfile.parent.mkdir(parents=True, exist_ok=True)
     table = RAWTableRequest(db_name="test_db", name="test_table")
     configfile.write_text(table.dump_yaml(context="toolkit"))
@@ -71,7 +71,7 @@ def raw_json_directory(tmp_path: Path) -> Path:
 @pytest.fixture
 def raw_csv_directory(tmp_path: Path) -> Path:
     """Fixture to create a temporary folder with a sample CSV file."""
-    configfile = tmp_path / DATA_RESOURCE_DIR / RawTableCRUD.folder_name / f"test_table.{RawTableCRUD.kind}.yaml"
+    configfile = tmp_path / DATA_RESOURCE_DIR / RawTableIO.folder_name / f"test_table.{RawTableIO.kind}.yaml"
     configfile.parent.mkdir(parents=True, exist_ok=True)
     table = RAWTableRequest(db_name="test_db", name="test_table")
     configfile.write_text(table.dump_yaml(context="toolkit"))
