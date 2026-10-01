@@ -260,10 +260,13 @@ ex:Shape a sh:NodeShape ;
 
         result = BuildVariable.substitute(source_ttl, variables, ".ttl")
 
-        assert result == """@prefix ex: <http://example.com/sp_my_space/> .
+        assert (
+            result
+            == """@prefix ex: <http://example.com/sp_my_space/> .
 ex:Shape a sh:NodeShape ;
     sh:targetClass ex:Pump .
 """
+        )
 
     def test_substitute_ttl_leaves_single_braces(self) -> None:
         source_ttl = 'sh:select """SELECT ?s { ?s a ex:{{ class_name }} }""" .\n'
