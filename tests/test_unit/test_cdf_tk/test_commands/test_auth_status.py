@@ -1,4 +1,5 @@
 from io import StringIO
+from unittest.mock import MagicMock
 
 import pytest
 from rich.console import Console
@@ -30,7 +31,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.token import (
     InspectResponse,
     ProjectList,
 )
-from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.auth.data_classes import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.auth.session_store import SessionMetadata, StoredSession
 from cognite_toolkit._cdf_tk.commands.auth.status_report import (
@@ -45,6 +45,14 @@ from cognite_toolkit._cdf_tk.commands.auth.status_report import (
 from cognite_toolkit._cdf_tk.resource_ios import AssetIO, GroupIO
 
 CDF_PROJECT = "pytest-project"
+
+
+def _status_client() -> MagicMock:
+    """Client stand-in for auth status. Avoids building the full ToolkitClient mock."""
+    client = MagicMock()
+    client.config.project = CDF_PROJECT
+    client.config.cdf_cluster = "bluefield"
+    return client
 
 
 def _environment() -> EnvironmentVariables:
@@ -147,7 +155,8 @@ class TestIdentityProvider:
         self, token_url: str, expected: tuple[str, str | None, tuple[str, ...]]
     ) -> None:
         described = _describe_identity_provider(_organization(token_url))
-        assert (None if described is None else (described.name, described.tenant, described.access_claims)) == expected
+        actual = None if described is None else (described.name, described.tenant, described.access_claims)
+        assert actual == expected
 
     def test_missing_oidc_configuration(self) -> None:
         organization = _organization("https://auth.cognite.com/oauth2/token")
@@ -157,18 +166,18 @@ class TestIdentityProvider:
 
 class TestAuthStatus:
     def test_collect_reports_method_projects_and_merged_access(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            client.tool.token.inspect.return_value = _inspect_response()
-            client.project.organization.return_value = _organization("https://login.windows.net/dummy/oauth2/token")
-            client.project.status.return_value = ProjectStatusList.model_validate(
-                {
-                    "items": [
-                        {"urlName": CDF_PROJECT, "dataModelingStatus": "HYBRID"},
-                        {"urlName": "other-project", "dataModelingStatus": "DATA_MODELING_ONLY"},
-                    ]
-                }
-            )
-            report = collect_auth_status(client, _environment())
+        client = _status_client()
+        client.tool.token.inspect.return_value = _inspect_response()
+        client.project.organization.return_value = _organization("https://login.windows.net/dummy/oauth2/token")
+        client.project.status.return_value = ProjectStatusList.model_validate(
+            {
+                "items": [
+                    {"urlName": CDF_PROJECT, "dataModelingStatus": "HYBRID"},
+                    {"urlName": "other-project", "dataModelingStatus": "DATA_MODELING_ONLY"},
+                ]
+            }
+        )
+        report = collect_auth_status(client, _environment())
 
         current = next(project for project in report.projects if project.is_current)
         other = next(project for project in report.projects if project.name == "other-project")
@@ -209,9 +218,9 @@ class TestAuthStatus:
         }
 
     def test_invalid_token_is_not_authenticated(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            client.tool.token.inspect.side_effect = ToolkitAPIError("Invalid token")
-            report = collect_auth_status(client, _environment())
+        client = _status_client()
+        client.tool.token.inspect.side_effect = ToolkitAPIError("Invalid token")
+        report = collect_auth_status(client, _environment())
         assert (report.authenticated, report.method_label, report.failure) == (
             False,
             "Service principal",
@@ -240,13 +249,13 @@ class TestAuthStatus:
             PROVIDER="cdf",
             LOGIN_FLOW="session",
         )
-        with monkeypatch_toolkit_client() as client:
-            client.tool.token.inspect.return_value = _inspect_response()
-            client.project.organization.return_value = _organization("https://auth.cognite.com/oauth2/token")
-            client.project.status.return_value = ProjectStatusList.model_validate(
-                {"items": [{"urlName": CDF_PROJECT, "dataModelingStatus": "HYBRID"}]}
-            )
-            report = collect_auth_status(client, environment)
+        client = _status_client()
+        client.tool.token.inspect.return_value = _inspect_response()
+        client.project.organization.return_value = _organization("https://auth.cognite.com/oauth2/token")
+        client.project.status.return_value = ProjectStatusList.model_validate(
+            {"items": [{"urlName": CDF_PROJECT, "dataModelingStatus": "HYBRID"}]}
+        )
+        report = collect_auth_status(client, environment)
 
         assert (
             report.authenticated,
@@ -304,13 +313,13 @@ class TestAuthStatus:
         } == {"hybrid": [AssetIO.__name__], "data_modeling_only": []}
 
     def test_render_verbose_output(self) -> None:
-        with monkeypatch_toolkit_client() as client:
-            client.tool.token.inspect.return_value = _inspect_response()
-            client.project.organization.return_value = _organization("https://login.windows.net/dummy/oauth2/token")
-            client.project.status.return_value = ProjectStatusList.model_validate(
-                {"items": [{"urlName": CDF_PROJECT, "dataModelingStatus": "HYBRID"}]}
-            )
-            report = collect_auth_status(client, _environment())
+        client = _status_client()
+        client.tool.token.inspect.return_value = _inspect_response()
+        client.project.organization.return_value = _organization("https://login.windows.net/dummy/oauth2/token")
+        client.project.status.return_value = ProjectStatusList.model_validate(
+            {"items": [{"urlName": CDF_PROJECT, "dataModelingStatus": "HYBRID"}]}
+        )
+        report = collect_auth_status(client, _environment())
 
         buffer = StringIO()
         console = Console(file=buffer, width=120, force_terminal=False, no_color=True, highlight=False)
