@@ -1,5 +1,6 @@
 import json
 from collections import Counter
+from collections.abc import Sequence
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -13,7 +14,7 @@ from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse, AskDocument
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
@@ -46,6 +47,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping im
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import MQTTSourceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.sap_writeback import (
+    SAPEndpointResponse,
+    SAPInstanceResponse,
+    SchemaMappingResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
@@ -66,6 +72,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     HostedExtractorFinder,
     LocationFilterFinder,
     ResourceViewMappingFinder,
+    SAPWritebackFinder,
     SearchConfigFinder,
     SpaceFinder,
     StreamlitFinder,
@@ -86,6 +93,9 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     HostedExtractorSourceIO,
     LocationFilterIO,
     ResourceViewMappingIO,
+    SAPEndpointIO,
+    SAPInstanceIO,
+    SchemaMappingIO,
     SearchConfigIO,
     SpaceCRUD,
     StreamlitIO,
@@ -1390,3 +1400,134 @@ class TestDumpResourceViewMappings:
             [loader.dump_resource(m) for m in three_resource_view_mappings[1:]], key=lambda d: d["externalId"]
         )
         assert items == expected
+
+
+@pytest.fixture()
+def three_sap_endpoints() -> list[SAPEndpointResponse]:
+    return [
+        SAPEndpointResponse(
+            external_id="endpointA",
+            endpoint_type="notification",
+            instance_id="instanceA",
+            mapping_id="mappingA",
+            created_time=1,
+            last_updated_time=1,
+        ),
+        SAPEndpointResponse(
+            external_id="endpointB",
+            endpoint_type="attachment",
+            instance_id="instanceB",
+            mapping_id="mappingB",
+            created_time=1,
+            last_updated_time=1,
+        ),
+        SAPEndpointResponse(
+            external_id="endpointC",
+            endpoint_type="notification",
+            instance_id="instanceB",
+            created_time=1,
+            last_updated_time=1,
+        ),
+    ]
+
+
+class TestSAPWritebackFinder:
+    def test_select_sap_endpoints(
+        self, three_sap_endpoints: list[SAPEndpointResponse], monkeypatch: MonkeyPatch
+    ) -> None:
+        def select_endpoints(choices: list[Choice]) -> list[str]:
+            assert len(choices) == len(three_sap_endpoints)
+            return [choices[1].value, choices[2].value]
+
+        answers = [select_endpoints]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(SAPWritebackFinder.__module__, monkeypatch, answers),
+        ):
+            client.sap_writeback.endpoints.list.return_value = three_sap_endpoints
+            finder = SAPWritebackFinder(client, None)
+            selected = finder._interactive_select()
+
+        assert selected == ("endpointB", "endpointC")
+
+
+class TestDumpSAPWriteback:
+    def test_dump_sap_writeback_with_related_resources(
+        self, three_sap_endpoints: list[SAPEndpointResponse], tmp_path: Path
+    ) -> None:
+        selected_endpoints = three_sap_endpoints[1:]
+        instances = [
+            SAPInstanceResponse(
+                external_id="instanceA",
+                gateway_url="https://sap-a.example",
+                client=100,
+                username="user-a",
+                created_time=1,
+                last_updated_time=1,
+            ),
+            SAPInstanceResponse(
+                external_id="instanceB",
+                gateway_url="https://sap-b.example",
+                client=200,
+                username="user-b",
+                created_time=1,
+                last_updated_time=1,
+            ),
+        ]
+        mappings = [
+            SchemaMappingResponse(
+                external_id="mappingA",
+                expression="endpointA",
+                created_time=1,
+                last_updated_time=1,
+            ),
+            SchemaMappingResponse(
+                external_id="mappingB",
+                expression="endpointB",
+                created_time=1,
+                last_updated_time=1,
+            ),
+        ]
+
+        def retrieve_by_external_id(
+            items: Sequence[SAPEndpointResponse | SAPInstanceResponse | SchemaMappingResponse],
+            ids: Sequence[ExternalId],
+        ) -> list[SAPEndpointResponse | SAPInstanceResponse | SchemaMappingResponse]:
+            wanted = {identifier.external_id for identifier in ids}
+            return [item for item in items if item.external_id in wanted]
+
+        with monkeypatch_toolkit_client() as client:
+            client.sap_writeback.endpoints.retrieve.side_effect = lambda ids, ignore_unknown_ids=False: (
+                retrieve_by_external_id(three_sap_endpoints, ids)
+            )
+            client.sap_writeback.instances.retrieve.side_effect = lambda ids, ignore_unknown_ids=False: (
+                retrieve_by_external_id(instances, ids)
+            )
+            client.sap_writeback.mappings.retrieve.side_effect = lambda ids, ignore_unknown_ids=False: (
+                retrieve_by_external_id(mappings, ids)
+            )
+
+            cmd = DumpResourceCommand(silent=True)
+            cmd.dump_to_yamls(
+                SAPWritebackFinder(client, ("endpointB", "endpointC")),
+                output_dir=tmp_path,
+                clean=False,
+                verbose=False,
+            )
+            endpoint_loader = SAPEndpointIO(client)
+            instance_loader = SAPInstanceIO(client)
+            mapping_loader = SchemaMappingIO(client)
+            endpoint_items = [read_yaml_file(path) for path in endpoint_loader.find_files(tmp_path)]
+            instance_items = [read_yaml_file(path) for path in instance_loader.find_files(tmp_path)]
+            mapping_items = [read_yaml_file(path) for path in mapping_loader.find_files(tmp_path)]
+
+        assert {
+            "endpoints": sorted(endpoint_items, key=lambda item: item["externalId"]),
+            "instances": sorted(instance_items, key=lambda item: item["externalId"]),
+            "mappings": sorted(mapping_items, key=lambda item: item["externalId"]),
+        } == {
+            "endpoints": [endpoint_loader.dump_resource(endpoint) for endpoint in selected_endpoints],
+            "instances": [instance_loader.dump_resource(instances[1])],
+            "mappings": [mapping_loader.dump_resource(mappings[1])],
+        }

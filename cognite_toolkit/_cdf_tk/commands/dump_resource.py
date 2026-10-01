@@ -51,6 +51,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.sap_writeback import SAPEndpointResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
@@ -83,6 +84,9 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     NodeCRUD,
     ResourceIO,
     ResourceViewMappingIO,
+    SAPEndpointIO,
+    SAPInstanceIO,
+    SchemaMappingIO,
     SearchConfigIO,
     SpaceCRUD,
     StreamlitIO,
@@ -978,6 +982,66 @@ class ResourceViewMappingFinder(ResourceFinder[tuple[str, ...]]):
             yield [], selected_mappings, loader, None
         else:
             yield [ExternalId(external_id=external_id) for external_id in self.identifier], None, loader, None
+
+
+class SAPWritebackFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
+        super().__init__(client, identifier)
+        self.endpoints: list[SAPEndpointResponse] | None = None
+        self._instance_ids: set[str] = set()
+        self._mapping_ids: set[str] = set()
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        self.endpoints = self.client.sap_writeback.endpoints.list(limit=None)
+        if not self.endpoints:
+            raise ToolkitMissingResourceError("No SAP endpoints found")
+        choices = [
+            Choice(f"{endpoint.external_id} ({endpoint.endpoint_type})", value=endpoint.external_id)
+            for endpoint in sorted(self.endpoints, key=lambda endpoint: endpoint.external_id)
+        ]
+        selected_endpoint_ids: list[str] | None = questionary.checkbox(
+            "Which SAP endpoint(s) would you like to dump?",
+            choices=choices,
+            validate=lambda choices: True if choices else "You must select at least one SAP endpoint.",
+        ).unsafe_ask()
+        if not selected_endpoint_ids:
+            raise ToolkitValueError(f"No SAP endpoints selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
+        return tuple(selected_endpoint_ids)
+
+    def update(self, resources: Sequence[ResourceResponseProtocol]) -> None:
+        for resource in resources:
+            if not isinstance(resource, SAPEndpointResponse):
+                continue
+            self._instance_ids.add(resource.instance_id)
+            if resource.mapping_id:
+                self._mapping_ids.add(resource.mapping_id)
+
+    def __iter__(
+        self,
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
+        self.identifier = self._selected()
+        selected_ids = set(self.identifier)
+        endpoint_loader = SAPEndpointIO.create_io(self.client)
+        if self.endpoints:
+            selected_endpoints = [endpoint for endpoint in self.endpoints if endpoint.external_id in selected_ids]
+            yield [], selected_endpoints, endpoint_loader, None
+        else:
+            yield [ExternalId(external_id=external_id) for external_id in self.identifier], None, endpoint_loader, None
+
+        if self._instance_ids:
+            yield (
+                [ExternalId(external_id=external_id) for external_id in sorted(self._instance_ids)],
+                None,
+                SAPInstanceIO.create_io(self.client),
+                None,
+            )
+        if self._mapping_ids:
+            yield (
+                [ExternalId(external_id=external_id) for external_id in sorted(self._mapping_ids)],
+                None,
+                SchemaMappingIO.create_io(self.client),
+                None,
+            )
 
 
 class DumpResourceCommand(ToolkitCommand):
