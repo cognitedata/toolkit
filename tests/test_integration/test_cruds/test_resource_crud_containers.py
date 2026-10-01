@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
-from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, RawTableCRUD, TimeSeriesCRUD
+from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, RawTableIO, TimeSeriesIO
 from cognite_toolkit._cdf_tk.resource_ios._three_d_model import ThreeDModelIO
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
@@ -40,7 +40,7 @@ class TestTimeSeriesLoader:
             [{"timestamp": 0, timeseries.external_id: 0}, {"timestamp": 1, timeseries.external_id: 1}]
         ).set_index("timestamp")
         datapoints.index = pd.to_datetime(datapoints.index, unit="s")
-        loader = TimeSeriesCRUD(toolkit_client)
+        loader = TimeSeriesIO(toolkit_client)
         ts_ids = [timeseries.as_id()]
 
         try:
@@ -229,7 +229,7 @@ class TestRawTableCRUD:
             # Assume it is existing
             ...
 
-        raw_table_io = RawTableCRUD(client)
+        raw_table_io = RawTableIO(client)
 
         raw_table_io.drop_data([table_existing.as_id(), non_existing])
 

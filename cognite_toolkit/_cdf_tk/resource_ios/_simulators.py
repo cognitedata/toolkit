@@ -44,9 +44,9 @@ from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine_revision import (
 )
 
 from ._data_organization import DataSetsIO
-from ._file import FileMetadataCRUD
+from ._file import FileMetadataIO
 from ._function import CDF_TOML
-from ._timeseries import TimeSeriesCRUD
+from ._timeseries import TimeSeriesIO
 
 
 @final
@@ -171,7 +171,7 @@ class SimulatorModelRevisionIO(
     resource_write_cls = SimulatorModelRevisionRequest
     yaml_cls = SimulatorModelRevisionYAML
     kind = "SimulatorModelRevision"
-    dependencies = frozenset({SimulatorModelIO, FileMetadataCRUD})
+    dependencies = frozenset({SimulatorModelIO, FileMetadataIO})
     parent_resource = frozenset({SimulatorModelIO})
     _doc_url = "Simulator-Models/operation/create_simulator_model_revision_simulators_models_revisions_post"
 
@@ -267,7 +267,7 @@ class SimulatorModelRevisionIO(
     def get_dependencies(cls, resource: SimulatorModelRevisionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield SimulatorModelIO, ExternalId(external_id=resource.model_external_id)
         if resource.file_external_id:
-            yield FileMetadataCRUD, ExternalId(external_id=resource.file_external_id)
+            yield FileMetadataIO, ExternalId(external_id=resource.file_external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SimulatorModelRevisionRequest:
         if file_external_id := resource.pop("fileExternalId", None):
@@ -387,7 +387,7 @@ class SimulatorRoutineRevisionIO(
     resource_write_cls = SimulatorRoutineRevisionRequest
     yaml_cls = SimulatorRoutineRevisionYAML
     kind = "SimulatorRoutineRevision"
-    dependencies = frozenset({SimulatorRoutineIO, TimeSeriesCRUD})
+    dependencies = frozenset({SimulatorRoutineIO, TimeSeriesIO})
     parent_resource = frozenset({SimulatorRoutineIO})
     _doc_url = "Simulator-Routines/operation/create_simulator_routine_revision_simulators_routines_revisions_post"
 
@@ -465,16 +465,16 @@ class SimulatorRoutineRevisionIO(
         config = resource.configuration
         for check in config.logical_check or []:
             if check.timeseries_external_id:
-                yield TimeSeriesCRUD, ExternalId(external_id=check.timeseries_external_id)
+                yield TimeSeriesIO, ExternalId(external_id=check.timeseries_external_id)
         for detection in config.steady_state_detection or []:
             if detection.timeseries_external_id:
-                yield TimeSeriesCRUD, ExternalId(external_id=detection.timeseries_external_id)
+                yield TimeSeriesIO, ExternalId(external_id=detection.timeseries_external_id)
         for intput_ in config.inputs or []:
             if intput_.save_timeseries_external_id:
-                yield TimeSeriesCRUD, ExternalId(external_id=intput_.save_timeseries_external_id)
+                yield TimeSeriesIO, ExternalId(external_id=intput_.save_timeseries_external_id)
         for output in config.outputs or []:
             if output.save_timeseries_external_id:
-                yield TimeSeriesCRUD, ExternalId(external_id=output.save_timeseries_external_id)
+                yield TimeSeriesIO, ExternalId(external_id=output.save_timeseries_external_id)
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]

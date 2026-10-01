@@ -122,7 +122,7 @@ from ._data_organization import DataSetsIO
 from ._datamodel import DataModelIO, SpaceIO, ViewIO
 from ._externaldata import ExternalDataSourceIO
 from ._group_scoped import GroupResourceScopedCRUD
-from ._raw import RawDatabaseCRUD, RawTableCRUD
+from ._raw import RawDatabaseIO, RawTableIO
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
@@ -154,13 +154,13 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     dependencies = frozenset(
         {
             DataSetsIO,
-            RawDatabaseCRUD,
+            RawDatabaseIO,
             GroupAllScopedCRUD,
             SpaceIO,
             ViewIO,
             DataModelIO,
-            RawTableCRUD,
-            RawDatabaseCRUD,
+            RawTableIO,
+            RawDatabaseIO,
             GroupResourceScopedCRUD,
             *({ExternalDataSourceIO} if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) else set()),
         }
@@ -226,8 +226,8 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
                 yield ExternalDataSourceIO, ExternalId(external_id=source_id)
         if destination := resource.destination:
             if isinstance(destination, RawDataSource):
-                yield RawDatabaseCRUD, RawDatabaseId(name=destination.database)
-                yield RawTableCRUD, RawTableId(db_name=destination.database, name=destination.table)
+                yield RawDatabaseIO, RawDatabaseId(name=destination.database)
+                yield RawTableIO, RawTableId(db_name=destination.database, name=destination.table)
             elif isinstance(destination, ViewDataSource):
                 if destination.instance_space:
                     yield SpaceIO, SpaceId(space=destination.instance_space)

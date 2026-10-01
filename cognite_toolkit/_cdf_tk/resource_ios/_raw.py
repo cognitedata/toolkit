@@ -46,7 +46,7 @@ from ._auth import GroupAllScopedCRUD
 
 
 @final
-class RawDatabaseCRUD(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDatabaseResponse, DatabaseYAML]):
+class RawDatabaseIO(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDatabaseResponse, DatabaseYAML]):
     item_name = "raw tables"
     folder_name = "raw"
     resource_cls = RAWDatabaseResponse
@@ -150,7 +150,7 @@ class RawDatabaseCRUD(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAW
 
 
 @final
-class RawTableCRUD(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableResponse, TableYAML]):
+class RawTableIO(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableResponse, TableYAML]):
     item_name = "raw rows"
     folder_name = "raw"
     resource_cls = RAWTableResponse
@@ -158,9 +158,9 @@ class RawTableCRUD(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableResp
     kind = "Table"
     yaml_cls = TableYAML
     support_update = False
-    dependencies = frozenset({RawDatabaseCRUD, GroupAllScopedCRUD})
+    dependencies = frozenset({RawDatabaseIO, GroupAllScopedCRUD})
     _doc_url = "Raw/operation/createTables"
-    parent_resource = frozenset({RawDatabaseCRUD})
+    parent_resource = frozenset({RawDatabaseIO})
 
     def __init__(self, client: ToolkitClient):
         super().__init__(client)
@@ -208,7 +208,7 @@ class RawTableCRUD(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableResp
 
     @classmethod
     def get_dependencies(cls, resource: TableYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
-        yield RawDatabaseCRUD, RawDatabaseId(name=resource.db_name)
+        yield RawDatabaseIO, RawDatabaseId(name=resource.db_name)
 
     def dump_resource(self, resource: RAWTableResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         return {"dbName": resource.db_name, "tableName": resource.name}

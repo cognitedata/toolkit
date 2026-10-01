@@ -31,8 +31,8 @@ from cognite_toolkit._cdf_tk.yaml_classes.location import AssetCentricFields
 from ._classic import AssetIO, SequenceIO
 from ._data_organization import DataSetsIO
 from ._datamodel import DataModelIO, SpaceIO, ViewIO
-from ._file import FileMetadataCRUD
-from ._timeseries import TimeSeriesCRUD
+from ._file import FileMetadataIO
+from ._timeseries import TimeSeriesIO
 
 
 @final
@@ -49,8 +49,8 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
             SpaceIO,
             ViewIO,
             SequenceIO,
-            FileMetadataCRUD,
-            TimeSeriesCRUD,
+            FileMetadataIO,
+            TimeSeriesIO,
         }
     )
     kind = "LocationFilter"

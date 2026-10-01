@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     DataModelIO,
     DataSetsIO,
     ResourceIO,
-    TimeSeriesCRUD,
+    TimeSeriesIO,
     ViewIO,
 )
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
@@ -591,7 +591,7 @@ class TestDependencyRuleSetCdfApiError:
         yaml_file = tmp_path / "my.TimeSeries.yaml"
         yaml_file.write_text("externalId: my_ts\n")
         dataset_id = ExternalId(external_id="my_dataset")
-        module = _built_module(yaml_file, TimeSeriesCRUD, ExternalId(external_id="my_ts"))
+        module = _built_module(yaml_file, TimeSeriesIO, ExternalId(external_id="my_ts"))
         module.resources[0].dependencies.add((DataSetsIO, dataset_id))
 
         client = MagicMock()

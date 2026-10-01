@@ -55,16 +55,16 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.resource_ios import (
-    CogniteFileCRUD,
+    CogniteFileIO,
     ContainerIO,
     DataSetsIO,
     FunctionScheduleIO,
     LabelIO,
-    RawDatabaseCRUD,
-    RawTableCRUD,
+    RawDatabaseIO,
+    RawTableIO,
     ResourceIO,
     SpaceIO,
-    TimeSeriesCRUD,
+    TimeSeriesIO,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 
@@ -224,7 +224,7 @@ class TestCreateDeploymentPlan:
                         ResourceDirectory(
                             directory=Path("build/files"),
                             files_by_crud={
-                                CogniteFileCRUD: [Path("build/files/my.CogniteFile.yaml")],
+                                CogniteFileIO: [Path("build/files/my.CogniteFile.yaml")],
                             },
                         )
                     ],
@@ -238,7 +238,7 @@ class TestCreateDeploymentPlan:
                     ],
                 ),
                 [
-                    DeploymentStep(CogniteFileCRUD, [Path("build/files/my.CogniteFile.yaml")], skipped_cruds={SpaceIO}),
+                    DeploymentStep(CogniteFileIO, [Path("build/files/my.CogniteFile.yaml")], skipped_cruds={SpaceIO}),
                 ],
                 id="Skipped potential dependency",
             ),
@@ -449,7 +449,7 @@ class TestApplyPlan:
             pytest.param(
                 ApplyPlanTestCase(
                     yaml_files={"raw/my.Database.yaml": "dbName: my_db\ntableName: my_table\n"},
-                    crud_cls=RawDatabaseCRUD,
+                    crud_cls=RawDatabaseIO,
                     cdf_resources=[RAWDatabaseResponse(name="my_db", created_time=0)],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
@@ -479,7 +479,7 @@ class TestApplyPlan:
             pytest.param(
                 ApplyPlanTestCase(
                     yaml_files={"raw/my.Table.yaml": "dbName: my_db\ntableName: my_table\nextraField: extra_value\n"},
-                    crud_cls=RawTableCRUD,
+                    crud_cls=RawTableIO,
                     cdf_resources=[RAWTableResponse(db_name="my_db", name="my_table", created_time=0)],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
@@ -569,9 +569,9 @@ class TestApplyPlan:
             client.tool.functions.retrieve.return_value = function_responses
             client.tool.functions.schedules.list.return_value = case.cdf_resources
             client.tool.functions.schedules.input_data.return_value = FunctionScheduleData(id=37)
-        elif issubclass(case.crud_cls, RawDatabaseCRUD):
+        elif issubclass(case.crud_cls, RawDatabaseIO):
             client.tool.raw.databases.list.return_value = case.cdf_resources
-        elif issubclass(case.crud_cls, RawTableCRUD):
+        elif issubclass(case.crud_cls, RawTableIO):
             client.tool.raw.tables.list.return_value = case.cdf_resources
         else:
             pytest.fail(f"Test case for unsupported CRUD class: {case.crud_cls}")
@@ -878,7 +878,7 @@ class TestDeployAccessControlErrors:
 
         with pytest.raises(AuthorizationError) as exc_info:
             DeployV2Command.apply_plan(
-                client, [DeploymentStep(TimeSeriesCRUD, [yaml_file])], DeployOptions(dry_run=False)
+                client, [DeploymentStep(TimeSeriesIO, [yaml_file])], DeployOptions(dry_run=False)
             )
 
         missing_owner = DataSetsAcl(actions=["OWNER"], scope=IDScope(ids=[data_set_id]))

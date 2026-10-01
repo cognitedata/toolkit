@@ -64,7 +64,7 @@ from cognite_toolkit._cdf_tk.commands import DeployV2Command
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
 from cognite_toolkit._cdf_tk.resource_ios import (
     AssetIO,
-    CogniteFileCRUD,
+    CogniteFileIO,
     DataModelIO,
     DatapointSubscriptionIO,
     ExtractionPipelineIO,
@@ -563,7 +563,7 @@ def custom_file_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space
 
 class TestCogniteFileLoader:
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> None:
-        loader = CogniteFileCRUD(toolkit_client)
+        loader = CogniteFileIO(toolkit_client)
         # Loading from YAML to test the loading of extra properties as well
         file = CogniteFileRequest._load(
             yaml.safe_load(f"""space: {toolkit_space.space}
@@ -596,7 +596,7 @@ description: Original description
     def test_create_update_retrieve_delete_extension(
         self, toolkit_client: ToolkitClient, toolkit_space: dm.Space
     ) -> None:
-        loader = CogniteFileCRUD(toolkit_client)
+        loader = CogniteFileIO(toolkit_client)
         # Loading from YAML to test the loading of extra properties as well
         file = CogniteFileRequest.model_validate(
             yaml.safe_load(f"""space: {toolkit_space.space}

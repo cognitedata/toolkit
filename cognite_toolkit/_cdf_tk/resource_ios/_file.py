@@ -72,7 +72,7 @@ from ._datamodel import NodeIO, SpaceIO, ViewIO
 
 
 @final
-class FileMetadataCRUD(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMetadataResponse, FileMetadataYAML]):
+class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMetadataResponse, FileMetadataYAML]):
     item_name = "file contents"
     folder_name = "files"
     resource_cls = FileMetadataResponse
@@ -337,7 +337,7 @@ def _iter_file_content_read_extras(
 
 
 @final
-class CogniteFileCRUD(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileResponse, CogniteFileYAML]):
+class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileResponse, CogniteFileYAML]):
     template_pattern = "$FILENAME"
     item_name = "file contents"
     folder_name = "files"

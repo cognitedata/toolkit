@@ -52,7 +52,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import FunctionScheduleYAML, Functions
 
 from ._auth import GroupAllScopedCRUD
 from ._data_organization import DataSetsIO
-from ._file import CogniteFileCRUD, FileMetadataCRUD
+from ._file import CogniteFileIO, FileMetadataIO
 from ._function_code_bundle import FunctionCodeBundle
 from ._group_scoped import GroupResourceScopedCRUD
 
@@ -71,7 +71,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
     _doc_url = "Functions/operation/postFunctions"
     metadata_value_limit = 512
     support_update = False
-    extra_kinds = frozenset({FileMetadataCRUD.kind, CogniteFileCRUD.kind})
+    extra_kinds = frozenset({FileMetadataIO.kind, CogniteFileIO.kind})
 
     class _MetadataKey:
         function_hash = "cognite-toolkit-hash"

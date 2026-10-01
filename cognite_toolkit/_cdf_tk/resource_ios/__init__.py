@@ -38,7 +38,7 @@ from ._datamodel import (
 from ._externaldata import ExternalDataSourceIO
 from ._extraction_pipeline import ExtractionPipelineConfigIO, ExtractionPipelineIO
 from ._fieldops import InFieldCDMLocationConfigIO, InFieldLocationConfigIO, InfieldV1IO
-from ._file import CogniteFileCRUD, FileMetadataCRUD
+from ._file import CogniteFileIO, FileMetadataIO
 from ._function import FunctionIO, FunctionScheduleIO
 from ._group_scoped import GroupResourceScopedCRUD
 from ._hosted_extractors import (
@@ -50,7 +50,7 @@ from ._hosted_extractors import (
 from ._industrial_tool import StreamlitIO
 from ._location import LocationFilterIO
 from ._migration import ResourceViewMappingIO
-from ._raw import RawDatabaseCRUD, RawTableCRUD
+from ._raw import RawDatabaseIO, RawTableIO
 from ._relationship import RelationshipIO
 from ._rulesets import RuleSetIO, RuleSetVersionIO
 from ._sap_writeback import SAPEndpointIO, SAPInstanceIO, SchemaMappingIO
@@ -65,7 +65,7 @@ from ._simulators import (
 from ._skill import SkillIO
 from ._streams import StreamIO
 from ._three_d_model import ThreeDModelIO
-from ._timeseries import DatapointSubscriptionIO, TimeSeriesCRUD
+from ._timeseries import DatapointSubscriptionIO, TimeSeriesIO
 from ._transformation import (
     TransformationIO,
     TransformationNotificationIO,
@@ -198,7 +198,7 @@ __all__ = [
     "AppIO",
     "AppVersionIO",
     "AssetIO",
-    "CogniteFileCRUD",
+    "CogniteFileIO",
     "ContainerIO",
     "DataModelIO",
     "DataProductIO",
@@ -210,7 +210,7 @@ __all__ = [
     "ExternalDataSourceIO",
     "ExtractionPipelineConfigIO",
     "ExtractionPipelineIO",
-    "FileMetadataCRUD",
+    "FileMetadataIO",
     "FunctionIO",
     "FunctionScheduleIO",
     "GroupAllScopedCRUD",
@@ -225,8 +225,8 @@ __all__ = [
     "LabelIO",
     "LocationFilterIO",
     "NodeIO",
-    "RawDatabaseCRUD",
-    "RawTableCRUD",
+    "RawDatabaseIO",
+    "RawTableIO",
     "RelationshipIO",
     "ResourceContainerIO",
     "ResourceIO",
@@ -251,7 +251,7 @@ __all__ = [
     "StreamIO",
     "StreamlitIO",
     "ThreeDModelIO",
-    "TimeSeriesCRUD",
+    "TimeSeriesIO",
     "TransformationIO",
     "TransformationNotificationIO",
     "TransformationScheduleIO",

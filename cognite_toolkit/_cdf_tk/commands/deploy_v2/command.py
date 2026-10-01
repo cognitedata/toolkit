@@ -59,7 +59,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ContainerIO,
     EdgeIO,
     NodeIO,
-    RawTableCRUD,
+    RawTableIO,
     ResourceContainerIO,
     ResourceIO,
     SpaceIO,
@@ -1477,8 +1477,8 @@ class DeployV2Command(ToolkitCommand):
         for module in build_lineage.module_lineage:
             for resource in module.resource_lineage:
                 if (
-                    resource.type.resource_folder == RawTableCRUD.folder_name
-                    and resource.type.kind == RawTableCRUD.kind
+                    resource.type.resource_folder == RawTableIO.folder_name
+                    and resource.type.kind == RawTableIO.kind
                     and isinstance(resource.identifier, RawTableId)
                 ):
                     for file_type in ["csv", "parquet"]:

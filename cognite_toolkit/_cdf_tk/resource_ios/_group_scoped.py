@@ -24,8 +24,8 @@ from ._data_product import DataProductIO
 from ._datamodel import SpaceIO
 from ._extraction_pipeline import ExtractionPipelineIO
 from ._location import LocationFilterIO
-from ._raw import RawDatabaseCRUD, RawTableCRUD
-from ._timeseries import TimeSeriesCRUD
+from ._raw import RawDatabaseIO, RawTableIO
+from ._timeseries import TimeSeriesIO
 
 
 @final
@@ -36,12 +36,12 @@ class GroupResourceScopedCRUD(GroupIO):
             DataSetsIO,
             DataProductIO,
             ExtractionPipelineIO,
-            TimeSeriesCRUD,
+            TimeSeriesIO,
             SecurityCategoryIO,
             LocationFilterIO,
             AssetIO,
-            RawDatabaseCRUD,
-            RawTableCRUD,
+            RawDatabaseIO,
+            RawTableIO,
         }
     )
 
