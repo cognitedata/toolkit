@@ -2,8 +2,8 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from pydantic import Field, model_serializer
-from pydantic.functional_validators import PlainValidator
+from pydantic import Discriminator, Field, Tag, model_serializer
+from pydantic.functional_validators import BeforeValidator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.client.identifiers import NameId
@@ -62,39 +62,41 @@ class BaseGroupYAML(ToolkitResource):
 
 
 class ExternalGroupYAML(BaseGroupYAML):
-    group_type: Literal["external"] = Field(exclude=True)
+    group_type: Literal["external"] = Field("external", exclude=True)
     source_id: str
 
 
 class CDFGroupYAML(BaseGroupYAML):
-    group_type: Literal["cdf"] = Field(exclude=True)
+    group_type: Literal["cdf"] = Field("cdf", exclude=True)
     members: list[str] | Literal["allUserAccounts"]
 
 
-def _validate_group(data: Any) -> BaseGroupYAML:
-    """Validates the data as either an ExternalGroupYAML or a CDFGroupYAML.
-
-    The group type is determined by the presence of 'sourceId' (external) or 'members' (CDF).
-    We dispatch to the subclass directly instead of using a Pydantic (tagged) union, as the union
-    would add the member/tag name to the error locations, making error messages harder to read.
-    """
-    if isinstance(data, BaseGroupYAML):
-        return data
-    if not isinstance(data, dict):
-        raise ValueError(f"Expected a group definition (dictionary). Got {type(data).__name__}.")
-    if "sourceId" in data and "members" in data:
+def _check_group_definition(data: Any) -> Any:
+    if isinstance(data, dict) and "sourceId" in data and "members" in data:
         raise ValueError(
             "Invalid group definition: Cannot have both 'sourceId' and 'members'. Please specify only one."
         )
-    elif "sourceId" in data:
-        # Copy to avoid mutating the input data.
-        return ExternalGroupYAML.model_validate({**data, "groupType": "external"})
-    elif "members" in data:
-        return CDFGroupYAML.model_validate({**data, "groupType": "cdf"})
-    raise ValueError("Missing required field: Either 'sourceId' or 'members'")
+    return data
+
+
+def _discriminate_group_type(data: Any) -> str | None:
+    """The group type is determined by the presence of 'sourceId' (external) or 'members' (CDF)."""
+    if isinstance(data, BaseGroupYAML):
+        return data.group_type
+    if isinstance(data, dict):
+        if "sourceId" in data:
+            return "external"
+        elif "members" in data:
+            return "cdf"
+    return None
 
 
 GroupYAML = Annotated[
-    CDFGroupYAML | ExternalGroupYAML,
-    PlainValidator(_validate_group, json_schema_input_type=CDFGroupYAML | ExternalGroupYAML),
+    Annotated[CDFGroupYAML, Tag("cdf")] | Annotated[ExternalGroupYAML, Tag("external")],
+    Discriminator(
+        _discriminate_group_type,
+        custom_error_type="missing_group_type",
+        custom_error_message="Missing required field: Either 'sourceId' or 'members'",
+    ),
+    BeforeValidator(_check_group_definition),
 ]

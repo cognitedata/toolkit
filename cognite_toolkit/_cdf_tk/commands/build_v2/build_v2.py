@@ -1017,7 +1017,7 @@ class BuildV2Command(ToolkitCommand):
             identifier = toolkit_resource.as_id()
             result.syntax_warnings.extend(toolkit_resource.syntax_warnings(resource_file))
         except ValidationError as errors:
-            syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file)
+            syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file, crud_class.yaml_cls)
             if syntax_warning is not None:
                 result.syntax_warnings.append(syntax_warning)
             result.syntax_error = syntax_error
@@ -1055,7 +1055,7 @@ class BuildV2Command(ToolkitCommand):
             toolkit_resources = crud_class.validate_list(parsed_yaml, extra="forbid")
             toolkit_resources = adapter.validate_python(parsed_yaml)
         except ValidationError as errors:
-            syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file)
+            syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file, adapter)
             if syntax_warning is not None:
                 result.syntax_warnings.append(syntax_warning)
             result.syntax_error = syntax_error
@@ -1122,9 +1122,9 @@ class BuildV2Command(ToolkitCommand):
         return output
 
     def _create_syntax_warning(
-        self, error: ValidationError, resource_file: AbsoluteFilePath
+        self, error: ValidationError, resource_file: AbsoluteFilePath, validation_type: Any = None
     ) -> tuple[ModelSyntaxError | None, ModelSyntaxWarning | None]:
-        categorized_errors = humanize_validation_error_categorized(error) or [
+        categorized_errors = humanize_validation_error_categorized(error, validation_type) or [
             ("The YAML doesn't follow the required format.", "error")
         ]
         warning_messages = [message for message, category in categorized_errors if category == "warning"]
