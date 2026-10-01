@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Literal, cast
 
-from cognite.client.exceptions import CogniteAPIError
 from rich.console import Console, Group, RenderableType
 from rich.markup import escape
 from rich.panel import Panel
@@ -417,7 +416,7 @@ def _is_entra_host(hostname: str) -> bool:
 def _data_modeling_by_project(client: ToolkitClient) -> dict[str, DataModelingStatus]:
     try:
         statuses = client.project.status()
-    except (ToolkitAPIError, CogniteAPIError, AuthorizationError):
+    except (ToolkitAPIError, AuthorizationError):
         return {}
     return {item.url_name: item.data_modeling_status for item in statuses}
 
