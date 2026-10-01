@@ -84,4 +84,5 @@ class AuthSessionCommand(ToolkitCommand):
 
     def status(self, verbose: bool = False, all_projects: bool = False) -> None:
         """Show whether you are authenticated, how, and which CDF projects you can access."""
-        render_auth_status(auth_status_from_runtime(), verbose=verbose, all_projects=all_projects)
+        report = auth_status_from_runtime()
+        render_auth_status(report, verbose=verbose, all_projects=all_projects)

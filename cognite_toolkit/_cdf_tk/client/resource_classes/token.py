@@ -148,6 +148,19 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
     def from_capabilities(
         cls, capabilities: Sequence[InspectCapability | GroupCapability], project: str, groups: list[int]
     ) -> "FlatCapabilities":
+        """Convert a list of capabilities to a FlatCapabilities object for a specific project.
+
+        This method filters the capabilities for the specified project and merges the scopes for each ACL and action.
+
+        Args:
+            capabilities: The list of capabilities to convert.
+            project: The project to filter capabilities for.
+            groups: The list of group IDs that the user is a member of for the specified project
+
+        Returns:
+            A FlatCapabilities object containing the capabilities for the specified project.
+
+        """
         scopes_by_acl_action: dict[tuple[type[Acl], AclName, AclAction], set[Scope]] = defaultdict(set)
         for capability in capabilities:
             if isinstance(capability, InspectCapability) and not (
