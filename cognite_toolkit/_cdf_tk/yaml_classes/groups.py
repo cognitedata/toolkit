@@ -1,4 +1,3 @@
-import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
@@ -14,11 +13,6 @@ from .capabilities import Capability, UnknownCapability
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ModelSyntaxWarning
-
-if sys.version_info < (3, 11):
-    pass
-else:
-    pass
 
 
 class BaseGroupYAML(ToolkitResource):
