@@ -4,6 +4,7 @@ from collections.abc import Hashable, Iterable, Sequence, Sized
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
+from typing_extensions import TypeForm
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
@@ -94,7 +95,7 @@ class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResourc
     # Must be set in the subclass
     resource_write_cls: type[T_RequestResource]
     resource_cls: type[T_ResponseResource]
-    yaml_cls: type[ToolkitResource]
+    yaml_cls: TypeForm[T_YamlResource]
     folder_name: str
     kind: str
 
@@ -131,7 +132,7 @@ class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResourc
         return cls._get_list_wrapped_yaml_cls().validate_python(resource, extra=extra)
 
     @classmethod
-    @lru_cache(maxsize=1)
+    @lru_cache(maxsize=None)
     def _get_yaml_cls(
         cls,
     ) -> TypeAdapter[T_YamlResource]:
@@ -139,7 +140,7 @@ class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResourc
         return TypeAdapter[T_YamlResource](cls.yaml_cls)
 
     @classmethod
-    @lru_cache(maxsize=1)
+    @lru_cache(maxsize=None)
     def _get_list_wrapped_yaml_cls(
         cls,
     ) -> TypeAdapter[list[T_YamlResource]]:
