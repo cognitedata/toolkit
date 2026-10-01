@@ -173,11 +173,21 @@ class AuthApp(typer.Typer):
             typer.Option(
                 "--verbose",
                 "-v",
-                help="Turn on to get more verbose output when running the command",
+                help="List capabilities and toolkit resources for the current project.",
+            ),
+        ] = False,
+        all_projects: Annotated[
+            bool,
+            typer.Option(
+                "--all",
+                help="With --verbose, list capabilities and toolkit resources for every project you can access.",
             ),
         ] = False,
     ) -> None:
-        """Show the current persisted CogIdP session."""
+        """Show whether you are authenticated, how, and which CDF projects you can access.
+
+        With --verbose, also lists capabilities and the toolkit resources they grant for the current project.
+        Add --all to include every project.
+        """
         cmd = AuthCommand()
-        client = EnvironmentVariables.create_from_environment().get_client()
-        cmd.run(lambda: AuthSessionCommand().status(client, verbose=verbose))
+        cmd.run(lambda: AuthSessionCommand().status(verbose=verbose, all_projects=all_projects))
