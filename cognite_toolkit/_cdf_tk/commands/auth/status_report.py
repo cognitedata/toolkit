@@ -130,44 +130,41 @@ class AuthStatus:
     session: SessionDetails | None
 
 
-def load_environment() -> tuple[EnvironmentVariables | None, str | None]:
+def _load_environment() -> tuple[EnvironmentVariables | None, Exception | None]:
     """Read CDF credentials from the environment. Returns an error message when they are missing or invalid."""
     try:
         return EnvironmentVariables.create_from_environment(), None
-    except ToolkitMissingValueError as exc:
-        return None, str(exc)
-    except AuthenticationError as exc:
-        return None, str(exc)
+    except (ToolkitMissingValueError, AuthenticationError) as exc:
+        return None, exc
 
 
 def auth_status_from_runtime() -> AuthStatus:
     """Load credentials from the environment and describe the resulting CDF access."""
-    environment, error = load_environment()
-    if environment is None:
-        return collect_auth_status(failure=error or _MISSING_CREDENTIALS)
-    return collect_auth_status(environment=environment)
+    environment, error = _load_environment()
+    return collect_auth_status(failure=error or _MISSING_CREDENTIALS, environment=environment)
 
 
 def collect_auth_status(
     client: ToolkitClient | None = None,
     environment: EnvironmentVariables | None = None,
-    failure: str | None = None,
+    failure: Exception | None = None,
 ) -> AuthStatus:
     """Build the authentication report. Does not read the process environment or print anything."""
-    if failure is not None and client is None:
+    if failure is not None:
         return _unauthenticated(environment, failure)
+
     if client is None:
         if environment is None:
             return _unauthenticated(None, _MISSING_CREDENTIALS)
         try:
             client = environment.get_client()
         except (AuthenticationError, ToolkitMissingValueError, ToolkitKeyError) as exc:
-            return _unauthenticated(environment, str(exc))
+            return _unauthenticated(environment, exc)
 
     try:
         inspected = client.tool.token.inspect()
     except (ToolkitAPIError, CogniteAPIError, AuthenticationError, AuthorizationError) as exc:
-        return _unauthenticated(environment, _failure_message(exc))
+        return _unauthenticated(environment, exc)
 
     current_project = _current_project(client, inspected.project)
     identity_provider = _identity_provider(client, environment)
@@ -343,7 +340,7 @@ def render_auth_status(
         console.print()
 
 
-def _unauthenticated(environment: EnvironmentVariables | None, failure: str) -> AuthStatus:
+def _unauthenticated(environment: EnvironmentVariables | None, failure: Exception | str) -> AuthStatus:
     return AuthStatus(
         authenticated=False,
         failure=_failure_message(failure),
@@ -357,7 +354,9 @@ def _unauthenticated(environment: EnvironmentVariables | None, failure: str) -> 
     )
 
 
-def _failure_message(failure: Exception | str) -> str:
+def _failure_message(failure: Exception | None) -> str:
+    if failure is None:
+        return "The credentials were rejected."
     message = str(failure).strip() or "The credentials were rejected."
     if message.lower().startswith("not ") or "cdf auth" in message:
         return message
