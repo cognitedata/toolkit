@@ -22,9 +22,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
     FileMetadataResponse,
 )
 from cognite_toolkit._cdf_tk.resource_ios import (
-    CogniteFileCRUD,
+    CogniteFileIO,
     DataSetsIO,
-    FileMetadataCRUD,
+    FileMetadataIO,
     LabelIO,
     SecurityCategoryIO,
 )
@@ -97,7 +97,7 @@ class FileMetadataContentIO(
         self.overwrite = overwrite
         self._config_directory = config_directory
         self._file_directory = file_directory
-        self._crud = FileMetadataCRUD(client, support_upload=False)
+        self._crud = FileMetadataIO(client, support_upload=False)
         self._downloaded_data_sets_by_selector: dict[FileMetadataContentSelectorV2 | None, set[int]] = defaultdict(set)
         self._downloaded_labels_by_selector: dict[FileMetadataContentSelectorV2 | None, set[ExternalId]] = defaultdict(
             set
@@ -556,7 +556,7 @@ class CogniteFileContentIO(
         self.overwrite = overwrite
         self._config_directory = config_directory
         self._file_directory = file_directory
-        self._crud = CogniteFileCRUD(client, support_upload=False)
+        self._crud = CogniteFileIO(client, support_upload=False)
 
     def _verify_download_selector(self, selector: CogniteFileContentSelectorV2) -> tuple[NodeWithNameId, ...]:
         if isinstance(selector, CogniteFileFilesSelectorV2) and selector.ids:

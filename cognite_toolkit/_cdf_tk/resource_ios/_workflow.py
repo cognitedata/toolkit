@@ -75,10 +75,10 @@ from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import (
     TransformationTask,
 )
 
-from ._auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
 from ._function import FunctionIO
-from ._group_scoped import GroupResourceScopedCRUD
+from ._group_scoped import GroupResourceScopedIO
 from ._simulators import SimulatorRoutineIO
 from ._streams import StreamIO
 from ._transformation import TransformationIO
@@ -100,7 +100,7 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
     kind = "Workflow"
     dependencies = frozenset(
         {
-            GroupAllScopedCRUD,
+            GroupAllScopedIO,
             TransformationIO,
             FunctionIO,
             DataSetsIO,
@@ -514,7 +514,7 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
     resource_cls = WorkflowTriggerResponse
     resource_write_cls = WorkflowTriggerRequest
     kind = "WorkflowTrigger"
-    dependencies = frozenset({WorkflowIO, WorkflowVersionIO, GroupResourceScopedCRUD, GroupAllScopedCRUD, StreamIO})
+    dependencies = frozenset({WorkflowIO, WorkflowVersionIO, GroupResourceScopedIO, GroupAllScopedIO, StreamIO})
     parent_resource = frozenset({WorkflowIO})
     yaml_cls = WorkflowTriggerYAML
 

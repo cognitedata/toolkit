@@ -19,8 +19,8 @@ from cognite_toolkit._cdf_tk.yaml_classes import RelationshipYAML
 
 from ._classic import AssetIO, EventIO, SequenceIO
 from ._data_organization import DataSetsIO, LabelIO
-from ._file import FileMetadataCRUD
-from ._timeseries import TimeSeriesCRUD
+from ._file import FileMetadataIO
+from ._timeseries import TimeSeriesIO
 
 
 @final
@@ -30,7 +30,7 @@ class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipRes
     resource_write_cls = RelationshipRequest
     kind = "Relationship"
     yaml_cls = RelationshipYAML
-    dependencies = frozenset({DataSetsIO, AssetIO, EventIO, SequenceIO, FileMetadataCRUD, TimeSeriesCRUD, LabelIO})
+    dependencies = frozenset({DataSetsIO, AssetIO, EventIO, SequenceIO, FileMetadataIO, TimeSeriesIO, LabelIO})
     _doc_url = "Relationships/operation/createRelationships"
 
     @property
@@ -103,8 +103,8 @@ class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipRes
         type_to_crud: dict[str, type[ResourceIO]] = {
             "asset": AssetIO,
             "sequence": SequenceIO,
-            "timeseries": TimeSeriesCRUD,
-            "file": FileMetadataCRUD,
+            "timeseries": TimeSeriesIO,
+            "file": FileMetadataIO,
             "event": EventIO,
         }
         for type_value, id_value in [

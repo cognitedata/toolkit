@@ -7,9 +7,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceI
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, AllScope, ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import DataProductsAcl
-from cognite_toolkit._cdf_tk.resource_ios._auth import GroupAllScopedCRUD
+from cognite_toolkit._cdf_tk.resource_ios._auth import GroupAllScopedIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.resource_ios._datamodel import SpaceCRUD
+from cognite_toolkit._cdf_tk.resource_ios._datamodel import SpaceIO
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductYAML
 
@@ -21,7 +21,7 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
     resource_write_cls = DataProductRequest
     kind = "DataProduct"
     yaml_cls = DataProductYAML
-    dependencies = frozenset({GroupAllScopedCRUD, SpaceCRUD})
+    dependencies = frozenset({GroupAllScopedIO, SpaceIO})
     support_drop = True
     support_update = True
     _doc_url = "Data-Products/operation/createDataProduct"
@@ -45,7 +45,7 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
     @classmethod
     def get_dependencies(cls, resource: DataProductYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.schema_space:
-            yield SpaceCRUD, SpaceId(space=resource.schema_space)
+            yield SpaceIO, SpaceId(space=resource.schema_space)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[DataProductRequest]) -> ScopeDefinition | None:

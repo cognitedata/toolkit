@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions
 from cognite_toolkit._cdf_tk.yaml_classes import ResourceViewMappingYAML
 
-from ._datamodel import SpaceCRUD, ViewIO
+from ._datamodel import SpaceIO, ViewIO
 
 
 @final
@@ -35,7 +35,7 @@ class ResourceViewMappingIO(
     resource_cls = ResourceViewMappingResponse
     resource_write_cls = ResourceViewMappingRequest
     kind = "ResourceViewMapping"
-    dependencies = frozenset({SpaceCRUD, ViewIO})
+    dependencies = frozenset({SpaceIO, ViewIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
     yaml_cls = ResourceViewMappingYAML
 
@@ -103,7 +103,7 @@ class ResourceViewMappingIO(
 
     @classmethod
     def get_dependencies(cls, resource: ResourceViewMappingYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
-        yield SpaceCRUD, SpaceId(space=COGNITE_MIGRATION_SPACE)
+        yield SpaceIO, SpaceId(space=COGNITE_MIGRATION_SPACE)
         yield ViewIO, RESOURCE_MAPPING_VIEW_ID
         if resource.view_id:
             yield ViewIO, resource.view_id.as_id()

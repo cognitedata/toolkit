@@ -64,9 +64,9 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import ExtractionPipelineConfigYAML, ExtractionPipelineYAML
 
-from ._auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
-from ._raw import RawDatabaseCRUD, RawTableCRUD
+from ._raw import RawDatabaseIO, RawTableIO
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
@@ -80,7 +80,7 @@ class ExtractionPipelineIO(
     resource_cls = ExtractionPipelineResponse
     resource_write_cls = ExtractionPipelineRequest
     kind = "ExtractionPipeline"
-    dependencies = frozenset({DataSetsIO, RawDatabaseCRUD, RawTableCRUD, GroupAllScopedCRUD})
+    dependencies = frozenset({DataSetsIO, RawDatabaseIO, RawTableIO, GroupAllScopedIO})
     yaml_cls = ExtractionPipelineYAML
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
@@ -129,9 +129,9 @@ class ExtractionPipelineIO(
         for entry in resource.raw_tables or []:
             if entry.db_name and entry.db_name not in seen_databases:
                 seen_databases.add(entry.db_name)
-                yield RawDatabaseCRUD, RawDatabaseId(name=entry.db_name)
+                yield RawDatabaseIO, RawDatabaseId(name=entry.db_name)
             if entry.db_name and entry.table_name:
-                yield RawTableCRUD, RawTableId(db_name=entry.db_name, name=entry.table_name)
+                yield RawTableIO, RawTableId(db_name=entry.db_name, name=entry.table_name)
 
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:

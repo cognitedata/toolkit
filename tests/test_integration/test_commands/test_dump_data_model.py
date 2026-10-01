@@ -10,13 +10,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataMo
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, DataModelIO, GraphQLCRUD, SpaceCRUD, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, GraphQLIO, SpaceIO, ViewIO
 from tests.data import NAUGHTY_PROJECT
 
 
 @pytest.fixture()
 def deployed_misbehaving_grandparent(toolkit_client: ToolkitClient) -> dm.DataModelId:
-    loader = GraphQLCRUD.create_io(toolkit_client)
+    loader = GraphQLIO.create_io(toolkit_client)
     filepaths = loader.find_files(NAUGHTY_PROJECT / MODULES / "difficult_graphql")
     assert len(filepaths) == 1
     model_list = loader.load_resource_file(filepaths[0])
@@ -56,8 +56,8 @@ class TestDumpResource:
         assert data_model_folder.exists()
         assert sum(1 for _ in data_model_folder.glob(f"*{DataModelIO.kind}.yaml")) == 1
         assert sum(1 for _ in data_model_folder.glob(f"**/*{ViewIO.kind}.yaml")) == 34
-        assert sum(1 for _ in data_model_folder.glob(f"**/*{ContainerCRUD.kind}.yaml")) == 30
-        assert sum(1 for _ in data_model_folder.glob(f"**/*{SpaceCRUD.kind}.yaml")) == 2
+        assert sum(1 for _ in data_model_folder.glob(f"**/*{ContainerIO.kind}.yaml")) == 30
+        assert sum(1 for _ in data_model_folder.glob(f"**/*{SpaceIO.kind}.yaml")) == 2
 
     @pytest.mark.skip("Failing likely due to changes in the SchemaService validation.")
     def test_dump_misbehaving_grandparent(

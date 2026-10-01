@@ -50,11 +50,11 @@ from cognite_toolkit._cdf_tk.utils.file import (
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 from cognite_toolkit._cdf_tk.yaml_classes import FunctionScheduleYAML, FunctionsYAML
 
-from ._auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
-from ._file import CogniteFileCRUD, FileMetadataCRUD
+from ._file import CogniteFileIO, FileMetadataIO
 from ._function_code_bundle import FunctionCodeBundle
-from ._group_scoped import GroupResourceScopedCRUD
+from ._group_scoped import GroupResourceScopedIO
 
 CDF_TOML: CDFToml = CDFToml.load()
 
@@ -67,11 +67,11 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
     resource_write_cls = FunctionRequest
     kind = "Function"
     yaml_cls = FunctionsYAML
-    dependencies = frozenset({DataSetsIO, GroupAllScopedCRUD})
+    dependencies = frozenset({DataSetsIO, GroupAllScopedIO})
     _doc_url = "Functions/operation/postFunctions"
     metadata_value_limit = 512
     support_update = False
-    extra_kinds = frozenset({FileMetadataCRUD.kind, CogniteFileCRUD.kind})
+    extra_kinds = frozenset({FileMetadataIO.kind, CogniteFileIO.kind})
 
     class _MetadataKey:
         function_hash = "cognite-toolkit-hash"
@@ -479,7 +479,7 @@ class FunctionScheduleIO(
     resource_write_cls = FunctionScheduleRequest
     kind = "Schedule"
     yaml_cls = FunctionScheduleYAML
-    dependencies = frozenset({FunctionIO, GroupResourceScopedCRUD, GroupAllScopedCRUD})
+    dependencies = frozenset({FunctionIO, GroupResourceScopedIO, GroupAllScopedIO})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
     parent_resource = frozenset({FunctionIO})
     support_update = False

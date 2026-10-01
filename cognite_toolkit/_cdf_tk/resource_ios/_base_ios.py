@@ -201,9 +201,9 @@ class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResourc
         if parent_ids is not None and not self.parent_resource:
             return []
         if space is not None:
-            from ._datamodel import SpaceCRUD
+            from ._datamodel import SpaceIO
 
-            if SpaceCRUD not in self.dependencies:
+            if SpaceIO not in self.dependencies:
                 return []
         if data_set_external_id is not None:
             from ._data_organization import DataSetsIO

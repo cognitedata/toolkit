@@ -148,18 +148,18 @@ from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import (
     ViewReference,
 )
 
-from ._auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedIO
 
 
 @final
-class SpaceCRUD(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAML]):
+class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAML]):
     item_name = "nodes and edges"
     folder_name = "data_modeling"
     resource_cls = SpaceResponse
     resource_write_cls = SpaceRequest
     kind = "Space"
     yaml_cls = SpaceYAML
-    dependencies = frozenset({GroupAllScopedCRUD})
+    dependencies = frozenset({GroupAllScopedIO})
     _doc_url = "Spaces/operation/ApplySpaces"
     delete_recreate_limit_seconds: int = 10
 
@@ -286,13 +286,13 @@ class SpaceCRUD(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceY
             yield [inst.as_id() for inst in instances]  # type: ignore[misc]
 
 
-class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, ContainerResponse, ContainerYAML]):
+class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerResponse, ContainerYAML]):
     item_name = "nodes and edges"
     folder_name = "data_modeling"
     resource_cls = ContainerResponse
     resource_write_cls = ContainerRequest
     kind = "Container"
-    dependencies = frozenset({SpaceCRUD})
+    dependencies = frozenset({SpaceIO})
     yaml_cls = ContainerYAML
     _doc_url = "Containers/operation/ApplyContainers"
     sub_folder_name = "containers"
@@ -336,19 +336,19 @@ class ContainerCRUD(ResourceContainerIO[ContainerId, ContainerRequest, Container
         - Container dependencies from DirectNodeRelation properties
         - Container dependencies from RequiresConstraintDefinition constraints
         """
-        yield SpaceCRUD, SpaceId(space=resource.space)
+        yield SpaceIO, SpaceId(space=resource.space)
 
         # Property-level dependencies
         if resource.properties:
             for prop in resource.properties.values():
                 if isinstance(prop.type, DirectNodeRelation) and prop.type.container:
-                    yield ContainerCRUD, prop.type.container.as_id()
+                    yield ContainerIO, prop.type.container.as_id()
 
         # Constraint-level dependencies
         if resource.constraints:
             for constraint in resource.constraints.values():
                 if isinstance(constraint, RequiresConstraintDefinition):
-                    yield ContainerCRUD, constraint.require.as_id()
+                    yield ContainerIO, constraint.require.as_id()
 
     def dump_resource(self, resource: ContainerResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
@@ -650,7 +650,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
     resource_cls = ViewResponse
     resource_write_cls = ViewRequest
     kind = "View"
-    dependencies = frozenset({SpaceCRUD, ContainerCRUD})
+    dependencies = frozenset({SpaceIO, ContainerIO})
     yaml_cls = ViewYAML
     _doc_url = "Views/operation/ApplyViews"
     sub_folder_name = "views"
@@ -695,7 +695,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
     def get_dependencies(cls, resource: ViewYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         from ._streams import StreamIO  # local import avoids circular import with _streams.py
 
-        yield SpaceCRUD, SpaceId(space=resource.space)
+        yield SpaceIO, SpaceId(space=resource.space)
 
         if FeatureFlag.is_enabled(Flags.RECORD_VIEWS):
             for stream_id in resource.stream_id or []:
@@ -707,7 +707,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
         if resource.properties:
             for prop in resource.properties.values():
                 if isinstance(prop, ContainerViewProperty):
-                    yield ContainerCRUD, prop.container.as_id()
+                    yield ContainerIO, prop.container.as_id()
                     if prop.source:
                         yield ViewIO, prop.source.as_id()
 
@@ -720,7 +720,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
                     yield ViewIO, prop.source.as_id()
                     if prop.through.source:
                         yield (
-                            (ViewIO if isinstance(prop.through.source, ViewReference) else ContainerCRUD),
+                            (ViewIO if isinstance(prop.through.source, ViewReference) else ContainerIO),
                             prop.through.source.as_id(),
                         )
 
@@ -1001,7 +1001,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
             for container_id in view_to_containers[view_id]:
                 container_to_views[container_id].add(view_id)
 
-        container_crud = ContainerCRUD.create_io(self.client)
+        container_crud = ContainerIO.create_io(self.client)
         container_dependencies_by_id = container_crud._find_direct_and_indirect_container_dependencies(
             list(container_to_views.keys())
         )
@@ -1048,7 +1048,7 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
     resource_cls = DataModelResponse
     resource_write_cls = DataModelRequest
     kind = "DataModel"
-    dependencies = frozenset({SpaceCRUD, ViewIO})
+    dependencies = frozenset({SpaceIO, ViewIO})
     yaml_cls = DataModelYAML
     _doc_url = "Data-models/operation/createDataModels"
 
@@ -1086,7 +1086,7 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
         - Space dependency
         - View dependencies
         """
-        yield SpaceCRUD, SpaceId(space=resource.space)
+        yield SpaceIO, SpaceId(space=resource.space)
 
         for view in resource.views or []:
             yield ViewIO, view.as_id()
@@ -1176,14 +1176,14 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
 
 
 @final
-class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
+class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
     item_name = "nodes"
     folder_name = "data_modeling"
     resource_cls = NodeResponse
     resource_write_cls = NodeRequest
     kind = "Node"
     yaml_cls = NodeYAML
-    dependencies = frozenset({SpaceCRUD, ViewIO, ContainerCRUD})
+    dependencies = frozenset({SpaceIO, ViewIO, ContainerIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
     sub_folder_name = "nodes"
 
@@ -1231,14 +1231,14 @@ class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML])
         - Space dependency
         - View or Container dependencies from sources
         """
-        yield SpaceCRUD, SpaceId(space=resource.space)
+        yield SpaceIO, SpaceId(space=resource.space)
 
         for source in resource.sources or []:
             if source.source:
-                yield (ViewIO if isinstance(source.source, ViewReference) else ContainerCRUD), source.source.as_id()
+                yield (ViewIO if isinstance(source.source, ViewReference) else ContainerIO), source.source.as_id()
 
         if resource.type:
-            yield NodeCRUD, resource.type.as_id()
+            yield NodeIO, resource.type.as_id()
 
     def dump_resource(self, resource: NodeResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
@@ -1426,14 +1426,14 @@ class NodeCRUD(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML])
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
-class GraphQLCRUD(
+class GraphQLIO(
     ResourceContainerIO[DataModelId, GraphQLDataModelRequest, GraphQLDataModelResponse, GraphQLDataModelYAML]
 ):
     folder_name = "data_modeling"
     resource_cls = GraphQLDataModelResponse
     resource_write_cls = GraphQLDataModelRequest
     kind = "GraphQLSchema"
-    dependencies = frozenset({SpaceCRUD, ContainerCRUD})
+    dependencies = frozenset({SpaceIO, ContainerIO})
     item_name = "views"
     yaml_cls = GraphQLDataModelYAML
     _doc_url = "Data-models/operation/createDataModels"
@@ -1478,7 +1478,7 @@ class GraphQLCRUD(
         This includes:
         - Space dependency
         """
-        yield SpaceCRUD, SpaceId(space=resource.space)
+        yield SpaceIO, SpaceId(space=resource.space)
 
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: DataModelId, item: dict[str, Any]) -> Iterable[ReadExtra]:
@@ -1688,14 +1688,14 @@ class GraphQLCRUD(
 
 
 @final
-class EdgeCRUD(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
+class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
     item_name = "edges"
     folder_name = "data_modeling"
     resource_cls = EdgeResponse
     resource_write_cls = EdgeRequest
     kind = "Edge"
     yaml_cls = EdgeYAML
-    dependencies = frozenset({SpaceCRUD, ViewIO, ContainerCRUD, NodeCRUD})
+    dependencies = frozenset({SpaceIO, ViewIO, ContainerIO, NodeIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @property
@@ -1737,15 +1737,15 @@ class EdgeCRUD(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML])
         - View or Container dependencies from sources
         - Start, end, and type Node dependencies
         """
-        yield SpaceCRUD, SpaceId(space=resource.space)
+        yield SpaceIO, SpaceId(space=resource.space)
 
         for source in resource.sources or []:
             if source.source:
-                yield (ViewIO if isinstance(source.source, ViewReference) else ContainerCRUD), source.source.as_id()
+                yield (ViewIO if isinstance(source.source, ViewReference) else ContainerIO), source.source.as_id()
 
-        yield NodeCRUD, resource.start_node.as_id()
-        yield NodeCRUD, resource.end_node.as_id()
-        yield NodeCRUD, resource.type.as_id()
+        yield NodeIO, resource.start_node.as_id()
+        yield NodeIO, resource.end_node.as_id()
+        yield NodeIO, resource.type.as_id()
 
     def dump_resource(self, resource: EdgeResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup

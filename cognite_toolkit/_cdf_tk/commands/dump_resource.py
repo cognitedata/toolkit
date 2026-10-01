@@ -67,7 +67,7 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
 from cognite_toolkit._cdf_tk.resource_ios import (
     AgentIO,
-    ContainerCRUD,
+    ContainerIO,
     DataModelIO,
     DataSetsIO,
     ExternalDataSourceIO,
@@ -81,14 +81,14 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     HostedExtractorMappingIO,
     HostedExtractorSourceIO,
     LocationFilterIO,
-    NodeCRUD,
+    NodeIO,
     ResourceIO,
     ResourceViewMappingIO,
     SAPEndpointIO,
     SAPInstanceIO,
     SchemaMappingIO,
     SearchConfigIO,
-    SpaceCRUD,
+    SpaceIO,
     StreamlitIO,
     TransformationIO,
     TransformationNotificationIO,
@@ -235,13 +235,13 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId]):
             yield [], model_list, model_loader, None
         if self._include_global or is_global_model:
             yield list(self.view_ids), None, ViewIO.create_io(self.client), "views"
-            yield list(self.container_ids), None, ContainerCRUD.create_io(self.client), "containers"
-            yield list(self.space_ids), None, SpaceCRUD.create_io(self.client), None
+            yield list(self.container_ids), None, ContainerIO.create_io(self.client), "containers"
+            yield list(self.space_ids), None, SpaceIO.create_io(self.client), None
         else:
             view_loader = ViewIO(self.client, topological_sort_implements=True)
             views = [view for view in view_loader.retrieve(list(self.view_ids)) if not view.is_global]
             yield [], views, view_loader, "views"
-            container_loader = ContainerCRUD.create_io(self.client)
+            container_loader = ContainerIO.create_io(self.client)
             containers = [
                 container
                 for container in container_loader.retrieve(list(self.container_ids))
@@ -249,7 +249,7 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId]):
             ]
             yield [], containers, container_loader, "containers"
 
-            space_loader = SpaceCRUD.create_io(self.client)
+            space_loader = SpaceIO.create_io(self.client)
             spaces = [space for space in space_loader.retrieve(list(self.space_ids)) if not space.is_global]
             yield [], spaces, space_loader, None
 
@@ -514,7 +514,7 @@ class NodeFinder(ResourceFinder[ViewNoVersionId]):
                 raise ToolkitResourceMissingError(f"View {identifier} not found", str(identifier))
             view_id = view[0].as_id()
 
-        loader = NodeCRUD(self.client, view_id)
+        loader = NodeIO(self.client, view_id)
         if self.is_interactive:
             count = self.client.data_modeling.instances.aggregate(
                 dm.ViewId(
@@ -909,7 +909,7 @@ class SpaceFinder(ResourceFinder[tuple[str, ...]]):
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
         self.identifier = self._selected()
-        loader = SpaceCRUD.create_io(self.client)
+        loader = SpaceIO.create_io(self.client)
         yield [SpaceId(space=space) for space in self.identifier], None, loader, None
 
 

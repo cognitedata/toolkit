@@ -65,21 +65,21 @@ from cognite_toolkit._cdf_tk.utils.text import suffix_description
 from cognite_toolkit._cdf_tk.utils.time import convert_data_modelling_timestamp
 from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML
 
-from ._auth import GroupAllScopedCRUD, SecurityCategoryIO
+from ._auth import GroupAllScopedIO, SecurityCategoryIO
 from ._classic import AssetIO
 from ._data_organization import DataSetsIO, LabelIO
-from ._datamodel import NodeCRUD, SpaceCRUD, ViewIO
+from ._datamodel import NodeIO, SpaceIO, ViewIO
 
 
 @final
-class FileMetadataCRUD(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMetadataResponse, FileMetadataYAML]):
+class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMetadataResponse, FileMetadataYAML]):
     item_name = "file contents"
     folder_name = "files"
     resource_cls = FileMetadataResponse
     resource_write_cls = FileMetadataRequest
     yaml_cls = FileMetadataYAML
     kind: str = "FileMetadata"
-    dependencies = frozenset({DataSetsIO, GroupAllScopedCRUD, LabelIO, AssetIO})
+    dependencies = frozenset({DataSetsIO, GroupAllScopedIO, LabelIO, AssetIO})
 
     _doc_url = "Files/operation/initFileUpload"
 
@@ -337,7 +337,7 @@ def _iter_file_content_read_extras(
 
 
 @final
-class CogniteFileCRUD(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileResponse, CogniteFileYAML]):
+class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileResponse, CogniteFileYAML]):
     template_pattern = "$FILENAME"
     item_name = "file contents"
     folder_name = "files"
@@ -345,7 +345,7 @@ class CogniteFileCRUD(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFil
     resource_cls = CogniteFileResponse
     resource_write_cls = CogniteFileRequest
     yaml_cls = CogniteFileYAML
-    dependencies = frozenset({GroupAllScopedCRUD, SpaceCRUD, ViewIO})
+    dependencies = frozenset({GroupAllScopedIO, SpaceIO, ViewIO})
 
     _doc_url = "Files/operation/initFileUpload"
     # 128,000 bytes (UTF-8) is the maximum, worse case utf-8 will use 4 bytes per character
@@ -514,9 +514,9 @@ class CogniteFileCRUD(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFil
 
     @classmethod
     def get_dependencies(cls, resource: CogniteFileYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
-        yield SpaceCRUD, SpaceId(space=resource.space)
+        yield SpaceIO, SpaceId(space=resource.space)
         for ref in [resource.source, resource.category, resource.type]:
             if ref:
-                yield NodeCRUD, NodeId(space=ref.space, external_id=ref.external_id)
+                yield NodeIO, NodeId(space=ref.space, external_id=ref.external_id)
         for asset in resource.assets or []:
-            yield NodeCRUD, NodeId(space=asset.space, external_id=asset.external_id)
+            yield NodeIO, NodeId(space=asset.space, external_id=asset.external_id)

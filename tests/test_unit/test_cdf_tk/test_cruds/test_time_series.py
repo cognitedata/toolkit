@@ -5,7 +5,7 @@ from pytest import MonkeyPatch
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.resource_ios import TimeSeriesCRUD
+from cognite_toolkit._cdf_tk.resource_ios import TimeSeriesIO
 from tests.test_unit.approval_client.client import LookUpAPIMock
 
 
@@ -26,7 +26,7 @@ description: PH 1stStgSuctCool Gas Out
         self,
         toolkit_client_with_lookup: ToolkitClient,
     ) -> None:
-        loader = TimeSeriesCRUD(toolkit_client_with_lookup)
+        loader = TimeSeriesIO(toolkit_client_with_lookup)
         ts_dict = yaml.safe_load(self.timeseries_yaml)
         data_set_external_id = ts_dict["dataSetExternalId"]
         expected_id = LookUpAPIMock.create_id(data_set_external_id)
@@ -40,7 +40,7 @@ description: PH 1stStgSuctCool Gas Out
         toolkit_client_with_lookup: ToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TimeSeriesCRUD(toolkit_client_with_lookup)
+        loader = TimeSeriesIO(toolkit_client_with_lookup)
         ts_dict = yaml.safe_load(self.timeseries_yaml)
 
         def id_missing(*args):
@@ -65,7 +65,7 @@ description: PH 1stStgSuctCool Gas Out
             client.lookup.data_sets.id.side_effect = mock_id_lookup
             client.lookup.assets.id.side_effect = mock_id_lookup
             client.lookup.security_categories.id.side_effect = mock_id_lookup
-            loader = TimeSeriesCRUD.create_io(client)
+            loader = TimeSeriesIO.create_io(client)
 
         resource = {
             "externalId": "MyTimeseries",

@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance imp
 )
 from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, SpaceCRUD, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, SpaceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
@@ -616,15 +616,15 @@ class InstanceIO(
         spaces = list(set((selector.get_instance_spaces() or []) + (selector.get_schema_spaces() or [])))
         if not spaces:
             return
-        space_crud = SpaceCRUD.create_io(self.client)
+        space_crud = SpaceIO.create_io(self.client)
         retrieved_spaces = space_crud.retrieve([SpaceId(space=space) for space in spaces])
         retrieved_spaces = [space for space in retrieved_spaces if not space.is_global]
         if not retrieved_spaces:
             return
         for space in retrieved_spaces:
             yield StorageIOConfig(
-                kind=SpaceCRUD.kind,
-                folder_name=SpaceCRUD.folder_name,
+                kind=SpaceIO.kind,
+                folder_name=SpaceIO.folder_name,
                 value=space_crud.dump_resource(space),
                 filename=sanitize_filename(space.space),
             )
@@ -648,15 +648,15 @@ class InstanceIO(
         container_ids = list({container for view in views for container in view.mapped_containers})
         if not container_ids:
             return
-        container_crud = ContainerCRUD.create_io(self.client)
+        container_crud = ContainerIO.create_io(self.client)
         containers = container_crud.retrieve(container_ids)
         containers = [container for container in containers if not container.is_global]
         if not containers:
             return
         for container in containers:
             yield StorageIOConfig(
-                kind=ContainerCRUD.kind,
-                folder_name=ContainerCRUD.folder_name,
+                kind=ContainerIO.kind,
+                folder_name=ContainerIO.folder_name,
                 value=container_crud.dump_resource(container),
                 filename=sanitize_filename(f"{container.space}_{container.external_id}"),
             )

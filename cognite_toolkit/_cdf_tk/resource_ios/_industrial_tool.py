@@ -40,9 +40,9 @@ from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash, calculate_hash
 from cognite_toolkit._cdf_tk.yaml_classes import FileMetadataYAML, StreamlitYAML
 
-from ._auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
-from ._file import FileMetadataCRUD
+from ._file import FileMetadataIO
 
 
 @final
@@ -51,12 +51,12 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
     resource_cls = StreamlitResponse
     resource_write_cls = StreamlitRequest
     kind = "Streamlit"
-    dependencies = frozenset({DataSetsIO, GroupAllScopedCRUD})
+    dependencies = frozenset({DataSetsIO, GroupAllScopedIO})
     _doc_url = "Files/operation/initFileUpload"
     _metadata_hash_key = "cdf-toolkit-app-hash"
     yaml_cls = StreamlitYAML
 
-    extra_kinds = frozenset({FileMetadataCRUD.kind})
+    extra_kinds = frozenset({FileMetadataIO.kind})
 
     def __init__(self, client: ToolkitClient):
         super().__init__(client)
@@ -168,7 +168,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
             yield SuccessExtra(
                 source_path=app_path,
                 source_hash=source_hash,
-                suffix=f".{FileMetadataCRUD.kind}.yaml",
+                suffix=f".{FileMetadataIO.kind}.yaml",
                 content=file_metadata,
                 description="Streamlit app",
                 resource_field=None,
@@ -189,7 +189,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
         for item in raw_list:
             external_id = self.get_id(item).external_id
-            if (filemeta := filepath.parent / f"{filestem}.{FileMetadataCRUD.kind}.yaml").is_file():
+            if (filemeta := filepath.parent / f"{filestem}.{FileMetadataIO.kind}.yaml").is_file():
                 self.filemetadata_by_external_id[external_id] = filemeta
 
         return raw_list
@@ -253,7 +253,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         result.get_success_or_raise(request)
 
     def create(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        fileio = FileMetadataCRUD(self.client)
+        fileio = FileMetadataIO(self.client)
         try:
             filepaths = [self.filemetadata_by_external_id[item.external_id] for item in items]
         except KeyError as e:
@@ -268,7 +268,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         return self.client.tool.streamlit.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        fileio = FileMetadataCRUD(self.client)
+        fileio = FileMetadataIO(self.client)
         try:
             filepaths = [self.filemetadata_by_external_id[item.external_id] for item in items]
         except KeyError as e:

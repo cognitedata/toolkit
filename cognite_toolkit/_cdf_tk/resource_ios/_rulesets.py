@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.resource_ios._auth import GroupAllScopedCRUD
+from cognite_toolkit._cdf_tk.resource_ios._auth import GroupAllScopedIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import (
     calculate_hash,
@@ -38,7 +38,7 @@ class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse, RuleSetY
     resource_write_cls = RuleSetRequest
     kind = "RuleSet"
     yaml_cls = RuleSetYAML
-    dependencies = frozenset({GroupAllScopedCRUD})
+    dependencies = frozenset({GroupAllScopedIO})
     support_drop = True
     support_update = False
 

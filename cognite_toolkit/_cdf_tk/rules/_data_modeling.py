@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltR
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, Insight
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, ViewIO
 from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 
 from ._base import InternalValidatorException, RuleSetStatus, ToolkitGlobalRuleSet
@@ -339,7 +339,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         return None
 
     def _load_containers(self) -> dict[ContainerId, _LocalContainer]:
-        crud = ContainerCRUD(self._load_client())
+        crud = ContainerIO(self._load_client())
         loaded: dict[ContainerId, _LocalContainer] = {}
         for module in self.modules:
             for item_id, (resource, request) in module.load_local_resources(crud).items():
@@ -368,11 +368,11 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         if not container_ids or self.client is None:
             return {}, None
         try:
-            items = ContainerCRUD(self.client).retrieve(list(container_ids))
+            items = ContainerIO(self.client).retrieve(list(container_ids))
         except ToolkitAPIError as e:
             return {}, InternalValidatorException(
-                message=f"Failed to verify existence of {ContainerCRUD.kind.lower()} in CDF: {e}",
-                source=ContainerCRUD.kind,
+                message=f"Failed to verify existence of {ContainerIO.kind.lower()} in CDF: {e}",
+                source=ContainerIO.kind,
             )
         return {item.as_id(): item for item in items}, None
 

@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordResponse, RecordSyncResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.resource_ios._datamodel import ContainerCRUD, SpaceCRUD
+from cognite_toolkit._cdf_tk.resource_ios._datamodel import ContainerIO, SpaceIO
 from cognite_toolkit._cdf_tk.resource_ios._streams import StreamIO
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.time import timestamp_to_ms
@@ -77,24 +77,24 @@ class RecordIO(
         spaces = {selector.container.space}
         if selector.instance_spaces:
             spaces.update(selector.instance_spaces)
-        space_crud = SpaceCRUD.create_io(self.client)
+        space_crud = SpaceIO.create_io(self.client)
         for space in space_crud.retrieve([SpaceId(space=s) for s in spaces]):
             if space.is_global:
                 continue
             yield StorageIOConfig(
-                kind=SpaceCRUD.kind,
-                folder_name=SpaceCRUD.folder_name,
+                kind=SpaceIO.kind,
+                folder_name=SpaceIO.folder_name,
                 value=space_crud.dump_resource(space),
                 filename=sanitize_filename(space.space),
             )
 
-        container_crud = ContainerCRUD.create_io(self.client)
+        container_crud = ContainerIO.create_io(self.client)
         for container in container_crud.retrieve([selector.container.as_id()]):
             if container.is_global:
                 continue
             yield StorageIOConfig(
-                kind=ContainerCRUD.kind,
-                folder_name=ContainerCRUD.folder_name,
+                kind=ContainerIO.kind,
+                folder_name=ContainerIO.folder_name,
                 value=container_crud.dump_resource(container),
                 filename=sanitize_filename(f"{container.space}_{container.external_id}"),
             )
