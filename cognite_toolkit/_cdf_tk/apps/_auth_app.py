@@ -180,6 +180,7 @@ class AuthApp(typer.Typer):
             bool,
             typer.Option(
                 "--all",
+                "-a",
                 help="With --verbose, list capabilities and toolkit resources for every project you can access.",
             ),
         ] = False,
