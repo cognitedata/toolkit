@@ -128,8 +128,7 @@ class ResourcesCommand(ToolkitCommand):
             elif field.is_required():
                 required_fields.append((name, f"<{name}>", f"# (Required) {description}"))
             elif field.default_factory is not None:
-                # Will fail for factories that require validated data as input (one-arg variant).
-                value = field.default_factory()  # type: ignore[call-arg]
+                value = field.default_factory()
                 optional_with_value.append((name, value, f"# {description}"))
             elif field.default is not None:
                 optional_with_value.append((name, field.default, f"# {description}"))

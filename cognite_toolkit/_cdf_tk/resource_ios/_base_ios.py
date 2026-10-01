@@ -1,12 +1,12 @@
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Sized
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
-from typing_extensions import TypeForm
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from typing_extensions import TypeForm
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import (
@@ -19,7 +19,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import ScopeDefinitio
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
-from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, ResourceType
@@ -132,7 +131,7 @@ class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResourc
         return cls._get_list_wrapped_yaml_cls().validate_python(resource, extra=extra)
 
     @classmethod
-    @lru_cache(maxsize=None)
+    @cache
     def _get_yaml_cls(
         cls,
     ) -> TypeAdapter[T_YamlResource]:
@@ -140,7 +139,7 @@ class ResourceIO(ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResourc
         return TypeAdapter[T_YamlResource](cls.yaml_cls)
 
     @classmethod
-    @lru_cache(maxsize=None)
+    @cache
     def _get_list_wrapped_yaml_cls(
         cls,
     ) -> TypeAdapter[list[T_YamlResource]]:
