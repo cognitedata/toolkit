@@ -1,9 +1,10 @@
 """Authentication status: what the token can do, separate from how it is printed."""
 
 import urllib.parse
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 from rich.console import Console, Group, RenderableType
 from rich.markup import escape
@@ -28,7 +29,8 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitKeyError,
     ToolkitMissingValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios import AssetIO, RelationshipIO, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios import AssetIO, GroupIO, RelationshipIO, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._auth import ReplaceMethod
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 DataModelingStatus = Literal["HYBRID", "DATA_MODELING_ONLY"]
@@ -137,10 +139,23 @@ def _load_environment() -> tuple[EnvironmentVariables | None, Exception | None]:
         return None, exc
 
 
-def auth_status_from_runtime() -> AuthStatus:
-    """Load credentials from the environment and describe the resulting CDF access."""
+def auth_status_from_runtime() -> tuple[AuthStatus, ToolkitClient | None]:
+    """Load credentials from the environment and describe the resulting CDF access.
+
+    The client is returned when authentication succeeded, so scope IDs can be shown as external IDs.
+    """
     environment, error = _load_environment()
-    return collect_auth_status(failure=error, environment=environment)
+    client: ToolkitClient | None = None
+    if error is None and environment is not None:
+        try:
+            client = environment.get_client()
+        except (AuthenticationError, ToolkitMissingValueError, ToolkitKeyError) as exc:
+            error = exc
+            client = None
+    status = collect_auth_status(client=client, environment=environment, failure=error)
+    if not status.authenticated:
+        return status, None
+    return status, client
 
 
 def collect_auth_status(
@@ -305,6 +320,7 @@ def render_auth_status(
     verbose: bool = False,
     all_projects: bool = False,
     show_missing: bool = False,
+    client: ToolkitClient | None = None,
     console: Console | None = None,
 ) -> None:
     """Print an authentication report. All wording and layout lives here."""
@@ -337,7 +353,7 @@ def render_auth_status(
         console.print("\n[dim]Showing the current project. Pass --all to include every project.[/dim]")
     console.print()
     for project in detailed:
-        console.print(_verbose_project(project, show_missing=show_missing))
+        console.print(_verbose_project(project, show_missing=show_missing, client=client))
         console.print()
 
 
@@ -564,18 +580,25 @@ def _projects_table(projects: list[ProjectAccess]) -> Table:
     return table
 
 
-def _verbose_project(project: ProjectAccess, show_missing: bool = False) -> RenderableType:
+def _verbose_project(
+    project: ProjectAccess, show_missing: bool = False, client: ToolkitClient | None = None
+) -> RenderableType:
     title = Text(project.name)
     if project.is_current:
         title.append("  current", style="dim")
+    lookups = _scope_lookups(client)
     return Group(
         Rule(title, style="cyan" if project.is_current else "white", align="left"),
-        _capability_table(project),
-        _resource_table(project, show_missing=show_missing),
+        _capability_table(project, client, lookups),
+        _resource_table(project, show_missing=show_missing, client=client, lookups=lookups),
     )
 
 
-def _capability_table(project: ProjectAccess) -> Table:
+def _capability_table(
+    project: ProjectAccess,
+    client: ToolkitClient | None = None,
+    lookups: dict[tuple[str, str] | str, ReplaceMethod] | None = None,
+) -> Table:
     table = Table(title="Capabilities", expand=False)
     table.add_column("Capability")
     table.add_column("Actions")
@@ -585,12 +608,19 @@ def _capability_table(project: ProjectAccess) -> Table:
         return table
     for capability in project.capabilities:
         table.add_row(
-            escape(capability.acl_name), escape(", ".join(capability.actions)), _paint_scope(capability.scope)
+            escape(capability.acl_name),
+            escape(", ".join(capability.actions)),
+            _paint_scope(capability.scope, client, capability.acl_name, lookups),
         )
     return table
 
 
-def _resource_table(project: ProjectAccess, show_missing: bool = False) -> Table:
+def _resource_table(
+    project: ProjectAccess,
+    show_missing: bool = False,
+    client: ToolkitClient | None = None,
+    lookups: dict[tuple[str, str] | str, ReplaceMethod] | None = None,
+) -> Table:
     resources = project.resources
     if not show_missing:
         resources = [resource for resource in resources if resource.read.granted or resource.write.granted]
@@ -607,8 +637,8 @@ def _resource_table(project: ProjectAccess, show_missing: bool = False) -> Table
         table.add_row(
             escape(resource_label(resource.io_name)),
             escape(resource.folder_name),
-            _paint_access(format_action_access(resource.read)),
-            _paint_access(format_action_access(resource.write)),
+            _paint_access(format_action_access(resource.read, client, lookups)),
+            _paint_access(format_action_access(resource.write, client, lookups)),
         )
     return table
 
@@ -626,7 +656,12 @@ def _projects_to_detail(status: AuthStatus, all_projects: bool) -> list[ProjectA
     return [project for project in status.projects if project.is_current]
 
 
-def format_scope(scope: Scope) -> str:
+def format_scope(
+    scope: Scope,
+    client: ToolkitClient | None = None,
+    acl_name: str | None = None,
+    lookups: dict[tuple[str, str] | str, ReplaceMethod] | None = None,
+) -> str:
     if isinstance(scope, AllScope):
         return "all"
     if isinstance(scope, TableScope):
@@ -641,7 +676,7 @@ def format_scope(scope: Scope) -> str:
         if len(items) > 4:
             parts.append(f"+{len(items) - 4} more")
         return "tableScope {" + "; ".join(parts) + "}"
-    payload = scope.model_dump(exclude={"scope_name"}, exclude_none=True)
+    payload = _scope_payload(scope, client, acl_name, lookups)
     if not payload:
         return scope.scope_name
     if len(payload) == 1:
@@ -650,14 +685,67 @@ def format_scope(scope: Scope) -> str:
     return f"{scope.scope_name} ({rendered})"
 
 
-def format_action_access(access: ActionAccess) -> str:
+def format_action_access(
+    access: ActionAccess,
+    client: ToolkitClient | None = None,
+    lookups: dict[tuple[str, str] | str, Any] | None = None,
+) -> str:
     if not access.applicable:
         return "—"
     if not access.granted:
         return "No access"
     if len(access.grants) == 1:
-        return format_scope(access.grants[0].scope)
-    return " | ".join(f"{grant.acl_name} {format_scope(grant.scope)}" for grant in access.grants)
+        grant = access.grants[0]
+        return format_scope(grant.scope, client, grant.acl_name, lookups)
+    return " | ".join(
+        f"{grant.acl_name} {format_scope(grant.scope, client, grant.acl_name, lookups)}" for grant in access.grants
+    )
+
+
+def _scope_lookups(client: ToolkitClient | None) -> dict[tuple[str, str] | str, ReplaceMethod] | None:
+    """Reuse GroupIO's map from ACL and scope to the lookup that turns an internal ID into an external ID."""
+    if client is None:
+        return None
+    return GroupIO(client).create_replace_method_by_acl_and_scope()
+
+
+def _scope_payload(
+    scope: Scope,
+    client: ToolkitClient | None,
+    acl_name: str | None,
+    lookups: dict[tuple[str, str] | str, ReplaceMethod] | None = None,
+) -> dict[str, Any]:
+    # by_alias so field names match ReplaceMethod.id_name from GroupIO ("ids", "rootIds").
+    payload = scope.model_dump(by_alias=True, exclude={"scope_name"}, exclude_none=True)
+    if client is None and lookups is None:
+        return payload
+    methods = lookups if lookups is not None else _scope_lookups(client)
+    if methods is None:
+        return payload
+    if acl_name is not None and (method := methods.get((acl_name, scope.scope_name))) is not None:
+        replace = method
+    else:
+        replace = methods.get(scope.scope_name)
+    if replace is None:
+        return payload
+    field_name = replace.id_name
+    ids = payload.get(field_name)
+    if not isinstance(ids, list):
+        return payload
+    payload[field_name] = [_external_id_label(replace.reverse_lookup_method, id_) for id_ in ids]
+    return payload
+
+
+def _external_id_label(lookup: Callable[[int], str | None], id_: object) -> object:
+    if not isinstance(id_, int):
+        return id_
+    try:
+        external_id = lookup(id_)
+    except (ToolkitAPIError, AuthorizationError, AuthenticationError):
+        return id_
+    if not external_id:
+        return id_
+    return external_id
 
 
 def _format_scope_value(value: object) -> str:
@@ -673,8 +761,13 @@ def _format_scope_value(value: object) -> str:
     return str(value)
 
 
-def _paint_scope(scope: Scope) -> str:
-    label = format_scope(scope)
+def _paint_scope(
+    scope: Scope,
+    client: ToolkitClient | None = None,
+    acl_name: str | None = None,
+    lookups: dict[tuple[str, str] | str, Any] | None = None,
+) -> str:
+    label = format_scope(scope, client, acl_name, lookups)
     if label == "all":
         return "[green]all[/green]"
     return escape(label)

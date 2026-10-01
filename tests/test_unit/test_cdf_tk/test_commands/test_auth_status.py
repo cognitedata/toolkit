@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.commands.auth.status_report import (
     _describe_identity_provider,
     collect_auth_status,
     format_action_access,
+    format_scope,
     render_auth_status,
     resolve_action_access,
     resource_label,
@@ -361,6 +362,17 @@ class TestAuthStatus:
             "summary_only_hint": True,
             "hides_missing_event": True,
             "shows_missing_event": True,
+        }
+
+    def test_format_scope_replaces_dataset_id_with_external_id(self) -> None:
+        client = MagicMock()
+        client.lookup.data_sets.external_id.side_effect = lambda id_: "pump" if id_ == 7 else None
+        assert {
+            "with_client": format_scope(DataSetScope(ids=[7, 8]), client),
+            "without_client": format_scope(DataSetScope(ids=[7])),
+        } == {
+            "with_client": "datasetScope [pump, 8]",
+            "without_client": "datasetScope [7]",
         }
 
     def test_resource_label_drops_io_suffix(self) -> None:
