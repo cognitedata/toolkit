@@ -589,14 +589,13 @@ def _verbose_project(
     lookups = _scope_lookups(client)
     return Group(
         Rule(title, style="cyan" if project.is_current else "white", align="left"),
-        _capability_table(project, client, lookups),
-        _resource_table(project, show_missing=show_missing, client=client, lookups=lookups),
+        _capability_table(project, lookups),
+        _resource_table(project, show_missing=show_missing, lookups=lookups),
     )
 
 
 def _capability_table(
     project: ProjectAccess,
-    client: ToolkitClient | None = None,
     lookups: dict[tuple[str, str] | str, ReplaceMethod] | None = None,
 ) -> Table:
     table = Table(title="Capabilities", expand=False)
@@ -610,7 +609,7 @@ def _capability_table(
         table.add_row(
             escape(capability.acl_name),
             escape(", ".join(capability.actions)),
-            _paint_scope(capability.scope, client, capability.acl_name, lookups),
+            _paint_scope(capability.scope, capability.acl_name, lookups),
         )
     return table
 
@@ -618,7 +617,6 @@ def _capability_table(
 def _resource_table(
     project: ProjectAccess,
     show_missing: bool = False,
-    client: ToolkitClient | None = None,
     lookups: dict[tuple[str, str] | str, ReplaceMethod] | None = None,
 ) -> Table:
     resources = project.resources
@@ -637,8 +635,8 @@ def _resource_table(
         table.add_row(
             escape(resource_label(resource.io_name)),
             escape(resource.folder_name),
-            _paint_access(format_action_access(resource.read, client, lookups)),
-            _paint_access(format_action_access(resource.write, client, lookups)),
+            _paint_access(format_action_access(resource.read, lookups)),
+            _paint_access(format_action_access(resource.write, lookups)),
         )
     return table
 
@@ -658,7 +656,6 @@ def _projects_to_detail(status: AuthStatus, all_projects: bool) -> list[ProjectA
 
 def format_scope(
     scope: Scope,
-    client: ToolkitClient | None = None,
     acl_name: str | None = None,
     lookups: dict[tuple[str, str] | str, ReplaceMethod] | None = None,
 ) -> str:
@@ -676,7 +673,7 @@ def format_scope(
         if len(items) > 4:
             parts.append(f"+{len(items) - 4} more")
         return "tableScope {" + "; ".join(parts) + "}"
-    payload = _scope_payload(scope, client, acl_name, lookups)
+    payload = _scope_payload(scope, acl_name, lookups)
     if not payload:
         return scope.scope_name
     if len(payload) == 1:
@@ -687,8 +684,7 @@ def format_scope(
 
 def format_action_access(
     access: ActionAccess,
-    client: ToolkitClient | None = None,
-    lookups: dict[tuple[str, str] | str, Any] | None = None,
+    lookups: dict[tuple[str, str] | str, ReplaceMethod] | None = None,
 ) -> str:
     if not access.applicable:
         return "—"
@@ -696,9 +692,9 @@ def format_action_access(
         return "No access"
     if len(access.grants) == 1:
         grant = access.grants[0]
-        return format_scope(grant.scope, client, grant.acl_name, lookups)
+        return format_scope(grant.scope, grant.acl_name, lookups)
     return " | ".join(
-        f"{grant.acl_name} {format_scope(grant.scope, client, grant.acl_name, lookups)}" for grant in access.grants
+        f"{grant.acl_name} {format_scope(grant.scope, grant.acl_name, lookups)}" for grant in access.grants
     )
 
 
@@ -711,21 +707,17 @@ def _scope_lookups(client: ToolkitClient | None) -> dict[tuple[str, str] | str, 
 
 def _scope_payload(
     scope: Scope,
-    client: ToolkitClient | None,
     acl_name: str | None,
-    lookups: dict[tuple[str, str] | str, ReplaceMethod] | None = None,
+    lookups: dict[tuple[str, str] | str, ReplaceMethod] | None,
 ) -> dict[str, Any]:
     # by_alias so field names match ReplaceMethod.id_name from GroupIO ("ids", "rootIds").
     payload = scope.model_dump(by_alias=True, exclude={"scope_name"}, exclude_none=True)
-    if client is None and lookups is None:
+    if lookups is None:
         return payload
-    methods = lookups if lookups is not None else _scope_lookups(client)
-    if methods is None:
-        return payload
-    if acl_name is not None and (method := methods.get((acl_name, scope.scope_name))) is not None:
-        replace = method
+    if acl_name is not None and (method := lookups.get((acl_name, scope.scope_name))) is not None:
+        replace: ReplaceMethod | None = method
     else:
-        replace = methods.get(scope.scope_name)
+        replace = lookups.get(scope.scope_name)
     if replace is None:
         return payload
     field_name = replace.id_name
@@ -763,11 +755,10 @@ def _format_scope_value(value: object) -> str:
 
 def _paint_scope(
     scope: Scope,
-    client: ToolkitClient | None = None,
     acl_name: str | None = None,
-    lookups: dict[tuple[str, str] | str, Any] | None = None,
+    lookups: dict[tuple[str, str] | str, ReplaceMethod] | None = None,
 ) -> str:
-    label = format_scope(scope, client, acl_name, lookups)
+    label = format_scope(scope, acl_name, lookups)
     if label == "all":
         return "[green]all[/green]"
     return escape(label)

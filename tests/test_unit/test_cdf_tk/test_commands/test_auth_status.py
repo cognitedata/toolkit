@@ -368,7 +368,9 @@ class TestAuthStatus:
         client = MagicMock()
         client.lookup.data_sets.external_id.side_effect = lambda id_: "pump" if id_ == 7 else None
         assert {
-            "with_client": format_scope(DataSetScope(ids=[7, 8]), client),
+            "with_client": format_scope(
+                DataSetScope(ids=[7, 8]), lookups=GroupIO(client).create_replace_method_by_acl_and_scope()
+            ),
             "without_client": format_scope(DataSetScope(ids=[7])),
         } == {
             "with_client": "datasetScope [pump, 8]",
