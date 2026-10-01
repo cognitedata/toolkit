@@ -20,7 +20,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import ACL_NAME
-from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import Acl, AclType, GroupsAcl, ProjectsAcl
+from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import (
+    _KNOWN_ACLS,
+    Acl,
+    AclType,
+    GroupsAcl,
+    ProjectsAcl,
+    UnknownAcl,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import (
     scope_difference,
     scope_union,
@@ -148,6 +155,19 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
     def from_capabilities(
         cls, capabilities: Sequence[InspectCapability | GroupCapability], project: str, groups: list[int]
     ) -> "FlatCapabilities":
+        """Convert a list of capabilities to a FlatCapabilities object for a specific project.
+
+        This method filters the capabilities for the specified project and merges the scopes for each ACL and action.
+
+        Args:
+            capabilities: The list of capabilities to convert.
+            project: The project to filter capabilities for.
+            groups: The list of group IDs that the user is a member of for the specified project
+
+        Returns:
+            A FlatCapabilities object containing the capabilities for the specified project.
+
+        """
         scopes_by_acl_action: dict[tuple[type[Acl], AclName, AclAction], set[Scope]] = defaultdict(set)
         for capability in capabilities:
             if isinstance(capability, InspectCapability) and not (
@@ -161,7 +181,10 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
                 continue
 
             for action in capability.acl.actions:
-                scopes_by_acl_action[(type(capability.acl), capability.acl.acl_name, action)].add(capability.acl.scope)
+                # The type(capability.acl) can be UnknownAcl for a known Acl, if there is an action or scope
+                # that is unknown. Thus, we use the acl_name instead.
+                acl_type = _KNOWN_ACLS.get(capability.acl.acl_name, UnknownAcl)
+                scopes_by_acl_action[(acl_type, capability.acl.acl_name, action)].add(capability.acl.scope)
 
         scope_by_acl_action: dict[tuple[type[Acl], AclName, AclAction], Scope] = {}
         for key, scopes in scopes_by_acl_action.items():

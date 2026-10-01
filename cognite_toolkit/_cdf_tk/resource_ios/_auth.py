@@ -63,7 +63,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.capabilities import UnknownCapability
 
 
 @dataclass
-class _ReplaceMethod:
+class ReplaceMethod:
     """This is a small helper class used in the
     lookup and replace in the ACL scoped ids"""
 
@@ -195,7 +195,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                             yield loader, NameId(name=id_)
 
     def _substitute_scope_ids(self, group: dict[str, Any], is_dry_run: bool, reverse: bool = False) -> dict[str, Any]:
-        replace_method_by_acl = self._create_replace_method_by_acl_and_scope()
+        replace_method_by_acl = self.create_replace_method_by_acl_and_scope()
 
         for capability in group.get("capabilities", []):
             for acl, values in capability.items():
@@ -227,44 +227,44 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                         ]
         return group
 
-    def _create_replace_method_by_acl_and_scope(self) -> dict[tuple[str, str] | str, _ReplaceMethod]:
+    def create_replace_method_by_acl_and_scope(self) -> dict[tuple[str, str] | str, ReplaceMethod]:
         source = {
-            (cap.DataSetsAcl, cap.DataSetsAcl.Scope.ID): _ReplaceMethod(
+            (cap.DataSetsAcl, cap.DataSetsAcl.Scope.ID): ReplaceMethod(
                 self.client.lookup.data_sets.id,
                 self.client.lookup.data_sets.external_id,
                 id_name="ids",
             ),
-            (cap.ExtractionPipelinesAcl, cap.ExtractionPipelinesAcl.Scope.ID): _ReplaceMethod(
+            (cap.ExtractionPipelinesAcl, cap.ExtractionPipelinesAcl.Scope.ID): ReplaceMethod(
                 self.client.lookup.extraction_pipelines.id,
                 self.client.lookup.extraction_pipelines.external_id,
                 id_name="ids",
             ),
-            (cap.LocationFiltersAcl, cap.LocationFiltersAcl.Scope.ID): _ReplaceMethod(
+            (cap.LocationFiltersAcl, cap.LocationFiltersAcl.Scope.ID): ReplaceMethod(
                 self.client.lookup.location_filters.id,
                 self.client.lookup.location_filters.external_id,
                 id_name="ids",
             ),
-            (cap.SecurityCategoriesAcl, cap.SecurityCategoriesAcl.Scope.ID): _ReplaceMethod(
+            (cap.SecurityCategoriesAcl, cap.SecurityCategoriesAcl.Scope.ID): ReplaceMethod(
                 self.client.lookup.security_categories.id,
                 self.client.lookup.security_categories.external_id,
                 id_name="ids",
             ),
-            (cap.TimeSeriesAcl, cap.TimeSeriesAcl.Scope.ID): _ReplaceMethod(
+            (cap.TimeSeriesAcl, cap.TimeSeriesAcl.Scope.ID): ReplaceMethod(
                 self.client.lookup.time_series.id,
                 self.client.lookup.time_series.external_id,
                 id_name="ids",
             ),
-            cap.DataSetScope: _ReplaceMethod(
+            cap.DataSetScope: ReplaceMethod(
                 self.client.lookup.data_sets.id,
                 self.client.lookup.data_sets.external_id,
                 id_name="ids",
             ),
-            cap.ExtractionPipelineScope: _ReplaceMethod(
+            cap.ExtractionPipelineScope: ReplaceMethod(
                 self.client.lookup.extraction_pipelines.id,
                 self.client.lookup.extraction_pipelines.external_id,
                 id_name="ids",
             ),
-            cap.AssetRootIDScope: _ReplaceMethod(
+            cap.AssetRootIDScope: ReplaceMethod(
                 self.client.lookup.assets.id,
                 self.client.lookup.assets.external_id,
                 id_name="rootIds",
