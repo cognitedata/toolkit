@@ -198,7 +198,8 @@ class TestAuthStatus:
             "asset_hidden_on_data_modeling_only": "AssetIO" not in other_resources,
             "function_read": format_action_access(current_resources["FunctionIO"].read),
             "group_read": format_action_access(current_resources["GroupAllScopedIO"].read),
-            "events_only_on_other": "EventIO" in other_resources and "EventIO" not in current_resources,
+            "events_only_on_other": other_resources["EventIO"].read.granted
+            and not current_resources["EventIO"].read.granted,
         } == {
             "authenticated": True,
             "method": "Service principal",
@@ -291,7 +292,8 @@ class TestAuthStatus:
             ],
         )
         resources, _ = resources_from_capabilities(inspected.to_project_capabilities(CDF_PROJECT), "HYBRID")
-        assert {item.io_name for item in resources} == {
+        granted = {item.io_name for item in resources if item.read.granted or item.write.granted}
+        assert granted == {
             "FunctionScheduleIO",
             "GroupAllScopedIO",
             "GroupResourceScopedIO",
@@ -308,9 +310,9 @@ class TestAuthStatus:
         hybrid, _ = resources_from_capabilities(capabilities, "HYBRID")
         data_modeling_only, _ = resources_from_capabilities(capabilities, "DATA_MODELING_ONLY")
         assert {
-            "hybrid": [item.io_name for item in hybrid],
-            "data_modeling_only": [item.io_name for item in data_modeling_only],
-        } == {"hybrid": [AssetIO.__name__], "data_modeling_only": []}
+            "hybrid_includes_asset": AssetIO.__name__ in {item.io_name for item in hybrid},
+            "data_modeling_only_hides_asset": AssetIO.__name__ not in {item.io_name for item in data_modeling_only},
+        } == {"hybrid_includes_asset": True, "data_modeling_only_hides_asset": True}
 
     def test_render_verbose_output(self) -> None:
         client = _status_client()

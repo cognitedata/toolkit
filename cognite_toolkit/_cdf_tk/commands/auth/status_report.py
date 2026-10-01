@@ -235,10 +235,10 @@ def resources_from_capabilities(
     """Map merged capabilities onto toolkit resource types and the scope of that access.
 
     Assets and relationships are omitted on DATA_MODELING_ONLY projects, matching auth verify.
-    Returns the resource types the identity can read or write, and how many types were checked.
+    Every checked type is returned, including types the identity cannot read or write.
     """
     excluded = {AssetIO, RelationshipIO} if data_modeling_status == "DATA_MODELING_ONLY" else set()
-    accessible: list[ResourceAccess] = []
+    resources: list[ResourceAccess] = []
     checked = 0
     # data_models is an alias of data_modeling, so RESOURCE_CRUD_LIST contains those classes twice.
     seen: set[type[ResourceIO]] = set()
@@ -251,9 +251,7 @@ def resources_from_capabilities(
         if not read.applicable and not write.applicable:
             continue
         checked += 1
-        if not read.granted and not write.granted:
-            continue
-        accessible.append(
+        resources.append(
             ResourceAccess(
                 io_name=io_cls.__name__,
                 kind=io_cls.kind,
@@ -262,8 +260,8 @@ def resources_from_capabilities(
                 write=write,
             )
         )
-    accessible.sort(key=lambda item: (item.folder_name, item.kind, item.io_name))
-    return accessible, checked
+    resources.sort(key=lambda item: (item.folder_name, item.kind, item.io_name))
+    return resources, checked
 
 
 def resolve_action_access(
@@ -592,13 +590,7 @@ def _capability_table(project: ProjectAccess) -> Table:
 
 
 def _resource_table(project: ProjectAccess) -> Table:
-    accessible = len(project.resources)
-    table = Table(
-        title="Toolkit resources",
-        caption=f"{accessible} of {project.resource_types_checked} toolkit resource types",
-        caption_style="dim",
-        expand=False,
-    )
+    table = Table(title="Toolkit resources", expand=False)
     table.add_column("Resource", overflow="fold")
     table.add_column("Folder", overflow="fold")
     table.add_column("Read", overflow="fold")
@@ -689,7 +681,7 @@ def _paint_access(label: str) -> str:
     if label == "—":
         return "[dim]—[/dim]"
     if label == "No access" or label.startswith("Missing "):
-        return f"[dim]{escape(label)}[/dim]"
+        return f"[red]{escape(label)}[/red]"
     return escape(label)
 
 
