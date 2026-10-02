@@ -129,8 +129,11 @@ del _io_cls  # cleanup module namespace
 # For backwards compatibility
 RESOURCE_IO_BY_FOLDER_NAME["data_models"] = RESOURCE_IO_BY_FOLDER_NAME["data_modeling"]  # Todo: Remove in v1.0
 RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["data_models"] = RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA[
-    "data_modeling"
+    "data_modeling"  # Todo: Remove in v1.0
 ]
+RESOURCE_BASE_IO_BY_FOLDER_NAME["data_models"] = RESOURCE_BASE_IO_BY_FOLDER_NAME[
+    "data_modeling"
+]  # Todo: Remove in v1.0
 
 RESOURCE_BUILD_IO_BY_TYPE = {
     ResourceType(resource_folder=folder_name, kind=crud.kind): crud

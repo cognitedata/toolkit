@@ -28,7 +28,6 @@ from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA,
-    RESOURCE_BUILD_IO_LIST,
     RESOURCE_IO_BY_FOLDER_NAME,
     RESOURCE_IO_LIST,
     FunctionIO,
@@ -162,7 +161,7 @@ class TestFormatConsistency:
         assert isinstance(loaded, list)
 
     @pytest.mark.parametrize(
-        "Loader", [loader for loader in RESOURCE_BUILD_IO_LIST if loader.folder_name != "robotics"]
+        "Loader", [loader for loader in RESOURCE_IO_LIST if loader.folder_name != "robotics"]
     )  # Robotics does not have a public doc_url
     def test_loader_has_doc_url(self, Loader: type[ResourceIO], toolkit_client_cheap: ToolkitClient):
         loader = Loader.create_io(toolkit_client_cheap)
@@ -427,7 +426,7 @@ class TestLoaders:
         name_by_count = Counter(
             [
                 loader_cls.create_io(env_vars_with_client_cheap.get_client()).display_name
-                for loader_cls in RESOURCE_BUILD_IO_LIST
+                for loader_cls in RESOURCE_IO_LIST
             ]
         )
 
