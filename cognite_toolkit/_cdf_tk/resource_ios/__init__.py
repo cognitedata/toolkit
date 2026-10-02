@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from ._agent import AgentIO
 from ._app import AppIO, AppVersionIO
 from ._auth import GroupAllScopedIO, GroupIO, SecurityCategoryIO
-from ._base_ios import BaseResourceIO, ResourceContainerIO, ResourceIO, ResourceType
+from ._base_ios import BaseResourceIO, ResourceContainerIO, ResourceFileIO, ResourceIO, ResourceType
 from ._classic import AssetIO, EventIO, SequenceIO, SequenceRowIO
 from ._configuration import SearchConfigIO
 from ._data_organization import DataSetsIO, LabelIO
@@ -109,8 +109,9 @@ for _io_cls in itertools.chain(
     ResourceContainerIO.__subclasses__(),
     GroupIO.__subclasses__(),
     BaseResourceIO.__subclasses__(),
+    ResourceFileIO.__subclasses__(),
 ):
-    if _io_cls in [ResourceIO, ResourceContainerIO, GroupIO, BaseResourceIO]:
+    if _io_cls in [ResourceIO, ResourceContainerIO, GroupIO, BaseResourceIO, ResourceFileIO]:
         # Skipping base classes
         continue
     # MyPy bug: https://github.com/python/mypy/issues/4717

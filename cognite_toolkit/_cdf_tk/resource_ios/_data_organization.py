@@ -40,8 +40,8 @@ from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import DataSetYAML, LabelsYAML
 from cognite_toolkit._cdf_tk.yaml_classes.catalog_dataset import CatalogDataSetYAML
 
-from . import ResourceType
 from ._auth import GroupAllScopedIO
+from ._base_ios import ResourceType
 
 
 @final
@@ -236,7 +236,7 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
         return ExternalId(external_id=item["externalId"])
 
     @classmethod
-    def destination_type(cls) -> ResourceType:
+    def crud_type(cls) -> ResourceType:
         return ResourceType(resource_folder=DataSetsIO.folder_name, kind=DataSetsIO.kind)
 
     @classmethod
