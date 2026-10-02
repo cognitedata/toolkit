@@ -29,6 +29,7 @@ from .api.groups import GroupsAPI
 from .api.hosted_extractors import HostedExtractorsAPI
 from .api.infield import InfieldAPI
 from .api.instances import InstancesAPI
+from .api.integrations import IntegrationsAPI
 from .api.labels import LabelsAPI
 from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
@@ -132,6 +133,7 @@ class ToolkitClient(CogniteClient):
         self.streams = StreamsAPI(http_client)
         self.alerts = AlertsAPI(http_client)
         self.sap_writeback = SAPWritebackAPI(http_client)
+        self.integrations = IntegrationsAPI(http_client)
 
     @property
     def config(self) -> ToolkitClientConfig:

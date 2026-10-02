@@ -351,6 +351,24 @@ InFieldLocationConfigResponse:
   instanceType: node
   rootLocationExternalId: location_filter_main_facility
   space: sp_instance
+IntegrationConfigResponse:
+- config: 'endpoint: opc.tcp://plant.example.com:4840
+
+    publishingInterval: 1000
+
+    '
+  description: OPC-UA connection settings
+  externalId: pump.integration
+IntegrationResponse:
+- allowedNotSeenMinutes: 15
+  description: OPC-UA integration for the pump line
+  externalId: pump.integration
+  extractor:
+    externalId: cognite-opcua
+    version: 2.1.0
+  metadata:
+    plant: oslo
+  name: Pump extractor
 ResourceViewMappingResponse:
 - externalId: testing_default_asset_mapping
   instanceType: node

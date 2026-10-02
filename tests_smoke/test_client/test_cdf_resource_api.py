@@ -5,6 +5,7 @@ import zipfile
 from collections.abc import Callable, Hashable, Iterable, Set
 from pathlib import Path
 from typing import Annotated, Any, cast, get_args, get_origin
+from uuid import uuid4
 
 import pytest
 
@@ -27,6 +28,12 @@ from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from cognite_toolkit._cdf_tk.client.api.infield import APMConfigAPI, InFieldCDMConfigAPI
 from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI, WrappedInstancesAPI
+from cognite_toolkit._cdf_tk.client.api.integrations import (
+    IntegrationActionsAPI,
+    IntegrationConfigurationAPI,
+    IntegrationErrorsAPI,
+    IntegrationTasksAPI,
+)
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.migration import ResourceViewMappingsAPI
 from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
@@ -151,6 +158,19 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfigRequest,
     InFieldCDMLocationConfigResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.integration import (
+    AvailableIntegrationAction,
+    GeneralIntegrationError,
+    IntegrationActionRequest,
+    IntegrationCheckinRequest,
+    IntegrationConfigRequest,
+    IntegrationExtractor,
+    IntegrationRequest,
+    IntegrationResponse,
+    IntegrationStartupRequest,
+    IntegrationTask,
+    IntegrationTaskEvent,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
@@ -335,6 +355,11 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         SAPEndpointsAPI,
         # Creating a request sends it to SAP and requires an existing endpoint.
         SAPWritebackAPI,
+        # Tasks, actions, configuration, and errors are scoped to an existing integration.
+        IntegrationTasksAPI,
+        IntegrationActionsAPI,
+        IntegrationConfigurationAPI,
+        IntegrationErrorsAPI,
     }
 )
 
@@ -778,6 +803,12 @@ ex:Oslo_Facility
             {
                 "externalId": "smoke-test-schema-mapping",
                 "expression": '{ "SAPFieldA": input.CDFFieldA }',
+            }
+        ],
+        IntegrationResponse: [
+            {
+                "externalId": "smoke-test-integration",
+                "extractor": {"externalId": "toolkit-smoke"},
             }
         ],
         DataModelResponse: [
@@ -1490,6 +1521,121 @@ class TestCDFResourceAPI:
             raise EndpointAssertionError(
                 method_map["list"].path, "Expected at 1 listed extraction pipeline config, got 0"
             )
+
+    @pytest.mark.skip(
+        reason="The endpoint /integrations/checkin returns 422: errors[0].general.externalId: Field required. Which is inconsistent with the docs."
+    )
+    def test_integration_tasks_actions_configuration_and_errors(self, toolkit_client: ToolkitClient) -> None:
+        external_id = f"smoke-test-integration-{uuid4().hex[:8]}"
+        action_external_id = f"{external_id}-action"
+        client = toolkit_client.integrations
+        integration_id = None
+        try:
+            created = client.create(
+                [
+                    IntegrationRequest(
+                        external_id=external_id,
+                        extractor=IntegrationExtractor(external_id="toolkit-smoke"),
+                    )
+                ]
+            )
+            if len(created) != 1:
+                raise EndpointAssertionError("/integrations", f"Expected 1 created integration, got {len(created)}")
+            integration_id = created[0].as_id()
+
+            config = client.configuration.create(
+                [IntegrationConfigRequest(external_id=external_id, config="smoke: true")]
+            )
+            if len(config) != 1 or config[0].config != "smoke: true":
+                raise EndpointAssertionError("/integrations/config", "Creating a config revision failed")
+            retrieved_config = client.configuration.retrieve([config[0].as_id()])
+            if len(retrieved_config) != 1 or retrieved_config[0].revision != config[0].revision:
+                raise EndpointAssertionError("/integrations/config", "Retrieving the config revision failed")
+            listed_configs = client.configuration.list(integration_external_id=external_id, limit=10)
+            if not any(item.revision == config[0].revision for item in listed_configs):
+                raise EndpointAssertionError("/integrations/config/revisions", "Created revision was not listed")
+
+            started = client.startup(
+                IntegrationStartupRequest(
+                    external_id=external_id,
+                    extractor=IntegrationExtractor(external_id="toolkit-smoke", version="1.0.0"),
+                    tasks=[IntegrationTask(type="continuous", name="smoke-task")],
+                    available_actions=[AvailableIntegrationAction(name="smoke-restart", type="custom")],
+                )
+            )
+            if started.external_id != external_id:
+                raise EndpointAssertionError("/integrations/startup", "Startup response external ID did not match")
+
+            now = int(time.time() * 1000)
+            checked_in = client.checkin(
+                IntegrationCheckinRequest(
+                    external_id=external_id,
+                    task_events=[IntegrationTaskEvent(type="started", name="smoke-task", timestamp=now)],
+                    errors=[
+                        GeneralIntegrationError(
+                            level="warning",
+                            description="smoke test",
+                            start_time=now,
+                            task="smoke-task",
+                        )
+                    ],
+                )
+            )
+            if checked_in.external_id != external_id:
+                raise EndpointAssertionError("/integrations/checkin", "Check-in response external ID did not match")
+
+            history = self.wait_until_has_value(
+                lambda: [
+                    item
+                    for item in client.tasks.list(integration_external_id=external_id, task_name="smoke-task", limit=10)
+                    if item.task_name == "smoke-task"
+                ]
+            )
+            if len(history) != 1:
+                raise EndpointAssertionError("/integrations/history", "Expected the started task in history")
+
+            synced = client.tasks.sync(external_id, include_errors=True, include_task_updates=True, limit=10)
+            if not synced.next_cursor:
+                raise EndpointAssertionError("/integrations/sync", "Sync did not return a cursor")
+
+            actions = client.actions.create(
+                [
+                    IntegrationActionRequest(
+                        external_id=action_external_id,
+                        action_name="smoke-restart",
+                        integration_external_id=external_id,
+                    )
+                ]
+            )
+            if len(actions) != 1:
+                raise EndpointAssertionError("/integrations/actions", f"Expected 1 created action, got {len(actions)}")
+            retrieved_actions = client.actions.retrieve([actions[0].as_id()])
+            if len(retrieved_actions) != 1 or retrieved_actions[0].external_id != action_external_id:
+                raise EndpointAssertionError("/integrations/actions/byids", "Retrieving the action failed")
+            listed_actions = client.actions.list(integration_external_id=external_id, limit=10)
+            if not any(item.external_id == action_external_id for item in listed_actions):
+                raise EndpointAssertionError("/integrations/actions", "Created action was not listed")
+            cancelled = client.actions.cancel([actions[0].as_id()])
+            if len(cancelled) != 1 or cancelled[0].status not in {"cancel_pending", "canceled"}:
+                raise EndpointAssertionError("/integrations/actions/cancel", "Cancelling the action failed")
+
+            errors = self.wait_until_has_value(
+                lambda: [
+                    item
+                    for item in client.errors.list(integration_external_id=external_id, task="smoke-task", limit=10)
+                    if item.description == "smoke test"
+                ]
+            )
+            if len(errors) != 1:
+                raise EndpointAssertionError("/integrations/errors", "Expected the reported error")
+        except ToolkitAPIError as error:
+            raise EndpointAssertionError("/integrations", str(error)) from error
+        finally:
+            if integration_id is not None:
+                try:
+                    client.delete([integration_id])
+                except ToolkitAPIError:
+                    pass
 
     def test_workflow_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client

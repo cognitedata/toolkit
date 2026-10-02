@@ -26,6 +26,7 @@ signals = false
 api = true
 sap-writeback = true
 catalog-dataset = true
+integrations = true
 v09 = true
 
 [plugins]
