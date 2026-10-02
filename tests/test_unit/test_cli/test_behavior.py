@@ -60,6 +60,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParamete
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO, LocationFilterIO, WorkflowVersionIO
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from tests.constants import CDF_PROJECT, chdir
@@ -357,6 +358,7 @@ def test_pull_group(
     assert reloaded.dump() == cdf_group.as_request_resource().dump()
 
 
+@pytest.mark.skipif(not Flags.CATALOG_DATASET.is_enabled(), reason="CATALOG_DATA not enabled")
 def test_pull_catalog_data_set(
     default_config_dev_yaml: str,
     env_vars_with_client: EnvironmentVariables,
