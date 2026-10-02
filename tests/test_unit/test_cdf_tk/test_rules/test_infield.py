@@ -9,13 +9,13 @@ from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId, ResourceType
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import (
     AbsoluteDirPath,
     AbsoluteFilePath,
     RelativeDirPath,
 )
-from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO
+from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._infield import _REQUIRED_PROPERTIES, InFieldCDMRuleSet
 
 

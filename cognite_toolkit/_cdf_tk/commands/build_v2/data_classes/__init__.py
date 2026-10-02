@@ -22,7 +22,6 @@ from ._module import (
     Module,
     ModuleDirectory,
     ReadYAMLFile,
-    ResourceType,
     SuccessfulReadYAMLFile,
 )
 from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath, ValidationType
@@ -51,7 +50,6 @@ __all__ = [
     "RelativeDirPath",
     "RelativeFilePath",
     "ResourceLineageItem",
-    "ResourceType",
     "SuccessfulReadYAMLFile",
     "ValidationType",
 ]

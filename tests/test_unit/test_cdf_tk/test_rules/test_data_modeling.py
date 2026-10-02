@@ -20,10 +20,10 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     InternalValidatorException,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId, ResourceType
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, ResourceIO, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, ResourceIO, ResourceType, ViewIO
 from cognite_toolkit._cdf_tk.rules._data_modeling import DataModelingRuleSet
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 

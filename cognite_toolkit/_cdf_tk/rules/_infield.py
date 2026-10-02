@@ -4,11 +4,10 @@ from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view import ViewResponse
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
-from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO
+from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file

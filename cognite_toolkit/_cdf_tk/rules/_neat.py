@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from cognite_toolkit._cdf_tk.commands._cli_commands import package_install_command
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     Insight,
@@ -13,7 +12,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Recommendation,
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_ios import DataModelIO
+from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, ResourceType
 
 from ._base import InternalValidatorException, RuleSetStatus, ToolkitGlobalRuleSet
 

@@ -5,7 +5,10 @@ import pytest
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME, CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA
+from cognite_toolkit._cdf_tk.resource_ios import (
+    RESOURCE_BUILD_IO_BY_FOLDER_NAME,
+    RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA,
+)
 from cognite_toolkit._cdf_tk.resource_ios._integrations import IntegrationConfigsIO, IntegrationsIO
 from cognite_toolkit._cdf_tk.yaml_classes import IntegrationConfigYAML, IntegrationYAML
 from tests.data import COMPLETE_ORG_ALPHA_FLAGS
@@ -33,16 +36,17 @@ class TestIntegrationExamples:
 
 class TestIntegrationsIO:
     def test_registered_behind_integrations_flag(self) -> None:
-        included = {loader.kind for loader in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA["integrations"]}
+        included = {loader.kind for loader in RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["integrations"]}
         assert included == {"Integration", "IntegrationConfig"}
         assert all(
-            loader.folder_name == "integrations" for loader in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA["integrations"]
+            loader.folder_name == "integrations"
+            for loader in RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["integrations"]
         )
         if Flags.INTEGRATIONS.is_enabled():
-            enabled = {loader.kind for loader in CRUDS_BY_FOLDER_NAME["integrations"]}
+            enabled = {loader.kind for loader in RESOURCE_BUILD_IO_BY_FOLDER_NAME["integrations"]}
             assert enabled == included
         else:
-            assert "integrations" not in CRUDS_BY_FOLDER_NAME
+            assert "integrations" not in RESOURCE_BUILD_IO_BY_FOLDER_NAME
 
     def test_config_depends_on_integration(self) -> None:
         resource = IntegrationConfigYAML.model_validate(

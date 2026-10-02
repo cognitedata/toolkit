@@ -257,7 +257,7 @@ def resources_from_capabilities(
     checked = 0
     # data_models is an alias of data_modeling, so RESOURCE_CRUD_LIST contains those classes twice.
     seen: set[type[ResourceIO]] = set()
-    for io_cls in resource_ios.RESOURCE_CRUD_LIST:
+    for io_cls in resource_ios.RESOURCE_IO_LIST:
         if io_cls in seen or io_cls in excluded:
             continue
         seen.add(io_cls)

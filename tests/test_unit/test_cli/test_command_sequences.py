@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParse
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_BY_FOLDER_NAME, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_IO_BY_FOLDER_NAME, ResourceIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from tests.data import BUILDABLE_PACKAGE, COMPLETE_ORG, COMPLETE_ORG_ALPHA_FLAGS
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -273,7 +273,7 @@ def test_complete_org_is_complete() -> None:
 
     for module in module_scan.modules:
         for resource_folder, files in module.resource_files_by_folder.items():
-            for loader in RESOURCE_CRUD_BY_FOLDER_NAME[resource_folder]:
+            for loader in RESOURCE_IO_BY_FOLDER_NAME[resource_folder]:
                 if any(loader.is_supported_file(file) for file in files):
                     used_loader_by_folder_name[resource_folder].add(loader)
 
@@ -282,15 +282,15 @@ def test_complete_org_is_complete() -> None:
     )
     for module in alpha_dir_scan.modules:
         for resource_folder, files in module.resource_files_by_folder.items():
-            if resource_folder not in RESOURCE_CRUD_BY_FOLDER_NAME:
+            if resource_folder not in RESOURCE_IO_BY_FOLDER_NAME:
                 continue
-            for loader in RESOURCE_CRUD_BY_FOLDER_NAME[resource_folder]:
+            for loader in RESOURCE_IO_BY_FOLDER_NAME[resource_folder]:
                 if any(loader.is_supported_file(file) for file in files):
                     used_loader_by_folder_name[resource_folder].add(loader)
 
     unused_loaders = {
         loader
-        for folder, loaders in RESOURCE_CRUD_BY_FOLDER_NAME.items()
+        for folder, loaders in RESOURCE_IO_BY_FOLDER_NAME.items()
         # Todo: Remove in v1.0
         if folder != "data_models"
         for loader in loaders
