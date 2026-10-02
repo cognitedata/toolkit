@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
-    RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA,
+    RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA,
     RESOURCE_BUILD_IO_LIST,
     RESOURCE_IO_BY_FOLDER_NAME,
     RESOURCE_IO_LIST,
@@ -446,7 +446,7 @@ class TestConstants:
         [
             pytest.param(set(RESOURCE_IO_BY_FOLDER_NAME.keys()), id="CRUDS_BY_FOLDER_NAME"),
             pytest.param(
-                set(RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA.keys()), id="CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA"
+                set(RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA.keys()), id="CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA"
             ),
         ],
     )
