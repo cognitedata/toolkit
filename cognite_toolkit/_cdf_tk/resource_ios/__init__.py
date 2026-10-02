@@ -101,41 +101,49 @@ if not FeatureFlag.is_enabled(Flags.SAP_WRITEBACK):
     _EXCLUDED_CRUDS.add(SAPEndpointIO)
     _EXCLUDED_CRUDS.add(SchemaMappingIO)
 
-CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
-CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
-for _loader in itertools.chain(
+RESOURCE_BUILD_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[ResourceBuildIO]]] = defaultdict(list)
+RESOURCE_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
+RESOURCE_BUILD_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceBuildIO]]] = defaultdict(list)
+for _io_cls in itertools.chain(
     ResourceIO.__subclasses__(),
     ResourceContainerIO.__subclasses__(),
     GroupIO.__subclasses__(),
+    ResourceBuildIO.__subclasses__(),
 ):
-    if _loader in [ResourceIO, ResourceContainerIO, GroupIO]:
+    if _io_cls in [ResourceIO, ResourceContainerIO, GroupIO, ResourceBuildIO]:
         # Skipping base classes
         continue
     # MyPy bug: https://github.com/python/mypy/issues/4717
-    CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA[_loader.folder_name].append(_loader)  # type: ignore[attr-defined, arg-type]
+    RESOURCE_BUILD_BY_FOLDER_NAME_INCLUDE_ALPHA[_io_cls.folder_name].append(_io_cls)  # type: ignore[attr-defined, arg-type]
 
-    if _loader not in _EXCLUDED_CRUDS:
-        CRUDS_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[attr-defined, arg-type]
-del _loader  # cleanup module namespace
+    if _io_cls not in _EXCLUDED_CRUDS:
+        if issubclass(_io_cls, ResourceIO):
+            RESOURCE_BY_FOLDER_NAME[_io_cls.folder_name].append(_io_cls)
+        RESOURCE_BUILD_BY_FOLDER_NAME[_io_cls.folder_name].append(_io_cls)  # type: ignore[attr-defined, arg-type]
+del _io_cls  # cleanup module namespace
 
 
 # For backwards compatibility
-CRUDS_BY_FOLDER_NAME["data_models"] = CRUDS_BY_FOLDER_NAME["data_modeling"]  # Todo: Remove in v1.0
-CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA["data_models"] = CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA["data_modeling"]
-RESOURCE_CRUD_BY_FOLDER_NAME = {
-    folder_name: cruds
-    for folder_name, loaders in CRUDS_BY_FOLDER_NAME.items()
-    if (cruds := [crud for crud in loaders if issubclass(crud, ResourceIO)])
+RESOURCE_BY_FOLDER_NAME["data_models"] = RESOURCE_BY_FOLDER_NAME["data_modeling"]  # Todo: Remove in v1.0
+RESOURCE_BUILD_BY_FOLDER_NAME_INCLUDE_ALPHA["data_models"] = RESOURCE_BUILD_BY_FOLDER_NAME_INCLUDE_ALPHA[
+    "data_modeling"
+]
+
+RESOURCE_BUILD_BY_TYPE = {
+    ResourceType(resource_folder=folder_name, kind=crud.kind): crud
+    for folder_name, cruds in RESOURCE_BUILD_BY_FOLDER_NAME.items()
+    for crud in cruds
+}
+RESOURCE_BY_TYPE = {
+    ResourceType(resource_folder=folder_name, kind=crud.kind): crud
+    for folder_name, cruds in RESOURCE_BY_FOLDER_NAME.items()
+    for crud in cruds
 }
 
-RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND: dict[str, dict[str, type[ResourceIO]]] = {
-    folder_name: {crud.kind: crud for crud in cruds if issubclass(crud, ResourceIO)}
-    for folder_name, cruds in RESOURCE_CRUD_BY_FOLDER_NAME.items()
-}
-
-CRUD_LIST = list(itertools.chain.from_iterable(CRUDS_BY_FOLDER_NAME.values()))
-RESOURCE_CRUD_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceIO)]
-RESOURCE_CRUD_CONTAINER_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceContainerIO)]
+RESOURCE_BUILD_LIST: list[type[ResourceBuildIO]] = list(
+    itertools.chain.from_iterable(RESOURCE_BUILD_BY_FOLDER_NAME.values())
+)
+RESOURCE_LIST = [io_cls for io_cls in RESOURCE_BUILD_LIST if issubclass(io_cls, ResourceIO)]
 
 
 ResourceTypes: TypeAlias = Literal[
@@ -169,24 +177,21 @@ ResourceTypes: TypeAlias = Literal[
 ]
 
 
-def get_crud(resource_dir: str, kind: str) -> type[ResourceIO]:
-    for loader in CRUDS_BY_FOLDER_NAME[resource_dir]:
-        if loader.kind == kind:
-            return loader
+def get_crud(resource_dir: str, kind: str) -> type[ResourceBuildIO]:
+    if io_cls := RESOURCE_BUILD_BY_TYPE.get(ResourceType(resource_folder=resource_dir, kind=kind)):
+        return io_cls
     # Fall back to alpha-inclusive registry (e.g. for deserializing built resources
     # when a CRUD is excluded by feature flags or test patching).
-    for loader in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA[resource_dir]:
+    for loader in RESOURCE_BUILD_BY_FOLDER_NAME_INCLUDE_ALPHA[resource_dir]:
         if loader.kind == kind:
             return loader
     raise ValueError(f"Loader not found for {resource_dir} and {kind}")
 
 
 __all__ = [
-    "CRUDS_BY_FOLDER_NAME",
-    "CRUD_LIST",
-    "RESOURCE_CRUD_BY_FOLDER_NAME",
-    "RESOURCE_CRUD_CONTAINER_LIST",
-    "RESOURCE_CRUD_LIST",
+    "RESOURCE_BUILD_LIST",
+    "RESOURCE_BY_FOLDER_NAME",
+    "RESOURCE_LIST",
     "_EXCLUDED_CRUDS",
     "AgentIO",
     "AppIO",

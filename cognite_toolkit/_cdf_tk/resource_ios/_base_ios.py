@@ -72,11 +72,9 @@ class ResourceType(BaseModel):
 
     @property
     def crud_cls(self) -> "type[ResourceIO]":
-        from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND
+        from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_BY_TYPE
 
-        kind = self.kind
-        folder_name = self.resource_folder
-        return RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[folder_name][kind]
+        return RESOURCE_BY_TYPE[self]
 
     def load_identifier(self, data: dict[str, Any]) -> Identifier:
         return self.crud_cls.get_id(data)
@@ -99,6 +97,12 @@ class ResourceBuildIO(ABC, Generic[T_Identifier, T_YamlResource]):
 
     sub_folder_name: str | None = None
     extra_kinds: frozenset[str] = frozenset()
+
+    # The methods that must be implemented in the subclass
+    @classmethod
+    @abstractmethod
+    def get_id(cls, item: dict) -> T_Identifier:
+        raise NotImplementedError
 
     @classmethod
     def validate_object(

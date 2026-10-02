@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
-    RESOURCE_CRUD_LIST,
+    RESOURCE_LIST,
     ExternalDataSourceIO,
     HostedExtractorDestinationIO,
     HostedExtractorSourceIO,
@@ -134,7 +134,7 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
     client = env_vars.get_client()
     print("Looking for changed resources ...")
     options = DeployOptions(environment_variables=env_vars.dump(), verbose=True)
-    for loader_cls in RESOURCE_CRUD_LIST:
+    for loader_cls in RESOURCE_LIST:
         if loader_cls in {HostedExtractorSourceIO, HostedExtractorDestinationIO}:
             # These resources we have no way of knowing if they have changed. So they are always redeployed.
             continue

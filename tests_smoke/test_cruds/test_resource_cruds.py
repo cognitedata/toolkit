@@ -6,7 +6,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_LIST, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_LIST, ResourceIO
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 
@@ -40,7 +40,7 @@ def _resource_io_generic_args(resource_io_cls: type[ResourceIO]) -> tuple[type, 
 
 
 class TestResourceCRUD:
-    @pytest.mark.parametrize("resource_io_cls", RESOURCE_CRUD_LIST)
+    @pytest.mark.parametrize("resource_io_cls", RESOURCE_LIST)
     def test_retrieve_non_existing_works(
         self, toolkit_client: ToolkitClient, resource_io_cls: type[ResourceIO]
     ) -> None:
