@@ -86,6 +86,7 @@ class TestIntegrationsAPI:
                         "externalId": "my.integrations.id",
                         "update": {
                             "name": {"set": "Pump"},
+                            "description": {"setNull": True},
                             "documentation": {"setNull": True},
                             "metadata": {"set": {"env": "test"}},
                             "allowedNotSeenMinutes": {"setNull": True},
@@ -241,8 +242,13 @@ class TestIntegrationActionsAPI:
         )
 
         created = api.actions.create(
-            "my.integrations.id",
-            [IntegrationActionRequest(external_id="action-1", action_name="restart")],
+            [
+                IntegrationActionRequest(
+                    external_id="action-1",
+                    action_name="restart",
+                    integration_external_id="my.integrations.id",
+                )
+            ]
         )
         retrieved = api.actions.retrieve([ExternalId(external_id="action-1")])
         listed = api.actions.list(integration_external_id="my.integrations.id", limit=1)
@@ -250,6 +256,8 @@ class TestIntegrationActionsAPI:
 
         assert {
             "created": [item.dump() for item in created],
+            "created_integration": [item.integration_external_id for item in created],
+            "listed_integration": [item.integration_external_id for item in listed],
             "create_query": dict(respx_mock.calls[0].request.url.params),
             "create_body": json.loads(respx_mock.calls[0].request.content),
             "retrieved": [item.status for item in retrieved],
@@ -258,6 +266,8 @@ class TestIntegrationActionsAPI:
             "cancel_body": json.loads(respx_mock.calls[3].request.content),
         } == {
             "created": [action],
+            "created_integration": ["my.integrations.id"],
+            "listed_integration": ["my.integrations.id"],
             "create_query": {"externalId": "my.integrations.id"},
             "create_body": {"items": [{"externalId": "action-1", "actionName": "restart"}]},
             "retrieved": ["pending"],

@@ -21,20 +21,19 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, IntegrationConfigId
 from cognite_toolkit._cdf_tk.client.resource_classes.integration import (
-    IntegrationAction,
     IntegrationActionRequest,
+    IntegrationActionResponse,
     IntegrationCheckinRequest,
     IntegrationCheckinResponse,
     IntegrationConfigRequest,
     IntegrationConfigResponse,
-    IntegrationError,
+    IntegrationErrorResponse,
     IntegrationRequest,
     IntegrationResponse,
     IntegrationStartupRequest,
     IntegrationSyncResponse,
     IntegrationTaskHistory,
 )
-from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 _API_VERSION = "alpha"
 _CREATE_LIMIT = 20
@@ -188,7 +187,7 @@ class IntegrationTasksAPI(CDFResourceAPI[IntegrationTaskHistory]):
         return IntegrationSyncResponse.model_validate_json(response.body)
 
 
-class IntegrationActionsAPI(CDFResourceAPI[IntegrationAction]):
+class IntegrationActionsAPI(CDFResourceAPI[IntegrationActionResponse]):
     """Remote actions requested for an integration."""
 
     def __init__(self, http_client: HTTPClient) -> None:
@@ -197,33 +196,46 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationAction]):
             method_endpoint_map={
                 "create": Endpoint(method="POST", path="/integrations/actions", item_limit=_CREATE_LIMIT),
                 "retrieve": Endpoint(method="POST", path="/integrations/actions/byids", item_limit=_ITEM_LIMIT),
+                "delete": Endpoint(method="POST", path="/integrations/actions/cancel", item_limit=_ITEM_LIMIT),
                 "list": Endpoint(method="GET", path="/integrations/actions", item_limit=_ITEM_LIMIT),
             },
             api_version=_API_VERSION,
         )
-        self._cancel_endpoint = Endpoint(method="POST", path="/integrations/actions/cancel", item_limit=_ITEM_LIMIT)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
-    ) -> PagedResponse[IntegrationAction]:
-        return PagedResponse[IntegrationAction].model_validate_json(response.body)
+    ) -> PagedResponse[IntegrationActionResponse]:
+        return PagedResponse[IntegrationActionResponse].model_validate_json(response.body)
 
-    def create(
-        self, integration_external_id: str, items: Sequence[IntegrationActionRequest]
-    ) -> list[IntegrationAction]:
+    @staticmethod
+    def _assign_integration(items: Sequence[IntegrationActionResponse], integration_external_id: str | None) -> None:
+        if integration_external_id is None:
+            return
+        for item in items:
+            item.integration_external_id = integration_external_id
+
+    def create(self, items: Sequence[IntegrationActionRequest]) -> list[IntegrationActionResponse]:
         """Create actions for an integration.
 
         The extractor is asked to run pending actions the next time it checks in.
+        Actions are grouped by ``integration_external_id``, which is sent as a query parameter.
 
         Args:
-            integration_external_id: Integration that should run the actions.
-            items: Actions to create. At most 20 per request.
+            items: Actions to create. At most 20 per request for each integration.
         Returns:
             The created actions.
         """
-        return self._request_item_response(items, "create", params={"externalId": integration_external_id})
+        results: list[IntegrationActionResponse] = []
+        grouped = self._group_items_by_text_field(items, "integration_external_id")
+        for (integration_external_id,), group in grouped.items():
+            created = self._request_item_response(group, "create", params={"externalId": integration_external_id})
+            self._assign_integration(created, integration_external_id)
+            results.extend(created)
+        return results
 
-    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[IntegrationAction]:
+    def retrieve(
+        self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
+    ) -> list[IntegrationActionResponse]:
         """Retrieve actions by external ID.
 
         Args:
@@ -236,7 +248,7 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationAction]):
             items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
         )
 
-    def cancel(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[IntegrationAction]:
+    def cancel(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[IntegrationActionResponse]:
         """Cancel actions by external ID.
 
         Only actions that are pending, running, or already cancel-pending can be cancelled.
@@ -247,21 +259,7 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationAction]):
         Returns:
             The cancelled actions.
         """
-        endpoint = self._cancel_endpoint
-        response_items: list[IntegrationAction] = []
-        for chunk in chunker_sequence(items, endpoint.item_limit):
-            request = RequestMessage(
-                endpoint_url=self._make_url(endpoint.path),
-                method=endpoint.method,
-                body_content={
-                    "items": self._serialize_items(chunk),  # type: ignore[dict-item]
-                    "ignoreUnknownIds": ignore_unknown_ids,
-                },
-                api_version=self._api_version,
-            )
-            response = self._http_client.request_single_retries(request).get_success_or_raise(request)
-            response_items.extend(self._validate_page_response(response).items)
-        return response_items
+        return self._request_item_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
     def paginate(
         self,
@@ -270,7 +268,7 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationAction]):
         integration_external_id: str | None = None,
         created_after: int | None = None,
         include_completed: bool | None = None,
-    ) -> PagedResponse[IntegrationAction]:
+    ) -> PagedResponse[IntegrationActionResponse]:
         """Fetch one page of actions.
 
         Args:
@@ -282,7 +280,7 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationAction]):
         Returns:
             One page of actions.
         """
-        return self._paginate(
+        page = self._paginate(
             limit=limit,
             cursor=cursor,
             params={
@@ -291,6 +289,8 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationAction]):
                 "includeCompleted": include_completed,
             },
         )
+        self._assign_integration(page.items, integration_external_id)
+        return page
 
     def iterate(
         self,
@@ -298,7 +298,7 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationAction]):
         integration_external_id: str | None = None,
         created_after: int | None = None,
         include_completed: bool | None = None,
-    ) -> Iterable[list[IntegrationAction]]:
+    ) -> Iterable[list[IntegrationActionResponse]]:
         """Iterate over actions.
 
         Args:
@@ -309,14 +309,16 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationAction]):
         Returns:
             Pages of actions.
         """
-        return self._iterate(
+        for batch in self._iterate(
             limit=limit,
             params={
                 "externalId": integration_external_id,
                 "createdAfter": created_after,
                 "includeCompleted": include_completed,
             },
-        )
+        ):
+            self._assign_integration(batch, integration_external_id)
+            yield batch
 
     def list(
         self,
@@ -324,7 +326,7 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationAction]):
         integration_external_id: str | None = None,
         created_after: int | None = None,
         include_completed: bool | None = None,
-    ) -> list[IntegrationAction]:
+    ) -> list[IntegrationActionResponse]:
         """List actions.
 
         Args:
@@ -335,7 +337,7 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationAction]):
         Returns:
             Actions.
         """
-        return self._list(
+        items = self._list(
             limit=limit,
             params={
                 "externalId": integration_external_id,
@@ -343,6 +345,8 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationAction]):
                 "includeCompleted": include_completed,
             },
         )
+        self._assign_integration(items, integration_external_id)
+        return items
 
 
 class IntegrationConfigurationAPI(CDFResourceAPI[IntegrationConfigResponse]):
@@ -477,7 +481,7 @@ class IntegrationConfigurationAPI(CDFResourceAPI[IntegrationConfigResponse]):
         return self._list(limit=limit, params={"externalId": integration_external_id})
 
 
-class IntegrationErrorsAPI(CDFResourceAPI[IntegrationError]):
+class IntegrationErrorsAPI(CDFResourceAPI[IntegrationErrorResponse]):
     """Errors reported by integrations."""
 
     def __init__(self, http_client: HTTPClient) -> None:
@@ -491,8 +495,8 @@ class IntegrationErrorsAPI(CDFResourceAPI[IntegrationError]):
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
-    ) -> PagedResponse[IntegrationError]:
-        return PagedResponse[IntegrationError].model_validate_json(response.body)
+    ) -> PagedResponse[IntegrationErrorResponse]:
+        return PagedResponse[IntegrationErrorResponse].model_validate_json(response.body)
 
     def paginate(
         self,
@@ -502,7 +506,7 @@ class IntegrationErrorsAPI(CDFResourceAPI[IntegrationError]):
         task: str | None = None,
         min_start_time: int | None = None,
         max_end_time: int | None = None,
-    ) -> PagedResponse[IntegrationError]:
+    ) -> PagedResponse[IntegrationErrorResponse]:
         """Fetch one page of errors.
 
         Args:
@@ -528,7 +532,7 @@ class IntegrationErrorsAPI(CDFResourceAPI[IntegrationError]):
         task: str | None = None,
         min_start_time: int | None = None,
         max_end_time: int | None = None,
-    ) -> Iterable[list[IntegrationError]]:
+    ) -> Iterable[list[IntegrationErrorResponse]]:
         """Iterate over errors.
 
         Args:
@@ -552,7 +556,7 @@ class IntegrationErrorsAPI(CDFResourceAPI[IntegrationError]):
         task: str | None = None,
         min_start_time: int | None = None,
         max_end_time: int | None = None,
-    ) -> list[IntegrationError]:
+    ) -> list[IntegrationErrorResponse]:
         """List errors.
 
         Args:

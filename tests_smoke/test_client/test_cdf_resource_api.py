@@ -1596,8 +1596,13 @@ class TestCDFResourceAPI:
                 raise EndpointAssertionError("/integrations/sync", "Sync did not return a cursor")
 
             actions = client.actions.create(
-                external_id,
-                [IntegrationActionRequest(external_id=action_external_id, action_name="smoke-restart")],
+                [
+                    IntegrationActionRequest(
+                        external_id=action_external_id,
+                        action_name="smoke-restart",
+                        integration_external_id=external_id,
+                    )
+                ]
             )
             if len(actions) != 1:
                 raise EndpointAssertionError("/integrations/actions", f"Expected 1 created action, got {len(actions)}")

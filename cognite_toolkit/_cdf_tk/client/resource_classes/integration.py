@@ -110,7 +110,7 @@ class IntegrationTaskHistory(BaseModelObject):
     targets: list[str] | None = None
 
 
-class IntegrationError(BaseModelObject):
+class IntegrationErrorResponse(BaseModelObject):
     """A historical error reported by an integration."""
 
     type: IntegrationErrorKind | str
@@ -123,31 +123,29 @@ class IntegrationError(BaseModelObject):
     end_time: int | None = None
 
 
-class GeneralIntegrationError(BaseModelObject):
+class IntegrationCheckinErrorBase(BaseModelObject):
+    """Fields shared by errors reported on check-in."""
+
+    level: IntegrationErrorLevel | str
+    description: str
+    start_time: int
+    details: str | None = None
+    task: str | None = None
+    end_time: int | None = None
+    active_config_revision: ActiveConfigRevision | None = None
+
+
+class GeneralIntegrationError(IntegrationCheckinErrorBase):
     """A check-in error that is not tied to a configuration revision."""
 
     type: Literal["general"] = "general"
-    level: IntegrationErrorLevel | str
-    description: str
-    start_time: int
-    details: str | None = None
-    task: str | None = None
-    end_time: int | None = None
-    active_config_revision: ActiveConfigRevision | None = None
 
 
-class ConfigIntegrationError(BaseModelObject):
+class ConfigIntegrationError(IntegrationCheckinErrorBase):
     """A check-in error tied to a configuration revision."""
 
     type: Literal["config"]
-    level: IntegrationErrorLevel | str
-    description: str
-    start_time: int
     config_revision: int | None = None
-    details: str | None = None
-    task: str | None = None
-    end_time: int | None = None
-    active_config_revision: ActiveConfigRevision | None = None
 
 
 IntegrationCheckinError = Annotated[GeneralIntegrationError | ConfigIntegrationError, Field(discriminator="type")]
@@ -189,12 +187,14 @@ class IntegrationActionRequest(RequestResource):
     external_id: str
     action_name: str
     call_metadata: Metadata | None = None
+    # Query parameter on create, not part of the action body.
+    integration_external_id: str = Field(exclude=True)
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
 
-class IntegrationAction(ResponseResource[IntegrationActionRequest]):
+class IntegrationActionResponse(ResponseResource[IntegrationActionRequest]):
     external_id: str
     action_name: str
     status: IntegrationActionStatus | str
@@ -203,6 +203,8 @@ class IntegrationAction(ResponseResource[IntegrationActionRequest]):
     call_metadata: Metadata | None = None
     result_message: str | None = None
     result_metadata: Metadata | None = None
+    # Not returned by the API. Set from the request or list filter when known.
+    integration_external_id: str = Field("", exclude=True)
 
     @classmethod
     def request_cls(cls) -> type[IntegrationActionRequest]:
@@ -211,13 +213,18 @@ class IntegrationAction(ResponseResource[IntegrationActionRequest]):
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
+    def as_request_resource(self) -> IntegrationActionRequest:
+        dumped = self.dump()
+        dumped["integrationExternalId"] = self.integration_external_id
+        return IntegrationActionRequest.model_validate(dumped, extra="ignore")
+
 
 class IntegrationCheckinResponse(BaseModelObject):
     """Response shared by startup and check-in."""
 
     external_id: str
     last_config_revision: int | None = None
-    pending_actions: list[IntegrationAction] | None = None
+    pending_actions: list[IntegrationActionResponse] | None = None
 
 
 class IntegrationCheckinRequest(RequestResource):
@@ -238,12 +245,10 @@ class IntegrationSyncResponse(BaseModelObject):
     next_cursor: str
     more_data: bool
     history: list[IntegrationTaskHistory] | None = None
-    errors: list[IntegrationError] | None = None
+    errors: list[IntegrationErrorResponse] | None = None
 
 
-class IntegrationConfigRequest(RequestResource):
-    """Request body for creating a configuration revision."""
-
+class IntegrationConfig(BaseModelObject):
     external_id: str
     config: str
     description: str | None = None
@@ -252,22 +257,41 @@ class IntegrationConfigRequest(RequestResource):
         return IntegrationConfigId(external_id=self.external_id)
 
 
-class IntegrationConfigResponse(ResponseResource[IntegrationConfigRequest]):
+class IntegrationConfigRequest(IntegrationConfig, RequestResource):
+    """Request body for creating a configuration revision."""
+
+    ...
+
+
+class IntegrationConfigResponse(IntegrationConfig, ResponseResource[IntegrationConfigRequest]):
+    """A configuration revision.
+
+    Listing revisions omits ``config``. Creating and retrieving a revision includes it.
+    """
+
+    revision: int
+    created_time: int
+    last_updated_time: int
+
+    @classmethod
+    def request_cls(cls) -> type[IntegrationConfigRequest]:
+        return IntegrationConfigRequest
+
+    def as_id(self) -> IntegrationConfigId:
+        return IntegrationConfigId(external_id=self.external_id, revision=self.revision)
+
+
+class IntegrationConfigListResponse(BaseModelObject):
     """A configuration revision.
 
     Listing revisions omits ``config``. Creating and retrieving a revision includes it.
     """
 
     external_id: str
-    revision: int
     description: str | None = None
+    revision: int
     created_time: int
     last_updated_time: int
-    config: str | None = None
-
-    @classmethod
-    def request_cls(cls) -> type[IntegrationConfigRequest]:
-        return IntegrationConfigRequest
 
     def as_id(self) -> IntegrationConfigId:
         return IntegrationConfigId(external_id=self.external_id, revision=self.revision)
