@@ -25,6 +25,7 @@ external-data-sources = true
 signals = false
 api = true
 sap-writeback = true
+catalog-dataset = true
 v09 = true
 
 [plugins]
