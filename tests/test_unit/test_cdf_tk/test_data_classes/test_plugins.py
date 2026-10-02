@@ -9,7 +9,7 @@ from tests.data import CDF_TOML_DATA
 
 @pytest.fixture(autouse=True)
 def non_singleton_cdf_toml() -> None:
-    _ = CDFToml._load(CDF_TOML_DATA, use_singleton=True)
+    _ = CDFToml.load(CDF_TOML_DATA, use_singleton=True)
 
 
 @pytest.mark.skip("This test is not working because we need to mock the CDFToml.load method first")

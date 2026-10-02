@@ -12,7 +12,7 @@ from tests.constants import REPO_ROOT
 
 class TestCDFToml:
     def test_load_repo_root_config(self) -> None:
-        config = CDFToml._load(REPO_ROOT)
+        config = CDFToml.load(REPO_ROOT)
 
         assert config.modules.version == _version.__version__
 
@@ -75,7 +75,7 @@ class TestCDFToml:
         file_path.write_text(invalid_toml_content)
 
         with pytest.raises(ToolkitTOMLFormatError, match=re.escape(expected_error_message)):
-            CDFToml._load(cwd=tmp_path, use_singleton=False)
+            CDFToml.load(cwd=tmp_path, use_singleton=False)
 
     def test_load_package_url(self, tmp_path: Path):
         valid_toml_content = """
@@ -88,12 +88,12 @@ class TestCDFToml:
         file_path = tmp_path / CDFToml.file_name
         file_path.write_text(valid_toml_content)
 
-        config = CDFToml._load(cwd=tmp_path, use_singleton=False)
+        config = CDFToml.load(cwd=tmp_path, use_singleton=False)
         assert config.libraries["valid_url"].url == "https://github.com/cognitedata/package/archive/refs/tags/0.0.1.zip"
 
     def test_default_resources_cdf_toml_has_valid_library_config(self) -> None:
         """Test that the default cdf.toml in resources has valid library configuration."""
-        default_cdf_toml = CDFToml._load(cwd=RESOURCES_PATH, use_singleton=False)
+        default_cdf_toml = CDFToml.load(cwd=RESOURCES_PATH, use_singleton=False)
 
         # Verify the cognite library exists
         assert "cognite" in default_cdf_toml.libraries

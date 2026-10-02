@@ -11,7 +11,7 @@ from .constants import COGNITE_MODULES, CUSTOM_MODULES, HINT_LEAD_TEXT, MODULES,
 from .exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError
 from .tk_warnings import MediumSeverityWarning
 
-CDF_TOML = CDFToml.load(Path.cwd())
+CDF_TOML = CDFToml.load_module_context(Path.cwd())
 
 
 class Hint:
@@ -130,7 +130,7 @@ def verify_module_directory(organization_dir: Path, build_env_name: str | None) 
             suggestion.append(f"-o {candidate_rel}")
 
         print(f"{Hint._lead_text} Did you mean to use the command: '{' '.join(suggestion)}'?")
-        cdf_toml = CDFToml.load()
+        cdf_toml = CDFToml.load_module_context()
         if not cdf_toml.cdf.has_user_set_default_org:
             print(
                 f"{Hint._lead_text} You can specify a 'default_organization_dir = ...' in the 'cdf' section of your "
