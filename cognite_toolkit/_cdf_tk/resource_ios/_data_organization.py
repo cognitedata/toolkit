@@ -34,12 +34,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, 
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceFileIO, ResourceIO
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import DataSetYAML, LabelsYAML
+from cognite_toolkit._cdf_tk.yaml_classes.catalog_dataset import CatalogDataSetYAML
 
 from ._auth import GroupAllScopedIO
+from ._base_ios import ResourceType
 
 
 @final
@@ -113,6 +116,13 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSet
                     dumped["metadata"][key] = converted
 
         return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        # Data sets have no list fields of their own. CatalogDataSet lifts metadata into lists such as
+        # rawTables and consoleOwners, and pull diffs those through this loader.
+        return diff_list_force_hashable(local, cdf)
 
     def create(self, items: Sequence[DataSetRequest]) -> list[DataSetResponse]:
         return self.client.tool.datasets.create(list(items))
@@ -220,3 +230,72 @@ class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse, LabelsYAML]):
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         return dumped
+
+
+@final
+class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
+    folder_name = "data_sets"
+    yaml_cls = CatalogDataSetYAML
+    kind = "CatalogDataSet"
+    dependencies = frozenset({GroupAllScopedIO})
+
+    @classmethod
+    def get_id(cls, item: dict) -> ExternalId:
+        return ExternalId(external_id=item["externalId"])
+
+    @classmethod
+    def as_crud_type(cls) -> ResourceType:
+        return ResourceType(resource_folder=DataSetsIO.folder_name, kind=DataSetsIO.kind)
+
+    @classmethod
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
+
+    @classmethod
+    def get_dependencies(cls, resource: CatalogDataSetYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        return []
+
+    @classmethod
+    def to_crud_type(cls, raw: dict[str, Any]) -> dict[str, Any]:
+        """Convert a catalog data set to a CRUD data set."""
+        metadata: dict[str, str] = {}
+        crud_resource: dict[str, Any] = {}
+        crud_fields = {info.alias or name for name, info in DataSetRequest.model_fields.items()}
+        for key, value in raw.items():
+            if key in crud_fields:
+                crud_resource[key] = value
+            else:
+                metadata[key] = value if isinstance(value, str) else json.dumps(value)
+        if metadata:
+            crud_resource["metadata"] = metadata
+        return crud_resource
+
+    @classmethod
+    def from_crud_type(cls, crud: dict[str, Any]) -> dict[str, Any]:
+        """Convert a CRUD data set to a catalog data set."""
+        catalog_resource: dict[str, Any] = {}
+        metadata = crud.get("metadata") or {}
+        catalog_fields = {info.alias or name for name, info in CatalogDataSetYAML.model_fields.items()}
+        for key, value in crud.items():
+            if key == "metadata":
+                continue
+            if key in catalog_fields:
+                catalog_resource[key] = value
+            elif key in metadata:
+                catalog_resource[key] = _decode_catalog_metadata(metadata[key])
+            else:
+                catalog_resource[key] = value
+        for key, value in metadata.items():
+            if key in catalog_resource:
+                continue
+            catalog_resource[key] = _decode_catalog_metadata(value)
+        return catalog_resource
+
+
+def _decode_catalog_metadata(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return value

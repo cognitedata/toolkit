@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 from typing import cast
@@ -59,6 +60,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParamete
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO, LocationFilterIO, WorkflowVersionIO
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from tests.constants import CDF_PROJECT, chdir
@@ -354,6 +356,72 @@ def test_pull_group(
     reloaded = GroupRequest._load(yaml.safe_load(local_path.read_text()))
 
     assert reloaded.dump() == cdf_group.as_request_resource().dump()
+
+
+@pytest.mark.skipif(not Flags.CATALOG_DATASET.is_enabled(), reason="CATALOG_DATA not enabled")
+def test_pull_catalog_data_set(
+    default_config_dev_yaml: str,
+    env_vars_with_client: EnvironmentVariables,
+    toolkit_client_approval: ApprovalToolkitClient,
+    tmp_path: Path,
+) -> None:
+    org_dir = tmp_path / "my-org"
+    local_file = """externalId: my_catalog
+name: My catalog
+description: Original description
+writeProtected: false
+rawTables:
+- databaseName: src_db
+  tableName: src_tbl
+archived: false
+consoleGoverned: false
+consoleOwners:
+- name: Alice
+  email: alice@example.com
+"""
+    local_path = org_dir / "modules" / "my-module" / "data_sets" / "my_catalog.CatalogDataSet.yaml"
+    local_path.parent.mkdir(parents=True)
+    local_path.write_text(local_file)
+    (org_dir / "config.dev.yaml").write_text(default_config_dev_yaml, encoding="utf-8")
+
+    toolkit_client_approval.append(
+        DataSetResponse,
+        DataSetResponse(
+            external_id="my_catalog",
+            name="My catalog",
+            description="Updated description",
+            write_protected=False,
+            metadata={
+                "rawTables": json.dumps([{"databaseName": "src_db", "tableName": "updated_tbl"}]),
+                "archived": json.dumps(True),
+                "consoleGoverned": json.dumps(True),
+                "consoleOwners": json.dumps([{"name": "Bob", "email": "bob@example.com"}]),
+            },
+            id=42,
+            created_time=1,
+            last_updated_time=2,
+        ),
+    )
+
+    PullV2Command(skip_tracking=True, silent=True).pull(
+        user_selected_modules=["my-module"],
+        organization_dir=org_dir,
+        config_yaml=org_dir / "config.dev.yaml",
+        dry_run=False,
+        verbose=False,
+        env_vars=env_vars_with_client,
+    )
+
+    assert yaml.safe_load(local_path.read_text()) == {
+        "externalId": "my_catalog",
+        "name": "My catalog",
+        "description": "Updated description",
+        "writeProtected": False,
+        "rawTables": [{"databaseName": "src_db", "tableName": "updated_tbl"}],
+        "archived": True,
+        "consoleGoverned": True,
+        "consoleOwners": [{"name": "Bob", "email": "bob@example.com"}],
+    }
 
 
 def test_dump_datamodel(

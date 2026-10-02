@@ -6,7 +6,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
-    RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA,
+    RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA,
     RESOURCE_IO_BY_FOLDER_NAME,
 )
 from cognite_toolkit._cdf_tk.resource_ios._sap_writeback import SAPEndpointIO, SAPInstanceIO, SchemaMappingIO
@@ -37,11 +37,11 @@ class TestSAPWritebackExamples:
 
 class TestSAPWritebackIO:
     def test_registered_behind_sap_writeback_flag(self) -> None:
-        included = {loader.kind for loader in RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["SAPwritebacks"]}
+        included = {loader.kind for loader in RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["SAPwritebacks"]}
         assert included == {"SAPInstance", "SAPEndpoint", "SchemaMapping"}
         assert all(
             loader.folder_name == "SAPwritebacks"
-            for loader in RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["SAPwritebacks"]
+            for loader in RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["SAPwritebacks"]
         )
         if Flags.SAP_WRITEBACK.is_enabled():
             enabled = {loader.kind for loader in RESOURCE_IO_BY_FOLDER_NAME["SAPwritebacks"]}
