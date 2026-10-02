@@ -89,6 +89,14 @@ class ResourceBuildIO(ABC, Generic[T_Identifier, T_YamlResource]):
     This means it contains the serialization/deserialization of the resources, but not the CRUD interface
     for interacting with the CDF API.
 
+    Class attributes:
+        yaml_cls: The File format for this resource. This is used to validate the user input.
+        folder_name: The name of the folder in the build directory where the files are located. This should be set in all subclasses.
+        kind: The stem of the resource type
+        sub_folder_name: The name of the default subfolder name in the resource directory. This is used, for example,
+            when dumping data models to put containers and views into subdirectories.
+        extra_kinds: These are kinds of extras. For example, in the functions folders, CogniteFile and FileMetadata is allowed
+            as these contain function code.
     """
 
     yaml_cls: TypeForm[T_YamlResource]
@@ -155,7 +163,7 @@ class ResourceBuildIO(ABC, Generic[T_Identifier, T_YamlResource]):
         return safe_read(filepath, encoding=BUILD_FOLDER_ENCODING)
 
     @classmethod
-    def as_resource_type(cls) -> "ResourceType":
+    def as_resource_type(cls) -> ResourceType:
         return ResourceType(kind=cls.kind, resource_folder=cls.folder_name)
 
     @classmethod
