@@ -23,7 +23,7 @@ from ._auth import GroupAllScopedIO, GroupIO, SecurityCategoryIO
 from ._base_ios import BaseResourceIO, ResourceContainerIO, ResourceFileIO, ResourceIO, ResourceType
 from ._classic import AssetIO, EventIO, SequenceIO, SequenceRowIO
 from ._configuration import SearchConfigIO
-from ._data_organization import DataSetsIO, LabelIO
+from ._data_organization import CatalogDataSetsIO, DataSetsIO, LabelIO
 from ._data_product import DataProductIO
 from ._data_product_version import DataProductVersionIO
 from ._datamodel import (
@@ -73,7 +73,7 @@ from ._transformation import (
 )
 from ._workflow import WorkflowIO, WorkflowTriggerIO, WorkflowVersionIO
 
-_EXCLUDED_CRUDS: set[type[ResourceIO]] = set()
+_EXCLUDED_CRUDS: set[type[BaseResourceIO]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
     _EXCLUDED_CRUDS.add(GraphQLIO)
 if not FeatureFlag.is_enabled(Flags.INFIELD):
@@ -96,6 +96,8 @@ if not FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
     _EXCLUDED_CRUDS.add(SkillIO)
 if not FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES):
     _EXCLUDED_CRUDS.add(ExternalDataSourceIO)
+if not FeatureFlag.is_enabled(Flags.CATALOG_DATASET):
+    _EXCLUDED_CRUDS.add(CatalogDataSetsIO)
 if not FeatureFlag.is_enabled(Flags.SAP_WRITEBACK):
     _EXCLUDED_CRUDS.add(SAPInstanceIO)
     _EXCLUDED_CRUDS.add(SAPEndpointIO)
