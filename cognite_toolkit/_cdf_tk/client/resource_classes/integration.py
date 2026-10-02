@@ -264,10 +264,7 @@ class IntegrationConfigRequest(IntegrationConfig, RequestResource):
 
 
 class IntegrationConfigResponse(IntegrationConfig, ResponseResource[IntegrationConfigRequest]):
-    """A configuration revision.
-
-    Listing revisions omits ``config``. Creating and retrieving a revision includes it.
-    """
+    """A configuration revision returned by create and retrieve, including the config body."""
 
     revision: int
     created_time: int
@@ -282,9 +279,9 @@ class IntegrationConfigResponse(IntegrationConfig, ResponseResource[IntegrationC
 
 
 class IntegrationConfigListResponse(BaseModelObject):
-    """A configuration revision.
+    """Configuration revision metadata returned by list.
 
-    Listing revisions omits ``config``. Creating and retrieving a revision includes it.
+    The config body is omitted.
     """
 
     external_id: str

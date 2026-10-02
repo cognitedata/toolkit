@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.integration import (
     IntegrationActionResponse,
     IntegrationCheckinRequest,
     IntegrationCheckinResponse,
+    IntegrationConfigListResponse,
     IntegrationConfigRequest,
     IntegrationConfigResponse,
     IntegrationErrorResponse,
@@ -349,7 +350,7 @@ class IntegrationActionsAPI(CDFResourceAPI[IntegrationActionResponse]):
         return items
 
 
-class IntegrationConfigurationAPI(CDFResourceAPI[IntegrationConfigResponse]):
+class IntegrationConfigurationAPI(CDFResourceAPI[IntegrationConfigListResponse]):
     """Configuration revisions for an integration."""
 
     def __init__(self, http_client: HTTPClient) -> None:
@@ -365,8 +366,8 @@ class IntegrationConfigurationAPI(CDFResourceAPI[IntegrationConfigResponse]):
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
-    ) -> PagedResponse[IntegrationConfigResponse]:
-        return PagedResponse[IntegrationConfigResponse].model_validate_json(response.body)
+    ) -> PagedResponse[IntegrationConfigListResponse]:
+        return PagedResponse[IntegrationConfigListResponse].model_validate_json(response.body)
 
     def create(self, items: Sequence[IntegrationConfigRequest]) -> list[IntegrationConfigResponse]:
         """Create configuration revisions.
@@ -432,7 +433,7 @@ class IntegrationConfigurationAPI(CDFResourceAPI[IntegrationConfigResponse]):
         limit: int = _ITEM_LIMIT,
         cursor: str | None = None,
         integration_external_id: str | None = None,
-    ) -> PagedResponse[IntegrationConfigResponse]:
+    ) -> PagedResponse[IntegrationConfigListResponse]:
         """Fetch one page of configuration revision metadata.
 
         Listed revisions omit the config body.
@@ -450,7 +451,7 @@ class IntegrationConfigurationAPI(CDFResourceAPI[IntegrationConfigResponse]):
         self,
         limit: int | None = None,
         integration_external_id: str | None = None,
-    ) -> Iterable[list[IntegrationConfigResponse]]:
+    ) -> Iterable[list[IntegrationConfigListResponse]]:
         """Iterate over configuration revision metadata.
 
         Listed revisions omit the config body.
@@ -467,7 +468,7 @@ class IntegrationConfigurationAPI(CDFResourceAPI[IntegrationConfigResponse]):
         self,
         limit: int | None = None,
         integration_external_id: str | None = None,
-    ) -> list[IntegrationConfigResponse]:
+    ) -> list[IntegrationConfigListResponse]:
         """List configuration revision metadata.
 
         Listed revisions omit the config body.
