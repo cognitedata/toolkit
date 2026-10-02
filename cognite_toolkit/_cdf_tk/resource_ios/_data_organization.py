@@ -36,6 +36,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceFileIO, ResourceIO
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import DataSetYAML, LabelsYAML
 from cognite_toolkit._cdf_tk.yaml_classes.catalog_dataset import CatalogDataSetYAML
@@ -115,6 +116,13 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSet
                     dumped["metadata"][key] = converted
 
         return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        # Data sets have no list fields of their own. CatalogDataSet lifts metadata into lists such as
+        # rawTables and consoleOwners, and pull diffs those through this loader.
+        return diff_list_force_hashable(local, cdf)
 
     def create(self, items: Sequence[DataSetRequest]) -> list[DataSetResponse]:
         return self.client.tool.datasets.create(list(items))

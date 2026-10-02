@@ -119,6 +119,11 @@ class BuiltResource(BaseModel):
     identifier: Identifier
     source_hash: str
     type: ResourceType
+    source_type: ResourceType | None = Field(
+        default=None,
+        description="File format of the source resource. When the source is a ResourceFileIO this differs from type, "
+        "which is the CRUD type written to CDF. For example, a CatalogDataSet is deployed as a DataSet.",
+    )
     source_path: AbsoluteFilePath
     build_path: AbsoluteFilePath
     crud_cls: builtins.type[ResourceIO]

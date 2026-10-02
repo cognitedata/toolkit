@@ -968,6 +968,7 @@ class BuildV2Command(ToolkitCommand):
             source_path=resource_file,
             source_hash=file_hash,
             resource_type=resource_type,
+            source_type=crud_class.as_resource_type(),
             line_count=line_count,
             unresolved_variables=unresolved_variables,
             rules_ignore=rules_ignore,
@@ -1191,6 +1192,7 @@ class BuildV2Command(ToolkitCommand):
                     BuiltResource(
                         identifier=resource.identifier,
                         type=file.resource_type,
+                        source_type=file.source_type,
                         source_hash=file.source_hash,
                         source_path=file.source_path,
                         build_path=destination_path,
