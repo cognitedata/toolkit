@@ -62,7 +62,7 @@ if USE_SENTRY:
     )
 
 
-CDF_TOML = CDFToml.load(Path.cwd())
+CDF_TOML = CDFToml.load_module_context(Path.cwd())
 
 default_typer_kws = dict(
     pretty_exceptions_short=False,

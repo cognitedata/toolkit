@@ -854,7 +854,7 @@ class ModulesCommand(ToolkitCommand):
 
     @staticmethod
     def _get_module_version(project_path: Path) -> Version:
-        cdf_toml = CDFToml.load(use_singleton=False)
+        cdf_toml = CDFToml.load_module_context(use_singleton=False)
         # After `0.3.0` the version is in the CDF TOML file
         if cdf_toml.is_loaded_from_file and cdf_toml.modules.version:
             return parse_version(cdf_toml.modules.version)
@@ -1124,7 +1124,7 @@ class ModulesCommand(ToolkitCommand):
         Returns a list of available packages, either from the CDF TOML file or from external libraries if the feature flag is enabled.
         """
 
-        cdf_toml = CDFToml.load()
+        cdf_toml = CDFToml.load_module_context()
 
         if self._module_source_dir is None:
             if user_library:
