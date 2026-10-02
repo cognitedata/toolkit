@@ -114,7 +114,7 @@ class BaseResourceIO(ABC, Generic[T_Identifier, T_YamlResource]):
 
     @classmethod
     @abstractmethod
-    def crud_type(cls) -> ResourceType:
+    def as_crud_type(cls) -> ResourceType:
         """Returns the ResourceType for this resource that can be written to CDF.
 
         Note this is not necessarily the same as the ResourceType for the file format. For example,
@@ -259,7 +259,7 @@ class ResourceIO(
         self.console = client.console
 
     @classmethod
-    def crud_type(cls) -> ResourceType:
+    def as_crud_type(cls) -> ResourceType:
         return ResourceType(kind=cls.kind, resource_folder=cls.folder_name)
 
     # The methods that must be implemented in the subclass

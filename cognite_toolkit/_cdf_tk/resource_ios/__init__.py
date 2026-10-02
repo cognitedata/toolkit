@@ -101,9 +101,9 @@ if not FeatureFlag.is_enabled(Flags.SAP_WRITEBACK):
     _EXCLUDED_CRUDS.add(SAPEndpointIO)
     _EXCLUDED_CRUDS.add(SchemaMappingIO)
 
-RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[BaseResourceIO]]] = defaultdict(list)
+RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[BaseResourceIO]]] = defaultdict(list)
 RESOURCE_IO_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
-RESOURCE_BUILD_IO_BY_FOLDER_NAME: defaultdict[str, list[type[BaseResourceIO]]] = defaultdict(list)
+RESOURCE_BASE_IO_BY_FOLDER_NAME: defaultdict[str, list[type[BaseResourceIO]]] = defaultdict(list)
 for _io_cls in itertools.chain(
     ResourceIO.__subclasses__(),
     ResourceContainerIO.__subclasses__(),
@@ -115,24 +115,24 @@ for _io_cls in itertools.chain(
         # Skipping base classes
         continue
     # MyPy bug: https://github.com/python/mypy/issues/4717
-    RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA[_io_cls.folder_name].append(_io_cls)  # type: ignore[attr-defined, arg-type]
+    RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA[_io_cls.folder_name].append(_io_cls)  # type: ignore[attr-defined, arg-type]
 
     if _io_cls not in _EXCLUDED_CRUDS:
         if issubclass(_io_cls, ResourceIO):
             RESOURCE_IO_BY_FOLDER_NAME[_io_cls.folder_name].append(_io_cls)
-        RESOURCE_BUILD_IO_BY_FOLDER_NAME[_io_cls.folder_name].append(_io_cls)  # type: ignore[attr-defined, arg-type]
+        RESOURCE_BASE_IO_BY_FOLDER_NAME[_io_cls.folder_name].append(_io_cls)  # type: ignore[attr-defined, arg-type]
 del _io_cls  # cleanup module namespace
 
 
 # For backwards compatibility
 RESOURCE_IO_BY_FOLDER_NAME["data_models"] = RESOURCE_IO_BY_FOLDER_NAME["data_modeling"]  # Todo: Remove in v1.0
-RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["data_models"] = RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA[
+RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["data_models"] = RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA[
     "data_modeling"
 ]
 
 RESOURCE_BUILD_IO_BY_TYPE = {
     ResourceType(resource_folder=folder_name, kind=crud.kind): crud
-    for folder_name, cruds in RESOURCE_BUILD_IO_BY_FOLDER_NAME.items()
+    for folder_name, cruds in RESOURCE_BASE_IO_BY_FOLDER_NAME.items()
     for crud in cruds
 }
 RESOURCE_IO_BY_TYPE = {
@@ -142,7 +142,7 @@ RESOURCE_IO_BY_TYPE = {
 }
 
 RESOURCE_BUILD_IO_LIST: list[type[BaseResourceIO]] = list(
-    itertools.chain.from_iterable(RESOURCE_BUILD_IO_BY_FOLDER_NAME.values())
+    itertools.chain.from_iterable(RESOURCE_BASE_IO_BY_FOLDER_NAME.values())
 )
 RESOURCE_IO_LIST = [io_cls for io_cls in RESOURCE_BUILD_IO_LIST if issubclass(io_cls, ResourceIO)]
 
@@ -183,7 +183,7 @@ def get_resource_build_io(resource_dir: str, kind: str) -> type[BaseResourceIO]:
         return io_cls
     # Fall back to alpha-inclusive registry (e.g. for deserializing built resources
     # when a CRUD is excluded by feature flags or test patching).
-    for loader in RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA[resource_dir]:
+    for loader in RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA[resource_dir]:
         if loader.kind == kind:
             return loader
     raise ValueError(f"Loader not found for {resource_dir} and {kind}")

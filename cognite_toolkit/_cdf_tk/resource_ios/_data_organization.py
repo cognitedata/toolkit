@@ -236,7 +236,7 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
         return ExternalId(external_id=item["externalId"])
 
     @classmethod
-    def crud_type(cls) -> ResourceType:
+    def as_crud_type(cls) -> ResourceType:
         return ResourceType(resource_folder=DataSetsIO.folder_name, kind=DataSetsIO.kind)
 
     @classmethod
