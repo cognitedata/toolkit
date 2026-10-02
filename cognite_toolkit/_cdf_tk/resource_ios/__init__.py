@@ -48,6 +48,7 @@ from ._hosted_extractors import (
     HostedExtractorSourceIO,
 )
 from ._industrial_tool import StreamlitIO
+from ._integrations import IntegrationConfigsIO, IntegrationsIO
 from ._location import LocationFilterIO
 from ._migration import ResourceViewMappingIO
 from ._raw import RawDatabaseIO, RawTableIO
@@ -100,6 +101,9 @@ if not FeatureFlag.is_enabled(Flags.SAP_WRITEBACK):
     _EXCLUDED_CRUDS.add(SAPInstanceIO)
     _EXCLUDED_CRUDS.add(SAPEndpointIO)
     _EXCLUDED_CRUDS.add(SchemaMappingIO)
+if not FeatureFlag.is_enabled(Flags.INTEGRATIONS):
+    _EXCLUDED_CRUDS.add(IntegrationsIO)
+    _EXCLUDED_CRUDS.add(IntegrationConfigsIO)
 
 RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[ResourceBuildIO]]] = defaultdict(list)
 RESOURCE_IO_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
@@ -159,6 +163,7 @@ ResourceTypes: TypeAlias = Literal[
     "data_products",
     "data_sets",
     "hosted_extractors",
+    "integrations",
     "locations",
     "migration",
     "transformations",
@@ -220,6 +225,8 @@ __all__ = [
     "HostedExtractorSourceIO",
     "InFieldCDMLocationConfigIO",
     "InFieldLocationConfigIO",
+    "IntegrationConfigsIO",
+    "IntegrationsIO",
     "LabelIO",
     "LocationFilterIO",
     "NodeIO",

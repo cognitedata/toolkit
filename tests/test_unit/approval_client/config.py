@@ -189,6 +189,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldLocationConfigRequest,
     InFieldLocationConfigResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.integration import (
+    IntegrationConfigRequest,
+    IntegrationConfigResponse,
+    IntegrationRequest,
+    IntegrationResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
@@ -1407,6 +1413,30 @@ API_RESOURCES = [
         api_name="sap_writeback.mappings",
         resource_cls=SchemaMappingResponse,
         _write_cls=SchemaMappingRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="integrations",
+        resource_cls=IntegrationResponse,
+        _write_cls=IntegrationRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+            "update": [Method(api_class_method="update", mock_class_method="return_value")],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
+        },
+    ),
+    APIResource(
+        api_name="integrations.configuration",
+        resource_cls=IntegrationConfigResponse,
+        _write_cls=IntegrationConfigRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [

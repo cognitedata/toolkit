@@ -98,6 +98,10 @@ class Flags(Enum):
         visible=True,
         description="Enables support for SAP writeback resources",
     )
+    INTEGRATIONS = FlagMetadata(
+        visible=True,
+        description="Enables support for integration resources",
+    )
     RECORD_VIEWS = FlagMetadata(
         visible=True,
         description="Enables support for record-backed views (streamId on views)",

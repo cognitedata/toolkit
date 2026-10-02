@@ -36,6 +36,7 @@ from .infield_cdm_location_config import InFieldCDMLocationConfigYAML
 from .infield_location_config import InfieldLocationConfigYAML
 from .infield_v1 import InfieldV1YAML
 from .instance import EdgeYAML, NodeYAML
+from .integration import IntegrationConfigYAML, IntegrationYAML
 from .labels import LabelsYAML
 from .location import LocationYAML
 from .migration import ResourceViewMappingYAML
@@ -99,6 +100,8 @@ __all__ = [
     "InFieldCDMLocationConfigYAML",
     "InfieldLocationConfigYAML",
     "InfieldV1YAML",
+    "IntegrationConfigYAML",
+    "IntegrationYAML",
     "LabelsYAML",
     "LocationYAML",
     "NodeYAML",
