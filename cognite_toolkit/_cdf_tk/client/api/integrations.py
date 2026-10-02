@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
     RequestMessage,
     SuccessResponse,
+    ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, IntegrationConfigId
 from cognite_toolkit._cdf_tk.client.resource_classes.integration import (
@@ -422,10 +423,13 @@ class IntegrationConfigurationAPI(CDFResourceAPI[IntegrationConfigListResponse])
             response = self._http_client.request_single_retries(request)
             if isinstance(response, SuccessResponse):
                 results.append(IntegrationConfigResponse.model_validate_json(response.body))
-            elif ignore_unknown_ids:
-                continue
             else:
-                _ = response.get_success_or_raise(request)
+                try:
+                    response.get_success_or_raise(request)
+                except ToolkitAPIError as e:
+                    if ignore_unknown_ids and e.code == 404:
+                        continue
+                    raise
         return results
 
     def paginate(
