@@ -34,10 +34,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, 
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceBuildIO, ResourceIO
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import DataSetYAML, LabelsYAML
+from cognite_toolkit._cdf_tk.yaml_classes.catalog_dataset import CatalogDataSetYAML
 
 from ._auth import GroupAllScopedIO
 
@@ -220,3 +221,29 @@ class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse, LabelsYAML]):
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         return dumped
+
+
+@final
+class CatalogDataSetsIO(ResourceBuildIO[ExternalId, CatalogDataSetYAML]):
+    folder_name = "data_sets"
+    yaml_cls = CatalogDataSetYAML
+    kind = "CatalogDataSet"
+    dependencies = frozenset({GroupAllScopedIO})
+
+    @property
+    def display_name(self) -> str:
+        return "catalog data sets"
+
+    @classmethod
+    def get_id(cls, item: CatalogDataSetYAML | dict) -> ExternalId:
+        if isinstance(item, dict):
+            return ExternalId(external_id=item["external_id"])
+        return item.as_id()
+
+    @classmethod
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
+
+    @classmethod
+    def get_dependencies(cls, resource: CatalogDataSetYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        return []
