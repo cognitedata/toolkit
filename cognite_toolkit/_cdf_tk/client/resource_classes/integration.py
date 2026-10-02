@@ -288,7 +288,7 @@ class IntegrationConfigListResponse(BaseModelObject):
     description: str | None = None
     revision: int
     created_time: int
-    last_updated_time: int
+    last_updated_time: int | None = None  # Bug in API. This is not returned.
 
     def as_id(self) -> IntegrationConfigId:
         return IntegrationConfigId(external_id=self.external_id, revision=self.revision)

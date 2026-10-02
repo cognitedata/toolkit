@@ -1522,6 +1522,9 @@ class TestCDFResourceAPI:
                 method_map["list"].path, "Expected at 1 listed extraction pipeline config, got 0"
             )
 
+    @pytest.mark.skip(
+        reason="The endpoint /integrations/checkin returns 422: errors[0].general.externalId: Field required. Which is inconsistent with the docs."
+    )
     def test_integration_tasks_actions_configuration_and_errors(self, toolkit_client: ToolkitClient) -> None:
         external_id = f"smoke-test-integration-{uuid4().hex[:8]}"
         action_external_id = f"{external_id}-action"
