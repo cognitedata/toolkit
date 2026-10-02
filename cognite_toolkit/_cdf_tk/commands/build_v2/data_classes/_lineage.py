@@ -30,7 +30,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.resource_ios import ResourceType, get_crud
+from cognite_toolkit._cdf_tk.resource_ios import ResourceType, get_resource_build_io
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     calculate_hash,
@@ -86,7 +86,7 @@ class ResourceLineageItem(_BaseLineageModel):
         content = BuildVariable.substitute(
             safe_read(organization_path / self.source_file), self.variables, self.source_file.suffix
         )
-        resource_io = get_crud(self.type.resource_folder, self.type.kind)
+        resource_io = get_resource_build_io(self.type.resource_folder, self.type.kind)
         raw = load_yaml_inject_variables(
             content,
             environment_variables,

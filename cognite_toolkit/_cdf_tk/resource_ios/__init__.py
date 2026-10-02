@@ -177,7 +177,7 @@ ResourceTypes: TypeAlias = Literal[
 ]
 
 
-def get_crud(resource_dir: str, kind: str) -> type[ResourceBuildIO]:
+def get_resource_build_io(resource_dir: str, kind: str) -> type[ResourceBuildIO]:
     if io_cls := RESOURCE_BUILD_IO_BY_TYPE.get(ResourceType(resource_folder=resource_dir, kind=kind)):
         return io_cls
     # Fall back to alpha-inclusive registry (e.g. for deserializing built resources
@@ -192,7 +192,6 @@ __all__ = [
     "RESOURCE_BUILD_IO_LIST",
     "RESOURCE_IO_BY_FOLDER_NAME",
     "RESOURCE_IO_LIST",
-    "_EXCLUDED_CRUDS",
     "AgentIO",
     "AppIO",
     "AppVersionIO",
@@ -260,5 +259,5 @@ __all__ = [
     "WorkflowIO",
     "WorkflowTriggerIO",
     "WorkflowVersionIO",
-    "get_crud",
+    "get_resource_build_io",
 ]
