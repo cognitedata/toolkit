@@ -153,6 +153,8 @@ class CDFToml:
     def load(cls, cwd: Path | None = None, use_singleton: bool = True) -> "CDFToml":
         """Loads the cdf.toml file from the given path. If use_singleton is True, the instance will be stored as a
         singleton and returned on subsequent calls."""
+        # This is an entryp point for the CLI application, so we catch any errors and print them nicely
+        # before exiting the program.
         try:
             return cls._load(cwd, use_singleton)
         except ToolkitError as err:
