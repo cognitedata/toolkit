@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.commands import (
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.resource_ios import (
-    RESOURCE_CRUD_BY_FOLDER_NAME,
+    RESOURCE_IO_BY_FOLDER_NAME,
     RESOURCE_IO_LIST,
     ExternalDataSourceIO,
     HostedExtractorDestinationIO,
@@ -100,8 +100,8 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
             {"EVENTHUB_CLIENT_ID": client_id, "EVENTHUB_CLIENT_SECRET": client_secret},
         ),
         patch.dict(
-            "cognite_toolkit._cdf_tk.commands.deploy_v2.command.RESOURCE_CRUD_BY_FOLDER_NAME",
-            {f: [c for c in cs if c not in _skip_cruds] for f, cs in RESOURCE_CRUD_BY_FOLDER_NAME.items()},
+            "cognite_toolkit._cdf_tk.commands.deploy_v2.command.RESOURCE_IO_BY_FOLDER_NAME",
+            {f: [c for c in cs if c not in _skip_cruds] for f, cs in RESOURCE_IO_BY_FOLDER_NAME.items()},
             clear=True,
         ),
     ):
