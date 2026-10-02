@@ -61,6 +61,21 @@ TChartBackendResponse = TypeVar(
 )
 
 
+def _scheduled_calculation_write_target_changed(
+    existing: ChartScheduledCalculationResponse,
+    request: ChartScheduledCalculationRequest,
+) -> bool:
+    """Return True when the schedule write target differs from the stored task.
+
+    The Tasks API rejects updates that change ``targetTimeseriesExternalId`` or
+    ``targetTimeseriesInstanceId`` and requires the schedule to be recreated.
+    """
+    return (
+        request.target_timeseries_external_id != existing.target_timeseries_external_id
+        or request.target_timeseries_instance_id != existing.target_timeseries_instance_id
+    )
+
+
 class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
     KIND = "Charts"
     CHUNK_SIZE = 10
@@ -454,19 +469,29 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         )
         log_entries.extend(job_upsert_logs)
 
+        existing_calculations = self.client.charts.scheduled_calculations.retrieve(
+            list(calculation_by_id.keys()), ignore_unknown_ids=True
+        )
+        rebind_logs, rebound_ids, rebind_failures = self._delete_scheduled_calculations_for_target_rebind(
+            calculation_by_id, existing_calculations
+        )
+        log_entries.extend(rebind_logs)
         existing_calculation_ids = {
             calculation.as_id()
-            for calculation in self.client.charts.scheduled_calculations.retrieve(
-                list(calculation_by_id.keys()), ignore_unknown_ids=True
-            )
+            for calculation in existing_calculations
+            if calculation.as_id() not in rebound_ids and calculation.as_id() not in rebind_failures
+        }
+        calculations_to_upsert = {
+            ext_id: payload for ext_id, payload in calculation_by_id.items() if ext_id not in rebind_failures
         }
         calculation_upsert_logs, failed_calculations, _ = self._upsert_unique_backend_requests(
-            calculation_by_id,
+            calculations_to_upsert,
             existing_calculation_ids,
             self.client.charts.scheduled_calculations.update,
             self.client.charts.scheduled_calculations.create,
             "scheduled calculation",
         )
+        failed_calculations.update(rebind_failures)
         log_entries.extend(calculation_upsert_logs)
 
         upserted_job_by_internal_id: dict[int, ChartMonitoringJobResponse] = {}
@@ -520,6 +545,48 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         if log_entries:
             self.logger.log(log_entries)
         return failed_charts
+
+    def _delete_scheduled_calculations_for_target_rebind(
+        self,
+        calculation_by_id: dict[ExternalId, tuple[ChartScheduledCalculationRequest, str]],
+        existing_calculations: Sequence[ChartScheduledCalculationResponse],
+    ) -> tuple[list[LogEntryV2], set[ExternalId], set[ExternalId]]:
+        """Delete schedules whose write target changed so they can be created again.
+
+        Returns log entries, external IDs that were deleted, and external IDs whose delete failed.
+        Deleted schedules are given a new session nonce because recreate binds both the target and the session.
+        """
+        existing_by_id = {calculation.as_id(): calculation for calculation in existing_calculations}
+        log_entries: list[LogEntryV2] = []
+        deleted: set[ExternalId] = set()
+        failed: set[ExternalId] = set()
+        for ext_id, (request, tracking_id) in calculation_by_id.items():
+            existing = existing_by_id.get(ext_id)
+            if existing is None or not _scheduled_calculation_write_target_changed(existing, request):
+                continue
+            try:
+                self.client.charts.scheduled_calculations.delete([ext_id])
+            except ToolkitAPIError as error:
+                log_entries.append(
+                    LogEntryV2(
+                        id=tracking_id,
+                        label=f"Failed update scheduled calculation. Code {error.code}",
+                        message=(f"Failed to recreate scheduled calculation {ext_id} with a new write target: {error}"),
+                        severity=Severity.failure,
+                    )
+                )
+                failed.add(ext_id)
+                continue
+            if request.nonce == MISSING_NONCE:
+                request.nonce = self._create_schedule_rebind_nonce()
+            deleted.add(ext_id)
+        return log_entries, deleted, failed
+
+    def _create_schedule_rebind_nonce(self) -> str:
+        """Create the session required when recreating a schedule with a new write target."""
+        if isinstance(self.client.config.credentials, OAuthDeviceCode):
+            return self.client.iam.sessions.create(session_type="TOKEN_EXCHANGE").nonce
+        return self.client.iam.sessions.create().nonce
 
 
 class CanvasIO(UploadableDataIO[CanvasSelector, IndustrialCanvasResponse, IndustrialCanvasRequest]):
