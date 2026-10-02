@@ -257,10 +257,7 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
             if key in crud_fields:
                 crud_resource[key] = value
             else:
-                if isinstance(value, dict | list):
-                    metadata[key] = json.dumps(value)
-                else:
-                    metadata[key] = str(value)
+                metadata[key] = value if isinstance(value, str) else json.dumps(value)
         if metadata:
             crud_resource["metadata"] = metadata
         return crud_resource
@@ -269,19 +266,28 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
     def from_crud_type(cls, crud: dict[str, Any]) -> dict[str, Any]:
         """Convert a CRUD data set to a catalog data set."""
         catalog_resource: dict[str, Any] = {}
-        metadata = crud.get("metadata", {})
+        metadata = crud.get("metadata") or {}
         catalog_fields = {info.alias or name for name, info in CatalogDataSetYAML.model_fields.items()}
         for key, value in crud.items():
+            if key == "metadata":
+                continue
             if key in catalog_fields:
                 catalog_resource[key] = value
-            elif key == "metadata":
-                continue
+            elif key in metadata:
+                catalog_resource[key] = _decode_catalog_metadata(metadata[key])
             else:
-                if key in metadata:
-                    try:
-                        catalog_resource[key] = json.loads(metadata[key])
-                    except json.JSONDecodeError:
-                        catalog_resource[key] = metadata[key]
-                else:
-                    catalog_resource[key] = value
+                catalog_resource[key] = value
+        for key, value in metadata.items():
+            if key in catalog_resource:
+                continue
+            catalog_resource[key] = _decode_catalog_metadata(value)
         return catalog_resource
+
+
+def _decode_catalog_metadata(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return value
