@@ -160,9 +160,7 @@ class TestFormatConsistency:
         loaded = loader.load_resource_file(filepath=file, environment_variables={})
         assert isinstance(loaded, list)
 
-    @pytest.mark.parametrize(
-        "Loader", [loader for loader in RESOURCE_IO_LIST if loader.folder_name != "robotics"]
-    )  # Robotics does not have a public doc_url
+    @pytest.mark.parametrize("Loader", RESOURCE_IO_LIST)  # Robotics does not have a public doc_url
     def test_loader_has_doc_url(self, Loader: type[ResourceIO], toolkit_client_cheap: ToolkitClient):
         loader = Loader.create_io(toolkit_client_cheap)
         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"

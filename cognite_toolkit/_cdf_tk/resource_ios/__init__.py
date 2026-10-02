@@ -126,14 +126,12 @@ for _io_cls in itertools.chain(
 del _io_cls  # cleanup module namespace
 
 
-# For backwards compatibility
-RESOURCE_IO_BY_FOLDER_NAME["data_models"] = RESOURCE_IO_BY_FOLDER_NAME["data_modeling"]  # Todo: Remove in v1.0
+# For backwards compatibility. Todo: Remove in v1.0
+RESOURCE_IO_BY_FOLDER_NAME["data_models"] = RESOURCE_IO_BY_FOLDER_NAME["data_modeling"]
+RESOURCE_BASE_IO_BY_FOLDER_NAME["data_models"] = RESOURCE_BASE_IO_BY_FOLDER_NAME["data_modeling"]
 RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["data_models"] = RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA[
-    "data_modeling"  # Todo: Remove in v1.0
-]
-RESOURCE_BASE_IO_BY_FOLDER_NAME["data_models"] = RESOURCE_BASE_IO_BY_FOLDER_NAME[
     "data_modeling"
-]  # Todo: Remove in v1.0
+]
 
 RESOURCE_BUILD_IO_BY_TYPE = {
     ResourceType(resource_folder=folder_name, kind=crud.kind): crud
@@ -146,8 +144,11 @@ RESOURCE_IO_BY_TYPE = {
     for crud in cruds
 }
 
+# Skip the data_models alias so each loader is listed once.
 RESOURCE_BUILD_IO_LIST: list[type[BaseResourceIO]] = list(
-    itertools.chain.from_iterable(RESOURCE_BASE_IO_BY_FOLDER_NAME.values())
+    itertools.chain.from_iterable(
+        cruds for folder_name, cruds in RESOURCE_BASE_IO_BY_FOLDER_NAME.items() if folder_name != "data_models"
+    )
 )
 RESOURCE_IO_LIST = [io_cls for io_cls in RESOURCE_BUILD_IO_LIST if issubclass(io_cls, ResourceIO)]
 
