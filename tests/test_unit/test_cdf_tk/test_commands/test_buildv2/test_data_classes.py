@@ -244,6 +244,38 @@ query: >-
 
         assert result == "# Pipeline for Hamburg\n"
 
+    def test_get_pattern_replace_pair_ttl_list(self) -> None:
+        variable = BuildVariable(id=Path("modules/my_list"), value=["X", "Y", "Z"], is_selected=True)
+
+        _, replace = variable.get_pattern_replace_pair(".ttl")
+
+        assert replace == "X, Y, Z"
+
+    def test_substitute_ttl(self) -> None:
+        source_ttl = """@prefix ex: <http://example.com/{{ space }}/> .
+ex:Shape a sh:NodeShape ;
+    sh:targetClass ex:{{ class_name }} .
+"""
+        variables = _create_variables({"space": "sp_my_space", "class_name": "Pump"})
+
+        result = BuildVariable.substitute(source_ttl, variables, ".ttl")
+
+        assert (
+            result
+            == """@prefix ex: <http://example.com/sp_my_space/> .
+ex:Shape a sh:NodeShape ;
+    sh:targetClass ex:Pump .
+"""
+        )
+
+    def test_substitute_ttl_leaves_single_braces(self) -> None:
+        source_ttl = 'sh:select """SELECT ?s { ?s a ex:{{ class_name }} }""" .\n'
+        variables = _create_variables({"class_name": "Pump"})
+
+        result = BuildVariable.substitute(source_ttl, variables, ".ttl")
+
+        assert result == 'sh:select """SELECT ?s { ?s a ex:Pump }""" .\n'
+
     def test_get_pattern_replace_pair_unsupported_suffix(self) -> None:
         """Test that unsupported file suffixes raise NotImplementedError."""
         variable = BuildVariable(id=Path("modules/my_var"), value="test", is_selected=True)
