@@ -833,8 +833,26 @@ class TestDryRunDataSetPlaceholders:
         client.tool.token.verify_acls.return_value = []
         loader = AssetIO.create_io(client)
         resource = AssetRequest(name="my_asset", external_id="my_asset", data_set_id=DRY_RUN_ID)
-        DeployV2Command._validate_access(loader, [resource], client, is_dry_run=True)
+        is_missing_read, is_missing_write, is_write_acl_unknown = DeployV2Command._validate_access(
+            loader, [resource], client, is_dry_run=True
+        )
         client.tool.datasets.retrieve.assert_not_called()
+        assert is_missing_read is False
+        assert is_missing_write is False
+        assert is_write_acl_unknown is True
+
+    def test_format_able_to_deploy_unknown(self) -> None:
+        result = DeploymentResult(
+            resource_name="assets",
+            is_dry_run=True,
+            created_count=0,
+            deleted_count=0,
+            updated_count=0,
+            unchanged_count=0,
+            is_missing_write_acl=False,
+            is_write_acl_unknown=True,
+        )
+        assert DeployV2Command._format_able_to_deploy(result) == "[yellow]Unknown[/]"
 
 
 class TestDeployAccessControlErrors:
