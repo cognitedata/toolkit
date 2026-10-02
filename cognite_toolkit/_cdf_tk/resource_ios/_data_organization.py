@@ -230,15 +230,9 @@ class CatalogDataSetsIO(ResourceBuildIO[ExternalId, CatalogDataSetYAML]):
     kind = "CatalogDataSet"
     dependencies = frozenset({GroupAllScopedIO})
 
-    @property
-    def display_name(self) -> str:
-        return "catalog data sets"
-
     @classmethod
-    def get_id(cls, item: CatalogDataSetYAML | dict) -> ExternalId:
-        if isinstance(item, dict):
-            return ExternalId(external_id=item["external_id"])
-        return item.as_id()
+    def get_id(cls, item: dict) -> ExternalId:
+        return ExternalId(external_id=item["externalId"])
 
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
