@@ -1,6 +1,7 @@
 import json
 from datetime import datetime
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 import respx
@@ -368,6 +369,59 @@ class TestChartIO:
         assert chart_request["data"]["timeSeriesCollection"][0]["tsExternalId"] == _CHART_TS_EXTERNAL_ID
         assert chart_request["data"]["timeSeriesCollection"][0]["tsId"] == _CHART_TS_INTERNAL_ID
         assert chart_request["data"]["monitoringJobs"][0]["id"] == _CHART_MONITOR_JOB_INTERNAL_ID_AFTER_UPLOAD
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_upload_recreates_scheduled_calculation_when_write_target_changes(
+        self, toolkit_config: ToolkitClientConfig
+    ) -> None:
+        chart = _example_chart_response_for_download()
+        monitoring_job = _example_monitoring_job_response()
+        existing_calculation = _example_scheduled_calculation_response()
+        downloaded = self._create_downloaded_chart(chart, monitoring_job, existing_calculation)
+        downloaded["scheduledCalculations"][0]["targetTimeseriesExternalId"] = None
+        downloaded["scheduledCalculations"][0]["targetTimeseriesInstanceId"] = {
+            "space": "plant",
+            "externalId": "shared_ts_calc_output",
+        }
+        new_monitoring_job = monitoring_job.model_copy(update={"id": _CHART_MONITOR_JOB_INTERNAL_ID_AFTER_UPLOAD})
+        with monkeypatch_toolkit_client() as client:
+            client.charts.list.return_value = []
+            client.lookup.time_series.id.return_value = _CHART_TS_INTERNAL_ID
+            client.charts.monitoring_jobs.retrieve.return_value = [new_monitoring_job]
+            client.charts.monitoring_jobs.update.return_value = [new_monitoring_job]
+            client.charts.scheduled_calculations.retrieve.return_value = [existing_calculation]
+            client.charts.scheduled_calculations.create.return_value = [existing_calculation]
+            client.iam = MagicMock()
+            client.iam.sessions.create.return_value.nonce = "rebind-nonce"
+
+            io = ChartIO(client, skip_backend_services=False, skip_existing=False)
+            page = io.json_chunk_to_data(
+                Page(worker_id="main", items=[DataItem(tracking_id="line 1", item=downloaded)])
+            )
+            charts_put_url = toolkit_config.create_app_url(ChartIO.UPLOAD_ENDPOINT)
+            with HTTPClient(toolkit_config) as http_client:
+                with respx.mock(assert_all_called=False) as mock_router:
+                    mock_router.put(charts_put_url).respond(status_code=200)
+                    io.upload_items(page, http_client)
+
+            created = client.charts.scheduled_calculations.create.call_args.args[0][0]
+            deleted_ids = [item.external_id for item in client.charts.scheduled_calculations.delete.call_args.args[0]]
+            assert {
+                "deleted": deleted_ids,
+                "updated": client.charts.scheduled_calculations.update.called,
+                "nonce": created.nonce,
+                "target_external_id": created.target_timeseries_external_id,
+                "target_instance_id": (
+                    created.target_timeseries_instance_id.space,
+                    created.target_timeseries_instance_id.external_id,
+                ),
+            } == {
+                "deleted": [_CHART_CALC_EXTERNAL_ID],
+                "updated": False,
+                "nonce": "rebind-nonce",
+                "target_external_id": None,
+                "target_instance_id": ("plant", "shared_ts_calc_output"),
+            }
 
     @pytest.mark.parametrize(
         "limit,selector,expected_external_ids",
