@@ -2,8 +2,6 @@ from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal, final
 
-import yaml
-
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, IntegrationConfigId
@@ -23,7 +21,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.integration import (
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     read_yaml_content,
@@ -31,6 +28,7 @@ from cognite_toolkit._cdf_tk.utils import (
     sanitize_filename,
     stringify_value_by_key_in_yaml,
 )
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.yaml_classes import IntegrationConfigYAML, IntegrationYAML
 
 
@@ -190,29 +188,8 @@ class IntegrationConfigsIO(
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> IntegrationConfigRequest:
         config_raw = resource.get("config")
         if isinstance(config_raw, dict):
-            resource["config"] = yaml.dump(config_raw, sort_keys=False)
-        elif isinstance(config_raw, str):
-            self._validate_config(config_raw, resource)
+            resource["config"] = yaml_safe_dump(config_raw, sort_keys=False)
         return IntegrationConfigRequest.model_validate(resource)
-
-    def _validate_config(self, config_raw: str, resource: dict[str, Any]) -> dict[str, Any]:
-        """The integrations API stores config as a string. Toolkit recommends a YAML mapping."""
-        try:
-            result = read_yaml_content(config_raw)
-        except yaml.YAMLError as e:
-            id_ = self._get_id(resource, default="missing")
-            HighSeverityWarning(
-                f"Configuration for {id_!r} could not be parsed as valid YAML, which is the recommended format. "
-                f"Error: {e}"
-            ).print_warning(console=self.console)
-        else:
-            if isinstance(result, dict):
-                return result
-            id_ = self._get_id(resource, default="missing")
-            HighSeverityWarning(
-                f"Configuration for {id_!r} is not a valid YAML mapping (dict). Got {type(result).__name__} instead."
-            ).print_warning(console=self.console)
-        return {}
 
     def _get_id(self, resource: dict[str, Any], default: str) -> str:
         try:
@@ -231,7 +208,7 @@ class IntegrationConfigsIO(
             if dumped["config"].strip() == "":
                 dumped["config"] = {}
             else:
-                dumped["config"] = self._validate_config(dumped["config"], dumped)
+                dumped["config"] = read_yaml_content(dumped["config"])
         return dumped
 
     def create(self, items: Sequence[IntegrationConfigRequest]) -> list[IntegrationConfigResponse]:
