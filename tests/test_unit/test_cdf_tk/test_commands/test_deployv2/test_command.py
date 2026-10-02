@@ -14,6 +14,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawTableId, SpaceId
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceRequest, SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
@@ -45,7 +46,7 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     ResourceToDeploy,
     Skipped,
 )
-from cognite_toolkit._cdf_tk.constants import URL
+from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, URL
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ResourceCreationError,
@@ -55,6 +56,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.resource_ios import (
+    AssetIO,
     CogniteFileIO,
     ContainerIO,
     DataSetsIO,
@@ -818,6 +820,39 @@ class TestDeployResourcesRelatedInsights:
 
 def _inspect_capability(acl: TimeSeriesAcl) -> dict[str, object]:
     return InspectCapability(acl=acl, project_scope=AllProjects(all_projects={})).dump()
+
+
+class TestDryRunDataSetPlaceholders:
+    def test_write_protected_datasets_skips_dry_run_id(self) -> None:
+        client = MagicMock()
+        assert DeployV2Command._write_protected_datasets(client, [DRY_RUN_ID]) == set()
+        client.tool.datasets.retrieve.assert_not_called()
+
+    def test_validate_access_dry_run_never_retrieves_dry_run_dataset(self) -> None:
+        client = MagicMock()
+        client.tool.token.verify_acls.return_value = []
+        loader = AssetIO.create_io(client)
+        resource = AssetRequest(name="my_asset", external_id="my_asset", data_set_id=DRY_RUN_ID)
+        is_missing_read, is_missing_write, is_write_acl_unknown = DeployV2Command._validate_access(
+            loader, [resource], client, is_dry_run=True
+        )
+        client.tool.datasets.retrieve.assert_not_called()
+        assert is_missing_read is False
+        assert is_missing_write is False
+        assert is_write_acl_unknown is True
+
+    def test_format_able_to_deploy_unknown(self) -> None:
+        result = DeploymentResult(
+            resource_name="assets",
+            is_dry_run=True,
+            created_count=0,
+            deleted_count=0,
+            updated_count=0,
+            unchanged_count=0,
+            is_missing_write_acl=False,
+            is_write_acl_unknown=True,
+        )
+        assert DeployV2Command._format_able_to_deploy(result) == "[yellow]Unknown[/]"
 
 
 class TestDeployAccessControlErrors:

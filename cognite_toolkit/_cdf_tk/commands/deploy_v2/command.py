@@ -37,7 +37,7 @@ from cognite_toolkit._cdf_tk.commands._utils import (
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ResourceType
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList
-from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
+from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -207,6 +207,7 @@ class DeploymentResult:
     unchanged_count: int
     is_missing_write_acl: bool
     is_missing_read_acl: bool = False
+    is_write_acl_unknown: bool = False
     skipped: list[Skipped] = field(default_factory=list)
 
     @property
@@ -224,6 +225,7 @@ class DeploymentResult:
         self.unchanged_count += other.unchanged_count
         self.is_missing_write_acl = self.is_missing_write_acl or other.is_missing_write_acl
         self.is_missing_read_acl = self.is_missing_read_acl or other.is_missing_read_acl
+        self.is_write_acl_unknown = self.is_write_acl_unknown or other.is_write_acl_unknown
         self.skipped.extend(other.skipped)
         return self
 
@@ -774,7 +776,7 @@ class DeployV2Command(ToolkitCommand):
                 resource_count = len(resource_by_id)
                 request_resources = [resource.request for resource in resource_by_id.values()]
 
-                is_missing_read, is_missing_write = cls._validate_access(
+                is_missing_read, is_missing_write, is_write_acl_unknown = cls._validate_access(
                     crud, request_resources, client, is_dry_run=options.dry_run
                 )
                 if is_missing_read:
@@ -789,6 +791,7 @@ class DeployV2Command(ToolkitCommand):
                             unchanged_count=0,
                             is_missing_write_acl=is_missing_write,
                             is_missing_read_acl=is_missing_read,
+                            is_write_acl_unknown=is_write_acl_unknown,
                             skipped=[
                                 Skipped(
                                     id=crud.get_id(resource.request),
@@ -827,7 +830,9 @@ class DeployV2Command(ToolkitCommand):
                 )
 
                 if options.dry_run:
-                    result = cls.deploy_dry_run(crud, resources_to_deploy, is_missing_write, options)
+                    result = cls.deploy_dry_run(
+                        crud, resources_to_deploy, is_missing_write, is_write_acl_unknown, options
+                    )
                     progress.update(task_id, description=f"Would have {options.operation}ed {resource_name} to CDF")
                 else:
                     if resources_to_deploy.to_delete and crud.drop_confirmation_message:
@@ -906,17 +911,19 @@ class DeployV2Command(ToolkitCommand):
         resources: list[T_RequestResource],
         client: ToolkitClient,
         is_dry_run: bool,
-    ) -> tuple[bool, bool]:
+    ) -> tuple[bool, bool, bool]:
         """Validate that the user has access to the resources they are deploying.
 
         Note if not in dry-run mode, this will raise an error if the user is missing any required ACLs.
 
         Returns:
-            A tuple of two booleans: (is_missing_read_acl, is_missing_write_acl)
+            A tuple of (is_missing_read_acl, is_missing_write_acl, is_write_acl_unknown). The last flag is
+            only set in dry-run when resources reference datasets that are not yet in CDF (``DRY_RUN_ID``),
+            so write-protected dataset ownership cannot be verified.
         """
         minimum_scope = crud.get_minimum_scope(resources)
         if minimum_scope is None:
-            return False, False
+            return False, False, False
 
         data_set_ids: list[int] | None = None
         if isinstance(minimum_scope, DataSetScope):
@@ -938,8 +945,11 @@ class DeployV2Command(ToolkitCommand):
                 write_acl.append(dataset_owner)
             if not Flags.V09.is_enabled() and (missing_read := crud.client.tool.token.verify_acls(read_acl)):
                 raise crud.client.tool.token.create_error(missing_read, action=f"deploy {crud.display_name}")
-            return bool(crud.client.tool.token.verify_acls(read_acl)), bool(
-                crud.client.tool.token.verify_acls(write_acl)
+            is_write_acl_unknown = cls._resources_have_unresolved_data_set(resources)
+            return (
+                bool(crud.client.tool.token.verify_acls(read_acl)),
+                bool(crud.client.tool.token.verify_acls(write_acl)),
+                is_write_acl_unknown,
             )
         else:
             # Is not dry run
@@ -948,24 +958,35 @@ class DeployV2Command(ToolkitCommand):
                 read_write_acls.append(dataset_owner)
             if missing := crud.client.tool.token.verify_acls(read_write_acls):
                 raise crud.client.tool.token.create_error(missing, action=f"deploy {crud.display_name}")
-            return False, False
+            return False, False, False
+
+    @staticmethod
+    def _resources_have_unresolved_data_set(resources: list[T_RequestResource]) -> bool:
+        return any(hasattr(resource, "data_set_id") and resource.data_set_id == DRY_RUN_ID for resource in resources)
 
     @classmethod
     def _get_data_set_ids(cls, resources: list[T_RequestResource]) -> list[int]:
         """Return the list of dataset ids that are referenced by the given resources."""
         data_set_ids: set[int] = set()
         for resource in resources:
-            if hasattr(resource, "data_set_id") and resource.data_set_id is not None:
+            if (
+                hasattr(resource, "data_set_id")
+                and resource.data_set_id is not None
+                and resource.data_set_id != DRY_RUN_ID
+            ):
                 data_set_ids.add(resource.data_set_id)
         return list(data_set_ids)
 
     @classmethod
     def _write_protected_datasets(cls, client: ToolkitClient, ids: list[int]) -> set[int]:
         """Return the set of dataset ids that are write-protected for the given client."""
+        known_ids = [id_ for id_ in ids if id_ != DRY_RUN_ID]
+        if not known_ids:
+            return set()
         # We use cache_response=True to avoid making multiple requests for the same dataset ids as this is in a hot-loop.
         return {
             dataset.id
-            for dataset in client.tool.datasets.retrieve([InternalId(id=id_) for id_ in ids], cache_response=True)
+            for dataset in client.tool.datasets.retrieve([InternalId(id=id_) for id_ in known_ids], cache_response=True)
             if dataset.write_protected is True
         }
 
@@ -1074,6 +1095,7 @@ class DeployV2Command(ToolkitCommand):
         crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
         is_missing_write_acl: bool,
+        is_write_acl_unknown: bool,
         options: DeployOptions,
     ) -> DeploymentResult:
         created = len(resources.to_create)
@@ -1098,7 +1120,16 @@ class DeployV2Command(ToolkitCommand):
             unchanged_count=unchanged,
             skipped=resources.skipped,
             is_missing_write_acl=is_missing_write_acl,
+            is_write_acl_unknown=is_write_acl_unknown,
         )
+
+    @staticmethod
+    def _format_able_to_deploy(result: DeploymentResult) -> str:
+        if result.is_missing_write_acl:
+            return "[red]No[/]"
+        if result.is_write_acl_unknown:
+            return "[yellow]Unknown[/]"
+        return "[green]Yes[/]"
 
     @classmethod
     def deploy_resources(
@@ -1385,7 +1416,7 @@ class DeployV2Command(ToolkitCommand):
                 str(result.total_count),
             ]
             if is_dry_run:
-                row.append("[red]No[/]" if result.is_missing_write_acl else "[green]Yes[/]")
+                row.append(cls._format_able_to_deploy(result))
             table.add_row(*row)
             total += result
 
@@ -1401,7 +1432,7 @@ class DeployV2Command(ToolkitCommand):
                 f"[bold]{total.total_count}[/]",
             ]
             if is_dry_run:
-                last_row.append("[red]No[/]" if total.is_missing_write_acl else "[green]Yes[/]")
+                last_row.append(cls._format_able_to_deploy(total))
             table.add_row(*last_row)
 
         sections: list[RenderableType] = [ToolkitPanelSection(content=[table.as_panel_detail()])]
