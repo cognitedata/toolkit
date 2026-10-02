@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from ._agent import AgentIO
 from ._app import AppIO, AppVersionIO
 from ._auth import GroupAllScopedIO, GroupIO, SecurityCategoryIO
-from ._base_ios import ResourceBuildIO, ResourceContainerIO, ResourceIO, ResourceType
+from ._base_ios import BaseResourceIO, ResourceContainerIO, ResourceIO, ResourceType
 from ._classic import AssetIO, EventIO, SequenceIO, SequenceRowIO
 from ._configuration import SearchConfigIO
 from ._data_organization import DataSetsIO, LabelIO
@@ -101,16 +101,16 @@ if not FeatureFlag.is_enabled(Flags.SAP_WRITEBACK):
     _EXCLUDED_CRUDS.add(SAPEndpointIO)
     _EXCLUDED_CRUDS.add(SchemaMappingIO)
 
-RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[ResourceBuildIO]]] = defaultdict(list)
+RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[BaseResourceIO]]] = defaultdict(list)
 RESOURCE_IO_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
-RESOURCE_BUILD_IO_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceBuildIO]]] = defaultdict(list)
+RESOURCE_BUILD_IO_BY_FOLDER_NAME: defaultdict[str, list[type[BaseResourceIO]]] = defaultdict(list)
 for _io_cls in itertools.chain(
     ResourceIO.__subclasses__(),
     ResourceContainerIO.__subclasses__(),
     GroupIO.__subclasses__(),
-    ResourceBuildIO.__subclasses__(),
+    BaseResourceIO.__subclasses__(),
 ):
-    if _io_cls in [ResourceIO, ResourceContainerIO, GroupIO, ResourceBuildIO]:
+    if _io_cls in [ResourceIO, ResourceContainerIO, GroupIO, BaseResourceIO]:
         # Skipping base classes
         continue
     # MyPy bug: https://github.com/python/mypy/issues/4717
@@ -140,7 +140,7 @@ RESOURCE_IO_BY_TYPE = {
     for crud in cruds
 }
 
-RESOURCE_BUILD_IO_LIST: list[type[ResourceBuildIO]] = list(
+RESOURCE_BUILD_IO_LIST: list[type[BaseResourceIO]] = list(
     itertools.chain.from_iterable(RESOURCE_BUILD_IO_BY_FOLDER_NAME.values())
 )
 RESOURCE_IO_LIST = [io_cls for io_cls in RESOURCE_BUILD_IO_LIST if issubclass(io_cls, ResourceIO)]
@@ -177,7 +177,7 @@ ResourceTypes: TypeAlias = Literal[
 ]
 
 
-def get_resource_build_io(resource_dir: str, kind: str) -> type[ResourceBuildIO]:
+def get_resource_build_io(resource_dir: str, kind: str) -> type[BaseResourceIO]:
     if io_cls := RESOURCE_BUILD_IO_BY_TYPE.get(ResourceType(resource_folder=resource_dir, kind=kind)):
         return io_cls
     # Fall back to alpha-inclusive registry (e.g. for deserializing built resources
@@ -196,6 +196,7 @@ __all__ = [
     "AppIO",
     "AppVersionIO",
     "AssetIO",
+    "BaseResourceIO",
     "CogniteFileIO",
     "ContainerIO",
     "DataModelIO",
@@ -226,7 +227,6 @@ __all__ = [
     "RawDatabaseIO",
     "RawTableIO",
     "RelationshipIO",
-    "ResourceBuildIO",
     "ResourceContainerIO",
     "ResourceIO",
     "ResourceType",
