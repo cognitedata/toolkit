@@ -7,7 +7,12 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_RequestResource
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ResourceIO, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
+    FailedReadExtra,
+    ResourceIO,
+    ResourceType,
+    SuccessExtra,
+)
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from ._insights import (
@@ -20,7 +25,7 @@ from ._insights import (
     ModelSyntaxError,
     ModelSyntaxWarning,
 )
-from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId, ResourceType
+from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
 

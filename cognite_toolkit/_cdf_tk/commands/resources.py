@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.functions import ScaffoldDef
 from cognite_toolkit._cdf_tk.commands.functions import get_scaffolds as _fn_scaffolds
-from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_LIST, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_IO_LIST, ResourceIO
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import validate_safe_path, yaml_safe_dump
 
@@ -32,7 +32,7 @@ class ResourcesCommand(ToolkitCommand):
     def _unique_cruds(cls) -> list[type[ResourceIO]]:
         """Deduplicate and sort RESOURCE_CRUD_LIST by folder_name.kind."""
         return sorted(
-            {(c.folder_name, c.kind): c for c in RESOURCE_CRUD_LIST}.values(),
+            {(c.folder_name, c.kind): c for c in RESOURCE_IO_LIST}.values(),
             key=cls._qualified_name,
         )
 

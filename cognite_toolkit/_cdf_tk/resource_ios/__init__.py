@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from ._agent import AgentIO
 from ._app import AppIO, AppVersionIO
 from ._auth import GroupAllScopedIO, GroupIO, SecurityCategoryIO
-from ._base_ios import ResourceContainerIO, ResourceIO
+from ._base_ios import ResourceBuildIO, ResourceContainerIO, ResourceIO, ResourceType
 from ._classic import AssetIO, EventIO, SequenceIO, SequenceRowIO
 from ._configuration import SearchConfigIO
 from ._data_organization import DataSetsIO, LabelIO
@@ -105,47 +105,50 @@ if not FeatureFlag.is_enabled(Flags.INTEGRATIONS):
     _EXCLUDED_CRUDS.add(IntegrationsIO)
     _EXCLUDED_CRUDS.add(IntegrationConfigsIO)
 
-CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
-CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
-for _loader in itertools.chain(
+RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[ResourceBuildIO]]] = defaultdict(list)
+RESOURCE_IO_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
+RESOURCE_BUILD_IO_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceBuildIO]]] = defaultdict(list)
+for _io_cls in itertools.chain(
     ResourceIO.__subclasses__(),
     ResourceContainerIO.__subclasses__(),
     GroupIO.__subclasses__(),
+    ResourceBuildIO.__subclasses__(),
 ):
-    if _loader in [ResourceIO, ResourceContainerIO, GroupIO]:
+    if _io_cls in [ResourceIO, ResourceContainerIO, GroupIO, ResourceBuildIO]:
         # Skipping base classes
         continue
     # MyPy bug: https://github.com/python/mypy/issues/4717
-    CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA[_loader.folder_name].append(_loader)  # type: ignore[attr-defined, arg-type]
+    RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA[_io_cls.folder_name].append(_io_cls)  # type: ignore[attr-defined, arg-type]
 
-    if _loader not in _EXCLUDED_CRUDS:
-        CRUDS_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[attr-defined, arg-type]
-del _loader  # cleanup module namespace
+    if _io_cls not in _EXCLUDED_CRUDS:
+        if issubclass(_io_cls, ResourceIO):
+            RESOURCE_IO_BY_FOLDER_NAME[_io_cls.folder_name].append(_io_cls)
+        RESOURCE_BUILD_IO_BY_FOLDER_NAME[_io_cls.folder_name].append(_io_cls)  # type: ignore[attr-defined, arg-type]
+del _io_cls  # cleanup module namespace
 
 
 # For backwards compatibility
-CRUDS_BY_FOLDER_NAME["data_models"] = CRUDS_BY_FOLDER_NAME["data_modeling"]  # Todo: Remove in v1.0
-CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA["data_models"] = CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA["data_modeling"]
-RESOURCE_CRUD_BY_FOLDER_NAME = {
-    folder_name: cruds
-    for folder_name, loaders in CRUDS_BY_FOLDER_NAME.items()
-    if (cruds := [crud for crud in loaders if issubclass(crud, ResourceIO)])
+RESOURCE_IO_BY_FOLDER_NAME["data_models"] = RESOURCE_IO_BY_FOLDER_NAME["data_modeling"]  # Todo: Remove in v1.0
+RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["data_models"] = RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA[
+    "data_modeling"
+]
+
+RESOURCE_BUILD_IO_BY_TYPE = {
+    ResourceType(resource_folder=folder_name, kind=crud.kind): crud
+    for folder_name, cruds in RESOURCE_BUILD_IO_BY_FOLDER_NAME.items()
+    for crud in cruds
+}
+RESOURCE_IO_BY_TYPE = {
+    ResourceType(resource_folder=folder_name, kind=crud.kind): crud
+    for folder_name, cruds in RESOURCE_IO_BY_FOLDER_NAME.items()
+    for crud in cruds
 }
 
-RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND: dict[str, dict[str, type[ResourceIO]]] = {
-    folder_name: {crud.kind: crud for crud in cruds if issubclass(crud, ResourceIO)}
-    for folder_name, cruds in RESOURCE_CRUD_BY_FOLDER_NAME.items()
-}
+RESOURCE_BUILD_IO_LIST: list[type[ResourceBuildIO]] = list(
+    itertools.chain.from_iterable(RESOURCE_BUILD_IO_BY_FOLDER_NAME.values())
+)
+RESOURCE_IO_LIST = [io_cls for io_cls in RESOURCE_BUILD_IO_LIST if issubclass(io_cls, ResourceIO)]
 
-CRUD_LIST = list(itertools.chain.from_iterable(CRUDS_BY_FOLDER_NAME.values()))
-RESOURCE_CRUD_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceIO)]
-RESOURCE_CRUD_CONTAINER_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceContainerIO)]
-KINDS_BY_FOLDER_NAME: dict[str, set[str]] = {}
-for crud in CRUD_LIST:
-    if crud.folder_name not in KINDS_BY_FOLDER_NAME:
-        KINDS_BY_FOLDER_NAME[crud.folder_name] = set()
-    KINDS_BY_FOLDER_NAME[crud.folder_name].add(crud.kind)
-del crud  # cleanup module namespace
 
 ResourceTypes: TypeAlias = Literal[
     "3dmodels",
@@ -179,26 +182,21 @@ ResourceTypes: TypeAlias = Literal[
 ]
 
 
-def get_crud(resource_dir: str, kind: str) -> type[ResourceIO]:
-    for loader in CRUDS_BY_FOLDER_NAME[resource_dir]:
-        if loader.kind == kind:
-            return loader
+def get_resource_build_io(resource_dir: str, kind: str) -> type[ResourceBuildIO]:
+    if io_cls := RESOURCE_BUILD_IO_BY_TYPE.get(ResourceType(resource_folder=resource_dir, kind=kind)):
+        return io_cls
     # Fall back to alpha-inclusive registry (e.g. for deserializing built resources
     # when a CRUD is excluded by feature flags or test patching).
-    for loader in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA[resource_dir]:
+    for loader in RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA[resource_dir]:
         if loader.kind == kind:
             return loader
     raise ValueError(f"Loader not found for {resource_dir} and {kind}")
 
 
 __all__ = [
-    "CRUDS_BY_FOLDER_NAME",
-    "CRUD_LIST",
-    "KINDS_BY_FOLDER_NAME",
-    "RESOURCE_CRUD_BY_FOLDER_NAME",
-    "RESOURCE_CRUD_CONTAINER_LIST",
-    "RESOURCE_CRUD_LIST",
-    "_EXCLUDED_CRUDS",
+    "RESOURCE_BUILD_IO_LIST",
+    "RESOURCE_IO_BY_FOLDER_NAME",
+    "RESOURCE_IO_LIST",
     "AgentIO",
     "AppIO",
     "AppVersionIO",
@@ -235,8 +233,10 @@ __all__ = [
     "RawDatabaseIO",
     "RawTableIO",
     "RelationshipIO",
+    "ResourceBuildIO",
     "ResourceContainerIO",
     "ResourceIO",
+    "ResourceType",
     "ResourceTypes",
     "RuleSetIO",
     "RuleSetVersionIO",
@@ -266,5 +266,5 @@ __all__ = [
     "WorkflowIO",
     "WorkflowTriggerIO",
     "WorkflowVersionIO",
-    "get_crud",
+    "get_resource_build_io",
 ]

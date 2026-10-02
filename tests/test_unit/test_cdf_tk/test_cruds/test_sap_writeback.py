@@ -5,7 +5,10 @@ import pytest
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME, CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA
+from cognite_toolkit._cdf_tk.resource_ios import (
+    RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA,
+    RESOURCE_IO_BY_FOLDER_NAME,
+)
 from cognite_toolkit._cdf_tk.resource_ios._sap_writeback import SAPEndpointIO, SAPInstanceIO, SchemaMappingIO
 from cognite_toolkit._cdf_tk.yaml_classes import SAPEndpointYAML, SAPInstanceYAML, SchemaMappingYAML
 from tests.data import COMPLETE_ORG_ALPHA_FLAGS
@@ -34,16 +37,17 @@ class TestSAPWritebackExamples:
 
 class TestSAPWritebackIO:
     def test_registered_behind_sap_writeback_flag(self) -> None:
-        included = {loader.kind for loader in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA["SAPwritebacks"]}
+        included = {loader.kind for loader in RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["SAPwritebacks"]}
         assert included == {"SAPInstance", "SAPEndpoint", "SchemaMapping"}
         assert all(
-            loader.folder_name == "SAPwritebacks" for loader in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA["SAPwritebacks"]
+            loader.folder_name == "SAPwritebacks"
+            for loader in RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["SAPwritebacks"]
         )
         if Flags.SAP_WRITEBACK.is_enabled():
-            enabled = {loader.kind for loader in CRUDS_BY_FOLDER_NAME["SAPwritebacks"]}
+            enabled = {loader.kind for loader in RESOURCE_IO_BY_FOLDER_NAME["SAPwritebacks"]}
             assert enabled == included
         else:
-            assert "SAPwritebacks" not in CRUDS_BY_FOLDER_NAME
+            assert "SAPwritebacks" not in RESOURCE_IO_BY_FOLDER_NAME
 
     def test_endpoint_depends_on_instance_and_mapping(self) -> None:
         resource = SAPEndpointYAML.model_validate(

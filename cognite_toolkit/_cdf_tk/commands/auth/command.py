@@ -481,7 +481,7 @@ class AuthCommand(ToolkitCommand):
     ) -> tuple[list[AclType], dict[type[AclType], list[str]]]:
         required_acls: list[AclType] = []
         io_name_by_acl_type: dict[type[AclType], list[str]] = defaultdict(list)
-        for crud_cls in resource_ios.RESOURCE_CRUD_LIST:
+        for crud_cls in resource_ios.RESOURCE_IO_LIST:
             if data_modeling_status == "DATA_MODELING_ONLY" and issubclass(crud_cls, AssetIO | RelationshipIO):
                 # Assets and relationships are not supported on DATA_MODELING_ONLY projects.
                 continue

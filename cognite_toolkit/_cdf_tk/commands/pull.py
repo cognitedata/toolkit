@@ -18,17 +18,12 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildParameters,
     BuildVariable,
     BuiltResource,
-    ResourceType,
 )
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes import YAMLComments
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_ios import (
-    ExtractionPipelineConfigIO,
-    ResourceIO,
-    ViewIO,
-)
+from cognite_toolkit._cdf_tk.resource_ios import ExtractionPipelineConfigIO, ResourceIO, ResourceType, ViewIO
 from cognite_toolkit._cdf_tk.ui import (
     ToolkitPanel,
     ToolkitPanelSection,

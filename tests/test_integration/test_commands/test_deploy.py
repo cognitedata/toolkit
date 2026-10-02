@@ -16,8 +16,8 @@ from cognite_toolkit._cdf_tk.commands import (
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.resource_ios import (
-    RESOURCE_CRUD_BY_FOLDER_NAME,
-    RESOURCE_CRUD_LIST,
+    RESOURCE_IO_BY_FOLDER_NAME,
+    RESOURCE_IO_LIST,
     ExternalDataSourceIO,
     HostedExtractorDestinationIO,
     HostedExtractorSourceIO,
@@ -100,8 +100,8 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
             {"EVENTHUB_CLIENT_ID": client_id, "EVENTHUB_CLIENT_SECRET": client_secret},
         ),
         patch.dict(
-            "cognite_toolkit._cdf_tk.commands.deploy_v2.command.RESOURCE_CRUD_BY_FOLDER_NAME",
-            {f: [c for c in cs if c not in _skip_cruds] for f, cs in RESOURCE_CRUD_BY_FOLDER_NAME.items()},
+            "cognite_toolkit._cdf_tk.commands.deploy_v2.command.RESOURCE_IO_BY_FOLDER_NAME",
+            {f: [c for c in cs if c not in _skip_cruds] for f, cs in RESOURCE_IO_BY_FOLDER_NAME.items()},
             clear=True,
         ),
     ):
@@ -134,7 +134,7 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
     client = env_vars.get_client()
     print("Looking for changed resources ...")
     options = DeployOptions(environment_variables=env_vars.dump(), verbose=True)
-    for loader_cls in RESOURCE_CRUD_LIST:
+    for loader_cls in RESOURCE_IO_LIST:
         if loader_cls in {HostedExtractorSourceIO, HostedExtractorDestinationIO}:
             # These resources we have no way of knowing if they have changed. So they are always redeployed.
             continue

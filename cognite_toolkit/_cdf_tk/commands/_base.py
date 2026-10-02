@@ -9,7 +9,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.data_classes import CommandTracking
-from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_IO_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitWarning,
     WarningList,
@@ -109,4 +109,4 @@ def _collect_click_command_names(group: Any, names: set[str]) -> None:
             _collect_click_command_names(cmd, names)
 
 
-AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(CRUDS_BY_FOLDER_NAME)
+AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(RESOURCE_IO_BY_FOLDER_NAME)

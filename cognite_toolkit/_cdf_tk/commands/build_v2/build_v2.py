@@ -35,7 +35,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     Module,
     ModuleDirectory,
     RelativeDirPath,
-    ResourceType,
     SuccessfulReadYAMLFile,
     ValidationType,
 )
@@ -66,11 +65,8 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.resource_ios import (
-    RESOURCE_CRUD_BY_FOLDER_NAME,
-    ResourceIO,
-)
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_IO_BY_FOLDER_NAME, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceType, SuccessExtra
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import EXECUTE_RULE_STATUS, RuleSetStatus
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
@@ -873,7 +869,7 @@ class BuildV2Command(ToolkitCommand):
         resources: list[ReadYAMLFile] = []
         ignored_files: list[IgnoredFile] = []
         for resource_folder, resource_files in source.resource_files_by_folder.items():
-            crud_classes = RESOURCE_CRUD_BY_FOLDER_NAME.get(resource_folder)
+            crud_classes = RESOURCE_IO_BY_FOLDER_NAME.get(resource_folder)
             if not crud_classes:
                 # This is handled in the module parsing phase.
                 continue

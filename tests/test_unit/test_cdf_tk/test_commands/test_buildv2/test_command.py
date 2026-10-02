@@ -23,14 +23,13 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     ModuleId,
     ModuleScanResult,
     NonExistingModuleName,
-    ResourceType,
     SuccessfulReadYAMLFile,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteDirPath, AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import FileMetadataIO, SearchConfigIO, SpaceIO
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, ResourceType
 from cognite_toolkit._cdf_tk.resource_ios._datamodel import DataModelIO, ViewIO
 from cognite_toolkit._cdf_tk.resource_ios._workflow import WorkflowIO
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet

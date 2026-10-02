@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.constants import (
     EnvType,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError
-from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_IO_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
 )
@@ -410,7 +410,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
                 continue
             content = safe_read(filepath)
             key_parent = filepath.parent.relative_to(organization_dir).parts
-            if key_parent and key_parent[-1] in CRUDS_BY_FOLDER_NAME:
+            if key_parent and key_parent[-1] in RESOURCE_IO_BY_FOLDER_NAME:
                 key_parent = key_parent[:-1]
 
             for match in re.findall(r"{{\s*([a-zA-Z0-9_]+)\s*}}", content):
@@ -429,7 +429,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
                 # Remove module subfolders.
                 key_parent_list = list(key_parent)
                 for i in range(len(key_parent_list)):
-                    if key_parent_list[i] in CRUDS_BY_FOLDER_NAME:
+                    if key_parent_list[i] in RESOURCE_IO_BY_FOLDER_NAME:
                         key_parent_list = key_parent_list[:i]
                         break
                 key_parent = tuple(key_parent_list)

@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.commands._utils import (
     validate_soft_delete_capacity,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ResourceType
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
@@ -55,13 +55,14 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
-    RESOURCE_CRUD_BY_FOLDER_NAME,
+    RESOURCE_IO_BY_FOLDER_NAME,
     ContainerIO,
     EdgeIO,
     NodeIO,
     RawTableIO,
     ResourceContainerIO,
     ResourceIO,
+    ResourceType,
     SpaceIO,
     ViewIO,
 )
@@ -355,7 +356,7 @@ class DeployV2Command(ToolkitCommand):
         """
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(f"Build directory {build_dir!s} does not exist.")
-        available_resource_types = set(RESOURCE_CRUD_BY_FOLDER_NAME.keys())
+        available_resource_types = set(RESOURCE_IO_BY_FOLDER_NAME.keys())
         if include and (invalid := set(include) - available_resource_types):
             raise ToolkitValidationError(
                 f"Invalid resource types specified: {humanize_collection(invalid)}, available types: {humanize_collection(available_resource_types)}"
@@ -373,11 +374,11 @@ class DeployV2Command(ToolkitCommand):
         for resource_dir in build_dir.iterdir():
             if not resource_dir.is_dir():
                 continue
-            if resource_dir.name not in RESOURCE_CRUD_BY_FOLDER_NAME:
+            if resource_dir.name not in RESOURCE_IO_BY_FOLDER_NAME:
                 invalid_resource_dirs.append(resource_dir)
                 continue
             resources = ResourceDirectory(resource_dir)
-            cruds = RESOURCE_CRUD_BY_FOLDER_NAME[resource_dir.name]
+            cruds = RESOURCE_IO_BY_FOLDER_NAME[resource_dir.name]
             for yaml_file in resource_dir.glob("*.yaml"):
                 matched = False
                 stem = yaml_file.stem.casefold()
