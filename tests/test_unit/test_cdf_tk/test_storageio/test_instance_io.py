@@ -96,6 +96,54 @@ class TestInstanceIO:
         assert total_ids == N
         assert count == N
 
+    def test_sync_download_skips_deleted_instances(
+        self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
+    ) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        selector = InstanceViewSelector(
+            view=SelectedView(space="cdf_apm", external_id="Template", version="v8"),
+            instance_type="node",
+            instance_spaces=("toolkit_smoke_test_space",),
+            endpoint="sync",
+        )
+
+        def _node(external_id: str, deleted_time: int | None) -> dict:
+            node = {
+                "externalId": external_id,
+                "space": "toolkit_smoke_test_space",
+                "instanceType": "node",
+                "createdTime": 1,
+                "lastUpdatedTime": 2,
+                "version": 1,
+                "properties": {
+                    "cdf_apm": {
+                        "Template/v8": {
+                            "title": external_id,
+                            "solutionTags": [] if deleted_time is not None else [{"space": "s", "externalId": "tag"}],
+                        }
+                    }
+                },
+            }
+            if deleted_time is not None:
+                node["deletedTime"] = deleted_time
+            return node
+
+        respx_mock.post(toolkit_config.create_api_url("/models/instances/sync")).respond(
+            status_code=200,
+            json={
+                "items": {
+                    "root": [
+                        _node("live_template", None),
+                        _node("deleted_template", 3),
+                    ]
+                },
+                "nextCursor": {"root": None},
+            },
+        )
+        pages = list(InstanceIO(client).stream_data(selector))
+        downloaded = [item.item.external_id for page in pages for item in page.items]
+        assert downloaded == ["live_template"]
+
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_upload_force(self, toolkit_config: ToolkitClientConfig) -> None:
         config = toolkit_config
