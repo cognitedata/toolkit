@@ -159,6 +159,19 @@ class ExtractionPipelineConfigId(Identifier):
         return f"{self.external_id}.{self.revision}"
 
 
+class IntegrationConfigId(Identifier):
+    external_id: str
+    revision: int | None = None
+
+    def __str__(self) -> str:
+        return f"externalId='{self.external_id}', revision={self.revision}"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"externalId-{self.external_id}.revision-{self.revision}"
+        return f"{self.external_id}.{self.revision}"
+
+
 class WorkflowVersionId(Identifier):
     workflow_external_id: str
     version: str

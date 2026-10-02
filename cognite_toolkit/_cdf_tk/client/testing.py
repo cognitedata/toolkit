@@ -51,6 +51,13 @@ from .api.hosted_extractor_mappings import HostedExtractorMappingsAPI
 from .api.hosted_extractor_sources import HostedExtractorSourcesAPI
 from .api.infield import APMConfigAPI, InfieldAPI, InFieldCDMConfigAPI, InfieldConfigAPI
 from .api.instances import InstancesAPI
+from .api.integrations import (
+    IntegrationActionsAPI,
+    IntegrationConfigurationAPI,
+    IntegrationErrorsAPI,
+    IntegrationsAPI,
+    IntegrationTasksAPI,
+)
 from .api.labels import LabelsAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import (
@@ -252,6 +259,11 @@ class ToolkitClientMock(CogniteClientMock):
         self.sap_writeback.instances = MagicMock(spec_set=SAPInstancesAPI)
         self.sap_writeback.endpoints = MagicMock(spec_set=SAPEndpointsAPI)
         self.sap_writeback.mappings = MagicMock(spec_set=SchemaMappingsAPI)
+        self.integrations = MagicMock(spec=IntegrationsAPI)
+        self.integrations.tasks = MagicMock(spec_set=IntegrationTasksAPI)
+        self.integrations.actions = MagicMock(spec_set=IntegrationActionsAPI)
+        self.integrations.configuration = MagicMock(spec_set=IntegrationConfigurationAPI)
+        self.integrations.errors = MagicMock(spec_set=IntegrationErrorsAPI)
 
         # This is a helper API, not a real API.
         self.token = LegacyTokenAPI(self)
