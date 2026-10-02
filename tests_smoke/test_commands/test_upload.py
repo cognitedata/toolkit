@@ -1,11 +1,11 @@
 import time
-import traceback
 from pathlib import Path
 
+import click
 import pytest
-from typer.testing import CliRunner
+import typer
 
-from cognite_toolkit._cdf import _app
+from cognite_toolkit._cdf_tk.apps._upload_app import UploadApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -64,7 +64,7 @@ class TestUploadMultipart:
         _prepare_file_metadata_upload(upload_dir, smoke_dataset.external_id)
         _delete_file_metadata(toolkit_client, _FILE_METADATA_EXTERNAL_ID)
         try:
-            _run_upload_dir(upload_dir, toolkit_client.config.project, multipart_upload)
+            _upload_dir(upload_dir, toolkit_client.config.project)
             _require_multipart(multipart_upload, endpoint="init", label="file metadata")
             _wait_until_uploaded(toolkit_client, ExternalId(external_id=_FILE_METADATA_EXTERNAL_ID))
         finally:
@@ -82,7 +82,7 @@ class TestUploadMultipart:
         _prepare_cognite_file_upload(upload_dir, space)
         _delete_cognite_file(toolkit_client, space, _COGNITE_FILE_EXTERNAL_ID)
         try:
-            _run_upload_dir(upload_dir, toolkit_client.config.project, multipart_upload)
+            _upload_dir(upload_dir, toolkit_client.config.project)
             _require_multipart(multipart_upload, endpoint="link", label="CogniteFile")
             node_id = NodeId(space=space, external_id=_COGNITE_FILE_EXTERNAL_ID)
             _wait_until_uploaded(toolkit_client, InstanceId(instance_id=node_id))
@@ -136,31 +136,18 @@ def _write_payload(path: Path) -> None:
     path.write_bytes(chunk * ((_PAYLOAD_BYTES // len(chunk)) + 1))
 
 
-def _run_upload_dir(upload_dir: Path, project: str, calls: dict[str, list[int]]) -> None:
-    result = CliRunner().invoke(
-        _app,
-        [
-            "data",
-            "upload",
-            "dir",
-            str(upload_dir),
-            "--cdf-project",
-            project,
-            "--skip-verify-cdf-project",
-            "--overwrite",
-            "--verbose",
-        ],
-    )
-    if result.exit_code == 0:
-        return
-    exception = ""
-    if result.exc_info is not None:
-        exception = "".join(traceback.format_exception(*result.exc_info))
-    raise AssertionError(
-        "cdf data upload dir failed with exit code "
-        f"{result.exit_code}. Multipart init calls: {calls['init']}. "
-        f"Multipart link calls: {calls['link']}.\n{result.output}\n{_issue_logs(upload_dir)}\n{exception}"
-    )
+def _upload_dir(upload_dir: Path, project: str) -> None:
+    try:
+        UploadApp.upload_dir(
+            typer.Context(click.Command("upload_dir")),
+            input_dir=upload_dir,
+            skip_verify_cdf_project=True,
+            cdf_project=project,
+            overwrite=True,
+            verbose=True,
+        )
+    except Exception as error:
+        raise AssertionError(f"UploadApp.upload_dir failed: {error}\n{_issue_logs(upload_dir)}") from error
 
 
 _MULTIPART_ENDPOINTS = {
