@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, MODULES, RESOURCE_FOLDERS_WITH_CODE_BUNDLES
-from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_BUILD_BY_FOLDER_NAME_INCLUDE_ALPHA, ResourceTypes
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA, ResourceTypes
 
 
 class ModuleParser:
@@ -153,7 +153,7 @@ class ModuleParser:
     def get_module_path_from_resource_file_path(resource_file: Path) -> tuple[Path | None, ResourceTypes | None]:
         """Return the module path and resource folder for a given resource file path."""
         for parent in resource_file.parents:
-            if parent.name in RESOURCE_BUILD_BY_FOLDER_NAME_INCLUDE_ALPHA:
+            if parent.name in RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA:
                 # We know that all keys in RESOURCE_BUILD_BY_FOLDER_NAME_INCLUDE_ALPHA are valid ResourceTypes,
                 # so this cast is safe.
                 return parent.parent, cast(ResourceTypes, parent.name)

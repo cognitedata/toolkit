@@ -27,10 +27,10 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
-    RESOURCE_BUILD_BY_FOLDER_NAME_INCLUDE_ALPHA,
-    RESOURCE_BUILD_LIST,
-    RESOURCE_BY_FOLDER_NAME,
-    RESOURCE_LIST,
+    RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA,
+    RESOURCE_BUILD_IO_LIST,
+    RESOURCE_IO_BY_FOLDER_NAME,
+    RESOURCE_IO_LIST,
     FunctionIO,
     FunctionScheduleIO,
     GroupResourceScopedIO,
@@ -50,7 +50,7 @@ SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
 
 
 class TestFormatConsistency:
-    @pytest.mark.parametrize("Loader", RESOURCE_LIST)
+    @pytest.mark.parametrize("Loader", RESOURCE_IO_LIST)
     def test_fake_resource_generator(
         self, Loader: type[ResourceIO], toolkit_client_cheap: ToolkitClient, monkeypatch: MonkeyPatch
     ):
@@ -66,7 +66,7 @@ class TestFormatConsistency:
         else:
             assert isinstance(instance, loader.resource_write_cls)
 
-    @pytest.mark.parametrize("Loader", RESOURCE_LIST)
+    @pytest.mark.parametrize("Loader", RESOURCE_IO_LIST)
     def test_loader_takes_dict(
         self,
         Loader: type[ResourceIO],
@@ -111,7 +111,7 @@ class TestFormatConsistency:
         assert isinstance(loaded, list)
         assert len(loaded) == 1
 
-    @pytest.mark.parametrize("Loader", RESOURCE_LIST)
+    @pytest.mark.parametrize("Loader", RESOURCE_IO_LIST)
     def test_loader_takes_list(
         self,
         Loader: type[ResourceIO],
@@ -162,7 +162,7 @@ class TestFormatConsistency:
         assert isinstance(loaded, list)
 
     @pytest.mark.parametrize(
-        "Loader", [loader for loader in RESOURCE_BUILD_LIST if loader.folder_name != "robotics"]
+        "Loader", [loader for loader in RESOURCE_BUILD_IO_LIST if loader.folder_name != "robotics"]
     )  # Robotics does not have a public doc_url
     def test_loader_has_doc_url(self, Loader: type[ResourceIO], toolkit_client_cheap: ToolkitClient):
         loader = Loader.create_io(toolkit_client_cheap)
@@ -181,7 +181,7 @@ class TestFormatConsistency:
 
 
 def test_resource_types_is_up_to_date() -> None:
-    expected = set(RESOURCE_BY_FOLDER_NAME.keys())
+    expected = set(RESOURCE_IO_BY_FOLDER_NAME.keys())
     actual = set(ResourceTypes.__args__)
 
     missing = expected - actual
@@ -359,7 +359,7 @@ authentication:
 class TestResourceCRUDs:
     def test_unique_kind_by_folder(self):
         kind = defaultdict(list)
-        for crud in RESOURCE_LIST:
+        for crud in RESOURCE_IO_LIST:
             # Todo: Remove in v1.0
             if crud.folder_name == "data_modeling":
                 continue
@@ -398,7 +398,7 @@ class TestResourceCRUDs:
         "loader_cls",
         [
             loader_cls
-            for loader_cls in RESOURCE_LIST
+            for loader_cls in RESOURCE_IO_LIST
             if loader_cls not in {HostedExtractorSourceIO, HostedExtractorDestinationIO}
         ],
     )
@@ -417,7 +417,7 @@ class TestResourceCRUDs:
         assert isinstance(dumped, dict)
 
     def test_yaml_cls_is_set(self) -> None:
-        missing = [loader_cls.__name__ for loader_cls in RESOURCE_LIST if loader_cls.yaml_cls is None]
+        missing = [loader_cls.__name__ for loader_cls in RESOURCE_IO_LIST if loader_cls.yaml_cls is None]
 
         assert not missing, f"The following loaders are missing yaml_cls: {missing}"
 
@@ -427,14 +427,14 @@ class TestLoaders:
         name_by_count = Counter(
             [
                 loader_cls.create_io(env_vars_with_client_cheap.get_client()).display_name
-                for loader_cls in RESOURCE_BUILD_LIST
+                for loader_cls in RESOURCE_BUILD_IO_LIST
             ]
         )
 
         duplicates = {name: count for name, count in name_by_count.items() if count > 1}
 
         # Todo: Remove in v1.0
-        for loader in RESOURCE_BY_FOLDER_NAME["data_modeling"]:
+        for loader in RESOURCE_IO_BY_FOLDER_NAME["data_modeling"]:
             duplicates.pop(loader.create_io(env_vars_with_client_cheap.get_client()).display_name, None)
 
         assert not duplicates, f"Duplicate display names: {duplicates}"
@@ -444,9 +444,9 @@ class TestConstants:
     @pytest.mark.parametrize(
         "folder_names",
         [
-            pytest.param(set(RESOURCE_BY_FOLDER_NAME.keys()), id="CRUDS_BY_FOLDER_NAME"),
+            pytest.param(set(RESOURCE_IO_BY_FOLDER_NAME.keys()), id="CRUDS_BY_FOLDER_NAME"),
             pytest.param(
-                set(RESOURCE_BUILD_BY_FOLDER_NAME_INCLUDE_ALPHA.keys()), id="CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA"
+                set(RESOURCE_BUILD_IO_BY_FOLDER_NAME_INCLUDE_ALPHA.keys()), id="CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA"
             ),
         ],
     )

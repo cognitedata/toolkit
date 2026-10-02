@@ -72,9 +72,9 @@ class ResourceType(BaseModel):
 
     @property
     def crud_cls(self) -> "type[ResourceIO]":
-        from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_BY_TYPE
+        from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_IO_BY_TYPE
 
-        return RESOURCE_BY_TYPE[self]
+        return RESOURCE_IO_BY_TYPE[self]
 
     def load_identifier(self, data: dict[str, Any]) -> Identifier:
         return self.crud_cls.get_id(data)
