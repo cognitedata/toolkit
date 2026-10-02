@@ -11,6 +11,7 @@ from rich import print
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.constants import RESOURCES_PATH, EnvType, clean_name
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitError,
     ToolkitRequiredValueError,
     ToolkitTOMLFormatError,
     ToolkitVersionError,
@@ -71,9 +72,15 @@ class ModulesConfig:
             and version != "0.0.0"  # debugging mode
         ):
             raise ToolkitVersionError(
-                f"The version of the modules ({version}) does not match the version of the installed CLI "
-                f"({_version.__version__}). Please run `cdf modules upgrade` to upgrade the modules OR "
-                f"run `pip install cognite-toolkit=={version}` to downgrade cdf CLI."
+                f"Version mismatch between modules and CLI:\n"
+                f"  - Modules version:       {version}\n"
+                f"  - Installed CLI version: {_version.__version__}\n"
+                f"\n"
+                f"To resolve this, do one of the following:\n"
+                f"  - Upgrade the modules to match the CLI:\n"
+                f"      cdf modules upgrade\n"
+                f"  - Downgrade the CLI to match the modules:\n"
+                f"      pip install cognite-toolkit=={version}"
             )
         return cls(version=version, packages=packages)
 
@@ -146,6 +153,14 @@ class CDFToml:
     def load(cls, cwd: Path | None = None, use_singleton: bool = True) -> "CDFToml":
         """Loads the cdf.toml file from the given path. If use_singleton is True, the instance will be stored as a
         singleton and returned on subsequent calls."""
+        try:
+            return cls._load(cwd, use_singleton)
+        except ToolkitError as err:
+            print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
+            raise SystemExit(1)
+
+    @classmethod
+    def _load(cls, cwd: Path | None = None, use_singleton: bool = True) -> "CDFToml":
         global _CDF_TOML
         if use_singleton and _CDF_TOML:
             return _CDF_TOML
