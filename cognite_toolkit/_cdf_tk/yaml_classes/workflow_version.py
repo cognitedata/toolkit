@@ -295,7 +295,7 @@ class WorkflowDefinition(BaseModelResource):
         max_length=500,
         description="The description of the workflow version.",
     )
-    tasks: list[Task]
+    tasks: list[Task] = Field(min_length=1)
 
 
 class WorkflowVersionYAML(ToolkitResource):
