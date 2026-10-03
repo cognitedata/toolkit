@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands.auth import CLIENT_NAME
 from cognite_toolkit._cdf_tk.commands.auth.oidc import refresh_session_tokens
 from cognite_toolkit._cdf_tk.commands.auth.session_store import StoredSession
+from cognite_toolkit._cdf_tk.constants import DEFAULT_CLIENT_TIMEOUT
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 
 _LOGIN_FLOW: TypeAlias = Literal["infer", "client_credentials", "interactive", "token", "session"]
@@ -260,7 +261,7 @@ class EnvironmentVariables:
             project=self.CDF_PROJECT,
             credentials=self.get_credentials(),
             base_url=self.cdf_url,
-            timeout=self.CDF_TIMEOUT,
+            timeout=self.CDF_TIMEOUT or DEFAULT_CLIENT_TIMEOUT,
         )
         return ToolkitClient(config=config)
 
