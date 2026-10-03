@@ -1,4 +1,5 @@
 import gzip
+import os
 from abc import ABC, abstractmethod
 from collections.abc import Set
 from typing import TYPE_CHECKING, Any, Literal
@@ -9,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, model
 from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
+from cognite_toolkit._cdf_tk.constants import DEFAULT_CLIENT_TIMEOUT
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
 if TYPE_CHECKING:
@@ -25,8 +27,14 @@ class HTTPResult(HTTPBaseModel):
         if isinstance(self, SuccessResponse):
             return self
         elif isinstance(self, FailedResponse):
+            message = f"Request failed with status code {self.status_code}: {self.error.full_message}"
+            if request.connect_attempt > 1:
+                message += (
+                    f"\n You can try to increase the timeout by setting the 'CDF_CLIENT_TIMEOUT' "
+                    f"environment variable. {os.environ.get('CDF_CLIENT_TIMEOUT', DEFAULT_CLIENT_TIMEOUT)}"
+                )
             raise ToolkitAPIError(
-                f"Request failed with status code {self.status_code}: {self.error.full_message}",
+                message,
                 missing=self.error.missing,  # type: ignore[arg-type]
                 duplicated=self.error.duplicated,  # type: ignore[arg-type]
                 code=self.error.code,

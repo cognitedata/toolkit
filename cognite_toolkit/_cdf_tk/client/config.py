@@ -4,6 +4,8 @@ from urllib.parse import urljoin
 from cognite.client import ClientConfig
 from cognite.client.credentials import CredentialProvider
 
+from cognite_toolkit._cdf_tk.constants import DEFAULT_CLIENT_TIMEOUT
+
 
 class ToolkitClientConfig(ClientConfig):
     def __init__(
@@ -16,7 +18,7 @@ class ToolkitClientConfig(ClientConfig):
         cluster: str | None = None,
         is_strict_validation: bool = True,
         headers: dict[str, str] | None = None,
-        timeout: int | None = None,
+        timeout: int = DEFAULT_CLIENT_TIMEOUT,
         file_transfer_timeout: int | None = None,
         debug: bool = False,
     ) -> None:
