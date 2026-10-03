@@ -1,4 +1,5 @@
 from collections.abc import Hashable, Iterable, Sequence, Sized
+from pathlib import Path
 from typing import Any, Literal, final
 
 from cognite.client import data_modeling as dm
@@ -18,9 +19,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
     ResourceViewMappingRequest,
     ResourceViewMappingResponse,
 )
-from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.utils import sanitize_filename
+from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions
 from cognite_toolkit._cdf_tk.yaml_classes import ResourceViewMappingYAML
 
@@ -56,6 +57,15 @@ class ResourceViewMappingIO(
     @classmethod
     def as_str(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
+
+    @classmethod
+    def safe_read(cls, filepath: Path | str) -> str:
+        # The version is a string, but the user often writes it as an int.
+        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
+        # This is technically a user mistake, as you should quote the version in the YAML file.
+        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
+        # so we fix it here.
+        return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[ResourceViewMappingRequest]) -> ScopeDefinition:
