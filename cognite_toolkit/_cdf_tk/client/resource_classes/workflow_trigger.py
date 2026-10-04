@@ -92,7 +92,7 @@ class WorkflowTriggerRequest(WorkflowTrigger, RequestResource):
     authentication: NonceCredentials | None = None
     # Is Pause is only part of the response, but we set it to optional to allow loading it from file.
     # If it is set, it will be used to make the request to pause or unpause the trigger.
-    is_paused: bool | None = Field(exclude=True)
+    is_paused: bool | None = Field(default=None, exclude=True)
 
 
 class WorkflowTriggerResponse(WorkflowTrigger, ResponseResource[WorkflowTriggerRequest]):
