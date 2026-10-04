@@ -558,10 +558,20 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
 
     def _upsert(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
         created: list[WorkflowTriggerResponse] = []
+        to_resume: list[ExternalId] = []
+        to_pause: list[ExternalId] = []
         for item in items:
             created_item = self._upsert_item(item)
             if created_item is not None:
                 created.append(created_item)
+                if item.is_paused is True and not created_item.is_paused:
+                    to_pause.append(created_item.as_id())
+                elif item.is_paused is False and created_item.is_paused:
+                    to_resume.append(created_item.as_id())
+        if to_pause and Flags.V09.is_enabled():
+            self.client.tool.workflows.triggers.pause(to_pause)
+        if to_resume and Flags.V09.is_enabled():
+            self.client.tool.workflows.triggers.resume(to_resume)
         return created
 
     def _upsert_item(self, item: WorkflowTriggerRequest) -> WorkflowTriggerResponse | None:
@@ -658,7 +668,8 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         # Remove response-only fields
         dumped.pop("createdTime", None)
         dumped.pop("lastUpdatedTime", None)
-        dumped.pop("isPaused", None)
+        if not FeatureFlag.is_enabled(Flags.V09):
+            dumped.pop("isPaused", None)
         # Remove input if None to match local format
         if dumped.get("input") is None:
             dumped.pop("input", None)
