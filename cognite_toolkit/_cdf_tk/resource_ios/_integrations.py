@@ -125,7 +125,7 @@ class IntegrationConfigsIO(
     # Revisions cannot be deleted. Deleting the integration removes them.
     support_drop = False
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
-    _doc_url = "Integration-Configuration/operation/createIntegrationConfig"
+    _doc_url = "Integration-Configuration/operation/create_integration_config"
 
     @property
     def display_name(self) -> str:
