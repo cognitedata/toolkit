@@ -48,7 +48,7 @@ class IntegrationsIO(ResourceIO[ExternalId, IntegrationRequest, IntegrationRespo
     yaml_cls = IntegrationYAML
     dependencies = frozenset()
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
-    _doc_url = "Integrations/operation/createIntegrations"
+    _doc_url = "Integrations/operation/create_integrations"
 
     @property
     def display_name(self) -> str:
