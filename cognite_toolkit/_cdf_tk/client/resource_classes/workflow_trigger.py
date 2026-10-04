@@ -1,6 +1,6 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import BeforeValidator, ConfigDict, JsonValue
+from pydantic import BeforeValidator, ConfigDict, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -90,6 +90,9 @@ class WorkflowTriggerRequest(WorkflowTrigger, RequestResource):
     # Note: authentication with nonce is required, but we set it to optional to
     # allow loading from file without it. This is utilized in the WorkflowTriggerCRUD.
     authentication: NonceCredentials | None = None
+    # Is Pause is only part of the response, but we set it to optional to allow loading it from file.
+    # If it is set, it will be used to make the request to pause or unpause the trigger.
+    is_paused: bool | None = Field(exclude=True)
 
 
 class WorkflowTriggerResponse(WorkflowTrigger, ResponseResource[WorkflowTriggerRequest]):
