@@ -284,7 +284,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         }
         # Trick to avoid writing _capability_name and _scope_name for each entry.
         return {
-            (key[0].model_fields["capability_name"].default, key[1].model_fields["scope_name"].default)
+            (key[0].model_fields["acl_name"].default, key[1].model_fields["scope_name"].default)
             if isinstance(key, tuple)
             else key.model_fields["scope_name"].default: method  # type: ignore[attr-defined]
             for key, method in source.items()
@@ -328,7 +328,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         # Note the extra keyword 'tables' in the API response.
         for capability in dumped.get("capabilities", []):
             for acl, content in capability.items():
-                if acl != RawAcl.model_fields["capability_name"].default:
+                if acl != RawAcl.model_fields["acl_name"].default:
                     continue
                 if scope := content.get("scope", {}):
                     if table_scope := scope.get(TableScope.model_fields["scope_name"].default, {}):
