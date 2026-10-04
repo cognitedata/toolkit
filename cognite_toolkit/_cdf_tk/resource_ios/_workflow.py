@@ -668,8 +668,12 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         # Remove response-only fields
         dumped.pop("createdTime", None)
         dumped.pop("lastUpdatedTime", None)
-        if not FeatureFlag.is_enabled(Flags.V09):
+        if Flags.V09.is_enabled() and local and "isPaused" not in local and resource.is_paused is False:
+            # Remove isPaused as it is set to the default value from the serves.
             dumped.pop("isPaused", None)
+        elif not Flags.V09.is_enabled():
+            dumped.pop("isPaused", None)
+
         # Remove input if None to match local format
         if dumped.get("input") is None:
             dumped.pop("input", None)

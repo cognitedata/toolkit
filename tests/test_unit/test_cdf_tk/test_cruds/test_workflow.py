@@ -1,11 +1,12 @@
 from pathlib import Path
+from typing import Literal
 from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import ClientCredentials, CreatedSession
 
-from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     ScheduleTriggerRule,
@@ -38,7 +39,7 @@ from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
 from cognite_toolkit._cdf_tk.yaml_classes import WorkflowVersionYAML
 
 
-class TestWorkflowTriggerLoader:
+class TestWorkflowTriggerIO:
     def test_credentials_missing_raise(self) -> None:
         trigger_content = """externalId: daily-8am-utc
 triggerRule:
@@ -139,6 +140,65 @@ authentication:
             loader.create([trigger])
 
         client.iam.sessions.create.assert_called_once_with(credentials, session_type="CLIENT_CREDENTIALS")
+        client.tool.workflows.triggers.pause.assert_not_called()
+        client.tool.workflows.triggers.resume.assert_not_called()
+
+    @pytest.mark.skipif(not FeatureFlag.is_enabled(Flags.V09), reason="V09 feature flag is not enabled")
+    @pytest.mark.parametrize(
+        ("is_paused", "method_name"),
+        [(True, "pause"), (False, "resume")],
+    )
+    def test_create_and_update_apply_pause_state(
+        self, is_paused: bool, method_name: Literal["pause", "resume"], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        response = WorkflowTriggerResponse(
+            external_id="daily-8am-utc",
+            trigger_rule=ScheduleTriggerRule(cron_expression="0 8 * * *"),
+            workflow_external_id="wf_example_repeater",
+            workflow_version="v1",
+            created_time=0,
+            last_updated_time=0,
+            is_paused=not is_paused,
+        )
+        trigger = response.as_request_resource()
+        trigger.is_paused = is_paused
+
+        with monkeypatch_toolkit_client() as client:
+            client.iam.sessions.create.return_value = CreatedSession(123, "READY", "my-nonce")
+            io = WorkflowTriggerIO(client)
+            io._authentication_by_id["daily-8am-utc"] = ClientCredentials(
+                client_id="my-client-id", client_secret="my-client-secret"
+            )
+            client.tool.workflows.triggers.create.return_value = [response]
+
+            _ = io.create([trigger])
+
+        method = getattr(client.tool.workflows.triggers, method_name)
+        other = "resume" if method_name == "pause" else "pause"
+        assert method.call_count == 1
+        method.assert_called_with([trigger.as_id()])
+        getattr(client.tool.workflows.triggers, other).assert_not_called()
+
+    @pytest.mark.skipif(not FeatureFlag.is_enabled(Flags.V09), reason="V09 feature flag is not enabled")
+    def test_dump_resource_keeps_is_paused(self, toolkit_client_cheap: ToolkitClient) -> None:
+        dumped = WorkflowTriggerIO(toolkit_client_cheap).dump_resource(
+            WorkflowTriggerResponse(
+                external_id="daily-8am-utc",
+                trigger_rule=ScheduleTriggerRule(cron_expression="0 8 * * *"),
+                workflow_external_id="wf_example_repeater",
+                workflow_version="v1",
+                created_time=0,
+                last_updated_time=0,
+                is_paused=True,
+            )
+        )
+        assert dumped == {
+            "externalId": "daily-8am-utc",
+            "triggerRule": {"triggerType": "schedule", "cronExpression": "0 8 * * *"},
+            "workflowExternalId": "wf_example_repeater",
+            "workflowVersion": "v1",
+            "isPaused": True,
+        }
 
 
 class TestWorkflowVersionIODependencies:
@@ -249,7 +309,7 @@ class TestWorkflowVersionIODependencies:
         ]
 
 
-class TestWorkflowVersionLoader:
+class TestWorkflowVersionIO:
     def test_topological_sort_raises_on_cycle(self) -> None:
         dependencies = {
             "a": "b",
