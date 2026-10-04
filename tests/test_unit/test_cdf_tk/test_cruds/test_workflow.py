@@ -171,13 +171,14 @@ authentication:
             )
             client.tool.workflows.triggers.create.return_value = [response]
 
-            _ = io.create([trigger])
+            created = io.create([trigger])
 
         method = getattr(client.tool.workflows.triggers, method_name)
         other = "resume" if method_name == "pause" else "pause"
         assert method.call_count == 1
         method.assert_called_with([trigger.as_id()])
         getattr(client.tool.workflows.triggers, other).assert_not_called()
+        assert created[0].is_paused == is_paused
 
     @pytest.mark.skipif(not FeatureFlag.is_enabled(Flags.V09), reason="V09 feature flag is not enabled")
     def test_dump_resource_keeps_is_paused(self, toolkit_client_cheap: ToolkitClient) -> None:

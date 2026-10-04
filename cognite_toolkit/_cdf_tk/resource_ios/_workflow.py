@@ -557,22 +557,27 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         return self._upsert(items)
 
     def _upsert(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
-        created: list[WorkflowTriggerResponse] = []
+        created: dict[ExternalId, WorkflowTriggerResponse] = {}
         to_resume: list[ExternalId] = []
         to_pause: list[ExternalId] = []
         for item in items:
             created_item = self._upsert_item(item)
             if created_item is not None:
-                created.append(created_item)
+                external_id = created_item.as_id()
+                created[external_id] = created_item
                 if item.is_paused is True and not created_item.is_paused:
-                    to_pause.append(created_item.as_id())
+                    to_pause.append(external_id)
                 elif item.is_paused is False and created_item.is_paused:
-                    to_resume.append(created_item.as_id())
+                    to_resume.append(external_id)
         if to_pause and Flags.V09.is_enabled():
             self.client.tool.workflows.triggers.pause(to_pause)
+            for external_id in to_pause:
+                created[external_id].is_paused = True
         if to_resume and Flags.V09.is_enabled():
             self.client.tool.workflows.triggers.resume(to_resume)
-        return created
+            for external_id in to_resume:
+                created[external_id].is_paused = False
+        return list(created.values())
 
     def _upsert_item(self, item: WorkflowTriggerRequest) -> WorkflowTriggerResponse | None:
         credentials = self._authentication_by_id.get(item.external_id)
