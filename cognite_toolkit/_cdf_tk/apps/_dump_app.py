@@ -42,27 +42,50 @@ class DumpApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.dump_main)
-        self.command("datamodel")(DumpConfigApp.dump_datamodel_cmd)
-        self.command("workflow")(DumpConfigApp.dump_workflow)
-        self.command("transformation")(DumpConfigApp.dump_transformation)
-        self.command("group")(DumpConfigApp.dump_group)
-        self.command("node")(DumpConfigApp.dump_node)
-        self.command("spaces")(DumpConfigApp.dump_spaces)
+        if Flags.V09.is_enabled():
+            self.command("datamodels")(DumpConfigApp.dump_datamodel_cmd)
+            self.command("workflows")(DumpConfigApp.dump_workflow)
+            self.command("transformations")(DumpConfigApp.dump_transformation)
+            self.command("groups")(DumpConfigApp.dump_group)
+            self.command("nodes")(DumpConfigApp.dump_node)
+            self.command("spaces")(DumpConfigApp.dump_spaces)
 
-        self.command("location-filter")(DumpConfigApp.dump_location_filters)
-        self.command("extraction-pipeline")(DumpConfigApp.dump_extraction_pipeline)
-        self.command("hosted-extractor")(DumpConfigApp.dump_hosted_extractor)
-        self.command("functions")(DumpConfigApp.dump_functions)
-        self.command("datasets")(DumpConfigApp.dump_datasets)
-        self.command("streamlit")(DumpConfigApp.dump_streamlit)
+            self.command("location-filters")(DumpConfigApp.dump_location_filters)
+            self.command("extraction-pipelines")(DumpConfigApp.dump_extraction_pipeline)
+            self.command("hosted-extractors")(DumpConfigApp.dump_hosted_extractor)
+            self.command("functions")(DumpConfigApp.dump_functions)
+            self.command("datasets")(DumpConfigApp.dump_datasets)
+            self.command("streamlit")(DumpConfigApp.dump_streamlit)
 
-        self.command("agents")(DumpConfigApp.dump_agents)
+            self.command("agents")(DumpConfigApp.dump_agents)
 
-        self.command("search-config")(DumpConfigApp.dump_search_config)
-        if Flags.SAP_WRITEBACK.is_enabled():
-            self.command("sap-writeback")(DumpConfigApp.dump_sap_writeback)
-        if Flags.MIGRATE.is_enabled():
-            self.command("resource-view-mapping")(DumpConfigApp.dump_resource_view_mapping)
+            self.command("search-configs")(DumpConfigApp.dump_search_config)
+            if Flags.SAP_WRITEBACK.is_enabled():
+                self.command("sap-writebacks")(DumpConfigApp.dump_sap_writeback)
+            if Flags.MIGRATE.is_enabled():
+                self.command("resource-view-mappings")(DumpConfigApp.dump_resource_view_mapping)
+        else:
+            self.command("datamodel")(DumpConfigApp.dump_datamodel_cmd)
+            self.command("workflow")(DumpConfigApp.dump_workflow)
+            self.command("transformation")(DumpConfigApp.dump_transformation)
+            self.command("group")(DumpConfigApp.dump_group)
+            self.command("node")(DumpConfigApp.dump_node)
+            self.command("spaces")(DumpConfigApp.dump_spaces)
+
+            self.command("location-filter")(DumpConfigApp.dump_location_filters)
+            self.command("extraction-pipeline")(DumpConfigApp.dump_extraction_pipeline)
+            self.command("hosted-extractor")(DumpConfigApp.dump_hosted_extractor)
+            self.command("functions")(DumpConfigApp.dump_functions)
+            self.command("datasets")(DumpConfigApp.dump_datasets)
+            self.command("streamlit")(DumpConfigApp.dump_streamlit)
+
+            self.command("agents")(DumpConfigApp.dump_agents)
+
+            self.command("search-config")(DumpConfigApp.dump_search_config)
+            if Flags.SAP_WRITEBACK.is_enabled():
+                self.command("sap-writeback")(DumpConfigApp.dump_sap_writeback)
+            if Flags.MIGRATE.is_enabled():
+                self.command("resource-view-mapping")(DumpConfigApp.dump_resource_view_mapping)
 
     @staticmethod
     def dump_main(ctx: typer.Context) -> None:
