@@ -1,21 +1,26 @@
-import csv
 from pathlib import Path
 
 import click
+import pytest
 import typer
 
-from cognite_toolkit._cdf_tk.apps._download_app import DownloadApp
+from cognite_toolkit._cdf_tk.apps._download_app import AssetCentricFormats, DownloadApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceId, NodeId
-from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import COGNITE_FILE_VIEW_ID, CogniteFileRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.documents import DocumentResponse, DocumentSourceFile
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest
+from cognite_toolkit._cdf_tk.utils.interactive_select import DocumentSelectStatus, SelectedDocuments
+from tests.test_unit.utils import MockQuestionary
 from tests_smoke.test_commands.test_upload_files import _wait_until_cognite_file_uploaded, _wait_until_uploaded
 
 _DOWNLOAD_LIMIT = 2
 _MIME_TYPE = "text/plain"
+_FILE_METADATA_DIR = "asset-centric-files-with-content"
+_COGNITE_FILE_DIR = "cognite-file-with-content"
 _FILE_METADATA_CONTENT = {
     "toolkit_smoke_download_filemetadata_1": "toolkit smoke download file metadata 1\n",
     "toolkit_smoke_download_filemetadata_2": "toolkit smoke download file metadata 2\n",
@@ -32,27 +37,44 @@ class TestDownloadFiles:
         toolkit_client: ToolkitClient,
         smoke_dataset: DataSetResponse,
         tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        if smoke_dataset.external_id is None or smoke_dataset.id is None:
-            raise AssertionError("Smoke dataset is missing an id, so files cannot be downloaded from it.")
+        if smoke_dataset.external_id is None:
+            raise AssertionError("Smoke dataset is missing an external_id, so files cannot be downloaded from it.")
         for external_id, content in _FILE_METADATA_CONTENT.items():
             _ensure_file_metadata_content(toolkit_client, smoke_dataset.id, external_id, content)
         output_dir = tmp_path / "filemetadata"
-        _download_file_metadata(output_dir, smoke_dataset.external_id)
-        _assert_downloaded_row_count(output_dir, "file metadata rows from the smoke dataset")
+        _download_file_content(
+            monkeypatch,
+            output_dir,
+            data_set_external_id=smoke_dataset.external_id,
+            documents=_file_metadata_documents(toolkit_client, list(_FILE_METADATA_CONTENT)),
+            cognite_file=False,
+        )
+        _assert_downloaded_content(output_dir, _FILE_METADATA_DIR, _FILE_METADATA_CONTENT)
 
     def test_download_two_files_from_smoke_space(
         self,
         toolkit_client: ToolkitClient,
+        smoke_dataset: DataSetResponse,
         smoke_space: SpaceResponse,
         tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        if smoke_dataset.external_id is None:
+            raise AssertionError("Smoke dataset is missing an external_id, so files cannot be downloaded from it.")
         space = smoke_space.space
         for external_id, content in _COGNITE_FILE_CONTENT.items():
             _ensure_cognite_file_content(toolkit_client, space, external_id, content)
         output_dir = tmp_path / "cognitefile"
-        _download_cognite_files(output_dir, space)
-        _assert_downloaded_row_count(output_dir, "CogniteFile rows from the smoke space")
+        _download_file_content(
+            monkeypatch,
+            output_dir,
+            data_set_external_id=smoke_dataset.external_id,
+            documents=_cognite_file_documents(toolkit_client, space, list(_COGNITE_FILE_CONTENT)),
+            cognite_file=True,
+        )
+        _assert_downloaded_content(output_dir, _COGNITE_FILE_DIR, _COGNITE_FILE_CONTENT)
 
 
 def _ensure_file_metadata_content(client: ToolkitClient, data_set_id: int, external_id: str, content: str) -> None:
@@ -106,68 +128,87 @@ def _upload_url(client: ToolkitClient, identifier: ExternalId | InstanceId, labe
     return linked[0].upload_url
 
 
-def _download_file_metadata(output_dir: Path, data_set_external_id: str) -> None:
-    try:
-        DownloadApp().download_files_cmd(
-            typer.Context(click.Command("download_files")),
-            data_sets=[data_set_external_id],
-            output_dir=output_dir,
-            limit=_DOWNLOAD_LIMIT,
-            verbose=True,
+def _file_metadata_documents(client: ToolkitClient, external_ids: list[str]) -> list[DocumentResponse]:
+    found = client.tool.filemetadata.retrieve(
+        [ExternalId(external_id=external_id) for external_id in external_ids],
+        ignore_unknown_ids=True,
+    )
+    found_by_external_id = {item.external_id: item for item in found if item.external_id is not None}
+    missing = [external_id for external_id in external_ids if external_id not in found_by_external_id]
+    if missing:
+        raise AssertionError(f"File metadata was not found for {', '.join(missing)}.")
+    return [
+        DocumentResponse(
+            id=found_by_external_id[external_id].id,
+            external_id=external_id,
+            created_time=found_by_external_id[external_id].created_time,
+            source_file=DocumentSourceFile(name=found_by_external_id[external_id].name),
         )
+        for external_id in external_ids
+    ]
+
+
+def _cognite_file_documents(client: ToolkitClient, space: str, external_ids: list[str]) -> list[DocumentResponse]:
+    documents: list[DocumentResponse] = []
+    for external_id in external_ids:
+        node_id = NodeId(space=space, external_id=external_id)
+        linked = client.tool.filemetadata.retrieve([InstanceId(instance_id=node_id)], ignore_unknown_ids=True)
+        if not linked:
+            raise AssertionError(f"No classic file is linked to CogniteFile {space}:{external_id}.")
+        file = linked[0]
+        documents.append(
+            DocumentResponse(
+                id=file.id,
+                external_id=file.external_id,
+                instance_id=node_id,
+                created_time=file.created_time,
+                source_file=DocumentSourceFile(name=external_id, mime_type=file.mime_type),
+            )
+        )
+    return documents
+
+
+def _download_file_content(
+    monkeypatch: pytest.MonkeyPatch,
+    output_dir: Path,
+    data_set_external_id: str,
+    documents: list[DocumentResponse],
+    cognite_file: bool,
+) -> None:
+    selected = SelectedDocuments(documents=documents, selection=DocumentSelectStatus(is_cognite_file=cognite_file))
+    monkeypatch.setattr(
+        "cognite_toolkit._cdf_tk.apps._download_app.DocumentsInteractiveSelect.select_documents",
+        lambda self: selected,
+    )
+    try:
+        with MockQuestionary(
+            DownloadApp.__module__,
+            monkeypatch,
+            [AssetCentricFormats.csv, str(output_dir)],
+        ):
+            DownloadApp().download_files_cmd(
+                typer.Context(click.Command("download_files")),
+                data_sets=[data_set_external_id],
+                include_file_contents=True,
+                output_dir=output_dir,
+                limit=_DOWNLOAD_LIMIT,
+                verbose=True,
+            )
     except Exception as error:
         raise AssertionError(f"DownloadApp.download_files_cmd failed: {error}\n{_issue_logs(output_dir)}") from error
 
 
-def _download_cognite_files(output_dir: Path, space: str) -> None:
-    view = COGNITE_FILE_VIEW_ID
-    view_id = f"{view.external_id}/{view.version}"
-    try:
-        DownloadApp().download_instances_cmd(
-            typer.Context(click.Command("download_instances")),
-            instance_spaces=[space],
-            schema_space=view.space,
-            view_external_ids=[view_id],
-            output_dir=output_dir,
-            limit=_DOWNLOAD_LIMIT,
-            verbose=True,
-        )
-    except Exception as error:
+def _assert_downloaded_content(output_dir: Path, download_dir_name: str, expected: dict[str, str]) -> None:
+    content_dir = output_dir / download_dir_name / "files"
+    downloaded = [path for path in content_dir.rglob("*") if path.is_file()] if content_dir.is_dir() else []
+    contents = sorted(path.read_text(encoding="utf-8") for path in downloaded)
+    expected_contents = sorted(expected.values())
+    if contents != expected_contents:
         raise AssertionError(
-            f"DownloadApp.download_instances_cmd failed: {error}\n{_issue_logs(output_dir)}"
-        ) from error
-
-
-def _assert_downloaded_row_count(output_dir: Path, label: str) -> None:
-    downloaded = _count_downloaded_rows(output_dir)
-    if downloaded != _DOWNLOAD_LIMIT:
-        raise AssertionError(f"Expected {_DOWNLOAD_LIMIT} {label}, got {downloaded}.\n{_issue_logs(output_dir)}")
-
-
-def _count_downloaded_rows(output_dir: Path) -> int:
-    csv_files = _data_files(output_dir, ".csv")
-    if csv_files:
-        return sum(_csv_data_rows(path) for path in csv_files)
-    return sum(_ndjson_data_rows(path) for path in _data_files(output_dir, ".ndjson"))
-
-
-def _data_files(output_dir: Path, suffix: str) -> list[Path]:
-    if not output_dir.exists():
-        return []
-    return [
-        path
-        for path in output_dir.rglob(f"*{suffix}")
-        if path.is_file() and "Issues" not in path.name and path.suffix == suffix
-    ]
-
-
-def _csv_data_rows(path: Path) -> int:
-    with path.open(encoding="utf-8", newline="") as handle:
-        return sum(1 for _ in csv.DictReader(handle))
-
-
-def _ndjson_data_rows(path: Path) -> int:
-    return sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
+            "Downloaded file content did not match the uploaded files.\n"
+            f"Expected {expected_contents!r}, got {contents!r}.\n"
+            f"{_issue_logs(output_dir)}"
+        )
 
 
 def _issue_logs(directory: Path) -> str:
