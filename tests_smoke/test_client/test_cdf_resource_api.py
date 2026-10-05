@@ -49,7 +49,7 @@ from cognite_toolkit._cdf_tk.client.api.simulator_model_revisions import Simulat
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_routines import SimulatorRoutinesAPI
-from cognite_toolkit._cdf_tk.client.api.statistics import StatisticsAPI
+from cognite_toolkit._cdf_tk.client.api.statistics import SpaceStatisticsAPI, StatisticsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import (
     ThreeDClassicAssetMappingAPI,
@@ -329,8 +329,9 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         DataProductVersionsAPI,
         # Datapoints subscription has a special update method
         DatapointSubscriptionsAPI,
-        # Project-wide statistics is a single GET with no items to create, update, or delete.
+        # Statistics are read-only and have no items to create, update, or delete.
         StatisticsAPI,
+        SpaceStatisticsAPI,
         # No create methods
         PrincipalsAPI,
         PrincipalLoginSessionsAPI,

@@ -1,7 +1,7 @@
 """Resource classes for the Cognite Statistics API.
 
 Based on the API specification at:
-https://api-docs.cognite.com/20230101/tag/Statistics/operation/getStatistics
+https://api-docs.cognite.com/20230101/tag/Statistics
 """
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
@@ -27,7 +27,7 @@ class InstanceStatistics(BaseModelObject):
     soft_deleted_instances_limit: int
 
 
-class ProjectStatistics(BaseModelObject):
+class ProjectStatisticsResponse(BaseModelObject):
     """Statistics and limits for data modeling resources in a project."""
 
     spaces: CountLimit
@@ -41,3 +41,19 @@ class ProjectStatistics(BaseModelObject):
     concurrent_delete_limit: int
     records_only_containers: CountLimit | None = None
     records_only_container_properties: CountLimit | None = None
+
+
+class SpaceStatisticsResponse(BaseModelObject):
+    """Data modeling statistics for a single space."""
+
+    space: str
+    containers: int
+    views: int
+    data_models: int
+    edges: int
+    soft_deleted_edges: int
+    nodes: int
+    soft_deleted_nodes: int
+    container_properties: int | None = None
+    records_only_containers: int | None = None
+    records_only_container_properties: int | None = None
