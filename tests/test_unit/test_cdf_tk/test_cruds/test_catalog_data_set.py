@@ -17,6 +17,7 @@ def test_catalog_data_set_crud_roundtrip() -> None:
             "transformations": [{"name": "my-transform", "type": "jetfire", "details": "some details"}],
             "consoleSource": {"names": ["source1"]},
             "consoleAdditionalDocs": [{"type": "url", "id": "https://example.com", "name": "Docs"}],
+            "metadata": {"extraKey": "info"},
         }
     ).model_dump(by_alias=True)
 
