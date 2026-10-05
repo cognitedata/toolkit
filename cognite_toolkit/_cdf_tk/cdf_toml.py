@@ -72,8 +72,8 @@ class ModulesConfig:
             and version != "0.0.0"  # debugging mode
         ):
             raise ToolkitVersionError(
-                f"Version mismatch between modules and CLI:\n"
-                f"  - Modules version:       {version}\n"
+                f"Version mismatch between cdf.toml and CLI:\n"
+                f"  - cdf.toml version:       {version}\n"
                 f"  - Installed CLI version: {_version.__version__}\n"
                 f"\n"
                 f"To resolve this, do one of the following:\n"
