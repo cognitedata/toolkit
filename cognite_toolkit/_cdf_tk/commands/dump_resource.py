@@ -110,6 +110,13 @@ from ._base import ToolkitCommand
 _INTERACTIVE_SELECT_HELPER_TEXT = " Use arrow keys to navigate and space key to select. Press enter to confirm."
 
 
+def _data_model_choice_title(model: DataModelResponse) -> str:
+    identifier = f"{model.space}:{model.external_id}/{model.version}"
+    if model.name:
+        return f"{model.name} ({identifier})"
+    return identifier
+
+
 class ResourceFinder(Iterable, ABC, Generic[T_ID]):
     def __init__(self, client: ToolkitClient, identifier: T_ID | None = None):
         self.client = client
@@ -132,18 +139,52 @@ class ResourceFinder(Iterable, ABC, Generic[T_ID]):
     def update(self, resources: Sequence[ResourceResponseProtocol]) -> None: ...
 
 
-class DataModelFinder(ResourceFinder[DataModelNoVersionId]):
+class DataModelFinder(ResourceFinder[DataModelNoVersionId | tuple[DataModelId, ...]]):
     def __init__(
-        self, client: ToolkitClient, identifier: DataModelNoVersionId | None = None, include_global: bool = False
-    ):
-        super().__init__(client, identifier)
+        self,
+        client: ToolkitClient,
+        identifier: DataModelNoVersionId | Sequence[DataModelId] | None = None,
+        include_global: bool = False,
+    ) -> None:
+        normalized: DataModelNoVersionId | tuple[DataModelId, ...] | None
+        if identifier is None or isinstance(identifier, DataModelNoVersionId):
+            normalized = identifier
+        else:
+            normalized = tuple(identifier)
+        super().__init__(client, normalized)
         self._include_global = include_global
         self.data_model: DataModelResponse | None = None
         self.view_ids: set[ViewId] = set()
         self.container_ids: set[ContainerId] = set()
         self.space_ids: set[SpaceId] = set()
 
-    def _interactive_select(self) -> DataModelId:
+    def _interactive_select(self) -> DataModelId | tuple[DataModelId, ...]:
+        if Flags.V09.is_enabled():
+            return self._interactive_select_many()
+        return self._interactive_select_one()
+
+    def _interactive_select_many(self) -> tuple[DataModelId, ...]:
+        all_models = self.client.tool.data_models.list(
+            filter=DataModelFilter(all_versions=False, include_global=self._include_global)
+        )
+        if not all_models:
+            raise ToolkitMissingResourceError("No data models found")
+        selected_data_models: list[DataModelId] | None = questionary.checkbox(
+            "Which data model(s) would you like to dump?",
+            choices=[
+                Choice(_data_model_choice_title(model), value=model.as_id())
+                for model in sorted(all_models, key=lambda model: (model.space, model.external_id, model.version))
+            ],
+            validate=lambda choices: True if choices else "You must select at least one data model.",
+            use_search_filter=True,
+            use_jk_keys=False,
+            instruction="Type to filter",
+        ).unsafe_ask()
+        if not selected_data_models:
+            raise ToolkitValueError(f"No data models selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
+        return tuple(selected_data_models)
+
+    def _interactive_select_one(self) -> DataModelId:
         all_models = self.client.tool.data_models.list(
             filter=DataModelFilter(all_versions=False, include_global=self._include_global)
         )
@@ -219,18 +260,35 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId]):
             return
         self.space_ids |= {SpaceId(space=item.space) for item in resources if hasattr(item, "space")}
 
+    def _retrieve_selected_models(self, identifiers: tuple[DataModelId, ...]) -> list[DataModelResponse]:
+        requested = list(identifiers)
+        models = self.client.tool.data_models.retrieve(requested)
+        models_by_id = {model.as_id(): model for model in models}
+        missing = [model_id for model_id in requested if model_id not in models_by_id]
+        if missing:
+            raise ToolkitResourceMissingError(
+                f"Data model(s) {humanize_collection(missing)} not found",
+                str(missing),
+            )
+        return [models_by_id[model_id] for model_id in requested]
+
     def __iter__(
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
-        self.identifier = self._selected()
+        identifier = self._selected()
+        self.identifier = identifier
         model_loader = DataModelIO.create_io(self.client)
-        if self.data_model:
+        if isinstance(identifier, tuple):
+            models = self._retrieve_selected_models(identifier)
+            is_global_model = any(model.is_global for model in models)
+            yield [], models, model_loader, None
+        elif self.data_model:
             is_global_model = self.data_model.is_global
             yield [], [self.data_model], model_loader, None
         else:
-            model_list = self.client.tool.data_models.retrieve([self.identifier])
+            model_list = self.client.tool.data_models.retrieve([identifier])
             if not model_list:
-                raise ToolkitResourceMissingError(f"Data model {self.identifier} not found", str(self.identifier))
+                raise ToolkitResourceMissingError(f"Data model {identifier} not found", str(identifier))
             is_global_model = model_list[0].is_global
             yield [], model_list, model_loader, None
         if self._include_global or is_global_model:
