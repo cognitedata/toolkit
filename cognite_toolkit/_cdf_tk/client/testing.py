@@ -97,6 +97,7 @@ from .api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
 from .api.simulator_routines import SimulatorRoutinesAPI
 from .api.simulators import SimulatorsAPI
 from .api.skills import SkillsAPI
+from .api.statistics import StatisticsAPI
 from .api.streamlit_ import StreamlitAPI
 from .api.streams import StreamsAPI
 from .api.three_d import (
@@ -254,6 +255,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.rulesets.versions = MagicMock(spec_set=RuleSetVersionsAPI)
 
         self.records = MagicMock(spec=RecordsAPI)
+        self.statistics = MagicMock(spec_set=StatisticsAPI)
         self.streams = MagicMock(spec=StreamsAPI)
         self.sap_writeback = MagicMock(spec=SAPWritebackAPI)
         self.sap_writeback.instances = MagicMock(spec_set=SAPInstancesAPI)
