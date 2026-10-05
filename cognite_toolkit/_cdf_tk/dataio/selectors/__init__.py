@@ -26,7 +26,6 @@ from ._file_content import (
     FileContentSelector,
     FileDataModelingTemplate,
     FileDataModelingTemplateSelector,
-    FileIdentifierSelector,
     FileMetadataTemplate,
     FileMetadataTemplateSelector,
 )
@@ -77,13 +76,12 @@ Selector = Annotated[
     | FileMetadataFilesSelectorV2
     | CogniteFileTemplateSelectorV2
     | CogniteFileFilesSelectorV2
-    | FileIdentifierSelector
     | RecordContainerSelector
     | InstanceQuerySelector,
     Field(discriminator="type"),
 ]
 
-ALPHA_SELECTORS = {FileIdentifierSelector, RecordContainerSelector}
+ALPHA_SELECTORS = {RecordContainerSelector}
 INTERNAL = {ThreeDModelIdSelector, ThreeDModelFilteredSelector}
 DEPRECATED = {FileMetadataTemplateSelector, FileDataModelingTemplateSelector}
 SelectorAdapter: TypeAdapter[Selector] = TypeAdapter(Selector)
@@ -151,7 +149,6 @@ __all__ = [
     "FileContentSelector",
     "FileDataModelingTemplate",
     "FileDataModelingTemplateSelector",
-    "FileIdentifierSelector",
     "FileMetadataContentSelectorV2",
     "FileMetadataFilesSelectorV2",
     "FileMetadataTemplate",
