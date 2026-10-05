@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoi
 from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.session import Session, SessionCreateRequest, SessionListStatus
+from cognite_toolkit._cdf_tk.client.resource_classes.session import Session, SessionCreateRequest, SessionStatus
 
 
 class SessionAPI(CDFResourceAPI[Session]):
@@ -36,10 +36,10 @@ class SessionAPI(CDFResourceAPI[Session]):
         return PagedResponse[Session].model_validate_json(response.body)
 
     @staticmethod
-    def _status_params(status: SessionListStatus | None) -> dict[str, str] | None:
+    def _status_params(status: SessionStatus | None) -> dict[str, str] | None:
         if status is None:
             return None
-        return {"status": status.lower()}
+        return {"status": status}
 
     def create(self, items: Sequence[SessionCreateRequest]) -> list[Session]:
         """Create sessions.
@@ -84,7 +84,7 @@ class SessionAPI(CDFResourceAPI[Session]):
 
     def paginate(
         self,
-        status: SessionListStatus | None = None,
+        status: SessionStatus | None = None,
         limit: int = 25,
         cursor: str | None = None,
     ) -> PagedResponse[Session]:
@@ -102,7 +102,7 @@ class SessionAPI(CDFResourceAPI[Session]):
 
     def iterate(
         self,
-        status: SessionListStatus | None = None,
+        status: SessionStatus | None = None,
         limit: int | None = 25,
         cursor: str | None = None,
     ) -> Iterable[list[Session]]:
@@ -118,7 +118,7 @@ class SessionAPI(CDFResourceAPI[Session]):
         """
         return self._iterate(limit=limit, cursor=cursor, params=self._status_params(status))
 
-    def list(self, status: SessionListStatus | None = None, limit: int | None = 25) -> list[Session]:
+    def list(self, status: SessionStatus | None = None, limit: int | None = 25) -> list[Session]:
         """List sessions in the current project.
 
         Args:

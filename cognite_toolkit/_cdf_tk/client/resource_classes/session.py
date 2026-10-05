@@ -10,9 +10,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Reque
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 
 SessionType: TypeAlias = Literal["CLIENT_CREDENTIALS", "TOKEN_EXCHANGE", "ONESHOT_TOKEN_EXCHANGE"]
-SessionStatus: TypeAlias = Literal["READY", "ACTIVE", "CANCELLED", "EXPIRED", "REVOKED", "ACCESS_LOST"]
-# Query values accepted by GET /sessions. The API uses lowercase status names.
-SessionListStatus: TypeAlias = Literal["READY", "ACTIVE", "CANCELLED", "REVOKED", "ACCESS_LOST"]
+SessionStatus: TypeAlias = Literal["READY", "ACTIVE", "CANCELLED", "EXPIRED", "REVOKED", "ACCESS_LOST", "DETACHED"]
 
 
 class ClientCredentialsSessionRequest(RequestItem):

@@ -1713,7 +1713,7 @@ description: Smoke test skill
         )
         listed = api.list(status="ACTIVE", limit=25)
         assert listed[0].dump() == listed_session
-        assert dict(respx_mock.calls[-1].request.url.params) == {"status": "active", "limit": "25"}
+        assert dict(respx_mock.calls[-1].request.url.params) == {"status": "ACTIVE", "limit": "25"}
 
 
 def _request_json(request: httpx2.Request) -> JsonValue:
