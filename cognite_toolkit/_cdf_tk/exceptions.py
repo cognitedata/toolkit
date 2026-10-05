@@ -118,7 +118,11 @@ class ToolkitYAMLFormatError(YAMLError, ToolkitValidationError):
     pass
 
 
-class ToolkitTOMLFormatError(TOMLDecodeError, ToolkitValidationError): ...
+class ToolkitTOMLFormatError(TOMLDecodeError, ToolkitValidationError):
+    def __init__(self, message: str) -> None:
+        # Skip TOMLDecodeError.__init__: on 3.14+ it requires (msg, doc, pos)
+        # and deprecates free-form args. ValueError is TOMLDecodeError's base on all versions.
+        ValueError.__init__(self, message)
 
 
 class ToolkitInvalidParameterNameError(ToolkitValidationError):
