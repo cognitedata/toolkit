@@ -316,10 +316,8 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             raise ToolkitWrongResourceError()
 
         substituted = self._substitute_scope_ids(resource, is_dry_run)
-        try:
-            return GroupRequest._load(substituted)
-        except Exception:
-            raise
+
+        return GroupRequest._load(substituted)
 
     def dump_resource(self, resource: GroupResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
