@@ -25,14 +25,12 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
-    from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 
 
 class LookUpAPI(ABC):
     dry_run_id: int = DRY_RUN_ID
 
-    def __init__(self, config: "ToolkitClientConfig", toolkit_client: "ToolkitClient") -> None:
-        self._config = config
+    def __init__(self, toolkit_client: "ToolkitClient") -> None:
         self._client = toolkit_client
         self._console = toolkit_client.console
         self._cache: dict[str, int | None] = {}
@@ -344,8 +342,8 @@ class FunctionLookUpAPI(LookUpAPI):
 
 
 class AllLookUpAPI(LookUpAPI, ABC):
-    def __init__(self, config: "ToolkitClientConfig", toolkit_client: "ToolkitClient") -> None:
-        super().__init__(config, toolkit_client)
+    def __init__(self, toolkit_client: "ToolkitClient") -> None:
+        super().__init__(toolkit_client)
         self._has_looked_up = False
 
     @abstractmethod
@@ -399,15 +397,14 @@ class LocationFiltersLookUpAPI(AllLookUpAPI):
 
 
 class LookUpGroup:
-    def __init__(self, config: "ToolkitClientConfig", toolkit_client: "ToolkitClient") -> None:
-        self._config = config
+    def __init__(self, toolkit_client: "ToolkitClient") -> None:
         self._toolkit_client = toolkit_client
-        self.data_sets = DataSetLookUpAPI(config, toolkit_client)
-        self.assets = AssetLookUpAPI(config, toolkit_client)
-        self.time_series = TimeSeriesLookUpAPI(config, toolkit_client)
-        self.files = FileMetadataLookUpAPI(config, toolkit_client)
-        self.events = EventLookUpAPI(config, toolkit_client)
-        self.security_categories = SecurityCategoriesLookUpAPI(config, toolkit_client)
-        self.location_filters = LocationFiltersLookUpAPI(config, toolkit_client)
-        self.extraction_pipelines = ExtractionPipelineLookUpAPI(config, toolkit_client)
-        self.functions = FunctionLookUpAPI(config, toolkit_client)
+        self.data_sets = DataSetLookUpAPI(toolkit_client)
+        self.assets = AssetLookUpAPI(toolkit_client)
+        self.time_series = TimeSeriesLookUpAPI(toolkit_client)
+        self.files = FileMetadataLookUpAPI(toolkit_client)
+        self.events = EventLookUpAPI(toolkit_client)
+        self.security_categories = SecurityCategoriesLookUpAPI(toolkit_client)
+        self.location_filters = LocationFiltersLookUpAPI(toolkit_client)
+        self.extraction_pipelines = ExtractionPipelineLookUpAPI(toolkit_client)
+        self.functions = FunctionLookUpAPI(toolkit_client)

@@ -6,7 +6,6 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.exceptions import CogniteAPIError
 
-from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.constants import URL
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 
@@ -15,8 +14,7 @@ if TYPE_CHECKING:
 
 
 class VerifyAPI:
-    def __init__(self, config: ToolkitClientConfig, toolkit_client: "ToolkitClient") -> None:
-        self._config = config
+    def __init__(self, toolkit_client: "ToolkitClient") -> None:
         self._toolkit_client = toolkit_client
         self._token_inspect: TokenInspection | None = None
 
