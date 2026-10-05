@@ -12,6 +12,7 @@ from cognite.client.data_classes.transformations import NonceCredentials
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.request_classes.filters import TransformationNotificationFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.session import TokenExchangeSessionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_notification import (
     TransformationNotificationRequest,
     TransformationNotificationResponse,
@@ -39,8 +40,8 @@ def deployed_transformation(toolkit_client: ToolkitClient) -> Transformation:
     existing = toolkit_client.transformations.retrieve(external_id=transformation.external_id)
     if existing:
         return existing
-    destination_session = toolkit_client.iam.sessions.create()
-    source_session = toolkit_client.iam.sessions.create()
+    destination_session = toolkit_client.sessions.create([TokenExchangeSessionRequest()])[0]
+    source_session = toolkit_client.sessions.create([TokenExchangeSessionRequest()])[0]
     transformation.destination_nonce = NonceCredentials(
         destination_session.id, destination_session.nonce, toolkit_client.config.project
     )

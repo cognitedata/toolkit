@@ -5,14 +5,12 @@ import shutil
 from collections.abc import Iterator
 from io import StringIO
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 import yaml
 from cognite.client import global_config
 from cognite.client.credentials import Token
-from cognite.client.data_classes import CreatedSession
 from pytest import MonkeyPatch
 from rich.console import Console
 
@@ -25,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewId, ViewResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource
+from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionCreateResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
@@ -55,16 +54,14 @@ def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
     that requires API calls. If you don't need to make any API calls, use the `toolkit_client_cheap` fixture instead.
     """
     with monkeypatch_toolkit_client() as toolkit_client:
-
-        def create_session(*args: Any, **kwargs: Any) -> CreatedSession:
-            return CreatedSession(
+        toolkit_client.sessions.create.return_value = [
+            SessionCreateResponse(
                 id=42,
                 status="READY",
                 nonce="dummy-nonce",
                 type="CLIENT_CREDENTIALS",
             )
-
-        toolkit_client.iam.sessions.create = create_session
+        ]
         approval_client = ApprovalToolkitClient(toolkit_client)
 
         # Patch the mock's __class__ to make isinstance checks pass for Pydantic

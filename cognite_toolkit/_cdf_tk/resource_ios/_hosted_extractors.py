@@ -1,8 +1,6 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import ClientCredentials
-
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
@@ -38,9 +36,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
     ScramShaAuthenticationRequest,
     UnknownAuthenticationRequest,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.utils.cdf import read_auth
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import (
     HostedExtractorDestinationYAML,
@@ -205,7 +205,7 @@ class HostedExtractorDestinationIO(
 
     def __init__(self, client: ToolkitClient):
         super().__init__(client)
-        self._authentication_by_id: dict[str, ClientCredentials] = {}
+        self._authentication_by_id: dict[str, ClientCredentialsSessionRequest] = {}
 
     @property
     def display_name(self) -> str:
@@ -260,12 +260,19 @@ class HostedExtractorDestinationIO(
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> HostedExtractorDestinationRequest:
         if raw_auth := resource.pop("credentials", None):
-            credentials = ClientCredentials._load(raw_auth)
-            self._authentication_by_id[self.get_id(resource).external_id] = credentials
+            external_id = self.get_id(resource).external_id
+            credentials = read_auth(
+                raw_auth,
+                self.client.config,
+                external_id,
+                "hosted extractor destination",
+                console=self.console,
+            )
+            self._authentication_by_id[external_id] = credentials
             if is_dry_run:
                 resource["credentials"] = {"nonce": "dummy_nonce"}
             else:
-                session = self.client.iam.sessions.create(credentials, "CLIENT_CREDENTIALS")
+                session = self.client.sessions.create([credentials])[0]
                 resource["credentials"] = {"nonce": session.nonce}
         if ds_external_id := resource.pop("targetDataSetExternalId", None):
             resource["targetDataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)

@@ -11,7 +11,6 @@ from urllib.parse import urlparse
 
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
-    ClientCredentials,
     OidcCredentials,
 )
 from filelock import BaseFileLock, FileLock, Timeout
@@ -19,6 +18,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, MAX_ROW_ITERATION_RUN_QUERY, MAX_RUN_QUERY_FREQUENCY_MIN
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
@@ -49,7 +49,9 @@ else:
     from typing import Self
 
 
-def try_find_error(credentials: OidcCredentials | ClientCredentials | None) -> str | None:
+def try_find_error(
+    credentials: OidcCredentials | ClientCredentialsSessionRequest | None,
+) -> str | None:
     if credentials is None:
         return None
     missing: list[str] = []
@@ -60,7 +62,7 @@ def try_find_error(credentials: OidcCredentials | ClientCredentials | None) -> s
     if missing:
         plural = "s are" if len(missing) > 1 else " is"
         return f"The environment variable{plural} not set: {humanize_collection(missing)}."
-    if isinstance(credentials, ClientCredentials):
+    if not isinstance(credentials, OidcCredentials):
         return None
     try:
         result = urlparse(credentials.token_uri)
@@ -79,7 +81,7 @@ def read_auth(
     resource_name: str,
     allow_oidc: Literal[False] = False,
     console: Console | None = None,
-) -> ClientCredentials: ...
+) -> ClientCredentialsSessionRequest: ...
 
 
 @overload
@@ -90,7 +92,7 @@ def read_auth(
     resource_name: str,
     allow_oidc: Literal[True],
     console: Console | None = None,
-) -> ClientCredentials | OidcCredentials: ...
+) -> ClientCredentialsSessionRequest | OidcCredentials: ...
 
 
 def read_auth(
@@ -100,7 +102,7 @@ def read_auth(
     resource_name: str,
     allow_oidc: bool = False,
     console: Console | None = None,
-) -> ClientCredentials | OidcCredentials:
+) -> ClientCredentialsSessionRequest | OidcCredentials:
     if authentication is None:
         if client_config.is_strict_validation or not isinstance(client_config.credentials, OAuthClientCredentials):
             raise ToolkitRequiredValueError(f"Authentication is missing for {resource_name} {identifier!r}.")
@@ -108,7 +110,10 @@ def read_auth(
             HighSeverityWarning(
                 f"Authentication is missing for {resource_name} {identifier!r}. Falling back to the Toolkit credentials"
             ).print_warning(console=console)
-        return ClientCredentials(client_config.credentials.client_id, client_config.credentials.client_secret)
+        return ClientCredentialsSessionRequest(
+            client_id=client_config.credentials.client_id,
+            client_secret=client_config.credentials.client_secret,
+        )
     elif not isinstance(authentication, dict):
         raise ToolkitTypeError(f"Authentication must be a dictionary for {resource_name} {identifier!r}")
     elif "clientId" not in authentication or "clientSecret" not in authentication:
@@ -118,7 +123,10 @@ def read_auth(
     elif allow_oidc and "tokenUri" in authentication and "cdfProjectName" in authentication:
         return OidcCredentials.load(authentication)
     else:
-        return ClientCredentials(authentication["clientId"], authentication["clientSecret"])
+        return ClientCredentialsSessionRequest(
+            client_id=authentication["clientId"],
+            client_secret=authentication["clientSecret"],
+        )
 
 
 def get_transformation_sources(query: str) -> list[RawTableId | str]:
