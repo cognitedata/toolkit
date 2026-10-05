@@ -5,16 +5,15 @@ from pathlib import Path
 from typing import Any, Literal, cast, final
 
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes import capabilities as cap
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
-from cognite.client.exceptions import CogniteAPIError
 from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
@@ -31,6 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
     SessionsAcl,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
@@ -492,7 +492,7 @@ class FunctionScheduleIO(
 
     def __init__(self, client: ToolkitClient):
         super().__init__(client)
-        self.authentication_by_id: dict[FunctionScheduleId, ClientCredentials] = {}
+        self.authentication_by_id: dict[FunctionScheduleId, ClientCredentialsSessionRequest] = {}
 
     @property
     def display_name(self) -> str:
@@ -612,11 +612,11 @@ class FunctionScheduleIO(
             id_ = self.get_id(item)
             if id_ not in self.authentication_by_id:
                 raise ToolkitRequiredValueError(f"Authentication is missing for schedule {id_!r}")
-            client_credentials = self.authentication_by_id[id_]
+            credentials = self.authentication_by_id[id_]
             try:
-                session = self.client.iam.sessions.create(client_credentials, session_type="CLIENT_CREDENTIALS")
-            except CogniteAPIError as e:
-                if hint := try_find_error(client_credentials):
+                session = self.client.sessions.create([credentials])[0]
+            except ToolkitAPIError as e:
+                if hint := try_find_error(credentials):
                     raise ResourceCreationError(f"Failed to create Function Schedule {id_}: {hint}") from e
                 raise e
 
