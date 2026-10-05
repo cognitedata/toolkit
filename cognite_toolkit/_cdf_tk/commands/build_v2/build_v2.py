@@ -65,8 +65,15 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_IO_BY_FOLDER_NAME, ResourceIO
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceType, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_BASE_IO_BY_FOLDER_NAME, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
+    BaseResourceIO,
+    FailedReadExtra,
+    ReadExtra,
+    ResourceFileIO,
+    ResourceType,
+    SuccessExtra,
+)
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import EXECUTE_RULE_STATUS, RuleSetStatus
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
@@ -869,7 +876,7 @@ class BuildV2Command(ToolkitCommand):
         resources: list[ReadYAMLFile] = []
         ignored_files: list[IgnoredFile] = []
         for resource_folder, resource_files in source.resource_files_by_folder.items():
-            crud_classes = RESOURCE_IO_BY_FOLDER_NAME.get(resource_folder)
+            crud_classes = RESOURCE_BASE_IO_BY_FOLDER_NAME.get(resource_folder)
             if not crud_classes:
                 # This is handled in the module parsing phase.
                 continue
@@ -892,8 +899,8 @@ class BuildV2Command(ToolkitCommand):
 
     @classmethod
     def _validate_filename(
-        cls, resource_file: Path, resource_folder: str, class_by_kind: dict[str, type[ResourceIO]]
-    ) -> tuple[IgnoredFile | None, FailedReadYAMLFile | None, type[ResourceIO[Any, Any, Any, Any]] | None]:
+        cls, resource_file: Path, resource_folder: str, class_by_kind: dict[str, type[BaseResourceIO]]
+    ) -> tuple[IgnoredFile | None, FailedReadYAMLFile | None, type[BaseResourceIO] | None]:
         if "." not in resource_file.stem:
             return (
                 IgnoredFile(
@@ -922,7 +929,7 @@ class BuildV2Command(ToolkitCommand):
     def _read_resource_file(
         self,
         resource_file: AbsoluteFilePath,
-        crud_class: type[ResourceIO],
+        crud_class: type[BaseResourceIO],
         variables: list[BuildVariable],
     ) -> ReadYAMLFile:
         try:
@@ -956,11 +963,12 @@ class BuildV2Command(ToolkitCommand):
                 error="The YAML file is empty. Please add content to the file or remove it if it is not needed.",
                 unresolved_variables=unresolved_variables,
             )
-        resource_type = crud_class.as_resource_type()
+        resource_type = crud_class.as_crud_type()
         result = SuccessfulReadYAMLFile(
             source_path=resource_file,
             source_hash=file_hash,
             resource_type=resource_type,
+            source_type=crud_class.as_resource_type(),
             line_count=line_count,
             unresolved_variables=unresolved_variables,
             rules_ignore=rules_ignore,
@@ -1003,7 +1011,7 @@ class BuildV2Command(ToolkitCommand):
         self,
         parsed_yaml: dict[str, Any],
         result: SuccessfulReadYAMLFile,
-        crud_class: type[ResourceIO[Any, Any, Any, Any]],
+        crud_class: type[BaseResourceIO],
         resource_file: Path,
         variables: list[BuildVariable],
     ) -> ReadYAMLFile:
@@ -1030,6 +1038,9 @@ class BuildV2Command(ToolkitCommand):
             crud_class.get_extra_files(resource_file, identifier, parsed_yaml), variables
         )
 
+        if issubclass(crud_class, ResourceFileIO):
+            parsed_yaml = crud_class.to_crud_type(parsed_yaml)
+
         result.resources.append(
             ReadResource(raw=parsed_yaml, identifier=identifier, validated=toolkit_resource, extra_files=extra_files)
         )
@@ -1039,7 +1050,7 @@ class BuildV2Command(ToolkitCommand):
         self,
         parsed_yaml: list[dict[str, Any]],
         result: SuccessfulReadYAMLFile,
-        crud_class: type[ResourceIO[Any, Any, Any, Any]],
+        crud_class: type[BaseResourceIO],
         resource_file: Path,
         variables: list[BuildVariable],
     ) -> ReadYAMLFile:
@@ -1053,9 +1064,12 @@ class BuildV2Command(ToolkitCommand):
             result.syntax_error = syntax_error
 
         for tk_resource, raw in zip_longest(toolkit_resources, parsed_yaml, fillvalue=None):
+            # We know that the parse_yaml list will always be longer than tk_resource
+            # thus raw will never be None.
+            raw_dict = cast(dict[str, Any], raw)
             if tk_resource is None:
                 try:
-                    identifier = crud_class.get_id(raw)
+                    identifier = crud_class.get_id(raw_dict)
                 except KeyError:
                     return FailedReadYAMLFile(
                         source_path=result.source_path,
@@ -1065,12 +1079,13 @@ class BuildV2Command(ToolkitCommand):
             else:
                 identifier = tk_resource.as_id()
                 result.syntax_warnings.extend(tk_resource.syntax_warnings(resource_file))
-            # We know that the parse_yaml list will always be longer than tk_resource
-            # thus raw will never be None.
-            raw_dict = cast(dict[str, Any], raw)
+
             extra_files = self._substitute_variables_extra_content(
                 crud_class.get_extra_files(resource_file, identifier, raw_dict), variables
             )
+            if issubclass(crud_class, ResourceFileIO):
+                raw_dict = crud_class.to_crud_type(raw_dict)
+
             result.resources.append(
                 ReadResource(
                     raw=raw_dict,
@@ -1177,6 +1192,7 @@ class BuildV2Command(ToolkitCommand):
                     BuiltResource(
                         identifier=resource.identifier,
                         type=file.resource_type,
+                        source_type=file.source_type,
                         source_hash=file.source_hash,
                         source_path=file.source_path,
                         build_path=destination_path,

@@ -23,7 +23,14 @@ from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes import YAMLComments
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_ios import ExtractionPipelineConfigIO, ResourceIO, ResourceType, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import (
+    ExtractionPipelineConfigIO,
+    ResourceFileIO,
+    ResourceIO,
+    ResourceType,
+    ViewIO,
+    get_resource_build_io,
+)
 from cognite_toolkit._cdf_tk.ui import (
     ToolkitPanel,
     ToolkitPanelSection,
@@ -580,9 +587,31 @@ class PullV2Command(ToolkitCommand):
                     base_to_write = split_content
                 elif isinstance(split_content, str):
                     extra_files[split_path] = split_content
-            return replacer.replace(source_with_variable_substitution, source_with_variable_placeholder, base_to_write)
+            return replacer.replace(
+                source_with_variable_substitution,
+                source_with_variable_placeholder,
+                cls._to_source_format(built, base_to_write),
+            )
 
-        return replacer.replace(source_with_variable_substitution, source_with_variable_placeholder, item_write)
+        return replacer.replace(
+            source_with_variable_substitution,
+            source_with_variable_placeholder,
+            cls._to_source_format(built, item_write),
+        )
+
+    @staticmethod
+    def _to_source_format(built: BuiltResource, crud: dict[str, Any]) -> dict[str, Any]:
+        """Convert a CDF dump into the format of the source file.
+
+        Pull reads and writes CDF through the CRUD loader. A ResourceFileIO, such as CatalogDataSet, is stored
+        as another resource and has to be converted with from_crud_type before it is merged back into the source YAML.
+        """
+        if built.source_type is None:
+            return crud
+        io_cls = get_resource_build_io(built.source_type.resource_folder, built.source_type.kind)
+        if not issubclass(io_cls, ResourceFileIO):
+            return crud
+        return io_cls.from_crud_type(crud)
 
 
 class ResourceReplacer:

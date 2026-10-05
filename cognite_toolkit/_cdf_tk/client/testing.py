@@ -91,12 +91,14 @@ from .api.sap_writeback import SAPEndpointsAPI, SAPInstancesAPI, SAPWritebackAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequence_rows import SequenceRowsAPI
 from .api.sequences import SequencesAPI
+from .api.sessions import SessionAPI
 from .api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from .api.simulator_models import SimulatorModelsAPI
 from .api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
 from .api.simulator_routines import SimulatorRoutinesAPI
 from .api.simulators import SimulatorsAPI
 from .api.skills import SkillsAPI
+from .api.statistics import SpaceStatisticsAPI, StatisticsAPI
 from .api.streamlit_ import StreamlitAPI
 from .api.streams import StreamsAPI
 from .api.three_d import (
@@ -185,6 +187,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.migration.instance_space_relocation_source = MagicMock(spec_set=InstanceSpaceRelocationSourceAPI)
         self.migration.instance_space_relocation_source.retrieve.return_value = []
         self.principals = MagicMock(spec_set=PrincipalsAPI)
+        self.sessions = MagicMock(spec_set=SessionAPI)
 
         self.tool = MagicMock(spec=ToolAPI)
         self.tool.agents = MagicMock(spec=AgentsAPI)
@@ -254,6 +257,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.rulesets.versions = MagicMock(spec_set=RuleSetVersionsAPI)
 
         self.records = MagicMock(spec=RecordsAPI)
+        self.statistics = MagicMock(spec=StatisticsAPI)
+        self.statistics.spaces = MagicMock(spec_set=SpaceStatisticsAPI)
         self.streams = MagicMock(spec=StreamsAPI)
         self.sap_writeback = MagicMock(spec=SAPWritebackAPI)
         self.sap_writeback.instances = MagicMock(spec_set=SAPInstancesAPI)

@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessions
 from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.records import RecordsAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
+from cognite_toolkit._cdf_tk.client.api.sessions import SessionAPI
 from cognite_toolkit._cdf_tk.client.api.skills import SkillsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import ThreeDClassicModelsAPI
@@ -37,7 +38,14 @@ from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
-from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId, ExternalId, PrincipalId, ViewId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    AppVersionId,
+    ExternalId,
+    InternalId,
+    PrincipalId,
+    ViewId,
+    WorkflowVersionId,
+)
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.alert_channel import AlertChannelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
@@ -83,6 +91,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordResponse, RecordSyncResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    ClientCredentialsSessionRequest,
+    OneshotTokenExchangeSessionRequest,
+    Session,
+    TokenExchangeSessionRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -1637,6 +1651,76 @@ description: Smoke test skill
         assert retrieve_route.called
         assert len(created) == 1
         assert created[0].external_id == "smoke-test-skill"
+
+    def test_session_api_create_retrieve_revoke_and_list(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_config
+        api = SessionAPI(HTTPClient(config))
+        created_items = [
+            {"id": 1, "type": "CLIENT_CREDENTIALS", "status": "READY", "nonce": "nonce-1", "clientId": "client"},
+            {"id": 2, "type": "TOKEN_EXCHANGE", "status": "READY", "nonce": "nonce-2"},
+            {"id": 3, "type": "ONESHOT_TOKEN_EXCHANGE", "status": "READY", "nonce": "nonce-3"},
+        ]
+        create_calls = {"count": 0}
+
+        def create_response(request: httpx2.Request) -> httpx2.Response:
+            index = create_calls["count"]
+            create_calls["count"] += 1
+            return httpx2.Response(status_code=200, json={"items": [created_items[index]]})
+
+        respx_mock.post(config.create_api_url("/sessions")).mock(side_effect=create_response)
+        created = api.create(
+            [
+                ClientCredentialsSessionRequest(client_id="client", client_secret="secret"),
+                TokenExchangeSessionRequest(),
+                OneshotTokenExchangeSessionRequest(),
+            ]
+        )
+        create_bodies = [_request_json(call.request) for call in respx_mock.calls]
+
+        assert create_bodies == [
+            {"items": [{"clientId": "client", "clientSecret": "secret"}]},
+            {"items": [{"tokenExchange": True}]},
+            {"items": [{"oneshotTokenExchange": True}]},
+        ]
+        assert [item.dump() for item in created] == created_items
+
+        listed_session = {
+            "id": 1,
+            "type": "CLIENT_CREDENTIALS",
+            "status": "ACTIVE",
+            "creationTime": 1730204346000,
+            "expirationTime": 1730204347000,
+            "clientId": "client",
+        }
+        respx_mock.post(config.create_api_url("/sessions/byids")).mock(
+            return_value=httpx2.Response(status_code=200, json={"items": [listed_session]})
+        )
+        retrieved = api.retrieve([InternalId(id=1)])
+        assert retrieved[0].dump() == listed_session
+        assert _request_json(respx_mock.calls[-1].request) == {"items": [{"id": 1}]}
+
+        respx_mock.post(config.create_api_url("/sessions/revoke")).mock(
+            return_value=httpx2.Response(status_code=200, json={"items": [{"id": 1}]})
+        )
+        revoked = api.revoke([retrieved[0].as_id()])
+        assert revoked[0] == Session(id=1)
+        assert _request_json(respx_mock.calls[-1].request) == {"items": [{"id": 1}]}
+
+        respx_mock.get(config.create_api_url("/sessions")).mock(
+            return_value=httpx2.Response(status_code=200, json={"items": [listed_session]})
+        )
+        listed = api.list(status="ACTIVE", limit=25)
+        assert listed[0].dump() == listed_session
+        assert dict(respx_mock.calls[-1].request.url.params) == {"status": "ACTIVE", "limit": "25"}
+
+
+def _request_json(request: httpx2.Request) -> JsonValue:
+    raw = request.content
+    if raw[:2] == b"\x1f\x8b":
+        raw = gzip.decompress(raw)
+    return json.loads(raw)
 
 
 def test_task_move_type_to_field_handles_none_validation_data() -> None:

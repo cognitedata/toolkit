@@ -1,0 +1,36 @@
+externalId: ds_icapi
+name: Ice Cream API
+description: Data set for the Ice Cream API
+writeProtected: false
+rawTables:
+  - databaseName: db_complete_org
+    tableName: asset
+  - databaseName: data-dumps
+    tableName: data-dumps_Equipment list MDI2
+  - databaseName: data-dumps
+    tableName: data-dumps_dump FLOC RZ14
+archived: false
+consoleGoverned: true
+consoleOwners:
+  - name: Anders
+    email: example@email.com
+consoleExtractors:
+  accounts: []
+transformations:
+  - name: 681712
+    type: jetfire
+  - name: 681715
+    type: jetfire
+  - name: External Transformation
+    type: external
+    details: This was done with Postman
+consoleSource:
+  names:
+    - MyCustomSource
+consoleAdditionalDocs:
+  - type: file
+    id: '400583066634556'
+    name: deploy-out.txt
+  - type: url
+    id: docs.cognite.com
+    name: Docs
