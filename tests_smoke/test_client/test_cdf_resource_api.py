@@ -2137,9 +2137,7 @@ class TestCDFResourceAPI:
 
             # Create function schedule (dependent on function)
             function_schedule_request.function_id = created.id
-            function_schedule_request.nonce = toolkit_client.sessions.create([OneshotTokenExchangeSessionRequest()])[
-                0
-            ].nonce
+            function_schedule_request.nonce = toolkit_client.sessions.create_one_shot_token_exchange_session().nonce
             schedule_create_endpoint = client.tool.functions.schedules._method_endpoint_map["create"]
             try:
                 created_schedule_list = client.tool.functions.schedules.create([function_schedule_request])

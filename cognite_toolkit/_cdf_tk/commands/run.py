@@ -966,7 +966,7 @@ class RunWorkflowCommand(ToolkitCommand):
                 nonce = client.sessions.create_one_shot_token_exchange_session().nonce
             else:
                 nonce = client.sessions.create_one_shot_token_exchange_session().nonce
-        except (CogniteAPIError, ToolkitAPIError) as e:
+        except ToolkitAPIError as e:
             raise AuthorizationError(f"Could not create oneshot session for workflow {id_!r}: {e!s}") from e
 
         if is_interactive:
