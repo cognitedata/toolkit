@@ -91,6 +91,7 @@ from .api.sap_writeback import SAPEndpointsAPI, SAPInstancesAPI, SAPWritebackAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequence_rows import SequenceRowsAPI
 from .api.sequences import SequencesAPI
+from .api.sessions import SessionAPI
 from .api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from .api.simulator_models import SimulatorModelsAPI
 from .api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
@@ -185,6 +186,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.migration.instance_space_relocation_source = MagicMock(spec_set=InstanceSpaceRelocationSourceAPI)
         self.migration.instance_space_relocation_source.retrieve.return_value = []
         self.principals = MagicMock(spec_set=PrincipalsAPI)
+        self.sessions = MagicMock(spec_set=SessionAPI)
 
         self.tool = MagicMock(spec=ToolAPI)
         self.tool.agents = MagicMock(spec=AgentsAPI)
