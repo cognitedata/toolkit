@@ -5,7 +5,7 @@ import re
 import sys
 import traceback
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn
 
 import typer
 from cognite.client.config import global_config
@@ -64,13 +64,13 @@ if USE_SENTRY:
 
 CDF_TOML = CDFToml.load_module_context(Path.cwd())
 
-default_typer_kws = dict(
+default_typer_kws: dict[str, Any] = dict(
     pretty_exceptions_short=False,
     pretty_exceptions_show_locals=False,
     pretty_exceptions_enable=False,
 )
 try:
-    typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
+    typer.Typer(**default_typer_kws)
 except AttributeError as e:
     # From Typer version 0.11 -> 0.12, breaks if you have an existing installation.
     raise ToolkitError(
@@ -135,7 +135,7 @@ def _get_subcommand_map() -> dict[str, list[str]]:
     def _add_commands_from_typer(typer_app: typer.Typer, prefix: str) -> None:
         # Get registered commands
         for command in typer_app.registered_commands:
-            cmd_name = command.name or (command.callback.__name__ if command.callback else None)
+            cmd_name = command.name or getattr(command.callback, "__name__", None)
             if cmd_name:
                 full_path = f"{prefix} {cmd_name}"
                 subcommand_map.setdefault(cmd_name, []).append(full_path)

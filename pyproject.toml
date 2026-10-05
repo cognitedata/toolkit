@@ -134,6 +134,10 @@ markers = [
     "toolkit: big smoke tests",
 ]
 
+[tool.ty.src]
+include = ["cognite_toolkit"]
+exclude = ["tests", "cognite_toolkit/_cdf_tk/"]
+
 [tool.mypy]
 check_untyped_defs = true
 disallow_untyped_defs = true
