@@ -127,6 +127,13 @@ class WorkflowTriggerYAML(ToolkitResource):
         description="Identifier for a version. Must be unique for the workflow. No trailing or"
         " leading whitespace and no null characters allowed.",
     )
+    is_paused: bool | None = Field(
+        None,
+        description="""Pauses a trigger. When paused, the trigger will not fire until it is resumed.
+        Note: For data modeling and records stream triggers, processing continues where the last
+        trigger run left off at pause time, not necessarily starting again on the freshest data.
+        The cursor can become invalid if paused too long (stream retention applies).""",
+    )
     authentication: AuthenticationClientIdSecret = Field(description="Credentials required for the authentication.")
 
     def as_id(self) -> ExternalId:

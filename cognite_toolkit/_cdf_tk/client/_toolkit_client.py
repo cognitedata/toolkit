@@ -43,11 +43,13 @@ from .api.sap_writeback import SAPWritebackAPI
 from .api.search_config import SearchConfigurationsAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
+from .api.sessions import SessionAPI
 from .api.signal_sinks import SignalSinksAPI
 from .api.signal_subscriptions import SignalSubscriptionsAPI
 from .api.simulators import SimulatorsAPI
 from .api.skills import SkillsAPI
 from .api.spaces import SpacesAPI
+from .api.statistics import StatisticsAPI
 from .api.streamlit_ import StreamlitAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI
@@ -127,9 +129,11 @@ class ToolkitClient(CogniteClient):
         self.charts = ChartsAPI(http_client)
         self.project = ProjectAPI(http_client)
         self.principals = PrincipalsAPI(http_client=http_client, project_api=self.project)
+        self.sessions = SessionAPI(http_client)
         self.user_profiles = UserProfilesAPI(http_client)
         self.infield = InfieldAPI(http_client)
         self.records = RecordsAPI(http_client)
+        self.statistics = StatisticsAPI(http_client)
         self.streams = StreamsAPI(http_client)
         self.alerts = AlertsAPI(http_client)
         self.sap_writeback = SAPWritebackAPI(http_client)
