@@ -110,13 +110,6 @@ from ._base import ToolkitCommand
 _INTERACTIVE_SELECT_HELPER_TEXT = " Use arrow keys to navigate and space key to select. Press enter to confirm."
 
 
-def _data_model_choice_title(model: DataModelResponse) -> str:
-    identifier = f"{model.space}:{model.external_id}/{model.version}"
-    if model.name:
-        return f"{model.name} ({identifier})"
-    return identifier
-
-
 class ResourceFinder(Iterable, ABC, Generic[T_ID]):
     def __init__(self, client: ToolkitClient, identifier: T_ID | None = None):
         self.client = client
@@ -153,10 +146,18 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId | tuple[DataModelId, .
             normalized = tuple(identifier)
         super().__init__(client, normalized)
         self._include_global = include_global
+        self._is_global_model = False
         self.data_model: DataModelResponse | None = None
         self.view_ids: set[ViewId] = set()
         self.container_ids: set[ContainerId] = set()
         self.space_ids: set[SpaceId] = set()
+
+    @staticmethod
+    def _data_model_choice_title(model: DataModelResponse) -> str:
+        identifier = f"{model.space}:{model.external_id}/{model.version}"
+        if model.name:
+            return f"{model.name} ({identifier})"
+        return identifier
 
     def _interactive_select(self) -> DataModelId | tuple[DataModelId, ...]:
         if Flags.V09.is_enabled():
@@ -172,7 +173,7 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId | tuple[DataModelId, .
         selected_data_models: list[DataModelId] | None = questionary.checkbox(
             "Which data model(s) would you like to dump?",
             choices=[
-                Choice(_data_model_choice_title(model), value=model.as_id())
+                Choice(self._data_model_choice_title(model), value=model.as_id())
                 for model in sorted(all_models, key=lambda model: (model.space, model.external_id, model.version))
             ],
             validate=lambda choices: True if choices else "You must select at least one data model.",
@@ -252,6 +253,7 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId | tuple[DataModelId, .
             for item in resources:
                 if isinstance(item, DataModelResponse):
                     self.view_ids |= set(item.views or [])
+                    self._is_global_model = self._is_global_model or item.is_global
         elif isinstance(first, ViewResponse):
             for item in resources:
                 if isinstance(item, ViewResponse):
@@ -260,18 +262,6 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId | tuple[DataModelId, .
             return
         self.space_ids |= {SpaceId(space=item.space) for item in resources if hasattr(item, "space")}
 
-    def _retrieve_selected_models(self, identifiers: tuple[DataModelId, ...]) -> list[DataModelResponse]:
-        requested = list(identifiers)
-        models = self.client.tool.data_models.retrieve(requested)
-        models_by_id = {model.as_id(): model for model in models}
-        missing = [model_id for model_id in requested if model_id not in models_by_id]
-        if missing:
-            raise ToolkitResourceMissingError(
-                f"Data model(s) {humanize_collection(missing)} not found",
-                str(missing),
-            )
-        return [models_by_id[model_id] for model_id in requested]
-
     def __iter__(
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceIO, None | str]]:
@@ -279,9 +269,8 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId | tuple[DataModelId, .
         self.identifier = identifier
         model_loader = DataModelIO.create_io(self.client)
         if isinstance(identifier, tuple):
-            models = self._retrieve_selected_models(identifier)
-            is_global_model = any(model.is_global for model in models)
-            yield [], models, model_loader, None
+            yield list(identifier), None, model_loader, None
+            is_global_model = self._is_global_model
         elif self.data_model:
             is_global_model = self.data_model.is_global
             yield [], [self.data_model], model_loader, None
