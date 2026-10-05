@@ -131,7 +131,7 @@ class FeatureFlag:
     @staticmethod
     @lru_cache(typed=True)
     def is_enabled(flag: Flags) -> bool:
-        return CDFToml.load().alpha_flags.get(clean_name(flag.name), False)
+        return CDFToml.load_module_context().alpha_flags.get(clean_name(flag.name), False)
 
     @staticmethod
     def flush() -> None:

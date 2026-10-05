@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils.coding_agent import get_invocation_info
 
-CDF_TOML = CDFToml.load(Path.cwd())
+CDF_TOML = CDFToml.load_module_context(Path.cwd())
 
 
 class ToolkitCommand:

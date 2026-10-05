@@ -557,12 +557,27 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         return self._upsert(items)
 
     def _upsert(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
-        created: list[WorkflowTriggerResponse] = []
+        created: dict[ExternalId, WorkflowTriggerResponse] = {}
+        to_resume: list[ExternalId] = []
+        to_pause: list[ExternalId] = []
         for item in items:
             created_item = self._upsert_item(item)
             if created_item is not None:
-                created.append(created_item)
-        return created
+                external_id = created_item.as_id()
+                created[external_id] = created_item
+                if item.is_paused is True and not created_item.is_paused:
+                    to_pause.append(external_id)
+                elif item.is_paused is False and created_item.is_paused:
+                    to_resume.append(external_id)
+        if to_pause and Flags.V09.is_enabled():
+            self.client.tool.workflows.triggers.pause(to_pause)
+            for external_id in to_pause:
+                created[external_id].is_paused = True
+        if to_resume and Flags.V09.is_enabled():
+            self.client.tool.workflows.triggers.resume(to_resume)
+            for external_id in to_resume:
+                created[external_id].is_paused = False
+        return list(created.values())
 
     def _upsert_item(self, item: WorkflowTriggerRequest) -> WorkflowTriggerResponse | None:
         credentials = self._authentication_by_id.get(item.external_id)
@@ -658,7 +673,12 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         # Remove response-only fields
         dumped.pop("createdTime", None)
         dumped.pop("lastUpdatedTime", None)
-        dumped.pop("isPaused", None)
+        if Flags.V09.is_enabled() and local and "isPaused" not in local and resource.is_paused is False:
+            # Remove isPaused as it is set to the default value from the serves.
+            dumped.pop("isPaused", None)
+        elif not Flags.V09.is_enabled():
+            dumped.pop("isPaused", None)
+
         # Remove input if None to match local format
         if dumped.get("input") is None:
             dumped.pop("input", None)

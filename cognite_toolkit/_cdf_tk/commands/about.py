@@ -27,7 +27,7 @@ class AboutCommand(ToolkitCommand):
         if cdf_toml_path.exists():
             print(f"\n[bold green]Configuration file found:[/bold green] {cdf_toml_path}")
 
-            cdf_toml = CDFToml.load(cwd)
+            cdf_toml = CDFToml.load_module_context(cwd)
 
             # We need to read the raw TOML to get original key names for plugins and alpha flags
             raw_toml = _read_toml(cdf_toml_path)
