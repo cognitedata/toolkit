@@ -49,6 +49,7 @@ from .api.signal_subscriptions import SignalSubscriptionsAPI
 from .api.simulators import SimulatorsAPI
 from .api.skills import SkillsAPI
 from .api.spaces import SpacesAPI
+from .api.statistics import StatisticsAPI
 from .api.streamlit_ import StreamlitAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI
@@ -132,6 +133,7 @@ class ToolkitClient(CogniteClient):
         self.user_profiles = UserProfilesAPI(http_client)
         self.infield = InfieldAPI(http_client)
         self.records = RecordsAPI(http_client)
+        self.statistics = StatisticsAPI(http_client)
         self.streams = StreamsAPI(http_client)
         self.alerts = AlertsAPI(http_client)
         self.sap_writeback = SAPWritebackAPI(http_client)
