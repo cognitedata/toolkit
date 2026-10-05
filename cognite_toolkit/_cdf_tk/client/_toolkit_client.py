@@ -122,7 +122,7 @@ class ToolkitClient(CogniteClient):
         self.tool = ToolAPI(http_client, self.console)
 
         self.verify = VerifyAPI(config, self)
-        self.lookup = LookUpGroup(config, self, self.console)
+        self.lookup = LookUpGroup(config, self)
         self.canvas = IndustrialCanvasAPI(http_client)
         self.migration = MigrationAPI(self.tool.instances, http_client)
         self.token = TokenAPI(self)

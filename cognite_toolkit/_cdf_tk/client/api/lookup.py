@@ -2,22 +2,11 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, overload
 
-from cognite.client.data_classes.capabilities import (
-    AssetsAcl,
-    Capability,
-    DataSetsAcl,
-    EventsAcl,
-    ExtractionPipelinesAcl,
-    FilesAcl,
-    FunctionsAcl,
-    LocationFiltersAcl,
-    SecurityCategoriesAcl,
-    TimeSeriesAcl,
-)
-from cognite.client.exceptions import CogniteAPIError
-from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, DataSetsAcl, AllScope, IDScope
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -30,10 +19,10 @@ if TYPE_CHECKING:
 class LookUpAPI(ABC):
     dry_run_id: int = DRY_RUN_ID
 
-    def __init__(self, config: "ToolkitClientConfig", toolkit_client: "ToolkitClient", console: Console) -> None:
+    def __init__(self, config: "ToolkitClientConfig", toolkit_client: "ToolkitClient") -> None:
         self._config = config
-        self._toolkit_client = toolkit_client
-        self._console = console
+        self._client = toolkit_client
+        self._console = toolkit_client.console
         self._cache: dict[str, int | None] = {}
         self._reverse_cache: dict[int, str | None] = {}
 
@@ -46,11 +35,11 @@ class LookUpAPI(ABC):
 
     @overload
     def id(
-        self, external_id: SequenceNotStr[str], is_dry_run: bool = False, allow_empty: bool = False
+        self, external_id: list[str] | tuple[str, ...], is_dry_run: bool = False, allow_empty: bool = False
     ) -> list[int]: ...
 
     def id(
-        self, external_id: str | SequenceNotStr[str], is_dry_run: bool = False, allow_empty: bool = False
+        self, external_id: str | list[str] | tuple[str, ...], is_dry_run: bool = False, allow_empty: bool = False
     ) -> int | None | list[int]:
         """Lookup internal IDs for given external IDs.
 
@@ -83,11 +72,11 @@ class LookUpAPI(ABC):
     def _do_lookup_external_ids(self, external_ids: list[str], is_dry_run: bool) -> None:
         try:
             ids_by_external_id = self._id(external_ids)
-        except CogniteAPIError as e:
+        except ToolkitAPIError as e:
             if 400 <= e.code < 500:
-                missing_capabilities = self._toolkit_client.verify.authorization(self._read_acl())
+                missing_capabilities = self._client.tool.token.verify_acls(self._read_acl(None))
                 if missing_capabilities:
-                    raise self._toolkit_client.verify.create_error(
+                    raise self._client.tool.token.create_error(
                         missing_capabilities,
                         f"lookup {self.resource_name} with external_id {external_ids}",
                     )
@@ -146,14 +135,11 @@ class LookUpAPI(ABC):
     def _do_lookup_internal_ids(self, ids: list[int]) -> None:
         try:
             found_by_id = self._external_id(ids)
-        except CogniteAPIError as e:
+        except ToolkitAPIError as e:
             if 400 <= e.code < 500:
-                missing_capabilities = self._toolkit_client.verify.authorization(self._read_acl())
+                missing_capabilities = self._client.tool.token.verify_acls(self._read_acl(ids))
                 if missing_capabilities:
-                    raise self._toolkit_client.verify.create_error(
-                        missing_capabilities,
-                        f"lookup {self.resource_name} with id {ids}",
-                    )
+                    raise self._client.tool.token.create_error(missing_capabilities, f"lookup {self.resource_name} with id {ids}")
             # Raise the original error if it's not a 400 or the user has access to read the resource.from
             raise
         self._reverse_cache.update(found_by_id)
@@ -178,7 +164,7 @@ class LookUpAPI(ABC):
         return self._reverse_cache.get(id)
 
     @abstractmethod
-    def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
+    def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         raise NotImplementedError
 
     @abstractmethod
@@ -186,49 +172,48 @@ class LookUpAPI(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _read_acl(self) -> Capability:
+    def _read_acl(self, ids: Sequence[int] | None = None) -> AclType:
         raise NotImplementedError
 
 
 class DataSetLookUpAPI(LookUpAPI):
-    def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
+    def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         return {
             data_set.external_id: data_set.id
-            for data_set in self._toolkit_client.data_sets.retrieve_multiple(
-                external_ids=external_id, ignore_unknown_ids=True
-            )
-            if data_set.external_id and data_set.id
+            for data_set in self._client.tool.datasets.retrieve(items=ExternalId.from_external_ids(external_id), ignore_unknown_ids=True)
+            if data_set.external_id
         }
 
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             data_set.id: data_set.external_id
-            for data_set in self._toolkit_client.data_sets.retrieve_multiple(ids=id, ignore_unknown_ids=True)
-            if data_set.external_id and data_set.id
+            for data_set in self._client.tool.datasets.retrieve(
+                items=InternalId.from_ids(id), ignore_unknown_ids=True
+            )
+            if data_set.external_id
         }
 
-    def _read_acl(self) -> Capability:
-        return DataSetsAcl(
-            [DataSetsAcl.Action.Read],
-            scope=DataSetsAcl.Scope.All(),
-        )
+    def _read_acl(self, ids: Sequence[int] | None = None) -> AclType:
+        return DataSetsAcl(actions=["READ"], scope=AllScope() if ids is None else IDScope(ids=sorted(ids)))
 
 
 class AssetLookUpAPI(LookUpAPI):
-    def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
+    def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         return {
             asset.external_id: asset.id
-            for asset in self._toolkit_client.assets.retrieve_multiple(
-                external_ids=external_id, ignore_unknown_ids=True
+            for asset in self._client.tool.assets.retrieve(
+                items=ExternalId.from_external_ids(external_id), ignore_unknown_ids=True
             )
-            if asset.external_id and asset.id
+            if asset.external_id
         }
 
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             asset.id: asset.external_id
-            for asset in self._toolkit_client.assets.retrieve_multiple(ids=id, ignore_unknown_ids=True)
-            if asset.external_id and asset.id
+            for asset in self._client.tool.assets.retrieve(
+                items=InternalId.from_ids(id), ignore_unknown_ids=True
+            )
+            if asset.external_id
         }
 
     def _read_acl(self) -> Capability:
@@ -242,7 +227,7 @@ class TimeSeriesLookUpAPI(LookUpAPI):
     def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
         return {
             ts.external_id: ts.id
-            for ts in self._toolkit_client.time_series.retrieve_multiple(
+            for ts in self._client.time_series.retrieve_multiple(
                 external_ids=external_id, ignore_unknown_ids=True
             )
             if ts.external_id and ts.id
@@ -251,7 +236,7 @@ class TimeSeriesLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             ts.id: ts.external_id
-            for ts in self._toolkit_client.time_series.retrieve_multiple(ids=id, ignore_unknown_ids=True)
+            for ts in self._client.time_series.retrieve_multiple(ids=id, ignore_unknown_ids=True)
             if ts.external_id and ts.id
         }
 
@@ -266,14 +251,14 @@ class FileMetadataLookUpAPI(LookUpAPI):
     def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
         return {
             file.external_id: file.id
-            for file in self._toolkit_client.files.retrieve_multiple(external_ids=external_id, ignore_unknown_ids=True)
+            for file in self._client.files.retrieve_multiple(external_ids=external_id, ignore_unknown_ids=True)
             if file.external_id and file.id
         }
 
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             file.id: file.external_id
-            for file in self._toolkit_client.files.retrieve_multiple(ids=id, ignore_unknown_ids=True)
+            for file in self._client.files.retrieve_multiple(ids=id, ignore_unknown_ids=True)
             if file.external_id and file.id
         }
 
@@ -288,7 +273,7 @@ class EventLookUpAPI(LookUpAPI):
     def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
         return {
             event.external_id: event.id
-            for event in self._toolkit_client.events.retrieve_multiple(
+            for event in self._client.events.retrieve_multiple(
                 external_ids=external_id, ignore_unknown_ids=True
             )
             if event.external_id and event.id
@@ -297,7 +282,7 @@ class EventLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             event.id: event.external_id
-            for event in self._toolkit_client.events.retrieve_multiple(ids=id, ignore_unknown_ids=True)
+            for event in self._client.events.retrieve_multiple(ids=id, ignore_unknown_ids=True)
             if event.external_id and event.id
         }
 
@@ -312,7 +297,7 @@ class ExtractionPipelineLookUpAPI(LookUpAPI):
     def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
         return {
             pipeline.external_id: pipeline.id
-            for pipeline in self._toolkit_client.extraction_pipelines.retrieve_multiple(
+            for pipeline in self._client.extraction_pipelines.retrieve_multiple(
                 external_ids=external_id, ignore_unknown_ids=True
             )
             if pipeline.external_id and pipeline.id
@@ -321,7 +306,7 @@ class ExtractionPipelineLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             pipeline.id: pipeline.external_id
-            for pipeline in self._toolkit_client.extraction_pipelines.retrieve_multiple(ids=id, ignore_unknown_ids=True)
+            for pipeline in self._client.extraction_pipelines.retrieve_multiple(ids=id, ignore_unknown_ids=True)
             if pipeline.external_id and pipeline.id
         }
 
@@ -336,7 +321,7 @@ class FunctionLookUpAPI(LookUpAPI):
     def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
         return {
             function.external_id: function.id
-            for function in self._toolkit_client.functions.retrieve_multiple(
+            for function in self._client.functions.retrieve_multiple(
                 external_ids=external_id, ignore_unknown_ids=True
             )
             if function.external_id and function.id
@@ -345,7 +330,7 @@ class FunctionLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             function.id: function.external_id
-            for function in self._toolkit_client.functions.retrieve_multiple(ids=id, ignore_unknown_ids=True)
+            for function in self._client.functions.retrieve_multiple(ids=id, ignore_unknown_ids=True)
             if function.external_id and function.id
         }
 
@@ -381,7 +366,7 @@ class AllLookUpAPI(LookUpAPI, ABC):
 
 class SecurityCategoriesLookUpAPI(AllLookUpAPI):
     def _lookup(self) -> None:
-        categories = self._toolkit_client.iam.security_categories.list(limit=-1)
+        categories = self._client.iam.security_categories.list(limit=-1)
         self._cache = {category.name: category.id for category in categories if category.name and category.id}
         self._reverse_cache = {category.id: category.name for category in categories if category.name and category.id}
 
@@ -397,7 +382,7 @@ class SecurityCategoriesLookUpAPI(AllLookUpAPI):
 
 class LocationFiltersLookUpAPI(AllLookUpAPI):
     def _lookup(self) -> None:
-        for location in self._toolkit_client.tool.location_filters.list(flat=True):
+        for location in self._client.tool.location_filters.list(flat=True):
             if location.external_id and location.id:
                 self._cache[location.external_id] = location.id
                 self._reverse_cache[location.id] = location.external_id
@@ -416,15 +401,15 @@ class LocationFiltersLookUpAPI(AllLookUpAPI):
 
 
 class LookUpGroup:
-    def __init__(self, config: "ToolkitClientConfig", toolkit_client: "ToolkitClient", console: Console) -> None:
+    def __init__(self, config: "ToolkitClientConfig", toolkit_client: "ToolkitClient") -> None:
         self._config = config
         self._toolkit_client = toolkit_client
-        self.data_sets = DataSetLookUpAPI(config, toolkit_client, console)
-        self.assets = AssetLookUpAPI(config, toolkit_client, console)
-        self.time_series = TimeSeriesLookUpAPI(config, toolkit_client, console)
-        self.files = FileMetadataLookUpAPI(config, toolkit_client, console)
-        self.events = EventLookUpAPI(config, toolkit_client, console)
-        self.security_categories = SecurityCategoriesLookUpAPI(config, toolkit_client, console)
-        self.location_filters = LocationFiltersLookUpAPI(config, toolkit_client, console)
-        self.extraction_pipelines = ExtractionPipelineLookUpAPI(config, toolkit_client, console)
-        self.functions = FunctionLookUpAPI(config, toolkit_client, console)
+        self.data_sets = DataSetLookUpAPI(config, toolkit_client)
+        self.assets = AssetLookUpAPI(config, toolkit_client)
+        self.time_series = TimeSeriesLookUpAPI(config, toolkit_client)
+        self.files = FileMetadataLookUpAPI(config, toolkit_client)
+        self.events = EventLookUpAPI(config, toolkit_client)
+        self.security_categories = SecurityCategoriesLookUpAPI(config, toolkit_client)
+        self.location_filters = LocationFiltersLookUpAPI(config, toolkit_client)
+        self.extraction_pipelines = ExtractionPipelineLookUpAPI(config, toolkit_client)
+        self.functions = FunctionLookUpAPI(config, toolkit_client)
