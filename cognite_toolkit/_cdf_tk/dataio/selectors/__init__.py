@@ -85,6 +85,7 @@ Selector = Annotated[
 
 ALPHA_SELECTORS = {FileIdentifierSelector, RecordContainerSelector}
 INTERNAL = {ThreeDModelIdSelector, ThreeDModelFilteredSelector}
+DEPRECATED = {FileMetadataTemplateSelector, FileDataModelingTemplateSelector}
 SelectorAdapter: TypeAdapter[Selector] = TypeAdapter(Selector)
 
 
@@ -110,6 +111,18 @@ def load_selector(manifest_file: Path) -> Selector | ToolkitWarning:
     elif type(selector) in INTERNAL:
         return MediumSeverityWarning(
             f"Selector type '{type(selector).__name__}' in file '{manifest_file}' is for internal use only and cannot be used."
+        )
+    elif type(selector) in DEPRECATED:
+        if Flags.V09.is_enabled():
+            return ResourceFormatWarning(
+                manifest_file,
+                (
+                    f"Selector type '{type(selector).__name__}' has been deprecated and is no longer supported in version 0.9. Please update your selector to use the new format.",
+                ),
+                text="Invalid selector in metadata file, skipping.",
+            )
+        return MediumSeverityWarning(
+            f"Selector type '{type(selector).__name__}' in file '{manifest_file}' is deprecated and may be removed in future versions."
         )
     return selector
 
