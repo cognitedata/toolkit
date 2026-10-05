@@ -11,6 +11,7 @@ from rich import print
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.constants import RESOURCES_PATH, EnvType, clean_name
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitError,
     ToolkitRequiredValueError,
     ToolkitTOMLFormatError,
     ToolkitVersionError,
@@ -71,9 +72,15 @@ class ModulesConfig:
             and version != "0.0.0"  # debugging mode
         ):
             raise ToolkitVersionError(
-                f"The version of the modules ({version}) does not match the version of the installed CLI "
-                f"({_version.__version__}). Please run `cdf modules upgrade` to upgrade the modules OR "
-                f"run `pip install cognite-toolkit=={version}` to downgrade cdf CLI."
+                f"Version mismatch between cdf.toml and CLI:\n"
+                f"  - cdf.toml version:       {version}\n"
+                f"  - Installed CLI version: {_version.__version__}\n"
+                f"\n"
+                f"To resolve this, do one of the following:\n"
+                f"  - Upgrade the modules to match the CLI:\n"
+                f"      cdf modules upgrade\n"
+                f"  - Downgrade the CLI to match the modules:\n"
+                f"      pip install cognite-toolkit=={version}"
             )
         return cls(version=version, packages=packages)
 
@@ -143,6 +150,20 @@ class CDFToml:
     is_loaded_from_file: bool = False
 
     @classmethod
+    def load_module_context(cls, cwd: Path | None = None, use_singleton: bool = True) -> "CDFToml":
+        """This is the entry point for loading the cdf.toml file in the context of the CLI application. It will load the
+        cdf.toml file from the given path and return an instance of CDFToml. If use_singleton is True, the instance will be
+        stored as a singleton and returned on subsequent calls. If there is an error loading the cdf.toml file, it will
+        print an error message and exit the program."""
+        # This is an entryp point for the CLI application, so we catch any errors and print them nicely
+        # before exiting the program.
+        try:
+            return cls.load(cwd, use_singleton)
+        except ToolkitError as err:
+            print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
+            raise SystemExit(1)
+
+    @classmethod
     def load(cls, cwd: Path | None = None, use_singleton: bool = True) -> "CDFToml":
         """Loads the cdf.toml file from the given path. If use_singleton is True, the instance will be stored as a
         singleton and returned on subsequent calls."""
@@ -206,7 +227,7 @@ class CDFToml:
     @classmethod
     def load_default(cls) -> "CDFToml":
         """Loads the bundled default cdf.toml in the toolkit `_resources` folder."""
-        return cls.load(cwd=RESOURCES_PATH, use_singleton=False)
+        return cls.load_module_context(cwd=RESOURCES_PATH, use_singleton=False)
 
     @classmethod
     def write(cls, organization_dir: Path, env: EnvType = "dev", version: str = _version.__version__) -> None:
@@ -267,4 +288,4 @@ if __name__ == "__main__":
     # This is a test to quickly check that the code works.
     # also useful to check that when you change cdf.toml it is loaded correctly
     _ROOT = Path(__file__).parent.parent.parent
-    pprint(CDFToml.load(_ROOT))  # noqa: T203
+    pprint(CDFToml.load_module_context(_ROOT))  # noqa: T203

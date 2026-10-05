@@ -427,7 +427,7 @@ class IntegrationConfigurationAPI(CDFResourceAPI[IntegrationConfigListResponse])
                 try:
                     response.get_success_or_raise(request)
                 except ToolkitAPIError as e:
-                    if ignore_unknown_ids and e.code == 404:
+                    if ignore_unknown_ids and (e.code in (404, 400)):
                         continue
                     raise
         return results

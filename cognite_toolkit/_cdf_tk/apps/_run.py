@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
 from ._helpers import print_help_if_no_subcommand
 
-CDF_TOML = CDFToml.load(Path.cwd())
+CDF_TOML = CDFToml.load_module_context(Path.cwd())
 
 
 class RunApp(typer.Typer):

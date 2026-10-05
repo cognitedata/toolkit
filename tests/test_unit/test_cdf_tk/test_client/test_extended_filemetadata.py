@@ -1,3 +1,4 @@
+import json
 from collections.abc import Sequence
 
 import pytest
@@ -5,7 +6,13 @@ import respx
 from httpx2 import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, InternalOrExternalId, NodeId
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    ExternalId,
+    InstanceId,
+    InternalId,
+    InternalOrExternalId,
+    NodeId,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from tests.constants import CDF_PROJECT
@@ -93,3 +100,45 @@ class TestFileMetadataAPI:
 
         assert len(result) == 1
         assert isinstance(result[0], FileMetadataResponse)
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_get_multipart_upload_urls_uses_multiuploadlink(
+        self,
+        toolkit_config: ToolkitClientConfig,
+        respx_mock: respx.MockRouter,
+    ) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        url = f"{toolkit_config.base_url}/api/v1/projects/{CDF_PROJECT}/files/multiuploadlink"
+        route = respx_mock.post(url).mock(
+            return_value=Response(
+                status_code=201,
+                json={
+                    "items": [
+                        {
+                            "name": "large.pdf",
+                            "id": 42,
+                            "createdTime": 0,
+                            "lastUpdatedTime": 0,
+                            "uploaded": False,
+                            "uploadId": "upload-1",
+                            "uploadUrls": ["https://upload.example/part-1", "https://upload.example/part-2"],
+                            "instanceId": {"space": "sp_publicwells", "externalId": "file_wb"},
+                        }
+                    ]
+                },
+            )
+        )
+
+        result = client.tool.filemetadata.get_multipart_upload_urls(
+            InstanceId(instance_id=NodeId(space="sp_publicwells", external_id="file_wb")),
+            parts=2,
+        )
+
+        assert route.called
+        sent = route.calls.last.request
+        assert sent.url.params["parts"] == "2"
+        assert json.loads(sent.content) == {
+            "items": [{"instanceId": {"space": "sp_publicwells", "externalId": "file_wb"}}]
+        }
+        assert result.upload_id == "upload-1"
+        assert result.upload_urls == ["https://upload.example/part-1", "https://upload.example/part-2"]

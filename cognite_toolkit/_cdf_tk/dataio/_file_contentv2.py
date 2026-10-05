@@ -456,9 +456,8 @@ class FileMetadataContentIO(
                 # Upload single
                 response = self.client.tool.filemetadata.upload_file(filepath, created.upload_url, created.mime_type)
             elif created.upload_urls and created.upload_id:
-                responses = self.client.tool.filemetadata.upload_file_multiparts(
-                    filepath, created.upload_urls, created.mime_type
-                )
+                # Part URLs are signed without Content-Type. The mime type stays on the file record.
+                responses = self.client.tool.filemetadata.upload_file_multiparts(filepath, created.upload_urls)
                 self.client.tool.filemetadata.complete_multipart_upload(created.as_internal_id(), created.upload_id)
                 response = responses[-1]
             else:
@@ -820,9 +819,8 @@ class CogniteFileContentIO(
                     ids=[tracking_id],
                     error_message=f"No multipart upload URLs returned from CDF for item {tracking_id}.",
                 )
-            responses = self.client.tool.filemetadata.upload_file_multiparts(
-                filepath, url_info.upload_urls, request.mime_type
-            )
+            # Part URLs are signed without Content-Type. The mime type stays on the file record.
+            responses = self.client.tool.filemetadata.upload_file_multiparts(filepath, url_info.upload_urls)
             self.client.tool.filemetadata.complete_multipart_upload(instance_id, url_info.upload_id)
             return responses[-1].as_item_response(tracking_id)
         except ToolkitAPIError as error:
