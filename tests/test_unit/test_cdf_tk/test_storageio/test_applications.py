@@ -6,7 +6,7 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
     ContainerReferenceItem,
@@ -370,6 +370,69 @@ class TestChartIO:
         assert chart_request["data"]["timeSeriesCollection"][0]["tsExternalId"] == _CHART_TS_EXTERNAL_ID
         assert chart_request["data"]["timeSeriesCollection"][0]["tsId"] == _CHART_TS_INTERNAL_ID
         assert chart_request["data"]["monitoringJobs"][0]["id"] == _CHART_MONITOR_JOB_INTERNAL_ID_AFTER_UPLOAD
+
+    @pytest.mark.usefixtures("disable_gzip")
+    @pytest.mark.parametrize(
+        "message,recreate_flag,expect_recreate",
+        [
+            pytest.param(
+                "Request failed with status code 409: Session is no longer active; create a new schedule to re-arm",
+                True,
+                True,
+                id="session expired",
+            ),
+            pytest.param(
+                "Request failed with status code 409: Session is no longer active; create a new schedule to re-arm",
+                False,
+                False,
+                id="session expired without flag",
+            ),
+            pytest.param("Request failed with status code 409: Other conflict", True, False, id="other conflict"),
+        ],
+    )
+    def test_upload_recreates_backend_tasks_with_expired_session(
+        self, toolkit_config: ToolkitClientConfig, message: str, recreate_flag: bool, expect_recreate: bool
+    ) -> None:
+        chart = _example_chart_response_for_download()
+        monitoring_job = _example_monitoring_job_response()
+        calculation = _example_scheduled_calculation_response()
+        downloaded = self._create_downloaded_chart(chart, monitoring_job, calculation)
+        with monkeypatch_toolkit_client() as client:
+            client.charts.list.return_value = []
+            client.lookup.time_series.id.return_value = _CHART_TS_INTERNAL_ID
+            client.iam.sessions.create.return_value.nonce = "new-nonce"
+            client.charts.monitoring_jobs.retrieve.return_value = [monitoring_job]
+            client.charts.scheduled_calculations.retrieve.return_value = [calculation]
+            client.charts.monitoring_jobs.update.side_effect = ToolkitAPIError(message, code=409)
+            client.charts.scheduled_calculations.update.side_effect = ToolkitAPIError(message, code=409)
+            client.charts.monitoring_jobs.upsert.return_value = [monitoring_job]
+            client.charts.scheduled_calculations.create.return_value = [calculation]
+
+            io = ChartIO(
+                client,
+                skip_backend_services=False,
+                skip_existing=False,
+                skip_strict_mode=True,
+                recreate_expired_schedules=recreate_flag,
+            )
+            page = io.json_chunk_to_data(
+                Page(worker_id="main", items=[DataItem(tracking_id="line 1", item=downloaded)])
+            )
+            with HTTPClient(toolkit_config) as http_client:
+                with respx.mock(assert_all_called=False) as mock_router:
+                    mock_router.put(toolkit_config.create_app_url(ChartIO.UPLOAD_ENDPOINT)).respond(status_code=200)
+                    io.upload_items(page, http_client)
+
+            if expect_recreate:
+                upserted = client.charts.monitoring_jobs.upsert.call_args.args[0][0]
+                assert upserted.nonce == "new-nonce"
+                client.charts.scheduled_calculations.delete.assert_called_once()
+                created = client.charts.scheduled_calculations.create.call_args.args[0][0]
+                assert created.nonce == "new-nonce"
+            else:
+                client.charts.monitoring_jobs.upsert.assert_not_called()
+                client.charts.scheduled_calculations.delete.assert_not_called()
+                client.charts.scheduled_calculations.create.assert_not_called()
 
     @pytest.mark.parametrize(
         "limit,selector,expected_external_ids",

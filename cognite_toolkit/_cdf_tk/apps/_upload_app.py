@@ -101,6 +101,17 @@ class UploadApp(typer.Typer):
                 hidden=not Flags.EXTEND_UPLOAD.is_enabled(),
             ),
         ] = False,
+        recreate_expired_schedules: Annotated[
+            bool,
+            typer.Option(
+                "--recreate-expired-schedules",
+                help="When uploading Charts with monitoring jobs and/or scheduled calculations whose session is no longer active, "
+                "delete and recreate the schedule with a new session. The recreated schedule runs with the credentials of the "
+                "user running the upload, and the monitoring job gets a new internal ID. "
+                "If the recreation fails after the old schedule is deleted, the schedule is lost.",
+                hidden=not Flags.EXTEND_UPLOAD.is_enabled(),
+            ),
+        ] = False,
         overwrite: Annotated[
             bool,
             typer.Option(
@@ -168,6 +179,7 @@ class UploadApp(typer.Typer):
                 deploy_resources=deploy_resources,
                 client=client,
                 skip_strict_mode=skip_strict_mode,
+                recreate_expired_schedules=recreate_expired_schedules,
                 overwrite=overwrite,
             )
         )

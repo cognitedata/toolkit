@@ -49,6 +49,8 @@ from .selectors import (
     ChartSelector,
 )
 
+SESSION_EXPIRED_MESSAGE = "Session is no longer active"
+
 TChartBackendRequest = TypeVar(
     "TChartBackendRequest",
     ChartMonitoringJobRequest,
@@ -76,6 +78,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         skip_existing: bool = False,
         skip_backend_services: bool = not Flags.EXTEND_UPLOAD.is_enabled(),
         skip_strict_mode: bool = False,
+        recreate_expired_schedules: bool = False,
         api_format: Literal["request", "response"] = "request",
     ) -> None:
         super().__init__(client, api_format=api_format)
@@ -87,6 +90,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         self._skip_existing = skip_existing
         self._skip_backend_services = skip_backend_services
         self._skip_strict_mode = skip_strict_mode
+        self._recreate_expired_schedules = recreate_expired_schedules
 
     @property
     def existing_charts(self) -> set[str]:
@@ -343,12 +347,25 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
                     by_external_id[ext_id] = request, item.tracking_id
         return by_external_id, log_entries
 
+    @staticmethod
+    def _is_session_expired(error: ToolkitAPIError) -> bool:
+        return error.code == 409 and SESSION_EXPIRED_MESSAGE in str(error)
+
+    def _create_nonce(self) -> str | None:
+        if self._skip_strict_mode:
+            return self.client.iam.sessions.create().nonce
+        if isinstance(self.client.config.credentials, OAuthDeviceCode):
+            # Reusing the user's credentials.
+            return self.client.iam.sessions.create(session_type="TOKEN_EXCHANGE").nonce
+        return None
+
     def _upsert_unique_backend_requests(
         self,
         unique_by_id: dict[ExternalId, tuple[TChartBackendRequest, str]],
         existing_ids: set[ExternalId],
         update: Callable[[Sequence[TChartBackendRequest]], list[TChartBackendResponse]],
         create: Callable[[Sequence[TChartBackendRequest]], list[TChartBackendResponse]],
+        recreate: Callable[[Sequence[TChartBackendRequest]], list[TChartBackendResponse]],
         resource_kind: str,
     ) -> tuple[list[LogEntryV2], set[ExternalId], dict[ExternalId, TChartBackendResponse]]:
         log_entries: list[LogEntryV2] = []
@@ -359,15 +376,67 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
                 try:
                     updated = update([request])[0]
                 except ToolkitAPIError as e:
-                    log_entries.append(
-                        LogEntryV2(
-                            id=tracking_id,
-                            label=f"Failed update {resource_kind}. Code {e.code}",
-                            message=f"Failed to update {resource_kind} {ext_id}: {e}",
-                            severity=Severity.failure,
+                    if not (self._recreate_expired_schedules and self._is_session_expired(e)):
+                        log_entries.append(
+                            LogEntryV2(
+                                id=tracking_id,
+                                label=f"Failed update {resource_kind}. Code {e.code}",
+                                message=f"Failed to update {resource_kind} {ext_id}: {e}",
+                                severity=Severity.failure,
+                            )
                         )
-                    )
-                    failed.add(ext_id)
+                        failed.add(ext_id)
+                        continue
+                    # The session bound to the schedule is no longer active. Updates cannot re-bind
+                    # the session, so the schedule must be recreated with a new nonce.
+                    nonce = self._create_nonce()
+                    if nonce is None:
+                        log_entries.append(
+                            LogEntryV2(
+                                id=tracking_id,
+                                label=f"Failed recreating {resource_kind}",
+                                message=f"Failed to recreate {resource_kind} {ext_id} with expired session: "
+                                "missing nonce. Either run skip-strict-mode or use device code credentials.",
+                                severity=Severity.failure,
+                            )
+                        )
+                        failed.add(ext_id)
+                        continue
+                    request.nonce = nonce
+                    try:
+                        recreated = recreate([request])[0]
+                    except ToolkitAPIError as recreate_error:
+                        log_entries.append(
+                            LogEntryV2(
+                                id=tracking_id,
+                                label=f"Failed recreating {resource_kind}. Code {recreate_error.code}",
+                                message=f"Failed to recreate {resource_kind} {ext_id} with expired session: "
+                                f"{recreate_error}",
+                                severity=Severity.failure,
+                            )
+                        )
+                        failed.add(ext_id)
+                    except IndexError:
+                        log_entries.append(
+                            LogEntryV2(
+                                id=tracking_id,
+                                label=f"Failed recreating {resource_kind}. No response.",
+                                message=f"Failed to recreate {resource_kind} {ext_id}. No response returned.",
+                                severity=Severity.failure,
+                            )
+                        )
+                        failed.add(ext_id)
+                    else:
+                        log_entries.append(
+                            LogEntryV2(
+                                id=tracking_id,
+                                label=f"Recreated {resource_kind} (expired session)",
+                                message=f"The session for {resource_kind} {ext_id} was no longer active. "
+                                "The schedule was recreated with a new session owned by the current user.",
+                                severity=Severity.warning,
+                            )
+                        )
+                        succeeded[ext_id] = recreated
                 except IndexError:
                     log_entries.append(
                         LogEntryV2(
@@ -382,12 +451,8 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
                     succeeded[ext_id] = updated
             else:
                 if request.nonce == MISSING_NONCE:
-                    if self._skip_strict_mode:
-                        request.nonce = self.client.iam.sessions.create().nonce
-                    elif isinstance(self.client.config.credentials, OAuthDeviceCode):
-                        # Reusing the user's credentials.
-                        request.nonce = self.client.iam.sessions.create(session_type="TOKEN_EXCHANGE").nonce
-                    else:
+                    nonce = self._create_nonce()
+                    if nonce is None:
                         log_entries.append(
                             LogEntryV2(
                                 id=tracking_id,
@@ -399,6 +464,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
                         )
                         failed.add(ext_id)
                         continue
+                    request.nonce = nonce
                 try:
                     created = create([request])[0]
                 except ToolkitAPIError as e:
@@ -425,6 +491,13 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
                     succeeded[ext_id] = created
         return log_entries, failed, succeeded
 
+    def _recreate_calculations(
+        self, items: Sequence[ChartScheduledCalculationRequest]
+    ) -> list[ChartScheduledCalculationResponse]:
+        # Scheduled calculations have no upsert endpoint, so delete and create.
+        self.client.charts.scheduled_calculations.delete([item.as_id() for item in items])
+        return self.client.charts.scheduled_calculations.create(items)
+
     def _upload_backend_services(self, items: list[DataItem[ChartRequest]]) -> set[str]:
         """Uploads the backend services monitoring jobs and scheduled calculations for each Chart. Returns a set of external IDs of Charts that failed to upload backend services."""
         log_entries: list[LogEntryV2] = []
@@ -450,6 +523,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
             existing_job_ids,
             self.client.charts.monitoring_jobs.update,
             self.client.charts.monitoring_jobs.create,
+            self.client.charts.monitoring_jobs.upsert,
             "monitoring job",
         )
         log_entries.extend(job_upsert_logs)
@@ -465,6 +539,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
             existing_calculation_ids,
             self.client.charts.scheduled_calculations.update,
             self.client.charts.scheduled_calculations.create,
+            self._recreate_calculations,
             "scheduled calculation",
         )
         log_entries.extend(calculation_upsert_logs)

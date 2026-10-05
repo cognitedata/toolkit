@@ -74,6 +74,7 @@ class UploadCommand(ToolkitCommand):
         skip_strict_mode: bool = False,
         overwrite: bool = False,
         kind: str | None = None,
+        recreate_expired_schedules: bool = False,
     ) -> None:
         """Uploads data from files in the specified input directory to CDF.
 
@@ -89,6 +90,8 @@ class UploadCommand(ToolkitCommand):
                 scheduled calculations.
             overwrite: If the data type supports it, overwrite in CDF.
             kind: Optional; if provided, only data files of this kind will be processed.
+            recreate_expired_schedules: If True, recreates Chart monitoring jobs and/or scheduled calculations
+                whose session is no longer active, instead of failing.
 
         The expected structure of the input directory is as follows:
         ```
@@ -127,6 +130,7 @@ class UploadCommand(ToolkitCommand):
             self.tracker,
             skip_strict_mode,
             overwrite,
+            recreate_expired_schedules,
         )
 
     def _topological_sort_if_instance_selector(
@@ -242,6 +246,7 @@ class UploadCommand(ToolkitCommand):
         tracker: Tracker,
         skip_strict_mode: bool = False,
         overwrite: bool = False,
+        recreate_expired_schedules: bool = False,
     ) -> None:
         action = "Would upload" if dry_run else "Uploading"
 
@@ -255,7 +260,9 @@ class UploadCommand(ToolkitCommand):
             HTTPClient(config=client.config) as upload_client,
         ):
             for selector, datafiles in data_files_by_selector.items():
-                io = cls._create_selected_io(selector, datafiles[0], client, skip_strict_mode, overwrite)
+                io = cls._create_selected_io(
+                    selector, datafiles[0], client, skip_strict_mode, overwrite, recreate_expired_schedules
+                )
                 if io is None:
                     continue
                 io.logger = logger
@@ -329,7 +336,13 @@ class UploadCommand(ToolkitCommand):
 
     @classmethod
     def _create_selected_io(
-        cls, selector: Selector, data_file: Path, client: ToolkitClient, skip_strict_mode: bool, overwrite: bool
+        cls,
+        selector: Selector,
+        data_file: Path,
+        client: ToolkitClient,
+        skip_strict_mode: bool,
+        overwrite: bool,
+        recreate_expired_schedules: bool = False,
     ) -> UploadableDataIO | None:
         try:
             io_cls = get_upload_io(selector)
@@ -339,7 +352,9 @@ class UploadCommand(ToolkitCommand):
             )
             return None
         if issubclass(io_cls, ChartIO):
-            return ChartIO(client, skip_strict_mode=skip_strict_mode)
+            return ChartIO(
+                client, skip_strict_mode=skip_strict_mode, recreate_expired_schedules=recreate_expired_schedules
+            )
         elif issubclass(io_cls, FileMetadataContentIO | CogniteFileContentIO):
             return io_cls(client, config_directory=data_file.parent, overwrite=overwrite)
         else:
