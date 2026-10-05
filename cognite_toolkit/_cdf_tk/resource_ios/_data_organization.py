@@ -262,7 +262,12 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
         crud_resource: dict[str, Any] = {}
         crud_fields = {info.alias or name for name, info in DataSetRequest.model_fields.items()}
         for key, value in raw.items():
-            if key in crud_fields:
+            if key == "metadata":
+                # The catalog's own metadata field is merged into the CRUD metadata so it is not
+                # overwritten by the console fields that are also flattened into metadata below.
+                for meta_key, meta_value in (value or {}).items():
+                    metadata[meta_key] = meta_value if isinstance(meta_value, str) else json.dumps(meta_value)
+            elif key in crud_fields:
                 crud_resource[key] = value
             else:
                 metadata[key] = value if isinstance(value, str) else json.dumps(value)
@@ -273,22 +278,21 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
     @classmethod
     def from_crud_type(cls, crud: dict[str, Any]) -> dict[str, Any]:
         """Convert a CRUD data set to a catalog data set."""
-        catalog_resource: dict[str, Any] = {}
-        metadata = crud.get("metadata") or {}
+        catalog_resource: dict[str, Any] = {key: value for key, value in crud.items() if key != "metadata"}
         catalog_fields = {info.alias or name for name, info in CatalogDataSetYAML.model_fields.items()}
-        for key, value in crud.items():
-            if key == "metadata":
-                continue
-            if key in catalog_fields:
-                catalog_resource[key] = value
-            elif key in metadata:
-                catalog_resource[key] = _decode_catalog_metadata(metadata[key])
-            else:
-                catalog_resource[key] = value
+        metadata: dict[str, Any] = crud.get("metadata", {})
+        user_metadata: dict[str, Any] = {key: value for key, value in metadata.items() if key not in catalog_fields}
         for key, value in metadata.items():
             if key in catalog_resource:
                 continue
-            catalog_resource[key] = _decode_catalog_metadata(value)
+            if key in catalog_fields and key != "metadata":
+                # A catalog field (e.g. rawTables, consoleOwners) that was flattened into metadata.
+                catalog_resource[key] = _decode_catalog_metadata(value)
+            else:
+                # An entry from the catalog's own metadata field.
+                user_metadata[key] = _decode_catalog_metadata(value)
+        if user_metadata:
+            catalog_resource["metadata"] = user_metadata
         return catalog_resource
 
 
