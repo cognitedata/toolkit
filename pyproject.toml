@@ -138,7 +138,6 @@ markers = [
 include = ["cognite_toolkit"]
 exclude = [
     "tests",
-    "cognite_toolkit/_cdf_tk/apps",
     "cognite_toolkit/_cdf_tk/client",
     "cognite_toolkit/_cdf_tk/commands",
     "cognite_toolkit/_cdf_tk/data_classes",
