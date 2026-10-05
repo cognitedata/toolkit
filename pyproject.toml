@@ -140,7 +140,6 @@ exclude = [
     "tests",
     "cognite_toolkit/_cdf_tk/client",
     "cognite_toolkit/_cdf_tk/commands",
-    "cognite_toolkit/_cdf_tk/data_classes",
     "cognite_toolkit/_cdf_tk/dataio",
     "cognite_toolkit/_cdf_tk/resource_ios",
     "cognite_toolkit/_cdf_tk/rules",
