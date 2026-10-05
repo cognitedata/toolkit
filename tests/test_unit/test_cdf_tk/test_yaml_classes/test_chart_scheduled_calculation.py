@@ -58,3 +58,17 @@ def test_scheduled_calculation_update_omits_immutable_fields(target: dict[str, o
     create_payload = request.dump()
     for field, value in target.items():
         assert create_payload[field] == value
+
+
+def test_scheduled_calculation_update_can_send_target() -> None:
+    resource = get_example_minimum_responses(ChartScheduledCalculationResponse)
+    resource.pop("targetTimeseriesExternalId", None)
+    resource["targetTimeseriesInstanceId"] = {"space": "plant", "externalId": "output-ts"}
+    resource.update(nonce="test-nonce")
+    request = ChartScheduledCalculationRequest.model_validate(resource, extra="ignore")
+
+    assert "targetTimeseriesInstanceId" not in request.as_update("replace")
+    update = request.with_target_update().as_update("replace")
+    assert update["targetTimeseriesInstanceId"] == {"space": "plant", "externalId": "output-ts"}
+    # The original request is unchanged.
+    assert "targetTimeseriesInstanceId" not in request.as_update("replace")
