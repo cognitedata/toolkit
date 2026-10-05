@@ -1087,7 +1087,7 @@ class DownloadApp(typer.Typer):
         display_name: str,
         selector_type: str,
         max_limit: int | None = None,
-    ) -> tuple[Path, Enum, Enum, int]:
+    ) -> tuple[Path, Enum, CompressionFormat, int]:
         """Interactive selection of output_dir, file_format, compression and limit for the download commands."""
         selected_output_dir = Path(
             questionary.path("Where to download the data:", default=str(output_dir), only_directories=True).unsafe_ask()
