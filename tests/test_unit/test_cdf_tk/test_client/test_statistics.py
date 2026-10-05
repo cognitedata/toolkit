@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.statistics import (
     CountLimit,
     InstanceStatistics,
-    ProjectStatistics,
+    ProjectStatisticsResponse,
     SpaceStatisticsResponse,
 )
 
@@ -45,7 +45,7 @@ def test_retrieve_project_statistics(toolkit_config: ToolkitClientConfig, respx_
 
     stats = StatisticsAPI(HTTPClient(toolkit_config)).retrieve()
 
-    assert stats == ProjectStatistics(
+    assert stats == ProjectStatisticsResponse(
         spaces=CountLimit(count=5, limit=100),
         containers=CountLimit(count=42, limit=1000),
         views=CountLimit(count=123, limit=2000),
