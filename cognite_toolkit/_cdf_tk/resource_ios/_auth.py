@@ -18,7 +18,6 @@ from collections.abc import Callable, Hashable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities as cap
 from rich import print
 from rich.markup import escape
 
@@ -37,12 +36,26 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceI
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
+    AssetRootIDScope,
     CurrentUserScope,
+    DataProductScope,
+    DataSetsAcl,
+    DataSetScope,
+    ExtractionPipelinesAcl,
+    ExtractionPipelineScope,
     GroupRequest,
     GroupResponse,
     GroupsAcl,
+    IDScope,
+    IDScopeLowerCase,
+    LocationFiltersAcl,
+    RawAcl,
+    Scope,
     ScopeDefinition,
     SecurityCategoriesAcl,
+    SpaceIDScope,
+    TableScope,
+    TimeSeriesAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryRequest,
@@ -78,20 +91,19 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
     resource_cls = GroupResponse
     resource_write_cls = GroupRequest
     yaml_cls = GroupYAML
-    resource_scopes: frozenset[type[cap.Capability.Scope] | type[yaml_cap.Scope]] = frozenset(
+    resource_scopes: frozenset[type[Scope]] = frozenset(
         {
-            cap.IDScope,
-            cap.SpaceIDScope,
-            cap.DataSetScope,
-            cap.TableScope,
-            cap.AssetRootIDScope,
-            cap.ExtractionPipelineScope,
-            cap.IDScopeLowerCase,
-            # Not yet added to the SDK, so we use the toolkit's own yaml scope class here instead.
-            yaml_cap.DataProductScope,
+            IDScope,
+            SpaceIDScope,
+            DataSetScope,
+            TableScope,
+            AssetRootIDScope,
+            ExtractionPipelineScope,
+            IDScopeLowerCase,
+            DataProductScope,
         }
     )
-    resource_scope_names = frozenset({scope._scope_name for scope in resource_scopes})
+    resource_scope_names = frozenset({scope.model_fields["scope_name"].default for scope in resource_scopes})
     _doc_url = "Groups/operation/createGroups"
 
     def __init__(
@@ -229,50 +241,64 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
     def create_replace_method_by_acl_and_scope(self) -> dict[tuple[str, str] | str, ReplaceMethod]:
         source = {
-            (cap.DataSetsAcl, cap.DataSetsAcl.Scope.ID): ReplaceMethod(
+            (DataSetsAcl, IDScope): ReplaceMethod(
                 self.client.lookup.data_sets.id,
                 self.client.lookup.data_sets.external_id,
                 id_name="ids",
             ),
-            (cap.ExtractionPipelinesAcl, cap.ExtractionPipelinesAcl.Scope.ID): ReplaceMethod(
+            (ExtractionPipelinesAcl, IDScope): ReplaceMethod(
                 self.client.lookup.extraction_pipelines.id,
                 self.client.lookup.extraction_pipelines.external_id,
                 id_name="ids",
             ),
-            (cap.LocationFiltersAcl, cap.LocationFiltersAcl.Scope.ID): ReplaceMethod(
+            # Following the docs, it is 'idscope' for DataSetsAcls and ExtractionPipelinesAcls,
+            # but our users have deployed with 'idScope' with those ACLs, so we support both to ensure.
+            (DataSetsAcl, IDScopeLowerCase): ReplaceMethod(
+                self.client.lookup.data_sets.id,
+                self.client.lookup.data_sets.external_id,
+                id_name="ids",
+            ),
+            (ExtractionPipelinesAcl, IDScopeLowerCase): ReplaceMethod(
+                self.client.lookup.extraction_pipelines.id,
+                self.client.lookup.extraction_pipelines.external_id,
+                id_name="ids",
+            ),
+            (LocationFiltersAcl, IDScope): ReplaceMethod(
                 self.client.lookup.location_filters.id,
                 self.client.lookup.location_filters.external_id,
                 id_name="ids",
             ),
-            (cap.SecurityCategoriesAcl, cap.SecurityCategoriesAcl.Scope.ID): ReplaceMethod(
+            (SecurityCategoriesAcl, IDScopeLowerCase): ReplaceMethod(
                 self.client.lookup.security_categories.id,
                 self.client.lookup.security_categories.external_id,
                 id_name="ids",
             ),
-            (cap.TimeSeriesAcl, cap.TimeSeriesAcl.Scope.ID): ReplaceMethod(
+            (TimeSeriesAcl, IDScopeLowerCase): ReplaceMethod(
                 self.client.lookup.time_series.id,
                 self.client.lookup.time_series.external_id,
                 id_name="ids",
             ),
-            cap.DataSetScope: ReplaceMethod(
+            DataSetScope: ReplaceMethod(
                 self.client.lookup.data_sets.id,
                 self.client.lookup.data_sets.external_id,
                 id_name="ids",
             ),
-            cap.ExtractionPipelineScope: ReplaceMethod(
+            ExtractionPipelineScope: ReplaceMethod(
                 self.client.lookup.extraction_pipelines.id,
                 self.client.lookup.extraction_pipelines.external_id,
                 id_name="ids",
             ),
-            cap.AssetRootIDScope: ReplaceMethod(
+            AssetRootIDScope: ReplaceMethod(
                 self.client.lookup.assets.id,
                 self.client.lookup.assets.external_id,
                 id_name="rootIds",
             ),
         }
-        # Trick to avoid writing _capability_name and _scope_name for each entry.
+        # Trick to avoid writing _acl_name and _scope_name for each entry.
         return {
-            (key[0]._capability_name, key[1]._scope_name) if isinstance(key, tuple) else key._scope_name: method  # type: ignore[attr-defined]
+            (key[0].model_fields["acl_name"].default, key[1].model_fields["scope_name"].default)
+            if isinstance(key, tuple)
+            else key.model_fields["scope_name"].default: method  # type: ignore[attr-defined]
             for key, method in source.items()
         }
 
@@ -290,6 +316,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             raise ToolkitWrongResourceError()
 
         substituted = self._substitute_scope_ids(resource, is_dry_run)
+
         return GroupRequest._load(substituted)
 
     def dump_resource(self, resource: GroupResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -314,10 +341,10 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         # Note the extra keyword 'tables' in the API response.
         for capability in dumped.get("capabilities", []):
             for acl, content in capability.items():
-                if acl != cap.RawAcl._capability_name:
+                if acl != RawAcl.model_fields["acl_name"].default:
                     continue
                 if scope := content.get("scope", {}):
-                    if table_scope := scope.get(cap.TableScope._scope_name, {}):
+                    if table_scope := scope.get(TableScope.model_fields["scope_name"].default, {}):
                         db_to_tables = table_scope.get("dbsToTables", {})
                         if not db_to_tables:
                             continue

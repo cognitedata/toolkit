@@ -19,6 +19,9 @@ def _built_resource(identifier: Identifier, variables: list[BuildVariable] | Non
     resource.identifier = identifier
     resource.variables = variables or []
     resource.extra_files = []
+    # MagicMock would otherwise invent source_type. These cases are CRUD files, so pull should not
+    # look up a ResourceFileIO and convert with from_crud_type.
+    resource.source_type = None
     return resource
 
 

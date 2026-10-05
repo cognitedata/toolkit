@@ -20,11 +20,17 @@ repos:
       - id: ruff-format
     rev: v0.15.14
 
+  - repo: https://github.com/astral-sh/ty-pre-commit
+    # ty version.
+    rev: v0.0.84
+    hooks:
+      - id: ty
+
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.48.0
     hooks:
     - id: markdownlint
-    
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0 # Use the latest stable version
     hooks:

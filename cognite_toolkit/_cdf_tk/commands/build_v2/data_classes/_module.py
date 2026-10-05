@@ -344,6 +344,7 @@ class ReadResource(BaseModel, Generic[T_Resource]):
 class SuccessfulReadYAMLFile(ReadYAMLFile):
     source_hash: str
     resource_type: ResourceType
+    source_type: ResourceType
     resources: list[ReadResource[ToolkitResource]]
     syntax_error: ModelSyntaxError | None = None
     syntax_warnings: list[ModelSyntaxWarning] = Field(default_factory=list)

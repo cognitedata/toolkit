@@ -83,7 +83,7 @@ class ResourceType(BaseModel):
         return f"{self.kind} ({self.resource_folder})"
 
 
-class ResourceBuildIO(ABC, Generic[T_Identifier, T_YamlResource]):
+class BaseResourceIO(ABC, Generic[T_Identifier, T_YamlResource]):
     """This is the base class for all resources that can be built.
 
     This means it contains the serialization/deserialization of the resources, but not the CRUD interface
@@ -110,6 +110,16 @@ class ResourceBuildIO(ABC, Generic[T_Identifier, T_YamlResource]):
     @classmethod
     @abstractmethod
     def get_id(cls, item: dict) -> T_Identifier:
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def as_crud_type(cls) -> ResourceType:
+        """Returns the ResourceType for this resource that can be written to CDF.
+
+        Note this is not necessarily the same as the ResourceType for the file format. For example,
+        a DataCatalog DataSet is a dataset.
+        """
         raise NotImplementedError
 
     @classmethod
@@ -182,8 +192,24 @@ class ResourceBuildIO(ABC, Generic[T_Identifier, T_YamlResource]):
         return BuildVariable.substitute(content, variables, ".yaml")
 
 
+class ResourceFileIO(BaseResourceIO[T_Identifier, T_YamlResource]):
+    @classmethod
+    @abstractmethod
+    def to_crud_type(cls, raw: dict[str, Any]) -> dict[str, Any]:
+        """Converts the raw resource to the CRUD type. This is used to convert the resource from the build format to
+        the CRUD format. For example, a DataCatalog DataSet is a dataset and this does the conversion."""
+        raise NotImplementedError(f"to_crud_type must be implemented for {cls.__name__}.")
+
+    @classmethod
+    @abstractmethod
+    def from_crud_type(cls, crud: dict[str, Any]) -> dict[str, Any]:
+        """Converts the CRUD resource to the raw type. This is used to convert the resource from the CRUD format to
+        the build format. For example, a DataCatalog DataSet is a dataset and this does the conversion."""
+        raise NotImplementedError(f"from_crud_type must be implemented for {cls.__name__}.")
+
+
 class ResourceIO(
-    ResourceBuildIO[T_Identifier, T_YamlResource],
+    BaseResourceIO[T_Identifier, T_YamlResource],
     Generic[T_Identifier, T_RequestResource, T_ResponseResource, T_YamlResource],
 ):
     """This is the base class for all resources input/output to CDF and file.
@@ -231,6 +257,10 @@ class ResourceIO(
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
         self.console = client.console
+
+    @classmethod
+    def as_crud_type(cls) -> ResourceType:
+        return ResourceType(kind=cls.kind, resource_folder=cls.folder_name)
 
     # The methods that must be implemented in the subclass
     @classmethod
