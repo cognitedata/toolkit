@@ -38,7 +38,7 @@ class Common:
     override_env: bool
 
 
-CDF_TOML = CDFToml.load(Path.cwd())
+CDF_TOML = CDFToml.load_module_context(Path.cwd())
 TODAY = date.today()
 
 

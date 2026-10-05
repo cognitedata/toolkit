@@ -100,7 +100,7 @@ class InitCommand(ToolkitCommand):
             ),
         ]
 
-        if CDFToml.load().is_loaded_from_file:
+        if CDFToml.load_module_context().is_loaded_from_file:
             checklist_items[0].status = InitItemStatus.SUCCESSFUL
             print("cdf.toml configuration file already exists. Skipping creation.")
 
@@ -213,7 +213,7 @@ class InitCommand(ToolkitCommand):
         if self.organization_dir is not None:
             return self.organization_dir
 
-        cdf_toml = CDFToml.load(use_singleton=False)
+        cdf_toml = CDFToml.load_module_context(use_singleton=False)
         if cdf_toml.is_loaded_from_file:
             return cdf_toml.cdf.default_organization_dir
 
