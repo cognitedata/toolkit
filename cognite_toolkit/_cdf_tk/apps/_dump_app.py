@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Annotated, Any
 
+import questionary
 import typer
 
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
@@ -166,6 +167,8 @@ class DumpConfigApp(typer.Typer):
                 selected_data_model = DataModelId(
                     space=data_model_id[0], external_id=data_model_id[1], version=data_model_id[2]
                 )
+        else:
+            include_global = questionary.confirm("Include global data models in options?", default=include_global).ask()
         client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = DumpResourceCommand(client=client)
