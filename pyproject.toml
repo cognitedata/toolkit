@@ -149,6 +149,9 @@ exclude = [
     "cognite_toolkit/_cdf_tk/utils",
     "cognite_toolkit/_cdf_tk/yaml_classes",
 ]
+[tool.ty.environment]
+python-version = "3.14"
+python = ".venv"
 
 [tool.mypy]
 check_untyped_defs = true
