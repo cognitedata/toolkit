@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
@@ -34,7 +35,7 @@ class SequencesAPI(CDFResourceAPI[SequenceResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[SequenceRequest]) -> list[SequenceResponse]:
+    def create(self, items: Sequence[SequenceRequest]) -> builtins.list[SequenceResponse]:
         """Create sequences in CDF.
 
         Args:
@@ -46,7 +47,7 @@ class SequencesAPI(CDFResourceAPI[SequenceResponse]):
 
     def retrieve(
         self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
-    ) -> list[SequenceResponse]:
+    ) -> builtins.list[SequenceResponse]:
         """Retrieve sequences from CDF.
 
         Args:
@@ -61,7 +62,7 @@ class SequencesAPI(CDFResourceAPI[SequenceResponse]):
 
     def update(
         self, items: Sequence[SequenceRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[SequenceResponse]:
+    ) -> builtins.list[SequenceResponse]:
         """Update sequences in CDF.
 
         Args:
@@ -108,7 +109,7 @@ class SequencesAPI(CDFResourceAPI[SequenceResponse]):
         self,
         filter: ClassicFilter | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[SequenceResponse]]:
+    ) -> Iterable[builtins.list[SequenceResponse]]:
         """Iterate over all sequences in CDF.
 
         Args:
@@ -126,7 +127,7 @@ class SequencesAPI(CDFResourceAPI[SequenceResponse]):
     def list(
         self,
         limit: int | None = 100,
-    ) -> list[SequenceResponse]:
+    ) -> builtins.list[SequenceResponse]:
         """List all sequences in CDF.
 
         Returns:

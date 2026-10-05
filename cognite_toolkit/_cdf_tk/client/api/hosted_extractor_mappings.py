@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
@@ -32,7 +33,7 @@ class HostedExtractorMappingsAPI(CDFResourceAPI[HostedExtractorMappingResponse])
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[ExternalId]:
         return ResponseItems[ExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:
+    def create(self, items: Sequence[HostedExtractorMappingRequest]) -> builtins.list[HostedExtractorMappingResponse]:
         """Create hosted extractor mappings in CDF.
 
         Args:
@@ -44,7 +45,7 @@ class HostedExtractorMappingsAPI(CDFResourceAPI[HostedExtractorMappingResponse])
 
     def retrieve(
         self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
-    ) -> list[HostedExtractorMappingResponse]:
+    ) -> builtins.list[HostedExtractorMappingResponse]:
         """Retrieve hosted extractor mappings from CDF.
 
         Args:
@@ -59,7 +60,7 @@ class HostedExtractorMappingsAPI(CDFResourceAPI[HostedExtractorMappingResponse])
 
     def update(
         self, items: Sequence[HostedExtractorMappingRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[HostedExtractorMappingResponse]:
+    ) -> builtins.list[HostedExtractorMappingResponse]:
         """Update hosted extractor mappings in CDF.
 
         Args:
@@ -104,7 +105,7 @@ class HostedExtractorMappingsAPI(CDFResourceAPI[HostedExtractorMappingResponse])
     def iterate(
         self,
         limit: int | None = 100,
-    ) -> Iterable[list[HostedExtractorMappingResponse]]:
+    ) -> Iterable[builtins.list[HostedExtractorMappingResponse]]:
         """Iterate over hosted extractor mappings in CDF.
 
         Args:
@@ -115,7 +116,7 @@ class HostedExtractorMappingsAPI(CDFResourceAPI[HostedExtractorMappingResponse])
         """
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = 100) -> list[HostedExtractorMappingResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[HostedExtractorMappingResponse]:
         """List all hosted extractor mappings in CDF.
 
         Args:

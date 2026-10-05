@@ -4,6 +4,7 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Workflow-executions
 """
 
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal, TypeVar
 
@@ -52,8 +53,8 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
         ignore_unknown_ids: bool = False,
         method: Literal["GET", "POST"] = "POST",
         body_content: dict[str, JsonValue] | None = None,
-    ) -> list[T_ExecutionResponse]:
-        result: list[T_ExecutionResponse] = []
+    ) -> builtins.list[T_ExecutionResponse]:
+        result: builtins.list[T_ExecutionResponse] = []
         for item in items:
             request = RequestMessage(
                 endpoint_url=self._make_url(f"/workflows/executions/{item.id}{path_suffix}"),
@@ -102,7 +103,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
 
     def retrieve(
         self, items: Sequence[WorkflowExecutionId], ignore_unknown_ids: bool = False
-    ) -> list[WorkflowExecutionDetailedResponse]:
+    ) -> builtins.list[WorkflowExecutionDetailedResponse]:
         """Retrieve detailed workflow executions from CDF.
 
         Args:
@@ -125,7 +126,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
         items: Sequence[WorkflowExecutionId],
         reason: str | None = None,
         ignore_unknown_ids: bool = False,
-    ) -> list[WorkflowExecutionResponse]:
+    ) -> builtins.list[WorkflowExecutionResponse]:
         """Cancel workflow executions.
 
         Stops the specified executions from starting new workflow tasks and sets the
@@ -158,7 +159,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
         items: Sequence[WorkflowExecutionId],
         nonce: str | None = None,
         ignore_unknown_ids: bool = False,
-    ) -> list[WorkflowExecutionResponse]:
+    ) -> builtins.list[WorkflowExecutionResponse]:
         """Retry previously failed, timed out, or terminated workflow executions.
 
         Args:
@@ -240,7 +241,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
         created_time_end: int | None = None,
         statuses: Sequence[WorkflowExecutionStatus | str] | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[WorkflowExecutionResponse]]:
+    ) -> Iterable[builtins.list[WorkflowExecutionResponse]]:
         """Iterate over workflow executions in CDF.
 
         Args:
@@ -270,7 +271,7 @@ class WorkflowExecutionsAPI(CDFResourceAPI[WorkflowExecutionResponse]):
         created_time_end: int | None = None,
         statuses: Sequence[WorkflowExecutionStatus | str] | None = None,
         limit: int | None = 100,
-    ) -> list[WorkflowExecutionResponse]:
+    ) -> builtins.list[WorkflowExecutionResponse]:
         """List workflow executions in CDF.
 
         Args:

@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
@@ -28,19 +29,19 @@ class SignalSubscriptionsAPI(CDFResourceAPI[SignalSubscriptionResponse]):
     ) -> PagedResponse[SignalSubscriptionResponse]:
         return PagedResponse[SignalSubscriptionResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[SignalSubscriptionRequest]) -> list[SignalSubscriptionResponse]:
+    def create(self, items: Sequence[SignalSubscriptionRequest]) -> builtins.list[SignalSubscriptionResponse]:
         return self._request_item_response(items, "create")
 
     def update(
         self, items: Sequence[SignalSubscriptionRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[SignalSubscriptionResponse]:
+    ) -> builtins.list[SignalSubscriptionResponse]:
         return self._update(items, mode=mode)
 
     def delete(self, ids: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
         self._request_no_response(ids, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
-    def iterate(self, limit: int | None = 100) -> Iterable[list[SignalSubscriptionResponse]]:
+    def iterate(self, limit: int | None = 100) -> Iterable[builtins.list[SignalSubscriptionResponse]]:
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = 100) -> list[SignalSubscriptionResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[SignalSubscriptionResponse]:
         return self._list(limit=limit)

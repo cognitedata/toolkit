@@ -52,7 +52,7 @@ class ProjectStatusList(RootModel[list[ProjectStatus]]):
     root: list[ProjectStatus]
     _project: str
 
-    def __iter__(self) -> Iterator[ProjectStatus]:  # type: ignore[override]
+    def __iter__(self) -> Iterator[ProjectStatus]:  # type: ignore[override]  # ty: ignore[invalid-method-override]
         return iter(self.root)
 
     def __len__(self) -> int:
@@ -64,7 +64,7 @@ class ProjectStatusList(RootModel[list[ProjectStatus]]):
     @classmethod
     def _load(cls, data: list[dict]) -> Self:
         """Load from a list of dictionaries."""
-        return cls(root=[ProjectStatus._load(item) for item in data], _project="")
+        return cls(root=[ProjectStatus._load(item) for item in data], _project="")  # ty: ignore[unknown-argument]
 
     @property
     def this_project(self) -> ProjectStatus:

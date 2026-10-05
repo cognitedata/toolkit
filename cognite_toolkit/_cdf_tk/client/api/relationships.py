@@ -4,6 +4,7 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Relationships/operation/createRelationships
 """
 
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
@@ -34,7 +35,7 @@ class RelationshipsAPI(CDFResourceAPI[RelationshipResponse]):
     ) -> PagedResponse[RelationshipResponse]:
         return PagedResponse[RelationshipResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[RelationshipRequest]) -> list[RelationshipResponse]:
+    def create(self, items: Sequence[RelationshipRequest]) -> builtins.list[RelationshipResponse]:
         """Create relationships in CDF.
 
         Args:
@@ -47,7 +48,7 @@ class RelationshipsAPI(CDFResourceAPI[RelationshipResponse]):
 
     def retrieve(
         self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False, fetch_resources: bool = False
-    ) -> list[RelationshipResponse]:
+    ) -> builtins.list[RelationshipResponse]:
         """Retrieve relationships from CDF.
 
         Args:
@@ -68,7 +69,7 @@ class RelationshipsAPI(CDFResourceAPI[RelationshipResponse]):
 
     def update(
         self, items: Sequence[RelationshipRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[RelationshipResponse]:
+    ) -> builtins.list[RelationshipResponse]:
         """Update relationships in CDF.
 
         Args:
@@ -114,7 +115,7 @@ class RelationshipsAPI(CDFResourceAPI[RelationshipResponse]):
         self,
         filter: ClassicFilter | None = None,
         limit: int | None = None,
-    ) -> Iterable[list[RelationshipResponse]]:
+    ) -> Iterable[builtins.list[RelationshipResponse]]:
         """Iterate over all relationships in CDF.
 
         Args:
@@ -125,7 +126,9 @@ class RelationshipsAPI(CDFResourceAPI[RelationshipResponse]):
         """
         return self._iterate(limit=limit, body={"filter": filter.dump() if filter else None})
 
-    def list(self, filter: ClassicFilter | None = None, limit: int | None = None) -> list[RelationshipResponse]:
+    def list(
+        self, filter: ClassicFilter | None = None, limit: int | None = None
+    ) -> builtins.list[RelationshipResponse]:
         """List all relationships in CDF.
 
         Args:

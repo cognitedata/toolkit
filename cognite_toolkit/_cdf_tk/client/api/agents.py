@@ -6,6 +6,7 @@ https://api-docs.cognite.com/20230101-alpha/tag/Agents/operation/main_ai_agents_
 Note: This is an alpha API and may change in future releases.
 """
 
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
@@ -35,7 +36,7 @@ class AgentsAPI(CDFResourceAPI[AgentResponse]):
     def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[AgentResponse]:
         return PagedResponse[AgentResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
+    def create(self, items: Sequence[AgentRequest]) -> builtins.list[AgentResponse]:
         """Apply (create or update) agents in CDF.
 
         Args:
@@ -46,7 +47,7 @@ class AgentsAPI(CDFResourceAPI[AgentResponse]):
         """
         return self._request_item_response(items, "upsert")
 
-    def update(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
+    def update(self, items: Sequence[AgentRequest]) -> builtins.list[AgentResponse]:
         """Update agents in CDF.
 
         Args:
@@ -57,7 +58,7 @@ class AgentsAPI(CDFResourceAPI[AgentResponse]):
         # Implemented as an alias to create (upsert) to have a standardized interface.
         return self._request_item_response(items, "upsert")
 
-    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[AgentResponse]:
+    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> builtins.list[AgentResponse]:
         """Retrieve agents from CDF by external ID.
 
         Args:
@@ -83,7 +84,7 @@ class AgentsAPI(CDFResourceAPI[AgentResponse]):
     def iterate(
         self,
         limit: int | None = None,
-    ) -> Iterable[list[AgentResponse]]:
+    ) -> Iterable[builtins.list[AgentResponse]]:
         """Iterate over all agents in CDF.
 
         Args:
@@ -94,7 +95,7 @@ class AgentsAPI(CDFResourceAPI[AgentResponse]):
         """
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = None) -> list[AgentResponse]:
+    def list(self, limit: int | None = None) -> builtins.list[AgentResponse]:
         """List all agents in CDF.
 
         Args:

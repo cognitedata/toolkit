@@ -55,7 +55,7 @@ class ToolkitClientConfig(ClientConfig):
 
     @property
     def cloud_provider(self) -> Literal["azure", "aws", "gcp", "unknown"]:
-        cdf_cluster = self.cdf_cluster
+        cdf_cluster = self.cdf_cluster  # ty: ignore[deprecated]
         if cdf_cluster is None:
             return "unknown"
         elif cdf_cluster.startswith("az-") or cdf_cluster in {"azure-dev", "bluefield", "westeurope-1"}:

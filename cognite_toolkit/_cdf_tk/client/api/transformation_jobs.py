@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
@@ -32,7 +33,7 @@ class TransformationJobsAPI(CDFResourceAPI[TransformationJobResponse]):
 
     def retrieve(
         self, items: Sequence[InternalId], ignore_unknown_ids: bool = False
-    ) -> list[TransformationJobResponse]:
+    ) -> builtins.list[TransformationJobResponse]:
         """Retrieve transformation jobs from CDF.
 
         Args:
@@ -47,7 +48,7 @@ class TransformationJobsAPI(CDFResourceAPI[TransformationJobResponse]):
             extra_body={"ignoreUnknownIds": ignore_unknown_ids},
         )
 
-    def list_metrics(self, id: int) -> list[TransformationJobMetricResponse]:
+    def list_metrics(self, id: int) -> builtins.list[TransformationJobMetricResponse]:
         """`List job metrics by job id. <https://api-docs.cognite.com/20230101/tag/Transformation-Jobs/operation/getTransformationJobsMetrics>`_
 
         Args:
@@ -95,7 +96,7 @@ class TransformationJobsAPI(CDFResourceAPI[TransformationJobResponse]):
         transformation_id: int | None = None,
         transformation_external_id: str | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[TransformationJobResponse]]:
+    ) -> Iterable[builtins.list[TransformationJobResponse]]:
         """Iterate over transformation jobs in CDF.
 
         Args:
@@ -119,7 +120,7 @@ class TransformationJobsAPI(CDFResourceAPI[TransformationJobResponse]):
         transformation_id: int | None = None,
         transformation_external_id: str | None = None,
         limit: int | None = 100,
-    ) -> list[TransformationJobResponse]:
+    ) -> builtins.list[TransformationJobResponse]:
         """List transformation jobs in CDF.
 
         Args:

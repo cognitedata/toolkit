@@ -1,6 +1,6 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, cast
 from unittest.mock import MagicMock
 
 from cognite.client.testing import CogniteClientMock
@@ -280,7 +280,9 @@ class ToolkitClientMock(CogniteClientMock):
 def monkeypatch_toolkit_client() -> Iterator[ToolkitClientMock]:
     toolkit_client_mock = ToolkitClientMock()
     try:
-        ToolkitClient.__new__ = lambda *args, **kwargs: toolkit_client_mock  # type: ignore[method-assign]
+        ToolkitClient.__new__ = cast(Any, lambda *args, **kwargs: toolkit_client_mock)  # type: ignore[method-assign]
         yield toolkit_client_mock
     finally:
-        ToolkitClient.__new__ = lambda cls, *args, **kwargs: object.__new__(cls)  # type: ignore[method-assign]
+        ToolkitClient.__new__ = cast(  # type: ignore[method-assign]
+            Any, lambda cls, *args, **kwargs: object.__new__(cls)
+        )

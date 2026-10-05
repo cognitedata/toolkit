@@ -32,8 +32,8 @@ class HTTPResult(HTTPBaseModel):
                 message += self._create_timeout_hint()
             raise ToolkitAPIError(
                 message,
-                missing=self.error.missing,  # type: ignore[arg-type]
-                duplicated=self.error.duplicated,  # type: ignore[arg-type]
+                missing=self.error.missing,
+                duplicated=self.error.duplicated,
                 code=self.error.code,
                 request=request,
                 response=self,

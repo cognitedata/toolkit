@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from pydantic import JsonValue
+
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.client.http_client._data_classes import FailedResponse, RequestMessage
 
@@ -11,8 +13,8 @@ class ToolkitAPIError(Exception):
     def __init__(
         self,
         message: str,
-        missing: list[dict[str, Any]] | None = None,
-        duplicated: list[dict[str, Any]] | None = None,
+        missing: list[JsonValue] | None = None,
+        duplicated: list[JsonValue] | None = None,
         code: int | None = None,
         is_auto_retryable: bool | None = None,
         request: "RequestMessage | None " = None,
