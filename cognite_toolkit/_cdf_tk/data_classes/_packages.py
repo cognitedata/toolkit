@@ -66,8 +66,7 @@ class Packages(dict[str, Package]):
         if packages is None:
             super().__init__()
         elif isinstance(packages, Mapping):
-            by_name = cast(Mapping[str, Package], packages)
-            super().__init__({name: package for name, package in by_name.items()})
+            super().__init__(cast(Mapping[str, Package], packages))
         else:
             super().__init__({package.name: package for package in packages})
 

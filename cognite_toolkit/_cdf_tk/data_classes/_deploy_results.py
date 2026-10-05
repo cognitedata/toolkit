@@ -122,6 +122,8 @@ class DeployResults(UserDict[str, DeployResult]):
             self.data[key] = item
             return
         existing = self.data[key]
+        if existing is item:
+            return
         if not isinstance(existing, ResourceDeployResult) or not isinstance(item, ResourceDeployResult):
             raise TypeError("Cannot add two DeployResult objects unless both are ResourceDeployResult")
         existing += item
