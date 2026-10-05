@@ -136,7 +136,19 @@ markers = [
 
 [tool.ty.src]
 include = ["cognite_toolkit"]
-exclude = ["tests", "cognite_toolkit/_cdf_tk/"]
+exclude = [
+    "tests",
+    "cognite_toolkit/_cdf_tk/apps",
+    "cognite_toolkit/_cdf_tk/client",
+    "cognite_toolkit/_cdf_tk/commands",
+    "cognite_toolkit/_cdf_tk/data_classes",
+    "cognite_toolkit/_cdf_tk/dataio",
+    "cognite_toolkit/_cdf_tk/resource_ios",
+    "cognite_toolkit/_cdf_tk/rules",
+    "cognite_toolkit/_cdf_tk/tk_warnings",
+    "cognite_toolkit/_cdf_tk/utils",
+    "cognite_toolkit/_cdf_tk/yaml_classes",
+]
 
 [tool.mypy]
 check_untyped_defs = true

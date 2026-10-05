@@ -9,7 +9,7 @@ from yaml import YAMLError
 if sys.version_info >= (3, 11):
     from tomllib import TOMLDecodeError
 else:
-    from tomli import TOMLDecodeError
+    from tomli import TOMLDecodeError  # ty: ignore[unresolved-import]
 
 
 class ToolkitError(Exception):

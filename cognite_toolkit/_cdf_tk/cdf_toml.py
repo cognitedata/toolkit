@@ -1,6 +1,6 @@
 import re
 import sys
-import urllib
+import urllib.parse
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -24,8 +24,8 @@ if sys.version_info >= (3, 11):
     import tomllib
     from tomllib import TOMLDecodeError
 else:
-    import tomli as tomllib
-    from tomli import TOMLDecodeError
+    import tomli as tomllib  # ty: ignore[unresolved-import]]
+    from tomli import TOMLDecodeError  # ty: ignore[unresolved-import]]
     from typing_extensions import Self
 
 

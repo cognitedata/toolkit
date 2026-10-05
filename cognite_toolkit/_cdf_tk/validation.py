@@ -54,7 +54,10 @@ def validate_resource_yaml_pydantic(
             else:
                 TypeAdapter(validation_cls).validate_python(data, strict=True)
         elif isinstance(data, list):
-            validation_type = list[validation_cls]  # type: ignore[valid-type]
+            # Build `list[validation_cls]` as a value expression (via an ``Any``-typed alias of ``list``)
+            # so type checkers don't try to interpret the subscript as a type expression.
+            list_factory: Any = list
+            validation_type = list_factory[validation_cls]
             TypeAdapter(validation_type).validate_python(data, strict=True)
         else:
             raise ValueError(f"Expected a dictionary or list of dictionaries, got {type(data)}.")

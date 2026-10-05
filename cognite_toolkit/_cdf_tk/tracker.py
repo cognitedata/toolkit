@@ -40,7 +40,7 @@ class Tracker:
         private_link = "offline"
 
         if client is not None:
-            cluster = client.config.cdf_cluster or "unknown"
+            cluster = client.config.attempt_to_get_cdf_cluster() or "unknown"
             private_link = "yes" if client.config.is_private_link else "no"
             try:
                 result = client.project.organization()
