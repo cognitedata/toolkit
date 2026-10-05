@@ -14,7 +14,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands.auth.oidc import refresh_session_tokens
 from cognite_toolkit._cdf_tk.commands.auth.session_store import StoredSession
-from cognite_toolkit._cdf_tk.constants import TOOLKIT_CLIENT_ENTRA_ID
+from cognite_toolkit._cdf_tk.constants import DEFAULT_CLIENT_TIMEOUT, TOOLKIT_CLIENT_ENTRA_ID
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitKeyError, ToolkitMissingValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
@@ -118,7 +118,7 @@ class EnvironmentVariables:
         ),
     )
     CDF_CLIENT_TIMEOUT: int = field(
-        default=30,
+        default=DEFAULT_CLIENT_TIMEOUT,
         metadata=EnvOptions(display_name="CDF client timeout", default_example="30", optional=frozenset(ALL_CASES)),
     )
     CDF_CLIENT_MAX_WORKERS: int = field(
