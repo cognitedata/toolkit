@@ -41,7 +41,10 @@ def invalid_workflow_version_test_cases() -> Iterable:
             "workflowDefinition": {"description": "desc", "tasks": []},
             "foo": 123,
         },
-        {"Unknown field: 'foo'"},
+        {
+            "Unknown field: 'foo'",
+            "Invalid value at workflowDefinition.tasks: List should have at least 1 item after validation, not 0",
+        },
         id="Extra field at top level",
     )
     yield pytest.param(

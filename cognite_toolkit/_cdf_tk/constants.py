@@ -27,6 +27,8 @@ COGNITE_CLI_SESSION_VERSION = 1
 COGNITE_CLI_KEYRING_SERVICE = "cognite-cli-session"
 COGNITE_CLI_ACCESS_TOKEN_LEEWAY_SECONDS = 5 * 60
 
+DEFAULT_CLIENT_TIMEOUT = 60
+
 _RUNNING_IN_BROWSER = IN_BROWSER
 # This is the default config located locally in each module.
 DEFAULT_CONFIG_FILE = "default.config.yaml"
