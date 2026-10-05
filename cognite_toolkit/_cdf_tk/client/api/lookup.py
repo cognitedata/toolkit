@@ -85,7 +85,7 @@ class LookUpAPI(ABC):
         try:
             ids_by_external_id = self._id(external_ids)
         except ToolkitAPIError as e:
-            if e.code and e.code and 400 <= e.code < 500:
+            if e.code and 400 <= e.code < 500:
                 missing_capabilities = self._client.tool.token.verify_acls([self._read_acl(None)])
                 if missing_capabilities:
                     raise self._client.tool.token.create_error(
