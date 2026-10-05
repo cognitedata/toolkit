@@ -364,7 +364,7 @@ FunctionScheduleResponse:
   description: 'Run every day at 8am UTC cdf-auth: def5e2e0'
   functionId: 16394514322001950830
   name: daily-8am-utc
-  nonce: dummy-nonce
+  nonce: '123'
 GroupResponse:
 - capabilities:
   - projectsAcl:
@@ -414,7 +414,7 @@ GroupResponse:
   sourceId: '1234567890123456789'
 HostedExtractorDestinationRequest:
 - credentials:
-    nonce: dummy-nonce
+    nonce: '123'
   externalId: EventHubTarget
   targetDataSetId: 7982613576047462211
 HostedExtractorJobRequest:
@@ -656,8 +656,8 @@ TransformationResponse:
   destinationNonce:
     cdfProjectName: pytest-project
     clientId: dummy-123
-    nonce: dummy-nonce
-    sessionId: 42
+    nonce: '123'
+    sessionId: 1234
   externalId: tr_first_transformation
   ignoreNullFields: true
   isPublic: true
@@ -667,8 +667,8 @@ TransformationResponse:
   sourceNonce:
     cdfProjectName: pytest-project
     clientId: dummy-123
-    nonce: dummy-nonce
-    sessionId: 42
+    nonce: '123'
+    sessionId: 1234
 TransformationScheduleResponse:
 - externalId: tr_first_transformation
   interval: 7 * * * *
@@ -863,7 +863,7 @@ WorkflowResponse:
   maxConcurrentExecutions: 5
 WorkflowTriggerResponse:
 - authentication:
-    nonce: dummy-nonce
+    nonce: '123'
   externalId: MyTrigger
   metadata:
     cognite-toolkit-auth-hash: def5e2e0

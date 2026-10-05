@@ -94,7 +94,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.search_config import Search
 from cognite_toolkit._cdf_tk.client.resource_classes.session import (
     ClientCredentialsSessionRequest,
     OneshotTokenExchangeSessionRequest,
-    Session,
     SessionCreateResponse,
     SessionResponse,
     TokenExchangeSessionRequest,
@@ -1709,7 +1708,7 @@ description: Smoke test skill
             return_value=httpx2.Response(status_code=200, json={"items": [{"id": 1}]})
         )
         revoked = api.revoke([retrieved[0].as_id()])
-        assert revoked[0] == Session(id=1)
+        assert revoked[0] == SessionResponse(id=1)
         assert _request_json(respx_mock.calls[-1].request) == {"items": [{"id": 1}]}
 
         respx_mock.get(config.create_api_url("/sessions")).mock(
