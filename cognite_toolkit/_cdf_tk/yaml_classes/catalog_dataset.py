@@ -76,6 +76,7 @@ class CatalogDataSetYAML(ToolkitResource):
     console_additional_docs: list[ConsoleAdditionalDoc] | None = Field(
         default=None, description="Additional documentation for the data set."
     )
+    metadata: dict[str, str] | None = Field(default=None, description="Custom, application-specific metadata.")
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
