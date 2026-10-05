@@ -497,7 +497,7 @@ class BuildV2Command(ToolkitCommand):
                     f"\n{HINT_LEAD_TEXT}Did [red]you[/red] mean to use the command {suggested_command}?\n",
                     markup=True,
                 )
-                cdf_toml = CDFToml.load()
+                cdf_toml = CDFToml.load_module_context()
                 if not cdf_toml.cdf.has_user_set_default_org:
                     console.print(
                         f"{HINT_LEAD_TEXT} You can specify a 'default_organization_dir = ...' in the 'cdf' section of your "

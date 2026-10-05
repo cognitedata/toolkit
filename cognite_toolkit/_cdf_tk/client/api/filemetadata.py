@@ -71,7 +71,10 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         )
         self._create_multipart = Endpoint(method="POST", path="/files", item_limit=1, concurrency_max_workers=1)
         self._download_link = Endpoint(method="POST", path="/files/downloadlink", item_limit=10)
+        # Creates a new classic file and returns multipart URLs. Body is the file object, not wrapped in "items".
         self._multipart_file_upload_link = Endpoint(method="POST", path="/files/initmultipartupload", item_limit=1)
+        # Returns multipart URLs for a file that already exists (externalId or instanceId). Body is {"items": [...]}.
+        self._multipart_upload_link = Endpoint(method="POST", path="/files/multiuploadlink", item_limit=1)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
@@ -424,9 +427,13 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         return results
 
     def get_multipart_upload_urls(self, item: ExternalId | InstanceId, parts: int) -> FileMetadataResponse:
-        """Get URLs to upload a file in multiple parts to CDF for one file metadata entry."""
+        """Get multipart upload URLs for one file that already exists in CDF.
+
+        ``POST /files/initmultipartupload`` creates a new classic file and rejects an ``items`` body.
+        An existing classic file or CogniteFile must use ``POST /files/multiuploadlink``.
+        """
         self._validate_parts_parameter(parts)
-        endpoint = self._multipart_file_upload_link
+        endpoint = self._multipart_upload_link
         request = RequestMessage(
             endpoint_url=self._http_client.config.create_api_url(endpoint.path),
             method="POST",

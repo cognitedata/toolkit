@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import (
     EdgeResponse,
+    InstanceResponse,
     NodeOrEdgeRequestAdapter,
     NodeResponse,
 )
@@ -88,6 +89,16 @@ class InstanceIO(
         # Cache for view to read-only properties mapping
         self._view_readonly_properties_cache: dict[ViewId, set[str]] = {}
         self._view_crud = ViewIO.create_io(self.client)
+
+    @staticmethod
+    def _exclude_deleted(items: Iterable[InstanceResponse]) -> list[InstanceResponse]:
+        """Drop soft-deleted instances returned by ``/models/instances/sync``.
+
+        Sync replays deletions. A tombstone can share an external ID with the node that replaced it
+        and omit direct relations, which come back as empty lists. Uploading that tombstone
+        overwrites the live instance.
+        """
+        return [item for item in items if item.deleted_time is None]
 
     def emit_registered_page(self, page: "Page[NodeOrEdgeResponse]") -> "Page[NodeOrEdgeResponse]":
         ids = [item.tracking_id for item in page.items if not isinstance(item.item, EdgeResponse)]
@@ -405,7 +416,7 @@ class InstanceIO(
             wrapped_items = [
                 DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
                 for group in included_groups
-                for item in batch.items.get(group, [])
+                for item in self._exclude_deleted(batch.items.get(group, []))
             ]
             next_cursor = batch.root_cursor
             yield Page(
@@ -438,7 +449,8 @@ class InstanceIO(
             total += len(page.items)
             if page:
                 wrapped_items = [
-                    DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item) for item in page.items
+                    DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
+                    for item in self._exclude_deleted(page.items)
                 ]
                 yield Page(
                     worker_id="main",

@@ -14,7 +14,7 @@ from cognite_toolkit._version import __version__
 
 from ._helpers import print_help_if_no_subcommand
 
-CDF_TOML = CDFToml.load(Path.cwd())
+CDF_TOML = CDFToml.load_module_context(Path.cwd())
 
 
 class ModulesListFormats(str, Enum):

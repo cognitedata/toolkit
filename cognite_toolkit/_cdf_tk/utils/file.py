@@ -241,7 +241,7 @@ def tmp_build_directory() -> typing.Generator[Path, None, None]:
 
 def safe_read(file: Path | str, encoding: str | None = None) -> str:
     """Falls back on explicit using utf-8 if the default .read_text()"""
-    encoding = encoding or CDFToml.load().cdf.file_encoding
+    encoding = encoding or CDFToml.load_module_context().cdf.file_encoding
     if isinstance(file, str):
         return file
     try:

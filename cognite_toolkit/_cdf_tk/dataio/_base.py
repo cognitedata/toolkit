@@ -190,7 +190,7 @@ class DataIO(ABC, Generic[T_Selector, T_DataResponse]):
         raise NotImplementedError()
 
 
-class UploadableDataIO(Generic[T_Selector, T_DataResponse, T_DataRequest], DataIO[T_Selector, T_DataResponse], ABC):
+class UploadableDataIO(DataIO[T_Selector, T_DataResponse], Generic[T_Selector, T_DataResponse, T_DataRequest]):
     """A base class for storage items that support uploading data to CDF.
 
     Attributes:
