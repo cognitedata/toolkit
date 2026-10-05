@@ -31,8 +31,8 @@ class TestDownloadFiles:
         smoke_dataset: DataSetResponse,
         tmp_path: Path,
     ) -> None:
-        if smoke_dataset.external_id is None or smoke_dataset.id is None:
-            raise AssertionError("Smoke dataset is missing an id, so files cannot be downloaded from it.")
+        if smoke_dataset.external_id is None:
+            raise AssertionError("Smoke dataset is missing an external_id, so files cannot be downloaded from it.")
         for external_id in _FILE_METADATA_EXTERNAL_IDS:
             _delete_file_metadata(toolkit_client, external_id)
         try:
