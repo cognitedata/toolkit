@@ -386,7 +386,11 @@ class InFieldCDMLocationConfigIO(
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
         # Reading cdf_infield is always required to check InField CDM location configs.
-        yield DataModelsAcl(actions=["READ"], scope=SpaceIDScope(space_ids=["cdf_infield"]))
+        # It also needs to check for legacy InField spaces
+        yield DataModelsAcl(actions=["READ"], scope=SpaceIDScope(space_ids=["cdf_infield", APM_CONFIG_SPACE]))
+        if not isinstance(scope, AllScope):
+            # AllScope already covers any space, so these are only needed for scoped deployments.
+            yield DataModelInstancesAcl(actions=["READ"], scope=SpaceIDScope(space_ids=[APM_CONFIG_SPACE]))
 
     @classmethod
     def get_dependencies(cls, resource: InFieldCDMLocationConfigYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
