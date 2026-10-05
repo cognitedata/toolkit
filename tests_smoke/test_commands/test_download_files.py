@@ -12,16 +12,18 @@ from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import COGNITE
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest
+from tests_smoke.test_commands.test_upload_files import _wait_until_cognite_file_uploaded, _wait_until_uploaded
 
 _DOWNLOAD_LIMIT = 2
-_FILE_METADATA_EXTERNAL_IDS = (
-    "toolkit_smoke_download_filemetadata_1",
-    "toolkit_smoke_download_filemetadata_2",
-)
-_COGNITE_FILE_EXTERNAL_IDS = (
-    "toolkit_smoke_download_cognitefile_1",
-    "toolkit_smoke_download_cognitefile_2",
-)
+_MIME_TYPE = "text/plain"
+_FILE_METADATA_CONTENT = {
+    "toolkit_smoke_download_filemetadata_1": "toolkit smoke download file metadata 1\n",
+    "toolkit_smoke_download_filemetadata_2": "toolkit smoke download file metadata 2\n",
+}
+_COGNITE_FILE_CONTENT = {
+    "toolkit_smoke_download_cognitefile_1": "toolkit smoke download cognite file 1\n",
+    "toolkit_smoke_download_cognitefile_2": "toolkit smoke download cognite file 2\n",
+}
 
 
 class TestDownloadFiles:
@@ -31,33 +33,13 @@ class TestDownloadFiles:
         smoke_dataset: DataSetResponse,
         tmp_path: Path,
     ) -> None:
-        if smoke_dataset.external_id is None:
-            raise AssertionError("Smoke dataset is missing an external_id, so files cannot be downloaded from it.")
-        for external_id in _FILE_METADATA_EXTERNAL_IDS:
-            _delete_file_metadata(toolkit_client, external_id)
-        try:
-            toolkit_client.tool.filemetadata.create(
-                [
-                    FileMetadataRequest(
-                        name=external_id,
-                        external_id=external_id,
-                        data_set_id=smoke_dataset.id,
-                    )
-                    for external_id in _FILE_METADATA_EXTERNAL_IDS
-                ],
-                overwrite=True,
-            )
-            output_dir = tmp_path / "filemetadata"
-            _download_file_metadata(output_dir, smoke_dataset.external_id)
-            downloaded = _count_downloaded_rows(output_dir)
-            if downloaded != _DOWNLOAD_LIMIT:
-                raise AssertionError(
-                    f"Expected {_DOWNLOAD_LIMIT} file metadata rows from the smoke dataset, got {downloaded}.\n"
-                    f"{_issue_logs(output_dir)}"
-                )
-        finally:
-            for external_id in _FILE_METADATA_EXTERNAL_IDS:
-                _delete_file_metadata(toolkit_client, external_id)
+        if smoke_dataset.external_id is None or smoke_dataset.id is None:
+            raise AssertionError("Smoke dataset is missing an id, so files cannot be downloaded from it.")
+        for external_id, content in _FILE_METADATA_CONTENT.items():
+            _ensure_file_metadata_content(toolkit_client, smoke_dataset.id, external_id, content)
+        output_dir = tmp_path / "filemetadata"
+        _download_file_metadata(output_dir, smoke_dataset.external_id)
+        _assert_downloaded_row_count(output_dir, "file metadata rows from the smoke dataset")
 
     def test_download_two_files_from_smoke_space(
         self,
@@ -66,27 +48,62 @@ class TestDownloadFiles:
         tmp_path: Path,
     ) -> None:
         space = smoke_space.space
-        for external_id in _COGNITE_FILE_EXTERNAL_IDS:
-            _delete_cognite_file(toolkit_client, space, external_id)
-        try:
-            toolkit_client.tool.cognite_files.create(
-                [
-                    CogniteFileRequest(space=space, external_id=external_id, name=external_id)
-                    for external_id in _COGNITE_FILE_EXTERNAL_IDS
-                ],
-                replace=True,
-            )
-            output_dir = tmp_path / "cognitefile"
-            _download_cognite_files(output_dir, space)
-            downloaded = _count_downloaded_rows(output_dir)
-            if downloaded != _DOWNLOAD_LIMIT:
-                raise AssertionError(
-                    f"Expected {_DOWNLOAD_LIMIT} CogniteFile rows from the smoke space, got {downloaded}.\n"
-                    f"{_issue_logs(output_dir)}"
+        for external_id, content in _COGNITE_FILE_CONTENT.items():
+            _ensure_cognite_file_content(toolkit_client, space, external_id, content)
+        output_dir = tmp_path / "cognitefile"
+        _download_cognite_files(output_dir, space)
+        _assert_downloaded_row_count(output_dir, "CogniteFile rows from the smoke space")
+
+
+def _ensure_file_metadata_content(client: ToolkitClient, data_set_id: int, external_id: str, content: str) -> None:
+    identifier = ExternalId(external_id=external_id)
+    found = client.tool.filemetadata.retrieve([identifier], ignore_unknown_ids=True)
+    if found and found[0].uploaded:
+        return
+    if found:
+        upload_url = _upload_url(client, identifier, external_id)
+    else:
+        created = client.tool.filemetadata.create(
+            [
+                FileMetadataRequest(
+                    name=external_id,
+                    external_id=external_id,
+                    data_set_id=data_set_id,
+                    mime_type=_MIME_TYPE,
                 )
-        finally:
-            for external_id in _COGNITE_FILE_EXTERNAL_IDS:
-                _delete_cognite_file(toolkit_client, space, external_id)
+            ]
+        )[0]
+        if not created.upload_url:
+            raise AssertionError(f"CDF did not return an upload URL for file metadata {external_id}.")
+        upload_url = created.upload_url
+    client.tool.filemetadata.upload_file(content, upload_url, _MIME_TYPE)
+    _wait_until_uploaded(client, identifier)
+
+
+def _ensure_cognite_file_content(client: ToolkitClient, space: str, external_id: str, content: str) -> None:
+    node_id = NodeId(space=space, external_id=external_id)
+    try:
+        nodes = client.tool.cognite_files.retrieve([node_id])
+    except ToolkitAPIError:
+        nodes = []
+    if nodes and nodes[0].is_uploaded:
+        return
+    if not nodes:
+        client.tool.cognite_files.create(
+            [CogniteFileRequest(space=space, external_id=external_id, name=external_id, mime_type=_MIME_TYPE)]
+        )
+    instance_id = InstanceId(instance_id=node_id)
+    upload_url = _upload_url(client, instance_id, f"{space}:{external_id}")
+    client.tool.filemetadata.upload_file(content, upload_url, _MIME_TYPE)
+    _wait_until_uploaded(client, instance_id)
+    _wait_until_cognite_file_uploaded(client, node_id)
+
+
+def _upload_url(client: ToolkitClient, identifier: ExternalId | InstanceId, label: str) -> str:
+    linked = client.tool.filemetadata.get_upload_url([identifier])
+    if not linked or not linked[0].upload_url:
+        raise AssertionError(f"CDF did not return an upload URL for {label}.")
+    return linked[0].upload_url
 
 
 def _download_file_metadata(output_dir: Path, data_set_external_id: str) -> None:
@@ -119,6 +136,12 @@ def _download_cognite_files(output_dir: Path, space: str) -> None:
         raise AssertionError(
             f"DownloadApp.download_instances_cmd failed: {error}\n{_issue_logs(output_dir)}"
         ) from error
+
+
+def _assert_downloaded_row_count(output_dir: Path, label: str) -> None:
+    downloaded = _count_downloaded_rows(output_dir)
+    if downloaded != _DOWNLOAD_LIMIT:
+        raise AssertionError(f"Expected {_DOWNLOAD_LIMIT} {label}, got {downloaded}.\n{_issue_logs(output_dir)}")
 
 
 def _count_downloaded_rows(output_dir: Path) -> int:
@@ -155,28 +178,3 @@ def _issue_logs(directory: Path) -> str:
         return "No download issue log was written."
     sections = [f"{path.name}:\n{path.read_text(encoding='utf-8')}" for path in logs]
     return "\n".join(sections)
-
-
-def _delete_file_metadata(client: ToolkitClient, external_id: str) -> None:
-    try:
-        client.tool.filemetadata.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
-    except ToolkitAPIError:
-        return
-
-
-def _delete_cognite_file(client: ToolkitClient, space: str, external_id: str) -> None:
-    node_id = NodeId(space=space, external_id=external_id)
-    try:
-        linked = client.tool.filemetadata.retrieve([InstanceId(instance_id=node_id)], ignore_unknown_ids=True)
-    except ToolkitAPIError:
-        linked = []
-    try:
-        client.tool.cognite_files.delete([node_id])
-    except ToolkitAPIError:
-        pass
-    if not linked:
-        return
-    try:
-        client.tool.filemetadata.delete([item.as_internal_id() for item in linked], ignore_unknown_ids=True)
-    except ToolkitAPIError:
-        return
