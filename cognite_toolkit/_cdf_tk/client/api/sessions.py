@@ -9,9 +9,15 @@ from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
 from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import (
+    HTTPClient,
+    ItemsSuccessResponse,
+    SuccessResponse,
+    ToolkitAPIError,
+)
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    OneshotTokenExchangeSessionRequest,
     SessionCreateRequest,
     SessionCreateResponse,
     SessionResponse,
@@ -59,6 +65,20 @@ class SessionAPI(CDFResourceAPI[SessionResponse]):
         for response in self._chunk_requests(items, "create", self._serialize_items):
             response_items.extend(PagedResponse[SessionCreateResponse].model_validate_json(response.body).items)
         return response_items
+
+    def create_one_shot_token_exchange_session(self) -> SessionCreateResponse:
+        """Create a one-shot token exchange session.
+
+        This is a convenience method for creating a single one-shot token exchange session
+        without needing to construct a request object and index a list.
+
+        Returns:
+            Created session. The item includes a nonce used to bind the session.
+        """
+        response = self.create([OneshotTokenExchangeSessionRequest()])
+        if not response:
+            raise ToolkitAPIError("Failed to create one-shot token exchange session. No response received.")
+        return response[0]
 
     def retrieve(self, items: Sequence[InternalId]) -> builtins.list[SessionResponse]:
         """Retrieve sessions by ID.
