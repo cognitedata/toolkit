@@ -261,7 +261,6 @@ def _upload_dir(upload_dir: Path, project: str) -> None:
         UploadApp.upload_dir(
             typer.Context(click.Command("upload_dir")),
             input_dir=upload_dir,
-            skip_verify_cdf_project=True,
             cdf_project=project,
             overwrite=True,
             verbose=True,
