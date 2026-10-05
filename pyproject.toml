@@ -146,7 +146,6 @@ exclude = [
     "cognite_toolkit/_cdf_tk/rules",
     "cognite_toolkit/_cdf_tk/tk_warnings",
     "cognite_toolkit/_cdf_tk/utils",
-    "cognite_toolkit/_cdf_tk/yaml_classes",
 ]
 [tool.ty.environment]
 python-version = "3.14"
