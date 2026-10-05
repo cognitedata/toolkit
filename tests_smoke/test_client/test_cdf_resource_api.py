@@ -44,11 +44,13 @@ from cognite_toolkit._cdf_tk.client.api.sap_writeback import SAPEndpointsAPI, SA
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.sequence_rows import SequenceRowsAPI
+from cognite_toolkit._cdf_tk.client.api.sessions import SessionAPI
 from cognite_toolkit._cdf_tk.client.api.signal_subscriptions import SignalSubscriptionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_routines import SimulatorRoutinesAPI
+from cognite_toolkit._cdf_tk.client.api.statistics import SpaceStatisticsAPI, StatisticsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import (
     ThreeDClassicAssetMappingAPI,
@@ -71,6 +73,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     ExtractionPipelineConfigId,
     InternalId,
     InternalUnwrappedId,
+    SpaceId,
     ThreeDModelRevisionId,
     WorkflowVersionId,
 )
@@ -209,6 +212,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sequence import (
     SequenceResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.session import OneshotTokenExchangeSessionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_sink import SignalSinkRequest, SignalSinkResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import (
     SignalSubscriptionRequest,
@@ -328,8 +332,13 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         DataProductVersionsAPI,
         # Datapoints subscription has a special update method
         DatapointSubscriptionsAPI,
+        # Statistics are read-only and have no items to create, update, or delete.
+        StatisticsAPI,
+        SpaceStatisticsAPI,
         # No create methods
         PrincipalsAPI,
+        # Create payload is not a response resource, and delete is revoke.
+        SessionAPI,
         PrincipalLoginSessionsAPI,
         UserProfilesAPI,
         # Search/list/aggregate only; no request examples for generic CRUDL.
@@ -2457,6 +2466,72 @@ class TestCDFResourceAPI:
             # Clean up
             client.tool.datapoint_subscriptions.delete([subscription_id])
 
+    def test_session_create_retrieve_list_revoke(self, toolkit_client: ToolkitClient) -> None:
+        sessions = toolkit_client.sessions
+        endpoints = sessions._method_endpoint_map
+        session_id: InternalId | None = None
+        revoked = False
+        try:
+            try:
+                created = sessions.create([OneshotTokenExchangeSessionRequest()])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(
+                    endpoints["create"].path, f"Creating one-shot session failed: {e!s}"
+                ) from e
+            if len(created) != 1:
+                raise EndpointAssertionError(
+                    endpoints["create"].path, f"Expected 1 created session, got {len(created)}"
+                )
+            created_session = created[0]
+            if created_session.type != "ONESHOT_TOKEN_EXCHANGE" or not created_session.nonce:
+                raise EndpointAssertionError(
+                    endpoints["create"].path,
+                    "Created session is missing one-shot type or nonce.",
+                )
+            session_id = created_session.as_id()
+
+            try:
+                retrieved = sessions.retrieve([session_id])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(
+                    endpoints["retrieve"].path, f"Retrieving session {session_id.id} failed: {e!s}"
+                ) from e
+            if len(retrieved) != 1 or retrieved[0].id != session_id.id:
+                raise EndpointAssertionError(
+                    endpoints["retrieve"].path,
+                    f"Expected to retrieve session {session_id.id}, got {len(retrieved)}",
+                )
+            if retrieved[0].type != "ONESHOT_TOKEN_EXCHANGE":
+                raise EndpointAssertionError(
+                    endpoints["retrieve"].path,
+                    f"Expected one-shot session, got {retrieved[0].type}",
+                )
+
+            try:
+                listed = sessions.list(limit=1000)
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(endpoints["list"].path, f"Listing sessions failed: {e!s}") from e
+            if not listed:
+                raise EndpointAssertionError(
+                    endpoints["list"].path, f"Created session {session_id.id} was not returned by list"
+                )
+
+            try:
+                revoked_sessions = sessions.revoke([session_id])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(
+                    endpoints["delete"].path, f"Revoking session {session_id.id} failed: {e!s}"
+                ) from e
+            revoked = True
+            if len(revoked_sessions) != 1 or revoked_sessions[0].id != session_id.id:
+                raise EndpointAssertionError(
+                    endpoints["delete"].path,
+                    f"Expected to revoke session {session_id.id}, got {len(revoked_sessions)}",
+                )
+        finally:
+            if session_id is not None and not revoked:
+                sessions.revoke([session_id])
+
     def test_principals_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
@@ -2542,6 +2617,43 @@ class TestCDFResourceAPI:
                 client.user_profiles._search_endpoint.path, f"Searching user profiles failed: {e!s}"
             ) from None
         # We only care about a 200 response, not whether we got a hit.
+
+    def test_statistics(self, toolkit_client: ToolkitClient) -> None:
+        """Smoke-test project and space statistics endpoints (read-only)."""
+        client = toolkit_client
+        project_endpoint = client.statistics._method_endpoint_map["retrieve"]
+        try:
+            _ = client.statistics.retrieve()
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(project_endpoint.path, f"Retrieving project statistics failed: {e!s}") from e
+
+        spaces = client.statistics.spaces
+        list_endpoint = spaces._method_endpoint_map["list"]
+        listed_space = None
+        start_time = time.monotonic()
+        while listed_space is None and (time.monotonic() - start_time) < 30.0:
+            try:
+                listed = spaces.list()
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(list_endpoint.path, f"Listing space statistics failed: {e!s}") from e
+            listed_space = next((item for item in listed if item.space == SMOKE_SPACE), None)
+            if listed_space is None:
+                time.sleep(1.0)
+        if listed_space is None:
+            raise EndpointAssertionError(list_endpoint.path, f"Expected space {SMOKE_SPACE} in listed statistics.")
+
+        retrieve_endpoint = spaces._method_endpoint_map["retrieve"]
+        try:
+            retrieved = spaces.retrieve([SpaceId(space=SMOKE_SPACE)])
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                retrieve_endpoint.path, f"Retrieving statistics for space {SMOKE_SPACE} failed: {e!s}"
+            ) from e
+        if len(retrieved) != 1 or retrieved[0].space != SMOKE_SPACE:
+            raise EndpointAssertionError(
+                retrieve_endpoint.path,
+                f"Expected statistics for space {SMOKE_SPACE}, got {[item.space for item in retrieved]}.",
+            )
 
     def test_documents_list_search_aggregate(self, toolkit_client: ToolkitClient) -> None:
         """Smoke-test Documents API list, search, and aggregate helpers (read-only)."""

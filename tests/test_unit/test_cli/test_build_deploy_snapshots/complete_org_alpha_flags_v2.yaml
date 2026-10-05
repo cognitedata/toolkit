@@ -111,6 +111,24 @@ DataSetResponse:
 - description: This dataset is used for all the resources in the complete_org.
   externalId: ds_complete_org
   name: Example dataset.
+- description: Data set for the Ice Cream API
+  externalId: ds_icapi
+  metadata:
+    archived: 'false'
+    consoleAdditionalDocs: '[{"type": "file", "id": "400583066634556", "name": "deploy-out.txt"},
+      {"type": "url", "id": "docs.cognite.com", "name": "Docs"}]'
+    consoleExtractors: '{"accounts": []}'
+    consoleGoverned: 'true'
+    consoleOwners: '[{"name": "Anders", "email": "example@email.com"}]'
+    consoleSource: '{"names": ["MyCustomSource"]}'
+    rawTables: '[{"databaseName": "db_complete_org", "tableName": "asset"}, {"databaseName":
+      "data-dumps", "tableName": "data-dumps_Equipment list MDI2"}, {"databaseName":
+      "data-dumps", "tableName": "data-dumps_dump FLOC RZ14"}]'
+    transformations: '[{"name": 681712, "type": "jetfire"}, {"name": 681715, "type":
+      "jetfire"}, {"name": "External Transformation", "type": "external", "details":
+      "This was done with Postman"}]'
+  name: Ice Cream API
+  writeProtected: false
 ExternalDataSourceResponse:
 - dataSetId: 7982613576047462211
   externalId: my_onelake_source
