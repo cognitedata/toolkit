@@ -36,13 +36,7 @@ class SessionAPI(CDFResourceAPI[Session]):
     def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[Session]:
         return PagedResponse[Session].model_validate_json(response.body)
 
-    @staticmethod
-    def _status_params(status: SessionStatus | None) -> dict[str, str] | None:
-        if status is None:
-            return None
-        return {"status": status}
-
-    def create(self, items: Sequence[SessionCreateRequest]) -> builtins.list[Session]:
+    def create(self, items: Sequence[SessionCreateRequest]) -> list[Session]:
         """Create sessions.
 
         Each item is sent in its own request. The endpoint accepts exactly one session per call.
@@ -93,13 +87,13 @@ class SessionAPI(CDFResourceAPI[Session]):
 
         Args:
             status: If given, only sessions with this status are returned.
-            limit: Maximum number of sessions in the page. Maximum is 1000. Default is 25.
+            limit: Maximum number of sessions in the page. Maximum is 100. Default is 25.
             cursor: Cursor for pagination.
 
         Returns:
             One page of sessions.
         """
-        return self._paginate(limit=limit, cursor=cursor, params=self._status_params(status))
+        return self._paginate(limit=limit, cursor=cursor, params=self._filter_out_none_values({"status": status}))
 
     def iterate(
         self,
@@ -117,7 +111,7 @@ class SessionAPI(CDFResourceAPI[Session]):
         Returns:
             Batches of sessions.
         """
-        return self._iterate(limit=limit, cursor=cursor, params=self._status_params(status))
+        return self._iterate(limit=limit, cursor=cursor, params=self._filter_out_none_values({"status": status}))
 
     def list(self, status: SessionStatus | None = None, limit: int | None = 25) -> builtins.list[Session]:
         """List sessions in the current project.
@@ -129,4 +123,4 @@ class SessionAPI(CDFResourceAPI[Session]):
         Returns:
             Sessions in the current project.
         """
-        return self._list(limit=limit, params=self._status_params(status))
+        return self._list(limit=limit, params=self._filter_out_none_values({"status": status}))
