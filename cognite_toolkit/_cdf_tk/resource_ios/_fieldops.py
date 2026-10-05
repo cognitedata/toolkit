@@ -84,6 +84,11 @@ class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse, In
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
+        # Reading APM_Config is always required to check for legacy InField conflicts.
+        yield DataModelsAcl(actions=["READ"], scope=SpaceIDScope(space_ids=[APM_CONFIG_SPACE]))
+        if not isinstance(scope, AllScope):
+            # AllScope already covers any space, so these are only needed for scoped deployments.
+            yield DataModelInstancesAcl(actions=["READ"], scope=SpaceIDScope(space_ids=[APM_CONFIG_SPACE]))
 
     def prerequisite_warning(self) -> str | None:
         view_id = APMConfigRequest.VIEW_ID
@@ -274,6 +279,8 @@ class InFieldLocationConfigIO(
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
+        # Reading cdf_infield is always required to check InField location configs.
+        yield DataModelsAcl(actions=["READ"], scope=SpaceIDScope(space_ids=["cdf_infield"]))
 
     @classmethod
     def get_dependencies(cls, resource: InfieldLocationConfigYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
@@ -378,10 +385,11 @@ class InFieldCDMLocationConfigIO(
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
+        # Reading cdf_infield is always required to check InField CDM location configs.
+        # It also needs to check for legacy InField spaces
+        yield DataModelsAcl(actions=["READ"], scope=SpaceIDScope(space_ids=["cdf_infield", APM_CONFIG_SPACE]))
         if not isinstance(scope, AllScope):
-            # Reading APM_Config is always required to check for legacy InField conflicts.
             # AllScope already covers any space, so these are only needed for scoped deployments.
-            yield DataModelsAcl(actions=["READ"], scope=SpaceIDScope(space_ids=[APM_CONFIG_SPACE]))
             yield DataModelInstancesAcl(actions=["READ"], scope=SpaceIDScope(space_ids=[APM_CONFIG_SPACE]))
 
     @classmethod
