@@ -434,6 +434,55 @@ class TestChartIO:
                 client.charts.scheduled_calculations.delete.assert_not_called()
                 client.charts.scheduled_calculations.create.assert_not_called()
 
+    @pytest.mark.usefixtures("disable_gzip")
+    @pytest.mark.parametrize("failure", ["no_nonce", "recreate_error"])
+    def test_upload_fails_when_expired_session_cannot_be_recreated(
+        self, toolkit_config: ToolkitClientConfig, failure: str
+    ) -> None:
+        chart = _example_chart_response_for_download()
+        monitoring_job = _example_monitoring_job_response()
+        calculation = _example_scheduled_calculation_response()
+        downloaded = self._create_downloaded_chart(chart, monitoring_job, calculation)
+        expired = ToolkitAPIError(
+            "Request failed with status code 409: Session is no longer active; create a new schedule", code=409
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.charts.list.return_value = []
+            client.lookup.time_series.id.return_value = _CHART_TS_INTERNAL_ID
+            client.iam.sessions.create.return_value.nonce = "new-nonce"
+            client.charts.monitoring_jobs.retrieve.return_value = [monitoring_job]
+            client.charts.scheduled_calculations.retrieve.return_value = [calculation]
+            client.charts.monitoring_jobs.update.side_effect = expired
+            client.charts.scheduled_calculations.update.side_effect = expired
+            client.charts.monitoring_jobs.upsert.side_effect = ToolkitAPIError("boom", code=500)
+            client.charts.scheduled_calculations.delete.side_effect = ToolkitAPIError("boom", code=500)
+
+            io = ChartIO(
+                client,
+                skip_backend_services=False,
+                skip_existing=False,
+                # Without skip_strict_mode and device code credentials there is no way to create a nonce.
+                skip_strict_mode=failure == "recreate_error",
+                recreate_expired_schedules=True,
+            )
+            page = io.json_chunk_to_data(
+                Page(worker_id="main", items=[DataItem(tracking_id="line 1", item=downloaded)])
+            )
+            with HTTPClient(toolkit_config) as http_client:
+                with respx.mock(assert_all_called=False) as mock_router:
+                    chart_put = mock_router.put(toolkit_config.create_app_url(ChartIO.UPLOAD_ENDPOINT)).respond(
+                        status_code=200
+                    )
+                    io.upload_items(page, http_client)
+
+            # The chart is not uploaded when its backend services could not be recreated.
+            assert len(chart_put.calls) == 0
+            if failure == "no_nonce":
+                client.charts.monitoring_jobs.upsert.assert_not_called()
+                client.charts.scheduled_calculations.delete.assert_not_called()
+            else:
+                client.charts.scheduled_calculations.create.assert_not_called()
+
     @pytest.mark.parametrize(
         "limit,selector,expected_external_ids",
         [

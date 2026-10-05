@@ -1338,7 +1338,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selectors=[ChartExternalIdSelector(external_ids=tuple(selected_external_ids))],
-                data=ChartIO(client, skip_backend_services=False),
+                data=ChartIO(client, skip_backend_services=False, recreate_expired_schedules=True),
                 mapper=ChartMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
