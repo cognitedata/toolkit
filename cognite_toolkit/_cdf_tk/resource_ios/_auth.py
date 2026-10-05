@@ -251,17 +251,29 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                 self.client.lookup.extraction_pipelines.external_id,
                 id_name="ids",
             ),
+            # Following the docs, it is 'idscope' for DataSetsAcls and ExtractionPipelinesAcls,
+            # but our users have deployed with 'idScope' with those ACLs, so we support both to ensure.
+            (DataSetsAcl, IDScopeLowerCase): ReplaceMethod(
+                self.client.lookup.data_sets.id,
+                self.client.lookup.data_sets.external_id,
+                id_name="ids",
+            ),
+            (ExtractionPipelinesAcl, IDScopeLowerCase): ReplaceMethod(
+                self.client.lookup.extraction_pipelines.id,
+                self.client.lookup.extraction_pipelines.external_id,
+                id_name="ids",
+            ),
             (LocationFiltersAcl, IDScope): ReplaceMethod(
                 self.client.lookup.location_filters.id,
                 self.client.lookup.location_filters.external_id,
                 id_name="ids",
             ),
-            (SecurityCategoriesAcl, IDScope): ReplaceMethod(
+            (SecurityCategoriesAcl, IDScopeLowerCase): ReplaceMethod(
                 self.client.lookup.security_categories.id,
                 self.client.lookup.security_categories.external_id,
                 id_name="ids",
             ),
-            (TimeSeriesAcl, IDScope): ReplaceMethod(
+            (TimeSeriesAcl, IDScopeLowerCase): ReplaceMethod(
                 self.client.lookup.time_series.id,
                 self.client.lookup.time_series.external_id,
                 id_name="ids",
@@ -282,7 +294,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                 id_name="rootIds",
             ),
         }
-        # Trick to avoid writing _capability_name and _scope_name for each entry.
+        # Trick to avoid writing _acl_name and _scope_name for each entry.
         return {
             (key[0].model_fields["acl_name"].default, key[1].model_fields["scope_name"].default)
             if isinstance(key, tuple)
@@ -304,7 +316,10 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             raise ToolkitWrongResourceError()
 
         substituted = self._substitute_scope_ids(resource, is_dry_run)
-        return GroupRequest._load(substituted)
+        try:
+            return GroupRequest._load(substituted)
+        except Exception:
+            raise
 
     def dump_resource(self, resource: GroupResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
