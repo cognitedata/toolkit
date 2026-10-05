@@ -11,10 +11,15 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoi
 from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.session import Session, SessionCreateRequest, SessionStatus
+from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    SessionCreateRequest,
+    SessionCreateResponse,
+    SessionResponse,
+    SessionStatus,
+)
 
 
-class SessionAPI(CDFResourceAPI[Session]):
+class SessionAPI(CDFResourceAPI[SessionResponse]):
     """API for the Cognite Sessions endpoints.
 
     Sessions extend access to CDF resources. A session is created with client credentials,
@@ -33,10 +38,12 @@ class SessionAPI(CDFResourceAPI[Session]):
             },
         )
 
-    def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[Session]:
-        return PagedResponse[Session].model_validate_json(response.body)
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[SessionResponse]:
+        return PagedResponse[SessionResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[SessionCreateRequest]) -> list[Session]:
+    def create(self, items: Sequence[SessionCreateRequest]) -> list[SessionCreateResponse]:
         """Create sessions.
 
         Each item is sent in its own request. The endpoint accepts exactly one session per call.
@@ -48,9 +55,12 @@ class SessionAPI(CDFResourceAPI[Session]):
         Returns:
             Created sessions. Each item includes a nonce used to bind the session.
         """
-        return self._request_item_response(items, "create")
+        response_items: list[SessionCreateResponse] = []
+        for response in self._chunk_requests(items, "create", self._serialize_items):
+            response_items.extend(PagedResponse[SessionCreateResponse].model_validate_json(response.body).items)
+        return response_items
 
-    def retrieve(self, items: Sequence[InternalId]) -> builtins.list[Session]:
+    def retrieve(self, items: Sequence[InternalId]) -> builtins.list[SessionResponse]:
         """Retrieve sessions by ID.
 
         The request fails if any ID does not belong to an existing session.
@@ -63,7 +73,7 @@ class SessionAPI(CDFResourceAPI[Session]):
         """
         return self._request_item_response(items, "retrieve")
 
-    def revoke(self, items: Sequence[InternalId]) -> builtins.list[Session]:
+    def revoke(self, items: Sequence[InternalId]) -> builtins.list[SessionResponse]:
         """Revoke sessions.
 
         Revocation is idempotent and may take up to one hour to take effect.
@@ -82,7 +92,7 @@ class SessionAPI(CDFResourceAPI[Session]):
         status: SessionStatus | None = None,
         limit: int = 25,
         cursor: str | None = None,
-    ) -> PagedResponse[Session]:
+    ) -> PagedResponse[SessionResponse]:
         """Fetch one page of sessions in the current project.
 
         Args:
@@ -100,7 +110,7 @@ class SessionAPI(CDFResourceAPI[Session]):
         status: SessionStatus | None = None,
         limit: int | None = 25,
         cursor: str | None = None,
-    ) -> Iterable[builtins.list[Session]]:
+    ) -> Iterable[builtins.list[SessionResponse]]:
         """Iterate over sessions in the current project.
 
         Args:
@@ -113,7 +123,7 @@ class SessionAPI(CDFResourceAPI[Session]):
         """
         return self._iterate(limit=limit, cursor=cursor, params=self._filter_out_none_values({"status": status}))
 
-    def list(self, status: SessionStatus | None = None, limit: int | None = 25) -> builtins.list[Session]:
+    def list(self, status: SessionStatus | None = None, limit: int | None = 25) -> builtins.list[SessionResponse]:
         """List sessions in the current project.
 
         Args:
