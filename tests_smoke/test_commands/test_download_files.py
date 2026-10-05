@@ -6,20 +6,28 @@ import typer
 
 from cognite_toolkit._cdf_tk.apps._download_app import AssetCentricFormats, DownloadApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceId
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceId, NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import DocumentResponse, DocumentSourceFile
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest
 from cognite_toolkit._cdf_tk.utils.interactive_select import DocumentSelectStatus, SelectedDocuments
 from tests.test_unit.utils import MockQuestionary
-from tests_smoke.test_commands.test_upload_files import _wait_until_uploaded
+from tests_smoke.test_commands.test_upload_files import _wait_until_cognite_file_uploaded, _wait_until_uploaded
 
 _DOWNLOAD_LIMIT = 2
 _MIME_TYPE = "text/plain"
 _FILE_METADATA_DIR = "asset-centric-files-with-content"
+_COGNITE_FILE_DIR = "cognite-file-with-content"
 _FILE_METADATA_CONTENT = {
     "toolkit_smoke_download_filemetadata_1": "toolkit smoke download file metadata 1\n",
     "toolkit_smoke_download_filemetadata_2": "toolkit smoke download file metadata 2\n",
+}
+_COGNITE_FILE_CONTENT = {
+    "toolkit_smoke_download_cognitefile_1": "toolkit smoke download cognite file 1\n",
+    "toolkit_smoke_download_cognitefile_2": "toolkit smoke download cognite file 2\n",
 }
 
 
@@ -39,11 +47,30 @@ class TestDownloadFiles:
         _download_file_content(
             monkeypatch,
             output_dir,
-            data_set_external_id=smoke_dataset.external_id,
             documents=_file_metadata_documents(toolkit_client, list(_FILE_METADATA_CONTENT)),
             cognite_file=False,
         )
         _assert_downloaded_content(output_dir, _FILE_METADATA_DIR, _FILE_METADATA_CONTENT)
+
+    def test_download_two_cognite_files(
+        self,
+        toolkit_client: ToolkitClient,
+        smoke_space: SpaceResponse,
+        smoke_dataset: DataSetResponse,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        space = smoke_space.space
+        for external_id, content in _COGNITE_FILE_CONTENT.items():
+            _ensure_cognite_file_content(toolkit_client, space, external_id, content)
+        output_dir = tmp_path / "cognitefile"
+        _download_file_content(
+            monkeypatch,
+            output_dir,
+            documents=_cognite_file_documents(toolkit_client, space, list(_COGNITE_FILE_CONTENT)),
+            cognite_file=True,
+        )
+        _assert_downloaded_content(output_dir, _COGNITE_FILE_DIR, _COGNITE_FILE_CONTENT)
 
 
 def _ensure_file_metadata_content(client: ToolkitClient, data_set_id: int, external_id: str, content: str) -> None:
@@ -69,6 +96,22 @@ def _ensure_file_metadata_content(client: ToolkitClient, data_set_id: int, exter
         upload_url = created.upload_url
     client.tool.filemetadata.upload_file(content, upload_url, _MIME_TYPE)
     _wait_until_uploaded(client, identifier)
+
+
+def _ensure_cognite_file_content(client: ToolkitClient, space: str, external_id: str, content: str) -> None:
+    node = CogniteFileRequest(space=space, external_id=external_id, name=external_id, mime_type=_MIME_TYPE)
+    try:
+        found = client.tool.cognite_files.retrieve([node.as_id()])
+    except ToolkitAPIError:
+        found = []
+    if found and found[0].is_uploaded:
+        return
+    if not found:
+        client.tool.cognite_files.create([node])
+    upload_url = _upload_url(client, node.as_instance_id(), external_id)
+    client.tool.filemetadata.upload_file(content, upload_url, _MIME_TYPE)
+    _wait_until_uploaded(client, node.as_instance_id())
+    _wait_until_cognite_file_uploaded(client, node.as_id())
 
 
 def _upload_url(client: ToolkitClient, identifier: ExternalId | InstanceId, label: str) -> str:
@@ -98,10 +141,29 @@ def _file_metadata_documents(client: ToolkitClient, external_ids: list[str]) -> 
     ]
 
 
+def _cognite_file_documents(client: ToolkitClient, space: str, external_ids: list[str]) -> list[DocumentResponse]:
+    found = client.tool.cognite_files.retrieve(
+        [NodeId(space=space, external_id=external_id) for external_id in external_ids]
+    )
+    found_by_external_id = {item.external_id: item for item in found}
+    missing = [external_id for external_id in external_ids if external_id not in found_by_external_id]
+    if missing:
+        raise AssertionError(f"CogniteFile was not found for {', '.join(missing)}.")
+    return [
+        DocumentResponse(
+            id=index,
+            external_id=external_id,
+            instance_id=NodeId(space=space, external_id=external_id),
+            created_time=found_by_external_id[external_id].created_time,
+            source_file=DocumentSourceFile(name=found_by_external_id[external_id].name or external_id),
+        )
+        for index, external_id in enumerate(external_ids, start=1)
+    ]
+
+
 def _download_file_content(
     monkeypatch: pytest.MonkeyPatch,
     output_dir: Path,
-    data_set_external_id: str,
     documents: list[DocumentResponse],
     cognite_file: bool,
 ) -> None:
@@ -114,11 +176,11 @@ def _download_file_content(
         with MockQuestionary(
             DownloadApp.__module__,
             monkeypatch,
-            [AssetCentricFormats.csv, str(output_dir)],
+            [True, AssetCentricFormats.csv, str(output_dir)],
         ):
             DownloadApp().download_files_cmd(
                 typer.Context(click.Command("download_files")),
-                data_sets=[data_set_external_id],
+                data_sets=None,
                 include_file_contents=True,
                 output_dir=output_dir,
                 limit=_DOWNLOAD_LIMIT,
