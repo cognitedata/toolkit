@@ -168,7 +168,9 @@ class DumpConfigApp(typer.Typer):
                     space=data_model_id[0], external_id=data_model_id[1], version=data_model_id[2]
                 )
         else:
-            include_global = questionary.confirm("Include global data models in options?", default=include_global).ask()
+            include_global = questionary.confirm(
+                "Include global data models in options?", default=include_global
+            ).unsafe_ask()
         client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = DumpResourceCommand(client=client)
