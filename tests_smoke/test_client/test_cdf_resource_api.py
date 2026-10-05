@@ -1663,7 +1663,7 @@ class TestCDFResourceAPI:
         workflow_trigger_request = WorkflowTriggerRequest.model_validate(workflow_trigger)
         workflow_trigger_id = workflow_trigger_request.as_id()
         workflow_trigger_request.authentication = NonceCredentials(
-            nonce=toolkit_client.sessions.create([OneshotTokenExchangeSessionRequest()])[0].nonce
+            nonce=toolkit_client.sessions.create_one_shot_token_exchange_session().nonce
         )
 
         try:
@@ -1729,7 +1729,7 @@ class TestCDFResourceAPI:
             try:
                 execution = client.tool.workflows.executions.run(
                     workflow_version_id,
-                    nonce=toolkit_client.sessions.create([OneshotTokenExchangeSessionRequest()])[0].nonce,
+                    nonce=toolkit_client.sessions.create_one_shot_token_exchange_session().nonce,
                 )
             except ToolkitAPIError as e:
                 raise EndpointAssertionError(run_path, f"run method failed with error: {e!s}") from e
@@ -1774,7 +1774,7 @@ class TestCDFResourceAPI:
                 try:
                     retried = client.tool.workflows.executions.retry(
                         [execution.as_id()],
-                        nonce=toolkit_client.sessions.create([OneshotTokenExchangeSessionRequest()])[0].nonce,
+                        nonce=toolkit_client.sessions.create_one_shot_token_exchange_session().nonce,
                     )
                 except ToolkitAPIError as e:
                     raise EndpointAssertionError(retry_path, f"retry method failed with error: {e!s}") from e
@@ -2259,7 +2259,7 @@ class TestCDFResourceAPI:
         schedule_id: InternalId | None = None
         notification_id: InternalId | None = None
 
-        session = toolkit_client.sessions.create([OneshotTokenExchangeSessionRequest()])[0]
+        session = toolkit_client.sessions.create_one_shot_token_exchange_session()
         credentials = TransformationNonceCredentials(
             session_id=session.id,
             nonce=session.nonce,
@@ -2842,7 +2842,7 @@ class TestCDFResourceAPI:
             channel_id=channels[0].id,
             model=ChartMonitoringJobModel(timeseries_external_id=smoke_timeseries.external_id, lower_threshold=1.0),
             source_id=smoke_chart.external_id,
-            nonce=client.sessions.create([OneshotTokenExchangeSessionRequest()])[0].nonce,
+            nonce=client.sessions.create_one_shot_token_exchange_session().nonce,
         )
         job_id = request.as_id()
         try:
@@ -2868,7 +2868,7 @@ class TestCDFResourceAPI:
             upsert_request = request.model_copy(
                 update={
                     "name": "upsert_name",
-                    "nonce": client.sessions.create([OneshotTokenExchangeSessionRequest()])[0].nonce,
+                    "nonce": client.sessions.create_one_shot_token_exchange_session().nonce,
                 }
             )
             try:
@@ -2951,7 +2951,7 @@ class TestCDFResourceAPI:
             window_size=period_ms,
             target_timeseries_external_id=output_ts_request.external_id,
             graph=graph,
-            nonce=client.sessions.create([OneshotTokenExchangeSessionRequest()])[0].nonce,
+            nonce=client.sessions.create_one_shot_token_exchange_session().nonce,
         )
         calc_id = request.as_id()
         try:

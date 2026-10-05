@@ -61,7 +61,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseResponse,
     RAWTableRequest,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.session import OneshotTokenExchangeSessionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamRequest,
     StreamRequestSettings,
@@ -404,7 +403,7 @@ def upsert_transformation_with_run(
     else:
         created = retrieved
     if created.last_finished_job is None:
-        nonce = toolkit_client.sessions.create([OneshotTokenExchangeSessionRequest()])[0]
+        nonce = toolkit_client.sessions.create_one_shot_token_exchange_session()
         response = toolkit_client.post(
             url=f"/api/v1/projects/{toolkit_client.config.project}/transformations/run",
             json={

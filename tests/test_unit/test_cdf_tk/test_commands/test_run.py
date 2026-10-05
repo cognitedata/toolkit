@@ -120,7 +120,9 @@ class TestRunTransformationV2:
     def _mock_client() -> MagicMock:
         client = MagicMock()
         client.config.project = "my-project"
-        client.sessions.create.return_value = [SessionCreateResponse(id=42, status="READY", nonce="dummy-nonce")]
+        client.sessions.create_one_shot_token_exchange_session.return_value = SessionCreateResponse(
+            id=42, status="READY", nonce="dummy-nonce"
+        )
         client.tool.transformations.run.return_value = _transformation_job("Created")
         return client
 
@@ -564,7 +566,9 @@ def workflow_client() -> MagicMock:
     client = MagicMock()
     # The command passes the console to rich.Progress, which does not accept a mock.
     client.console = Console()
-    client.sessions.create.return_value = [SessionCreateResponse(id=1, status="READY", nonce="dummy-nonce")]
+    client.sessions.create_one_shot_token_exchange_session.return_value = SessionCreateResponse(
+        id=1, status="READY", nonce="dummy-nonce"
+    )
     client.tool.workflows = MagicMock(spec=WorkflowsAPI)
     client.tool.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)
     client.tool.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)
