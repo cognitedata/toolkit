@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Generic, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -40,6 +40,7 @@ from cognite_toolkit._cdf_tk.dataio import (
     AnnotationIO,
     HierarchyIO,
     InstanceIO,
+    T_DataRequest,
     T_Selector,
     UploadableDataIO,
 )
@@ -84,17 +85,16 @@ from .selectors import (
 )
 
 
-class AssetCentricMigrationIO(
-    UploadableDataIO[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResource], NodeOrEdgeRequest]
+class AssetCentricMigrationSource(
+    Generic[T_AssetCentricResource, T_DataRequest],
+    UploadableDataIO[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResource], T_DataRequest],
 ):
-    KIND = "AssetCentricMigration"
-    CHUNK_SIZE = 1000
-    UPLOAD_ENDPOINT = InstanceIO.UPLOAD_ENDPOINT
+    """Read path shared by asset-centric migrations.
 
-    PENDING_INSTANCE_ID_ENDPOINT_BY_KIND: ClassVar[Mapping[AssetCentricKindExtended, str]] = {
-        "TimeSeries": "/timeseries/set-pending-instance-ids",
-        "FileMetadata": "/files/set-pending-instance-ids",
-    }
+    Subclasses choose the upload request type, for example nodes and edges or records.
+    """
+
+    CHUNK_SIZE = 1000
 
     def __init__(self, client: ToolkitClient, skip_linking: bool = True, skip_existing: bool = False) -> None:
         super().__init__(client)
@@ -214,8 +214,18 @@ class AssetCentricMigrationIO(
             [DataItem(tracking_id=item.tracking_id, item=item.item.dump()) for item in data_chunk.items]
         )
 
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> NodeOrEdgeRequest:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> T_DataRequest:
         raise NotImplementedError()
+
+
+class AssetCentricMigrationIO(AssetCentricMigrationSource[T_AssetCentricResource, NodeOrEdgeRequest]):
+    KIND = "AssetCentricMigration"
+    UPLOAD_ENDPOINT = InstanceIO.UPLOAD_ENDPOINT
+
+    PENDING_INSTANCE_ID_ENDPOINT_BY_KIND: ClassVar[Mapping[AssetCentricKindExtended, str]] = {
+        "TimeSeries": "/timeseries/set-pending-instance-ids",
+        "FileMetadata": "/files/set-pending-instance-ids",
+    }
 
     def upload_items(
         self,
@@ -330,11 +340,10 @@ class AssetCentricMigrationIO(
         )
 
 
-class RecordsMigrationIO(AssetCentricMigrationIO):
+class RecordsMigrationIO(AssetCentricMigrationSource[T_AssetCentricResource, RecordRequest]):
     """IO class for migrating asset-centric resources to records.
 
-    Inherits all read-side logic (streaming, counting) from AssetCentricMigrationIO
-    and overrides only the upload path to target a records stream.
+    Uses the shared asset-centric read path and uploads records to a stream.
     """
 
     KIND = "RecordsMigration"
@@ -348,7 +357,7 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
         self.skip_existing = skip_existing
         self._last_updated_time_windows: list[dict[str, int] | None] | None = None
 
-    def _remove_existing(self, data_chunk: Page[RecordRequest]) -> Page[RecordRequest]:  # type: ignore[override]
+    def _remove_existing(self, data_chunk: Page[RecordRequest]) -> Page[RecordRequest]:
         """Return a page with items whose (space, externalId) are not already in the stream.
 
         Logs skipped items on the migration logger.
@@ -393,7 +402,7 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
 
         return data_chunk.create_from(to_upload)
 
-    def upload_items(  # type: ignore[override]
+    def upload_items(
         self,
         data_chunk: Page[RecordRequest],
         http_client: HTTPClient,
