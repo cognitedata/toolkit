@@ -66,6 +66,7 @@ class Session(BaseModelObject):
 class SessionResponse(Session):
     creation_time: int | None = None
     expiration_time: int | None = None
+    status: SessionStatus | None = None
 
 
 class SessionCreateResponse(Session):
