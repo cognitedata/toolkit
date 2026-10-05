@@ -18,7 +18,6 @@ from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.api_client import ToolkitAPI
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -28,11 +27,12 @@ if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 
 
-class LookUpAPI(ToolkitAPI, ABC):
+class LookUpAPI(ABC):
     dry_run_id: int = DRY_RUN_ID
 
     def __init__(self, config: "ToolkitClientConfig", toolkit_client: "ToolkitClient", console: Console) -> None:
-        super().__init__(config, toolkit_client)
+        self._config = config
+        self._toolkit_client = toolkit_client
         self._console = console
         self._cache: dict[str, int | None] = {}
         self._reverse_cache: dict[int, str | None] = {}
@@ -415,9 +415,10 @@ class LocationFiltersLookUpAPI(AllLookUpAPI):
         return {k: v for k, v in found_pairs if v is not None}
 
 
-class LookUpGroup(ToolkitAPI):
+class LookUpGroup:
     def __init__(self, config: "ToolkitClientConfig", toolkit_client: "ToolkitClient", console: Console) -> None:
-        super().__init__(config, toolkit_client)
+        self._config = config
+        self._toolkit_client = toolkit_client
         self.data_sets = DataSetLookUpAPI(config, toolkit_client, console)
         self.assets = AssetLookUpAPI(config, toolkit_client, console)
         self.time_series = TimeSeriesLookUpAPI(config, toolkit_client, console)
