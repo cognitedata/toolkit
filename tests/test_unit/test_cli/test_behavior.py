@@ -754,7 +754,7 @@ def test_build_deploy_keep_special_characters(
     build_dir.mkdir(parents=True, exist_ok=True)
     expected_query = "SELECT * FROM my_éñcüd€d£d_table WHERE column = 'value'"
 
-    my_cdf_toml = cdf_toml.CDFToml.load(use_singleton=False)
+    my_cdf_toml = cdf_toml.CDFToml.load_module_context(use_singleton=False)
     my_cdf_toml.cdf.file_encoding = encoding
     monkeypatch.setattr(cdf_toml, "_CDF_TOML", my_cdf_toml)
     BuildV2Command(silent=True, skip_tracking=True).build(

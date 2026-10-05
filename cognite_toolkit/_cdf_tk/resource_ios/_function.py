@@ -57,7 +57,7 @@ from ._file import CogniteFileIO, FileMetadataIO
 from ._function_code_bundle import FunctionCodeBundle
 from ._group_scoped import GroupResourceScopedIO
 
-CDF_TOML: CDFToml = CDFToml.load()
+CDF_TOML: CDFToml = CDFToml.load_module_context()
 
 
 @final
