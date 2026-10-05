@@ -28,7 +28,7 @@ class SessionAPI(CDFResourceAPI[Session]):
                 "create": Endpoint(method="POST", path="/sessions", item_limit=1),
                 "retrieve": Endpoint(method="POST", path="/sessions/byids", item_limit=1000),
                 "delete": Endpoint(method="POST", path="/sessions/revoke", item_limit=100),
-                "list": Endpoint(method="GET", path="/sessions", item_limit=1000),
+                "list": Endpoint(method="GET", path="/sessions", item_limit=100),
             },
         )
 

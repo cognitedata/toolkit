@@ -9,7 +9,7 @@ from typing import Literal, TypeAlias
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestItem
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 
-SessionType: TypeAlias = Literal["CLIENT_CREDENTIALS", "TOKEN_EXCHANGE", "ONESHOT_TOKEN_EXCHANGE"]
+SessionType: TypeAlias = Literal["CLIENT_CREDENTIALS", "TOKEN_EXCHANGE", "ONESHOT_TOKEN_EXCHANGE", "COGNITE_IDP"]
 SessionStatus: TypeAlias = Literal["READY", "ACTIVE", "CANCELLED", "EXPIRED", "REVOKED", "ACCESS_LOST", "DETACHED"]
 
 

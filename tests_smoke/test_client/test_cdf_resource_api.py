@@ -2503,7 +2503,7 @@ class TestCDFResourceAPI:
                 )
 
             try:
-                listed = self._find_session(sessions, session_id.id)
+                listed = sessions.list(limit=1000)
             except ToolkitAPIError as e:
                 raise EndpointAssertionError(endpoints["list"].path, f"Listing sessions failed: {e!s}") from e
             if not listed:
@@ -2526,18 +2526,6 @@ class TestCDFResourceAPI:
         finally:
             if session_id is not None and not revoked:
                 sessions.revoke([session_id])
-
-    @staticmethod
-    def _find_session(sessions: SessionAPI, session_id: int) -> bool:
-        cursor: str | None = None
-        for _ in range(20):
-            page = sessions.paginate(status="READY", limit=1000, cursor=cursor)
-            if any(item.id == session_id for item in page.items):
-                return True
-            if page.next_cursor is None:
-                return False
-            cursor = page.next_cursor
-        return False
 
     def test_principals_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
