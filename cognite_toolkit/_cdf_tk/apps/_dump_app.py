@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Annotated, Any
 
+import questionary
 import typer
 
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
@@ -32,6 +33,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.utils.cli_args import parse_data_model_str
 
 from ._helpers import print_help_if_no_subcommand
 
@@ -126,9 +128,16 @@ class DumpConfigApp(typer.Typer):
         data_model_id: Annotated[
             list[str] | None,
             typer.Argument(
-                help="Data model ID to dump. Format: space external_id version. Example: 'my_space my_external_id v1'. "
-                "Note that version is optional and defaults to the latest published version. If nothing is provided,"
-                "an interactive prompt will be shown to select the data model.",
+                help=(
+                    "Data model ID(s) to dump. Format: space:externalId/version. "
+                    "Example: 'my_space:my_external_id/v1'. You can provide multiple IDs separated by spaces. "
+                    "If nothing is provided, an interactive prompt will be shown to select the data model(s)."
+                    if Flags.V09.is_enabled()
+                    else "Data model ID to dump. Format: space external_id version. "
+                    "Example: 'my_space my_external_id v1'. "
+                    "Note that version is optional and defaults to the latest published version. "
+                    "If nothing is provided, an interactive prompt will be shown to select the data model."
+                ),
             ),
         ] = None,
         output_dir: Annotated[
@@ -167,9 +176,11 @@ class DumpConfigApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
-        selected_data_model: DataModelNoVersionId | None = None
+        selected_data_model: DataModelNoVersionId | tuple[DataModelId, ...] | None = None
         if data_model_id is not None:
-            if len(data_model_id) < 2:
+            if Flags.V09.is_enabled():
+                selected_data_model = tuple(parse_data_model_str(model_id) for model_id in data_model_id)
+            elif len(data_model_id) < 2:
                 raise ToolkitRequiredValueError(
                     "Data model ID must have at least 2 parts: space, external_id, and, optionally, version."
                 )
@@ -179,6 +190,10 @@ class DumpConfigApp(typer.Typer):
                 selected_data_model = DataModelId(
                     space=data_model_id[0], external_id=data_model_id[1], version=data_model_id[2]
                 )
+        else:
+            include_global = questionary.confirm(
+                "Include global data models in options?", default=include_global
+            ).unsafe_ask()
         client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = DumpResourceCommand(client=client)

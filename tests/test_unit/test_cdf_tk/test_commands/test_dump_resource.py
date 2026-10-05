@@ -115,6 +115,17 @@ def _enable_external_data_sources(monkeypatch: MonkeyPatch) -> None:
     )
 
 
+def _set_v09(monkeypatch: MonkeyPatch, enabled: bool) -> None:
+    original = FeatureFlag.is_enabled.__wrapped__
+
+    def _is_enabled(flag: Flags) -> bool:
+        if flag is Flags.V09:
+            return enabled
+        return original(flag)
+
+    monkeypatch.setattr(FeatureFlag, "is_enabled", _is_enabled)
+
+
 def _onelake_transformation_and_source() -> tuple[TransformationResponse, ExternalDataSourceResponse]:
     transformation = TransformationResponse(
         id=1,
@@ -370,6 +381,7 @@ def three_data_models() -> list[DataModelResponse]:
 
 class TestDataModelFinder:
     def test_select_data_model(self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch) -> None:
+        _set_v09(monkeypatch, False)
         default_args = dict(
             is_global=False,
             last_updated_time=1,
@@ -392,9 +404,90 @@ class TestDataModelFinder:
         assert result == selected
         assert finder.data_model.as_id() == selected
 
+    def test_select_multiple_data_models(self, monkeypatch: MonkeyPatch) -> None:
+        _set_v09(monkeypatch, True)
+        default_args = dict(
+            is_global=False,
+            last_updated_time=1,
+            created_time=1,
+            description=None,
+            name=None,
+            views=[],
+        )
+        models = [
+            DataModelResponse(
+                space="my_space", external_id="first_model", version="v1", **{**default_args, "name": "First"}
+            ),
+            DataModelResponse(space="other_space", external_id="second_model", version="v1", **default_args),
+        ]
+        captured: dict[str, object] = {}
+
+        def checkbox(*_args: object, **kwargs: object) -> MagicMock:
+            captured.update(kwargs)
+            question = MagicMock()
+            question.unsafe_ask.return_value = [model.as_id() for model in models]
+            return question
+
+        monkeypatch.setattr(f"{DataModelFinder.__module__}.questionary.checkbox", checkbox)
+        with monkeypatch_toolkit_client() as client:
+            client.tool.data_models.list.return_value = models
+            finder = DataModelFinder(client, None)
+            result = finder._interactive_select()
+
+        validate = captured["validate"]
+        choices = captured["choices"]
+        assert isinstance(choices, list)
+        assert callable(validate)
+        assert {
+            "use_search_filter": captured["use_search_filter"],
+            "titles": [choice.title for choice in choices],
+            "empty": validate([]),
+            "selected": validate([models[0].as_id()]),
+            "result": result,
+        } == {
+            "use_search_filter": True,
+            "titles": ["First (my_space:first_model/v1)", "other_space:second_model/v1"],
+            "empty": "You must select at least one data model.",
+            "selected": True,
+            "result": tuple(model.as_id() for model in models),
+        }
+
+    def test_dump_multiple_data_models(self, tmp_path: Path) -> None:
+        default_args = dict(
+            is_global=False,
+            last_updated_time=1,
+            created_time=1,
+            description=None,
+            name=None,
+            views=[],
+        )
+        models = [
+            DataModelResponse(space="my_space", external_id="first_model", version="v1", **default_args),
+            DataModelResponse(space="other_space", external_id="second_model", version="v1", **default_args),
+        ]
+        spaces = [
+            SpaceResponse(space=model.space, is_global=False, last_updated_time=1, created_time=1) for model in models
+        ]
+        with monkeypatch_toolkit_client() as client:
+            client.tool.data_models.retrieve.return_value = models
+            client.tool.views.retrieve.return_value = []
+            client.tool.containers.retrieve.return_value = []
+            client.tool.spaces.retrieve.return_value = spaces
+            DumpResourceCommand(silent=True).dump_to_yamls(
+                DataModelFinder(client, tuple(model.as_id() for model in models)),
+                output_dir=tmp_path,
+                clean=False,
+                verbose=False,
+            )
+
+        dumped = sorted(path.name for path in tmp_path.glob("**/*.DataModel.yaml"))
+        assert dumped == ["first_model.DataModel.yaml", "second_model.DataModel.yaml"]
+
     def test_select_data_model_multiple_versions(
         self, three_data_models: list[DataModelResponse], monkeypatch: MonkeyPatch
     ) -> None:
+        _set_v09(monkeypatch, False)
+
         def select_data_model(choices: list[Choice]) -> dm.DataModelId:
             assert len(choices) == 2
             return choices[0].value
