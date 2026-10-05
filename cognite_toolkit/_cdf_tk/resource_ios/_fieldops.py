@@ -279,6 +279,8 @@ class InFieldLocationConfigIO(
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
+        # Reading cdf_infield is always required to check InField location configs.
+        yield DataModelsAcl(actions=["READ"], scope=SpaceIDScope(space_ids=["cdf_infield"]))
 
     @classmethod
     def get_dependencies(cls, resource: InfieldLocationConfigYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
