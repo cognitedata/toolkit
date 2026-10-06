@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any, ClassVar, Generic, Literal
+from typing import Any, ClassVar, Generic, Literal, cast
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -132,9 +132,12 @@ class AssetCentricMigrationSource(
             )
 
         for items in iterator:
-            page = Page(
-                worker_id="main",
-                items=[DataItem(tracking_id=str(item.mapping.as_asset_centric_id()), item=item) for item in items],
+            page = cast(
+                Page[AssetCentricMapping[T_AssetCentricResource]],
+                Page(
+                    worker_id="main",
+                    items=[DataItem(tracking_id=str(item.mapping.as_asset_centric_id()), item=item) for item in items],
+                ),
             )
             yield self.emit_registered_page(page)
 
@@ -477,9 +480,12 @@ class AnnotationMigrationIO(
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
         for items in iterator:
-            page = Page(
-                worker_id="main",
-                items=[DataItem(tracking_id=str(item.mapping.as_asset_centric_id()), item=item) for item in items],
+            page = cast(
+                Page[AssetCentricMapping[AnnotationResponse]],
+                Page(
+                    worker_id="main",
+                    items=[DataItem(tracking_id=str(item.mapping.as_asset_centric_id()), item=item) for item in items],
+                ),
             )
             yield self.emit_registered_page(page)
 
@@ -493,7 +499,8 @@ class AnnotationMigrationIO(
             mapping_list: list[AssetCentricMapping[AnnotationResponse]] = []
             for data_item in data_chunk.items:
                 resource = data_item.item
-                if resource.annotation_type not in self.SUPPORTED_ANNOTATION_TYPES:
+                annotation_type = resource.annotation_type
+                if annotation_type not in ("diagrams.AssetLink", "diagrams.FileLink"):
                     # This should not happen, as the annotation_io should already filter these out.
                     # This is just in case.
                     continue
@@ -502,7 +509,7 @@ class AnnotationMigrationIO(
                     id=resource.id,
                     ingestion_mapping=self._get_mapping(selector.ingestion_mapping, resource),
                     preferred_consumer_view=selector.preferred_consumer_view,
-                    annotation_type=resource.annotation_type,  # type: ignore[arg-type]
+                    annotation_type=annotation_type,
                 )
                 mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))
             yield mapping_list
@@ -801,10 +808,13 @@ class ThreeDMigrationIO(UploadableDataIO[ThreeDSelector, ThreeDModelClassicRespo
             if items:
                 bm: Bookmark = CursorBookmark(cursor=response.next_cursor) if response.next_cursor else NoBookmark()
                 yield self.emit_registered_page(
-                    Page(
-                        worker_id="main",
-                        items=[DataItem(tracking_id=item.name, item=item) for item in items],
-                        bookmark=bm,
+                    cast(
+                        Page[ThreeDModelClassicResponse],
+                        Page(
+                            worker_id="main",
+                            items=[DataItem(tracking_id=item.name, item=item) for item in items],
+                            bookmark=bm,
+                        ),
                     )
                 )
             if response.next_cursor is None:
@@ -940,16 +950,19 @@ class ThreeDAssetMappingMigrationIO(
                             CursorBookmark(cursor=response.next_cursor) if response.next_cursor else NoBookmark()
                         )
                         yield self.emit_registered_page(
-                            Page(
-                                worker_id="main",
-                                items=[
-                                    DataItem(
-                                        tracking_id=self._tracking_id(item),
-                                        item=item,
-                                    )
-                                    for item in unique_items
-                                ],
-                                bookmark=bm,
+                            cast(
+                                Page[AssetMappingClassicResponse],
+                                Page(
+                                    worker_id="main",
+                                    items=[
+                                        DataItem(
+                                            tracking_id=self._tracking_id(item),
+                                            item=item,
+                                        )
+                                        for item in unique_items
+                                    ],
+                                    bookmark=bm,
+                                ),
                             )
                         )
                     if response.next_cursor is None:
@@ -1057,9 +1070,12 @@ class Image360AnnotationMigrationIO(
                     continue
                 total += len(filtered)
                 yield self.emit_registered_page(
-                    Page(
-                        worker_id="main",
-                        items=[DataItem(tracking_id=str(ann.id), item=ann) for ann in filtered],
+                    cast(
+                        Page[AnnotationResponse],
+                        Page(
+                            worker_id="main",
+                            items=[DataItem(tracking_id=str(ann.id), item=ann) for ann in filtered],
+                        ),
                     )
                 )
                 if limit is not None and total >= limit:
