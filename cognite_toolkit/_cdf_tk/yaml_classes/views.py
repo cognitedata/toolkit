@@ -83,7 +83,9 @@ class ViewYAML(ToolkitResource):
 
     @model_validator(mode="after")
     def validate_record_view_alpha_flag(self) -> Self:
-        if self.stream_id is not None and not FeatureFlag.is_enabled(Flags.RECORD_VIEWS):
+        if self.stream_id is not None and not (
+            FeatureFlag.is_enabled(Flags.RECORD_VIEWS) or FeatureFlag.is_enabled(Flags.V09)
+        ):
             raise ValueError("streamId requires the record_views alpha flag to be enabled in cdf.toml [alpha_flags].")
         return self
 

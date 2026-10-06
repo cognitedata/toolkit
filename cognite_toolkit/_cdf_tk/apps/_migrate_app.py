@@ -72,7 +72,6 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     ThreeDModelIdSelector,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValidationError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.ui import ToolkitPanel, ToolkitTable
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
@@ -145,8 +144,7 @@ class MigrateApp(typer.Typer):
         self.command("charts")(self.charts)
         self.command("3d")(self.three_d)
         self.command("3d-mappings")(self.three_d_asset_mapping)
-        if Flags.RECORDS_MIGRATE.is_enabled():
-            self.command("events-to-records")(self.events_to_records)
+        self.command("events-to-records")(self.events_to_records)
         self.command("infield-configs")(self.infield_configs)
         self.command("infield-data")(self.infield_data)
         self.command("infield-source-data")(self.infield_source_data)

@@ -60,7 +60,7 @@ class DumpApp(typer.Typer):
             self.command("agents")(DumpConfigApp.dump_agents)
 
             self.command("search-configs")(DumpConfigApp.dump_search_config)
-            if Flags.SAP_WRITEBACK.is_enabled():
+            if Flags.SAP_WRITEBACK.is_enabled() or Flags.V09.is_enabled():
                 self.command("sap-writebacks")(DumpConfigApp.dump_sap_writeback)
             if Flags.MIGRATE.is_enabled():
                 self.command("resource-view-mappings")(DumpConfigApp.dump_resource_view_mapping)
@@ -82,7 +82,7 @@ class DumpApp(typer.Typer):
             self.command("agents")(DumpConfigApp.dump_agents)
 
             self.command("search-config")(DumpConfigApp.dump_search_config)
-            if Flags.SAP_WRITEBACK.is_enabled():
+            if Flags.SAP_WRITEBACK.is_enabled() or Flags.V09.is_enabled():
                 self.command("sap-writeback")(DumpConfigApp.dump_sap_writeback)
             if Flags.MIGRATE.is_enabled():
                 self.command("resource-view-mapping")(DumpConfigApp.dump_resource_view_mapping)
@@ -112,7 +112,7 @@ class DumpConfigApp(typer.Typer):
         self.command("streamlit")(DumpConfigApp.dump_streamlit)
         self.command("agents")(self.dump_agents)
         self.command("search-config")(self.dump_search_config)
-        if Flags.SAP_WRITEBACK.is_enabled():
+        if Flags.SAP_WRITEBACK.is_enabled() or Flags.V09.is_enabled():
             self.command("sap-writeback")(self.dump_sap_writeback)
         if Flags.MIGRATE.is_enabled():
             self.command("resource-view-mapping")(self.dump_resource_view_mapping)
