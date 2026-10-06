@@ -7,14 +7,14 @@ import respx
 from httpx2 import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.http_client._data_classes import ErrorDetails
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsFailedResponse,
     ItemsResultList,
     ItemsSuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
@@ -22,18 +22,24 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     NodeRequest,
     SpaceResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse, ThreeDModelDMSRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
+    AssetMappingDMRequestId,
+    ThreeDModelClassicResponse,
+    ThreeDModelDMSRequest,
+)
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
     Image360CollectionInstanceIO,
     ThreeDAssetMappingMigrationIO,
+    verify_target_spaces_exist,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.dataio import AssetDataIO, DataItem, Page
 from cognite_toolkit._cdf_tk.dataio.logger import FileWithAggregationLogger, ItemsResult, LabelResult, Severity
 from cognite_toolkit._cdf_tk.dataio.selectors import ThreeDModelIdSelector
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter
 
 
@@ -235,6 +241,16 @@ class TestThreeDAssetMappingMigrationIO:
                 json={},
             )
         )
+        respx_mock.post(config.create_api_url("/models/spaces/byids")).mock(
+            return_value=Response(
+                status_code=200,
+                json={
+                    "items": [
+                        SpaceResponse(space="mySpace", created_time=1, last_updated_time=1, is_global=False).dump()
+                    ]
+                },
+            )
+        )
 
         selector = ThreeDModelIdSelector(ids=(37,))
         io = ThreeDAssetMappingMigrationIO(client, object_3D_space="mySpace", cad_node_space="mySpace")
@@ -268,7 +284,7 @@ class TestThreeDAssetMappingMigrationIO:
                 http_client=http_client,
             )
 
-        assert len(respx_mock.calls) == 4  # 1 model list, 2 mapping list, 1 uploads (since we pass in all at once)
+        assert len(respx_mock.calls) == 5  # 1 model list, 2 mapping list, 1 space check, 1 upload
 
     def test_same_page_duplicate_is_logged_separately(
         self, toolkit_client: ToolkitClient, respx_mock: respx.MockRouter
@@ -376,6 +392,89 @@ class TestThreeDAssetMappingMigrationIO:
 
         with pytest.raises(NotImplementedError):
             io.data_to_json_chunk(MagicMock())
+
+    def test_upload_stops_when_target_space_is_missing(
+        self, toolkit_client: ToolkitClient, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_client.config
+        respx_mock.post(config.create_api_url("/models/spaces/byids")).mock(
+            return_value=Response(status_code=200, json={"items": []})
+        )
+        mappings_route = respx_mock.post(config.create_api_url("/3d/models/37/revisions/42/mappings")).mock(
+            return_value=Response(status_code=500, json={"error": {"code": 500, "message": "Internal Server Error"}})
+        )
+        io = ThreeDAssetMappingMigrationIO(
+            toolkit_client, object_3D_space="missing_space", cad_node_space="missing_space"
+        )
+        page = Page(
+            worker_id="main",
+            items=[
+                DataItem(
+                    tracking_id="mapping",
+                    item=AssetMappingDMRequestId(
+                        nodeId=1,
+                        assetInstanceId=NodeId(space="assets", externalId="asset"),
+                        modelId=37,
+                        revisionId=42,
+                    ),
+                )
+            ],
+        )
+
+        with HTTPClient(config) as http_client, pytest.raises(ToolkitMigrationError, match="missing_space"):
+            io.upload_items(page, http_client)
+
+        assert mappings_route.called is False
+
+
+class TestVerifyTargetSpaces:
+    @staticmethod
+    def _space(space: str, *, is_global: bool = False) -> SpaceResponse:
+        return SpaceResponse(space=space, created_time=1, last_updated_time=1, is_global=is_global)
+
+    def test_missing_space_is_reported_without_listing_spaces_that_exist(self) -> None:
+        client = MagicMock()
+        client.tool.spaces.retrieve.return_value = [self._space("object_space")]
+
+        with pytest.raises(ToolkitMigrationError, match="cad_space"):
+            verify_target_spaces_exist(client, ["object_space", "cad_space", "object_space"])
+
+        assert client.tool.spaces.retrieve.call_args == (
+            ([SpaceId(space="object_space"), SpaceId(space="cad_space")],),
+            {},
+        )
+
+    def test_existing_project_space_is_accepted(self) -> None:
+        client = MagicMock()
+        client.tool.spaces.retrieve.return_value = [self._space("plant_space")]
+
+        verify_target_spaces_exist(client, ["plant_space", "plant_space"])
+
+        assert client.tool.spaces.retrieve.call_args.args[0] == [SpaceId(space="plant_space")]
+
+    def test_global_space_cannot_be_a_target(self) -> None:
+        client = MagicMock()
+        client.tool.spaces.retrieve.return_value = [self._space("cdf_cdm", is_global=True)]
+
+        with pytest.raises(ToolkitMigrationError, match="global"):
+            verify_target_spaces_exist(client, ["cdf_cdm"])
+
+    def test_api_4xx_is_returned_unchanged(self) -> None:
+        client = MagicMock()
+        client.tool.spaces.retrieve.side_effect = ToolkitAPIError(
+            "space must match the required pattern",
+            code=400,
+        )
+
+        with pytest.raises(ToolkitAPIError, match="required pattern"):
+            verify_target_spaces_exist(client, ["not a space"])
+
+    def test_unrelated_api_errors_propagate(self) -> None:
+        client = MagicMock()
+        client.tool.spaces.retrieve.side_effect = ToolkitAPIError("unavailable", code=503)
+
+        with pytest.raises(ToolkitAPIError, match="unavailable"):
+            verify_target_spaces_exist(client, ["plant_space"])
 
 
 class TestImage360CollectionInstanceIO:
