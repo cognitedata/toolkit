@@ -456,7 +456,7 @@ class TestVerifyTargetSpaces:
         client = MagicMock()
         client.tool.spaces.retrieve.return_value = [self._space("cdf_cdm", is_global=True)]
 
-        with pytest.raises(ToolkitMigrationError, match="global"):
+        with pytest.raises(ToolkitMigrationError, match="system spaces"):
             verify_target_spaces_exist(client, ["cdf_cdm"])
 
     def test_api_4xx_is_returned_unchanged(self) -> None:
