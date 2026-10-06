@@ -2,7 +2,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Generic, Literal, TypeAlias
+from typing import Generic, Literal, TypeAlias, cast
 
 from rich.console import Console
 from rich.table import Table
@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.file import create_logfile_stem, safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import (
     TABLE_WRITE_CLS_BY_FORMAT,
+    Chunk,
     Compression,
     FileWriter,
     MultiFileReader,
@@ -266,7 +267,7 @@ class DownloadCommand(ToolkitCommand):
         """Creates a writer function that writes processed data to files using the provided FileWriter."""
 
         def write(page: Page[dict[str, JsonVal]]) -> None:
-            writer.write_chunks(page.as_raw_items(), filestem=filestem)  # type: ignore[arg-type]
+            writer.write_chunks(cast(Sequence[Chunk], page.as_raw_items()), filestem=filestem)
 
         return write
 
