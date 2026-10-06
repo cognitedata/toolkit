@@ -100,17 +100,19 @@ class ResourcesCommand(ToolkitCommand):
     def _resolve_model_fields(yaml_cls: Any) -> dict[str, FieldInfo]:
         """Return model_fields for a BaseModel, or the first BaseModel member of an
         Annotated union (e.g. Annotated[Union[A, B], Field(discriminator=...)])."""
-        if isinstance(yaml_cls, type) and issubclass(yaml_cls, BaseModel):
-            return yaml_cls.model_fields
 
-        args = typing.get_args(yaml_cls)
-        if args:
-            union = args[0]
-            members = typing.get_args(union) or (union,)
-            for member in members:
-                if isinstance(member, type) and issubclass(member, BaseModel):
-                    return member.model_fields
+        def find_base_model(t: Any) -> type[BaseModel] | None:
+            if isinstance(t, type) and issubclass(t, BaseModel):
+                return t
+            for arg in typing.get_args(t):
+                res = find_base_model(arg)
+                if res is not None:
+                    return res
+            return None
 
+        base_model = find_base_model(yaml_cls)
+        if base_model is not None:
+            return base_model.model_fields
         raise TypeError(f"Cannot extract model fields from {yaml_cls!r}")
 
     def _get_resource_yaml_content(
