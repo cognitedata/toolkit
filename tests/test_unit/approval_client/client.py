@@ -1306,8 +1306,9 @@ class ApprovalToolkitClient:
                         # this is a sub api that must be checked
                         to_check.append(((*parent_key, api_name), vars(method)))
 
-        # This is mocked in the __init__
+        # These are mocked in the __init__. create_single delegates to create.
         not_mocked.pop(("sessions", "create"), None)
+        not_mocked.pop(("sessions", "create_single"), None)
         return dict(not_mocked)
 
     def auth_create_group_calls(self) -> Iterable[AuthGroupCalls]:
