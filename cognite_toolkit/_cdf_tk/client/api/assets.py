@@ -1,13 +1,24 @@
 import builtins
 from collections.abc import Iterable, Sequence
-from typing import Literal
+from typing import Any, Literal
 
+from pydantic import JsonValue
+
+from cognite_toolkit._cdf_tk.client.api._classic_aggregate import (
+    aggregate_cardinality,
+    aggregate_count,
+    aggregate_unique,
+)
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.classic_aggregate import (
+    AssetPropertyPath,
+    ClassicAggregateUniqueBucket,
+)
 
 
 class AssetsAPI(CDFResourceAPI[AssetResponse]):
@@ -20,6 +31,7 @@ class AssetsAPI(CDFResourceAPI[AssetResponse]):
                 "update": Endpoint(method="POST", path="/assets/update", item_limit=1000, concurrency_max_workers=1),
                 "delete": Endpoint(method="POST", path="/assets/delete", item_limit=1000, concurrency_max_workers=1),
                 "list": Endpoint(method="POST", path="/assets/list", item_limit=1000),
+                "aggregate": Endpoint(method="POST", path="/assets/aggregate", item_limit=1000),
             },
         )
 
@@ -129,3 +141,64 @@ class AssetsAPI(CDFResourceAPI[AssetResponse]):
             List of AssetResponse objects.
         """
         return self._list(limit=limit)
+
+    def count(
+        self,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        property: AssetPropertyPath | None = None,
+    ) -> int:
+        """Count assets matching optional filters.
+
+        When ``property`` is set, count assets where that property is present.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Assets/operation/aggregateAssets>`_.
+        """
+        return aggregate_count(self, filter=filter, advanced_filter=advanced_filter, property=property)
+
+    def cardinality(
+        self,
+        property: AssetPropertyPath,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        aggregate_filter: dict[str, JsonValue] | None = None,
+    ) -> int:
+        """Approximate number of distinct values for ``property``.
+
+        Uses ``cardinalityProperties`` when ``property`` is exactly ``("metadata",)``, and
+        ``cardinalityValues`` for every other path.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Assets/operation/aggregateAssets>`_.
+        """
+        return aggregate_cardinality(
+            self,
+            property,
+            filter=filter,
+            advanced_filter=advanced_filter,
+            aggregate_filter=aggregate_filter,
+        )
+
+    def unique(
+        self,
+        property: AssetPropertyPath,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        aggregate_filter: dict[str, JsonValue] | None = None,
+    ) -> builtins.list[ClassicAggregateUniqueBucket]:
+        """Distinct values for ``property``, each with a count.
+
+        Uses ``uniqueProperties`` when ``property`` is exactly ``("metadata",)``, and
+        ``uniqueValues`` for every other path. Text values are aggregated case-insensitively.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Assets/operation/aggregateAssets>`_.
+        """
+        return aggregate_unique(
+            self,
+            property,
+            filter=filter,
+            advanced_filter=advanced_filter,
+            aggregate_filter=aggregate_filter,
+        )

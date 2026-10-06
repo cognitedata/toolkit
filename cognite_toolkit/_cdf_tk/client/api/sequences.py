@@ -1,13 +1,24 @@
 import builtins
 from collections.abc import Iterable, Sequence
-from typing import Literal
+from typing import Any, Literal
 
+from pydantic import JsonValue
+
+from cognite_toolkit._cdf_tk.client.api._classic_aggregate import (
+    aggregate_cardinality,
+    aggregate_count,
+    aggregate_unique,
+)
 from cognite_toolkit._cdf_tk.client.api.sequence_rows import SequenceRowsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.classic_aggregate import (
+    ClassicAggregateUniqueBucket,
+    SequencePropertyPath,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
 
 
@@ -23,6 +34,7 @@ class SequencesAPI(CDFResourceAPI[SequenceResponse]):
                 "update": Endpoint(method="POST", path="/sequences/update", item_limit=1000, concurrency_max_workers=1),
                 "delete": Endpoint(method="POST", path="/sequences/delete", item_limit=1000, concurrency_max_workers=1),
                 "list": Endpoint(method="POST", path="/sequences/list", item_limit=1000),
+                "aggregate": Endpoint(method="POST", path="/sequences/aggregate", item_limit=1000),
             },
         )
         self.rows = SequenceRowsAPI(http_client)
@@ -134,3 +146,61 @@ class SequencesAPI(CDFResourceAPI[SequenceResponse]):
             List of SequenceResponse objects.
         """
         return self._list(limit=limit)
+
+    def count(
+        self,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+    ) -> int:
+        """Count sequences matching optional filters.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Sequences/operation/aggregateSequences>`_.
+        """
+        return aggregate_count(self, filter=filter, advanced_filter=advanced_filter)
+
+    def cardinality(
+        self,
+        property: SequencePropertyPath,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        aggregate_filter: dict[str, JsonValue] | None = None,
+    ) -> int:
+        """Approximate number of distinct values for ``property``.
+
+        Uses ``cardinalityProperties`` when ``property`` is exactly ``("metadata",)``, and
+        ``cardinalityValues`` for every other path.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Sequences/operation/aggregateSequences>`_.
+        """
+        return aggregate_cardinality(
+            self,
+            property,
+            filter=filter,
+            advanced_filter=advanced_filter,
+            aggregate_filter=aggregate_filter,
+        )
+
+    def unique(
+        self,
+        property: SequencePropertyPath,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        aggregate_filter: dict[str, JsonValue] | None = None,
+    ) -> builtins.list[ClassicAggregateUniqueBucket]:
+        """Distinct values for ``property``, each with a count.
+
+        Uses ``uniqueProperties`` when ``property`` is exactly ``("metadata",)``, and
+        ``uniqueValues`` for every other path. The service returns at most 1000 buckets.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Sequences/operation/aggregateSequences>`_.
+        """
+        return aggregate_unique(
+            self,
+            property,
+            filter=filter,
+            advanced_filter=advanced_filter,
+            aggregate_filter=aggregate_filter,
+        )
