@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Hashable, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any, ClassVar, Generic, Literal
 
 from cognite.client.data_classes import Label, LabelDefinition
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregateItem, AssetRequest, AssetResponse
@@ -20,6 +21,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     EventIO,
     FileMetadataIO,
     LabelIO,
+    ResourceIO,
     TimeSeriesIO,
 )
 from cognite_toolkit._cdf_tk.utils.aggregators import (
@@ -129,18 +131,17 @@ class AssetCentricIO(
     @classmethod
     def _configurations(
         cls,
-        ids: Sequence[Hashable],
-        loader: DataSetsIO | LabelIO,
+        ids: Sequence[T_Identifier],
+        loader: ResourceIO[T_Identifier, Any, Any, Any],
     ) -> Iterable[StorageIOConfig]:
         if not ids:
             return
 
-        items = loader.retrieve(ids)  # type: ignore[arg-type]
+        items = loader.retrieve(ids)
         yield StorageIOConfig(
             kind=loader.kind,
             folder_name=loader.folder_name,
-            # We know that the items will be labels for LabelLoader and data sets for DataSetsLoader
-            value=[loader.dump_resource(item) for item in items],  # type: ignore[arg-type]
+            value=[loader.dump_resource(item) for item in items],
         )
 
     def _create_identifier(self, internal_id: int) -> str:
@@ -181,10 +182,10 @@ class AssetCentricIO(
     def json_to_row(
         self, item_json: dict[str, JsonVal], selector: AssetCentricSelector | None = None
     ) -> dict[str, JsonVal]:
-        if "metadata" in item_json and isinstance(item_json["metadata"], dict):
-            metadata = item_json.pop("metadata")
-            # MyPy does understand that metadata is a dict here due to the check above.
-            for key, value in metadata.items():  # type: ignore[union-attr]
+        metadata = item_json.get("metadata")
+        if isinstance(metadata, dict):
+            del item_json["metadata"]
+            for key, value in metadata.items():
                 item_json[f"metadata.{key}"] = value
         return item_json
 
@@ -400,7 +401,10 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         while current_depth <= max_depth:
             for line_number, item in reader.read_chunks_with_line_numbers():
                 try:
-                    depth = int(item["depth"])  # type: ignore[arg-type]
+                    raw_depth = item["depth"]
+                    if not isinstance(raw_depth, str | int | float):
+                        raise TypeError
+                    depth = int(raw_depth)
                 except (TypeError, ValueError, KeyError):
                     if current_depth == 0:
                         # If depth is not set, we yield it at depth 0

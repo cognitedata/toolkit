@@ -545,7 +545,9 @@ class InstanceIO(
                 for source in value:
                     if not isinstance(source, dict):
                         continue
-                    row.update(source.get("properties", {}))  # type: ignore[arg-type]
+                    properties = source.get("properties")
+                    if isinstance(properties, dict):
+                        row.update(properties)
             elif key == "instanceType":
                 # This is stored in the manifest
                 continue
