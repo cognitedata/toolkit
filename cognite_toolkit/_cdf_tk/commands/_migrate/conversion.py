@@ -5,7 +5,7 @@ from datetime import date, datetime
 from functools import cache
 from typing import Any, ClassVar, Generic
 
-from pydantic import JsonValue
+from pydantic import JsonValue, ValidationError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import (
@@ -554,7 +554,18 @@ def create_edge_properties(
                     FailedConversion(property_id=prop_json_path, value=flatten_dump[prop_json_path], error=str(e))
                 )
                 continue
-            if not isinstance(converted, NodeId):
+            if isinstance(converted, NodeId):
+                value = converted
+            elif isinstance(converted, dict):
+                # Direct-relation conversion returns the node id as an API dump.
+                try:
+                    value = NodeId.model_validate(converted)
+                except ValidationError as e:
+                    issue.failed_conversions.append(
+                        FailedConversion(property_id=prop_json_path, value=flatten_dump[prop_json_path], error=str(e))
+                    )
+                    continue
+            else:
                 issue.failed_conversions.append(
                     FailedConversion(
                         property_id=prop_json_path,
@@ -563,7 +574,6 @@ def create_edge_properties(
                     )
                 )
                 continue
-            value = converted
         elif edge_prop_id.endswith(".externalId"):
             # Just an external ID string.
             edge_prop_id = edge_prop_id.removesuffix(".externalId")
