@@ -404,7 +404,7 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
                     raw_depth = item["depth"]
                     if not isinstance(raw_depth, str | int | float):
                         raise TypeError
-                    depth = int(raw_depth)
+                    depth = int(float(raw_depth))
                 except (TypeError, ValueError, KeyError):
                     if current_depth == 0:
                         # If depth is not set, we yield it at depth 0
