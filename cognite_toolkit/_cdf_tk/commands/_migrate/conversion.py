@@ -241,11 +241,16 @@ class DirectRelationCache:
     def _update_cache(self, instance_id_by_id: dict[int, NodeId] | dict[str, NodeId], table_name: str) -> None:
         cache = self._cache_map[table_name]
         for identifier, instance_id in instance_id_by_id.items():
-            cache[identifier] = NodeId(space=instance_id.space, external_id=instance_id.external_id)  # type: ignore[index]
+            node_id = NodeId(space=instance_id.space, external_id=instance_id.external_id)
+            if isinstance(identifier, int):
+                cast(dict[int, NodeId], cache)[identifier] = node_id
+            else:
+                cast(dict[str, NodeId], cache)[identifier] = node_id
 
     def get_cache(self, resource_type: AssetCentricTypeExtended, property_id: str) -> Mapping[str | int, NodeId] | None:
         """Get the cache for the given resource type and property ID."""
-        return self._cache_map.get((resource_type, property_id))  # type: ignore[return-value]
+        # Each cache is keyed by either str or int. Callers look up one concrete id at a time.
+        return cast(Mapping[str | int, NodeId] | None, self._cache_map.get((resource_type, property_id)))
 
 
 def asset_centric_to_dm(
@@ -343,7 +348,9 @@ def asset_centric_to_dm(
             space=instance_id.space,
             external_id=instance_id.external_id,
             sources=sources,
-            **edge_properties,  # type: ignore[arg-type]
+            start_node=edge_properties["start_node"],
+            end_node=edge_properties["end_node"],
+            type=edge_properties["type"],
         )
     elif isinstance(instance_id, NodeId):
         instance = NodeRequest(space=instance_id.space, external_id=instance_id.external_id, sources=sources)
@@ -539,10 +546,9 @@ def create_edge_properties(
             continue
         edge_prop_id = prop_id.removeprefix("edge.")
         if edge_prop_id in ("startNode", "endNode", "type"):
-            value: NodeId | Any
             # DirectRelation lookup.
             try:
-                value = convert_to_primary_property(
+                converted = convert_to_primary_property(
                     flatten_dump[prop_json_path],
                     DirectNodeRelation(),
                     False,
@@ -553,6 +559,16 @@ def create_edge_properties(
                     FailedConversion(property_id=prop_json_path, value=flatten_dump[prop_json_path], error=str(e))
                 )
                 continue
+            if not isinstance(converted, NodeId):
+                issue.failed_conversions.append(
+                    FailedConversion(
+                        property_id=prop_json_path,
+                        value=flatten_dump[prop_json_path],
+                        error="Expected a node reference",
+                    )
+                )
+                continue
+            value = converted
         elif edge_prop_id.endswith(".externalId"):
             # Just an external ID string.
             edge_prop_id = edge_prop_id.removesuffix(".externalId")
@@ -566,7 +582,7 @@ def create_edge_properties(
                 InvalidPropertyDataType(property_id=prop_id, expected_type="EdgeProperty")
             )
             continue
-        edge_properties[edge_prop_id.replace("Node", "_node")] = value  # type: ignore[assignment]
+        edge_properties[edge_prop_id.replace("Node", "_node")] = value
 
     return edge_properties
 

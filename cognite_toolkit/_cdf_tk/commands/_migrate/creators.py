@@ -559,9 +559,9 @@ class InfieldCDMConfigCreator(MigrationCreator):
         if config.template_admins:
             # Todo Fetch and update groups. Jira ticket: CDF-27033
             # list[str] is a valid JsonValue
-            access_management["templateAdmins"] = config.template_admins  # type: ignore[assignment]
+            access_management["templateAdmins"] = cast(JsonValue, config.template_admins)
         if config.checklist_admins:
-            access_management["checklistAdmins"] = config.checklist_admins  # type: ignore[assignment]
+            access_management["checklistAdmins"] = cast(JsonValue, config.checklist_admins)
 
         app_instance_space = build_infield_instance_space_name(
             config.app_data_instance_space,
