@@ -37,13 +37,8 @@ from .progress import NoBookmark
 from .selectors import FileContentSelector, FileMetadataTemplateSelector
 from .selectors._file_content import (
     FileDataModelingTemplateSelector,
-    FileExternalID,
-    FileIdentifier,
-    FileInstanceID,
-    FileInternalID,
     FileTemplateSelector,
 )
-from .selectors._file_content import NodeId as SelectorNodeId
 
 COGNITE_FILE_VIEW = dm.ViewId("cdf_cdm", "CogniteFile", "v1")
 
@@ -93,51 +88,6 @@ class FileContentIO(UploadableDataIO[FileContentSelector, MetadataWithFilePath, 
         raise ToolkitNotImplementedError(
             f"Download with the manifest, {type(selector).__name__}, is not supported for FileContentIO"
         )
-
-    def _retrieve_metadata(self, identifiers: Sequence[FileIdentifier]) -> Sequence[FileMetadataResponse] | None:
-        config = self.client.config
-        response = self.client.http_client.request_single_retries(
-            message=RequestMessage(
-                endpoint_url=config.create_api_url("/files/byids"),
-                method="POST",
-                body_content={
-                    "items": [
-                        identifier.model_dump(mode="json", by_alias=True, exclude={"id_type"})
-                        for identifier in identifiers
-                    ],
-                    "ignoreUnknownIds": True,
-                },
-            )
-        )
-        if not isinstance(response, SuccessResponse):
-            return None
-        try:
-            body = response.body_json
-        except ValueError:
-            return None
-
-        items_data = body.get("items", [])
-        if not isinstance(items_data, list):
-            return None
-        return [FileMetadataResponse.model_validate(item) for item in items_data]
-
-    @staticmethod
-    def _as_metadata_map(metadata: Sequence[FileMetadataResponse]) -> dict[FileIdentifier, FileMetadataResponse]:
-        identifiers_map: dict[FileIdentifier, FileMetadataResponse] = {}
-        for item in metadata:
-            if item.id is not None:
-                identifiers_map[FileInternalID(internal_id=item.id)] = item
-            if item.external_id is not None:
-                identifiers_map[FileExternalID(external_id=item.external_id)] = item
-            if item.instance_id is not None:
-                identifiers_map[
-                    FileInstanceID(
-                        instance_id=SelectorNodeId(
-                            space=item.instance_id.space, external_id=item.instance_id.external_id
-                        )
-                    )
-                ] = item
-        return identifiers_map
 
     def count(self, selector: FileContentSelector) -> int | None:
         return None
