@@ -228,7 +228,7 @@ class TableReader(FileReader, ABC):
                 if column.is_array:
                     # Array columns in CSV are JSON-encoded; default inference handles them correctly.
                     continue
-                parse_function_by_column[column.name] = partial(  # type: ignore[assignment]
+                parse_function_by_column[column.name] = partial(  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
                     convert_str_to_data_type, type_=column.type, nullable=True, is_array=False
                 )
         return parse_function_by_column
