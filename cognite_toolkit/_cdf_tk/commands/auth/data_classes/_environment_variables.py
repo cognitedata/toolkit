@@ -240,17 +240,25 @@ class EnvironmentVariables:
             )
         return method_by_flow[self.LOGIN_FLOW]()
 
+    @staticmethod
+    def _require_str(value: str | None, name: str) -> str:
+        if value is None:
+            raise ToolkitMissingValueError(f"{name} must be set.", name)
+        return value
+
     def _get_oauth_client_credentials(self) -> OAuthClientCredentials:
+        client_id = self._require_str(self.IDP_CLIENT_ID, "IDP_CLIENT_ID")
+        client_secret = self._require_str(self.IDP_CLIENT_SECRET, "IDP_CLIENT_SECRET")
         if self.PROVIDER == "cdf":
             return OAuthClientCredentials(
-                client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
-                client_secret=self.IDP_CLIENT_SECRET,  # type: ignore[arg-type]
+                client_id=client_id,
+                client_secret=client_secret,
                 token_url=self.idp_token_url,
                 scopes=None,
             )
         return OAuthClientCredentials(
-            client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
-            client_secret=self.IDP_CLIENT_SECRET,  # type: ignore[arg-type]
+            client_id=client_id,
+            client_secret=client_secret,
             token_url=self.idp_token_url,
             audience=self.idp_audience,
             scopes=self.idp_scopes,
@@ -258,7 +266,7 @@ class EnvironmentVariables:
 
     def _get_oauth_interactive(self) -> OAuthInteractive:
         return OAuthInteractive(
-            client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
+            client_id=self._require_str(self.IDP_CLIENT_ID, "IDP_CLIENT_ID"),
             authority_url=self.idp_authority_url,
             scopes=self.idp_scopes,
         )
@@ -279,7 +287,7 @@ class EnvironmentVariables:
             authority_url=self.IDP_AUTHORITY_URL,
             cdf_cluster=self.CDF_CLUSTER,
             oauth_discovery_url=self.IDP_DISCOVERY_URL,
-            client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
+            client_id=self._require_str(self.IDP_CLIENT_ID, "IDP_CLIENT_ID"),
             audience=self.idp_audience,
         )
 
