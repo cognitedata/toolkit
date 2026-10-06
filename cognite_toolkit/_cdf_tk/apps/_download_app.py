@@ -101,7 +101,7 @@ class DatapointsDataTypes(str, Enum):
     string = "string"
 
 
-if Flags.EXTEND_DOWNLOAD.is_enabled():
+if Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled():
 
     class InstanceFormats(str, Enum):
         ndjson = "ndjson"
@@ -153,7 +153,7 @@ class DownloadApp(typer.Typer):
         self.command("events")(self.download_events_cmd)
         self.command("files")(self.download_files_cmd)
         self.command("hierarchy")(self.download_hierarchy_cmd)
-        if Flags.EXTEND_DOWNLOAD.is_enabled():
+        if Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled():
             self.command("datapoints")(self.download_datapoints_cmd)
             self.command("records")(self.download_records_cmd)
         self.command("instances")(self.download_instances_cmd)
@@ -195,7 +195,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         compression: Annotated[
@@ -290,7 +290,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         compression: Annotated[
@@ -398,7 +398,7 @@ class DownloadApp(typer.Typer):
             ).unsafe_ask()
         )
         api_format = ApiFormat.request
-        if Flags.EXTEND_DOWNLOAD.is_enabled():
+        if Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled():
             api_format = questionary.select(
                 message=f"Select the API format to download the {display_name}:",
                 choices=[
@@ -433,7 +433,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         compression: Annotated[
@@ -525,7 +525,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         compression: Annotated[
@@ -610,7 +610,7 @@ class DownloadApp(typer.Typer):
                 "-c",
                 help="Whether to include file contents when downloading assets. Note if you enable this option, you can"
                 "only download 100 files at a time.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = False,
         file_format: Annotated[
@@ -626,7 +626,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         compression: Annotated[
@@ -666,7 +666,7 @@ class DownloadApp(typer.Typer):
         """This command will download file metadata from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
-            if Flags.EXTEND_DOWNLOAD.is_enabled():
+            if Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled():
                 include_file_contents = questionary.select(
                     "Do you want to include file contents when downloading file metadata?",
                     choices=[
@@ -788,7 +788,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         compression: Annotated[
@@ -907,7 +907,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         include_edges: Annotated[
@@ -915,7 +915,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--include-edges",
                 help="Include edges connected to downloaded node instances.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = False,
         compression: Annotated[
@@ -990,7 +990,7 @@ class DownloadApp(typer.Typer):
             if select_instance_space:
                 selected_instance_spaces = tuple(selector.select_instance_space(multiselect=True))
             edge_type_ids_by_view_id: dict[ViewNoVersionId, set[EdgeTypeId]] = {}
-            if Flags.EXTEND_DOWNLOAD.is_enabled():
+            if Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled():
                 include_edges = questionary.confirm(
                     "Do you want to include edges when downloading node instances? If yes, all edges connected to the downloaded nodes will be downloaded as well.",
                     default=include_edges,
@@ -1167,7 +1167,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         output_dir: Annotated[
@@ -1285,7 +1285,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         skip_backend_services: Annotated[
@@ -1293,9 +1293,9 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--skip-backend-services",
                 help="Skip downloading backend-services for charts, i.e., monitoring jobs and scheduled calculations.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
-        ] = not Flags.EXTEND_DOWNLOAD.is_enabled(),
+        ] = not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -1374,7 +1374,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         compression: Annotated[
@@ -1485,7 +1485,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         compression: Annotated[

@@ -188,20 +188,20 @@ def test_resource_types_is_up_to_date() -> None:
         extra.discard("cdf_applications")
     if not FeatureFlag.is_enabled(Flags.MIGRATE):
         extra.discard("migration")
-    if not FeatureFlag.is_enabled(Flags.SIGNALS):
+    if not (FeatureFlag.is_enabled(Flags.SIGNALS) or FeatureFlag.is_enabled(Flags.V09)):
         extra.discard("signals")
     if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
         extra.discard("data_products")
         extra.discard("rulesets")
     if not FeatureFlag.is_enabled(Flags.CUSTOM_APPS):
         extra.discard("apps")
-    if not FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
+    if not (FeatureFlag.is_enabled(Flags.AGENT_SKILLS) or FeatureFlag.is_enabled(Flags.V09)):
         extra.discard("skills")
-    if not FeatureFlag.is_enabled(Flags.SAP_WRITEBACK):
+    if not (FeatureFlag.is_enabled(Flags.SAP_WRITEBACK) or FeatureFlag.is_enabled(Flags.V09)):
         extra.discard("SAPwritebacks")
-    if not FeatureFlag.is_enabled(Flags.INTEGRATIONS):
+    if not (FeatureFlag.is_enabled(Flags.INTEGRATIONS) or FeatureFlag.is_enabled(Flags.V09)):
         extra.discard("integrations")
-    if not FeatureFlag.is_enabled(Flags.SIGNALS):
+    if not (FeatureFlag.is_enabled(Flags.SIGNALS) or FeatureFlag.is_enabled(Flags.V09)):
         extra.discard("signals")
     assert not missing, f"Missing {missing=}"
     assert not extra, f"Extra {extra=}"

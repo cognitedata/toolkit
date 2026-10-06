@@ -98,7 +98,7 @@ class UploadApp(typer.Typer):
             typer.Option(
                 "--skip-strict-mode",
                 help="When uploading Charts with monitoring jobs and/or scheduled calculations. Skipping strict mode allows you to reuse the toolkit credentials when creating these jobs. This is only recommended for sandbox projects.",
-                hidden=not Flags.EXTEND_UPLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_UPLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = False,
         overwrite: Annotated[
@@ -106,7 +106,7 @@ class UploadApp(typer.Typer):
             typer.Option(
                 "--overwrite",
                 help="If the data type supports it, overwrite the data in CDF with the local data.",
-                hidden=not Flags.EXTEND_UPLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_UPLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = False,
         verbose: Annotated[

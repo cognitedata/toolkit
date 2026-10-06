@@ -82,7 +82,7 @@ if not FeatureFlag.is_enabled(Flags.INFIELD):
     _EXCLUDED_CRUDS.add(InFieldLocationConfigIO)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
     _EXCLUDED_CRUDS.add(ResourceViewMappingIO)
-if not FeatureFlag.is_enabled(Flags.SIGNALS):
+if not (FeatureFlag.is_enabled(Flags.SIGNALS) or FeatureFlag.is_enabled(Flags.V09)):
     _EXCLUDED_CRUDS.add(SignalSinkIO)
     _EXCLUDED_CRUDS.add(SignalSubscriptionIO)
 if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
@@ -93,17 +93,17 @@ if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
 if not FeatureFlag.is_enabled(Flags.CUSTOM_APPS):
     _EXCLUDED_CRUDS.add(AppIO)
     _EXCLUDED_CRUDS.add(AppVersionIO)
-if not FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
+if not (FeatureFlag.is_enabled(Flags.AGENT_SKILLS) or FeatureFlag.is_enabled(Flags.V09)):
     _EXCLUDED_CRUDS.add(SkillIO)
-if not FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES):
+if not (FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) or FeatureFlag.is_enabled(Flags.V09)):
     _EXCLUDED_CRUDS.add(ExternalDataSourceIO)
 if not FeatureFlag.is_enabled(Flags.CATALOG_DATASET):
     _EXCLUDED_CRUDS.add(CatalogDataSetsIO)
-if not FeatureFlag.is_enabled(Flags.SAP_WRITEBACK):
+if not (FeatureFlag.is_enabled(Flags.SAP_WRITEBACK) or FeatureFlag.is_enabled(Flags.V09)):
     _EXCLUDED_CRUDS.add(SAPInstanceIO)
     _EXCLUDED_CRUDS.add(SAPEndpointIO)
     _EXCLUDED_CRUDS.add(SchemaMappingIO)
-if not FeatureFlag.is_enabled(Flags.INTEGRATIONS):
+if not (FeatureFlag.is_enabled(Flags.INTEGRATIONS) or FeatureFlag.is_enabled(Flags.V09)):
     _EXCLUDED_CRUDS.add(IntegrationsIO)
     _EXCLUDED_CRUDS.add(IntegrationConfigsIO)
 

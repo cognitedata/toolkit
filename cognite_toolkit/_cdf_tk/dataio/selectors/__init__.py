@@ -103,7 +103,7 @@ def load_selector(manifest_file: Path) -> Selector | ToolkitWarning:
     except ValidationError as e:
         errors = humanize_validation_error(e)
         return ResourceFormatWarning(manifest_file, tuple(errors), text="Invalid selector in metadata file, skipping.")
-    if not Flags.EXTEND_UPLOAD.is_enabled() and type(selector) in ALPHA_SELECTORS:
+    if not (Flags.EXTEND_UPLOAD.is_enabled() or Flags.V09.is_enabled()) and type(selector) in ALPHA_SELECTORS:
         return MediumSeverityWarning(
             f"Selector type '{type(selector).__name__}' in file '{manifest_file}' is in alpha. To enable it set the alpha flag 'extend-upload = true' in your CDF.toml file."
         )

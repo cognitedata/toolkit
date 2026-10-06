@@ -28,7 +28,8 @@ class DataModelsAPI(CDFResourceAPI[DataModelResponse]):
     """
 
     def __init__(self, http_client: HTTPClient) -> None:
-        api_version = "alpha" if FeatureFlag.is_enabled(Flags.RECORD_VIEWS) else None
+        use_alpha = FeatureFlag.is_enabled(Flags.RECORD_VIEWS) or FeatureFlag.is_enabled(Flags.V09)
+        api_version = "alpha" if use_alpha else None
         super().__init__(
             http_client=http_client,
             method_endpoint_map={

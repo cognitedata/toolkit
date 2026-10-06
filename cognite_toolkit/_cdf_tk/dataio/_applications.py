@@ -74,7 +74,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         self,
         client: ToolkitClient,
         skip_existing: bool = False,
-        skip_backend_services: bool = not Flags.EXTEND_UPLOAD.is_enabled(),
+        skip_backend_services: bool = not (Flags.EXTEND_UPLOAD.is_enabled() or Flags.V09.is_enabled()),
         skip_strict_mode: bool = False,
         api_format: Literal["request", "response"] = "request",
     ) -> None:

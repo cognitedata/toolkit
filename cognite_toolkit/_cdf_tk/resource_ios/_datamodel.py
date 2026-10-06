@@ -697,7 +697,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
 
         yield SpaceIO, SpaceId(space=resource.space)
 
-        if FeatureFlag.is_enabled(Flags.RECORD_VIEWS):
+        if FeatureFlag.is_enabled(Flags.RECORD_VIEWS) or FeatureFlag.is_enabled(Flags.V09):
             for stream_id in resource.stream_id or []:
                 yield StreamIO, ExternalId(external_id=stream_id)
 
@@ -736,7 +736,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
     def dump_resource(self, resource: ViewResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
         local = local or {}
-        if not FeatureFlag.is_enabled(Flags.RECORD_VIEWS):
+        if not (FeatureFlag.is_enabled(Flags.RECORD_VIEWS) or FeatureFlag.is_enabled(Flags.V09)):
             dumped.pop("streamId", None)
         if not dumped.get("properties") and not local.get("properties"):
             if "properties" in local:
