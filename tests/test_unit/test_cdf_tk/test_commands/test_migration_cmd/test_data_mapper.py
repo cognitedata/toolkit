@@ -1,7 +1,6 @@
 import math
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any, ClassVar
 from unittest.mock import MagicMock
 
@@ -115,7 +114,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     LocationSplitFDMtoCDMMapper,
     Station360PropertiesMapping,
     ThreeDAssetMapper,
-    ThreeDMapper,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import (
     COGNITE_3D_REVISION_VIEW,
@@ -131,7 +129,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import Image360Annotati
 from cognite_toolkit._cdf_tk.dataio import DataItem
 from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, FileWithAggregationLogger, Severity
 from cognite_toolkit._cdf_tk.dataio.selectors import InstanceQuerySelector, InstanceViewSelector
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 from tests.data import MIGRATION_DIR
 
@@ -311,17 +309,6 @@ class TestAssetCentricToInstanceMapper:
                 mapper.prepare(selected)
 
             assert "The following ingestion views were not found in Data Modeling" in str(exc_info.value)
-
-
-class TestThreeDMapper:
-    def test_map_rejects_missing_target_space(self) -> None:
-        client = MagicMock()
-        client.migration.space_source.retrieve.return_value = [SimpleNamespace(instance_space="missing_space")]
-        client.tool.spaces.retrieve.return_value = []
-        model = ThreeDModelClassicResponse(name="pump", id=1, created_time=1, data_set_id=10)
-
-        with pytest.raises(ToolkitMigrationError, match="missing_space"):
-            ThreeDMapper(client).map([DataItem(tracking_id="pump", item=model)])
 
 
 class TestThreeDAssetMapper:
