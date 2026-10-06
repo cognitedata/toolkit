@@ -272,7 +272,7 @@ class HostedExtractorDestinationIO(
             if is_dry_run:
                 resource["credentials"] = {"nonce": "dummy_nonce"}
             else:
-                session = self.client.sessions.create([credentials])[0]
+                session = self.client.sessions.create_single(credentials)
                 resource["credentials"] = {"nonce": session.nonce}
         if ds_external_id := resource.pop("targetDataSetExternalId", None):
             resource["targetDataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)

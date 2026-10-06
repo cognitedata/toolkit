@@ -614,7 +614,7 @@ class FunctionScheduleIO(
                 raise ToolkitRequiredValueError(f"Authentication is missing for schedule {id_!r}")
             credentials = self.authentication_by_id[id_]
             try:
-                session = self.client.sessions.create([credentials])[0]
+                session = self.client.sessions.create_single(credentials)
             except ToolkitAPIError as e:
                 if hint := try_find_error(credentials):
                     raise ResourceCreationError(f"Failed to create Function Schedule {id_}: {hint}") from e
