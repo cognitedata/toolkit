@@ -173,10 +173,10 @@ def asset_centric_client(
         client.tool.events.paginate.side_effect = iterate_events
         client.tool.filemetadata.paginate.side_effect = iterate_files
 
-        client.assets.aggregate_count.return_value = RESOURCE_COUNT
-        client.files.aggregate_count.return_value = RESOURCE_COUNT
-        client.events.aggregate_count.return_value = RESOURCE_COUNT
-        client.time_series.aggregate_count.return_value = RESOURCE_COUNT
+        client.tool.assets.count.return_value = RESOURCE_COUNT
+        client.tool.filemetadata.count.return_value = RESOURCE_COUNT
+        client.tool.events.count.return_value = RESOURCE_COUNT
+        client.tool.timeseries.count.return_value = RESOURCE_COUNT
 
         client.lookup.data_sets.external_id.return_value = DATA_SET_EXTERNAL_ID
         client.lookup.data_sets.id.return_value = DATA_SET_ID
