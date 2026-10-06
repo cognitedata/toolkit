@@ -147,11 +147,11 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         try:
             streamlit_request = StreamlitRequest.model_validate(item)
             file_metadata_yaml = FileMetadataYAML(
-                externalId=streamlit_request.external_id,
+                external_id=streamlit_request.external_id,
                 name=f"{streamlit_request.name}-source.json",
                 directory=STREAMLIT_DIRECTORY,
                 metadata=streamlit_request._as_metadata(),
-                dataSetExternalId=item.get("dataSetExternalId"),
+                data_set_external_id=item.get("dataSetExternalId"),
             )
             file_metadata = yaml_safe_dump(file_metadata_yaml.model_dump(by_alias=True, exclude_unset=True))
         except ValidationError as e:
