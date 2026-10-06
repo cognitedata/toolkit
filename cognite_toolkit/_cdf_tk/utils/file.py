@@ -273,7 +273,7 @@ def read_source_for_build(filepath: Path, encoding: str) -> tuple[bytes, str]:
     try:
         text = text_bytes.decode(encoding)
     except UnicodeDecodeError:
-        text = text_bytes.decode(locale.getencoding())
+        text = text_bytes.decode(locale.getpreferredencoding(False))
     return hashed_bytes, text
 
 
