@@ -17,7 +17,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
     FileMetadataRequest,
     FileMetadataResponse,
 )
-from cognite_toolkit._cdf_tk.dataio.selectors import CogniteFileFilesSelectorV2, FileMetadataFilesSelectorV2
+from cognite_toolkit._cdf_tk.dataio.selectors import (
+    FILENAME_VARIABLE,
+    CogniteFileFilesSelectorV2,
+    CogniteFileTemplateSelectorV2,
+    CogniteFileTemplateV2,
+    FileMetadataFilesSelectorV2,
+    FileMetadataTemplateSelectorV2,
+    FileMetadataTemplateV2,
+)
 
 # Production code starts multipart upload at 100 MiB (2 x 50 MiB). Each part except the last must be
 # larger than 5 MiB, so this payload is 12 MiB and the ideal part size is patched down to 6 MiB.
@@ -27,6 +35,17 @@ _UPLOAD_TIMEOUT_SECONDS = 90.0
 
 _FILE_METADATA_EXTERNAL_ID = "toolkit_smoke_multipart_file_metadata"
 _COGNITE_FILE_EXTERNAL_ID = "toolkit_smoke_multipart_cognite_file"
+_FILE_METADATA_TEMPLATE_PREFIX = "toolkit_smoke_template_filemetadata_"
+_COGNITE_FILE_TEMPLATE_PREFIX = "toolkit_smoke_template_cognitefile_"
+
+_FILE_METADATA_TEMPLATE_FILES = {
+    "alpha.txt": "toolkit-smoke-file-metadata-alpha\n",
+    "beta.txt": "toolkit-smoke-file-metadata-beta\n",
+}
+_COGNITE_FILE_TEMPLATE_FILES = {
+    "alpha.txt": "toolkit-smoke-cognite-file-alpha\n",
+    "beta.txt": "toolkit-smoke-cognite-file-beta\n",
+}
 
 
 @pytest.fixture
@@ -91,6 +110,107 @@ class TestUploadMultipart:
             _delete_cognite_file(toolkit_client, space, _COGNITE_FILE_EXTERNAL_ID)
 
 
+class TestUploadFileTemplate:
+    def test_file_metadata_template_upload(
+        self,
+        toolkit_client: ToolkitClient,
+        smoke_dataset: DataSetResponse,
+        tmp_path: Path,
+    ) -> None:
+        external_ids = list(_expected_by_external_id(_FILE_METADATA_TEMPLATE_PREFIX, _FILE_METADATA_TEMPLATE_FILES))
+        upload_dir = tmp_path / "filemetadata"
+        for external_id in external_ids:
+            _delete_file_metadata(toolkit_client, external_id)
+        try:
+            _prepare_file_metadata_template_upload(upload_dir, smoke_dataset.external_id, _FILE_METADATA_TEMPLATE_FILES)
+            _upload_dir(upload_dir, toolkit_client.config.project)
+            _wait_for_file_metadata(toolkit_client, external_ids)
+        finally:
+            for external_id in external_ids:
+                _delete_file_metadata(toolkit_client, external_id)
+
+    def test_cognite_file_template_upload(
+        self,
+        toolkit_client: ToolkitClient,
+        smoke_space: SpaceResponse,
+        tmp_path: Path,
+    ) -> None:
+        external_ids = list(_expected_by_external_id(_COGNITE_FILE_TEMPLATE_PREFIX, _COGNITE_FILE_TEMPLATE_FILES))
+        space = smoke_space.space
+        upload_dir = tmp_path / "cognitefile"
+        for external_id in external_ids:
+            _delete_cognite_file(toolkit_client, space, external_id)
+        try:
+            _prepare_cognite_file_template_upload(upload_dir, space, _COGNITE_FILE_TEMPLATE_FILES)
+            _upload_dir(upload_dir, toolkit_client.config.project)
+            _wait_for_cognite_files(toolkit_client, space, external_ids)
+        finally:
+            for external_id in external_ids:
+                _delete_cognite_file(toolkit_client, space, external_id)
+
+
+def _expected_by_external_id(prefix: str, files: dict[str, str]) -> dict[str, str]:
+    return {f"{prefix}{filename}": content for filename, content in files.items()}
+
+
+def _prepare_file_metadata_template_upload(
+    upload_dir: Path, data_set_external_id: str | None, files: dict[str, str]
+) -> None:
+    if data_set_external_id is None:
+        raise AssertionError("Smoke dataset is missing an external ID, so the file cannot be uploaded.")
+    file_directory = upload_dir / "files"
+    _write_text_files(file_directory, files)
+    selector = FileMetadataTemplateSelectorV2(
+        template=FileMetadataTemplateV2.model_validate(
+            {
+                "name": FILENAME_VARIABLE,
+                "externalId": f"{_FILE_METADATA_TEMPLATE_PREFIX}{FILENAME_VARIABLE}",
+                "mimeType": "text/plain",
+                "dataSetExternalId": data_set_external_id,
+            }
+        ),
+        file_directory=file_directory,
+        guess_mime_type=False,
+    )
+    selector.dump_to_file(upload_dir)
+
+
+def _prepare_cognite_file_template_upload(upload_dir: Path, space: str, files: dict[str, str]) -> None:
+    file_directory = upload_dir / "files"
+    _write_text_files(file_directory, files)
+    selector = CogniteFileTemplateSelectorV2(
+        template=CogniteFileTemplateV2.model_validate(
+            {
+                "space": space,
+                "externalId": f"{_COGNITE_FILE_TEMPLATE_PREFIX}{FILENAME_VARIABLE}",
+                "name": FILENAME_VARIABLE,
+                "mimeType": "text/plain",
+            }
+        ),
+        file_directory=file_directory,
+        guess_mime_type=False,
+    )
+    selector.dump_to_file(upload_dir)
+
+
+def _write_text_files(directory: Path, files: dict[str, str]) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
+    for filename, content in files.items():
+        (directory / filename).write_text(content, encoding="utf-8")
+
+
+def _wait_for_file_metadata(client: ToolkitClient, external_ids: list[str]) -> None:
+    for external_id in external_ids:
+        _wait_until_uploaded(client, ExternalId(external_id=external_id))
+
+
+def _wait_for_cognite_files(client: ToolkitClient, space: str, external_ids: list[str]) -> None:
+    for external_id in external_ids:
+        node_id = NodeId(space=space, external_id=external_id)
+        _wait_until_uploaded(client, InstanceId(instance_id=node_id))
+        _wait_until_cognite_file_uploaded(client, node_id)
+
+
 def _prepare_file_metadata_upload(upload_dir: Path, data_set_external_id: str | None) -> None:
     upload_dir.mkdir(parents=True)
     if data_set_external_id is None:
@@ -141,7 +261,6 @@ def _upload_dir(upload_dir: Path, project: str) -> None:
         UploadApp.upload_dir(
             typer.Context(click.Command("upload_dir")),
             input_dir=upload_dir,
-            skip_verify_cdf_project=True,
             cdf_project=project,
             overwrite=True,
             verbose=True,

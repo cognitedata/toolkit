@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
 
-import httpx2
 from cognite.client import data_modeling as dm
 from pydantic import JsonValue
 
@@ -29,23 +28,17 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
 from cognite_toolkit._cdf_tk.resource_ios import FileMetadataIO
-from cognite_toolkit._cdf_tk.utils import sanitize_filename
-from cognite_toolkit._cdf_tk.utils.collection import chunker, chunker_sequence
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Bookmark, DataItem, Page, UploadableDataIO
 from .progress import NoBookmark
-from .selectors import FileContentSelector, FileIdentifierSelector, FileMetadataTemplateSelector
+from .selectors import FileContentSelector, FileMetadataTemplateSelector
 from .selectors._file_content import (
     FileDataModelingTemplateSelector,
-    FileExternalID,
-    FileIdentifier,
-    FileInstanceID,
-    FileInternalID,
     FileTemplateSelector,
 )
-from .selectors._file_content import NodeId as SelectorNodeId
 
 COGNITE_FILE_VIEW = dm.ViewId("cdf_cdm", "CogniteFile", "v1")
 
@@ -92,141 +85,11 @@ class FileContentIO(UploadableDataIO[FileContentSelector, MetadataWithFilePath, 
         limit: int | None = None,
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page[MetadataWithFilePath]]:
-        if not isinstance(selector, FileIdentifierSelector):
-            raise ToolkitNotImplementedError(
-                f"Download with the manifest, {type(selector).__name__}, is not supported for FileContentIO"
-            )
-        selected_identifiers = selector.identifiers
-        if limit is not None and limit < len(selected_identifiers):
-            selected_identifiers = selected_identifiers[:limit]
-        for identifiers in chunker_sequence(selected_identifiers, self.CHUNK_SIZE):
-            metadata = self._retrieve_metadata(identifiers)
-            if metadata is None:
-                continue
-            identifiers_map = self._as_metadata_map(metadata)
-            downloaded_files: list[MetadataWithFilePath] = []
-            for identifier in identifiers:
-                if identifier not in identifiers_map:
-                    continue
-
-                meta = identifiers_map[identifier]
-                filepath = self._create_filepath(meta, selector)
-                download_url = self._retrieve_download_url(identifier)
-                if download_url is None:
-                    continue
-                filepath.parent.mkdir(parents=True, exist_ok=True)
-                with httpx2.stream("GET", download_url) as response:
-                    if response.status_code != 200:
-                        continue
-                    with filepath.open(mode="wb") as file_stream:
-                        for chunk in response.iter_bytes(chunk_size=8192):
-                            file_stream.write(chunk)
-                downloaded_files.append(
-                    MetadataWithFilePath(
-                        metadata=meta,
-                        file_path=filepath.relative_to(self._target_dir),
-                    )
-                )
-            items = [
-                DataItem(
-                    tracking_id=item.metadata.external_id or str(item.metadata.id),
-                    item=item,
-                )
-                for item in downloaded_files
-            ]
-            yield self.emit_registered_page(Page(items=items, worker_id="Main", bookmark=NoBookmark()))
-
-    def _retrieve_metadata(self, identifiers: Sequence[FileIdentifier]) -> Sequence[FileMetadataResponse] | None:
-        config = self.client.config
-        response = self.client.http_client.request_single_retries(
-            message=RequestMessage(
-                endpoint_url=config.create_api_url("/files/byids"),
-                method="POST",
-                body_content={
-                    "items": [
-                        identifier.model_dump(mode="json", by_alias=True, exclude={"id_type"})
-                        for identifier in identifiers
-                    ],
-                    "ignoreUnknownIds": True,
-                },
-            )
+        raise ToolkitNotImplementedError(
+            f"Download with the manifest, {type(selector).__name__}, is not supported for FileContentIO"
         )
-        if not isinstance(response, SuccessResponse):
-            return None
-        try:
-            body = response.body_json
-        except ValueError:
-            return None
-
-        items_data = body.get("items", [])
-        if not isinstance(items_data, list):
-            return None
-        return [FileMetadataResponse.model_validate(item) for item in items_data]
-
-    @staticmethod
-    def _as_metadata_map(metadata: Sequence[FileMetadataResponse]) -> dict[FileIdentifier, FileMetadataResponse]:
-        identifiers_map: dict[FileIdentifier, FileMetadataResponse] = {}
-        for item in metadata:
-            if item.id is not None:
-                identifiers_map[FileInternalID(internal_id=item.id)] = item
-            if item.external_id is not None:
-                identifiers_map[FileExternalID(external_id=item.external_id)] = item
-            if item.instance_id is not None:
-                identifiers_map[
-                    FileInstanceID(
-                        instance_id=SelectorNodeId(
-                            space=item.instance_id.space, external_id=item.instance_id.external_id
-                        )
-                    )
-                ] = item
-        return identifiers_map
-
-    def _create_filepath(self, meta: FileMetadataResponse, selector: FileIdentifierSelector) -> Path:
-        # We now that metadata always have name set
-        filename = Path(sanitize_filename(meta.name))
-        if len(filename.suffix) == 0 and meta.mime_type:
-            if mime_ext := mimetypes.guess_extension(meta.mime_type):
-                filename = filename.with_suffix(mime_ext)
-        directory = sanitize_filename(selector.file_directory)
-        if isinstance(meta.directory, str) and meta.directory != "":
-            directory = sanitize_filename(meta.directory.removeprefix("/"))
-
-        counter = 1
-        filepath = self._target_dir / directory / filename
-        while filepath.exists():
-            filepath = self._target_dir / directory / f"{filename} ({counter})"
-            counter += 1
-
-        return filepath
-
-    def _retrieve_download_url(self, identifier: FileIdentifier) -> str | None:
-        config = self.client.config
-        response = self.client.http_client.request_single_retries(
-            message=RequestMessage(
-                endpoint_url=config.create_api_url("/files/downloadlink"),
-                method="POST",
-                body_content={"items": [identifier.model_dump(mode="json", by_alias=True, exclude={"id_type"})]},
-            )
-        )
-        if not isinstance(response, SuccessResponse):
-            return None
-
-        try:
-            body = response.body_json
-        except ValueError:
-            return None
-
-        if "items" in body and isinstance(body["items"], list) and len(body["items"]) > 0:
-            # The API responses is not following the API docs, this is a workaround
-            body = body["items"][0]
-        try:
-            return cast(str, body["downloadUrl"])
-        except (KeyError, IndexError):
-            return None
 
     def count(self, selector: FileContentSelector) -> int | None:
-        if isinstance(selector, FileIdentifierSelector):
-            return len(selector.identifiers)
         return None
 
     def data_to_json_chunk(
@@ -287,7 +150,7 @@ class FileContentIO(UploadableDataIO[FileContentSelector, MetadataWithFilePath, 
         selector: FileContentSelector | None = None,
     ) -> ItemsResultList:
         results = ItemsResultList()
-        if isinstance(selector, FileMetadataTemplateSelector | FileIdentifierSelector):
+        if isinstance(selector, FileMetadataTemplateSelector):
             upload_url_getter = self._upload_url_asset_centric
         elif isinstance(selector, FileDataModelingTemplateSelector):
             view_id = dm.ViewId(
@@ -463,23 +326,6 @@ class FileContentIO(UploadableDataIO[FileContentSelector, MetadataWithFilePath, 
                     metadata[FILEPATH] = file_path
                     batch.append(DataItem(tracking_id=file_path.as_posix(), item=metadata))
                 yield Page(worker_id="main", items=batch, bookmark=NoBookmark())
-        elif isinstance(selector, FileIdentifierSelector):
-            for item_chunk in chunker(reader.read_chunks(), cls.CHUNK_SIZE):
-                file_batch: list[DataItem[dict[str, JsonVal]]] = []
-                for item in item_chunk:
-                    if FILEPATH not in item:
-                        # Todo Log warning
-                        continue
-                    try:
-                        file_path = Path(item[FILEPATH])
-                    except KeyError:
-                        # Todo Log warning
-                        continue
-                    if not file_path.is_absolute():
-                        file_path = reader.input_file.parent / file_path
-                    item[FILEPATH] = file_path
-                    file_batch.append(DataItem(tracking_id=file_path.as_posix(), item=item))
-                yield Page(worker_id="main", items=file_batch, bookmark=NoBookmark())
         else:
             raise ToolkitNotImplementedError(
                 f"Reading with the manifest, {type(selector).__name__}, is not supported for FileContentIO"
