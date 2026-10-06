@@ -27,7 +27,19 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 from cognite_toolkit._cdf_tk.resource_ios._data_product import DataProductIO
 from cognite_toolkit._cdf_tk.resource_ios._data_product_version import DataProductVersionIO
 from cognite_toolkit._cdf_tk.resource_ios._rulesets import RuleSetIO, RuleSetVersionIO
+from cognite_toolkit._cdf_tk.resource_ios._signal_sink import SignalSinkIO
+from cognite_toolkit._cdf_tk.resource_ios._signal_subscription import SignalSubscriptionIO
 from tests import data
+
+SKIPPED_ALPHA_CRUDS = {
+    DataProductIO,  # Data Products and Rule Sets APIs are not yet available on the test server.
+    DataProductVersionIO,
+    RuleSetIO,
+    RuleSetVersionIO,
+    ExternalDataSourceIO,  # External data sources reject dummy OneLake credentials (400 Invalid body).
+    SignalSinkIO,  # Signal sinks of type user require an existing user profile, which does not exist on the test server.
+    SignalSubscriptionIO,
+}
 
 
 @pytest.mark.skipif(
@@ -91,9 +103,6 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
     deploy_command = DeployV2Command(silent=False, skip_tracking=True)
     client_id = os.environ["IDP_CLIENT_ID"]
     client_secret = os.environ["IDP_CLIENT_SECRET"]
-    # Data Products and Rule Sets APIs are not yet available on the test server.
-    # External data sources reject dummy OneLake credentials (400 Invalid body).
-    _skip_cruds = {DataProductIO, DataProductVersionIO, RuleSetIO, RuleSetVersionIO, ExternalDataSourceIO}
     with (
         patch.dict(
             os.environ,
@@ -101,7 +110,7 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
         ),
         patch.dict(
             "cognite_toolkit._cdf_tk.commands.deploy_v2.command.RESOURCE_IO_BY_FOLDER_NAME",
-            {f: [c for c in cs if c not in _skip_cruds] for f, cs in RESOURCE_IO_BY_FOLDER_NAME.items()},
+            {f: [c for c in cs if c not in SKIPPED_ALPHA_CRUDS] for f, cs in RESOURCE_IO_BY_FOLDER_NAME.items()},
             clear=True,
         ),
     ):
@@ -138,9 +147,7 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
         if loader_cls in {HostedExtractorSourceIO, HostedExtractorDestinationIO}:
             # These resources we have no way of knowing if they have changed. So they are always redeployed.
             continue
-        if loader_cls in {DataProductIO, DataProductVersionIO, RuleSetIO, RuleSetVersionIO, ExternalDataSourceIO}:
-            # Data Products and Rule Sets APIs are not yet available on the test server.
-            # External data sources reject dummy OneLake credentials (400 Invalid body).
+        if loader_cls in SKIPPED_ALPHA_CRUDS:
             continue
         loader = loader_cls.create_io(client)
 
