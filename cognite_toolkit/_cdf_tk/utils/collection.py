@@ -91,7 +91,7 @@ def chunker(iterable: Iterable[Any], size: int) -> Iterator[list[Any]]:
         yield chunk
 
 
-T_Sequence = TypeVar("T_Sequence", bound=Sequence)
+T_Sequence = TypeVar("T_Sequence", bound=Sequence[Any])
 
 
 def chunker_sequence(sequence: T_Sequence, size: int) -> Iterator[T_Sequence]:

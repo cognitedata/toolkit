@@ -5,12 +5,11 @@ https://api-docs.cognite.com/20230101/tag/Token/operation/inspectToken
 """
 
 from collections import UserDict, defaultdict
-from collections.abc import Sequence
-from typing import Any, TypeAlias
+from collections.abc import Callable, Sequence
+from typing import Any, TypeAlias, cast
 
 from cognite.client.data_classes.capabilities import UnknownScope
-from pydantic import JsonValue, model_serializer, model_validator
-from pydantic_core.core_schema import FieldSerializationInfo
+from pydantic import JsonValue, SerializationInfo, model_serializer, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
@@ -86,10 +85,8 @@ class InspectCapability(BaseModelObject):
         value_copy["acl"] = acl_data
         return value_copy
 
-    # MyPy complains that info; FieldSerializationInfo is not compatible with info: Any
-    # It is.
-    @model_serializer  # type: ignore[type-var]
-    def serialize_acl_name(self, info: FieldSerializationInfo) -> dict[str, Any]:
+    @model_serializer
+    def serialize_acl_name(self, info: SerializationInfo) -> dict[str, Any]:
         """Serialize 'acl' field back to its specific ACL key (e.g., 'assetsAcl') for API compatibility."""
         acl_data = self.acl.model_dump(**vars(info))
         output: dict[str, Any] = {self.acl.acl_name: acl_data}
@@ -148,7 +145,9 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
     ) -> Sequence[AclType]:
         merged_acls: list[AclType] = []
         for (acl_type, acl_name, scope), actions in actions_by_type_and_scope.items():
-            merged_acls.append(acl_type(actions=sorted(actions), acl_name=acl_name, scope=scope))  # type: ignore[arg-type]
+            merged_acls.append(
+                cast(Callable[..., AclType], acl_type)(actions=sorted(actions), acl_name=acl_name, scope=scope)
+            )
         return merged_acls
 
     @classmethod

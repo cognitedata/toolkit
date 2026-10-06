@@ -4,6 +4,7 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Statistics
 """
 
+import builtins
 from collections.abc import Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
@@ -34,7 +35,7 @@ class SpaceStatisticsAPI(CDFResourceAPI[SpaceStatisticsResponse]):
     ) -> PagedResponse[SpaceStatisticsResponse]:
         return PagedResponse[SpaceStatisticsResponse].model_validate_json(response.body)
 
-    def retrieve(self, items: Sequence[SpaceId]) -> list[SpaceStatisticsResponse]:
+    def retrieve(self, items: Sequence[SpaceId]) -> builtins.list[SpaceStatisticsResponse]:
         """Retrieve statistics for specific spaces.
 
         Args:
@@ -45,7 +46,7 @@ class SpaceStatisticsAPI(CDFResourceAPI[SpaceStatisticsResponse]):
         """
         return self._request_item_response(items, "retrieve")
 
-    def list(self) -> list[SpaceStatisticsResponse]:
+    def list(self) -> builtins.list[SpaceStatisticsResponse]:
         """Retrieve statistics for every space in the project.
 
         Returns:

@@ -1,5 +1,6 @@
 from collections import defaultdict
 from collections.abc import Sequence
+from typing import cast
 
 from pydantic import JsonValue
 
@@ -51,7 +52,7 @@ class RecordsAPI:
                     "limit": min(len(id_batch), 1000),
                 }
                 if last_updated_time is not None:
-                    body["lastUpdatedTime"] = last_updated_time  # type: ignore[assignment]
+                    body["lastUpdatedTime"] = cast(JsonValue, last_updated_time)
 
                 request = RequestMessage(endpoint_url=url, method="POST", body_content=body)
                 result = self._http_client.request_single_retries(request)
@@ -84,7 +85,7 @@ class RecordsAPI:
             RecordSyncResponse with items, nextCursor, and hasNext.
         """
         body: dict[str, JsonValue] = {
-            "sources": sources,  # type: ignore[dict-item]
+            "sources": cast(JsonValue, sources),
             "filter": filter,
             "limit": limit,
         }

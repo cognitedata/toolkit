@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse, ResponseItems
@@ -36,7 +37,7 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabaseResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[RAWDatabaseResponse]:
         return ResponseItems[RAWDatabaseResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[RAWDatabaseRequest]) -> list[RAWDatabaseResponse]:
+    def create(self, items: Sequence[RAWDatabaseRequest]) -> builtins.list[RAWDatabaseResponse]:
         """Create databases in CDF.
 
         Args:
@@ -75,7 +76,7 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabaseResponse]):
     def iterate(
         self,
         limit: int | None = 100,
-    ) -> Iterable[list[RAWDatabaseResponse]]:
+    ) -> Iterable[builtins.list[RAWDatabaseResponse]]:
         """Iterate over all databases in CDF.
 
         Args:
@@ -86,7 +87,7 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabaseResponse]):
         """
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = None) -> list[RAWDatabaseResponse]:
+    def list(self, limit: int | None = None) -> builtins.list[RAWDatabaseResponse]:
         """List all databases in CDF.
 
         Args:
@@ -131,7 +132,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTableResponse]):
         """Parse a reference response. Note: db_name must be injected separately."""
         return ResponseItems[RAWTableResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[RAWTableRequest], ensure_parent: bool = False) -> list[RAWTableResponse]:
+    def create(self, items: Sequence[RAWTableRequest], ensure_parent: bool = False) -> builtins.list[RAWTableResponse]:
         """Create tables in a database in CDF.
 
         Args:
@@ -141,7 +142,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTableResponse]):
         Returns:
             List of created RAWTable objects.
         """
-        result: list[RAWTableResponse] = []
+        result: builtins.list[RAWTableResponse] = []
         for (db_name,), group in self._group_items_by_text_field(items, "db_name").items():
             if not db_name:
                 raise ValueError("db_name must be set on all RAWTable items for creation.")
@@ -220,7 +221,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTableResponse]):
         self,
         db_name: str,
         limit: int | None = 100,
-    ) -> Iterable[list[RAWTableResponse]]:
+    ) -> Iterable[builtins.list[RAWTableResponse]]:
         """Iterate over all tables in a database in CDF.
 
         Args:
@@ -235,7 +236,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTableResponse]):
                 t.db_name = db_name
             yield table
 
-    def list(self, db_name: str, limit: int | None = None) -> list[RAWTableResponse]:
+    def list(self, db_name: str, limit: int | None = None) -> builtins.list[RAWTableResponse]:
         """List all tables in a database in CDF.
 
         Args:

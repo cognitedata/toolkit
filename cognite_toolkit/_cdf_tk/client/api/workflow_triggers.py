@@ -36,7 +36,7 @@ class WorkflowTriggersAPI(CDFResourceAPI[WorkflowTriggerResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[ExternalId]:
         return ResponseItems[ExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
+    def create(self, items: Sequence[WorkflowTriggerRequest]) -> builtins.list[WorkflowTriggerResponse]:
         """Create or update workflow triggers in CDF.
 
         Args:
@@ -47,7 +47,7 @@ class WorkflowTriggersAPI(CDFResourceAPI[WorkflowTriggerResponse]):
         return self._request_item_response(items, "upsert")
 
     # This is a duplicate of the create method, included to standardize the API interface.
-    def update(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
+    def update(self, items: Sequence[WorkflowTriggerRequest]) -> builtins.list[WorkflowTriggerResponse]:
         """Create or update workflow triggers in CDF.
 
         Args:

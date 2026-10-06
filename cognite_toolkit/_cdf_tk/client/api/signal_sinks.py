@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
@@ -26,22 +27,24 @@ class SignalSinksAPI(CDFResourceAPI[SignalSinkResponse]):
     ) -> PagedResponse[SignalSinkResponse]:
         return PagedResponse[SignalSinkResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[SignalSinkRequest]) -> list[SignalSinkResponse]:
+    def create(self, items: Sequence[SignalSinkRequest]) -> builtins.list[SignalSinkResponse]:
         return self._request_item_response(items, "create")
 
-    def retrieve(self, ids: Sequence[SignalSinkId], ignore_unknown_ids: bool = False) -> list[SignalSinkResponse]:
+    def retrieve(
+        self, ids: Sequence[SignalSinkId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[SignalSinkResponse]:
         return self._request_item_response(ids, "retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
     def update(
         self, items: Sequence[SignalSinkRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[SignalSinkResponse]:
+    ) -> builtins.list[SignalSinkResponse]:
         return self._update(items, mode=mode)
 
     def delete(self, ids: Sequence[SignalSinkId], ignore_unknown_ids: bool = False) -> None:
         self._request_no_response(ids, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
-    def iterate(self, limit: int | None = 100) -> Iterable[list[SignalSinkResponse]]:
+    def iterate(self, limit: int | None = 100) -> Iterable[builtins.list[SignalSinkResponse]]:
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = 100) -> list[SignalSinkResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[SignalSinkResponse]:
         return self._list(limit=limit)

@@ -790,7 +790,7 @@ class MigrateApp(typer.Typer):
 
         cmd = MigrationCommand(client=client)
         cmd.run(
-            lambda: cmd.migrate(  # type: ignore[misc]
+            lambda: cmd.migrate(
                 selectors=[selected],
                 data=RecordsMigrationIO(client, stream=stream, skip_existing=skip_existing),
                 mapper=AssetCentricToRecordMapper(

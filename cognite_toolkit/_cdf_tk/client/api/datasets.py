@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
@@ -35,7 +36,7 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[DataSetRequest]) -> list[DataSetResponse]:
+    def create(self, items: Sequence[DataSetRequest]) -> builtins.list[DataSetResponse]:
         """Create data sets in CDF.
 
         Args:
@@ -47,7 +48,7 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
 
     def retrieve(
         self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False, cache_response: bool = False
-    ) -> list[DataSetResponse]:
+    ) -> builtins.list[DataSetResponse]:
         """Retrieve data sets from CDF.
 
         Args:
@@ -73,7 +74,7 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
 
     def update(
         self, items: Sequence[DataSetRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[DataSetResponse]:
+    ) -> builtins.list[DataSetResponse]:
         """Update data sets in CDF.
 
         Args:
@@ -125,7 +126,7 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
         external_id_prefix: str | None = None,
         write_protected: bool | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[DataSetResponse]]:
+    ) -> Iterable[builtins.list[DataSetResponse]]:
         """Iterate over all data sets in CDF.
 
         Args:
@@ -150,7 +151,7 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
             body={"filter": filter_body} if filter_body else {},
         )
 
-    def list(self, limit: int | None = 100) -> list[DataSetResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[DataSetResponse]:
         """List all data sets in CDF.
 
         Returns:

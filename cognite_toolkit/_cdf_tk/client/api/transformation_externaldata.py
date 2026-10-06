@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
@@ -28,7 +29,7 @@ class TransformationExternalDataSourcesAPI(CDFResourceAPI[ExternalDataSourceResp
     ) -> PagedResponse[ExternalDataSourceResponse]:
         return PagedResponse[ExternalDataSourceResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[ExternalDataSourceRequest]) -> list[ExternalDataSourceResponse]:
+    def create(self, items: Sequence[ExternalDataSourceRequest]) -> builtins.list[ExternalDataSourceResponse]:
         return self._request_item_response(items, "create")
 
     def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
@@ -37,7 +38,7 @@ class TransformationExternalDataSourcesAPI(CDFResourceAPI[ExternalDataSourceResp
         else:
             self._request_no_response(items, "delete")
 
-    def list(self, limit: int | None = 100) -> list[ExternalDataSourceResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[ExternalDataSourceResponse]:
         return self._list(limit=limit)
 
     def iterate(self, limit: int | None = 100) -> Iterable[Sequence[ExternalDataSourceResponse]]:

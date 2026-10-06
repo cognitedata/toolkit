@@ -116,11 +116,11 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
     variables: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def load(cls, data: dict[str, Any], build_env_name: str, filepath: Path) -> Self:
+    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> Self:
         if "environment" not in data:
             err_msg = f"Expected 'environment' section in {filepath!s}."
             raise ToolkitEnvError(err_msg)
-        environment = Environment.load(data["environment"], build_env_name, filepath.parent)
+        environment = Environment.load(data["environment"], build_env, filepath.parent)
 
         if "modules" in data and "variables" not in data:
             err_msg = (

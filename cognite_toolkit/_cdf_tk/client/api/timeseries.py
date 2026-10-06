@@ -39,7 +39,7 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[TimeSeriesRequest]) -> list[TimeSeriesResponse]:
+    def create(self, items: Sequence[TimeSeriesRequest]) -> builtins.list[TimeSeriesResponse]:
         """Create time series in CDF.
 
         Args:
@@ -51,7 +51,7 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
 
     def retrieve(
         self, items: Sequence[InternalId | ExternalId | InstanceId], ignore_unknown_ids: bool = False
-    ) -> list[TimeSeriesResponse]:
+    ) -> builtins.list[TimeSeriesResponse]:
         """Retrieve time series from CDF.
 
         Args:
@@ -66,7 +66,7 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
 
     def update(
         self, items: Sequence[TimeSeriesRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[TimeSeriesResponse]:
+    ) -> builtins.list[TimeSeriesResponse]:
         """Update time series in CDF.
 
         Args:
@@ -113,7 +113,7 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
         self,
         filter: ClassicFilter | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[TimeSeriesResponse]]:
+    ) -> Iterable[builtins.list[TimeSeriesResponse]]:
         """Iterate over all time series in CDF.
 
         Args:
@@ -131,7 +131,7 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
     def list(
         self,
         limit: int | None = 100,
-    ) -> list[TimeSeriesResponse]:
+    ) -> builtins.list[TimeSeriesResponse]:
         """List all time series in CDF.
 
         Returns:

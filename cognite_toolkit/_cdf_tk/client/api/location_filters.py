@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -46,7 +47,7 @@ class LocationFiltersAPI(CDFResourceAPI[LocationFilterResponse]):
     ) -> PagedResponse[LocationFilterResponse]:
         return PagedResponse[LocationFilterResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[LocationFilterRequest]) -> list[LocationFilterResponse]:
+    def create(self, items: Sequence[LocationFilterRequest]) -> builtins.list[LocationFilterResponse]:
         """Create a new location filter.
 
         Args:
@@ -56,7 +57,7 @@ class LocationFiltersAPI(CDFResourceAPI[LocationFilterResponse]):
             The created location filter.
         """
         endpoint = self._method_endpoint_map["create"]
-        results: list[LocationFilterResponse] = []
+        results: builtins.list[LocationFilterResponse] = []
         for item in items:
             request = RequestMessage(
                 endpoint_url=self._make_url(endpoint.path),
@@ -68,7 +69,7 @@ class LocationFiltersAPI(CDFResourceAPI[LocationFilterResponse]):
             results.append(LocationFilterResponse.model_validate_json(response.body))
         return results
 
-    def retrieve(self, items: Sequence[InternalId]) -> list[LocationFilterResponse]:
+    def retrieve(self, items: Sequence[InternalId]) -> builtins.list[LocationFilterResponse]:
         """Retrieve a single location filter by ID.
 
         Args:
@@ -79,7 +80,7 @@ class LocationFiltersAPI(CDFResourceAPI[LocationFilterResponse]):
         """
         return self._request_item_response(items, "retrieve")
 
-    def update(self, items: Sequence[LocationFilterRequest]) -> list[LocationFilterResponse]:
+    def update(self, items: Sequence[LocationFilterRequest]) -> builtins.list[LocationFilterResponse]:
         """Update an existing location filter.
 
         Args:
@@ -89,7 +90,7 @@ class LocationFiltersAPI(CDFResourceAPI[LocationFilterResponse]):
             The updated location filter.
         """
         endpoint = self._method_endpoint_map["update"]
-        results: list[LocationFilterResponse] = []
+        results: builtins.list[LocationFilterResponse] = []
         for item in items:
             if item.id is None:
                 raise ValueError("Item must have an ID for update operation.")
@@ -105,7 +106,7 @@ class LocationFiltersAPI(CDFResourceAPI[LocationFilterResponse]):
             results.append(parsed)
         return results
 
-    def delete(self, items: Sequence[InternalId]) -> list[LocationFilterResponse]:
+    def delete(self, items: Sequence[InternalId]) -> builtins.list[LocationFilterResponse]:
         """Delete a location filter.
 
         Args:
@@ -115,7 +116,7 @@ class LocationFiltersAPI(CDFResourceAPI[LocationFilterResponse]):
             list[LocationFilterResponse]: The deleted location filters.
         """
         endpoint = self._method_endpoint_map["delete"]
-        results: list[LocationFilterResponse] = []
+        results: builtins.list[LocationFilterResponse] = []
         for item in items:
             request = RequestMessage(
                 endpoint_url=self._make_url(endpoint.path.format(id=item.id)),
@@ -159,7 +160,7 @@ class LocationFiltersAPI(CDFResourceAPI[LocationFilterResponse]):
         """
         return self._paginate(cursor=None, limit=100, body={"flat": flat})
 
-    def iterate(self, flat: bool = True) -> Iterable[list[LocationFilterResponse]]:
+    def iterate(self, flat: bool = True) -> Iterable[builtins.list[LocationFilterResponse]]:
         """Iterate over all location filters.
 
         Args:
@@ -170,7 +171,7 @@ class LocationFiltersAPI(CDFResourceAPI[LocationFilterResponse]):
         """
         return self._iterate(limit=None, body={"flat": flat})
 
-    def list(self, flat: bool = True) -> list[LocationFilterResponse]:
+    def list(self, flat: bool = True) -> builtins.list[LocationFilterResponse]:
         """List all location filters.
 
         Args:

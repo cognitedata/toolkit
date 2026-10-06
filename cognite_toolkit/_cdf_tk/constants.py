@@ -8,7 +8,7 @@ from typing import Literal, TypeAlias
 from cognite.client import data_modeling as dm
 
 try:
-    from pyodide.ffi import IN_BROWSER
+    from pyodide.ffi import IN_BROWSER  # ty: ignore[unresolved-import]
 except ModuleNotFoundError:
     IN_BROWSER = False
 # This is the default config located locally in each module.
