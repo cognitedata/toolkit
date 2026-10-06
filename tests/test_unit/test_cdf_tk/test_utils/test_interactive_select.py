@@ -123,7 +123,7 @@ class TestInteractiveSelect:
                 Asset(id=1, created_time=0, last_updated_time=0, root_id=1, name="Root 1", external_id="Root1"),
                 Asset(id=2, created_time=0, last_updated_time=0, root_id=2, name="Root 2", external_id="Root2"),
             ]
-            client.files.aggregate_count.return_value = 100
+            client.tool.filemetadata.count.return_value = 100
             selector = FileMetadataInteractiveSelect(client, "test_operation")
             selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
 
@@ -146,7 +146,7 @@ class TestInteractiveSelect:
         ):
             client.tool.datasets.list.return_value = []
             client.assets.list.return_value = []
-            client.files.aggregate_count.return_value = 100
+            client.tool.filemetadata.count.return_value = 100
             selector = FileMetadataInteractiveSelect(client, "test_operation")
             with pytest.raises(ToolkitValueError) as exc_info:
                 _ = selector.select_hierarchies_and_data_sets()
@@ -176,7 +176,7 @@ class TestInteractiveSelect:
                 Asset(id=1, created_time=0, last_updated_time=0, root_id=1, name="Root 1", external_id="Root1"),
                 Asset(id=2, created_time=0, last_updated_time=0, root_id=2, name="Root 2", external_id="Root2"),
             ]
-            client.time_series.aggregate_count.return_value = 100
+            client.tool.timeseries.count.return_value = 100
             selector = TimeSeriesInteractiveSelect(client, "test_operation")
             selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
 
@@ -206,7 +206,7 @@ class TestInteractiveSelect:
                 Asset(id=1, created_time=0, last_updated_time=0, root_id=1, name="Root 1", external_id="Root1"),
                 Asset(id=2, created_time=0, last_updated_time=0, root_id=2, name="Root 2", external_id="Root2"),
             ]
-            client.events.aggregate_count.return_value = 100
+            client.tool.events.count.return_value = 100
             selector = EventInteractiveSelect(client, "test_operation")
             selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
 

@@ -15,7 +15,7 @@ class TestDownloadCommand:
         cmd = DownloadCommand(silent=True, skip_tracking=True)
         with monkeypatch_toolkit_client() as client:
             dataset = "my/:_data_set"
-            client.assets.aggregate_count.return_value = 1
+            client.tool.assets.count.return_value = 1
             client.tool.assets.paginate.return_value = PagedResponse(
                 items=[
                     AssetResponse(
