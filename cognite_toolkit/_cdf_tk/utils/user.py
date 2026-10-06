@@ -43,6 +43,7 @@ class UserInfo(BaseModel):
 
         try:
             profile = client.user_profiles.me()
+            principal_type: Literal["user", "service_principal", "internal_service", "unknown"]
             match profile.identity_type:
                 case "USER":
                     principal_type = "user"
