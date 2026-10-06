@@ -61,9 +61,6 @@ TChartBackendResponse = TypeVar(
 )
 
 
-MAX_TARGET_MIGRATION_RETRIES = 3
-
-
 class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
     KIND = "Charts"
     CHUNK_SIZE = 10
@@ -428,43 +425,6 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
                     succeeded[ext_id] = created
         return log_entries, failed, succeeded
 
-    def _confirm_target_migrations(
-        self, migrations: dict[ExternalId, tuple[ChartScheduledCalculationRequest, str]]
-    ) -> tuple[list[LogEntryV2], set[ExternalId]]:
-        """Re-reads migrated calculations and re-sends the update while the target is still the external ID.
-
-        The Tasks API stores the write target inside the schedule's action. A run that started before the
-        update can save its old action when it finishes, which reverts the target. Retrying after the run
-        completes makes the new target stick.
-        """
-        api = self.client.charts.scheduled_calculations
-        log_entries: list[LogEntryV2] = []
-        failed: set[ExternalId] = set()
-        for ext_id, (request, tracking_id) in migrations.items():
-            error: str | None = None
-            try:
-                for attempt in range(MAX_TARGET_MIGRATION_RETRIES + 1):
-                    current = api.retrieve([ext_id], ignore_unknown_ids=True)
-                    if current and current[0].target_timeseries_instance_id is not None:
-                        break
-                    if attempt < MAX_TARGET_MIGRATION_RETRIES:
-                        api.update([request])
-                else:
-                    error = f"the target was still the external ID after {MAX_TARGET_MIGRATION_RETRIES} retries"
-            except ToolkitAPIError as e:
-                error = str(e)
-            if error is not None:
-                log_entries.append(
-                    LogEntryV2(
-                        id=tracking_id,
-                        label="Failed migrating scheduled calculation target",
-                        message=f"Failed to migrate the target of scheduled calculation {ext_id}: {error}",
-                        severity=Severity.failure,
-                    )
-                )
-                failed.add(ext_id)
-        return log_entries, failed
-
     def _upload_backend_services(self, items: list[DataItem[ChartRequest]]) -> set[str]:
         """Uploads the backend services monitoring jobs and scheduled calculations for each Chart. Returns a set of external IDs of Charts that failed to upload backend services."""
         log_entries: list[LogEntryV2] = []
@@ -500,7 +460,6 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
                 list(calculation_by_id.keys()), ignore_unknown_ids=True
             )
         }
-        target_migrations: dict[ExternalId, tuple[ChartScheduledCalculationRequest, str]] = {}
         for ext_id, (request, tracking_id) in calculation_by_id.items():
             existing = existing_calculations.get(ext_id)
             if (
@@ -509,7 +468,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
                 and request.target_timeseries_instance_id is not None
             ):
                 request = request.with_target_update()
-                calculation_by_id[ext_id] = target_migrations[ext_id] = request, tracking_id
+                calculation_by_id[ext_id] = request, tracking_id
         calculation_upsert_logs, failed_calculations, _ = self._upsert_unique_backend_requests(
             calculation_by_id,
             set(existing_calculations),
@@ -518,11 +477,6 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
             "scheduled calculation",
         )
         log_entries.extend(calculation_upsert_logs)
-        migration_logs, failed_migrations = self._confirm_target_migrations(
-            {ext_id: value for ext_id, value in target_migrations.items() if ext_id not in failed_calculations}
-        )
-        log_entries.extend(migration_logs)
-        failed_calculations |= failed_migrations
 
         upserted_job_by_internal_id: dict[int, ChartMonitoringJobResponse] = {}
         for ext_id, job_response in succeeded_jobs.items():

@@ -33,7 +33,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO, DataItem, Page
-from cognite_toolkit._cdf_tk.dataio._applications import MAX_TARGET_MIGRATION_RETRIES
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     AllChartsSelector,
     CanvasExternalIdSelector,
@@ -374,17 +373,7 @@ class TestChartIO:
         assert chart_request["data"]["monitoringJobs"][0]["id"] == _CHART_MONITOR_JOB_INTERNAL_ID_AFTER_UPLOAD
 
     @pytest.mark.usefixtures("disable_gzip")
-    @pytest.mark.parametrize(
-        "retrieved_targets, expected_updates, expect_failure",
-        [
-            pytest.param(["external", "linked"], 1, False, id="migrated on first update"),
-            pytest.param(["external", "external", "linked"], 2, False, id="old action restored once, retried"),
-            pytest.param(["external"] * 10, 1 + MAX_TARGET_MIGRATION_RETRIES, True, id="never migrates"),
-        ],
-    )
-    def test_upload_migrates_scheduled_calculation_target(
-        self, retrieved_targets: list[str], expected_updates: int, expect_failure: bool
-    ) -> None:
+    def test_upload_migrates_scheduled_calculation_target(self) -> None:
         chart = _example_chart_response_for_download()
         monitoring_job = _example_monitoring_job_response()
         stored = _example_scheduled_calculation_response()
@@ -395,15 +384,13 @@ class TestChartIO:
             }
         )
         downloaded = self._create_downloaded_chart(chart, monitoring_job, linked)
-        by_name = {"external": stored, "linked": linked}
         with monkeypatch_toolkit_client() as client:
             client.lookup.time_series.id.side_effect = lambda arg: (
                 [_CHART_TS_INTERNAL_ID for _ in arg] if isinstance(arg, list) else _CHART_TS_INTERNAL_ID
             )
             client.charts.monitoring_jobs.retrieve.return_value = [monitoring_job]
             client.charts.monitoring_jobs.update.return_value = [monitoring_job]
-            # The first read decides create vs update, the following ones check the migration.
-            client.charts.scheduled_calculations.retrieve.side_effect = [[by_name[t]] for t in retrieved_targets]
+            client.charts.scheduled_calculations.retrieve.return_value = [stored]
             client.charts.scheduled_calculations.update.return_value = [linked]
             io = ChartIO(client, skip_backend_services=False, skip_existing=False)
             page = io.json_chunk_to_data(
@@ -413,11 +400,10 @@ class TestChartIO:
             failed_charts = io._upload_backend_services(page.items)
 
             updates = client.charts.scheduled_calculations.update.call_args_list
-            assert len(updates) == expected_updates
-            for call in updates:
-                sent = call.args[0][0].as_update("replace")
-                assert sent["targetTimeseriesInstanceId"] == {"space": "plant", "externalId": "shared_ts_calc_output"}
-        assert bool(failed_charts) is expect_failure
+            assert len(updates) == 1
+            sent = updates[0].args[0][0].as_update("replace")
+            assert sent["targetTimeseriesInstanceId"] == {"space": "plant", "externalId": "shared_ts_calc_output"}
+        assert not failed_charts
 
     @pytest.mark.parametrize(
         "limit,selector,expected_external_ids",
