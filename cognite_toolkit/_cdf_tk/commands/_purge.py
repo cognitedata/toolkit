@@ -136,7 +136,7 @@ class DeleteItem(RequestItem):
         exclude_extra: bool = False,
         context: Literal["api", "toolkit"] = "api",
     ) -> dict[str, Any]:
-        return self.item  # type: ignore[return-value]
+        return cast(dict[str, Any], self.item)
 
     def __str__(self) -> str:
         return self.as_id_fun(self.item)
@@ -174,8 +174,7 @@ class DataModelingToDelete(ToDelete):
         def as_id(page: Page[ResourceResponseProtocol]) -> Page[JsonVal]:
             # We know that all data modeling resources implement as_id
             items = [
-                DataItem(tracking_id=item.tracking_id, item=item.item.as_id().dump())  # type: ignore[attr-defined]
-                for item in page.items
+                DataItem(tracking_id=item.tracking_id, item=cast(Any, item.item).as_id().dump()) for item in page.items
             ]
             return page.create_from(items)
 
@@ -213,7 +212,9 @@ class NodesToDelete(ToDelete):
         self, client: ToolkitClient, logger: FileWithAggregationLogger
     ) -> Callable[[Page[ResourceResponseProtocol]], Page[JsonVal]]:
         def check_for_data(page: Page[ResourceResponseProtocol]) -> Page[JsonVal]:
-            tracking_by_node_id = {InstanceId(instance_id=item.item.as_id()): item.tracking_id for item in page.items}  # type: ignore[attr-defined]
+            tracking_by_node_id = {
+                InstanceId(instance_id=cast(Any, item.item).as_id()): item.tracking_id for item in page.items
+            }
             timeseries_ids: set[NodeId] = set()
             files_ids: set[NodeId] = set()
             if not self.delete_datapoints:
@@ -247,7 +248,7 @@ class NodesToDelete(ToDelete):
 
             result: list[DataItem[JsonVal]] = []
             for item in page.items:
-                node_id = item.item.as_id()  # type: ignore[attr-defined]
+                node_id = cast(Any, item.item).as_id()
                 if node_id not in timeseries_ids and node_id not in files_ids:
                     dumped = node_id.dump(include_instance_type=True)
                     result.append(DataItem(tracking_id=item.tracking_id, item=dumped))
@@ -264,15 +265,14 @@ class IdResourceToDelete(ToDelete):
         def as_id(page: Page[ResourceResponseProtocol]) -> Page[JsonVal]:
             # We know that all id resources have an id attribute
             items: list[DataItem[JsonVal]] = [
-                DataItem(tracking_id=item.tracking_id, item={"id": item.item.id})  # type: ignore[attr-defined]
-                for item in page.items
+                DataItem(tracking_id=item.tracking_id, item={"id": cast(Any, item.item).id}) for item in page.items
             ]
             return page.create_from(items)
 
         return as_id
 
     def get_tracking_id(self, resource: ResourceResponseProtocol) -> str:
-        return str(resource.id)  # type: ignore[attr-defined]
+        return str(cast(Any, resource).id)
 
 
 @dataclass
@@ -283,7 +283,7 @@ class ExternalIdToDelete(ToDelete):
         def as_external_id(page: Page[ResourceResponseProtocol]) -> Page[JsonVal]:
             # We know that all external id resources have an external_id attribute
             items: list[DataItem[JsonVal]] = [
-                DataItem(tracking_id=item.tracking_id, item={"externalId": item.item.external_id})  # type: ignore[attr-defined]
+                DataItem(tracking_id=item.tracking_id, item={"externalId": cast(Any, item.item).external_id})
                 for item in page.items
             ]
             return page.create_from(items)
@@ -291,7 +291,7 @@ class ExternalIdToDelete(ToDelete):
         return as_external_id
 
     def get_tracking_id(self, resource: ResourceResponseProtocol) -> str:
-        return str(resource.external_id)  # type: ignore[attr-defined]
+        return str(cast(Any, resource).external_id)
 
 
 @dataclass
