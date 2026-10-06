@@ -128,7 +128,7 @@ class ViewProperty(BaseModelResource):
     def serialize_property_type(self, handler: SerializerFunctionWrapHandler) -> dict:
         serialized_data = handler(self)
         if hasattr(self, "connection_type"):
-            serialized_data["connectionType"] = self.__class__.connection_type
+            serialized_data["connectionType"] = getattr(self, "connection_type")
         return serialized_data
 
 
