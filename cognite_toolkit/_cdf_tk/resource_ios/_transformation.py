@@ -666,7 +666,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
             session_client = self.client
             session_request = credentials
             project_name = self.client.config.project
-        session = session_client.sessions.create([session_request])[0]
+        session = session_client.sessions.create_single(session_request)
         return NonceCredentials(
             session_id=session.id,
             nonce=session.nonce,
