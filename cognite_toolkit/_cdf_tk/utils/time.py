@@ -58,12 +58,15 @@ def timestamp_to_ms(timestamp: int | float | str | datetime) -> int:
             >>> timestamp_to_ms("2w-ago") # 2 weeks ago
             >>> timestamp_to_ms("3d-ahead") # 3 days ahead from now
     """
-    if isinstance(timestamp, numbers.Number):  # float, int, int64 etc
-        ms = int(timestamp)  # type: ignore[arg-type]
+    if isinstance(timestamp, int | float):
+        ms = int(timestamp)
     elif isinstance(timestamp, str):
         ms = round(time.time() * 1000) - time_shift_to_ms(timestamp)
     elif isinstance(timestamp, datetime):
         ms = datetime_to_ms(timestamp)
+    elif isinstance(timestamp, numbers.Number):
+        # numpy integers implement numbers.Number without being builtin int/float.
+        ms = int(str(timestamp))
     else:
         raise TypeError(
             f"Timestamp `{timestamp}` was of type {type(timestamp)}, but must be int, float, str or datetime,"

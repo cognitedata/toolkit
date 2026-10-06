@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Literal, TypeAlias, overload
+from typing import Literal, TypeAlias, TypeVar, overload
 
 from cognite.client.data_classes.capabilities import (
     AllScope,
@@ -26,6 +26,18 @@ from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 Action: TypeAlias = Literal["read", "write"]
+DatasetDataName: TypeAlias = Literal[
+    "assets",
+    "events",
+    "time series",
+    "files",
+    "sequences",
+    "relationships",
+    "labels",
+    "3D models",
+]
+DatasetConfigName: TypeAlias = Literal["transformations", "workflows", "extraction pipelines"]
+T_Resource = TypeVar("T_Resource", bound=str)
 
 
 class ValidateAccess:
@@ -129,10 +141,7 @@ class ValidateAccess:
         dataset_ids: None = None,
         operation: str | None = None,
         missing_access: Literal["raise", "warn"] = "raise",
-    ) -> (
-        dict[Literal["assets", "events", "time series", "files", "relationships", "labels", "3D models"], list[int]]
-        | None
-    ): ...
+    ) -> dict[DatasetDataName, list[int]] | None: ...
 
     def dataset_data(
         self,
@@ -140,10 +149,7 @@ class ValidateAccess:
         dataset_ids: set[int] | None = None,
         operation: str | None = None,
         missing_access: Literal["raise", "warn"] = "raise",
-    ) -> (
-        dict[Literal["assets", "events", "time series", "files", "relationships", "labels", "3D models"], list[int]]
-        | None
-    ):
+    ) -> dict[DatasetDataName, list[int]] | None:
         """Validate access to dataset data.
 
         Dataset data resources are:
@@ -163,16 +169,14 @@ class ValidateAccess:
             missing_access (Literal["raise", "warn"]): Whether to raise an error or warn when access is missing for specified datasets.
 
         Returns:
-            dict[
-                Literal["assets", "events", "time series", "files", "relationships", "labels", "3D models"], list[int]
-            ] | None:
+            dict[DatasetDataName, list[int]] | None:
                 If dataset_ids is None, returns a dictionary with keys as dataset data resource names and values as lists of dataset IDs the user has access to.
                 If dataset_ids is provided, returns None if the user has access to all specified datasets for all dataset data resources.
         Raises:
             ValueError: If the client.token.get_scope() returns an unexpected dataset data scope type.
             AuthorizationError: If the user does not have permission to perform the specified action on the given dataset.
         """
-        acls: list[tuple[str, list[Capability.Action], list[Capability.Action]]] = [
+        acls: list[tuple[DatasetDataName, list[Capability.Action], list[Capability.Action]]] = [
             ("assets", [AssetsAcl.Action.Read], [AssetsAcl.Action.Write]),
             ("events", [EventsAcl.Action.Read], [EventsAcl.Action.Write]),
             ("time series", [TimeSeriesAcl.Action.Read], [TimeSeriesAcl.Action.Write]),
@@ -186,8 +190,7 @@ class ValidateAccess:
                 [ThreeDAcl.Action.Create, ThreeDAcl.Action.Update, ThreeDAcl.Action.Delete],
             ),
         ]
-        # MyPy does not understand that with the acl above, we get the correct return value.
-        return self._dataset_access_check(  # type: ignore[return-value]
+        return self._dataset_access_check(
             action,
             dataset_ids=dataset_ids,
             operation=operation,
@@ -211,7 +214,7 @@ class ValidateAccess:
         dataset_ids: None = None,
         operation: str | None = None,
         missing_access: Literal["raise", "warn"] = "raise",
-    ) -> dict[Literal["transformations", "workflows", "extraction pipelines"], list[int]] | None: ...
+    ) -> dict[DatasetConfigName, list[int]] | None: ...
 
     def dataset_configurations(
         self,
@@ -219,7 +222,7 @@ class ValidateAccess:
         dataset_ids: set[int] | None = None,
         operation: str | None = None,
         missing_access: Literal["raise", "warn"] = "raise",
-    ) -> dict[Literal["transformations", "workflows", "extraction pipelines"], list[int]] | None:
+    ) -> dict[DatasetConfigName, list[int]] | None:
         """Validate access configuration resources.
 
         Configuration resources are:
@@ -234,7 +237,7 @@ class ValidateAccess:
             missing_access (Literal["raise", "warn"]): Whether to raise an error or warn when access is missing for specified datasets.
 
         Returns:
-            dict[Literal["transformations", "workflows", "extraction pipelines"], list[int] | None]:
+            dict[DatasetConfigName, list[int]] | None:
                 If dataset_ids is None, returns a dictionary with keys as configuration resource names and values as lists of dataset IDs the user has access to.
                 If dataset_ids is provided, returns None if the user has access to all specified datasets for all configuration resources.
 
@@ -242,13 +245,12 @@ class ValidateAccess:
             ValueError: If the client.token.get_scope() returns an unexpected dataset configuration scope type.
             AuthorizationError: If the user does not have permission to perform the specified action on the given dataset.
         """
-        acls: list[tuple[str, list[Capability.Action], list[Capability.Action]]] = [
+        acls: list[tuple[DatasetConfigName, list[Capability.Action], list[Capability.Action]]] = [
             ("transformations", [TransformationsAcl.Action.Read], [TransformationsAcl.Action.Write]),
             ("workflows", [WorkflowOrchestrationAcl.Action.Read], [WorkflowOrchestrationAcl.Action.Write]),
             ("extraction pipelines", [ExtractionPipelinesAcl.Action.Read], [ExtractionPipelinesAcl.Action.Write]),
         ]
-        # MyPy does not understand that with the acl above, we get the correct return value.
-        return self._dataset_access_check(  # type: ignore[return-value]
+        return self._dataset_access_check(
             action,
             dataset_ids=dataset_ids,
             operation=operation,
@@ -262,11 +264,11 @@ class ValidateAccess:
         dataset_ids: set[int] | None,
         operation: str | None,
         missing_access: Literal["raise", "warn"],
-        acls: Sequence[tuple[str, list[Capability.Action], list[Capability.Action]]],
-    ) -> dict[str, list[int]] | None:
+        acls: Sequence[tuple[T_Resource, list[Capability.Action], list[Capability.Action]]],
+    ) -> dict[T_Resource, list[int]] | None:
         need_access_to = set(dataset_ids) if dataset_ids is not None else None
         no_access: list[str] = []
-        output: dict[str, list[int]] = {}
+        output: dict[T_Resource, list[int]] = {}
         for name, read_actions, write_actions in acls:
             actions = [
                 acl_action for word in action for acl_action in {"read": read_actions, "write": write_actions}[word]
