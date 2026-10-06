@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -38,7 +39,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[WorkflowVersionId]:
         return ResponseItems[WorkflowVersionId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
+    def create(self, items: Sequence[WorkflowVersionRequest]) -> builtins.list[WorkflowVersionResponse]:
         """Create or update workflow versions in CDF.
 
         Args:
@@ -49,7 +50,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionResponse]):
         return self._request_item_response(items, "upsert")
 
     # This is a duplicate of the create method, included to standardize the API interface.
-    def update(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
+    def update(self, items: Sequence[WorkflowVersionRequest]) -> builtins.list[WorkflowVersionResponse]:
         """Create or update workflow versions in CDF.
 
         Args:
@@ -61,7 +62,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionResponse]):
 
     def retrieve(
         self, items: Sequence[WorkflowVersionId], ignore_unknown_ids: bool = False
-    ) -> list[WorkflowVersionResponse]:
+    ) -> builtins.list[WorkflowVersionResponse]:
         """Retrieve workflow versions from CDF.
 
         Args:
@@ -70,7 +71,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionResponse]):
         Returns:
             List of retrieved WorkflowVersionResponse objects.
         """
-        result: list[WorkflowVersionResponse] = []
+        result: builtins.list[WorkflowVersionResponse] = []
         endpoint = self._method_endpoint_map["retrieve"]
         for item in items:
             request = RequestMessage(
@@ -126,7 +127,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionResponse]):
         self,
         workflow_external_id: str | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[WorkflowVersionResponse]]:
+    ) -> Iterable[builtins.list[WorkflowVersionResponse]]:
         """Iterate over all workflow versions in CDF.
 
         Args:
@@ -145,7 +146,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionResponse]):
         self,
         workflow_external_id: str | None = None,
         limit: int | None = 100,
-    ) -> list[WorkflowVersionResponse]:
+    ) -> builtins.list[WorkflowVersionResponse]:
         """List all workflow versions in CDF.
 
         Returns:

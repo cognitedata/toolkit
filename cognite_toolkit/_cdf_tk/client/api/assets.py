@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
@@ -28,7 +29,7 @@ class AssetsAPI(CDFResourceAPI[AssetResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[AssetRequest]) -> list[AssetResponse]:
+    def create(self, items: Sequence[AssetRequest]) -> builtins.list[AssetResponse]:
         """Create assets in CDF.
 
         Args:
@@ -38,7 +39,9 @@ class AssetsAPI(CDFResourceAPI[AssetResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False) -> list[AssetResponse]:
+    def retrieve(
+        self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[AssetResponse]:
         """Retrieve assets from CDF.
 
         Args:
@@ -53,7 +56,7 @@ class AssetsAPI(CDFResourceAPI[AssetResponse]):
 
     def update(
         self, items: Sequence[AssetRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[AssetResponse]:
+    ) -> builtins.list[AssetResponse]:
         """Update assets in CDF.
 
         Args:
@@ -105,7 +108,7 @@ class AssetsAPI(CDFResourceAPI[AssetResponse]):
         aggregated_properties: bool = False,
         filter: ClassicFilter | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[AssetResponse]]:
+    ) -> Iterable[builtins.list[AssetResponse]]:
         """Iterate over all assets in CDF.
 
         Returns:
@@ -119,7 +122,7 @@ class AssetsAPI(CDFResourceAPI[AssetResponse]):
             },
         )
 
-    def list(self, limit: int | None = 100) -> list[AssetResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[AssetResponse]:
         """List all asset references in CDF.
 
         Returns:

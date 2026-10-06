@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
@@ -32,7 +33,9 @@ class HostedExtractorDestinationsAPI(CDFResourceAPI[HostedExtractorDestinationRe
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[ExternalId]:
         return ResponseItems[ExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[HostedExtractorDestinationResponse]:
+    def create(
+        self, items: Sequence[HostedExtractorDestinationRequest]
+    ) -> builtins.list[HostedExtractorDestinationResponse]:
         """Create hosted extractor destinations in CDF.
 
         Args:
@@ -46,7 +49,7 @@ class HostedExtractorDestinationsAPI(CDFResourceAPI[HostedExtractorDestinationRe
         self,
         items: Sequence[ExternalId],
         ignore_unknown_ids: bool = False,
-    ) -> list[HostedExtractorDestinationResponse]:
+    ) -> builtins.list[HostedExtractorDestinationResponse]:
         """Retrieve hosted extractor destinations from CDF.
 
         Args:
@@ -61,7 +64,7 @@ class HostedExtractorDestinationsAPI(CDFResourceAPI[HostedExtractorDestinationRe
 
     def update(
         self, items: Sequence[HostedExtractorDestinationRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[HostedExtractorDestinationResponse]:
+    ) -> builtins.list[HostedExtractorDestinationResponse]:
         """Update hosted extractor destinations in CDF.
 
         Args:
@@ -106,7 +109,7 @@ class HostedExtractorDestinationsAPI(CDFResourceAPI[HostedExtractorDestinationRe
     def iterate(
         self,
         limit: int | None = 100,
-    ) -> Iterable[list[HostedExtractorDestinationResponse]]:
+    ) -> Iterable[builtins.list[HostedExtractorDestinationResponse]]:
         """Iterate over hosted extractor destinations in CDF.
 
         Args:
@@ -117,7 +120,7 @@ class HostedExtractorDestinationsAPI(CDFResourceAPI[HostedExtractorDestinationRe
         """
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = 100) -> list[HostedExtractorDestinationResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[HostedExtractorDestinationResponse]:
         """List all hosted extractor destinations in CDF.
 
         Args:

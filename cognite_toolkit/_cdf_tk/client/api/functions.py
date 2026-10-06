@@ -4,6 +4,7 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Functions/operation/postFunctions
 """
 
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
@@ -36,7 +37,7 @@ class FunctionsAPI(CDFResourceAPI[FunctionResponse]):
     ) -> PagedResponse[FunctionResponse]:
         return PagedResponse[FunctionResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[FunctionRequest]) -> list[FunctionResponse]:
+    def create(self, items: Sequence[FunctionRequest]) -> builtins.list[FunctionResponse]:
         """Create functions in CDF.
 
         Args:
@@ -49,7 +50,7 @@ class FunctionsAPI(CDFResourceAPI[FunctionResponse]):
 
     def retrieve(
         self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
-    ) -> list[FunctionResponse]:
+    ) -> builtins.list[FunctionResponse]:
         """Retrieve functions from CDF by ID.
 
         Args:
@@ -94,7 +95,7 @@ class FunctionsAPI(CDFResourceAPI[FunctionResponse]):
     def iterate(
         self,
         limit: int | None = None,
-    ) -> Iterable[list[FunctionResponse]]:
+    ) -> Iterable[builtins.list[FunctionResponse]]:
         """Iterate over all functions in CDF.
 
         Args:
@@ -105,7 +106,7 @@ class FunctionsAPI(CDFResourceAPI[FunctionResponse]):
         """
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = None) -> list[FunctionResponse]:
+    def list(self, limit: int | None = None) -> builtins.list[FunctionResponse]:
         """List all functions in CDF.
 
         Args:

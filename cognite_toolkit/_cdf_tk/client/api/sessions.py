@@ -4,6 +4,7 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Sessions
 """
 
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
@@ -41,7 +42,7 @@ class SessionAPI(CDFResourceAPI[Session]):
             return None
         return {"status": status}
 
-    def create(self, items: Sequence[SessionCreateRequest]) -> list[Session]:
+    def create(self, items: Sequence[SessionCreateRequest]) -> builtins.list[Session]:
         """Create sessions.
 
         Each item is sent in its own request. The endpoint accepts exactly one session per call.
@@ -55,7 +56,7 @@ class SessionAPI(CDFResourceAPI[Session]):
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[InternalId]) -> list[Session]:
+    def retrieve(self, items: Sequence[InternalId]) -> builtins.list[Session]:
         """Retrieve sessions by ID.
 
         The request fails if any ID does not belong to an existing session.
@@ -68,7 +69,7 @@ class SessionAPI(CDFResourceAPI[Session]):
         """
         return self._request_item_response(items, "retrieve")
 
-    def revoke(self, items: Sequence[InternalId]) -> list[Session]:
+    def revoke(self, items: Sequence[InternalId]) -> builtins.list[Session]:
         """Revoke sessions.
 
         Revocation is idempotent and may take up to one hour to take effect.
@@ -105,7 +106,7 @@ class SessionAPI(CDFResourceAPI[Session]):
         status: SessionStatus | None = None,
         limit: int | None = 25,
         cursor: str | None = None,
-    ) -> Iterable[list[Session]]:
+    ) -> Iterable[builtins.list[Session]]:
         """Iterate over sessions in the current project.
 
         Args:
@@ -118,7 +119,7 @@ class SessionAPI(CDFResourceAPI[Session]):
         """
         return self._iterate(limit=limit, cursor=cursor, params=self._status_params(status))
 
-    def list(self, status: SessionStatus | None = None, limit: int | None = 25) -> list[Session]:
+    def list(self, status: SessionStatus | None = None, limit: int | None = 25) -> builtins.list[Session]:
         """List sessions in the current project.
 
         Args:

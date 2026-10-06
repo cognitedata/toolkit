@@ -46,7 +46,7 @@ class DataModelsAPI(CDFResourceAPI[DataModelResponse]):
     ) -> PagedResponse[DataModelResponse]:
         return PagedResponse[DataModelResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[DataModelRequest]) -> list[DataModelResponse]:
+    def create(self, items: Sequence[DataModelRequest]) -> builtins.list[DataModelResponse]:
         """Apply (create or update) data models in CDF.
 
         Args:
@@ -57,7 +57,7 @@ class DataModelsAPI(CDFResourceAPI[DataModelResponse]):
         """
         return self._request_item_response(items, "upsert")
 
-    def update(self, items: Sequence[DataModelRequest]) -> list[DataModelResponse]:
+    def update(self, items: Sequence[DataModelRequest]) -> builtins.list[DataModelResponse]:
         """Apply (create or update) data models in CDF.
 
         Args:
@@ -70,16 +70,16 @@ class DataModelsAPI(CDFResourceAPI[DataModelResponse]):
     @overload
     def retrieve(
         self, items: Sequence[DataModelNoVersionId], inline_views: Literal[True]
-    ) -> list[DataModelResponseWithViews]: ...
+    ) -> builtins.list[DataModelResponseWithViews]: ...
 
     @overload
     def retrieve(
         self, items: Sequence[DataModelNoVersionId], inline_views: Literal[False] = False
-    ) -> list[DataModelResponse]: ...
+    ) -> builtins.list[DataModelResponse]: ...
 
     def retrieve(
         self, items: Sequence[DataModelNoVersionId], inline_views: bool = False
-    ) -> list[DataModelResponse] | list[DataModelResponseWithViews]:
+    ) -> builtins.list[DataModelResponse] | builtins.list[DataModelResponseWithViews]:
         """Retrieve data models from CDF.
 
         Args:
@@ -90,7 +90,7 @@ class DataModelsAPI(CDFResourceAPI[DataModelResponse]):
             List of retrieved DataModelResponse objects.
         """
         if inline_views:
-            response_items: list[DataModelResponseWithViews] = []
+            response_items: builtins.list[DataModelResponseWithViews] = []
             for response in self._chunk_requests(
                 items, "retrieve", self._serialize_items, params={"inlineViews": True}
             ):
@@ -135,7 +135,7 @@ class DataModelsAPI(CDFResourceAPI[DataModelResponse]):
         self,
         filter: DataModelFilter | None = None,
         limit: int | None = None,
-    ) -> Iterable[list[DataModelResponse]]:
+    ) -> Iterable[builtins.list[DataModelResponse]]:
         """Iterate over all data models in CDF.
 
         Args:
@@ -156,7 +156,7 @@ class DataModelsAPI(CDFResourceAPI[DataModelResponse]):
         inline_views: Literal[True],
         filter: DataModelFilter | None = None,
         limit: int | None = None,
-    ) -> list[DataModelResponseWithViews]: ...
+    ) -> builtins.list[DataModelResponseWithViews]: ...
 
     @overload
     def list(
@@ -184,7 +184,7 @@ class DataModelsAPI(CDFResourceAPI[DataModelResponse]):
         if not inline_views:
             return self._list(limit=limit, params=filter.dump() if filter else None)
         else:
-            response_items: list[DataModelResponseWithViews] = []
+            response_items: builtins.list[DataModelResponseWithViews] = []
             cursor: str | None = None
             total = 0
             endpoint = self._method_endpoint_map["list"]

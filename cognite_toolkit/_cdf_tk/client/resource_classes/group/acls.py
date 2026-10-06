@@ -7,9 +7,8 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BeforeValidator, Field, ValidationError, model_serializer, model_validator
+from pydantic import BeforeValidator, Field, SerializationInfo, ValidationError, model_serializer, model_validator
 from pydantic_core import ErrorDetails
-from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import ACL_NAME, SCOPE_NAME
@@ -66,10 +65,8 @@ class Acl(BaseModelObject):
                 value["scope"] = new_scope
         return value
 
-    # MyPy complains that info; FieldSerializationInfo is not compatible with info: Any
-    # It is.
-    @model_serializer  # type: ignore[type-var]
-    def convert_scope_to_api_format(self, info: FieldSerializationInfo) -> dict[str, Any]:
+    @model_serializer
+    def convert_scope_to_api_format(self, info: SerializationInfo) -> dict[str, Any]:
         """Convert scope from model format {'scope_name': 'all'} to API format {'all': {}}."""
         output: dict[str, Any] = {"actions": self.actions}
         scope = self.scope.model_dump(**vars(info))

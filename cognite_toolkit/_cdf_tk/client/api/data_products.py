@@ -1,5 +1,6 @@
 """Data Products API for managing CDF data products."""
 
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
@@ -33,7 +34,7 @@ class DataProductsAPI(CDFResourceAPI[DataProductResponse]):
     ) -> PagedResponse[DataProductResponse]:
         return PagedResponse[DataProductResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[DataProductRequest]) -> list[DataProductResponse]:
+    def create(self, items: Sequence[DataProductRequest]) -> builtins.list[DataProductResponse]:
         """Create data products in CDF.
 
         Args:
@@ -46,7 +47,7 @@ class DataProductsAPI(CDFResourceAPI[DataProductResponse]):
 
     def retrieve(
         self, external_ids: Sequence[ExternalId], ignore_unknown_ids: bool = False
-    ) -> list[DataProductResponse]:
+    ) -> builtins.list[DataProductResponse]:
         """Retrieve data products by external ID.
 
         The API only supports single-item GET at /dataproducts/{externalId}.
@@ -59,7 +60,7 @@ class DataProductsAPI(CDFResourceAPI[DataProductResponse]):
             List of retrieved DataProductResponse objects.
 
         """
-        results: list[DataProductResponse] = []
+        results: builtins.list[DataProductResponse] = []
         endpoint = self._method_endpoint_map["retrieve"]
         for ext_id in external_ids:
             request = RequestMessage(
@@ -78,7 +79,7 @@ class DataProductsAPI(CDFResourceAPI[DataProductResponse]):
 
     def update(
         self, items: Sequence[DataProductRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[DataProductResponse]:
+    ) -> builtins.list[DataProductResponse]:
         return self._update(items, mode=mode)
 
     def delete(self, external_ids: Sequence[ExternalId]) -> None:
@@ -87,8 +88,8 @@ class DataProductsAPI(CDFResourceAPI[DataProductResponse]):
     def paginate(self, limit: int = 10, cursor: str | None = None) -> PagedResponse[DataProductResponse]:
         return self._paginate(cursor=cursor, limit=limit)
 
-    def iterate(self, limit: int | None = 10) -> Iterable[list[DataProductResponse]]:
+    def iterate(self, limit: int | None = 10) -> Iterable[builtins.list[DataProductResponse]]:
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = 10) -> list[DataProductResponse]:
+    def list(self, limit: int | None = 10) -> builtins.list[DataProductResponse]:
         return self._list(limit=limit)

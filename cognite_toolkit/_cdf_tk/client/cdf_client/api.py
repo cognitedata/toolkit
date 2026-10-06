@@ -9,7 +9,7 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Generic, Literal, TypeAlias
+from typing import Any, Generic, Literal, TypeAlias, TypeVar
 
 from pydantic import JsonValue
 
@@ -28,6 +28,8 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 from .responses import PagedResponse
+
+T_RequestItem = TypeVar("T_RequestItem", bound=RequestItem)
 
 
 @dataclass(frozen=True)
@@ -138,9 +140,9 @@ class CDFResourceAPI(Generic[T_BaseModelObject], ABC):
 
     def _chunk_requests(
         self,
-        items: Sequence[RequestItem],
+        items: Sequence[T_RequestItem],
         method: APIMethod,
-        serialization: Callable[[Sequence[RequestItem]], list[dict[str, JsonValue]]],
+        serialization: Callable[[Sequence[T_RequestItem]], list[dict[str, JsonValue]]],
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
         endpoint_path: str | None = None,
@@ -272,10 +274,10 @@ class CDFResourceAPI(Generic[T_BaseModelObject], ABC):
 
     @classmethod
     def _group_items_by_text_field(
-        cls, items: Sequence[RequestItem], *field_names: str
-    ) -> dict[tuple[str, ...], list[RequestItem]]:
+        cls, items: Sequence[T_RequestItem], *field_names: str
+    ) -> dict[tuple[str, ...], list[T_RequestItem]]:
         """Group items by a text field."""
-        grouped_items: dict[tuple[str, ...], list[RequestItem]] = defaultdict(list)
+        grouped_items: dict[tuple[str, ...], list[T_RequestItem]] = defaultdict(list)
         for item in items:
             key = tuple(str(getattr(item, field_name)) for field_name in field_names)
             grouped_items[key].append(item)

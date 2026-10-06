@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
@@ -28,7 +29,7 @@ class EventsAPI(CDFResourceAPI[EventResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[EventRequest]) -> list[EventResponse]:
+    def create(self, items: Sequence[EventRequest]) -> builtins.list[EventResponse]:
         """Create events in CDF.
 
         Args:
@@ -38,7 +39,9 @@ class EventsAPI(CDFResourceAPI[EventResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False) -> list[EventResponse]:
+    def retrieve(
+        self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[EventResponse]:
         """Retrieve events from CDF.
 
         Args:
@@ -53,7 +56,7 @@ class EventsAPI(CDFResourceAPI[EventResponse]):
 
     def update(
         self, items: Sequence[EventRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[EventResponse]:
+    ) -> builtins.list[EventResponse]:
         """Update events in CDF.
 
         Args:
@@ -100,7 +103,7 @@ class EventsAPI(CDFResourceAPI[EventResponse]):
         self,
         filter: ClassicFilter | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[EventResponse]]:
+    ) -> Iterable[builtins.list[EventResponse]]:
         """Iterate over all events in CDF.
 
         Args:
@@ -119,7 +122,7 @@ class EventsAPI(CDFResourceAPI[EventResponse]):
         self,
         filter: dict[str, Any] | None = None,
         limit: int | None = 100,
-    ) -> list[EventResponse]:
+    ) -> builtins.list[EventResponse]:
         """List all events in CDF.
 
         Returns:

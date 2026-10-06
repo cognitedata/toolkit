@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any, Generic, Literal, TypeAlias, TypeVar, overload
+from typing import Any, Generic, Literal, TypeAlias, TypeVar, cast, overload
 
 from pydantic import JsonValue
 
@@ -102,7 +102,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
     def _validate_response(self, response: SuccessResponse) -> ResponseItems[InstanceDefinitionId]:
         return ResponseItems[InstanceDefinitionId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[InstanceRequest], replace: bool = False) -> list[InstanceSlimDefinition]:
+    def create(self, items: Sequence[InstanceRequest], replace: bool = False) -> builtins.list[InstanceSlimDefinition]:
         """Create instances in CDF.
 
         Args:
@@ -110,12 +110,14 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         Returns:
             List of created InstanceSlimDefinition objects.
         """
-        response_items: list[InstanceSlimDefinition] = []
+        response_items: builtins.list[InstanceSlimDefinition] = []
         for response in self._chunk_requests(items, "upsert", self._serialize_items, extra_body={"replace": replace}):
             response_items.extend(PagedResponse[InstanceSlimDefinition].model_validate_json(response.body).items)
         return response_items
 
-    def retrieve(self, items: Sequence[InstanceDefinitionId], source: ViewId | None = None) -> list[InstanceResponse]:
+    def retrieve(
+        self, items: Sequence[InstanceDefinitionId], source: ViewId | None = None
+    ) -> builtins.list[InstanceResponse]:
         """Retrieve instances from CDF.
 
         Args:
@@ -130,13 +132,13 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             extra_body={"sources": [{"source": source.dump(include_type=True)}]} if source else None,
         )
 
-    def delete(self, items: Sequence[InstanceDefinitionId]) -> list[InstanceDefinitionId]:
+    def delete(self, items: Sequence[InstanceDefinitionId]) -> builtins.list[InstanceDefinitionId]:
         """Delete instances from CDF.
 
         Args:
             items: List of TypedInstanceIdentifier objects to delete.
         """
-        response_items: list[InstanceDefinitionId] = []
+        response_items: builtins.list[InstanceDefinitionId] = []
         for response in self._chunk_requests(items, "delete", self._serialize_items):
             response_items.extend(self._validate_response(response).items)
         return response_items
@@ -205,7 +207,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                 nodes=QueryNodeTableExpression(filter=filter.dump_filter(include_has_data=True)),
                 mode=sync_mode,
             )
-        sources: list[QuerySelectSource] = []
+        sources: builtins.list[QuerySelectSource] = []
         if filter.source:
             sources.append(QuerySelectSource(source=filter.source, properties=["*"]))
         query = QueryRequest(with_={"root": expression}, select={"root": QuerySelect(sources=sources)}, root="root")
@@ -219,7 +221,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         limit: int | None = 100,
         endpoint: QueryEndpoint = "query",
         init_cursor: str | None = None,
-    ) -> Iterable[list[InstanceResponse]]:
+    ) -> Iterable[builtins.list[InstanceResponse]]:
         """Iterate over all instances in CDF.
 
         Args:
@@ -290,11 +292,11 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         filter: dict[str, JsonValue] | None = None,
         instance_type: Literal["node", "edge"] | None = None,
         limit: int = 100,
-        properties: list[str] | None = None,
-        aggregates: list[InstanceAggregateDefinition] | None = None,
-        group_by: list[str] | None = None,
+        properties: builtins.list[str] | None = None,
+        aggregates: builtins.list[InstanceAggregateDefinition] | None = None,
+        group_by: builtins.list[str] | None = None,
         operator: Literal["AND", "OR"] | None = None,
-        target_units: list[QueryTargetUnit] | None = None,
+        target_units: builtins.list[QueryTargetUnit] | None = None,
         include_typing: bool | None = None,
     ) -> InstanceAggregateResponse: ...
 
@@ -306,11 +308,11 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         filter: dict[str, JsonValue] | None = None,
         instance_type: Literal["node", "edge"] | None = None,
         limit: int = 100,
-        properties: list[str] | None = None,
-        aggregates: list[InstanceAggregateDefinition] | None = None,
-        group_by: list[str] | None = None,
+        properties: builtins.list[str] | None = None,
+        aggregates: builtins.list[InstanceAggregateDefinition] | None = None,
+        group_by: builtins.list[str] | None = None,
         operator: Literal["AND", "OR"] | None = None,
-        target_units: list[QueryTargetUnit] | None = None,
+        target_units: builtins.list[QueryTargetUnit] | None = None,
         include_typing: bool | None = None,
     ) -> InstanceAggregateResponse: ...
 
@@ -321,11 +323,11 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         filter: dict[str, JsonValue] | None = None,
         instance_type: Literal["node", "edge"] | None = None,
         limit: int = 100,
-        properties: list[str] | None = None,
-        aggregates: list[InstanceAggregateDefinition] | None = None,
-        group_by: list[str] | None = None,
+        properties: builtins.list[str] | None = None,
+        aggregates: builtins.list[InstanceAggregateDefinition] | None = None,
+        group_by: builtins.list[str] | None = None,
         operator: Literal["AND", "OR"] | None = None,
-        target_units: list[QueryTargetUnit] | None = None,
+        target_units: builtins.list[QueryTargetUnit] | None = None,
         include_typing: bool | None = None,
     ) -> InstanceAggregateResponse:
         """Aggregate data across nodes or edges.
@@ -387,11 +389,11 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         filter: dict[str, JsonValue] | None,
         instance_type: Literal["node", "edge"] | None,
         limit: int,
-        properties: list[str] | None,
-        aggregates: list[InstanceAggregateDefinition] | None,
-        group_by: list[str] | None,
+        properties: builtins.list[str] | None,
+        aggregates: builtins.list[InstanceAggregateDefinition] | None,
+        group_by: builtins.list[str] | None,
         operator: Literal["AND", "OR"] | None,
-        target_units: list[QueryTargetUnit] | None,
+        target_units: builtins.list[QueryTargetUnit] | None,
         include_typing: bool | None,
     ) -> InstanceAggregateRequest:
         aggregate_endpoint = self._method_endpoint_map["aggregate"]
@@ -413,7 +415,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
 
     def list(
         self, filter: InstanceFilter | None = None, limit: int | None = 100, endpoint: QueryEndpoint = "query"
-    ) -> list[InstanceResponse]:
+    ) -> builtins.list[InstanceResponse]:
         """List all instances in CDF.
 
         Returns:
@@ -466,7 +468,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             QueryResult containing matching instances grouped by result set expression name.
         """
         limit = query.with_[query.root].limit
-        results: list[QueryResponseTyped | QueryResponseUntyped] = []
+        results: builtins.list[QueryResponseTyped | QueryResponseUntyped] = []
         for batch in self._query_iterate(
             # Deep copy to avoid modifying the original query object with next cursors and limits.
             query.model_copy(deep=True),
@@ -486,13 +488,14 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         first = results[0]
         if len(results) > 1:
             for result in results[1:]:
-                for key, items in result.items.items():
-                    # We now that all query responses will be either QueryResponseTyped or QueryResponseUntyped
-                    # not mixed, so we can safely ignore the type here.
-                    if key in first.items:
-                        first.items[key].extend(items)  # type: ignore[arg-type]
+                # All query responses are either typed or untyped, never mixed.
+                merged_items = cast(dict[str, list[Any]], first.items)
+                other_items = cast(dict[str, list[Any]], result.items)
+                for key, items in other_items.items():
+                    if key in merged_items:
+                        merged_items[key].extend(items)
                     else:
-                        first.items[key] = items  # type: ignore[assignment]
+                        merged_items[key] = items
             # Advance next_cursor to reflect the last batch. Otherwise callers
             # that use this merged response as a paginated result will re-issue
             # the first batch's cursor and re-fetch items 2..N, causing duplicate
@@ -624,10 +627,12 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             if first is None:
                 first = response
             else:
-                for key in response.items:
-                    if key != query.root and key in first.items:
-                        # MyPy does not like the mix of type and untyped query responses.
-                        first.items[key].extend(response.items[key])  # type: ignore[arg-type]
+                # Typed and untyped query responses are not mixed in one call.
+                first_items = cast(dict[str, list[Any]], first.items)
+                response_items = cast(dict[str, list[Any]], response.items)
+                for key in response_items:
+                    if key != query.root and key in first_items:
+                        first_items[key].extend(response_items[key])
             if not exhaust_sub_selections:
                 return first
             next_cursors: dict[str, str | None] = {}
@@ -667,8 +672,8 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             raise ReduceLoadException(
                 source_exception=ToolkitAPIError(
                     f"Request failed with status code {response.status_code}: {response.error.full_message}",
-                    missing=response.error.missing,  # type: ignore[arg-type]
-                    duplicated=response.error.duplicated,  # type: ignore[arg-type]
+                    missing=response.error.missing,
+                    duplicated=response.error.duplicated,
                     code=response.error.code,
                     request=request,
                     x_request_id=response.error.x_request_id,
@@ -763,7 +768,9 @@ class WrappedInstancesAPI(
     def _validate_response(self, response: SuccessResponse) -> ResponseItems[T_InstanceId]:
         raise NotImplementedError()
 
-    def create(self, items: Sequence[T_WrappedInstanceRequest], replace: bool = False) -> list[InstanceSlimDefinition]:
+    def create(
+        self, items: Sequence[T_WrappedInstanceRequest], replace: bool = False
+    ) -> builtins.list[InstanceSlimDefinition]:
         """Create instances in CDF.
 
         Args:
@@ -772,12 +779,12 @@ class WrappedInstancesAPI(
         Returns:
             List of created InstanceSlimDefinition objects.
         """
-        response_items: list[InstanceSlimDefinition] = []
+        response_items: builtins.list[InstanceSlimDefinition] = []
         for response in self._chunk_requests(items, "upsert", self._serialize_items, extra_body={"replace": replace}):
             response_items.extend(PagedResponse[InstanceSlimDefinition].model_validate_json(response.body).items)
         return response_items
 
-    def retrieve(self, items: Sequence[T_InstanceId]) -> list[T_WrappedInstanceResponse]:
+    def retrieve(self, items: Sequence[T_InstanceId]) -> builtins.list[T_WrappedInstanceResponse]:
         """Retrieve instances from CDF.
 
         Args:
@@ -790,13 +797,13 @@ class WrappedInstancesAPI(
             items, method="retrieve", extra_body={"sources": [{"source": self._view_id.dump(include_type=True)}]}
         )
 
-    def delete(self, items: Sequence[T_InstanceId]) -> list[T_InstanceId]:
+    def delete(self, items: Sequence[T_InstanceId]) -> builtins.list[T_InstanceId]:
         """Delete instances from CDF.
 
         Args:
             items: List of TypedInstanceIdentifier objects to delete.
         """
-        response_items: list[T_InstanceId] = []
+        response_items: builtins.list[T_InstanceId] = []
         for response in self._chunk_requests(items, "delete", self._serialize_items):
             response_items.extend(self._validate_response(response).items)
         return response_items
@@ -804,10 +811,10 @@ class WrappedInstancesAPI(
     def _list_instances(
         self,
         instance_type: Literal["node", "edge"] = "node",
-        spaces: list[str] | None = None,
+        spaces: builtins.list[str] | None = None,
         filter: dict[str, JsonValue] | None = None,
         limit: int | None = 100,
-    ) -> list[T_WrappedInstanceResponse]:
+    ) -> builtins.list[T_WrappedInstanceResponse]:
         """List all wrapped instances in CDF.
 
         Args:
@@ -848,14 +855,14 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         self._query_chunk = query_chunk
 
     @abstractmethod
-    def _retrieve_query(self, item: Sequence[InstanceDefinitionId]) -> QueryRequest:
+    def _retrieve_query(self, items: Sequence[InstanceDefinitionId]) -> QueryRequest:
         raise NotImplementedError()
 
     @abstractmethod
-    def _validate_query_response(self, query_response: QueryResponseUntyped) -> list[T_InstancesListResponse]:
+    def _validate_query_response(self, query_response: QueryResponseUntyped) -> builtins.list[T_InstancesListResponse]:
         raise NotImplementedError()
 
-    def create(self, items: Sequence[T_InstancesListRequest]) -> list[InstanceSlimDefinition]:
+    def create(self, items: Sequence[T_InstancesListRequest]) -> builtins.list[InstanceSlimDefinition]:
         """Create instances in CDF.
 
         Args:
@@ -864,10 +871,10 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
             List of created InstanceSlimDefinition objects.
         """
         endpoint = self._method_endpoint_map["upsert"]
-        response_items: list[InstanceSlimDefinition] = []
+        response_items: builtins.list[InstanceSlimDefinition] = []
         for item in items:
             instance_dicts = item.dump_instances()
-            item_response: list[InstanceSlimDefinition] = []
+            item_response: builtins.list[InstanceSlimDefinition] = []
             for chunk in chunker_sequence(instance_dicts, endpoint.item_limit):
                 request = RequestMessage(
                     endpoint_url=self._http_client.config.create_api_url(endpoint.path),
@@ -881,7 +888,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
             response_items.append(self._merge_instance_slim_definitions(item_response))
         return response_items
 
-    def _merge_instance_slim_definitions(self, items: list[InstanceSlimDefinition]) -> InstanceSlimDefinition:
+    def _merge_instance_slim_definitions(self, items: builtins.list[InstanceSlimDefinition]) -> InstanceSlimDefinition:
         """Merge multiple InstanceSlimDefinition objects into one.
 
         Args:
@@ -904,7 +911,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         )
         return merged_item
 
-    def update(self, items: Sequence[T_InstancesListRequest]) -> list[InstanceSlimDefinition]:
+    def update(self, items: Sequence[T_InstancesListRequest]) -> builtins.list[InstanceSlimDefinition]:
         """Update multi-wrapped instances in CDF.
 
         This method automatically removes underlying instances that are part of the old object but not the new one.
@@ -916,7 +923,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
             List of updated InstanceSlimDefinition objects, one for each item in the input sequence.
         """
         endpoint = self._method_endpoint_map["upsert"]
-        updated: list[InstanceSlimDefinition] = []
+        updated: builtins.list[InstanceSlimDefinition] = []
         for item in items:
             identifier = item.as_id()
             retrieved = self.retrieve([identifier])
@@ -924,7 +931,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
                 raise ValueError(f"Item with identifier {identifier} not found for update.")
             to_delete = [id.dump() for id in (set(retrieved[0].as_ids()) - set(item.as_ids()))]
             to_update = item.dump_instances()
-            item_response: list[InstanceSlimDefinition] = []
+            item_response: builtins.list[InstanceSlimDefinition] = []
             for upsert_chunk, delete_chunk in zip_longest(
                 chunker_sequence(to_update, endpoint.item_limit),
                 chunker_sequence(to_delete, endpoint.item_limit),
@@ -932,10 +939,9 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
             ):
                 body_content: dict[str, JsonValue] = {}
                 if upsert_chunk:
-                    # MyPy fails do understand that list[dict[str, JsonValue]] is a subtype of JsonValue
-                    body_content["items"] = upsert_chunk  # type: ignore[assignment]
+                    body_content["items"] = cast(JsonValue, upsert_chunk)
                 if delete_chunk:
-                    body_content["delete"] = delete_chunk  # type: ignore[assignment]
+                    body_content["delete"] = cast(JsonValue, delete_chunk)
 
                 request = RequestMessage(
                     endpoint_url=self._http_client.config.create_api_url(endpoint.path),
@@ -950,7 +956,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
             updated.append(self._merge_instance_slim_definitions(item_response))
         return updated
 
-    def retrieve(self, items: Sequence[NodeId]) -> list[T_InstancesListResponse]:
+    def retrieve(self, items: Sequence[NodeId]) -> builtins.list[T_InstancesListResponse]:
         """Retrieve instances from CDF.
 
         Args:
@@ -958,7 +964,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         Returns:
             List of retrieved InstanceResponse objects.
         """
-        retrieved: list[T_InstancesListResponse] = []
+        retrieved: builtins.list[T_InstancesListResponse] = []
         for chunk in chunker_sequence(items, self._query_chunk):
             query = self._retrieve_query(chunk)
             request = RequestMessage(
@@ -972,14 +978,14 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
             retrieved.extend(self._validate_query_response(paged_response))
         return retrieved
 
-    def delete(self, items: Sequence[NodeId]) -> list[NodeId]:
+    def delete(self, items: Sequence[NodeId]) -> builtins.list[NodeId]:
         """Delete instances from CDF.
 
         Args:
             items: List of TypedInstanceIdentifier objects to delete.
         """
         endpoint = self._method_endpoint_map["delete"]
-        response_items: list[NodeId] = []
+        response_items: builtins.list[NodeId] = []
         for chunk in chunker_sequence(items, endpoint.item_limit):
             request = RequestMessage(
                 endpoint_url=self._http_client.config.create_api_url(endpoint.path),

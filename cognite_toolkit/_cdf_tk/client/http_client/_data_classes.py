@@ -32,8 +32,8 @@ class HTTPResult(HTTPBaseModel):
                 message += self._create_timeout_hint()
             raise ToolkitAPIError(
                 message,
-                missing=self.error.missing,  # type: ignore[arg-type]
-                duplicated=self.error.duplicated,  # type: ignore[arg-type]
+                missing=self.error.missing,
+                duplicated=self.error.duplicated,
                 code=self.error.code,
                 request=request,
                 response=self,
@@ -106,8 +106,8 @@ class ErrorDetails(HTTPBaseModel):
 
     code: int
     message: str
-    missing: list[JsonValue] | None = None
-    duplicated: list[JsonValue] | None = None
+    missing: list[dict[str, JsonValue]] | None = None
+    duplicated: list[dict[str, JsonValue]] | None = None
     # tasks-api puts Pydantic validation errors here (APISyntacticalError). Standard CDF errors omit it.
     detail: list[JsonValue] | None = None
     is_auto_retryable: bool | None = None
