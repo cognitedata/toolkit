@@ -134,7 +134,7 @@ markers = [
 ]
 
 [tool.ty.src]
-include = ["cognite_toolkit"]
+include = ["cognite_toolkit", "tests_smoke"]
 exclude = [
     "tests",
 ]
