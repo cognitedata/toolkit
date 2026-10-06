@@ -13,7 +13,7 @@ from .base import ToolkitResource
 from .view_field_definitions import DirectRelationReference
 
 
-class CogniteFileYAML(ToolkitResource):
+class CogniteFileYAML(ToolkitResource, populate_by_name=True):
     space: str = Field(
         description="The space where the file is located.",
         min_length=1,

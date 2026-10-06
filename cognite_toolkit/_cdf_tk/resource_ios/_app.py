@@ -62,12 +62,12 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
         return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, identifier: ExternalId) -> dict[str, Any]:
-        return identifier.dump()
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
-    def as_str(cls, identifier: ExternalId) -> str:
-        return str(identifier)
+    def as_str(cls, id: ExternalId) -> str:
+        return str(id)
 
     @classmethod
     def get_dependencies(cls, resource: AppYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -149,12 +149,12 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
         return AppVersionId(app_external_id=item.app_external_id, version=item.version)
 
     @classmethod
-    def dump_id(cls, identifier: AppVersionId) -> dict[str, Any]:
-        return identifier.dump()
+    def dump_id(cls, id: AppVersionId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
-    def as_str(cls, identifier: AppVersionId) -> str:
-        return str(identifier)
+    def as_str(cls, id: AppVersionId) -> str:
+        return str(id)
 
     @classmethod
     def get_dependencies(cls, resource: AppVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

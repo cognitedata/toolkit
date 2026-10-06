@@ -103,9 +103,9 @@ class FunctionCodeBundle:
                 content=yaml_safe_dump(
                     FileMetadataYAML(
                         name=f"{filename}.zip",
-                        externalId=external_id,
-                        dataSetExternalId=data_set_external_id,
-                        mimeType="application/zip",
+                        external_id=external_id,
+                        data_set_external_id=data_set_external_id,
+                        mime_type="application/zip",
                     ).model_dump(by_alias=True, exclude_unset=True)
                 ),
                 description="metadata for function code",
@@ -120,9 +120,9 @@ class FunctionCodeBundle:
                 content=yaml_safe_dump(
                     CogniteFileYAML(
                         space=space,
-                        externalId=external_id,
+                        external_id=external_id,
                         name=name,
-                        mimeType="application/zip",
+                        mime_type="application/zip",
                     ).model_dump(by_alias=True, exclude_unset=True)
                 ),
                 description="metadata for function code",
