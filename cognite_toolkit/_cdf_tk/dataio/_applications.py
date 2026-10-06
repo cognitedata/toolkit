@@ -431,9 +431,11 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
     def _confirm_target_migrations(
         self, migrations: dict[ExternalId, tuple[ChartScheduledCalculationRequest, str]]
     ) -> tuple[list[LogEntryV2], set[ExternalId]]:
-        """Re-reads migrated calculations and retries those still on the external-ID target.
+        """Re-reads migrated calculations and re-sends the update while the target is still the external ID.
 
-        An in-flight run can write its old action back over the update, so the update is not enough.
+        The Tasks API stores the write target inside the schedule's action. A run that started before the
+        update can save its old action when it finishes, which reverts the target. Retrying after the run
+        completes makes the new target stick.
         """
         api = self.client.charts.scheduled_calculations
         log_entries: list[LogEntryV2] = []

@@ -70,5 +70,6 @@ def test_scheduled_calculation_update_can_send_target() -> None:
     assert "targetTimeseriesInstanceId" not in request.as_update("replace")
     update = request.with_target_update().as_update("replace")
     assert update["targetTimeseriesInstanceId"] == {"space": "plant", "externalId": "output-ts"}
+    assert "targetTimeseriesExternalId" not in update
     # The original request is unchanged.
     assert "targetTimeseriesInstanceId" not in request.as_update("replace")
