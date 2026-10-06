@@ -55,6 +55,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     RecordsMigrationIO,
     ThreeDAssetMappingMigrationIO,
     ThreeDMigrationIO,
+    verify_target_spaces_exist,
     verify_threed_dm_migration_enabled,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
@@ -1498,6 +1499,7 @@ class MigrateApp(typer.Typer):
             raise typer.BadParameter(
                 "--object-3d-space and --cad-node-space are required when specifying IDs directly."
             )
+        verify_target_spaces_exist(client, [object_3D_space, cad_node_space])
 
         cmd = MigrationCommand(client=client)
         cmd.run(
@@ -1962,6 +1964,9 @@ class MigrateApp(typer.Typer):
                     "Both --object-3d-space and --contextualization-space are required when "
                     "using --collection and --collection-instance-space."
                 )
+        if object_3D_space is None or contextualization_space is None:
+            raise typer.BadParameter("Both --object-3d-space and --contextualization-space are required.")
+        verify_target_spaces_exist(client, [object_3D_space, contextualization_space])
 
         collection_external_ids = tuple(node_id.external_id for node_id in selected_collections)
 
