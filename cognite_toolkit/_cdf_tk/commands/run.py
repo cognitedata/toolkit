@@ -189,7 +189,7 @@ if __name__ == "__main__":
             wait = questionary.confirm("Do you want to wait for the function to complete?").unsafe_ask()
 
         # Todo: Get one shot token using the call_args.authentication
-        session = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
+        session = client.sessions.create_one_shot_token_exchange_session()
         result = client.functions.call(external_id=external_id, data=call_args.data, wait=False, nonce=session.nonce)
 
         table = Table(title=f"Function {external_id!r}, id {function.id!r}")
@@ -256,7 +256,7 @@ if __name__ == "__main__":
             external_id = questionary.select(
                 "Select function to run", choices=list(function_builds_by_identifier.keys())
             ).unsafe_ask()
-        elif external_id not in function_builds_by_identifier.keys():
+        elif external_id not in function_builds_by_identifier:
             raise ToolkitMissingResourceError(f"Could not find function with external id {external_id}")
         return function_builds_by_identifier[external_id]
 
@@ -718,13 +718,10 @@ class RunTransformationV2Command(ToolkitCommand):
 
         for external_id in external_ids:
             try:
-                session = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
-            except CogniteAPIError as e:
+                session = client.sessions.create_one_shot_token_exchange_session()
+            except ToolkitAPIError as e:
                 print("[bold red]ERROR:[/] Could not get a oneshot session.")
                 print(e)
-                return False
-            if session is None:
-                print("[bold red]ERROR:[/] Could not get a oneshot session.")
                 return False
             nonce = TransformationNonceCredentials(
                 session_id=session.id, nonce=session.nonce, cdf_project_name=client.config.project
@@ -858,10 +855,7 @@ class RunTransformationCommand(ToolkitCommand):
             print(f"[bold red]ERROR:[/] Could not find transformation with external_id {external_ids}")
             return False
         for transformation in transformations:
-            session = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
-            if session is None:
-                print("[bold red]ERROR:[/] Could not get a oneshot session.")
-                return False
+            session = client.sessions.create_one_shot_token_exchange_session()
             nonce = NonceCredentials(session_id=session.id, nonce=session.nonce, cdf_project_name=client.config.project)
             transformation.source_nonce = nonce
             transformation.destination_nonce = nonce
@@ -969,10 +963,10 @@ class RunWorkflowCommand(ToolkitCommand):
                         ),
                     )
                 )
-                nonce = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
+                nonce = client.sessions.create_one_shot_token_exchange_session().nonce
             else:
-                nonce = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
-        except CogniteAPIError as e:
+                nonce = client.sessions.create_one_shot_token_exchange_session().nonce
+        except ToolkitAPIError as e:
             raise AuthorizationError(f"Could not create oneshot session for workflow {id_!r}: {e!s}") from e
 
         if is_interactive:
@@ -1086,8 +1080,8 @@ class RunWorkflowV2Command(ToolkitCommand):
         id_ = selected.as_id()
 
         try:
-            nonce = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
-        except CogniteAPIError as e:
+            nonce = client.sessions.create_one_shot_token_exchange_session().nonce
+        except ToolkitAPIError as e:
             raise AuthorizationError(f"Could not create oneshot session for workflow {id_!s}: {e!s}") from e
 
         execution = client.tool.workflows.executions.run(id_, nonce=nonce, input=input_)

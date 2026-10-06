@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
+from cognite_toolkit._cdf_tk.client.resource_classes.session import TokenExchangeSessionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.dataio import ChartIO
@@ -74,8 +75,8 @@ def legacy_chart(
         raise AssertionError("Chart migration failed - no monitoring jobs.")
     monitoring_job = chart.monitoring_jobs[0]
 
-    calculation.nonce = client.iam.sessions.create().nonce
-    monitoring_job.nonce = client.iam.sessions.create().nonce
+    calculation.nonce = client.sessions.create([TokenExchangeSessionRequest()])[0].nonce
+    monitoring_job.nonce = client.sessions.create([TokenExchangeSessionRequest()])[0].nonce
     alert_cannels = client.alerts.channels.list()
     if len(alert_cannels) == 0:
         raise AssertionError("Chart migration failed - no alert cannels available.")

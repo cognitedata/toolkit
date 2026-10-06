@@ -2,7 +2,7 @@ from collections.abc import Callable, Iterable, Sequence
 from itertools import chain
 from typing import Any, Literal, TypeVar
 
-from cognite.client.credentials import OAuthDeviceCode
+from cognite.client.credentials import OAuthClientCredentials, OAuthDeviceCode
 from cognite.client.data_classes.data_modeling import EdgeId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -30,6 +30,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation
     ChartScheduledCalculationResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import MonitoringJobReference
+from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    ClientCredentialsSessionRequest,
+    TokenExchangeSessionRequest,
+)
 from cognite_toolkit._cdf_tk.constants import MISSING_NONCE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -382,11 +386,18 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
                     succeeded[ext_id] = updated
             else:
                 if request.nonce == MISSING_NONCE:
-                    if self._skip_strict_mode:
-                        request.nonce = self.client.iam.sessions.create().nonce
+                    if self._skip_strict_mode and isinstance(
+                        creds := self.client.config.credentials, OAuthClientCredentials
+                    ):
+                        request.nonce = self.client.sessions.create_single(
+                            ClientCredentialsSessionRequest(
+                                client_id=creds.client_id,
+                                client_secret=creds.client_secret,
+                            )
+                        ).nonce
                     elif isinstance(self.client.config.credentials, OAuthDeviceCode):
                         # Reusing the user's credentials.
-                        request.nonce = self.client.iam.sessions.create(session_type="TOKEN_EXCHANGE").nonce
+                        request.nonce = self.client.sessions.create_single(TokenExchangeSessionRequest()).nonce
                     else:
                         log_entries.append(
                             LogEntryV2(

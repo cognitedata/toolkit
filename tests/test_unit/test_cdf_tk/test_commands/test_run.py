@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-from cognite.client.data_classes import ClientCredentials, CreatedSession
+from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes.functions import Function, FunctionCall
 from cognite.client.data_classes.transformations import Transformation, TransformationDestination
 from cognite.client.data_classes.workflows import (
@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersion
 from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionCreateResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     Column,
     SQLQueryResponse,
@@ -119,7 +120,9 @@ class TestRunTransformationV2:
     def _mock_client() -> MagicMock:
         client = MagicMock()
         client.config.project = "my-project"
-        client.iam.sessions.create.return_value = CreatedSession(id=42, status="READY", nonce="dummy-nonce")
+        client.sessions.create_one_shot_token_exchange_session.return_value = SessionCreateResponse(
+            id=42, status="READY", nonce="dummy-nonce"
+        )
         client.tool.transformations.run.return_value = _transformation_job("Created")
         return client
 
@@ -563,7 +566,9 @@ def workflow_client() -> MagicMock:
     client = MagicMock()
     # The command passes the console to rich.Progress, which does not accept a mock.
     client.console = Console()
-    client.iam.sessions.create.return_value.nonce = "dummy-nonce"
+    client.sessions.create_one_shot_token_exchange_session.return_value = SessionCreateResponse(
+        id=1, status="READY", nonce="dummy-nonce"
+    )
     client.tool.workflows = MagicMock(spec=WorkflowsAPI)
     client.tool.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)
     client.tool.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)

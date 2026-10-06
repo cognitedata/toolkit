@@ -403,7 +403,7 @@ def upsert_transformation_with_run(
     else:
         created = retrieved
     if created.last_finished_job is None:
-        nonce = toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
+        nonce = toolkit_client.sessions.create_one_shot_token_exchange_session()
         response = toolkit_client.post(
             url=f"/api/v1/projects/{toolkit_client.config.project}/transformations/run",
             json={
@@ -651,7 +651,6 @@ def disable_throttler(
 ) -> None:
     def no_op(*args, **kwargs) -> None:
         """No operation function to replace the write_last_call_epoc function."""
-        pass
 
     always_enabled = MagicMock(spec=ThrottlerState)
     # We mock the TrottlerState the mock object will always pass the throttling check.

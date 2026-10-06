@@ -189,6 +189,13 @@ class ToolkitClientMock(CogniteClientMock):
         self.principals = MagicMock(spec_set=PrincipalsAPI)
         self.sessions = MagicMock(spec_set=SessionAPI)
 
+        def create_single(item: object) -> object:
+            # SessionAPI.create_single delegates to create. Keep that so tests that stub
+            # sessions.create still produce a real session response.
+            return self.sessions.create([item])[0]
+
+        self.sessions.create_single.side_effect = create_single
+
         self.tool = MagicMock(spec=ToolAPI)
         self.tool.agents = MagicMock(spec=AgentsAPI)
         self.tool.skills = MagicMock(spec=SkillsAPI)

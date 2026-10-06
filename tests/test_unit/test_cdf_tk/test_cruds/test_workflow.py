@@ -4,10 +4,13 @@ from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.credentials import OAuthClientCredentials
-from cognite.client.data_classes import ClientCredentials, CreatedSession
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    ClientCredentialsSessionRequest,
+    SessionCreateResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     ScheduleTriggerRule,
     WorkflowTriggerRequest,
@@ -115,7 +118,7 @@ authentication:
         assert cdf_dumped != local_dumped
 
     def test_create_uses_client_credentials_session(self) -> None:
-        credentials = ClientCredentials(client_id="my-client-id", client_secret="my-client-secret")
+        credentials = ClientCredentialsSessionRequest(client_id="my-client-id", client_secret="my-client-secret")
         trigger = WorkflowTriggerRequest(
             external_id="daily-8am-utc",
             trigger_rule=ScheduleTriggerRule(cron_expression="0 8 * * *"),
@@ -123,7 +126,7 @@ authentication:
             workflow_version="v1",
         )
         with monkeypatch_toolkit_client() as client:
-            client.iam.sessions.create.return_value = CreatedSession(123, "READY", "my-nonce")
+            client.sessions.create.return_value = [SessionCreateResponse(id=123, status="READY", nonce="my-nonce")]
             loader = WorkflowTriggerIO(client)
             loader._authentication_by_id["daily-8am-utc"] = credentials
             client.tool.workflows.triggers.create.return_value = [
@@ -139,7 +142,7 @@ authentication:
             ]
             loader.create([trigger])
 
-        client.iam.sessions.create.assert_called_once_with(credentials, session_type="CLIENT_CREDENTIALS")
+        client.sessions.create.assert_called_once_with([credentials])
         client.tool.workflows.triggers.pause.assert_not_called()
         client.tool.workflows.triggers.resume.assert_not_called()
 
@@ -164,9 +167,9 @@ authentication:
         trigger.is_paused = is_paused
 
         with monkeypatch_toolkit_client() as client:
-            client.iam.sessions.create.return_value = CreatedSession(123, "READY", "my-nonce")
+            client.sessions.create.return_value = [SessionCreateResponse(id=123, status="READY", nonce="my-nonce")]
             io = WorkflowTriggerIO(client)
-            io._authentication_by_id["daily-8am-utc"] = ClientCredentials(
+            io._authentication_by_id["daily-8am-utc"] = ClientCredentialsSessionRequest(
                 client_id="my-client-id", client_secret="my-client-secret"
             )
             client.tool.workflows.triggers.create.return_value = [response]

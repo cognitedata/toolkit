@@ -212,7 +212,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sequence import (
     SequenceResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.session import OneshotTokenExchangeSessionRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    OneshotTokenExchangeSessionRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_sink import SignalSinkRequest, SignalSinkResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import (
     SignalSubscriptionRequest,
@@ -1661,7 +1663,7 @@ class TestCDFResourceAPI:
         workflow_trigger_request = WorkflowTriggerRequest.model_validate(workflow_trigger)
         workflow_trigger_id = workflow_trigger_request.as_id()
         workflow_trigger_request.authentication = NonceCredentials(
-            nonce=toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
+            nonce=toolkit_client.sessions.create_one_shot_token_exchange_session().nonce
         )
 
         try:
@@ -1727,7 +1729,7 @@ class TestCDFResourceAPI:
             try:
                 execution = client.tool.workflows.executions.run(
                     workflow_version_id,
-                    nonce=toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce,
+                    nonce=toolkit_client.sessions.create_one_shot_token_exchange_session().nonce,
                 )
             except ToolkitAPIError as e:
                 raise EndpointAssertionError(run_path, f"run method failed with error: {e!s}") from e
@@ -1772,7 +1774,7 @@ class TestCDFResourceAPI:
                 try:
                     retried = client.tool.workflows.executions.retry(
                         [execution.as_id()],
-                        nonce=toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce,
+                        nonce=toolkit_client.sessions.create_one_shot_token_exchange_session().nonce,
                     )
                 except ToolkitAPIError as e:
                     raise EndpointAssertionError(retry_path, f"retry method failed with error: {e!s}") from e
@@ -2135,9 +2137,7 @@ class TestCDFResourceAPI:
 
             # Create function schedule (dependent on function)
             function_schedule_request.function_id = created.id
-            function_schedule_request.nonce = toolkit_client.iam.sessions.create(
-                session_type="ONESHOT_TOKEN_EXCHANGE"
-            ).nonce
+            function_schedule_request.nonce = toolkit_client.sessions.create_one_shot_token_exchange_session().nonce
             schedule_create_endpoint = client.tool.functions.schedules._method_endpoint_map["create"]
             try:
                 created_schedule_list = client.tool.functions.schedules.create([function_schedule_request])
@@ -2257,7 +2257,7 @@ class TestCDFResourceAPI:
         schedule_id: InternalId | None = None
         notification_id: InternalId | None = None
 
-        session = toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
+        session = toolkit_client.sessions.create_one_shot_token_exchange_session()
         credentials = TransformationNonceCredentials(
             session_id=session.id,
             nonce=session.nonce,
@@ -2872,7 +2872,7 @@ class TestCDFResourceAPI:
             channel_id=channels[0].id,
             model=ChartMonitoringJobModel(timeseries_external_id=smoke_timeseries.external_id, lower_threshold=1.0),
             source_id=smoke_chart.external_id,
-            nonce=client.iam.sessions.create().nonce,
+            nonce=client.sessions.create_one_shot_token_exchange_session().nonce,
         )
         job_id = request.as_id()
         try:
@@ -2896,7 +2896,10 @@ class TestCDFResourceAPI:
             )
 
             upsert_request = request.model_copy(
-                update={"name": "upsert_name", "nonce": client.iam.sessions.create().nonce}
+                update={
+                    "name": "upsert_name",
+                    "nonce": client.sessions.create_one_shot_token_exchange_session().nonce,
+                }
             )
             try:
                 upserted = client.charts.monitoring_jobs.upsert([upsert_request])
@@ -2978,7 +2981,7 @@ class TestCDFResourceAPI:
             window_size=period_ms,
             target_timeseries_external_id=output_ts_request.external_id,
             graph=graph,
-            nonce=client.iam.sessions.create().nonce,
+            nonce=client.sessions.create_one_shot_token_exchange_session().nonce,
         )
         calc_id = request.as_id()
         try:

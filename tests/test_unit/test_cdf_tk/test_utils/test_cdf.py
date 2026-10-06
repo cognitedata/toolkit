@@ -7,6 +7,7 @@ from cognite.client.data_classes import ClientCredentials, OidcCredentials
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitTypeError
 from cognite_toolkit._cdf_tk.utils.cdf import (
     get_transformation_destination_columns,
@@ -554,7 +555,7 @@ class TestReadAuth:
                     "clientId": "my_id",
                     "clientSecret": "my_secret",
                 },
-                ClientCredentials("my_id", "my_secret"),
+                ClientCredentialsSessionRequest(client_id="my_id", client_secret="my_secret"),
                 id="Client credentials",
             ),
             pytest.param(
@@ -588,10 +589,10 @@ class TestReadAuth:
             ),
         ],
     )
-    def test_read_valid_auth(self, auth: object, expected: ClientCredentials | OidcCredentials) -> None:
+    def test_read_valid_auth(self, auth: object, expected: ClientCredentialsSessionRequest | OidcCredentials) -> None:
         config = MagicMock(spec=ToolkitClientConfig)
         result = read_auth(auth, config, "only-used-in-errors", "only-used-in-errors", allow_oidc=True)
-        assert isinstance(result, ClientCredentials | OidcCredentials)
+        assert isinstance(result, ClientCredentialsSessionRequest | OidcCredentials)
         assert result.dump() == expected.dump()
 
     @pytest.mark.parametrize(
@@ -641,7 +642,7 @@ class TestReadAuth:
             "Authentication is missing for compute resource 'my_compute_resource'. "
             "Falling back to the Toolkit credentials"
         ) in warning
-        assert isinstance(result, ClientCredentials)
+        assert isinstance(result, ClientCredentialsSessionRequest)
         assert result.dump() == {
             "clientId": "my_id",
             "clientSecret": "my_secret",

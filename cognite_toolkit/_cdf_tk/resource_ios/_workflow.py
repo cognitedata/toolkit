@@ -19,8 +19,6 @@ from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import ClientCredentials
-
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -32,6 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
     WorkflowOrchestrationAcl,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     NonceCredentials,
@@ -525,7 +524,7 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
 
     def __init__(self, client: ToolkitClient):
         super().__init__(client)
-        self._authentication_by_id: dict[str, ClientCredentials] = {}
+        self._authentication_by_id: dict[str, ClientCredentialsSessionRequest] = {}
 
     @property
     def display_name(self) -> str:
@@ -581,10 +580,10 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
 
     def _upsert_item(self, item: WorkflowTriggerRequest) -> WorkflowTriggerResponse | None:
         credentials = self._authentication_by_id.get(item.external_id)
+        if credentials is None:
+            raise ToolkitRequiredValueError(f"Authentication is missing for workflow trigger {item.external_id!r}")
         try:
-            item.authentication = NonceCredentials(
-                nonce=self.client.iam.sessions.create(credentials, session_type="CLIENT_CREDENTIALS").nonce
-            )
+            item.authentication = NonceCredentials(nonce=self.client.sessions.create_single(credentials).nonce)
             result = self.client.tool.workflows.triggers.create([item])
             if not result:
                 return None

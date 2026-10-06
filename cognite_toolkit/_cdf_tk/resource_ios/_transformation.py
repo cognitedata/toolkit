@@ -36,10 +36,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast, final
 
-from cognite.client.data_classes import (
-    ClientCredentials,
-    OidcCredentials,
-)
+from cognite.client.data_classes import OidcCredentials
 from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -68,6 +65,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
     TransformationsAcl,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     NonceCredentials,
     TransformationRequest,
@@ -181,7 +179,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     def __init__(self, client: ToolkitClient):
         super().__init__(client)
         self._authentication_by_id_operation: dict[
-            tuple[str, Literal["read", "write"]], OidcCredentials | ClientCredentials
+            tuple[str, Literal["read", "write"]], ClientCredentialsSessionRequest | OidcCredentials
         ] = {}
 
     @property
@@ -653,30 +651,28 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
             ):
                 item.destination_nonce = self._create_nonce(write_credentials)
 
-    def _create_nonce(self, credentials: OidcCredentials | ClientCredentials) -> NonceCredentials:
-        if isinstance(credentials, ClientCredentials):
-            session = self.client.iam.sessions.create(credentials)
-            nonce = NonceCredentials(
-                session_id=session.id,
-                nonce=session.nonce,
-                cdf_project_name=self.client.config.project,
-                client_id=credentials.client_id,
-            )
-        elif isinstance(credentials, OidcCredentials):
+    def _create_nonce(self, credentials: ClientCredentialsSessionRequest | OidcCredentials) -> NonceCredentials:
+        if isinstance(credentials, OidcCredentials):
             config = deepcopy(self.client.config)
             config.project = credentials.cdf_project_name
             config.credentials = credentials.as_credential_provider()
-            other_client = ToolkitClient(config)
-            session = other_client.iam.sessions.create(credentials.as_client_credentials())
-            nonce = NonceCredentials(
-                session_id=session.id,
-                nonce=session.nonce,
-                cdf_project_name=credentials.cdf_project_name,
+            session_client = ToolkitClient(config)
+            session_request = ClientCredentialsSessionRequest(
                 client_id=credentials.client_id,
+                client_secret=credentials.client_secret,
             )
+            project_name = credentials.cdf_project_name
         else:
-            raise ValueError(f"Error in TransformationLoader: {type(credentials)} is not a valid credentials type")
-        return nonce
+            session_client = self.client
+            session_request = credentials
+            project_name = self.client.config.project
+        session = session_client.sessions.create_single(session_request)
+        return NonceCredentials(
+            session_id=session.id,
+            nonce=session.nonce,
+            cdf_project_name=project_name,
+            client_id=session_request.client_id,
+        )
 
     def _iterate(
         self,
