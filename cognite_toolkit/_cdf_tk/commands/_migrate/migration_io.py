@@ -132,7 +132,7 @@ class AssetCentricMigrationSource(
             )
 
         for items in iterator:
-            page = Page(
+            page = Page[AssetCentricMapping[T_AssetCentricResource]](
                 worker_id="main",
                 items=[DataItem(tracking_id=str(item.mapping.as_asset_centric_id()), item=item) for item in items],
             )
@@ -477,7 +477,7 @@ class AnnotationMigrationIO(
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
         for items in iterator:
-            page = Page(
+            page = Page[AssetCentricMapping[AnnotationResponse]](
                 worker_id="main",
                 items=[DataItem(tracking_id=str(item.mapping.as_asset_centric_id()), item=item) for item in items],
             )
@@ -493,7 +493,8 @@ class AnnotationMigrationIO(
             mapping_list: list[AssetCentricMapping[AnnotationResponse]] = []
             for data_item in data_chunk.items:
                 resource = data_item.item
-                if resource.annotation_type not in self.SUPPORTED_ANNOTATION_TYPES:
+                annotation_type = resource.annotation_type
+                if annotation_type not in ("diagrams.AssetLink", "diagrams.FileLink"):
                     # This should not happen, as the annotation_io should already filter these out.
                     # This is just in case.
                     continue
@@ -502,7 +503,7 @@ class AnnotationMigrationIO(
                     id=resource.id,
                     ingestion_mapping=self._get_mapping(selector.ingestion_mapping, resource),
                     preferred_consumer_view=selector.preferred_consumer_view,
-                    annotation_type=resource.annotation_type,  # type: ignore[arg-type]
+                    annotation_type=annotation_type,
                 )
                 mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))
             yield mapping_list
@@ -801,7 +802,7 @@ class ThreeDMigrationIO(UploadableDataIO[ThreeDSelector, ThreeDModelClassicRespo
             if items:
                 bm: Bookmark = CursorBookmark(cursor=response.next_cursor) if response.next_cursor else NoBookmark()
                 yield self.emit_registered_page(
-                    Page(
+                    Page[ThreeDModelClassicResponse](
                         worker_id="main",
                         items=[DataItem(tracking_id=item.name, item=item) for item in items],
                         bookmark=bm,
@@ -940,7 +941,7 @@ class ThreeDAssetMappingMigrationIO(
                             CursorBookmark(cursor=response.next_cursor) if response.next_cursor else NoBookmark()
                         )
                         yield self.emit_registered_page(
-                            Page(
+                            Page[AssetMappingClassicResponse](
                                 worker_id="main",
                                 items=[
                                     DataItem(
@@ -1057,7 +1058,7 @@ class Image360AnnotationMigrationIO(
                     continue
                 total += len(filtered)
                 yield self.emit_registered_page(
-                    Page(
+                    Page[AnnotationResponse](
                         worker_id="main",
                         items=[DataItem(tracking_id=str(ann.id), item=ann) for ann in filtered],
                     )

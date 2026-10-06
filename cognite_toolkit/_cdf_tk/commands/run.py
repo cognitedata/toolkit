@@ -356,7 +356,9 @@ if __name__ == "__main__":
         if len(options) == 0:
             print(f"No schedules or workflows found for this {function_external_id} function.")
             return {}, None
-        selected_name: str = questionary.select("Select schedule to run", choices=options).unsafe_ask()  # type: ignore[arg-type]
+        selected_name = questionary.select("Select schedule to run", choices=list(options)).unsafe_ask()
+        if not isinstance(selected_name, str):
+            raise ToolkitValueError(f"Expected a schedule name, got {selected_name!r}.")
         selected = options[selected_name]
         if isinstance(selected, ResourceLineageItem):
             # Schedule
@@ -493,8 +495,9 @@ if __name__ == "__main__":
                 f"Could not find function code for {function_external_id}. Expected at {function_source_code.as_posix()}"
             )
 
-        requirements_txt: Path | str = function_source_code / "requirements.txt"
-        if not cast(Path, requirements_txt).exists():
+        requirements_path = function_source_code / "requirements.txt"
+        requirements_txt: Path | str = requirements_path
+        if not requirements_path.exists():
             self.warn(
                 MediumSeverityWarning(
                     "No requirements.txt found for function, "
@@ -624,7 +627,10 @@ if __name__ == "__main__":
             if env_vars.LOGIN_FLOW == "token":
                 credentials_cls = Token.__name__
                 credentials_args = {"token": 'os.environ["CDF_TOKEN"]'}
-                env["CDF_TOKEN"] = env_vars.CDF_TOKEN  # type: ignore[assignment]
+                token = env_vars.CDF_TOKEN
+                if not isinstance(token, str):
+                    raise ToolkitValueError("CDF_TOKEN is required to run with the token login flow.")
+                env["CDF_TOKEN"] = token
             elif env_vars.LOGIN_FLOW == "interactive":
                 credentials_cls = OAuthInteractive.__name__
                 credentials_args = {
@@ -640,7 +646,12 @@ if __name__ == "__main__":
                     "client_secret": 'os.environ["IDP_CLIENT_SECRET"]',
                     "scopes": str(env_vars.idp_scopes),
                 }
-                env["IDP_CLIENT_SECRET"] = env_vars.IDP_CLIENT_SECRET  # type: ignore[assignment]
+                client_secret = env_vars.IDP_CLIENT_SECRET
+                if not isinstance(client_secret, str):
+                    raise ToolkitValueError(
+                        "IDP_CLIENT_SECRET is required to run with the client credentials login flow."
+                    )
+                env["IDP_CLIENT_SECRET"] = client_secret
             else:
                 raise ToolkitNotSupported(f"Login flow {env_vars.LOGIN_FLOW} is not supported .")
 

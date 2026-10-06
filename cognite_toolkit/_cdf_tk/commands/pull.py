@@ -528,13 +528,13 @@ class PullV2Command(ToolkitCommand):
         variables_with_environment_list: list[BuildVariable] = []
         for variable in variables:
             updated_variable = variable
-            if isinstance(updated_variable.value, str) and ENV_VAR_PATTERN.match(updated_variable.value):
+            raw_value = variable.value
+            if isinstance(raw_value, str) and ENV_VAR_PATTERN.match(raw_value):
                 for key, value in environment_variables.items():
-                    if key in updated_variable.value and isinstance(value, str):
+                    if isinstance(value, str) and key in raw_value:
                         # Running through all environment variables, in case multiple are used in the same variable.
-                        updated_variable = updated_variable.model_copy(
-                            update={"value": updated_variable.value.replace(f"${{{key}}}", value)}
-                        )
+                        raw_value = raw_value.replace(f"${{{key}}}", value)
+                updated_variable = variable.model_copy(update={"value": raw_value})
             elif isinstance(variable.value, list):
                 new_value: list[str | int | float | bool] = []
                 for var_item in variable.value:
@@ -803,11 +803,12 @@ class ResourceReplacer:
             # This is a special case for the ExtractionPipelineConfigLoader where the config dict is typically a
             # dict locally, but returned as a string from the server.
             try:
-                to_write = read_yaml_content(to_write)
+                loaded = read_yaml_content(to_write)
             except yaml.YAMLError:
                 ...
             else:
-                return self._replace_dict(current, placeholder_value, to_write, json_path)
+                if isinstance(loaded, dict):
+                    return self._replace_dict(current, placeholder_value, loaded, json_path)
 
         raise ToolkitValueError(
             f"CDF value and local value should be of the same type in {'.'.join(map(str, json_path))}, "
