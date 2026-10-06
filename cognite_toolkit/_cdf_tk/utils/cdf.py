@@ -150,6 +150,18 @@ def get_transformation_destination_columns(query: str) -> list[str]:
     return parser.destination_columns
 
 
+def _query_str(value: object, field: str) -> str:
+    if isinstance(value, str):
+        return value
+    raise ToolkitValueError(f"Expected query field {field} to be a string, got {type(value).__name__}.")
+
+
+def _query_int(value: object, field: str) -> int:
+    if isinstance(value, int | float | str):
+        return int(value)
+    raise ToolkitValueError(f"Expected query field {field} to be a number, got {type(value).__name__}.")
+
+
 def metadata_key_counts(
     client: ToolkitClient,
     resource: Literal["assets", "events", "files", "timeseries", "sequences"],
@@ -201,8 +213,7 @@ def metadata_key_counts(
     results = client.tool.transformations.run_query_preview(
         query, convert_to_string=False, limit=None, source_limit=None
     )
-    # We know from the SQL that the result is a list of dictionaries with string keys and int values.
-    return [(item["key"], item["key_count"]) for item in results.results]  # type: ignore[misc]
+    return [(_query_str(item["key"], "key"), _query_int(item["key_count"], "key_count")) for item in results.results]
 
 
 def _create_where_clause(data_sets: list[int] | None, hierarchies: list[int] | None) -> str:
@@ -255,8 +266,9 @@ ORDER BY label_count DESC;
     results = client.tool.transformations.run_query_preview(
         query, convert_to_string=False, limit=None, source_limit=None
     )
-    # We know from the SQL that the result is a list of dictionaries with string keys and int values.
-    return [(item["label"], item["label_count"]) for item in results.results]  # type: ignore[misc]
+    return [
+        (_query_str(item["label"], "label"), _query_int(item["label_count"], "label_count")) for item in results.results
+    ]
 
 
 @dataclass
@@ -299,9 +311,12 @@ GROUP BY
     results = client.tool.transformations.run_query_preview(
         query, convert_to_string=False, limit=None, source_limit=None
     )
-    # We know from the SQL that the result is a list of dictionaries with string keys and int values.
     return [
-        RelationshipCount(item["sourceType"], item["targetType"], item["relationshipCount"])  # type: ignore[arg-type]
+        RelationshipCount(
+            _query_str(item["sourceType"], "sourceType"),
+            _query_str(item["targetType"], "targetType"),
+            _query_int(item["relationshipCount"], "relationshipCount"),
+        )
         for item in results.results
     ]
 
@@ -329,8 +344,7 @@ FROM
         query, convert_to_string=False, limit=None, source_limit=None
     )
     if results.results:
-        # We know from the SQL that the result is a list of dictionaries with string keys and int values.
-        return int(results.results[0]["labelCount"])  # type: ignore[arg-type]
+        return _query_int(results.results[0]["labelCount"], "labelCount")
     return 0
 
 
@@ -439,6 +453,5 @@ FROM (
         query, convert_to_string=False, limit=None, source_limit=None
     )
     if results.results:
-        # We know from the SQL that the result is a list of dictionaries with string keys and int values.
-        return int(results.results[0]["row_count"])  # type: ignore[arg-type]
+        return _query_int(results.results[0]["row_count"], "row_count")
     return 0
