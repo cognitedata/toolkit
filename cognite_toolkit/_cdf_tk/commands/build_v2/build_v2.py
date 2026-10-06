@@ -84,6 +84,7 @@ from cognite_toolkit._cdf_tk.utils import (
     tmp_build_directory,
 )
 from cognite_toolkit._cdf_tk.utils.file import (
+    read_source_for_build,
     read_yaml_content,
     relative_to_if_possible,
     safe_rmtree,
@@ -932,11 +933,11 @@ class BuildV2Command(ToolkitCommand):
         variables: list[BuildVariable],
     ) -> ReadYAMLFile:
         try:
-            # The file hash has to be calculated here as the .safe_read
-            # modifies the content for certain kinds of resources such at for example data modeling resources that have
-            # version.
-            file_hash = calculate_hash(resource_file, shorten=True)
-            content = crud_class.safe_read(resource_file)
+            # Hash the raw bytes. safe_read rewrites some resources before parsing, such as quoting a
+            # data-model version, and that rewritten text must not change the source hash.
+            hashed_bytes, text = read_source_for_build(resource_file, encoding=BUILD_FOLDER_ENCODING)
+            file_hash = calculate_hash(hashed_bytes, shorten=True)
+            content = crud_class.safe_read(text)
         except Exception as read_error:
             return FailedReadYAMLFile(
                 source_path=resource_file, error=f"Failed to read resource file: {read_error!s}", code="READ-ERROR"
@@ -1104,6 +1105,8 @@ class BuildV2Command(ToolkitCommand):
 
     @classmethod
     def _find_unresolved_variables(cls, content: str) -> list[str]:
+        if "{{" not in content:
+            return []
         return list(
             dict.fromkeys(
                 # Removing the '{{' and '}}'

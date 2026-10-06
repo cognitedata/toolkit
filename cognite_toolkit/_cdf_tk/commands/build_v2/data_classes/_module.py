@@ -119,6 +119,8 @@ class BuildVariable(BaseModel):
     @classmethod
     def substitute(cls, content: str, variables: "list[BuildVariable]", file_suffix: FileSuffix | str = ".yaml") -> str:
         """Substitutes variables in the given content based on their patterns and replacement values."""
+        if "{{" not in content:
+            return content
         for variable in variables:
             pattern, replace = variable.get_pattern_replace_pair(file_suffix)
             content = re.sub(pattern, (lambda _: replace) if isinstance(replace, str) else replace, content)

@@ -306,6 +306,8 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     @classmethod
     def substitute_variables_content(cls, content: str, variables: "list[BuildVariable]") -> str:
         """Overwritten to handle the query field that needs .sql style substitution."""
+        if "{{" not in content:
+            return content
         # avoid circular import
         from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import FileSuffix
 

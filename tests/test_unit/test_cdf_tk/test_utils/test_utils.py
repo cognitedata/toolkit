@@ -10,15 +10,17 @@ import pytest
 import yaml
 from _pytest.mark import ParameterSet
 
+from cognite_toolkit._cdf_tk.resource_ios._datamodel import ViewIO
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
+    calculate_hash,
     flatten_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
     stringify_value_by_key_in_yaml,
 )
-from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import read_source_for_build, safe_read, yaml_safe_dump
 from tests.data import CALC_HASH_DATA
 
 
@@ -312,3 +314,18 @@ class TestQuoteKeyInYAML:
         actual = stringify_value_by_key_in_yaml(raw, key="config")
         assert actual == expected
         assert yaml.safe_load(actual) == yaml.safe_load(expected)
+
+
+class TestReadSourceForBuild:
+    def test_one_read_matches_path_hash_and_rewritten_text(self, tmp_path: Path) -> None:
+        path = tmp_path / "pump.view.yaml"
+        path.write_bytes(b"externalId: pump\r\nversion: 1_0_0\rname: old-mac\n")
+
+        hashed_bytes, text = read_source_for_build(path, encoding="utf-8")
+
+        assert calculate_hash(hashed_bytes, shorten=True) == calculate_hash(path, shorten=True)
+        assert text == safe_read(path, encoding="utf-8")
+        rewritten = ViewIO.safe_read(text)
+        assert rewritten == ViewIO.safe_read(path)
+        assert 'version: "1_0_0"' in rewritten
+        assert calculate_hash(rewritten, shorten=True) != calculate_hash(path, shorten=True)

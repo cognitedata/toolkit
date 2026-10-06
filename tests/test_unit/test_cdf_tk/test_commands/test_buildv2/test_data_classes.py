@@ -276,6 +276,18 @@ ex:Shape a sh:NodeShape ;
 
         assert result == 'sh:select """SELECT ?s { ?s a ex:Pump }""" .\n'
 
+    def test_substitute_returns_content_without_template_token(self) -> None:
+        source = "metadata: {owner: ops}\n"
+        variables = _create_variables({f"var_{index}": f"value-{index}" for index in range(5)})
+
+        assert BuildVariable.substitute(source, variables) is source
+
+    def test_substitute_replaces_template_when_other_variables_are_unused(self) -> None:
+        source = "name: {{ resourceName }}\n"
+        variables = _create_variables({"resourceName": "Pump", "unused": "x"})
+
+        assert BuildVariable.substitute(source, variables) == "name: Pump\n"
+
     def test_get_pattern_replace_pair_unsupported_suffix(self) -> None:
         """Test that unsupported file suffixes raise NotImplementedError."""
         variable = BuildVariable(id=Path("modules/my_var"), value="test", is_selected=True)

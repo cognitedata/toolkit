@@ -1,4 +1,5 @@
 import errno
+import locale
 import os
 import re
 import shutil
@@ -257,6 +258,23 @@ def safe_read(file: Path | str, encoding: str | None = None) -> str:
             return file.read_text(encoding=backup_encoding)
         except UnicodeDecodeError:
             raise
+
+
+def read_source_for_build(filepath: Path, encoding: str) -> tuple[bytes, str]:
+    """Read a source file once for hashing and text processing.
+
+    The bytes are CRLF-normalized, which is the input ``calculate_hash`` uses for a path.
+    The text uses universal newlines and the same encoding fallback as ``safe_read``.
+    Resource-specific rewrites, such as quoting a data-model version, are applied by the caller
+    so the hash stays a hash of the file on disk.
+    """
+    hashed_bytes = filepath.read_bytes().replace(b"\r\n", b"\n")
+    text_bytes = hashed_bytes.replace(b"\r", b"\n")
+    try:
+        text = text_bytes.decode(encoding)
+    except UnicodeDecodeError:
+        text = text_bytes.decode(locale.getencoding())
+    return hashed_bytes, text
 
 
 def safe_write(file: Path, content: str, encoding: str | None = None) -> None:
