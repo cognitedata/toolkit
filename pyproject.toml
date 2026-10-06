@@ -61,7 +61,6 @@ dev = [
     "twine >=6.0.0",
     "cognite-neat >=1.0.43",
     "pytest-cov >=6.0.0",
-    "setuptools >=75.0.0",
     "types-requests >=2.32.0.20241016",
     "types-python-dateutil>=2.9.0.20250708",
     "marko >=2.1.2",
