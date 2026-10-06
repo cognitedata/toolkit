@@ -49,7 +49,7 @@ class SessionAPI(CDFResourceAPI[SessionResponse]):
     ) -> PagedResponse[SessionResponse]:
         return PagedResponse[SessionResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[SessionCreateRequest]) -> list[SessionCreateResponse]:
+    def create(self, items: Sequence[SessionCreateRequest]) -> builtins.list[SessionCreateResponse]:
         """Create sessions.
 
         Each item is sent in its own request. The endpoint accepts exactly one session per call.
