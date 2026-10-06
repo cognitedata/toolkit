@@ -686,6 +686,44 @@ class Image360CollectionInstanceIO(InstanceIO):
         return node.model_copy(update={"sources": updated_sources})
 
 
+def verify_target_spaces_exist(client: ToolkitClient, spaces: Iterable[str]) -> None:
+    """Fail before a 3D migration when a target instance space is missing.
+
+    The 3D migration APIs return HTTP 500 when ``object3DSpace``, ``cadNodeSpace``,
+    the contextualization space, or a model's target instance space does not exist
+    in the project. Check the spaces up front, including the case where the same
+    space is passed more than once. Invalid space identifiers are left to the
+    spaces API, which returns a 4XX response.
+    """
+    requested = list(dict.fromkeys(spaces))
+    if not requested:
+        return
+
+    space_ids = [SpaceId(space=space) for space in requested]
+    existing = client.tool.spaces.retrieve(space_ids)
+    found = {item.space: item for item in existing}
+    missing = [space for space in requested if space not in found]
+    if missing:
+        raise ToolkitMigrationError(_missing_target_spaces_message(missing))
+
+    global_spaces = [space for space in requested if found[space].is_global]
+    if global_spaces:
+        raise ToolkitMigrationError(
+            "The following target spaces are system spaces and cannot store 3D migration instances: "
+            f"{humanize_collection(global_spaces)}. "
+            "Choose a project space that has been deployed."
+        )
+
+
+def _missing_target_spaces_message(missing: Sequence[str]) -> str:
+    return (
+        "The following target spaces do not exist or are not deployed in the CDF project: "
+        f"{humanize_collection(missing)}. "
+        "Deploy these spaces before running the 3D migration. "
+        "Missing target spaces cause the 3D APIs to return HTTP 500."
+    )
+
+
 def verify_threed_dm_migration_enabled(client: ToolkitClient) -> None:
     """
     Probe /3d/migrate/models to check if the 3D DM migration feature flag is
@@ -795,6 +833,7 @@ class ThreeDMigrationIO(UploadableDataIO[ThreeDSelector, ThreeDModelClassicRespo
         if len(data_chunk) > self.CHUNK_SIZE:
             raise RuntimeError(f"Uploading more than {self.CHUNK_SIZE} 3D models at a time is not supported.")
 
+        verify_target_spaces_exist(self.client, [data.item.space for data in data_chunk.items])
         results = ItemsResultList()
         responses = http_client.request_items_retries(
             message=ItemsRequest(
@@ -930,6 +969,7 @@ class ThreeDAssetMappingMigrationIO(
         """Migrate 3D asset mappings by uploading them to the migrate/asset-mappings endpoint."""
         if not data_chunk:
             return ItemsResultList()
+        verify_target_spaces_exist(self.client, [self.object_3D_space, self.cad_node_space])
         # Assume all items in the chunk belong to the same model and revision, they should
         # if the .stream_data method is used for downloading.
         first = data_chunk.items[0]
@@ -1040,6 +1080,7 @@ class Image360AnnotationMigrationIO(
         """
         if not data_chunk or selector is None:
             return ItemsResultList()
+        verify_target_spaces_exist(self.client, [selector.object3d_space, selector.instance_space])
 
         groups: dict[tuple[str, str], list[DataItem[Image360AnnotationItem]]] = {}
         skipped_entries: list[MigrationEntryV2] = []

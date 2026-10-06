@@ -6,6 +6,7 @@ from typing import IO, Any, Literal
 
 import httpx2
 
+from cognite_toolkit._cdf_tk.client.api._classic_aggregate import files_aggregate_count
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -66,6 +67,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                 "update": Endpoint(method="POST", path="/files/update", item_limit=1000, concurrency_max_workers=1),
                 "delete": Endpoint(method="POST", path="/files/delete", item_limit=1000, concurrency_max_workers=1),
                 "list": Endpoint(method="POST", path="/files/list", item_limit=1000),
+                "aggregate": Endpoint(method="POST", path="/files/aggregate", item_limit=1000),
             },
             api_version="alpha",
         )
@@ -247,6 +249,15 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             List of FileMetadataResponse objects.
         """
         return self._list(limit=limit)
+
+    def count(self, *, filter: ClassicFilter | dict[str, Any] | None = None) -> int:
+        """Count files matching an optional filter.
+
+        The files aggregate endpoint returns only ``count``.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Files/operation/aggregateFiles>`_.
+        """
+        return files_aggregate_count(self, filter=filter)
 
     def set_pending_ids(self, items: Sequence[PendingInstanceId]) -> builtins.list[FileMetadataResponse]:
         """Set pending instance IDs for one or more file metadata entries.

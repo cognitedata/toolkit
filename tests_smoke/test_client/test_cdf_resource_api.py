@@ -2696,6 +2696,38 @@ class TestCDFResourceAPI:
                 "The documents cardinality has been fixed. It now returns the cardinality and not the total.",
             )
 
+    def test_classic_resource_aggregates(self, toolkit_client: ToolkitClient) -> None:
+        """Smoke-test asset, event, time series, file, and sequence aggregate endpoints (read-only)."""
+        tool = toolkit_client.tool
+        checks: list[tuple[str, Callable[[], object]]] = [
+            ("/assets/aggregate", lambda: tool.assets.count()),
+            ("/assets/aggregate", lambda: tool.assets.cardinality(("name",))),
+            ("/assets/aggregate", lambda: tool.assets.cardinality(("metadata",))),
+            ("/assets/aggregate", lambda: tool.assets.unique(("name",))),
+            ("/assets/aggregate", lambda: tool.assets.unique(("metadata",))),
+            ("/events/aggregate", lambda: tool.events.count()),
+            ("/events/aggregate", lambda: tool.events.cardinality(("source",))),
+            ("/events/aggregate", lambda: tool.events.cardinality(("metadata",))),
+            ("/events/aggregate", lambda: tool.events.unique(("source",))),
+            ("/events/aggregate", lambda: tool.events.unique(("metadata",))),
+            ("/timeseries/aggregate", lambda: tool.timeseries.count()),
+            ("/timeseries/aggregate", lambda: tool.timeseries.cardinality(("unit",))),
+            ("/timeseries/aggregate", lambda: tool.timeseries.cardinality(("metadata",))),
+            ("/timeseries/aggregate", lambda: tool.timeseries.unique(("unit",))),
+            ("/timeseries/aggregate", lambda: tool.timeseries.unique(("metadata",))),
+            ("/files/aggregate", lambda: tool.filemetadata.count()),
+            ("/sequences/aggregate", lambda: tool.sequences.count()),
+            ("/sequences/aggregate", lambda: tool.sequences.cardinality(("name",))),
+            ("/sequences/aggregate", lambda: tool.sequences.cardinality(("metadata",))),
+            ("/sequences/aggregate", lambda: tool.sequences.unique(("name",))),
+            ("/sequences/aggregate", lambda: tool.sequences.unique(("metadata",))),
+        ]
+        for path, call in checks:
+            try:
+                _ = call()
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(path, f"Aggregate call failed: {e!s}") from e
+
     @pytest.mark.parametrize(
         "property_",
         [pytest.param(option, id=str(option)) for option in DOCUMENT_PROPERTY_OPTIONS],
