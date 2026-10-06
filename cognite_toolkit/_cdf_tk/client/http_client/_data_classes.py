@@ -106,8 +106,8 @@ class ErrorDetails(HTTPBaseModel):
 
     code: int
     message: str
-    missing: list[JsonValue] | None = None
-    duplicated: list[JsonValue] | None = None
+    missing: list[dict[str, JsonValue]] | None = None
+    duplicated: list[dict[str, JsonValue]] | None = None
     # tasks-api puts Pydantic validation errors here (APISyntacticalError). Standard CDF errors omit it.
     detail: list[JsonValue] | None = None
     is_auto_retryable: bool | None = None

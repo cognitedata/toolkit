@@ -13,8 +13,8 @@ class ToolkitAPIError(Exception):
     def __init__(
         self,
         message: str,
-        missing: list[JsonValue] | None = None,
-        duplicated: list[JsonValue] | None = None,
+        missing: list[dict[str, JsonValue]] | None = None,
+        duplicated: list[dict[str, JsonValue]] | None = None,
         code: int | None = None,
         is_auto_retryable: bool | None = None,
         request: "RequestMessage | None " = None,
