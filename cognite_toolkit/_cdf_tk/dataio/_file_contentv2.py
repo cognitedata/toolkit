@@ -1,10 +1,11 @@
 import mimetypes
 from collections import defaultdict
-from collections.abc import Hashable, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ToolkitAPIError,
@@ -26,6 +27,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     DataSetsIO,
     FileMetadataIO,
     LabelIO,
+    ResourceIO,
     SecurityCategoryIO,
 )
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
@@ -340,10 +342,10 @@ class FileMetadataContentIO(
     def json_to_row(
         self, item_json: dict[str, JsonVal], selector: FileMetadataContentSelectorV2 | None = None
     ) -> dict[str, JsonVal]:
-        if "metadata" in item_json and isinstance(item_json["metadata"], dict):
-            metadata = item_json.pop("metadata")
-            # MyPy does understand that metadata is a dict here due to the check above.
-            for key, value in metadata.items():  # type: ignore[union-attr]
+        metadata = item_json.get("metadata")
+        if isinstance(metadata, dict):
+            del item_json["metadata"]
+            for key, value in metadata.items():
                 item_json[f"metadata.{key}"] = value
         return item_json
 
@@ -369,18 +371,17 @@ class FileMetadataContentIO(
     @classmethod
     def _configurations(
         cls,
-        ids: Sequence[Hashable],
-        loader: DataSetsIO | LabelIO | SecurityCategoryIO,
+        ids: Sequence[T_Identifier],
+        loader: ResourceIO[T_Identifier, Any, Any, Any],
     ) -> Iterable[StorageIOConfig]:
         if not ids:
             return
 
-        items = loader.retrieve(ids)  # type: ignore[arg-type]
+        items = loader.retrieve(ids)
         yield StorageIOConfig(
             kind=loader.kind,
             folder_name=loader.folder_name,
-            # We know that the items will be labels for LabelLoader and data sets for DataSetsLoader
-            value=[loader.dump_resource(item) for item in items],  # type: ignore[arg-type]
+            value=[loader.dump_resource(item) for item in items],
         )
 
     def upload_items(

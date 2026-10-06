@@ -31,6 +31,7 @@ class HostedExtractorSourcesAPI(CDFResourceAPI[HostedExtractorSourceResponseUnio
                 "delete": Endpoint(method="POST", path="/hostedextractors/sources/delete", item_limit=100),
                 "list": Endpoint(method="GET", path="/hostedextractors/sources", item_limit=100),
             },
+            api_version="beta",
         )
 
     def _validate_page_response(

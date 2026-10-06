@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Iterator, Mapping, Sequence, Sized
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar, runtime_checkable
@@ -85,7 +85,7 @@ T_Selector = TypeVar("T_Selector", bound=DataSelector)
 
 
 @dataclass
-class Page(Generic[T_DataItem], Sized):
+class Page(Generic[T_DataItem]):
     worker_id: str
     items: Sequence[DataItem[T_DataItem]]
     bookmark: Bookmark = field(default_factory=NoBookmark)

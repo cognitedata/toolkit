@@ -1,9 +1,7 @@
 from collections.abc import Callable, Iterable, Sequence
-from itertools import chain
 from typing import Any, Literal, TypeVar
 
 from cognite.client.credentials import OAuthClientCredentials, OAuthDeviceCode
-from cognite.client.data_classes.data_modeling import EdgeId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.api.instances import INSTANCE_DELETE_ENDPOINT, INSTANCE_UPSERT_ENDPOINT
@@ -13,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList, ItemsResultMessage
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceDefinitionId, NodeId
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeId, ExternalId, InstanceDefinitionId, NodeId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ChartMonitorJobFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
@@ -641,21 +639,22 @@ class CanvasIO(UploadableDataIO[CanvasSelector, IndustrialCanvasResponse, Indust
             # It is possible to delete and create in the same request, but we keep this separate
             # as there is a risk for deadlocks.
             # We delete all edges before nodes to avoid a deadlock.
-            delete_chunk: list[InstanceDefinitionId]
-            for delete_chunk in chain(  # type: ignore[assignment]
-                chunker_sequence(edges_to_delete, INSTANCE_DELETE_ENDPOINT.item_limit),
-                chunker_sequence(nodes_to_delete, INSTANCE_DELETE_ENDPOINT.item_limit),
-            ):
-                result = http_client.request_single_retries(
-                    message=RequestMessage(
-                        endpoint_url=http_client.config.create_api_url(INSTANCE_DELETE_ENDPOINT.path),
-                        method=INSTANCE_DELETE_ENDPOINT.method,
-                        body_content={
-                            "items": [instance_id.dump() for instance_id in delete_chunk],
-                        },
+            id_groups: tuple[Sequence[InstanceDefinitionId], Sequence[InstanceDefinitionId]] = (
+                edges_to_delete,
+                nodes_to_delete,
+            )
+            for ids in id_groups:
+                for delete_chunk in chunker_sequence(list(ids), INSTANCE_DELETE_ENDPOINT.item_limit):
+                    result = http_client.request_single_retries(
+                        message=RequestMessage(
+                            endpoint_url=http_client.config.create_api_url(INSTANCE_DELETE_ENDPOINT.path),
+                            method=INSTANCE_DELETE_ENDPOINT.method,
+                            body_content={
+                                "items": [instance_id.dump() for instance_id in delete_chunk],
+                            },
+                        )
                     )
-                )
-                results.append(result.as_item_response(item.tracking_id))
+                    results.append(result.as_item_response(item.tracking_id))
         return results
 
     def data_to_json_chunk(
@@ -849,7 +848,19 @@ class CanvasIO(UploadableDataIO[CanvasSelector, IndustrialCanvasResponse, Indust
             name = item_json["name"]
             if isinstance(name, str):
                 return name
-        try:
-            return item_json["canvas"]["sources"][0]["properties"]["name"]  # type: ignore[index,return-value, call-overload]
-        except (KeyError, IndexError, TypeError):
+        canvas = item_json.get("canvas")
+        if not isinstance(canvas, dict):
             return "<unknown>"
+        sources = canvas.get("sources")
+        if not isinstance(sources, list) or not sources:
+            return "<unknown>"
+        first = sources[0]
+        if not isinstance(first, dict):
+            return "<unknown>"
+        properties = first.get("properties")
+        if not isinstance(properties, dict):
+            return "<unknown>"
+        name = properties.get("name")
+        if isinstance(name, str):
+            return name
+        return "<unknown>"
