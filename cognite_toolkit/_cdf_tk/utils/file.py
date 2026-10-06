@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import stat
+import sys
 import tempfile
 import time
 import typing
@@ -353,7 +354,10 @@ class YAMLWithComments(UserDict[T_Key, T_Value]):
                     continue
                 # This is a new comment.
                 if (position == "after" or variable is None) and variable is not init_value:
-                    key = (*key_prefix, *parent_variables, *((variable and [variable]) or []))  # type: ignore[misc]
+                    if isinstance(variable, str) and variable:
+                        key = (*key_prefix, *parent_variables, variable)
+                    else:
+                        key = (*key_prefix, *parent_variables)
                     if position == "after":
                         comments[key].after.append(comment.strip())
                     else:
@@ -424,20 +428,30 @@ def remove_trailing_newline(content: str) -> str:
     return content
 
 
-def _handle_remove_readonly(func: Any, path: Any, exc: Any) -> None:
-    excvalue = exc[1]
-    if func in (os.rmdir, os.remove) and excvalue.errno == errno.EACCES:
-        # Typically on Windows, if the file is read-only, first remove the read-only attribute
-        # https://stackoverflow.com/questions/1213706/what-user-do-python-scripts-run-as-in-windows
+def _clear_readonly_and_retry(func: Any, path: str, exc: BaseException) -> None:
+    # Typically on Windows, if the file is read-only, first remove the read-only attribute
+    # https://stackoverflow.com/questions/1213706/what-user-do-python-scripts-run-as-in-windows
+    if func in (os.rmdir, os.remove) and isinstance(exc, OSError) and exc.errno == errno.EACCES:
         os.chmod(path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)  # 0777
         func(path)
-    else:
-        raise
+        return
+    raise exc
+
+
+def _handle_remove_readonly(func: Any, path: Any, exc: Any) -> None:
+    """Compatibility callback for shutil.rmtree(onerror=...) on Python < 3.12."""
+    _exc_type, exc_value, _exc_tb = exc
+    if not isinstance(exc_value, BaseException):
+        raise exc_value
+    _clear_readonly_and_retry(func, path, exc_value)
 
 
 def safe_rmtree(path: Path) -> None:
     try:
-        shutil.rmtree(path, ignore_errors=False, onerror=_handle_remove_readonly)
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(path, onexc=_clear_readonly_and_retry)
+        else:
+            shutil.rmtree(path, onerror=_handle_remove_readonly)
     except PermissionError:
         if path.is_dir():
             name = "directory"
