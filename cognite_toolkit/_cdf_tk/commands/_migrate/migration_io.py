@@ -709,7 +709,7 @@ def verify_target_spaces_exist(client: ToolkitClient, spaces: Iterable[str]) -> 
     global_spaces = [space for space in requested if found[space].is_global]
     if global_spaces:
         raise ToolkitMigrationError(
-            "The following target spaces are global and cannot store 3D migration instances: "
+            "The following target spaces are system spaces and cannot store 3D migration instances: "
             f"{humanize_collection(global_spaces)}. "
             "Choose a project space that has been deployed."
         )
