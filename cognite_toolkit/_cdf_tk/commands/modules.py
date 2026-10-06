@@ -8,7 +8,7 @@ import zipfile
 from collections import Counter
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 import questionary
 import requests
@@ -328,7 +328,7 @@ class ModulesCommand(ToolkitCommand):
         select_all: bool = False,
         clean: bool = False,
         user_select: str | None = None,
-        user_environments: builtins.list[str] | None = None,
+        user_environments: builtins.list[EnvType] | None = None,
         user_download_data: bool | None = None,
         library_url: str | None = None,
         library_checksum: str | None = None,
@@ -423,7 +423,7 @@ class ModulesCommand(ToolkitCommand):
                 validate=lambda choices: True if choices else "You must select at least one environment.",
             ).unsafe_ask()
         else:
-            environments = cast(list[EnvType], user_environments)
+            environments = user_environments
 
         if user_download_data is None:
             download_data = self._get_download_data(selected)

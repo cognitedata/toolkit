@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any, ClassVar, Generic, Literal, cast
+from typing import Any, ClassVar, Generic, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -132,12 +132,9 @@ class AssetCentricMigrationSource(
             )
 
         for items in iterator:
-            page = cast(
-                Page[AssetCentricMapping[T_AssetCentricResource]],
-                Page(
-                    worker_id="main",
-                    items=[DataItem(tracking_id=str(item.mapping.as_asset_centric_id()), item=item) for item in items],
-                ),
+            page = Page[AssetCentricMapping[T_AssetCentricResource]](
+                worker_id="main",
+                items=[DataItem(tracking_id=str(item.mapping.as_asset_centric_id()), item=item) for item in items],
             )
             yield self.emit_registered_page(page)
 
@@ -480,12 +477,9 @@ class AnnotationMigrationIO(
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
         for items in iterator:
-            page = cast(
-                Page[AssetCentricMapping[AnnotationResponse]],
-                Page(
-                    worker_id="main",
-                    items=[DataItem(tracking_id=str(item.mapping.as_asset_centric_id()), item=item) for item in items],
-                ),
+            page = Page[AssetCentricMapping[AnnotationResponse]](
+                worker_id="main",
+                items=[DataItem(tracking_id=str(item.mapping.as_asset_centric_id()), item=item) for item in items],
             )
             yield self.emit_registered_page(page)
 
@@ -808,13 +802,10 @@ class ThreeDMigrationIO(UploadableDataIO[ThreeDSelector, ThreeDModelClassicRespo
             if items:
                 bm: Bookmark = CursorBookmark(cursor=response.next_cursor) if response.next_cursor else NoBookmark()
                 yield self.emit_registered_page(
-                    cast(
-                        Page[ThreeDModelClassicResponse],
-                        Page(
-                            worker_id="main",
-                            items=[DataItem(tracking_id=item.name, item=item) for item in items],
-                            bookmark=bm,
-                        ),
+                    Page[ThreeDModelClassicResponse](
+                        worker_id="main",
+                        items=[DataItem(tracking_id=item.name, item=item) for item in items],
+                        bookmark=bm,
                     )
                 )
             if response.next_cursor is None:
@@ -950,19 +941,16 @@ class ThreeDAssetMappingMigrationIO(
                             CursorBookmark(cursor=response.next_cursor) if response.next_cursor else NoBookmark()
                         )
                         yield self.emit_registered_page(
-                            cast(
-                                Page[AssetMappingClassicResponse],
-                                Page(
-                                    worker_id="main",
-                                    items=[
-                                        DataItem(
-                                            tracking_id=self._tracking_id(item),
-                                            item=item,
-                                        )
-                                        for item in unique_items
-                                    ],
-                                    bookmark=bm,
-                                ),
+                            Page[AssetMappingClassicResponse](
+                                worker_id="main",
+                                items=[
+                                    DataItem(
+                                        tracking_id=self._tracking_id(item),
+                                        item=item,
+                                    )
+                                    for item in unique_items
+                                ],
+                                bookmark=bm,
                             )
                         )
                     if response.next_cursor is None:
@@ -1070,12 +1058,9 @@ class Image360AnnotationMigrationIO(
                     continue
                 total += len(filtered)
                 yield self.emit_registered_page(
-                    cast(
-                        Page[AnnotationResponse],
-                        Page(
-                            worker_id="main",
-                            items=[DataItem(tracking_id=str(ann.id), item=ann) for ann in filtered],
-                        ),
+                    Page[AnnotationResponse](
+                        worker_id="main",
+                        items=[DataItem(tracking_id=str(ann.id), item=ann) for ann in filtered],
                     )
                 )
                 if limit is not None and total >= limit:
