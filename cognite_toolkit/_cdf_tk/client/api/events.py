@@ -2,11 +2,22 @@ import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
+from pydantic import JsonValue
+
+from cognite_toolkit._cdf_tk.client.api._classic_aggregate import (
+    aggregate_cardinality,
+    aggregate_count,
+    aggregate_unique,
+)
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.classic_aggregate import (
+    ClassicAggregateUniqueBucket,
+    EventPropertyPath,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 
 
@@ -20,6 +31,7 @@ class EventsAPI(CDFResourceAPI[EventResponse]):
                 "update": Endpoint(method="POST", path="/events/update", item_limit=1000, concurrency_max_workers=1),
                 "delete": Endpoint(method="POST", path="/events/delete", item_limit=1000, concurrency_max_workers=1),
                 "list": Endpoint(method="POST", path="/events/list", item_limit=1000),
+                "aggregate": Endpoint(method="POST", path="/events/aggregate", item_limit=1000),
             },
         )
 
@@ -132,3 +144,64 @@ class EventsAPI(CDFResourceAPI[EventResponse]):
         if filter:
             body = {"filter": filter}
         return self._list(limit=limit, body=body)
+
+    def count(
+        self,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        property: EventPropertyPath | None = None,
+    ) -> int:
+        """Count events matching optional filters.
+
+        When ``property`` is set, count events where that property is present.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Events/operation/aggregateEvents>`_.
+        """
+        return aggregate_count(self, filter=filter, advanced_filter=advanced_filter, property=property)
+
+    def cardinality(
+        self,
+        property: EventPropertyPath,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        aggregate_filter: dict[str, JsonValue] | None = None,
+    ) -> int:
+        """Approximate number of distinct values for ``property``.
+
+        Uses ``cardinalityProperties`` when ``property`` is exactly ``("metadata",)``, and
+        ``cardinalityValues`` for every other path.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Events/operation/aggregateEvents>`_.
+        """
+        return aggregate_cardinality(
+            self,
+            property,
+            filter=filter,
+            advanced_filter=advanced_filter,
+            aggregate_filter=aggregate_filter,
+        )
+
+    def unique(
+        self,
+        property: EventPropertyPath,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        aggregate_filter: dict[str, JsonValue] | None = None,
+    ) -> builtins.list[ClassicAggregateUniqueBucket]:
+        """Distinct values for ``property``, each with a count.
+
+        Uses ``uniqueProperties`` when ``property`` is exactly ``("metadata",)``, and
+        ``uniqueValues`` for every other path. Text values are aggregated case-insensitively.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Events/operation/aggregateEvents>`_.
+        """
+        return aggregate_unique(
+            self,
+            property,
+            filter=filter,
+            advanced_filter=advanced_filter,
+            aggregate_filter=aggregate_filter,
+        )

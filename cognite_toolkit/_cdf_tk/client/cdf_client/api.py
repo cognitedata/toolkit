@@ -103,6 +103,21 @@ class CDFResourceAPI(Generic[T_BaseModelObject], ABC):
         """Create the full URL for this resource endpoint."""
         return self._http_client.config.create_api_url(path)
 
+    def _post_aggregate(self, body: dict[str, Any]) -> SuccessResponse:
+        """POST the endpoint registered as ``aggregate``.
+
+        The request uses the client API version. Resource clients that set ``api_version`` for
+        alpha create and update calls still aggregate on the configured stable API.
+        """
+        aggregate_endpoint = self._method_endpoint_map["aggregate"]
+        request = RequestMessage(
+            endpoint_url=self._make_url(aggregate_endpoint.path),
+            method=aggregate_endpoint.method,
+            body_content=body,
+            disable_gzip=self._disable_gzip,
+        )
+        return self._http_client.request_single_retries(request).get_success_or_raise(request)
+
     def _update(
         self, items: Sequence[UpdatableRequestResource], mode: Literal["patch", "replace"]
     ) -> list[T_BaseModelObject]:
