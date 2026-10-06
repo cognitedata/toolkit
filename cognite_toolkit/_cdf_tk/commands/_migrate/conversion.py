@@ -3,7 +3,7 @@ from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from functools import cache
-from typing import Any, ClassVar, Generic, cast
+from typing import Any, ClassVar, Generic
 
 from pydantic import JsonValue
 
@@ -112,7 +112,7 @@ class DirectRelationCache:
 
     def __init__(self, client: ToolkitClient) -> None:
         self._client = client
-        self._cache_map: dict[tuple[str, str] | str, dict[str, NodeId] | dict[int, NodeId]] = {}
+        self._cache_map: dict[tuple[str, str] | str, dict[int | str, NodeId]] = {}
         # Constructing the cache map to be accessed by both table name and property id
         for table_name, properties in [
             (self.TableName.ASSET_ID, self.ASSET_ID_PROPERTIES),
@@ -121,7 +121,7 @@ class DirectRelationCache:
             (self.TableName.ASSET_EXTERNAL_ID, self.ASSET_EXTERNAL_ID_PROPERTIES),
             (self.TableName.FILE_EXTERNAL_ID, self.FILE_EXTERNAL_ID_PROPERTIES),
         ]:
-            cache: dict[str, NodeId] | dict[int, NodeId] = {}
+            cache: dict[int | str, NodeId] = {}
             self._cache_map[table_name] = cache
             for key in properties:
                 self._cache_map[key] = cache
@@ -163,7 +163,7 @@ class DirectRelationCache:
             self._update_cache(self._client.migration.lookup.assets(id=list(asset_ids)), self.TableName.ASSET_ID)
         if source_ids:
             # SourceSystems are not cached in the client, so we have to handle the caching ourselves.
-            cache = cast(dict[str, NodeId], self._cache_map[self.TableName.SOURCE_NAME])
+            cache = self._cache_map[self.TableName.SOURCE_NAME]
             missing: dict[str, str] = {}
             for source_id in source_ids:
                 if source_id.casefold() not in cache:
@@ -201,8 +201,8 @@ class DirectRelationCache:
                 *(InternalId(id=id_) for id_ in unresolved_ids),
                 *(ExternalId(external_id=ext_id) for ext_id in unresolved_external_ids),
             ]
-            id_cache = cast(dict[int, NodeId], self._cache_map[self.TableName.FILE_ID])
-            external_id_cache = cast(dict[str, NodeId], self._cache_map[self.TableName.FILE_EXTERNAL_ID])
+            id_cache = self._cache_map[self.TableName.FILE_ID]
+            external_id_cache = self._cache_map[self.TableName.FILE_EXTERNAL_ID]
             for file in self._client.tool.filemetadata.retrieve(items, ignore_unknown_ids=True):
                 if file.instance_id is None:
                     continue
@@ -241,13 +241,11 @@ class DirectRelationCache:
     def _update_cache(self, instance_id_by_id: dict[int, NodeId] | dict[str, NodeId], table_name: str) -> None:
         cache = self._cache_map[table_name]
         for identifier, instance_id in instance_id_by_id.items():
-            node_id = NodeId(space=instance_id.space, external_id=instance_id.external_id)
-            cast(dict[int | str, NodeId], cache)[identifier] = node_id
+            cache[identifier] = NodeId(space=instance_id.space, external_id=instance_id.external_id)
 
     def get_cache(self, resource_type: AssetCentricTypeExtended, property_id: str) -> Mapping[str | int, NodeId] | None:
         """Get the cache for the given resource type and property ID."""
-        # Each cache is keyed by either str or int. Callers look up one concrete id at a time.
-        return cast(Mapping[str | int, NodeId] | None, self._cache_map.get((resource_type, property_id)))
+        return self._cache_map.get((resource_type, property_id))
 
 
 def asset_centric_to_dm(

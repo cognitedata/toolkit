@@ -1544,13 +1544,13 @@ class DeployV2Command(ToolkitCommand):
                 pass
         elif data_file.suffix == ".parquet":
             try:
+                import pyarrow as pa
                 import pyarrow.parquet as pq
-                from pyarrow.lib import ArrowException  # ty: ignore[unresolved-import]
 
                 names = pq.read_schema(data_file).names
                 if names and names[0] == "key":
                     return "key"
-            except (ImportError, OSError, ArrowException):
+            except (ImportError, OSError, pa.ArrowException):
                 pass
         return None
 
