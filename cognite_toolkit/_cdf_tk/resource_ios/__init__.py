@@ -160,7 +160,6 @@ RESOURCE_IO_LIST = [io_cls for io_cls in RESOURCE_BUILD_IO_LIST if issubclass(io
 ResourceTypes: TypeAlias = Literal[
     "3dmodels",
     "agents",
-    "skills",
     "apps",
     "auth",
     "cdf_applications",

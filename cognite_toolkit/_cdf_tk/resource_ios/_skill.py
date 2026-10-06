@@ -44,6 +44,10 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
         super().__init__(client)
         self._source_file_by_external_id: dict[str, Path] = {}
 
+    @property
+    def display_name(self) -> str:
+        return "agent skills"
+
     @classmethod
     def get_id(cls, item: SkillRequest | SkillResponse | dict) -> ExternalId:
         if isinstance(item, dict):

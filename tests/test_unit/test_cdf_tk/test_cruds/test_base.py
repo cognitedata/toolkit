@@ -195,8 +195,6 @@ def test_resource_types_is_up_to_date() -> None:
         extra.discard("rulesets")
     if not FeatureFlag.is_enabled(Flags.CUSTOM_APPS):
         extra.discard("apps")
-    if not (FeatureFlag.is_enabled(Flags.AGENT_SKILLS) or FeatureFlag.is_enabled(Flags.V09)):
-        extra.discard("skills")
     if not (FeatureFlag.is_enabled(Flags.SAP_WRITEBACK) or FeatureFlag.is_enabled(Flags.V09)):
         extra.discard("SAPwritebacks")
     if not (FeatureFlag.is_enabled(Flags.INTEGRATIONS) or FeatureFlag.is_enabled(Flags.V09)):
