@@ -138,7 +138,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             if not local_by_id:
                 return
             cdf_items = crud.retrieve(list(local_by_id.keys()))
-        except Exception as e:
+        except ToolkitAPIError as e:
             yield InternalValidatorException(
                 message=f"Failed to compare local {crud.display_name} with CDF: {e}",
                 source=crud.kind,
