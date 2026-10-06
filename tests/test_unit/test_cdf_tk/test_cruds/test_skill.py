@@ -175,8 +175,21 @@ class TestSkillIO:
             created_time=1,
             last_updated_time=2,
         )
-        dumped = skill_io.dump_resource(response, local={"externalId": "my_skill"})
+        dumped = skill_io.dump_resource(response)
         assert dumped["externalId"] == "my_skill"
         assert dumped["name"] == "test-skill"
         assert dumped["description"] == "Test skill description"
         assert dumped["content"] == _SKILL_CONTENT
+
+    def test_dump_resource_omits_frontmatter_fields_when_local_is_given(self) -> None:
+        skill_io = SkillIO(ToolkitClientMock())
+        response = SkillResponse(
+            external_id="my_skill",
+            name="test-skill",
+            description="Test skill description",
+            content=_SKILL_CONTENT,
+            created_time=1,
+            last_updated_time=2,
+        )
+        local = {"externalId": "my_skill", "content": _SKILL_CONTENT}
+        assert skill_io.dump_resource(response, local=local) == local
