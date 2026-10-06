@@ -66,6 +66,23 @@ class SessionAPI(CDFResourceAPI[SessionResponse]):
             response_items.extend(PagedResponse[SessionCreateResponse].model_validate_json(response.body).items)
         return response_items
 
+    def create_single(self, item: SessionCreateRequest) -> SessionCreateResponse:
+        """Create a single session.
+
+        This is a convenience method for creating a single session without needing to construct a list.
+
+        Args:
+            item: Session creation request. Use client credentials, token exchange, or
+                one-shot token exchange.
+
+        Returns:
+            Created session. The item includes a nonce used to bind the session.
+        """
+        response = self.create([item])
+        if not response:
+            raise ToolkitAPIError("Failed to create session. No response received.")
+        return response[0]
+
     def create_one_shot_token_exchange_session(self) -> SessionCreateResponse:
         """Create a one-shot token exchange session.
 
