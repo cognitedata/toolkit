@@ -34,32 +34,27 @@ def force_hash(item: Any) -> int:
     raise ValueError(f"Cannot hash value {item}")
 
 
+def _freeze(value: Any) -> Hashable:
+    """Converts a (nested) structure of dicts and lists into a canonical hashable representation.
+
+    Dict key order does not matter, while list order does. Type markers ensure that, for example,
+    an empty dict and an empty list are distinguished.
+    """
+    if isinstance(value, dict):
+        return "dict", tuple(sorted(((key, _freeze(val)) for key, val in value.items()), key=lambda x: x[0]))
+    if isinstance(value, list):
+        return "list", tuple(_freeze(item) for item in value)
+    if isinstance(value, Hashable):
+        return value
+    raise ValueError(f"Cannot hash value {value}")
+
+
 def hash_dict(d: dict) -> int:
-    hash_ = 0
-    for key, value in sorted(d.items(), key=lambda x: x[0]):
-        if isinstance(value, dict):
-            hash_ ^= hash_dict(value)
-        elif isinstance(value, list):
-            hash_ ^= hash_list(value)
-        elif isinstance(value, Hashable):
-            hash_ ^= hash((key, value))
-        else:
-            raise ValueError(f"Cannot hash value {value}")
-    return hash_
+    return hash(_freeze(d))
 
 
 def hash_list(lst: list) -> int:
-    hash_ = 0
-    for i, item in enumerate(lst):
-        if isinstance(item, dict):
-            hash_ ^= hash_dict(item)
-        elif isinstance(item, list):
-            hash_ ^= hash_list(item)
-        elif isinstance(item, Hashable):
-            hash_ ^= hash((i, item))
-        else:
-            raise ValueError(f"Cannot hash value {item}")
-    return hash_
+    return hash(_freeze(lst))
 
 
 def dm_identifier(data: dict[str, Any]) -> tuple[str, ...]:
