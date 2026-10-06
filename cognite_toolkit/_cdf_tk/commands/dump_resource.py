@@ -260,7 +260,10 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId | tuple[DataModelId, .
                     self.container_ids |= set(item.mapped_containers)
         elif isinstance(first, SpaceResponse):
             return
-        self.space_ids |= {SpaceId(space=item.space) for item in resources if hasattr(item, "space")}
+        for item in resources:
+            space = getattr(item, "space", None)
+            if isinstance(space, str):
+                self.space_ids.add(SpaceId(space=space))
 
     def __iter__(
         self,

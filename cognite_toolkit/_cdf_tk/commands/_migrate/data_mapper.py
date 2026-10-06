@@ -3,7 +3,7 @@ import math
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import Any, ClassVar, Generic, Literal, TypeVar
+from typing import Any, ClassVar, Generic, Literal, TypeVar, cast
 from uuid import uuid4
 
 from cognite.client.exceptions import CogniteException
@@ -1835,7 +1835,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
                             )
                         else:
                             issue_by_source_node_id[source_node_id].errors.append(error)
-                    source.properties[prop_id] = keep  # type: ignore[assignment]
+                    source.properties[prop_id] = cast(Any, keep)
 
     def _iterate_constrained_direct_relation_properties(
         self, instances: Sequence[NodeOrEdgeRequest | EdgeRequest | None]
@@ -2702,8 +2702,8 @@ class Image360AnnotationMapper(DataMapper[Image360AnnotationSelector, Annotation
         # file_external_id → (face_name, new_image360_node_id)
         self._face_by_file_ext_id: dict[str, tuple[str, NodeId]] = {}
 
-    def prepare(self, selector: Image360AnnotationSelector) -> None:
-        node_data = load_image360_annotation_node_data(self.client, selector.collections or ())
+    def prepare(self, source_selector: Image360AnnotationSelector) -> None:
+        node_data = load_image360_annotation_node_data(self.client, source_selector.collections or ())
         self._face_by_file_ext_id = {
             file_ext_id: (face_name, image360_node_id)
             for file_ext_id, (face_name, image360_node_id, _) in node_data.items()

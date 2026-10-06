@@ -39,7 +39,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
-from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable
+from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable, Selector
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ResourceDeleteError,
@@ -248,8 +248,9 @@ class DeployV2Command(ToolkitCommand):
         build_dir = self.read_build_directory(user_build_dir, options.include, build_lineage)
 
         if client is None:
-            # We check above that if client is None, then env_vars is not None, so this is safe.
-            client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)  # type: ignore[union-attr]
+            if env_vars is None:
+                raise ToolkitValueError("Either env_vars or client must be provided.")
+            client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
         self._validate_cdf_project(build_dir, options.operation, options.cdf_project, client.config.project)
         plan = self._display_setup(options.operation, build_dir, client.config.project, client.console, options.verbose)
@@ -286,7 +287,7 @@ class DeployV2Command(ToolkitCommand):
 
             self._display_deprecation_warning(raw_files, client.console)
             UploadCommand.upload_data(
-                raw_files,  # type: ignore[arg-type]
+                cast(Mapping[Selector, list[Path]], raw_files),
                 user_build_dir,
                 client,
                 options.dry_run,
@@ -970,12 +971,9 @@ class DeployV2Command(ToolkitCommand):
         """Return the list of dataset ids that are referenced by the given resources."""
         data_set_ids: set[int] = set()
         for resource in resources:
-            if (
-                hasattr(resource, "data_set_id")
-                and resource.data_set_id is not None
-                and resource.data_set_id != DRY_RUN_ID
-            ):
-                data_set_ids.add(resource.data_set_id)
+            data_set_id = getattr(resource, "data_set_id", None)
+            if isinstance(data_set_id, int) and data_set_id != DRY_RUN_ID:
+                data_set_ids.add(data_set_id)
         return list(data_set_ids)
 
     @classmethod
@@ -1154,7 +1152,7 @@ class DeployV2Command(ToolkitCommand):
                 action = "upsert"
                 to_create_ids = {crud.get_id(item) for item in resources.to_create}  # type: ignore[arg-type]
                 to_upsert = [*resources.to_create, *resources.to_update]
-                upserted = crud.create(to_upsert)  # type: ignore[arg-type]
+                upserted = cast(Sequence[Any], crud.create(to_upsert))  # type: ignore[arg-type]
                 created = sum(1 for view in upserted if crud.get_id(view) in to_create_ids)
                 updated = len(upserted) - created
             else:
@@ -1546,13 +1544,13 @@ class DeployV2Command(ToolkitCommand):
                 pass
         elif data_file.suffix == ".parquet":
             try:
+                import pyarrow as pa
                 import pyarrow.parquet as pq
-                from pyarrow.lib import ArrowException
 
                 names = pq.read_schema(data_file).names
                 if names and names[0] == "key":
                     return "key"
-            except (ImportError, OSError, ArrowException):
+            except (ImportError, OSError, pa.ArrowException):
                 pass
         return None
 

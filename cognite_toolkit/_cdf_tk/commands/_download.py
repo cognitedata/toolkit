@@ -266,7 +266,7 @@ class DownloadCommand(ToolkitCommand):
         """Creates a writer function that writes processed data to files using the provided FileWriter."""
 
         def write(page: Page[dict[str, JsonVal]]) -> None:
-            writer.write_chunks(page.as_raw_items(), filestem=filestem)  # type: ignore[arg-type]
+            writer.write_chunks(page.as_raw_items(), filestem=filestem)
 
         return write
 

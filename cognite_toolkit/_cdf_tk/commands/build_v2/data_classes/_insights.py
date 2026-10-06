@@ -53,17 +53,20 @@ class InsightDefinition(BaseModel):
 
     @field_validator("source_files", mode="before")
     @classmethod
-    def _to_absolute_path(cls, value: Any, info: ValidationInfo) -> list[AbsoluteFilePath]:
+    def _to_absolute_path(cls, value: Any, info: ValidationInfo) -> list[Path]:
         """Convert source file paths to absolute paths relative to the organization directory."""
         if isinstance(value, str):
             # CSV serializes multiple source files into a single separator-joined cell.
-            value = _split_source_files(value, PATH_SEP_CSV)
-        if info.context and "organization_dir" in info.context:
-            organization_dir = info.context["organization_dir"]
-            return [
-                AbsoluteFilePath(organization_dir / Path(file)) if isinstance(file, str) else file for file in value
-            ]
-        return value
+            values = _split_source_files(value, PATH_SEP_CSV)
+        elif isinstance(value, list):
+            # JSON serializes multiple source files into a list of strings.
+            values = [str(file) for file in value]
+        else:
+            raise ValueError(f"Unexpected type for source_files: {type(value)}")
+
+        if info.context and isinstance(organization_dir := info.context.get("organization_dir", None), Path):
+            return [(organization_dir / file).resolve() for file in values]
+        return [Path(file).resolve() for file in values]
 
     @field_serializer("source_files")
     def as_relative_to_modules(

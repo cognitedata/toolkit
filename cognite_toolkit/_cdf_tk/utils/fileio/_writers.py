@@ -69,7 +69,7 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
             latest_filepath = max(self._writer_by_filepath.keys(), key=lambda p: p.stat().st_mtime)
             return latest_filepath
 
-    def write_chunks(self, chunks: Iterable[Chunk], filestem: str = "") -> None:
+    def write_chunks(self, chunks: Iterable[Mapping[str, CellValue]], filestem: str = "") -> None:
         with self._lock:
             selected_filestem = filestem or self.default_filestem or ""
             filepath = self._get_filepath(selected_filestem)
@@ -131,7 +131,7 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         raise NotImplementedError("This method should be implemented in subclasses.")
 
     @abstractmethod
-    def _write(self, writer: T_IO, chunks: Iterable[Chunk]) -> None:
+    def _write(self, writer: T_IO, chunks: Iterable[Mapping[str, CellValue]]) -> None:
         """Write the chunk to the file."""
         raise NotImplementedError("This method should be implemented in subclasses.")
 
@@ -184,7 +184,7 @@ class NDJsonWriter(FileWriter[TextIOWrapper]):
         """Create a writer for the given file path."""
         return self.compression_cls(filepath).open("w")
 
-    def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
+    def _write(self, writer: TextIOWrapper, chunks: Iterable[Mapping[str, CellValue]]) -> None:
         writer.writelines(
             f"{json.dumps(chunk, cls=self._DateTimeEncoder)}{self.compression_cls.newline}" for chunk in chunks
         )
@@ -200,7 +200,7 @@ class YAMLBaseWriter(FileWriter[TextIOWrapper], ABC):
     def _create_writer(self, filepath: Path) -> TextIOWrapper:
         return self.compression_cls(filepath).open("w")
 
-    def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
+    def _write(self, writer: TextIOWrapper, chunks: Iterable[Mapping[str, CellValue]]) -> None:
         yaml.safe_dump_all(chunks, writer, sort_keys=False, explicit_start=True)
 
 
@@ -232,7 +232,7 @@ class CSVWriter(TableWriter[TextIOWrapper]):
         self._csvwriter_by_file[file] = self._create_dict_writer(file)
         return file
 
-    def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
+    def _write(self, writer: TextIOWrapper, chunks: Iterable[Mapping[str, CellValue]]) -> None:
         try:
             csv_writer = self._csvwriter_by_file[writer]
         except KeyError:
@@ -241,7 +241,7 @@ class CSVWriter(TableWriter[TextIOWrapper]):
         csv_writer.writerows(self._prepare_row(row) for row in chunks)
 
     @staticmethod
-    def _prepare_row(row: Chunk) -> dict[str, str | int | float | bool]:
+    def _prepare_row(row: Mapping[str, CellValue]) -> dict[str, str | int | float | bool]:
         """Prepare a row for writing to CSV."""
         prepared_row = {}
         value: str | int | float | bool
@@ -286,7 +286,7 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):  # type: ignore[type-var]
         schema = self._create_schema()
         return pq.ParquetWriter(filepath, schema)
 
-    def _write(self, writer: "pq.ParquetWriter", chunks: Iterable[Chunk]) -> None:
+    def _write(self, writer: "pq.ParquetWriter", chunks: Iterable[Mapping[str, CellValue]]) -> None:
         import pyarrow as pa
 
         json_columns = self._json_columns()
@@ -301,7 +301,7 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):  # type: ignore[type-var]
         processed_chunks: list[Chunk] = []
         for chunk in chunks:
             # Create a copy to avoid mutating the input, which is an unexpected side-effect.
-            processed_chunk = chunk.copy()
+            processed_chunk = dict(chunk)
             for col, cell_value in processed_chunk.items():
                 if col in json_columns:
                     processed_chunk[col] = json.dumps(cell_value)
