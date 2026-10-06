@@ -158,6 +158,10 @@ class TestForceHash:
     def test_bool_vs_int(self) -> None:
         assert force_hash(True) != force_hash(1)
 
+    def test_tuple_with_unhashable_elements(self) -> None:
+        assert force_hash((1, [2])) == force_hash((1, [2]))
+        assert force_hash((1, [2])) != force_hash((1, [3]))
+
     @pytest.mark.parametrize("value", [{1, 2}, bytearray(b"a")])
     def test_unhashable_raises(self, value: Any) -> None:
         with pytest.raises(ValueError):

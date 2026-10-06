@@ -54,6 +54,10 @@ def _freeze(value: Any) -> Hashable:
     if isinstance(value, bool):
         # bool is a subclass of int, and True == 1, so it must be distinguished explicitly.
         return "bool", value
+    if isinstance(value, tuple):
+        # Tuples are always Hashable by type, but may contain unhashable elements, e.g., (1, [2]).
+        # No marker is used, so tuples of plain hashable elements are left unchanged.
+        return tuple(_freeze(item) for item in value)
     if isinstance(value, Hashable):
         return value
     raise ValueError(f"Cannot hash value {value}")
