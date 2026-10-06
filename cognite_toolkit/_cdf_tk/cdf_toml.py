@@ -24,8 +24,8 @@ if sys.version_info >= (3, 11):
     import tomllib
     from tomllib import TOMLDecodeError
 else:
-    import tomli as tomllib  # ty: ignore[unresolved-import]]
-    from tomli import TOMLDecodeError  # ty: ignore[unresolved-import]]
+    import tomli as tomllib  # ty: ignore[unresolved-import]
+    from tomli import TOMLDecodeError  # ty: ignore[unresolved-import]
     from typing_extensions import Self
 
 
