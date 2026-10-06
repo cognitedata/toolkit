@@ -8,7 +8,7 @@ import typer
 from questionary import Choice
 from rich import print
 
-from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitValueError
 
 from .cogidp import SessionProject, fetch_session_user_info
 from .data_classes import (
@@ -184,9 +184,11 @@ def prompt_user_environment_variables(
         default=current.CDF_PROJECT if current else "",
         validate=lambda v: True if v.strip() else "CDF project cannot be empty",
     ).unsafe_ask()
+    if login_flow is None:
+        raise ToolkitValueError("Login flow must be selected.")
     args: dict[str, Any] = (
         current.dump(include_os=False)
-        if current and _is_unchanged(current, provider, login_flow, cdf_project, cdf_cluster)  # type: ignore[arg-type]
+        if current and _is_unchanged(current, provider, login_flow, cdf_project, cdf_cluster)
         else {}
     )
     args.update(
