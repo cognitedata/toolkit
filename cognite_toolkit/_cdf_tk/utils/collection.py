@@ -97,5 +97,6 @@ T_Sequence = TypeVar("T_Sequence", bound=Sequence[Any])
 def chunker_sequence(sequence: T_Sequence, size: int) -> Iterator[T_Sequence]:
     """Yield successive n-sized chunks from sequence."""
     for i in range(0, len(sequence), size):
-        # MyPy does not expect sequence[i : i + size] to be of type T_Sequence
-        yield sequence[i : i + size]  # type: ignore[misc]
+        # Slicing does not preserve a TypeVar bound to Sequence. Sequences such as
+        # MigrationMappingList still return their own type at runtime.
+        yield sequence[i : i + size]  # type: ignore[misc]  # ty: ignore[invalid-yield]
