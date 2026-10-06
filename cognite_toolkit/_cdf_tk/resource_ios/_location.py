@@ -199,10 +199,10 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
             created.extend(self.client.tool.location_filters.create([item]))
         return created
 
-    def retrieve(self, external_ids: Sequence[ExternalId]) -> list[LocationFilterResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[LocationFilterResponse]:
         # Use flat=True to get all locations in a flat list
         all_locations = self.client.tool.location_filters.list(flat=True)
-        external_id_set = {ext_id.external_id for ext_id in external_ids}
+        external_id_set = {ext_id.external_id for ext_id in ids}
         return [loc for loc in all_locations if loc.external_id in external_id_set]
 
     def update(self, items: Sequence[LocationFilterRequest]) -> list[LocationFilterResponse]:
@@ -213,12 +213,12 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
             item.id = ids[item.external_id]
         return self.client.tool.location_filters.update(items)
 
-    def delete(self, external_ids: Sequence[ExternalId]) -> int:
-        locations = self.retrieve(external_ids)
+    def delete(self, ids: Sequence[ExternalId]) -> int:
+        locations = self.retrieve(ids)
         if not locations:
             return 0
-        ids = [InternalId(id=loc.id) for loc in locations]
-        self.client.tool.location_filters.delete(ids)
+        internal_ids = [InternalId(id=loc.id) for loc in locations]
+        self.client.tool.location_filters.delete(internal_ids)
         return len(ids)
 
     def _iterate(
