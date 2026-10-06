@@ -242,10 +242,7 @@ class DirectRelationCache:
         cache = self._cache_map[table_name]
         for identifier, instance_id in instance_id_by_id.items():
             node_id = NodeId(space=instance_id.space, external_id=instance_id.external_id)
-            if isinstance(identifier, int):
-                cast(dict[int, NodeId], cache)[identifier] = node_id
-            else:
-                cast(dict[str, NodeId], cache)[identifier] = node_id
+            cast(dict[int | str, NodeId], cache)[identifier] = node_id
 
     def get_cache(self, resource_type: AssetCentricTypeExtended, property_id: str) -> Mapping[str | int, NodeId] | None:
         """Get the cache for the given resource type and property ID."""
