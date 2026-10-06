@@ -219,7 +219,7 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
             return 0
         internal_ids = [InternalId(id=loc.id) for loc in locations]
         self.client.tool.location_filters.delete(internal_ids)
-        return len(ids)
+        return len(internal_ids)
 
     def _iterate(
         self,
