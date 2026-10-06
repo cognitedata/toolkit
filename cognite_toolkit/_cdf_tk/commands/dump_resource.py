@@ -415,7 +415,7 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
         schedule_loader = TransformationScheduleIO.create_io(self.client)
         schedule_list = list(schedule_loader.iterate(parent_ids=external_ids))
         yield [], schedule_list, schedule_loader, None
-        if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES):
+        if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) or FeatureFlag.is_enabled(Flags.V09):
             transformations = (
                 [t for t in self.transformations if t.external_id in self.identifier]
                 if self.transformations

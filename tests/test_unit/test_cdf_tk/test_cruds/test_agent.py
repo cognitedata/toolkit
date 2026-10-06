@@ -120,7 +120,7 @@ class TestAgentIODependencies:
         ]
 
     def test_skill_is_in_class_dependencies(self) -> None:
-        if FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
+        if FeatureFlag.is_enabled(Flags.AGENT_SKILLS) or FeatureFlag.is_enabled(Flags.V09):
             assert SkillIO in AgentIO.dependencies
         else:
             assert SkillIO not in AgentIO.dependencies

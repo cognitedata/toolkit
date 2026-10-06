@@ -162,7 +162,11 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
             RawTableIO,
             RawDatabaseIO,
             GroupResourceScopedIO,
-            *({ExternalDataSourceIO} if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) else set()),
+            *(
+                {ExternalDataSourceIO}
+                if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) or FeatureFlag.is_enabled(Flags.V09)
+                else set()
+            ),
         }
     )
 
@@ -221,7 +225,8 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     def get_dependencies(cls, resource: TransformationYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
-        if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) and resource.query:
+        flag_enabled = FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) or FeatureFlag.is_enabled(Flags.V09)
+        if flag_enabled and resource.query:
             for source_id in get_ext_onelake_source_ids(resource.query):
                 yield ExternalDataSourceIO, ExternalId(external_id=source_id)
         if destination := resource.destination:

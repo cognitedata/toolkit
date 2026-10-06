@@ -44,6 +44,10 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
         super().__init__(client)
         self._source_file_by_external_id: dict[str, Path] = {}
 
+    @property
+    def display_name(self) -> str:
+        return "agent skills"
+
     @classmethod
     def get_id(cls, item: SkillRequest | SkillResponse | dict) -> ExternalId:
         if isinstance(item, dict):
@@ -188,7 +192,19 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
         return self.resource_write_cls._load(request_payload)
 
     def dump_resource(self, resource: SkillResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        return resource.as_request_resource().dump()
+        dumped = resource.as_request_resource().dump()
+        if local is None:
+            return dumped
+        # Name and description are defined in the frontmatter of the content, not in the local YAML.
+        dumped.pop("name", None)
+        dumped.pop("description", None)
+        local_content = local.get("content")
+        cdf_content = dumped.get("content")
+        # The API strips whitespace from the content (valid content cannot start with any), so ignore trailing
+        # whitespace when comparing.
+        if isinstance(local_content, str) and isinstance(cdf_content, str) and local_content.rstrip() == cdf_content:
+            dumped["content"] = local_content
+        return dumped
 
     def split_resource(
         self, base_filepath: Path, resource: dict[str, Any]

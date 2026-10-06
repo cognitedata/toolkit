@@ -46,10 +46,6 @@ class Flags(Enum):
         visible=True,
         description="Enables the migrate command",
     )
-    RECORDS_MIGRATE = FlagMetadata(
-        visible=False,
-        description="Enables the 'events-to-records' migration command",
-    )
     CREATE = FlagMetadata(
         visible=True,
         description="Enables support for the resources create command under dev plugin",

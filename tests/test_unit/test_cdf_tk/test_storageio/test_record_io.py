@@ -202,7 +202,9 @@ class TestRecordIO:
         request_body = json.loads(route.calls[0].request.content)
         assert request_body["limit"] == 5
 
-    @pytest.mark.skipif(not Flags.EXTEND_UPLOAD.is_enabled(), reason="Alpha feature is not enabled")
+    @pytest.mark.skipif(
+        not (Flags.EXTEND_UPLOAD.is_enabled() or Flags.V09.is_enabled()), reason="Alpha feature is not enabled"
+    )
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_download_upload_round_trip(
         self,

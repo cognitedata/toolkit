@@ -43,7 +43,7 @@ class TestSAPWritebackIO:
             loader.folder_name == "SAPwritebacks"
             for loader in RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["SAPwritebacks"]
         )
-        if Flags.SAP_WRITEBACK.is_enabled():
+        if Flags.SAP_WRITEBACK.is_enabled() or Flags.V09.is_enabled():
             enabled = {loader.kind for loader in RESOURCE_IO_BY_FOLDER_NAME["SAPwritebacks"]}
             assert enabled == included
         else:

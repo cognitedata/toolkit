@@ -22,11 +22,12 @@ data-products = true
 entity-matching = false
 custom-apps = true
 external-data-sources = true
-signals = false
+signals = true
 api = true
 sap-writeback = true
 catalog-dataset = true
 integrations = true
+agent-skills = true
 v09 = true
 
 [plugins]
