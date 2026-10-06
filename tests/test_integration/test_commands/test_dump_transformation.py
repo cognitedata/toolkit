@@ -40,8 +40,8 @@ def deployed_transformation(toolkit_client: ToolkitClient) -> Transformation:
     existing = toolkit_client.transformations.retrieve(external_id=transformation.external_id)
     if existing:
         return existing
-    destination_session = toolkit_client.sessions.create([TokenExchangeSessionRequest()])[0]
-    source_session = toolkit_client.sessions.create([TokenExchangeSessionRequest()])[0]
+    destination_session = toolkit_client.sessions.create_single(TokenExchangeSessionRequest())
+    source_session = toolkit_client.sessions.create_single(TokenExchangeSessionRequest())
     transformation.destination_nonce = NonceCredentials(
         destination_session.id, destination_session.nonce, toolkit_client.config.project
     )

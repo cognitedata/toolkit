@@ -389,17 +389,15 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
                     if self._skip_strict_mode and isinstance(
                         creds := self.client.config.credentials, OAuthClientCredentials
                     ):
-                        request.nonce = self.client.sessions.create(
-                            [
-                                ClientCredentialsSessionRequest(
-                                    client_id=creds.client_id,
-                                    client_secret=creds.client_secret,
-                                )
-                            ]
-                        )[0].nonce
+                        request.nonce = self.client.sessions.create_single(
+                            ClientCredentialsSessionRequest(
+                                client_id=creds.client_id,
+                                client_secret=creds.client_secret,
+                            )
+                        ).nonce
                     elif isinstance(self.client.config.credentials, OAuthDeviceCode):
                         # Reusing the user's credentials.
-                        request.nonce = self.client.sessions.create([TokenExchangeSessionRequest()])[0].nonce
+                        request.nonce = self.client.sessions.create_single(TokenExchangeSessionRequest()).nonce
                     else:
                         log_entries.append(
                             LogEntryV2(

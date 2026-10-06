@@ -583,7 +583,7 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         if credentials is None:
             raise ToolkitRequiredValueError(f"Authentication is missing for workflow trigger {item.external_id!r}")
         try:
-            item.authentication = NonceCredentials(nonce=self.client.sessions.create([credentials])[0].nonce)
+            item.authentication = NonceCredentials(nonce=self.client.sessions.create_single(credentials).nonce)
             result = self.client.tool.workflows.triggers.create([item])
             if not result:
                 return None
