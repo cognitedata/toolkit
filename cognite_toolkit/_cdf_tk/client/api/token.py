@@ -7,7 +7,7 @@ from cognite.client.data_classes.iam import TokenInspection
 
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
 from cognite_toolkit._cdf_tk.client.resource_classes.capabilities import scope_intersection, scope_union
-from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, AclType
+from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, AclType, Scope
 from cognite_toolkit._cdf_tk.client.resource_classes.token import FlatCapabilities, InspectResponse
 from cognite_toolkit._cdf_tk.constants import URL
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
@@ -121,7 +121,6 @@ class TokenAPI:
 class ToolkitTokenAPI:
     def __init__(self, http_client: HTTPClient):
         self._http_client = http_client
-        self._project_capabilities: FlatCapabilities | None = None
 
     @cache
     def inspect(self) -> InspectResponse:
@@ -137,17 +136,18 @@ class ToolkitTokenAPI:
         result.project = self._http_client.config.project
         return result
 
+    @cached_property
+    def project_capabilities(self) -> FlatCapabilities:
+        token: InspectResponse = self.inspect()
+        return token.to_project_capabilities()
+
     def verify_acls(self, required_acls: Sequence[AclType]) -> Sequence[AclType]:
         """Verify that the current token has the required ACLs, for the current project. Returns the list of missing ACLs."""
-        if self._project_capabilities is None:
-            try:
-                token: InspectResponse = self.inspect()
-                self._project_capabilities = token.to_project_capabilities()
-            except AuthorizationError as e:
-                raise AuthorizationError(
-                    f"Failed to validate {humanize_collection([repr(acl) for acl in required_acls])}. \n{e!s}"
-                )
-        return self._project_capabilities.verify(required_acls)
+        return self.project_capabilities.verify(required_acls)
+
+    def check_available_scopes(self, acl_cls: type[Acl], actions: Sequence[str]) -> list[Scope]:
+        """Check the available scopes for the given ACL class and actions. Returns a list of scopes that are available for all actions."""
+        return self.project_capabilities.get_available_scopes(acl_cls, actions)
 
     def create_error(self, missing_capabilities: Sequence[Acl], action: str | None = None) -> AuthorizationError:
         """Create an AuthorizationError with a message that lists the missing capabilities

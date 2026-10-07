@@ -190,6 +190,19 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], list[Scope
 
         return self._merge_als(missing_actions_by_type_and_scope)
 
+    def get_available_scopes(self, acl_cls: type[Acl], actions: Sequence[str]) -> list[Scope]:
+        """Get the available scopes for the given ACL class and actions."""
+        scopes: list[list[Scope]] = []
+        for action in actions:
+            key = (acl_cls, acl_cls.model_fields["acl_name"].default, action)
+            if key not in self.data:
+                return []
+            scopes_for_action = self.data[key]
+            scopes.append(scopes_for_action)
+        if not scopes:
+            return []
+        raise NotImplementedError()
+
     @classmethod
     def merge_acls(cls, acls: list[AclType]) -> Sequence[AclType]:
         actions_by_type_and_scope: dict[tuple[type[AclType], AclName, ScopeDefinition], set[str]] = defaultdict(set)
