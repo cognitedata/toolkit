@@ -8,8 +8,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     DataSetScope,
     EventsAcl,
     GroupsAcl,
+    IDScopeLowerCase,
     Scope,
     SpaceIDScope,
+    TimeSeriesAcl,
     UnknownAcl,
     UnknownScope,
 )
@@ -157,6 +159,34 @@ class TestProjectCapability:
                     groups=[],
                 ),
                 id="Unknown ACL types should be included in the capabilities with their scopes intact",
+            ),
+            pytest.param(
+                InspectResponse(
+                    subject="test",
+                    projects=[InspectProjectInfo(project_url_name="test_project", groups=[])],
+                    project="test_project",
+                    capabilities=[
+                        InspectCapability(
+                            acl=TimeSeriesAcl(
+                                actions=["READ"],
+                                scope=DataSetScope(ids=[1]),
+                            ),
+                            project_scope=AllProjects(all_projects={}),
+                        ),
+                        InspectCapability(
+                            acl=TimeSeriesAcl(actions=["READ"], scope=IDScopeLowerCase(ids=[2, 3])),
+                            project_scope=AllProjects(all_projects={}),
+                        ),
+                    ],
+                ),
+                FlatCapabilities(
+                    {
+                        (TimeSeriesAcl, "time_series_acl", "READ"): [DataSetScope(ids=[1]), IDScopeLowerCase(ids=[2, 3])],
+                    },
+                    name="test_project",
+                    groups=[],
+                ),
+                id="Multiple ACLs of the same type with different scopes should be included in the capabilities with their respective scopes intact",
             ),
         ],
     )

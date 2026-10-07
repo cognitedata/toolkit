@@ -141,7 +141,8 @@ class ToolkitTokenAPI:
         """Verify that the current token has the required ACLs, for the current project. Returns the list of missing ACLs."""
         if self._project_capabilities is None:
             try:
-                self._project_capabilities = self.inspect().to_project_capabilities()
+                token: InspectResponse = self.inspect()
+                self._project_capabilities = token.to_project_capabilities()
             except AuthorizationError as e:
                 raise AuthorizationError(
                     f"Failed to validate {humanize_collection([repr(acl) for acl in required_acls])}. \n{e!s}"
