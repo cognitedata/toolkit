@@ -19,7 +19,7 @@ def invalid_streamlit_test_cases() -> Iterable:
         {"externalId": "MyApp", "creator": "doctrino", "name": "MyApp", "published": "yes", "draft": "no"},
         {
             "Invalid value for published: Input should be a valid boolean. Got 'yes' of type str.",
-            "Unknown field: 'draft'",
+            "Unrecognized field: 'draft'",
         },
         id="Invalid boolean and unknown field",
     )

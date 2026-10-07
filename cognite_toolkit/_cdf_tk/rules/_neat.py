@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
     ModelSyntaxError,
     Recommendation,
+    error_insight_type,
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, ResourceType
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
 
 class NeatRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "NEAT"
-    DISPLAY_NAME = "Data modeling checks"
+    DISPLAY_NAME = "Neat data modeling"
 
     def get_status(self) -> RuleSetStatus:
         if Flags.ALPHA_RULES.is_enabled():
@@ -136,17 +137,16 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
             dumped = issue.model_dump()
             if "code" not in dumped:
                 dumped["code"] = f"{cls.CODE_PREFIX}-000"
-            if "source_files" not in dumped:
+            if not dumped.get("source_file"):
                 # This is a less than ideal fallback as the issue is likely
                 # related to another file than the data model file.
-                sf = dumped.pop("source_file", None) or source_file
-                dumped["source_files"] = [sf]
+                dumped["source_file"] = source_file
             if isinstance(issue, NeatModelSyntaxError):
-                yield ModelSyntaxError.model_validate(dumped)
+                yield error_insight_type(ModelSyntaxError).model_validate(dumped)
             elif isinstance(issue, NeatRecommendation):
                 yield Recommendation.model_validate(dumped)
             elif isinstance(issue, NeatConsistencyError):
-                yield ConsistencyError.model_validate(dumped)
+                yield error_insight_type(ConsistencyError).model_validate(dumped)
 
     @cached_property
     def _neat_client(self) -> "NeatClient":

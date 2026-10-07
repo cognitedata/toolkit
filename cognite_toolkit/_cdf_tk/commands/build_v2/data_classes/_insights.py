@@ -2,16 +2,17 @@ import csv
 import io
 import json
 import sys
-from collections import UserList, defaultdict
+from collections import Counter, UserList, defaultdict
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal
+from typing import Annotated, Any, ClassVar, Final, Literal, TypeVar
 
 from pydantic import BaseModel, Field, TypeAdapter, field_serializer, field_validator
-from pydantic_core.core_schema import FieldSerializationInfo, ValidationInfo
+from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_modules
 
 if sys.version_info >= (3, 11):
@@ -19,7 +20,10 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
-PATH_SEP_CSV = " | "  # Separator for multiple source files in CSV output
+T_Insight = TypeVar("T_Insight", bound="InsightDefinition")
+
+BUILD_ERROR_TYPE: Final = "Error"
+BUILD_WARNING_TYPE: Final = "Warning"
 
 
 class InsightDefinition(BaseModel):
@@ -27,56 +31,66 @@ class InsightDefinition(BaseModel):
 
     insight_type: str = "InsightDefinition"
     severity: ClassVar[int] = 999
+    title: ClassVar[str | None] = None
 
     code: str
     message: str
-    source_files: list[AbsoluteFilePath] = Field(min_length=1)
+    source_file: AbsoluteFilePath
+    line: int | None = None
+    column: int | None = None
     fix: str | None = None
     alpha: bool = False
 
     @property
-    def source_file(self) -> AbsoluteFilePath:
-        """Return the first source file if multiple are present."""
-        return self.source_files[0]
+    def display_source_file_cwd(self) -> str:
+        """Returns the source file path relative to the current working directory."""
+        return format_insight_source_file(self.source_file)
 
     @property
-    def display_source_files_cwd(self) -> str:
-        """Returns a comma-separated string of unique source file paths relative to the current working directory."""
-        unique_paths = list(dict.fromkeys([format_insight_source_file(file) for file in self.source_files]))
-        return ", ".join(unique_paths)
+    def display_location(self) -> str:
+        """The source file, with ':line:column' appended when the position is known.
+
+        The 'path:line:column' format is made clickable by terminals such as the one in VS Code.
+        """
+        location = self.display_source_file_cwd
+        if self.line is None:
+            return location
+        if self.column is None:
+            return f"{location}:{self.line}"
+        return f"{location}:{self.line}:{self.column}"
 
     @property
-    def display_source_files_modules(self) -> str:
-        """Returns a comma-separated string of unique source file paths relative to the organization's modules directory."""
-        unique_paths = list(dict.fromkeys([relative_to_modules(file) for file in self.source_files]))
-        return ", ".join(unique_paths)
+    def display_source_file_modules(self) -> str:
+        """Returns the source file path relative to the organization's modules directory."""
+        return relative_to_modules(self.source_file)
 
-    @field_validator("source_files", mode="before")
+    @property
+    def heading(self) -> str:
+        """A short human-readable title for this insight."""
+        if self.title is not None:
+            return self.title
+        return self.code.replace("-", " ").replace("_", " ").capitalize()
+
+    @field_validator("line", "column", mode="before")
     @classmethod
-    def _to_absolute_path(cls, value: Any, info: ValidationInfo) -> list[Path]:
-        """Convert source file paths to absolute paths relative to the organization directory."""
-        if isinstance(value, str):
-            # CSV serializes multiple source files into a single separator-joined cell.
-            values = _split_source_files(value, PATH_SEP_CSV)
-        elif isinstance(value, list):
-            # JSON serializes multiple source files into a list of strings.
-            values = [str(file) for file in value]
-        else:
-            raise ValueError(f"Unexpected type for source_files: {type(value)}")
+    def _empty_to_none(cls, value: Any) -> Any:
+        """CSV serializes a missing position as an empty cell."""
+        return None if value == "" else value
 
+    @field_validator("source_file", mode="before")
+    @classmethod
+    def _to_absolute_path(cls, value: Any, info: ValidationInfo) -> Path:
+        """Convert the source file path to an absolute path relative to the organization directory."""
+        if not isinstance(value, str | Path):
+            raise ValueError(f"Unexpected type for source_file: {type(value)}")
         if info.context and isinstance(organization_dir := info.context.get("organization_dir", None), Path):
-            return [(organization_dir / file).resolve() for file in values]
-        return [Path(file).resolve() for file in values]
+            return (organization_dir / value).resolve()
+        return Path(value).resolve()
 
-    @field_serializer("source_files")
-    def as_relative_to_modules(
-        self, source_files: list[AbsoluteFilePath], info: FieldSerializationInfo
-    ) -> list[str] | str:
-        """Serialize the source_files field as a comma-separated string of unique paths relative to the organization's modules directory."""
-        unique_paths = sorted(dict.fromkeys([relative_to_modules(file) for file in source_files]))
-        if info.context and info.context.get("format") == "csv":
-            return PATH_SEP_CSV.join(unique_paths)
-        return unique_paths
+    @field_serializer("source_file")
+    def as_relative_to_modules(self, source_file: AbsoluteFilePath) -> str:
+        """Serialize the source_file field as a path relative to the organization's modules directory."""
+        return relative_to_modules(source_file)
 
     @field_validator("message", "fix", mode="after")
     @classmethod
@@ -155,10 +169,64 @@ class Recommendation(InsightDefinition):
     severity = 10
 
 
+class BuildError(InsightDefinition):
+    """A confirmed problem. The resource cannot be built or deployed as configured."""
+
+    insight_type: Literal["Error"] = BUILD_ERROR_TYPE
+    severity = 50
+
+
+class ParseFileError(BuildError):
+    title = "Failed to parse file"
+
+
+class ReadFileError(BuildError):
+    title = "Failed to read file"
+
+
+class FileSyntaxError(BuildError):
+    title = "Syntax error"
+
+
+class MissingContentError(BuildError):
+    title = "Missing content"
+
+
+class InvalidContentError(BuildError):
+    title = "Invalid content"
+
+
+class BuildWarning(InsightDefinition):
+    """A potential problem that could not be confirmed, or an issue that does not block the build."""
+
+    insight_type: Literal["Warning"] = BUILD_WARNING_TYPE
+    severity = 20
+
+
 Insight = Annotated[
-    ModelSyntaxError | ModelSyntaxWarning | ConsistencyError | Recommendation | FileReadError | IgnoredFileWarning,
+    ModelSyntaxError
+    | ModelSyntaxWarning
+    | ConsistencyError
+    | Recommendation
+    | FileReadError
+    | IgnoredFileWarning
+    | BuildError
+    | BuildWarning,
     Field(discriminator="insight_type"),
 ]
+
+
+def error_insight_type(
+    legacy_type: type[T_Insight], error_type: type[BuildError] = BuildError
+) -> type[T_Insight] | type[BuildError]:
+    """The insight class to use for errors: error_type with the v09 flag, otherwise the legacy class."""
+    return error_type if Flags.V09.is_enabled() else legacy_type
+
+
+def warning_insight_type(legacy_type: type[T_Insight]) -> type[T_Insight] | type[BuildWarning]:
+    """The insight class to use for warnings: BuildWarning with the v09 flag, otherwise the legacy class."""
+    return BuildWarning if Flags.V09.is_enabled() else legacy_type
+
 
 InsightListAdapter: TypeAdapter[list[Insight]] = TypeAdapter(list[Insight])
 
@@ -166,11 +234,6 @@ InsightListAdapter: TypeAdapter[list[Insight]] = TypeAdapter(list[Insight])
 def _normalize_csv_cell(text: str) -> str:
     """Normalize line breaks so CSV cells stay readable and consistent across platforms."""
     return text.replace("\r\n", "\n").replace("\r", "\n")
-
-
-def _split_source_files(raw: str, separator: str) -> list[str]:
-    """Split a serialized source-file cell into relative (or absolute) path strings."""
-    return [part.strip() for part in raw.split(separator) if part.strip()]
 
 
 class InsightList(UserList[Insight]):
@@ -199,12 +262,12 @@ class InsightList(UserList[Insight]):
     @property
     def has_model_syntax_errors(self) -> bool:
         """Returns True if there are any model syntax errors in the insights."""
-        return any(isinstance(insight, ModelSyntaxError) for insight in self.data)
+        return any(isinstance(insight, (ModelSyntaxError, BuildError)) for insight in self.data)
 
     @property
     def has_errors(self) -> bool:
         """Returns True if there are any errors (model syntax or consistency) in the insights."""
-        return any(isinstance(insight, (ModelSyntaxError, ConsistencyError)) for insight in self.data)
+        return any(isinstance(insight, (ModelSyntaxError, ConsistencyError, BuildError)) for insight in self.data)
 
     @property
     def summary(self) -> dict[str, int]:
@@ -214,9 +277,7 @@ class InsightList(UserList[Insight]):
             Dict with keys: syntax_errors, consistency_errors, recommendations
         """
 
-        by_type = self.by_type()
-
-        return {insight_type.__name__: len(insights) for insight_type, insights in by_type.items()}
+        return dict(Counter(insight.insight_type for insight in self.data))
 
     def dump(self) -> list[dict[str, Any]]:
         """Returns a list of insight dicts with keys insight_type, code, source_file, message, fix."""
@@ -243,7 +304,7 @@ class InsightList(UserList[Insight]):
             )
             writer.writeheader()
             for insight in self.data:
-                writer.writerow(insight.model_dump(context={"format": "csv"}))
+                writer.writerow(insight.model_dump())
             return output.getvalue()
 
     def to_json(self) -> str:

@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.agent import (
     ServicesAvailability,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO, ResourceType
@@ -121,7 +121,7 @@ class TestAgentRuleSet:
         rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet(modules=[])
         errors = list(rule._validate_agent(resource))
         assert [error.code for error in errors] == expected_codes
-        assert all(isinstance(error, ConsistencyError) for error in errors)
+        assert all(isinstance(error, BuildError) for error in errors)
 
     def test_validate_agent_too_many_tools(self, tmp_path: Path, service_availability: ServicesAvailability) -> None:
         yaml_file = tmp_path / "agents" / "agent.yaml"

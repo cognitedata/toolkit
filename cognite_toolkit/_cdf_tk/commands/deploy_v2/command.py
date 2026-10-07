@@ -311,7 +311,7 @@ class DeployV2Command(ToolkitCommand):
         """Read insights.csv/json from the build directory and map them to resources via lineage.
 
         Returns None if lineage or the insights file is missing, or if the file cannot be read.
-        Insights are matched to resources by comparing the relative source_files stored in the
+        Insights are matched to resources by comparing the relative source_file stored in the
         insights file with each resource's source path in the lineage.
         """
         if build_lineage is None:
@@ -335,10 +335,8 @@ class DeployV2Command(ToolkitCommand):
 
         insights_by_resource: InsightsByResource = defaultdict(list)
         for insight in insights:
-            for source_file in insight.source_files:
-                if source_file in resources_by_source_path:
-                    for resource_type, identifier in resources_by_source_path[source_file]:
-                        insights_by_resource[(resource_type, identifier)].append(insight)
+            for resource_type, identifier in resources_by_source_path.get(insight.source_file, []):
+                insights_by_resource[(resource_type, identifier)].append(insight)
         return dict(insights_by_resource) or None
 
     @classmethod
@@ -1254,7 +1252,7 @@ class DeployV2Command(ToolkitCommand):
             lines: list[RenderableType] = [
                 f"[bold]{escape(insight.message)}[/]",
                 f"[dim]Code:[/] {escape(insight.code)}",
-                f"[dim]Source:[/] {escape(insight.display_source_files_cwd)}",
+                f"[dim]Source:[/] {escape(insight.display_source_file_cwd)}",
             ]
             if insight.fix:
                 lines.append(

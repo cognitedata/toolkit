@@ -20,7 +20,7 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
             "Missing required field: 'triggerRule'",
             "Missing required field: 'workflowExternalId'",
             "Missing required field: 'workflowVersion'",
-            "Unknown field: 'name'",
+            "Unrecognized field: 'name'",
         },
         id="Missing required fields ",
     )
@@ -37,7 +37,7 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
         {
             "Missing required fields in authentication: 'clientId' and 'clientSecret'",
             "Invalid value for triggerRule: Invalid trigger rule data missing 'triggerType' key",
-            "Unknown field: 'foo'",
+            "Unrecognized field: 'foo'",
         },
         id="Extra field and missing triggerType in triggerRule",
     )

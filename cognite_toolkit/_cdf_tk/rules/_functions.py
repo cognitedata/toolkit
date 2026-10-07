@@ -5,10 +5,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLim
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
+    Insight,
     InternalValidatorException,
+    error_insight_type,
 )
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, ResourceType
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet, with_position
 from cognite_toolkit._cdf_tk.utils import humanize_collection, validate_requirements_with_pip
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes.functions import FunctionsYAML
@@ -16,7 +18,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.functions import FunctionsYAML
 
 class FunctionRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "FUNCTION"
-    DISPLAY_NAME = "Functions checks"
+    DISPLAY_NAME = "Functions"
 
     def get_status(self) -> RuleSetStatus:
         if not self.client:
@@ -34,7 +36,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
             message="Will validate function limits, runtime, and requirements.txt.",
         )
 
-    def validate(self) -> Iterable[ConsistencyError | InternalValidatorException]:
+    def validate(self) -> Iterable[Insight | InternalValidatorException]:
         function_type = ResourceType(resource_folder=FunctionIO.folder_name, kind=FunctionIO.kind)
         for module in self.modules:
             for resource in module.resources:
@@ -50,14 +52,14 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                             source=str(resource.identifier),
                         )
 
-    def _validate_function(self, resource: BuiltResource) -> Iterable[ConsistencyError]:
+    def _validate_function(self, resource: BuiltResource) -> Iterable[Insight]:
         """Validate function definitions against CDF project limits.
 
         Args:
             function_file: Path to the function YAML file.
 
         Yields:
-            ConsistencyError for any violations of function limits.
+            Errors for any violations of function limits.
         """
         # Parse function_file (YAML) to dict/list, then create FunctionsYAML objects to validate and extract definitions
         raw_data = read_yaml_file(resource.build_path, expected_output="dict")
@@ -71,27 +73,33 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
         # Validate CPU cores
         if function_def.cpu is not None and limits:
             if function_def.cpu < limits.cpu_cores.min or function_def.cpu > limits.cpu_cores.max:
-                yield ConsistencyError(
-                    message=(
-                        f"Function '{function_def.external_id}' CPU cores ({function_def.cpu}) "
-                        f"must be between {limits.cpu_cores.min} and {limits.cpu_cores.max}."
+                yield with_position(
+                    error_insight_type(ConsistencyError)(
+                        message=(
+                            f"Function '{function_def.external_id}' CPU cores ({function_def.cpu}) "
+                            f"must be between {limits.cpu_cores.min} and {limits.cpu_cores.max}."
+                        ),
+                        code=f"{self.CODE_PREFIX}-CPU-OUT-OF-RANGE",
+                        fix=f"Ensure that CPU cores is between {limits.cpu_cores.min} and {limits.cpu_cores.max}.",
+                        source_file=resource.source_path,
                     ),
-                    code=f"{self.CODE_PREFIX}-CPU-OUT-OF-RANGE",
-                    fix=f"Ensure that CPU cores is between {limits.cpu_cores.min} and {limits.cpu_cores.max}.",
-                    source_files=[resource.source_path],
+                    keys=["cpu"],
                 )
 
         # Validate memory
         if function_def.memory is not None and limits:
             if function_def.memory < limits.memory_gb.min or function_def.memory > limits.memory_gb.max:
-                yield ConsistencyError(
-                    message=(
-                        f"Function '{function_def.external_id}' memory ({function_def.memory} GB) "
-                        f"must be between {limits.memory_gb.min} and {limits.memory_gb.max} GB."
+                yield with_position(
+                    error_insight_type(ConsistencyError)(
+                        message=(
+                            f"Function '{function_def.external_id}' memory ({function_def.memory} GB) "
+                            f"must be between {limits.memory_gb.min} and {limits.memory_gb.max} GB."
+                        ),
+                        code=f"{self.CODE_PREFIX}-MEMORY-OUT-OF-RANGE",
+                        fix=f"Ensure that memory is between {limits.memory_gb.min} and {limits.memory_gb.max} GB.",
+                        source_file=resource.source_path,
                     ),
-                    code=f"{self.CODE_PREFIX}-MEMORY-OUT-OF-RANGE",
-                    fix=f"Ensure that memory is between {limits.memory_gb.min} and {limits.memory_gb.max} GB.",
-                    source_files=[resource.source_path],
+                    keys=["memory"],
                 )
 
         # Validate runtime
@@ -106,7 +114,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                     ),
                     code=f"{self.CODE_PREFIX}-UNKNOWN-RUNTIME",
                     fix=f"Use one of the available runtimes: {quoted_runtimes}.",
-                    source_files=[resource.source_path],
+                    source_file=resource.source_path,
                 )
 
         function_folder = FunctionIO.get_function_code_implicitly(resource.source_path, function_def.as_id())
@@ -115,11 +123,11 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                 requirement_txt, function_def.index_url, function_def.extra_index_urls
             )
             if not pip_result.success:
-                yield ConsistencyError(
+                yield error_insight_type(ConsistencyError)(
                     message=pip_result.create_message("Function", function_def.external_id),
                     code=f"{self.CODE_PREFIX}-INVALID-REQUIREMENTS",
                     fix="Ensure that requirements.txt is valid.",
-                    source_files=[resource.source_path],
+                    source_file=resource.source_path,
                 )
 
     @cached_property

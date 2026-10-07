@@ -1,5 +1,5 @@
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Literal, TypeVar, cast
@@ -20,14 +20,25 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
     ViewResponseProperty,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, Insight
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, contains_unresolved_variable
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    ConsistencyError,
+    Insight,
+    error_insight_type,
+    warning_insight_type,
+)
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, ViewIO
-from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 
-from ._base import InternalValidatorException, RuleSetStatus, ToolkitGlobalRuleSet
+from ._base import (
+    UNKNOWN_REFERENCE,
+    UNVERIFIED_REFERENCE,
+    InternalValidatorException,
+    RuleSetStatus,
+    ToolkitGlobalRuleSet,
+    quote_identifier,
+    with_position,
+)
 from ._dependencies import DependencyRuleSet
 
 _KeyT = TypeVar("_KeyT")
@@ -72,10 +83,8 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     """
 
     CODE_PREFIX = "DATA-MODELING"
-    DISPLAY_NAME = "Data modeling checks"
-    UNKNOWN_PROPERTY_REFERENCE = "UNKNOWN-REFERENCE"
-    UNVERIFIED_PROPERTY_REFERENCE = "UNVERIFIED-PROPERTY-REFERENCE"
-    INVALID_PROPERTY_REFERENCE = "INVALID-PROPERTY-REFERENCE"
+    DISPLAY_NAME = "Data modeling"
+    INVALID_REVERSE_DIRECT_RELATION = "INVALID-REVERSE-DIRECT-RELATION"
 
     def get_status(self) -> RuleSetStatus:
         if not Flags.ALPHA_RULES.is_enabled():
@@ -103,16 +112,14 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         if self.client is not None:
             yield from self._validate_data_modeling_changes(self.client)
 
-    def _validate_data_modeling_changes(
-        self, client: ToolkitClient
-    ) -> Iterable[ConsistencyError | InternalValidatorException]:
+    def _validate_data_modeling_changes(self, client: ToolkitClient) -> Iterable[Insight | InternalValidatorException]:
         """Reports local container, view and data model changes that CDF will silently drop on deploy.
 
         DependencyRuleSet runs the same checks when alpha rules are disabled.
         """
         yield from DependencyRuleSet(self.modules, client)._validate_data_modeling_changes(client)
 
-    def _check_schema_references(self) -> Iterable[ConsistencyError | InternalValidatorException]:
+    def _check_schema_references(self) -> Iterable[Insight | InternalValidatorException]:
         try:
             local_containers = self._load_containers()
             local_views = self._load_views()
@@ -151,9 +158,11 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         references: _SchemaReferences,
         local_containers: dict[ContainerId, _LocalContainer],
         local_views: dict[ViewId, _LocalView],
-    ) -> Iterable[ConsistencyError | InternalValidatorException]:
+    ) -> Iterable[Insight | InternalValidatorException]:
         missing_container_properties: list[_ContainerPropertyReference] = []
         for property_ref in references.container_properties:
+            if contains_unresolved_variable(property_ref.label):
+                continue
             if (
                 self._container_property(
                     property_ref.container_id, property_ref.property_identifier, local_containers, {}
@@ -165,13 +174,16 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         invalid_reverses: list[_ReverseDirectRelationReference] = []
         missing_reverses: list[_ReverseDirectRelationReference] = []
         for relation_ref in references.reverse_direct_relations:
+            if contains_unresolved_variable(relation_ref.through):
+                continue
             status = self._reverse_status(relation_ref.through, local_views, local_containers, {}, {})
             if status == "not_direct":
                 invalid_reverses.append(relation_ref)
             elif status == "missing":
                 missing_reverses.append(relation_ref)
 
-        yield from (self._not_direct_error(relation_ref) for relation_ref in invalid_reverses)
+        for relation_ref in invalid_reverses:
+            yield from self._not_direct_errors(relation_ref)
         if not missing_container_properties and not missing_reverses:
             return
         if self.client is None:
@@ -188,7 +200,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         missing_reverses: list[_ReverseDirectRelationReference],
         local_containers: dict[ContainerId, _LocalContainer],
         local_views: dict[ViewId, _LocalView],
-    ) -> Iterable[ConsistencyError | InternalValidatorException]:
+    ) -> Iterable[Insight | InternalValidatorException]:
         container_ids, view_ids = self._ids_to_fetch(missing_properties, missing_reverses, local_views)
         cdf_containers, container_error = self._retrieve_containers(container_ids)
         if container_error is not None:
@@ -205,7 +217,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     )
                     is None
                 ):
-                    yield self._unknown_property_error(property_ref)
+                    yield from self._unknown_property_errors(property_ref)
 
         for relation_ref in missing_reverses:
             needs_container, needs_view = self._reverse_remote_need(relation_ref.through, local_views)
@@ -217,9 +229,9 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             if status == "ok":
                 continue
             if status == "not_direct":
-                yield self._not_direct_error(relation_ref)
+                yield from self._not_direct_errors(relation_ref)
                 continue
-            yield self._unknown_reverse_error(relation_ref)
+            yield from self._unknown_reverse_errors(relation_ref)
 
     def _ids_to_fetch(
         self,
@@ -390,80 +402,96 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             )
         return {item.as_id(): item for item in items}, None
 
-    def _unverified_properties(
-        self, missing_properties: list[_ContainerPropertyReference]
-    ) -> Iterable[ConsistencyError]:
+    def _unverified_properties(self, missing_properties: list[_ContainerPropertyReference]) -> Iterable[Insight]:
         for ref in missing_properties:
-            yield ConsistencyError(
-                code=self.UNVERIFIED_PROPERTY_REFERENCE,
-                message=(
-                    f"Missing container property '{ref.label}'. "
-                    f"It is referenced by {self._reference_string(ref.resources)}."
-                ),
-                fix=(
-                    "Provide credentials to enable CDF verification, or manually either:"
-                    "1) ensure that the container property exists, or 2) remove the reference to it."
-                ),
-                source_files=self._source_files(ref.resources),
-            )
+            for resource in ref.resources:
+                yield with_position(
+                    warning_insight_type(ConsistencyError)(
+                        code=UNVERIFIED_REFERENCE,
+                        message=(
+                            f"Missing container property '{ref.label}'. "
+                            f"It is referenced by {quote_identifier(resource.identifier)}."
+                        ),
+                        fix=(
+                            "Provide credentials to enable CDF verification, or manually either:"
+                            "1) ensure that the container property exists, or 2) remove the reference to it."
+                        ),
+                        source_file=resource.source_path,
+                    ),
+                    values=[ref.property_identifier],
+                    variables=resource.variables,
+                )
 
-    def _unverified_reverses(
-        self, missing_reverses: list[_ReverseDirectRelationReference]
-    ) -> Iterable[ConsistencyError]:
+    def _unverified_reverses(self, missing_reverses: list[_ReverseDirectRelationReference]) -> Iterable[Insight]:
         for ref in missing_reverses:
-            yield ConsistencyError(
-                code=self.UNVERIFIED_PROPERTY_REFERENCE,
-                message=(
-                    f"Missing direct relation '{ref.through}'. "
-                    f"It is referenced by {self._reference_string(ref.resources)}."
+            for resource in ref.resources:
+                yield with_position(
+                    warning_insight_type(ConsistencyError)(
+                        code=UNVERIFIED_REFERENCE,
+                        message=(
+                            f"Missing direct relation '{ref.through}'. "
+                            f"It is referenced by {quote_identifier(resource.identifier)}."
+                        ),
+                        fix=(
+                            "Provide credentials to enable CDF verification, or manually either:"
+                            "1) ensure that the container property exists, or 2) remove the reference to it."
+                        ),
+                        source_file=resource.source_path,
+                    ),
+                    values=[ref.through.identifier],
+                    variables=resource.variables,
+                )
+
+    def _unknown_property_errors(self, ref: _ContainerPropertyReference) -> Iterable[Insight]:
+        for resource in ref.resources:
+            yield with_position(
+                error_insight_type(ConsistencyError)(
+                    code=UNKNOWN_REFERENCE,
+                    message=(
+                        f"Container property '{ref.label}' does not exist locally or in CDF. "
+                        f"It is referenced by {quote_identifier(resource.identifier)}."
+                    ),
+                    fix="Ensure that the container property exists or remove the reference to it.",
+                    source_file=resource.source_path,
                 ),
-                fix=(
-                    "Provide credentials to enable CDF verification, or manually either:"
-                    "1) ensure that the container property exists, or 2) remove the reference to it."
-                ),
-                source_files=self._source_files(ref.resources),
+                values=[ref.property_identifier],
+                variables=resource.variables,
             )
 
-    def _unknown_property_error(self, ref: _ContainerPropertyReference) -> ConsistencyError:
-        return ConsistencyError(
-            code=self.UNKNOWN_PROPERTY_REFERENCE,
-            message=f"Unknown reference to container property '{ref.label}'",
-            fix="Ensure that the container property exists or remove the reference to it.",
-            source_files=self._source_files(ref.resources),
-        )
+    def _unknown_reverse_errors(self, ref: _ReverseDirectRelationReference) -> Iterable[Insight]:
+        for resource in ref.resources:
+            yield with_position(
+                error_insight_type(ConsistencyError)(
+                    code=UNKNOWN_REFERENCE,
+                    message=(
+                        f"Direct relation '{ref.through}' does not exist locally or in CDF. "
+                        f"It is referenced by {quote_identifier(resource.identifier)}."
+                    ),
+                    fix="Ensure that the direct relation exists or remove the reference to it.",
+                    source_file=resource.source_path,
+                ),
+                values=[ref.through.identifier],
+                variables=resource.variables,
+            )
 
-    def _unknown_reverse_error(self, ref: _ReverseDirectRelationReference) -> ConsistencyError:
-        return ConsistencyError(
-            code=self.UNKNOWN_PROPERTY_REFERENCE,
-            message=f"Unknown reference to direct relation '{ref.through}'",
-            fix="Ensure that the direct relation exists or remove the reference to it.",
-            source_files=self._source_files(ref.resources),
-        )
-
-    def _not_direct_error(self, ref: _ReverseDirectRelationReference) -> ConsistencyError:
-        return ConsistencyError(
-            code=self.INVALID_PROPERTY_REFERENCE,
-            message=(
-                f"Reverse direct relation through '{ref.through}' points at '{ref.through.identifier}', "
-                "which is not a direct relation."
-            ),
-            fix="Point the reverse direct relation at a property of type direct.",
-            source_files=self._source_files(ref.resources),
-        )
+    def _not_direct_errors(self, ref: _ReverseDirectRelationReference) -> Iterable[Insight]:
+        for resource in ref.resources:
+            yield with_position(
+                error_insight_type(ConsistencyError)(
+                    code=self.INVALID_REVERSE_DIRECT_RELATION,
+                    message=(
+                        f"Reverse direct relation through '{ref.through}' points at '{ref.through.identifier}', "
+                        "which is not a direct relation."
+                    ),
+                    fix="Point the reverse direct relation at a property of type direct.",
+                    source_file=resource.source_path,
+                ),
+                values=[ref.through.identifier],
+                variables=resource.variables,
+            )
 
     @staticmethod
     def _append(bucket: dict[_KeyT, list[BuiltResource]], key: _KeyT, resource: BuiltResource) -> None:
         resources = bucket[key]
         if resource not in resources:
             resources.append(resource)
-
-    @staticmethod
-    def _source_files(resources: Sequence[BuiltResource]) -> list[AbsoluteFilePath]:
-        return list(dict.fromkeys(resource.source_path for resource in resources))
-
-    @staticmethod
-    def _reference_string(resources: Sequence[BuiltResource]) -> str:
-        return " - ".join(
-            f"{resource.identifier!s} in {relative_to_if_possible(resource.source_path).as_posix()!r}"
-            for resource in resources
-        )

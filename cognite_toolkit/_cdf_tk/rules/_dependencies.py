@@ -22,16 +22,29 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewRequestProperty,
     ViewResponse,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, Insight
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, contains_unresolved_variable
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    ConsistencyError,
+    Insight,
+    error_insight_type,
+    warning_insight_type,
+)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import URL
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, ResourceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 
-from ._base import InternalValidatorException, RuleSetStatus, ToolkitGlobalRuleSet
+from ._base import (
+    UNKNOWN_REFERENCE,
+    UNVERIFIED_REFERENCE,
+    InternalValidatorException,
+    RuleSetStatus,
+    ToolkitGlobalRuleSet,
+    identifier_values,
+    quote_identifier,
+    with_position,
+)
 
 
 class DependencyRuleSet(ToolkitGlobalRuleSet):
@@ -40,7 +53,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
     can actually be applied in CDF.
     """
 
-    DISPLAY_NAME = "Dependency checks"
+    DISPLAY_NAME = "Dependencies"
     INVALID_OPERATION_CODE: ClassVar[str] = "INVALID-OPERATION"
 
     def get_status(self) -> RuleSetStatus:
@@ -68,7 +81,10 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         for module in self.modules:
             for resource in module.resources:
                 for crud_cls, dependency_id in resource.dependencies:
-                    if (crud_cls, dependency_id) not in built_resource_ids:
+                    # Unresolved variables are reported on their own, and always lead to unknown references.
+                    if (crud_cls, dependency_id) not in built_resource_ids and not contains_unresolved_variable(
+                        dependency_id
+                    ):
                         missing_locally_by_crud_cls[crud_cls][dependency_id].append(resource)
 
         if self.client:
@@ -87,35 +103,41 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     continue
                 if missing := set(expected_by_identifier.keys()) - existing_in_cdf:
                     for identifier in missing:
-                        referencing_resources = expected_by_identifier[identifier]
-                        yield ConsistencyError(
-                            code="UNKNOWN-REFERENCE",
-                            message=f"Unknown reference to {resource_label} with id '{identifier}'",
-                            fix=f"Ensure that the {resource_label} exists or remove the reference to it.",
-                            source_files=[resource.source_path for resource in referencing_resources],
-                        )
+                        for resource in expected_by_identifier[identifier]:
+                            yield with_position(
+                                error_insight_type(ConsistencyError)(
+                                    code=UNKNOWN_REFERENCE,
+                                    message=(
+                                        f"The {resource_label} {quote_identifier(identifier)} does not exist locally or in CDF. "
+                                        f"It is referenced by {quote_identifier(resource.identifier)}."
+                                    ),
+                                    fix=f"Ensure that the {resource_label} exists or remove the reference to it.",
+                                    source_file=resource.source_path,
+                                ),
+                                values=identifier_values(identifier),
+                                variables=resource.variables,
+                            )
         else:
             for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
                 resource_type_name = f"{crud_cls.kind.lower()} ({crud_cls.folder_name})"
                 for identifier, expected_resources in expected_by_identifier.items():
-                    referenced_str = self._create_reference_string(expected_resources)
-                    yield ConsistencyError(
-                        code="UNVERIFIED-REFERENCE",
-                        message=f"Missing {resource_type_name} '{identifier}'. It is referenced by {referenced_str}.",
-                        fix=f"Provide credentials to enable CDF verification. "
-                        f"Or ensure that {resource_type_name} exists or remove the reference to it.",
-                        source_files=[resource.source_path for resource in expected_resources],
-                    )
+                    for resource in expected_resources:
+                        yield with_position(
+                            warning_insight_type(ConsistencyError)(
+                                code=UNVERIFIED_REFERENCE,
+                                message=(
+                                    f"Missing {resource_type_name} {quote_identifier(identifier)}. "
+                                    f"It is referenced by {quote_identifier(resource.identifier)}."
+                                ),
+                                fix=f"Provide credentials to enable CDF verification. "
+                                f"Or ensure that {resource_type_name} exists or remove the reference to it.",
+                                source_file=resource.source_path,
+                            ),
+                            values=identifier_values(identifier),
+                            variables=resource.variables,
+                        )
 
-    def _create_reference_string(self, expected_resources: list[BuiltResource]) -> str:
-        return " - ".join(
-            f"{resource.identifier!s} in {relative_to_if_possible(resource.source_path).as_posix()!r}"
-            for resource in expected_resources
-        )
-
-    def _validate_data_modeling_changes(
-        self, client: ToolkitClient
-    ) -> Iterable[ConsistencyError | InternalValidatorException]:
+    def _validate_data_modeling_changes(self, client: ToolkitClient) -> Iterable[Insight | InternalValidatorException]:
         """Reports local container, view and data model changes that CDF will silently drop on deploy.
 
         Containers cannot have properties removed, and views and data models are immutable per version.
@@ -129,7 +151,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
     def _compare_data_modeling_resource(
         self,
         crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
-    ) -> Iterable[ConsistencyError | InternalValidatorException]:
+    ) -> Iterable[Insight | InternalValidatorException]:
         """Compare one data-modeling resource type against CDF."""
         try:
             local_by_id: dict[T_Identifier, tuple[BuiltResource, T_RequestResource]] = {}
@@ -157,7 +179,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         resource: BuiltResource,
         request: Any,
         cdf_item: Any,
-    ) -> Iterable[ConsistencyError]:
+    ) -> Iterable[Insight]:
         if isinstance(item_id, ContainerId):
             assert isinstance(request, ContainerRequest) and isinstance(cdf_item, ContainerResponse)
             yield from self._container_insights(item_id, resource.source_path, request, cdf_item)
@@ -239,7 +261,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         source_path: AbsoluteFilePath,
         local_request: ContainerRequest,
         cdf_response: ContainerResponse,
-    ) -> Iterable[ConsistencyError]:
+    ) -> Iterable[Insight]:
         local_properties = local_request.properties
         cdf_properties = cdf_response.properties
 
@@ -252,30 +274,36 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         if changed:
             removed = sorted(set(cdf_properties) - set(local_properties))
             affected = humanize_collection([f"{name!r}" for name in sorted({*removed, *changed})])
-            yield ConsistencyError(
-                code=self.INVALID_OPERATION_CODE,
-                message=(
-                    f"Local config for container {container_id} has some properties {affected} that have been modified in a way CDF "
-                    f"does not support. Deploying the current local YAML config will not apply these changes to the container in CDF."
+            yield with_position(
+                error_insight_type(ConsistencyError)(
+                    code=self.INVALID_OPERATION_CODE,
+                    message=(
+                        f"Local config for container {container_id} has some properties {affected} that have been modified in a way CDF "
+                        f"does not support. Deploying the current local YAML config will not apply these changes to the container in CDF."
+                    ),
+                    fix=(
+                        f"Revert the properties to match the deployed version, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
+                    ),
+                    source_file=source_path,
                 ),
-                fix=(
-                    f"Revert the properties to match the deployed version, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
-                ),
-                source_files=[source_path],
+                keys=["properties"],
             )
         missing = sorted(set(cdf_properties) - set(local_properties))
         if missing and not changed:
-            yield ConsistencyError(
-                code=self.INVALID_OPERATION_CODE,
-                message=(
-                    f"Local config for container {container_id} is missing properties "
-                    f"{humanize_collection([f'{name!r}' for name in missing])} that have previously been deployed to CDF. "
-                    f"Deploying the current local YAML config will not remove them from the container in CDF, since this is not a supported operation."
+            yield with_position(
+                warning_insight_type(ConsistencyError)(
+                    code=self.INVALID_OPERATION_CODE,
+                    message=(
+                        f"Local config for container {container_id} is missing properties "
+                        f"{humanize_collection([f'{name!r}' for name in missing])} that have previously been deployed to CDF. "
+                        f"Deploying the current local YAML config will not remove them from the container in CDF, since this is not a supported operation."
+                    ),
+                    fix=(
+                        f"Add the properties back to your local YAML config, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
+                    ),
+                    source_file=source_path,
                 ),
-                fix=(
-                    f"Add the properties back to your local YAML config, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
-                ),
-                source_files=[source_path],
+                keys=["properties"],
             )
 
         # usedFor defaults to "node" when omitted, both locally and by CDF, so an omitted local value is
@@ -284,17 +312,20 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         if local_used_for != cdf_response.used_for:
             # usedFor cannot change once set; every other top-level container field (name, description)
             # is metadata and CDF applies changes to it without restriction, so it is not checked here.
-            yield ConsistencyError(
-                code=self.INVALID_OPERATION_CODE,
-                message=(
-                    f"Local config for container {container_id} has modified usedFor ('{local_used_for}') compared to the deployed "
-                    f"container in CDF ('{cdf_response.used_for}'). CDF does not support changing the usedFor of an existing container, so deploying the current "
-                    f"local YAML config will not apply this change to the container in CDF."
+            yield with_position(
+                error_insight_type(ConsistencyError)(
+                    code=self.INVALID_OPERATION_CODE,
+                    message=(
+                        f"Local config for container {container_id} has modified usedFor ('{local_used_for}') compared to the deployed "
+                        f"container in CDF ('{cdf_response.used_for}'). CDF does not support changing the usedFor of an existing container, so deploying the current "
+                        f"local YAML config will not apply this change to the container in CDF."
+                    ),
+                    fix=(
+                        f"Revert usedFor back to '{cdf_response.used_for}', or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
+                    ),
+                    source_file=source_path,
                 ),
-                fix=(
-                    f"Revert usedFor back to '{cdf_response.used_for}', or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
-                ),
-                source_files=[source_path],
+                keys=["usedFor"],
             )
 
     def _view_insights(
@@ -303,7 +334,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         source_path: AbsoluteFilePath,
         local_request: ViewRequest,
         cdf_response: ViewResponse,
-    ) -> Iterable[ConsistencyError]:
+    ) -> Iterable[Insight]:
         cdf_as_request = cdf_response.as_request_resource()
         local_properties = local_request.properties or {}
         cdf_properties = cdf_as_request.properties or {}
@@ -316,43 +347,52 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         )
         if changed:
             affected = humanize_collection([f"{name!r}" for name in sorted({*removed, *changed})])
-            yield ConsistencyError(
-                code=self.INVALID_OPERATION_CODE,
-                message=(
-                    f"Local config for view {view_id} has some properties {affected} that have been modified in a way CDF "
-                    f"does not support without a version bump. Deploying the current local YAML config will not apply "
-                    f"these changes to the view in CDF unless you update the view version."
+            yield with_position(
+                error_insight_type(ConsistencyError)(
+                    code=self.INVALID_OPERATION_CODE,
+                    message=(
+                        f"Local config for view {view_id} has some properties {affected} that have been modified in a way CDF "
+                        f"does not support without a version bump. Deploying the current local YAML config will not apply "
+                        f"these changes to the view in CDF unless you update the view version."
+                    ),
+                    fix=(
+                        f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
+                    ),
+                    source_file=source_path,
                 ),
-                fix=(
-                    f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
-                ),
-                source_files=[source_path],
+                keys=["properties"],
             )
         elif removed:
-            yield ConsistencyError(
-                code=self.INVALID_OPERATION_CODE,
-                message=(
-                    f"Local config for view {view_id} is missing properties "
-                    f"{humanize_collection([f'{name!r}' for name in removed])} that have previously been deployed to CDF for the "
-                    f"same view version. Deploying the current local YAML config will not remove them from the view in CDF unless you update the view version."
+            yield with_position(
+                warning_insight_type(ConsistencyError)(
+                    code=self.INVALID_OPERATION_CODE,
+                    message=(
+                        f"Local config for view {view_id} is missing properties "
+                        f"{humanize_collection([f'{name!r}' for name in removed])} that have previously been deployed to CDF for the "
+                        f"same view version. Deploying the current local YAML config will not remove them from the view in CDF unless you update the view version."
+                    ),
+                    fix=(
+                        f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
+                    ),
+                    source_file=source_path,
                 ),
-                fix=(
-                    f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
-                ),
-                source_files=[source_path],
+                keys=["properties"],
             )
         if (local_request.implements or []) != (cdf_as_request.implements or []):
             # implements can break clients relying on inherited properties, so it requires a version bump.
             # name, description and filter are metadata/query-only and can always change.
-            yield ConsistencyError(
-                code=self.INVALID_OPERATION_CODE,
-                message=(
-                    f"Local config for view {view_id} has changed implements compared to the view version already deployed to CDF"
+            yield with_position(
+                error_insight_type(ConsistencyError)(
+                    code=self.INVALID_OPERATION_CODE,
+                    message=(
+                        f"Local config for view {view_id} has changed implements compared to the view version already deployed to CDF"
+                    ),
+                    fix=(
+                        f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
+                    ),
+                    source_file=source_path,
                 ),
-                fix=(
-                    f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
-                ),
-                source_files=[source_path],
+                keys=["implements"],
             )
 
     def _data_model_insights(
@@ -361,7 +401,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         source_path: AbsoluteFilePath,
         local_request: DataModelRequest,
         cdf_response: DataModelResponse,
-    ) -> Iterable[ConsistencyError]:
+    ) -> Iterable[Insight]:
         local_views = set(local_request.views or [])
         cdf_views = set(cdf_response.views or [])
         local_version_by_view = {(view_id.space, view_id.external_id): view_id.version for view_id in local_views}
@@ -382,28 +422,34 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     for view_id, local_version in version_changed
                 ]
             )
-            yield ConsistencyError(
-                code=self.INVALID_OPERATION_CODE,
-                message=(
-                    f"Local config for data model {data_model_id} has changed the view version of {changes} compared to the existing deployed data model version in CDF. "
-                    "View version used by a data model can only be updated if you also update the data model version."
+            yield with_position(
+                error_insight_type(ConsistencyError)(
+                    code=self.INVALID_OPERATION_CODE,
+                    message=(
+                        f"Local config for data model {data_model_id} has changed the view version of {changes} compared to the existing deployed data model version in CDF. "
+                        "View version used by a data model can only be updated if you also update the data model version."
+                    ),
+                    fix=(
+                        f"Update the data model version to apply the change, or use 'cdf modules pull' to sync your local data model config with the deployed version. See {URL.dm_changes_docs}."
+                    ),
+                    source_file=source_path,
                 ),
-                fix=(
-                    f"Update the data model version to apply the change, or use 'cdf modules pull' to sync your local data model config with the deployed version. See {URL.dm_changes_docs}."
-                ),
-                source_files=[source_path],
+                keys=["views"],
             )
 
         if removed:
-            yield ConsistencyError(
-                code=self.INVALID_OPERATION_CODE,
-                message=(
-                    f"Local config for data model {data_model_id} is missing the view(s) "
-                    f"{humanize_collection([f'{view_id!s}' for view_id in removed])} compared to the existing deployed data model version in CDF. "
-                    f"Deploying the current local YAML config will not remove them from the data model in CDF unless you update the data model version."
+            yield with_position(
+                warning_insight_type(ConsistencyError)(
+                    code=self.INVALID_OPERATION_CODE,
+                    message=(
+                        f"Local config for data model {data_model_id} is missing the view(s) "
+                        f"{humanize_collection([f'{view_id!s}' for view_id in removed])} compared to the existing deployed data model version in CDF. "
+                        f"Deploying the current local YAML config will not remove them from the data model in CDF unless you update the data model version."
+                    ),
+                    fix=(
+                        f"Update the data model version to apply the change, or use 'cdf modules pull' to sync your local data model config with the deployed version. See {URL.dm_changes_docs}."
+                    ),
+                    source_file=source_path,
                 ),
-                fix=(
-                    f"Update the data model version to apply the change, or use 'cdf modules pull' to sync your local data model config with the deployed version. See {URL.dm_changes_docs}."
-                ),
-                source_files=[source_path],
+                keys=["views"],
             )

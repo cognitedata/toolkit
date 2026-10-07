@@ -566,10 +566,10 @@ class TestDisplayInsightsOutput:
         insights = InsightList(
             [
                 ModelSyntaxWarning(
-                    code="MODEL-SYNTAX-WARNING",
-                    message="Unknown field: 'Name'",
+                    code="UNRECOGNIZED-SYNTAX",
+                    message="Unrecognized field: 'Name'",
                     fix="Make sure the resource YAML content is valid and follows the expected structure.",
-                    source_files=[source_file],
+                    source_file=source_file,
                 )
             ]
         )
@@ -577,8 +577,30 @@ class TestDisplayInsightsOutput:
         BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
 
         rendered = output.getvalue()
-        assert "Model syntax warning in modules/my_module/data_modeling/my_space.Space.yaml" in rendered
-        assert "Unknown field: 'Name'" in rendered
+        assert "! Unrecognized syntax" in rendered
+        assert "╰─ modules/my_module/data_modeling/my_space.Space.yaml" in rendered
+        assert "Unrecognized field: 'Name'" in rendered
+
+    def test_groups_insights_with_same_message(self, tmp_path: Path) -> None:
+        console, output = self._console()
+        insights = InsightList(
+            [
+                ModelSyntaxWarning(
+                    code="UNRECOGNIZED-SYNTAX",
+                    message="Unrecognized field: 'Name'",
+                    source_file=tmp_path / f"modules/my_module/my_space_{no}.Space.yaml",
+                )
+                for no in range(5)
+            ]
+        )
+
+        BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
+
+        rendered = output.getvalue()
+        assert rendered.count("Unrecognized syntax") == 1
+        assert "Unrecognized syntax  (5)" in rendered
+        assert "+ 2 more files" in rendered
+        assert "more insights not shown" not in rendered
 
     def test_displays_regex_pattern_without_rich_markup_corruption(self, tmp_path: Path) -> None:
         console, output = self._console()
@@ -587,10 +609,10 @@ class TestDisplayInsightsOutput:
         insights = InsightList(
             [
                 ModelSyntaxWarning(
-                    code="MODEL-SYNTAX-WARNING",
+                    code="UNRECOGNIZED-SYNTAX",
                     message=f"In field externalId string should match pattern '{pattern}'",
                     fix="Make sure the resource YAML content is valid and follows the expected structure.",
-                    source_files=[yaml_file],
+                    source_file=yaml_file,
                 )
             ]
         )

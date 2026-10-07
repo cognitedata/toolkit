@@ -2,9 +2,15 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
+from pydantic import TypeAdapter, ValidationError
 
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
-from cognite_toolkit._cdf_tk.validation import as_json_path, validate_resource_yaml_pydantic
+from cognite_toolkit._cdf_tk.utils.file import read_yaml_content
+from cognite_toolkit._cdf_tk.validation import (
+    as_json_path,
+    humanize_validation_error_categorized,
+    validate_resource_yaml_pydantic,
+)
 from cognite_toolkit._cdf_tk.yaml_classes import GroupYAML, TimeSeriesYAML
 
 
@@ -19,7 +25,7 @@ def timeseries_yaml_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "my_timeseries", "type": "numeric"},
         [
-            "Unknown field: 'type'",
+            "Unrecognized field: 'type'",
         ],
         id="Unknown field type",
     )
@@ -106,6 +112,42 @@ class TestValidateResourceYAML:
         assert isinstance(format_warning, ResourceFormatWarning)
 
         assert set(format_warning.errors) == expected_errors
+
+
+class TestHumanizeValidationErrorLocations:
+    def test_messages_have_location_when_referring_to_one_field(self) -> None:
+        content = """- externalId: my_timeseries
+  nam: my_timeseries
+- name: my_timeseries_2
+  type: numeric
+"""
+        validation_type = TypeAdapter(list[TimeSeriesYAML])
+        with pytest.raises(ValidationError) as exc_info:
+            validation_type.validate_python(read_yaml_content(content), strict=True)
+
+        errors = humanize_validation_error_categorized(exc_info.value, validation_type)
+
+        assert [(item.message, item.category, item.loc) for item in errors] == [
+            ("Unrecognized field in item [1]: 'nam'. ", "warning", (0, "nam")),
+            ("Missing required field in item [2]: 'externalId'", "error", (1,)),
+            ("Unrecognized field in item [2]: 'type'. ", "warning", (1, "type")),
+        ]
+
+    def test_split_unrecognized_fields(self) -> None:
+        content = """- externalId: my_timeseries
+  nam: my_timeseries
+  typ: numeric
+"""
+        validation_type = TypeAdapter(list[TimeSeriesYAML])
+        with pytest.raises(ValidationError) as exc_info:
+            validation_type.validate_python(read_yaml_content(content), strict=True)
+
+        errors = humanize_validation_error_categorized(exc_info.value, validation_type, split_unrecognized_fields=True)
+
+        assert [(item.message, item.loc) for item in errors] == [
+            ("Unrecognized field in item [1]: 'nam'.", (0, "nam")),
+            ("Unrecognized field in item [1]: 'typ'.", (0, "typ")),
+        ]
 
 
 class TestAsJsonPath:

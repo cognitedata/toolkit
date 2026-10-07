@@ -1,3 +1,4 @@
+import re
 import tempfile
 from pathlib import Path
 from zipfile import ZipFile
@@ -5,10 +6,14 @@ from zipfile import ZipFile
 import pytest
 
 from cognite_toolkit._cdf_tk.utils.file import (
+    YamlPosition,
     create_logfile_stem,
     create_temporary_zip,
+    find_unique_match_position,
     read_yaml_content,
     sanitize_filename,
+    yaml_find_unique_position,
+    yaml_positions,
 )
 
 
@@ -109,3 +114,62 @@ normal_value: regular-string"""
         assert result["secret1"] == "!keyvault secret-name-1"
         assert result["secret2"] == "!keyvault secret-name-2"
         assert result["normal_value"] == "regular-string"
+
+
+class TestYamlPositions:
+    def test_mapping_and_list_locations(self) -> None:
+        yaml_content = """- dbName: first
+  tableName: wrong
+- dbName: second
+  nested:
+    key: value
+"""
+        assert yaml_positions(yaml_content) == {
+            (0,): YamlPosition(1, 3),
+            (0, "dbName"): YamlPosition(1, 3),
+            (0, "tableName"): YamlPosition(2, 3),
+            (1,): YamlPosition(3, 3),
+            (1, "dbName"): YamlPosition(3, 3),
+            (1, "nested"): YamlPosition(4, 3),
+            (1, "nested", "key"): YamlPosition(5, 5),
+        }
+
+    def test_empty_content(self) -> None:
+        assert yaml_positions("") == {}
+
+
+class TestYamlFindUniquePosition:
+    CONTENT = """- space: my_space
+  name: first
+- space: other
+  nested:
+    name: second
+"""
+
+    def test_finds_unique_value(self) -> None:
+        assert yaml_find_unique_position(self.CONTENT, "other") == YamlPosition(3, 10)
+
+    def test_ambiguous_key_at_same_depth_is_not_found(self) -> None:
+        assert yaml_find_unique_position(self.CONTENT, "space", as_key=True) is None
+
+    def test_key_at_multiple_depths_is_found_at_shallowest(self) -> None:
+        assert yaml_find_unique_position(self.CONTENT, "name", as_key=True) == YamlPosition(2, 3)
+
+    def test_unique_key_is_found(self) -> None:
+        assert yaml_find_unique_position(self.CONTENT, "nested", as_key=True) == YamlPosition(4, 3)
+
+    def test_invalid_yaml(self) -> None:
+        assert yaml_find_unique_position("a: [", "a") is None
+
+
+class TestFindUniqueMatchPosition:
+    CONTENT = "a: 1\nb:\n  c: {{ space }}\n  d: {{ other }}\n  e: {{ other }}\n"
+
+    def test_finds_unique_match(self) -> None:
+        assert find_unique_match_position(self.CONTENT, re.compile(r"\{\{ space \}\}")) == YamlPosition(3, 6)
+
+    def test_ambiguous_match_is_not_found(self) -> None:
+        assert find_unique_match_position(self.CONTENT, re.compile(r"\{\{ other \}\}")) is None
+
+    def test_no_match(self) -> None:
+        assert find_unique_match_position(self.CONTENT, re.compile(r"\{\{ missing \}\}")) is None

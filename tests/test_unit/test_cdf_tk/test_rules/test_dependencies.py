@@ -24,7 +24,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_propert
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
-    ConsistencyError,
+    BuildError,
+    BuildWarning,
+    InsightDefinition,
     InternalValidatorException,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
@@ -449,9 +451,37 @@ class TestDependencyRuleSetDataModelingChanges:
 
         insights = list(rule.validate())
         assert [insight.code for insight in insights] == expected_codes
-        assert all(isinstance(insight, ConsistencyError) for insight in insights)
+        assert all(isinstance(insight, InsightDefinition) for insight in insights)
         if expected_message_fragment is not None:
             assert expected_message_fragment in insights[0].message
+
+    @pytest.mark.parametrize(
+        "cdf_properties, cdf_used_for, expected_insight_type",
+        [
+            pytest.param(
+                {"name": _container_property(), "description": _container_property()},
+                "node",
+                BuildWarning,
+                id="property-missing-locally-is-warning",
+            ),
+            pytest.param({"name": _container_property()}, "edge", BuildError, id="used-for-change-is-error"),
+        ],
+    )
+    def test_validate_container_insight_type(
+        self,
+        tmp_path: Path,
+        cdf_properties: dict[str, ContainerPropertyDefinition],
+        cdf_used_for: Literal["node", "edge", "record", "all"],
+        expected_insight_type: type[InsightDefinition],
+    ) -> None:
+        yaml_file = tmp_path / "MyContainer.container.yaml"
+        yaml_file.write_text(CONTAINER_YAML)
+        client = _client_stub(container=[_cdf_container(cdf_properties, used_for=cdf_used_for)])
+        rule = DependencyRuleSet(modules=[_built_module(yaml_file, ContainerIO, CONTAINER_ID)], client=client)
+
+        insights = list(rule.validate())
+
+        assert [type(insight) for insight in insights] == [expected_insight_type]
 
     @pytest.mark.parametrize(
         "local_yaml, cdf_properties, cdf_description, cdf_implements, expected_codes, expected_message_fragment",

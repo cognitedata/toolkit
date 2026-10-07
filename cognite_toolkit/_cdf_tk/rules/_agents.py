@@ -6,10 +6,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.agent import ServicesAvaila
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
+    Insight,
     InternalValidatorException,
+    error_insight_type,
 )
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO, ResourceType
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet, with_position
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes.agent import AgentYAML
@@ -35,7 +37,7 @@ RUNTIME_CAPABILITY_REQUIREMENTS: tuple[RuntimeCapabilityRequirement, ...] = (
 
 class AgentRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "AGENT"
-    DISPLAY_NAME = "Agents checks"
+    DISPLAY_NAME = "Agents"
 
     def get_status(self) -> RuleSetStatus:
         if not self.client:
@@ -51,7 +53,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
             message="Will validate Atlas AI agent configuration.",
         )
 
-    def validate(self) -> Iterable[ConsistencyError | InternalValidatorException]:
+    def validate(self) -> Iterable[Insight | InternalValidatorException]:
         agent_type = ResourceType(resource_folder=AgentIO.folder_name, kind=AgentIO.kind)
         for module in self.modules:
             for resource in module.resources:
@@ -67,14 +69,14 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                             source=str(resource.identifier),
                         )
 
-    def _validate_agent(self, resource: BuiltResource) -> Iterable[ConsistencyError]:
+    def _validate_agent(self, resource: BuiltResource) -> Iterable[Insight]:
         """Validate an agent definition against the CDF project's AI service availability.
 
         Args:
             resource: The built agent resource to validate.
 
         Yields:
-            ConsistencyError for any violations found.
+            Errors for any violations found.
         """
         raw_data = read_yaml_file(resource.build_path, expected_output="dict")
         agent_def = AgentYAML.model_validate(raw_data)
@@ -86,14 +88,17 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
         supported_models = availability.supported_agent_models
         if agent_def.model is not None and supported_models is not None and agent_def.model not in supported_models:
             quoted_models = humanize_collection([f"{model!r}" for model in supported_models])
-            yield ConsistencyError(
-                message=(
-                    f"Agent '{agent_def.external_id}' model {agent_def.model!r} is not available in this "
-                    f"CDF project. Available models: {quoted_models}."
+            yield with_position(
+                error_insight_type(ConsistencyError)(
+                    message=(
+                        f"Agent '{agent_def.external_id}' model {agent_def.model!r} is not available in this "
+                        f"CDF project. Available models: {quoted_models}."
+                    ),
+                    code=f"{self.CODE_PREFIX}-MODEL",
+                    fix="Use one of the available models for this CDF project.",
+                    source_file=resource.source_path,
                 ),
-                code=f"{self.CODE_PREFIX}-MODEL",
-                fix="Use one of the available models for this CDF project.",
-                source_files=[resource.source_path],
+                keys=["model"],
             )
 
         if agent_def.runtime_version:
@@ -102,15 +107,18 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                 quoted_runtime_versions = humanize_collection(
                     [f"{runtime_version!r}" for runtime_version in supported_runtime_versions]
                 )
-                yield ConsistencyError(
-                    message=(
-                        f"Agent '{agent_def.external_id}' runtime version {agent_def.runtime_version!r} is not "
-                        f"available in this CDF project. "
-                        f"Available runtime versions: {quoted_runtime_versions}."
+                yield with_position(
+                    error_insight_type(ConsistencyError)(
+                        message=(
+                            f"Agent '{agent_def.external_id}' runtime version {agent_def.runtime_version!r} is not "
+                            f"available in this CDF project. "
+                            f"Available runtime versions: {quoted_runtime_versions}."
+                        ),
+                        code=f"{self.CODE_PREFIX}-UNKNOWN-RUNTIME",
+                        fix="Use one of the available runtime versions for this CDF project.",
+                        source_file=resource.source_path,
                     ),
-                    code=f"{self.CODE_PREFIX}-UNKNOWN-RUNTIME",
-                    fix="Use one of the available runtime versions for this CDF project.",
-                    source_files=[resource.source_path],
+                    keys=["runtimeVersion"],
                 )
 
         # If no runtime version is set, the agent runs on the project's default, so capabilities
@@ -124,29 +132,35 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                     effective_runtime_version, requirement.capability
                 )
                 if has_capability is False:
-                    yield ConsistencyError(
-                        message=(
-                            f"Agent '{agent_def.external_id}' runtime version {effective_runtime_version!r} "
-                            f"does not support the '{requirement.field_name}' field."
+                    yield with_position(
+                        error_insight_type(ConsistencyError)(
+                            message=(
+                                f"Agent '{agent_def.external_id}' runtime version {effective_runtime_version!r} "
+                                f"does not support the '{requirement.field_name}' field."
+                            ),
+                            code=f"{self.CODE_PREFIX}-RUNTIME-UNSUPPORTED-CAPABILITY",
+                            fix=(
+                                f"Use a runtime version that supports '{requirement.field_name}', "
+                                f"or remove the '{requirement.field_name}' field."
+                            ),
+                            source_file=resource.source_path,
                         ),
-                        code=f"{self.CODE_PREFIX}-RUNTIME-UNSUPPORTED-CAPABILITY",
-                        fix=(
-                            f"Use a runtime version that supports '{requirement.field_name}', "
-                            f"or remove the '{requirement.field_name}' field."
-                        ),
-                        source_files=[resource.source_path],
+                        keys=[requirement.field_name],
                     )
 
         max_tools = availability.max_tools_per_agent
         if agent_def.tools is not None and max_tools is not None and len(agent_def.tools) > max_tools:
-            yield ConsistencyError(
-                message=(
-                    f"Agent '{agent_def.external_id}' has {len(agent_def.tools)} tools, "
-                    f"which exceeds the maximum of {max_tools} tools per agent for this CDF project."
+            yield with_position(
+                error_insight_type(ConsistencyError)(
+                    message=(
+                        f"Agent '{agent_def.external_id}' has {len(agent_def.tools)} tools, "
+                        f"which exceeds the maximum of {max_tools} tools per agent for this CDF project."
+                    ),
+                    code=f"{self.CODE_PREFIX}-TOOLS-LIMIT",
+                    fix=f"Reduce the number of tools to at most {max_tools}.",
+                    source_file=resource.source_path,
                 ),
-                code=f"{self.CODE_PREFIX}-TOOLS-LIMIT",
-                fix=f"Reduce the number of tools to at most {max_tools}.",
-                source_files=[resource.source_path],
+                keys=["tools"],
             )
 
     @cached_property

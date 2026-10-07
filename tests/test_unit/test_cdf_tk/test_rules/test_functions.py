@@ -7,7 +7,7 @@ import yaml
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits, ResourceLimit
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, ResourceType
@@ -91,7 +91,7 @@ class TestFunctionLimitsRule:
         rule = self._create_rule_with_client(function_limits)
         errors = list(rule._validate_function(resource))
         assert len(errors) == 1
-        assert isinstance(errors[0], ConsistencyError)
+        assert isinstance(errors[0], BuildError)
         assert "CPU cores" in errors[0].message
         assert "3.0" in errors[0].message
 

@@ -756,7 +756,7 @@ def _space_lineage_with_insights(
             ConsistencyError(
                 message="Space is fine this is a test",
                 code="NOT-REAL",
-                source_files=[source_file],
+                source_file=source_file,
                 fix="Cannot be fixed as it is not an issue",
             )
         ]

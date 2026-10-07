@@ -4,10 +4,13 @@ import io
 import pytest
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
+    BuildError,
+    BuildWarning,
     ConsistencyError,
     InsightList,
     Recommendation,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ParseFileError
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 
 
@@ -19,13 +22,13 @@ def some_insights(valid_yaml_absolute_path) -> InsightList:
                 message="summary line\nnext line",
                 code="ERR-1",
                 fix="do this\r\nthen that",
-                source_files=[valid_yaml_absolute_path],
+                source_file=valid_yaml_absolute_path,
             ),
             Recommendation(
                 message='text with "quotes" and, commas',
                 code="REC-2",
                 fix="single",
-                source_files=[valid_yaml_absolute_path],
+                source_file=valid_yaml_absolute_path,
             ),
         ]
     )
@@ -44,6 +47,44 @@ class TestInsightList:
 
         assert some_insights.dump() == loaded.dump()
 
+    def test_build_error_and_warning_roundtrip(self, valid_yaml_absolute_path) -> None:
+        insights = InsightList(
+            [
+                BuildError(message="error", code="ERR-1", fix="fix", source_file=valid_yaml_absolute_path),
+                BuildWarning(message="warning", code="WARN-1", fix="fix", source_file=valid_yaml_absolute_path),
+            ]
+        )
+        organization_dir = valid_yaml_absolute_path.parent.parent
+
+        assert InsightList.from_csv(insights.to_csv(), organization_dir).dump() == insights.dump()
+        assert InsightList.from_json(insights.to_json(), organization_dir).dump() == insights.dump()
+
+    def test_heading(self, valid_yaml_absolute_path) -> None:
+        subclass_insight = ParseFileError(message="m", code="YAML-PARSE-ERROR", source_file=valid_yaml_absolute_path)
+        plain_insight = BuildError(message="m", code="SOME-CODE", source_file=valid_yaml_absolute_path)
+
+        assert subclass_insight.heading == "Failed to parse file"
+        assert subclass_insight.insight_type == "Error"
+        assert plain_insight.heading == "Some code"
+
+    def test_display_location_includes_position(self, valid_yaml_absolute_path) -> None:
+        insight = ParseFileError(message="m", code="SOME-CODE", source_file=valid_yaml_absolute_path, line=3, column=6)
+
+        assert insight.display_location == f"{insight.display_source_file_cwd}:3:6"
+
+    def test_position_round_trips_through_csv(self, valid_yaml_absolute_path) -> None:
+        insights = InsightList(
+            [
+                BuildError(message="m", code="A", source_file=valid_yaml_absolute_path, line=3, column=6),
+                BuildError(message="m", code="B", source_file=valid_yaml_absolute_path),
+            ]
+        )
+        organization_dir = valid_yaml_absolute_path.parent.parent
+
+        loaded = InsightList.from_csv(insights.to_csv(), organization_dir)
+
+        assert [(insight.line, insight.column) for insight in loaded] == [(3, 6), (None, None)]
+
     def test_insight_list_to_csv_preserves_multiline_message_and_fix(
         self, some_insights: InsightList, valid_yaml_absolute_path
     ) -> None:
@@ -56,7 +97,9 @@ class TestInsightList:
                 "alpha": "False",
                 "insight_type": "ConsistencyError",
                 "code": "ERR-1",
-                "source_files": format_insight_source_file(valid_yaml_absolute_path),
+                "source_file": format_insight_source_file(valid_yaml_absolute_path),
+                "line": "",
+                "column": "",
                 "message": "summary line\nnext line",
                 "fix": "do this\nthen that",
             },
@@ -64,7 +107,9 @@ class TestInsightList:
                 "alpha": "False",
                 "insight_type": "Recommendation",
                 "code": "REC-2",
-                "source_files": format_insight_source_file(valid_yaml_absolute_path),
+                "source_file": format_insight_source_file(valid_yaml_absolute_path),
+                "line": "",
+                "column": "",
                 "message": 'text with "quotes" and, commas',
                 "fix": "single",
             },

@@ -41,6 +41,10 @@ from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParse
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ModuleDirectory
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    BUILD_ERROR_TYPE,
+    BUILD_WARNING_TYPE,
+    BuildError,
+    BuildWarning,
     ConsistencyError,
     FileReadError,
     IgnoredFileWarning,
@@ -94,6 +98,8 @@ _INSIGHT_STYLE: dict[str, tuple[str, str]] = {
     ModelSyntaxError.__name__: ("red", "✗"),
     IgnoredFileWarning.__name__: ("yellow", "○"),
     ModelSyntaxWarning.__name__: ("yellow", "!"),
+    BUILD_ERROR_TYPE: ("red", "✗"),
+    BUILD_WARNING_TYPE: ("yellow", "!"),
     Recommendation.__name__: ("green", "*"),
 }
 _INSIGHT_SEVERITY: dict[str, int] = {
@@ -102,6 +108,8 @@ _INSIGHT_SEVERITY: dict[str, int] = {
     ModelSyntaxError.__name__: ModelSyntaxError.severity,
     IgnoredFileWarning.__name__: IgnoredFileWarning.severity,
     ModelSyntaxWarning.__name__: ModelSyntaxWarning.severity,
+    BUILD_ERROR_TYPE: BuildError.severity,
+    BUILD_WARNING_TYPE: BuildWarning.severity,
     Recommendation.__name__: Recommendation.severity,
 }
 _INSIGHT_ORDER: tuple[str, ...] = tuple(

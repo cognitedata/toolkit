@@ -1,9 +1,7 @@
 from collections.abc import Iterable
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
-from cognite_toolkit._cdf_tk.rules._base import ToolkitLocalRule
-
-BASE_CODE = "AUTH"
+from cognite_toolkit._cdf_tk.rules._base import ToolkitLocalRule, quote_identifier
 
 
 class CheckDataSetMissing(ToolkitLocalRule):
@@ -34,7 +32,7 @@ class CheckDataSetMissing(ToolkitLocalRule):
     ```
     """
 
-    CODE = f"{BASE_CODE}-001"
+    CODE = "UNGOVERNED-RESOURCE"
     insight_type = Recommendation
 
     def validate(self) -> Iterable[Recommendation]:
@@ -47,17 +45,16 @@ class CheckDataSetMissing(ToolkitLocalRule):
             supports_space = "space" in type(resource).model_fields
             space = getattr(resource, "space", None) if supports_space else None
             if data_set_external_id is None and space is None:
+                kind = source_file.resource_type.kind
                 if supports_space:
-                    message = (
-                        f"Missing data set external ID or space for {resource.as_id()!s} {source_file.resource_type!s}"
-                    )
-                    fix = f"Add a dataset or space association to the {source_file.resource_type!s}."
+                    message = f"{kind} {quote_identifier(resource.as_id())} is not assigned to a data set or space."
+                    fix = f"Set 'dataSetExternalId' or 'space' on the {kind}."
                 else:
-                    message = f"Missing data set external ID for {resource.as_id()!s} {source_file.resource_type!s}"
-                    fix = f"Add a dataset association to the {source_file.resource_type!s}."
+                    message = f"{kind} {quote_identifier(resource.as_id())} is not assigned to a data set."
+                    fix = f"Set 'dataSetExternalId' on the {kind}."
                 yield Recommendation(
                     message=message,
                     code=self.CODE,
                     fix=fix,
-                    source_files=[source_file.source_path],
+                    source_file=source_file.source_path,
                 )

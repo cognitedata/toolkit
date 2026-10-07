@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.resource_ios import ResourceTypes
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceType
 from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResource
 
-from ._insights import ModelSyntaxError, ModelSyntaxWarning
+from ._insights import BuildError, BuildWarning, ModelSyntaxError, ModelSyntaxWarning
 from ._types import AbsoluteFilePath, RelativeDirPath, RelativeFilePath
 
 if sys.version_info >= (3, 11):
@@ -144,7 +144,7 @@ class BuildVariable(BaseModel):
 
 
 class InvalidBuildVariable(BuildVariable):
-    error: ModelSyntaxError
+    error: ModelSyntaxError | BuildError
 
 
 class ModuleId(Identifier):
@@ -346,8 +346,8 @@ class SuccessfulReadYAMLFile(ReadYAMLFile):
     resource_type: ResourceType
     source_type: ResourceType
     resources: list[ReadResource[ToolkitResource]]
-    syntax_error: ModelSyntaxError | None = None
-    syntax_warnings: list[ModelSyntaxWarning] = Field(default_factory=list)
+    syntax_error: ModelSyntaxError | BuildError | None = None
+    syntax_warnings: list[ModelSyntaxWarning | BuildWarning] = Field(default_factory=list)
     line_count: int
     rules_ignore: set[str] = Field(default_factory=set, description="The set of rules to ignore for this file. ")
 
