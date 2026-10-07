@@ -991,7 +991,7 @@ class PurgeCommand(ToolkitCommand):
             if isinstance(scope, AllScope):
                 return None
             elif isinstance(scope, DataSetScope):
-                ids_by_scope["dataset"] = client.lookup.data_sets.external_id(scope.ids)
+                ids_by_scope.setdefault("dataset", []).extend(client.lookup.data_sets.external_id(scope.ids))
             else:
                 raise RuntimeError("Bug in Toolkit: unexpected scope type returned from check_available_scopes")
         scope_str = humanize_collection(
