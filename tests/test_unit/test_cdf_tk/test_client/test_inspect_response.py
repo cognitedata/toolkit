@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 import pytest
 
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
@@ -102,6 +104,30 @@ class TestProjectCapability:
         actual = project.verify(required_acls)
 
         assert actual == expected_missing
+
+    @pytest.mark.parametrize(
+        "capabilities, acl_cls, actions, expected_scopes",
+        [
+            pytest.param(
+                {(AssetsAcl, "assetsAcl", "READ"): [AllScope()]},
+                AssetsAcl,
+                ["READ"],
+                [AllScope()],
+                id="Exact match on ACL type and action with AllScope",
+            ),
+        ],
+    )
+    def test_get_available_scopes(
+        self,
+        capabilities: dict[tuple[type[Acl], AclName, AclAction], list[Scope]],
+        acl_cls: type[Acl],
+        actions: Sequence[str],
+        expected_scopes: list[Scope],
+    ) -> None:
+        project = FlatCapabilities(capabilities=capabilities, name="MyProject", groups=[37])
+        available_scopes = project.get_available_scopes(acl_cls, actions)
+
+        assert available_scopes == expected_scopes
 
     @pytest.mark.parametrize(
         "token, expected_capabilities",
