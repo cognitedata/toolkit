@@ -46,7 +46,7 @@ def simulator(toolkit_client: ToolkitClient) -> str:
     if (
         isinstance(list_response, FailedResponse)
         and list_response.status_code == 404
-        and config.cdf_cluster == "orangefield"
+        and config.attempt_to_get_cdf_cluster() == "orangefield"
     ):
         pytest.skip("Simulators do not work on orangefield.")
     if simulator_external_id := _parse_simulator_response(list_response):

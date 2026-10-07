@@ -23,7 +23,7 @@ def _simulator_on_orangefield(exc: ToolkitAPIError, config: ToolkitClientConfig)
         exc.code == 404
         and exc.request
         and "simulator" in exc.request.endpoint_url
-        and config.cdf_cluster == "orangefield"
+        and config.attempt_to_get_cdf_cluster() == "orangefield"
     ):
         return True
     return False
@@ -49,7 +49,9 @@ class TestResourceCRUD:
         classes = _resource_io_generic_args(resource_io_cls)
         assert classes, f"{resource_io_cls} does not have ResourceIO generic parameters"
         assert len(classes) == 4, f"{resource_io_cls} should have 4 generic parameters, but has {len(classes)}"
-        identifier_cls: type[Identifier] = classes[0]
+        identifier_cls = classes[0]
+        if not (isinstance(identifier_cls, type) and issubclass(identifier_cls, Identifier)):
+            raise AssertionError(f"{resource_io_cls} identifier parameter is not an Identifier")
 
         non_existing_id = FakeCogniteResourceGenerator(
             seed=37, sample_from_string=string.ascii_letters, min_string_length=3, max_string_length=20
