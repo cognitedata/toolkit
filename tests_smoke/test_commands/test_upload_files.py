@@ -258,10 +258,14 @@ def _write_payload(path: Path) -> None:
 
 def _upload_dir(upload_dir: Path, project: str) -> None:
     try:
+        # Without v09, upload_dir ignores cdf_project and prompts for the project name.
+        # That prompt needs a real console, so it crashes under the IDE test runner.
+        # v09 is read from the cdf.toml in the process cwd; skip the prompt either way.
         UploadApp.upload_dir(
             typer.Context(click.Command("upload_dir")),
             input_dir=upload_dir,
             cdf_project=project,
+            skip_verify_cdf_project=True,
             overwrite=True,
             verbose=True,
         )

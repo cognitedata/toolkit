@@ -173,14 +173,18 @@ def _download_file_content(
         lambda self: selected,
     )
     try:
+        # data_sets must be a list. None starts interactive dataset selection and, when the
+        # extend-download/v09 flags are off, discards include_file_contents. Those flags come
+        # from the cdf.toml in the process cwd, so an IDE run from another directory never
+        # reaches the file-content download. The list is unused once file contents are included.
         with MockQuestionary(
             DownloadApp.__module__,
             monkeypatch,
-            [True, AssetCentricFormats.csv, str(output_dir)],
+            [AssetCentricFormats.csv, str(output_dir)],
         ):
             DownloadApp().download_files_cmd(
                 typer.Context(click.Command("download_files")),
-                data_sets=None,
+                data_sets=[],
                 include_file_contents=True,
                 output_dir=output_dir,
                 limit=_DOWNLOAD_LIMIT,
