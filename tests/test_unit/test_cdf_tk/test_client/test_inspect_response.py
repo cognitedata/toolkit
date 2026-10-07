@@ -115,6 +115,26 @@ class TestProjectCapability:
                 [AllScope()],
                 id="Exact match on ACL type and action with AllScope",
             ),
+            pytest.param(
+                {
+                    (AssetsAcl, "assetsAcl", "READ"): [DataSetScope(ids=[37, 42])],
+                    (AssetsAcl, "assetsAcl", "WRITE"): [DataSetScope(ids=[37])],
+                },
+                AssetsAcl,
+                ["READ", "WRITE"],
+                [DataSetScope(ids=[37])],
+                id="Intersection of scopes for multiple actions of the same ACL type",
+            ),
+            pytest.param(
+                {
+                    (TimeSeriesAcl, "timeSeriesAcl", "READ"): [DataSetScope(ids=[37, 42]), IDScopeLowerCase(ids=[37])],
+                    (TimeSeriesAcl, "timeSeriesAclWRITE"): [DataSetScope(ids=[37])],
+                },
+                TimeSeriesAcl,
+                ["READ", "WRITE"],
+                [DataSetScope(ids=[37])],
+                id="Intersection of scopes for multiple actions of the same ACL type with different scope types",
+            ),
         ],
     )
     def test_get_available_scopes(
