@@ -1,5 +1,7 @@
 from contextlib import suppress
+from pathlib import Path
 from time import sleep
+from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
@@ -89,7 +91,7 @@ def edge_container(cognite_client: CogniteClient, integration_space: dm.Space) -
     return cognite_client.data_modeling.containers.apply(container)
 
 
-class TestContainerLoader:
+class TestContainerIO:
     # The DMS service is fairly unstable, so we need to rerun the tests if they fail.
     @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError", "ToolkitAPIError"])
     def test_populate_count_drop_data_node_container(
@@ -181,6 +183,43 @@ class TestContainerLoader:
             assert updated[0].description == write_container.description
         finally:
             toolkit_client.data_modeling.instances.delete(nodes=nodes.as_ids(), edges=edge.as_id())
+
+    def test_unchanged_container_not_redeployed(
+        self, integration_space: dm.Space, toolkit_client: ToolkitClient
+    ) -> None:
+        local_yaml_content = f"""
+        space: {integration_space.space}
+        externalId: test_unchanged_container_not_redeployed
+        name: test_unchanged_container_not_redeployed
+        usedFor: node
+        properties:
+          name:
+            type:
+              type: text
+        indexes:
+          nameIndex:
+            indexType: btree
+            properties:
+              - name
+        """
+        local_yaml = MagicMock(spec=Path)
+        local_yaml.read_text.return_value = local_yaml_content
+        io = ContainerIO(toolkit_client)
+        raw_data = io.load_resource_file(local_yaml)[0]
+        container = io.load_resource(raw_data)
+
+        try:
+            # Create the container
+            created = io.create([container])
+            assert len(created) == 1
+
+            retrieved = io.retrieve([container.as_id()])
+            assert len(retrieved) == 1
+
+            assert raw_data == io.dump_resource(retrieved[0], raw_data)
+        finally:
+            # Clean up by deleting the container
+            io.delete([container.as_id()])
 
 
 class Test3DModelLoader:
