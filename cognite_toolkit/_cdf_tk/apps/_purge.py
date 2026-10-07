@@ -6,6 +6,7 @@ from typing import Annotated, Any
 import questionary
 import typer
 
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, DataModelsAcl
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.dataio.selectors import (
@@ -22,7 +23,6 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     DataModelingSelect,
     ViewSelectFilter,
 )
-from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._helpers import print_help_if_no_subcommand
 
@@ -368,8 +368,8 @@ class PurgeApp(typer.Typer):
 
         # TEMPORARY: The GET /models/statistics endpoint requires datamodelsAcl:read with All scope.
         # This check will be removed once DMS limits are available through the limits service.
-        validator = ValidateAccess(client, default_operation="purge")
-        if validator.data_model(["read"]) is not None:
+        available_scopes = client.tool.token.check_available_scopes(DataModelsAcl, ["READ"])
+        if not any(isinstance(scope, AllScope) for scope in available_scopes):
             raise AuthorizationError("Purging instances currently requires datamodelsAcl:read with All scope.")
 
         is_interactive = view is None and instance_list is None
