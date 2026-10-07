@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
+from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
@@ -21,7 +22,8 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
             "keyValue": "secret",
         },
         {
-            "Invalid hosted extractor source type='invalid'. Expected one of eventhub, kafka, mqtt3, mqtt5 or rest",
+            "Input tag 'invalid' found using 'type' does not match any of the expected tags: "
+            "'eventhub', 'rest', 'mqtt3', 'mqtt5', 'kafka'",
         },
         id="Invalid source type",
     )
@@ -167,7 +169,8 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
             },
         },
         {
-            "Invalid value for authentication: Invalid authentication type 'scramSha256' for REST source. Expected one of basic, clientCredentials, header or query"
+            "Invalid value for authentication: Input tag 'scramSha256' found using 'type' does not match any of "
+            "the expected tags: 'basic', 'clientCredentials', 'query', 'header'"
         },
         id="RESTSource with invalid auth type",
     )
@@ -231,7 +234,8 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
             },
         },
         {
-            "Invalid value for authentication: Invalid authentication type 'query' for Kafka source. Expected one of basic, clientCredentials, scramSha256 or scramSha512"
+            "Invalid value for authentication: Input tag 'query' found using 'type' does not match any of "
+            "the expected tags: 'basic', 'clientCredentials', 'scramSha256', 'scramSha512'"
         },
         id="KafkaSource QueryCredentials invalid type for Kafka",
     )
@@ -240,7 +244,7 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
 class TestHostedExtractorSourceYAML:
     @pytest.mark.parametrize("data", list(find_resources("Source", resource_dir="hosted_extractors")))
     def test_load_valid_hosted_extractor_source(self, data: dict[str, object]) -> None:
-        loaded = HostedExtractorSourceYAML.model_validate(data)
+        loaded = TypeAdapter(HostedExtractorSourceYAML).validate_python(data)
 
         assert loaded.model_dump(exclude_unset=True, by_alias=True, mode="json") == data
 
