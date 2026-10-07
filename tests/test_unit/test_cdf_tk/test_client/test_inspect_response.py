@@ -188,6 +188,38 @@ class TestProjectCapability:
                 ),
                 id="Multiple ACLs of the same type with different scopes should be included in the capabilities with their respective scopes intact",
             ),
+            pytest.param(
+                InspectResponse(
+                    subject="test",
+                    projects=[InspectProjectInfo(project_url_name="test_project", groups=[])],
+                    project="test_project",
+                    capabilities=[
+                        InspectCapability(
+                            acl=TimeSeriesAcl(
+                                actions=["READ"],
+                                scope=DataSetScope(ids=[1]),
+                            ),
+                            project_scope=AllProjects(all_projects={}),
+                        ),
+                        InspectCapability(
+                            acl=TimeSeriesAcl(actions=["READ"], scope=IDScopeLowerCase(ids=[2, 3])),
+                            project_scope=AllProjects(all_projects={}),
+                        ),
+                        InspectCapability(
+                            acl=TimeSeriesAcl(actions=["READ"], scope=AllScope()),
+                            project_scope=AllProjects(all_projects={}),
+                        ),
+                    ],
+                ),
+                FlatCapabilities(
+                    {
+                        (TimeSeriesAcl, "timeSeriesAcl", "READ"): [AllScope()],
+                    },
+                    name="test_project",
+                    groups=[],
+                ),
+                id=" If any ACL of a given type and action has AllScope, the resulting capabilities should only include AllScope for that type and action",
+            ),
         ],
     )
     def test_to_project_capabilities(self, token: InspectResponse, expected_capabilities: FlatCapabilities) -> None:
