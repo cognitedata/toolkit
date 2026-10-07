@@ -98,7 +98,7 @@ class TestAgentRuleSet:
     @pytest.mark.parametrize(
         "model, with_client, expected_codes",
         [
-            pytest.param("gcp/claude-5-opus", True, ["AGENT-UNKNOWN-MODEL"], id="unknown-model"),
+            pytest.param("gcp/claude-5-opus", True, ["AGENT-INVALID-MODEL"], id="unknown-model"),
             pytest.param("azure/gpt-4.1", True, [], id="known-model"),
             pytest.param(None, True, [], id="unset-model-is-allowed"),
             pytest.param("some-brand-new-model", False, [], id="no-client-allows-any-model"),
@@ -148,7 +148,7 @@ class TestAgentRuleSet:
         "runtime_version, extra_fields, with_client, expected_codes",
         [
             pytest.param("1.0.0", {}, True, [], id="known-runtime-version-no-gated-fields"),
-            pytest.param("9.9.9", {}, True, ["AGENT-UNKNOWN-RUNTIME"], id="unknown-runtime-version"),
+            pytest.param("9.9.9", {}, True, ["AGENT-INVALID-RUNTIME"], id="unknown-runtime-version"),
             pytest.param("9.9.9", {}, False, [], id="no-client-allows-any-runtime-version"),
             pytest.param(
                 "1.0.0",

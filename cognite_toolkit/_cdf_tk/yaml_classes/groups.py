@@ -36,8 +36,9 @@ class BaseGroupYAML(ToolkitResource):
 
         return [
             warning_insight_type(ModelSyntaxWarning)(
-                code="UNRECOGNIZED-SYNTAX",
-                message=f"Unknown capability name '{cap.original_name}'. "
+                code="UNRECOGNIZED-VALUE",
+                title="Unrecognized value",
+                message=f"'{cap.original_name}' is not a known capability name. "
                 "It will be deployed as-is, but may be rejected by CDF.",
                 source_file=source_file,
                 fix="Compare the YAML with reference documentation. The resource will still be deployed.",

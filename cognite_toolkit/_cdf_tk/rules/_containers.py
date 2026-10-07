@@ -56,6 +56,7 @@ class DeployableContainer(ToolkitLocalRule):
     """
 
     CODE = "CONTAINER-NON-NULLABLE-DIRECT-RELATION"
+    TITLE = "Non-nullable direct relation"
     insight_type = ConsistencyError
 
     def validate(self) -> Iterable[Insight]:
@@ -76,6 +77,7 @@ class DeployableContainer(ToolkitLocalRule):
                     error_insight_type(ConsistencyError)(
                         message=message,
                         code=self.CODE,
+                        title=self.TITLE,
                         fix=fix,
                         source_file=source_file.source_path,
                         alpha=True,

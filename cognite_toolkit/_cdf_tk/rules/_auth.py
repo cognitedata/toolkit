@@ -33,6 +33,7 @@ class CheckDataSetMissing(ToolkitLocalRule):
     """
 
     CODE = "UNGOVERNED-RESOURCE"
+    TITLE = "Ungoverned resource"
     insight_type = Recommendation
 
     def validate(self) -> Iterable[Recommendation]:
@@ -55,6 +56,7 @@ class CheckDataSetMissing(ToolkitLocalRule):
                 yield Recommendation(
                     message=message,
                     code=self.CODE,
+                    title=self.TITLE,
                     fix=fix,
                     source_file=source_file.source_path,
                 )

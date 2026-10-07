@@ -133,7 +133,7 @@ class TestHumanizeValidationErrorLocations:
             ("Unrecognized field in item [2]: 'type'. ", "warning", (1, "type")),
         ]
 
-    def test_split_unrecognized_fields(self) -> None:
+    def test_for_insights(self) -> None:
         content = """- externalId: my_timeseries
   nam: my_timeseries
   typ: numeric
@@ -142,11 +142,11 @@ class TestHumanizeValidationErrorLocations:
         with pytest.raises(ValidationError) as exc_info:
             validation_type.validate_python(read_yaml_content(content), strict=True)
 
-        errors = humanize_validation_error_categorized(exc_info.value, validation_type, split_unrecognized_fields=True)
+        errors = humanize_validation_error_categorized(exc_info.value, validation_type, for_insights=True)
 
         assert [(item.message, item.loc) for item in errors] == [
-            ("Unrecognized field in item [1]: 'nam'.", (0, "nam")),
-            ("Unrecognized field in item [1]: 'typ'.", (0, "typ")),
+            ("'nam' in 'item [1]' is not a known field for this resource", (0, "nam")),
+            ("'typ' in 'item [1]' is not a known field for this resource", (0, "typ")),
         ]
 
 

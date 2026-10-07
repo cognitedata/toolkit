@@ -50,7 +50,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BUILD_WARNING_TYPE,
     BuildError,
     BuildWarning,
-    FileSyntaxError,
     Insight,
     InternalValidatorException,
     ModelSyntaxError,
@@ -121,7 +120,7 @@ class ValidationStep:
 SelectionSource = Literal["cli-arg", "config", "interactive"]
 
 # Precompiled once at import time so it isn't recompiled/looked up per file when
-# scanning 100s of resource files. Matches e.g. "# rules: ignore[UNGOVERNED-RESOURCE, UNKNOWN-REFERENCE]".
+# scanning 100s of resource files. Matches e.g. "# rules: ignore[UNGOVERNED-RESOURCE, INVALID-REFERENCE]".
 _IGNORE_RULE_PATTERN = re.compile(r"#\s*rules?\s*:\s*ignore\s*\[([^\]]*)\]")
 
 
@@ -923,7 +922,8 @@ class BuildV2Command(ToolkitCommand):
             return (
                 IgnoredFile(
                     filepath=resource_file,
-                    code="MISSING-SUFFIX",
+                    code="MISSING-FILE-SUFFIX",
+                    title="Missing file suffix",
                     reason=f"Resource file {resource_file.name!r} is ignored because it does not have a suffix to indicate the resource type.",
                     fix=f"Rename it with the resource type: {resource_file.stem}.<ResourceType>{resource_file.suffix}.",
                 ),
@@ -938,6 +938,7 @@ class BuildV2Command(ToolkitCommand):
                 FailedReadYAMLFile(
                     source_path=resource_file,
                     code="INVALID-RESOURCE-TYPE",
+                    title="Invalid resource type",
                     error=f"Resource file {resource_file.name!r} has unknown resource type '{resource_type}' for folder '{resource_folder}'",
                 ),
                 None,
@@ -958,7 +959,10 @@ class BuildV2Command(ToolkitCommand):
             content = crud_class.safe_read(resource_file)
         except Exception as read_error:
             return FailedReadYAMLFile(
-                source_path=resource_file, error=f"Failed to read resource file: {read_error!s}", code="READ-ERROR"
+                source_path=resource_file,
+                error=f"Failed to read resource file: {read_error!s}",
+                code="UNREADABLE-FILE",
+                title="Unreadable file",
             )
         # Ignore rules in file?
         rules_ignore = self._get_ignore_rule_codes(content)
@@ -978,6 +982,7 @@ class BuildV2Command(ToolkitCommand):
             return FailedReadYAMLFile(
                 source_path=resource_file,
                 code="EMPTY-FILE",
+                title="Empty file",
                 error="The YAML file is empty. Please add content to the file or remove it if it is not needed.",
                 unresolved_variables=unresolved_variables,
             )
@@ -1015,7 +1020,8 @@ class BuildV2Command(ToolkitCommand):
         except yaml.YAMLError as yaml_error:
             return FailedReadYAMLFile(
                 source_path=resource_file,
-                code="YAML-PARSE-ERROR",
+                code="INVALID-YAML",
+                title="Invalid YAML",
                 error=f"Failed to parse YAML content.\n{yaml_error!s}",
                 unresolved_variables=unresolved_variables,
             )
@@ -1045,7 +1051,8 @@ class BuildV2Command(ToolkitCommand):
             except KeyError:
                 return FailedReadYAMLFile(
                     source_path=result.source_path,
-                    code="READ-ERROR",
+                    code="UNREADABLE-FILE",
+                    title="Unreadable file",
                     error=f"Failed to get identifier for resource file '{resource_file.name!r}' after validation error: {errors!s}",
                 )
 
@@ -1090,7 +1097,8 @@ class BuildV2Command(ToolkitCommand):
                 except KeyError:
                     return FailedReadYAMLFile(
                         source_path=result.source_path,
-                        code="READ-ERROR",
+                        code="UNREADABLE-FILE",
+                        title="Unreadable file",
                         error=f"Failed to get identifier for resource in file '{resource_file.name!r}' after validation error.",
                     )
             else:
@@ -1148,9 +1156,9 @@ class BuildV2Command(ToolkitCommand):
     def _create_syntax_insights(
         self, error: ValidationError, resource_file: AbsoluteFilePath, content: str, validation_type: Any = None
     ) -> tuple[ModelSyntaxError | BuildError | None, list[ModelSyntaxWarning | BuildWarning]]:
-        validation_messages = humanize_validation_error_categorized(
-            error, validation_type, split_unrecognized_fields=True
-        ) or [ValidationMessage("The YAML doesn't follow the required format.", "error")]
+        validation_messages = humanize_validation_error_categorized(error, validation_type, for_insights=True) or [
+            ValidationMessage("The YAML doesn't follow the required format.", "error")
+        ]
         positions = yaml_positions(content)
         warnings = [item for item in validation_messages if item.category == "warning"]
         errors = [item for item in validation_messages if item.category == "error"]
@@ -1158,8 +1166,9 @@ class BuildV2Command(ToolkitCommand):
         syntax_error = None
         if errors:
             line, column = self._single_position(errors, positions)
-            syntax_error = error_insight_type(ModelSyntaxError, FileSyntaxError)(
+            syntax_error = error_insight_type(ModelSyntaxError, BuildError)(
                 code="SYNTAX-ERROR",
+                title="Syntax error",
                 message="\n".join(item.message for item in errors),
                 fix="Compare the YAML with reference documentation and make sure it is valid.",
                 source_file=resource_file,
@@ -1172,12 +1181,13 @@ class BuildV2Command(ToolkitCommand):
             line, column = self._single_position([warning], positions)
             syntax_warnings.append(
                 warning_insight_type(ModelSyntaxWarning)(
-                    code="UNRECOGNIZED-SYNTAX",
+                    code=warning.code,
+                    title=warning.title,
                     message=warning.message,
                     source_file=resource_file,
                     line=line,
                     column=column,
-                    fix="Compare the YAML with reference documentation and make sure it is valid. It will be deployed as-is, but may be ignored or rejected by CDF.",
+                    fix="Check it against the reference documentation. It will be deployed as-is, but may be ignored or rejected by CDF.",
                 )
             )
         return syntax_error, syntax_warnings

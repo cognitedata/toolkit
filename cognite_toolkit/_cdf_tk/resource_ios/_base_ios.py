@@ -39,6 +39,7 @@ class ReadExtra(BaseModel):
 
 class FailedReadExtra(ReadExtra):
     code: str
+    title: str
     error: str
 
 

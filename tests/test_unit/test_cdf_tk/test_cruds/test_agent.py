@@ -364,7 +364,7 @@ class TestAgentIOExtraFiles:
 
         assert len(extras) == 1
         extra = extras[0]
-        assert extra.model_dump(exclude_unset=True)["code"] == "MISSING-INSTRUCTIONS-FILE"
+        assert extra.model_dump(exclude_unset=True)["code"] == "AGENT-MISSING-INSTRUCTIONS-FILE"
 
     @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="We only split files in v0.9+")
     def test_split_resource_writes_markdown_and_tools(

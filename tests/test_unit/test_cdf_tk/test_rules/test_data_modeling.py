@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Modul
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, ResourceIO, ResourceType, ViewIO
-from cognite_toolkit._cdf_tk.rules._base import UNKNOWN_REFERENCE, UNVERIFIED_REFERENCE
+from cognite_toolkit._cdf_tk.rules._base import INVALID_REFERENCE, UNVERIFIED_REFERENCE
 from cognite_toolkit._cdf_tk.rules._data_modeling import DataModelingRuleSet
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 
@@ -271,7 +271,7 @@ class TestContainerPropertyReferences:
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "my_space:MyContainer.name" in insight.message) for insight in insights] == [
-            (UNKNOWN_REFERENCE, True)
+            (INVALID_REFERENCE, True)
         ]
 
     def test_container_retrieve_error_is_reported(self, tmp_path: Path) -> None:
@@ -357,7 +357,7 @@ class TestReverseDirectRelations:
         rule = DataModelingRuleSet(modules=[_module([(reverse_view, ViewIO, VIEW_ID)])], client=client)
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
-        assert [insight.code for insight in insights] == [UNKNOWN_REFERENCE]
+        assert [insight.code for insight in insights] == [INVALID_REFERENCE]
 
 
 @pytest.mark.usefixtures("alpha_rules_enabled")
@@ -384,4 +384,4 @@ class TestDataModelingChangesMove:
             [insight.code for insight in data_modeling],
             "is missing properties 'description'" in data_modeling[0].message,
             dependencies,
-        ) == ([DependencyRuleSet.CONTAINER_INVALID_OPERATION_CODE], True, [])
+        ) == ([DependencyRuleSet.CONTAINER_UNSUPPORTED_REMOVAL_CODE], True, [])

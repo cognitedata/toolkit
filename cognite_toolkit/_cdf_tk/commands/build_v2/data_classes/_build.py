@@ -25,11 +25,8 @@ from ._insights import (
     Insight,
     InsightList,
     InternalValidatorException,
-    InvalidContentError,
     ModelSyntaxError,
     ModelSyntaxWarning,
-    ParseFileError,
-    ReadFileError,
     error_insight_type,
     warning_insight_type,
 )
@@ -52,24 +49,6 @@ def _read_text_or_empty(path: Path) -> str:
         return path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return ""
-
-
-def _failed_file_error_type(code: str) -> type[BuildError]:
-    match code:
-        case "YAML-PARSE-ERROR":
-            return ParseFileError
-        case "READ-ERROR":
-            return ReadFileError
-        case _:
-            return BuildError
-
-
-def _failed_extra_error_type(code: str) -> type[BuildError]:
-    match code:
-        case "INVALID-CONTENT":
-            return InvalidContentError
-        case _:
-            return BuildError
 
 
 class BuildParameters(BaseModel):
@@ -243,9 +222,10 @@ class BuiltModule(BaseModel):
         for resource in self.resources:
             for failed_extra in resource.failed_extra:
                 insights.append(
-                    error_insight_type(FileReadError, _failed_extra_error_type(failed_extra.code))(
+                    error_insight_type(FileReadError, BuildError)(
                         message=failed_extra.error,
                         code=failed_extra.code,
+                        title=failed_extra.title,
                         source_file=resource.source_path,
                     )
                 )
@@ -261,6 +241,7 @@ class BuiltModule(BaseModel):
                 insights.append(
                     error_insight_type(ConsistencyError)(
                         code="UNRESOLVED-VARIABLE",
+                        title="Unresolved variable",
                         message=f"Unresolved variable {{{{ {variable} }}}}",
                         fix="Make sure to define the variable in the 'config.<env>.yaml' file and that it is "
                         "correctly placed in the variables section matching the file path",
@@ -270,13 +251,14 @@ class BuiltModule(BaseModel):
                     )
                 )
         for failed_file in self.failed_files:
-            if failed_file.code == "YAML-PARSE-ERROR" and failed_file.unresolved_variables:
+            if failed_file.code == "INVALID-YAML" and failed_file.unresolved_variables:
                 # An unresolved placeholder such as `key: {{ variable }}` is not valid YAML. The unresolved
                 # variables are the root cause and are already reported as their own insight.
                 continue
             insights.append(
-                error_insight_type(FileReadError, _failed_file_error_type(failed_file.code))(
+                error_insight_type(FileReadError, BuildError)(
                     code=failed_file.code,
+                    title=failed_file.title,
                     message=failed_file.error,
                     source_file=failed_file.source_path,
                 )
@@ -285,6 +267,7 @@ class BuiltModule(BaseModel):
             insights.append(
                 warning_insight_type(IgnoredFileWarning)(
                     code=ignored_file.code,
+                    title=ignored_file.title,
                     message=ignored_file.reason,
                     fix=ignored_file.fix,
                     source_file=ignored_file.filepath,

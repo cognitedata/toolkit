@@ -10,7 +10,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     InsightList,
     Recommendation,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ParseFileError
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 
 
@@ -60,15 +59,16 @@ class TestInsightList:
         assert InsightList.from_json(insights.to_json(), organization_dir).dump() == insights.dump()
 
     def test_heading(self, valid_yaml_absolute_path) -> None:
-        subclass_insight = ParseFileError(message="m", code="YAML-PARSE-ERROR", source_file=valid_yaml_absolute_path)
-        plain_insight = BuildError(message="m", code="SOME-CODE", source_file=valid_yaml_absolute_path)
+        titled_insight = BuildError(
+            message="m", code="INVALID-YAML", title="Invalid YAML", source_file=valid_yaml_absolute_path
+        )
+        untitled_insight = BuildError(message="m", code="SOME-CODE", source_file=valid_yaml_absolute_path)
 
-        assert subclass_insight.heading == "Failed to parse file"
-        assert subclass_insight.insight_type == "Error"
-        assert plain_insight.heading == "Some code"
+        assert titled_insight.heading == "Invalid YAML"
+        assert untitled_insight.heading == "Some code"
 
     def test_display_location_includes_position(self, valid_yaml_absolute_path) -> None:
-        insight = ParseFileError(message="m", code="SOME-CODE", source_file=valid_yaml_absolute_path, line=3, column=6)
+        insight = BuildError(message="m", code="SOME-CODE", source_file=valid_yaml_absolute_path, line=3, column=6)
 
         assert insight.display_location == f"{insight.display_source_file_cwd}:3:6"
 
@@ -94,7 +94,6 @@ class TestInsightList:
         rows = list(csv.DictReader(io.StringIO(csv_text), dialect=csv.unix_dialect))
         assert rows == [
             {
-                "alpha": "False",
                 "insight_type": "ConsistencyError",
                 "code": "ERR-1",
                 "source_file": format_insight_source_file(valid_yaml_absolute_path),
@@ -104,7 +103,6 @@ class TestInsightList:
                 "fix": "do this\nthen that",
             },
             {
-                "alpha": "False",
                 "insight_type": "Recommendation",
                 "code": "REC-2",
                 "source_file": format_insight_source_file(valid_yaml_absolute_path),

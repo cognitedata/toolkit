@@ -111,7 +111,8 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
         if skill_md_path is None:
             yield FailedReadExtra(
                 source_path=filepath,
-                code="MISSING-SKILL-CONTENT",
+                code="SKILL-MISSING-CONTENT",
+                title="Missing skill content",
                 error=(
                     f"Missing skill content for {prefix!r} in {filepath.as_posix()}. "
                     f"No 'content' field found and no <prefix>.md file found. Expected one of: "
@@ -126,7 +127,8 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
         except (ValidationError, ValueError) as e:
             yield FailedReadExtra(
                 source_path=skill_md_path,
-                code="INVALID-CONTENT",
+                code="SKILL-INVALID-CONTENT",
+                title="Invalid skill content",
                 error=f"\nInvalid markdown in {skill_md_path.parent.name}/{skill_md_path.name}.\n{e}",
             )
             return

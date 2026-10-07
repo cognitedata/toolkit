@@ -1118,7 +1118,7 @@ capabilities:
             config_yaml=my_org / "config.dev.yaml",
         ),
     )
-    insights = [insight for insight in folder.all_insights if insight.code == "UNKNOWN-REFERENCE"]
+    insights = [insight for insight in folder.all_insights if insight.code == "INVALID-REFERENCE"]
     assert len(insights) == 1
     insight = insights[0]
     assert isinstance(insight, BuildError)
@@ -1160,7 +1160,7 @@ capabilities:
     )
     codes = {insight.code for insight in folder.all_insights}
     assert "UNRESOLVED-VARIABLE" in codes
-    assert "UNKNOWN-REFERENCE" not in codes
+    assert "INVALID-REFERENCE" not in codes
 
 
 def test_warning_missing_dependency_with_unknown_capability(
@@ -1174,7 +1174,7 @@ def test_warning_missing_dependency_with_unknown_capability(
     that model validation still succeeds (``validated`` is set).  ``get_dependencies`` skips
     ``UnknownCapability`` instances, but the valid siblings (e.g. ``dataModelsAcl`` with a
     ``spaceIdScope``) are still processed — so a missing space is caught and an
-    UNKNOWN-REFERENCE insight is emitted.  A UNRECOGNIZED-SYNTAX is also produced via
+    INVALID-REFERENCE insight is emitted.  An UNRECOGNIZED-VALUE is also produced via
     ``get_build_warnings()`` to tell the user about the unrecognised capability.
     """
     group_yaml = """name: scoped_group_unknown_cap
@@ -1213,14 +1213,14 @@ capabilities:
             config_yaml=my_org / "config.dev.yaml",
         ),
     )
-    # The unknown capability should produce a UNRECOGNIZED-SYNTAX (not an error — the YAML
+    # The unknown capability should produce an UNRECOGNIZED-VALUE (not an error — the YAML
     # is still valid from the build perspective; CDF may or may not accept it at deploy time).
-    syntax_warnings = [i for i in folder.all_insights if i.code == "UNRECOGNIZED-SYNTAX"]
-    assert len(syntax_warnings) >= 1, "Expected a UNRECOGNIZED-SYNTAX for the unknown capability"
+    syntax_warnings = [i for i in folder.all_insights if i.code == "UNRECOGNIZED-VALUE"]
+    assert len(syntax_warnings) >= 1, "Expected an UNRECOGNIZED-VALUE for the unknown capability"
 
     # The space reference in the VALID sibling capability must still be checked against CDF.
-    unknown_refs = [i for i in folder.all_insights if i.code == "UNKNOWN-REFERENCE"]
+    unknown_refs = [i for i in folder.all_insights if i.code == "INVALID-REFERENCE"]
     assert len(unknown_refs) == 1, (
-        "Expected UNKNOWN-REFERENCE for 'my_non_existent_space' even when group has an unknown capability"
+        "Expected INVALID-REFERENCE for 'my_non_existent_space' even when group has an unknown capability"
     )
     assert "my_non_existent_space" in unknown_refs[0].message

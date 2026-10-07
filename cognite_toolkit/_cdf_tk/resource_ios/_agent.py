@@ -123,7 +123,8 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         if not instructions_file.is_file():
             yield FailedReadExtra(
                 source_path=instructions_file,
-                code="MISSING-INSTRUCTIONS-FILE",
+                code="AGENT-MISSING-INSTRUCTIONS-FILE",
+                title="Missing agent instructions file",
                 error=f"Instructions file {instructions_file.as_posix()} not found or is not a file",
             )
             return
@@ -152,7 +153,8 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             if not tools_file.is_file():
                 yield FailedReadExtra(
                     source_path=tools_file,
-                    code="MISSING-TOOLS-FILE",
+                    code="AGENT-MISSING-TOOLS-FILE",
+                    title="Missing agent tools file",
                     error=f"Tools file {tools_file.as_posix()} not found or is not a file",
                 )
                 continue
@@ -162,7 +164,8 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             if parsed_content is None:
                 yield FailedReadExtra(
                     source_path=tools_file,
-                    code="INVALID-CONTENT",
+                    code="AGENT-INVALID-CONTENT",
+                    title="Invalid agent content",
                     error=f"Tools file {tools_file.as_posix()} is not valid YAML",
                 )
                 continue
@@ -220,7 +223,8 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         if not code_file.is_file():
             return FailedReadExtra(
                 source_path=code_file,
-                code="MISSING-PYTHON-CODE-FILE",
+                code="AGENT-MISSING-PYTHON-CODE-FILE",
+                title="Missing agent Python code file",
                 error=f"Python code file {code_file.as_posix()} not found or is not a file",
             )
         content = safe_read(code_file, encoding=BUILD_FOLDER_ENCODING)

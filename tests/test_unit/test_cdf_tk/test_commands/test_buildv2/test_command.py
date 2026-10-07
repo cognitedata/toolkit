@@ -566,7 +566,8 @@ class TestDisplayInsightsOutput:
         insights = InsightList(
             [
                 ModelSyntaxWarning(
-                    code="UNRECOGNIZED-SYNTAX",
+                    code="UNRECOGNIZED-FIELD",
+                    title="Unrecognized field",
                     message="Unrecognized field: 'Name'",
                     fix="Make sure the resource YAML content is valid and follows the expected structure.",
                     source_file=source_file,
@@ -577,7 +578,7 @@ class TestDisplayInsightsOutput:
         BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
 
         rendered = output.getvalue()
-        assert "! Unrecognized syntax  [UNRECOGNIZED-SYNTAX]" in rendered
+        assert "! Unrecognized field  [UNRECOGNIZED-FIELD]" in rendered
         assert "╰─ modules/my_module/data_modeling/my_space.Space.yaml" in rendered
         assert "Unrecognized field: 'Name'" in rendered
 
@@ -586,7 +587,8 @@ class TestDisplayInsightsOutput:
         insights = InsightList(
             [
                 ModelSyntaxWarning(
-                    code="UNRECOGNIZED-SYNTAX",
+                    code="UNRECOGNIZED-FIELD",
+                    title="Unrecognized field",
                     message="Unrecognized field: 'Name'",
                     source_file=tmp_path / f"modules/my_module/my_space_{no}.Space.yaml",
                 )
@@ -597,8 +599,8 @@ class TestDisplayInsightsOutput:
         BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
 
         rendered = output.getvalue()
-        assert rendered.count("Unrecognized syntax") == 1
-        assert "Unrecognized syntax  [UNRECOGNIZED-SYNTAX]  (5)" in rendered
+        assert rendered.count("[UNRECOGNIZED-FIELD]") == 1
+        assert "Unrecognized field  [UNRECOGNIZED-FIELD]  (5)" in rendered
         assert "+ 2 more files" in rendered
         assert "more insights not shown" not in rendered
 
@@ -609,7 +611,8 @@ class TestDisplayInsightsOutput:
         insights = InsightList(
             [
                 ModelSyntaxWarning(
-                    code="UNRECOGNIZED-SYNTAX",
+                    code="UNRECOGNIZED-VALUE",
+                    title="Unrecognized value",
                     message=f"In field externalId string should match pattern '{pattern}'",
                     fix="Make sure the resource YAML content is valid and follows the expected structure.",
                     source_file=yaml_file,
@@ -648,14 +651,14 @@ class TestReadResourceFile:
                 "nonexistent.Space.yaml",
                 None,
                 SpaceIO,
-                "READ-ERROR",
+                "UNREADABLE-FILE",
                 id="file_read_error",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "key: [unclosed",
                 SpaceIO,
-                "YAML-PARSE-ERROR",
+                "INVALID-YAML",
                 id="yaml_parse_error",
             ),
         ],

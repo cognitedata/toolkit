@@ -80,6 +80,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                             f"must be between {limits.cpu_cores.min} and {limits.cpu_cores.max}."
                         ),
                         code=f"{self.CODE_PREFIX}-CPU-OUT-OF-RANGE",
+                        title="Function CPU out of range",
                         fix=f"Ensure that CPU cores is between {limits.cpu_cores.min} and {limits.cpu_cores.max}.",
                         source_file=resource.source_path,
                     ),
@@ -96,6 +97,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                             f"must be between {limits.memory_gb.min} and {limits.memory_gb.max} GB."
                         ),
                         code=f"{self.CODE_PREFIX}-MEMORY-OUT-OF-RANGE",
+                        title="Function memory out of range",
                         fix=f"Ensure that memory is between {limits.memory_gb.min} and {limits.memory_gb.max} GB.",
                         source_file=resource.source_path,
                     ),
@@ -106,13 +108,14 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
         if function_def.runtime is not None and limits is not None:
             if function_def.runtime not in limits.runtimes:
                 quoted_runtimes = humanize_collection([f"{runtime!r}" for runtime in limits.runtimes])
-                yield ConsistencyError(
+                yield error_insight_type(ConsistencyError)(
                     message=(
                         f"Function '{function_def.external_id}' runtime {function_def.runtime!r} is not "
                         f"available in this CDF project. "
                         f"Available runtimes: {quoted_runtimes}."
                     ),
-                    code=f"{self.CODE_PREFIX}-UNKNOWN-RUNTIME",
+                    code=f"{self.CODE_PREFIX}-INVALID-RUNTIME",
+                    title="Invalid function runtime",
                     fix=f"Use one of the available runtimes: {quoted_runtimes}.",
                     source_file=resource.source_path,
                 )
@@ -126,6 +129,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                 yield error_insight_type(ConsistencyError)(
                     message=pip_result.create_message("Function", function_def.external_id),
                     code=f"{self.CODE_PREFIX}-INVALID-REQUIREMENTS",
+                    title="Invalid function requirements",
                     fix="Ensure that requirements.txt is valid.",
                     source_file=resource.source_path,
                 )

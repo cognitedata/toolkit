@@ -18,8 +18,10 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Build
 from cognite_toolkit._cdf_tk.utils.file import yaml_find_unique_position
 from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
-UNKNOWN_REFERENCE = "UNKNOWN-REFERENCE"
+INVALID_REFERENCE = "INVALID-REFERENCE"
 UNVERIFIED_REFERENCE = "UNVERIFIED-REFERENCE"
+INVALID_REFERENCE_TITLE = "Invalid reference"
+UNVERIFIED_REFERENCE_TITLE = "Unverified reference"
 
 
 def quote_identifier(identifier: Identifier) -> str:

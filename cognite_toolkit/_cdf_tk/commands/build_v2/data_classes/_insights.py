@@ -31,15 +31,19 @@ class InsightDefinition(BaseModel):
 
     insight_type: str = "InsightDefinition"
     severity: ClassVar[int] = 999
-    title: ClassVar[str | None] = None
 
+    # Codes follow <RESOURCE>-<PROBLEM> for resource-specific insights, e.g. AGENT-INVALID-MODEL.
+    # The title is the human-readable heading shown for the code, e.g. 'Invalid agent model'.
+    # Vocabulary: MISSING-* / INVALID-* means we know there is a problem.
+    # UNVERIFIED-* / UNRECOGNIZED-* means we cannot confirm it, so we only guess (always a warning).
     code: str
+    title: str | None = Field(default=None, exclude=True)
     message: str
     source_file: AbsoluteFilePath
     line: int | None = None
     column: int | None = None
     fix: str | None = None
-    alpha: bool = False
+    alpha: bool = Field(default=False, exclude=True)
 
     @property
     def display_source_file_cwd(self) -> str:
@@ -176,22 +180,6 @@ class BuildError(InsightDefinition):
     severity = 50
 
 
-class ParseFileError(BuildError):
-    title = "Failed to parse file"
-
-
-class ReadFileError(BuildError):
-    title = "Failed to read file"
-
-
-class FileSyntaxError(BuildError):
-    title = "Syntax error"
-
-
-class InvalidContentError(BuildError):
-    title = "Invalid content"
-
-
 class BuildWarning(InsightDefinition):
     """A potential problem that could not be confirmed, or an issue that does not block the build."""
 
@@ -289,7 +277,7 @@ class InsightList(UserList[Insight]):
         Returns:
             CSV formatted string with columns: insight_type, code, source_file, message, fix
         """
-        field_names = list(InsightDefinition.model_fields.keys())
+        field_names = [name for name, field in InsightDefinition.model_fields.items() if not field.exclude]
         with io.StringIO() as output:
             writer = csv.DictWriter(
                 output,

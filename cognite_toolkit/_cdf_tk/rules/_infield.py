@@ -156,6 +156,7 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
             yield with_position(
                 error_insight_type(ConsistencyError)(
                     code=f"{self.CODE_PREFIX}-VIEW-MISSING-PROPERTIES",
+                    title="Missing InField view properties",
                     message=(
                         f"View {view_id!s} used as {card_key!r} is missing required properties: {quoted_missing}."
                     ),
@@ -182,7 +183,8 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
             quoted_unknown = humanize_collection([f"{property_name!r}" for property_name in unknown])
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=f"{self.CODE_PREFIX}-VIEW-UNKNOWN-PROPERTY",
+                    code=f"{self.CODE_PREFIX}-VIEW-INVALID-PROPERTY",
+                    title="Invalid InField view property",
                     message=(f"View {view_id!s} used for {config_key!r} does not have properties: {quoted_unknown}."),
                     fix=f"Use property names that exist on the view: {quoted_unknown}.",
                     source_file=source_path,

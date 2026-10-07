@@ -79,7 +79,7 @@ class TestSkillIO:
         extras = list(SkillIO.get_extra_files(yaml_path, identifier=ExternalId(external_id="my_skill"), item={}))
         assert len(extras) == 1
         assert isinstance(extras[0], FailedReadExtra)
-        assert extras[0].code == "INVALID-CONTENT"
+        assert extras[0].code == "SKILL-INVALID-CONTENT"
 
     def test_get_extra_files_missing_sidecar_yields_failed_read_extra(self, tmp_path: Path) -> None:
         yaml_path = tmp_path / "my_skill.Skill.yaml"
@@ -88,7 +88,7 @@ class TestSkillIO:
         )
         assert len(extras) == 1
         assert isinstance(extras[0], FailedReadExtra)
-        assert extras[0].code == "MISSING-SKILL-CONTENT"
+        assert extras[0].code == "SKILL-MISSING-CONTENT"
 
     def test_get_extra_files_prefers_external_id_specific_sidecar_over_yaml_sibling(self, tmp_path: Path) -> None:
         yaml_path = tmp_path / "my.Skill.yaml"

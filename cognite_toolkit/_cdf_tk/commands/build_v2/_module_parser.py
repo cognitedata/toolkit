@@ -240,6 +240,7 @@ class ModuleParser:
                                 iteration=iteration,
                                 error=error_insight_type(ModelSyntaxError)(
                                     code="INVALID-VARIABLE-PATH",
+                                    title="Invalid variable path",
                                     message=f"Invalid variable path: {'.'.join(subpath.parts)}. This does not correspond to the "
                                     f"folder structure inside the {MODULES} directory.",
                                     fix="Ensure that the variable paths correspond to the folder structure inside the modules directory.",
@@ -267,6 +268,7 @@ class ModuleParser:
                                 iteration=iteration,
                                 error=error_insight_type(ModelSyntaxError)(
                                     code="INVALID-VARIABLE-TYPE",
+                                    title="Invalid variable type",
                                     message=f"Invalid variable type in list for variable {'.'.join(subpath.parts)}.",
                                     fix="Ensure that all items in the list are of the same supported type either (str, int, float, bool) or dict.",
                                     # We only have variables in the config file, so this cast is safe
