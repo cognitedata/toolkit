@@ -95,7 +95,7 @@ class InspectCapability(BaseModelObject):
         return output
 
 
-def _collapse_scopes(scopes: list[Scope]) -> list[Scope] | None:
+def _collapse_scopes(scopes: list[Scope]) -> list[Scope]:
     """Union scopes that share a type.
 
     Different scope types are kept as separate entries. Returns None when an unknown scope cannot
@@ -109,7 +109,7 @@ def _collapse_scopes(scopes: list[Scope]) -> list[Scope] | None:
         pass
     except TypeError:
         if any(isinstance(scope, UnknownScope) for scope in scopes):
-            return None
+            return scopes
         raise
 
     grouped: dict[tuple[type[ScopeDefinition], str], list[Scope]] = {}
@@ -127,10 +127,9 @@ def _collapse_scopes(scopes: list[Scope]) -> list[Scope] | None:
             if any(isinstance(scope, UnknownScope) for scope in group):
                 # Unknown scopes with unhashable fields cannot be combined, and are never required
                 # when verifying capabilities.
+                collapsed.extend(group)  # keep instead of dropping
                 continue
             raise
-    if not collapsed:
-        return None
     return collapsed
 
 
@@ -252,10 +251,7 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], list[Scope
 
         scope_by_acl_action: dict[tuple[type[Acl], AclName, AclAction], list[Scope]] = {}
         for key, scopes in scopes_by_acl_action.items():
-            collapsed = _collapse_scopes(scopes)
-            if collapsed is None:
-                continue
-            scope_by_acl_action[key] = collapsed
+            scope_by_acl_action[key] = _collapse_scopes(scopes)
         return FlatCapabilities(capabilities=scope_by_acl_action, name=project, groups=groups)
 
     @classmethod
