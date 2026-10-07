@@ -37,7 +37,7 @@ class TestProjectCapability:
                 id="Missing EventsAcl with DataSetScope",
             ),
             pytest.param(
-                {(AssetsAcl, "READ"): [AllScope()]},
+                {(AssetsAcl, "assetsAcl", "READ"): [AllScope()]},
                 [],
                 [],
                 id="Empty required ACLs returns nothing missing",
@@ -234,14 +234,22 @@ class TestProjectCapability:
                             project_scope=AllProjects(all_projects={}),
                         ),
                         InspectCapability(
-                            acl=TimeSeriesAcl(actions=["READ"], scope=IDScopeLowerCase(ids=[2, 3])),
-                            project_scope=AllProjects(all_projects={}),
-                        ),
-                        InspectCapability(
                             acl=TimeSeriesAcl(
                                 actions=["READ"],
                                 scope=DataSetScope(ids=[2]),
                             ),
+                            project_scope=AllProjects(all_projects={}),
+                        ),
+                        InspectCapability(
+                            acl=TimeSeriesAcl(actions=["READ"], scope=IDScopeLowerCase(ids=[2])),
+                            project_scope=AllProjects(all_projects={}),
+                        ),
+                        InspectCapability(
+                            acl=TimeSeriesAcl(actions=["READ"], scope=IDScopeLowerCase(ids=[3])),
+                            project_scope=AllProjects(all_projects={}),
+                        ),
+                        InspectCapability(
+                            acl=TimeSeriesAcl(actions=["READ"], scope=IDScopeLowerCase(ids=[3])),
                             project_scope=AllProjects(all_projects={}),
                         ),
                     ],
@@ -256,7 +264,7 @@ class TestProjectCapability:
                     name="test_project",
                     groups=[],
                 ),
-                id="Multiple ACLs of the same type and action with overlapping scopes should be merged appropriately in the resulting capabilities",
+                id="Multiple ACLs of the same type and action with overlapping scopes should be merged into a single scope for each unique scope type",
             ),
         ],
     )
