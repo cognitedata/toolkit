@@ -98,8 +98,9 @@ class InspectCapability(BaseModelObject):
 def _collapse_scopes(scopes: list[Scope]) -> list[Scope]:
     """Union scopes that share a type.
 
-    Different scope types are kept as separate entries. Returns None when an unknown scope cannot
-    be combined, so those capabilities are left out of the flat map.
+    Different scope types are kept as separate entries. Unknown scopes that cannot
+    be combined are kept as-is in the list.
+
     """
     if len(scopes) <= 1:
         return list(scopes)

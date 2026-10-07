@@ -314,10 +314,11 @@ def resolve_action_access(
                 grants.append(AclScopeGrant(acl_name=acl.acl_name, actions=tuple(found_actions), scope=scope))
             continue
         unified = _scope_covering_actions(action_scopes)
-        if unified is None:
+        if not unified:
             missing.append(f"{acl.acl_name} (scopes do not overlap)")
             continue
-        grants.append(AclScopeGrant(acl_name=acl.acl_name, actions=tuple(found_actions), scope=unified))
+        for scope in unified:
+            grants.append(AclScopeGrant(acl_name=acl.acl_name, actions=tuple(found_actions), scope=scope))
     return ActionAccess(applicable=True, grants=grants, missing=missing)
 
 
@@ -494,18 +495,20 @@ def _cluster_name(client: ToolkitClient) -> str | None:
     return hostname or None
 
 
-def _scope_covering_actions(action_scopes: list[list[Scope]]) -> Scope | None:
+def _scope_covering_actions(action_scopes: list[list[Scope]]) -> list[Scope]:
     """Return a scope shared by every action.
 
     Scopes on one action are alternatives. Scopes on different actions must overlap.
     """
     if all(len(scopes) == 1 for scopes in action_scopes):
-        return _unify_scopes([scopes[0] for scopes in action_scopes])
+        unifed = _unify_scopes([scopes[0] for scopes in action_scopes])
+        return [unifed] if unifed is not None else []
+    covering: list[Scope] = []
     for combination in product(*action_scopes):
         unified = _unify_scopes(list(combination))
-        if unified is not None:
-            return unified
-    return None
+        if unified is not None and unified not in covering:
+            covering.append(unified)
+    return covering
 
 
 def _unify_scopes(scopes: list[Scope]) -> Scope | None:
