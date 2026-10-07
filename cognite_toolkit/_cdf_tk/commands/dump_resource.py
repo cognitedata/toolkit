@@ -8,13 +8,9 @@ from functools import cached_property
 from pathlib import Path
 from typing import Generic
 
+import httpx2
 import questionary
 import typer
-from cognite.client import data_modeling as dm
-from cognite.client.data_classes import (
-    filters,
-)
-from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils import ms_to_datetime
 from questionary import Choice
@@ -26,6 +22,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
+    InternalId,
     NameId,
     ViewId,
     WorkflowVersionId,
@@ -34,6 +31,7 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilt
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerId,
+    CountAggregate,
     DataModelId,
     DataModelNoVersionId,
     DataModelResponse,
@@ -108,6 +106,20 @@ from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 from ._base import ToolkitCommand
 
 _INTERACTIVE_SELECT_HELPER_TEXT = " Use arrow keys to navigate and space key to select. Press enter to confirm."
+
+
+def _download_file_bytes(client: ToolkitClient, file_id: int) -> bytes:
+    links = client.tool.filemetadata.get_download_url([InternalId(id=file_id)])
+    if not links or not links[0].download_url:
+        raise ToolkitAPIError(message=f"File ids not found: {file_id}", code=400, missing=[{"id": file_id}])
+    download_url = links[0].download_url
+    with httpx2.stream("GET", download_url) as response:
+        if response.status_code != 200:
+            raise ToolkitAPIError(
+                message=f"Download failed with status code {response.status_code}: {response.text}",
+                code=response.status_code,
+            )
+        return b"".join(response.iter_bytes())
 
 
 class ResourceFinder(Iterable, ABC, Generic[T_ID]):
@@ -566,15 +578,14 @@ class NodeFinder(ResourceFinder[ViewNoVersionId]):
 
         loader = NodeIO(self.client, view_id)
         if self.is_interactive:
-            count = self.client.data_modeling.instances.aggregate(
-                dm.ViewId(
-                    self.identifier.space,
-                    self.identifier.external_id,
-                    self.identifier.version if isinstance(self.identifier, ViewId) else None,
-                ),
-                dm.aggregations.Count("externalId"),
+            aggregate_result = self.client.tool.instances.aggregate(
+                view_id,
+                aggregates=[CountAggregate(property="externalId")],
                 instance_type="node",
-            ).value
+            )
+            count = 0.0
+            if aggregate_result.items and aggregate_result.items[0].aggregates:
+                count = aggregate_result.items[0].aggregates[0].value or 0.0
             if count == 0 or count is None:
                 raise ToolkitMissingResourceError(f"No nodes found in {self.identifier}")
             elif count > 50:
@@ -804,8 +815,8 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
 
     def dump_function_code(self, function: FunctionResponse, folder: Path) -> None:
         try:
-            zip_bytes = self.client.files.download_bytes(id=function.file_id)
-        except CogniteAPIError as e:
+            zip_bytes = _download_file_bytes(self.client, function.file_id)
+        except ToolkitAPIError as e:
             if e.code == 400 and "File ids not found" in e.message:
                 HighSeverityWarning(
                     f"The function {function.external_id!r} does not have code to dump. It is not available in CDF."
@@ -832,9 +843,9 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
 
     def _interactive_select(self) -> tuple[str, ...]:
         """Interactively select one or more Streamlit apps to dump."""
-        result = self.client.documents.aggregate_unique_values(
-            SourceFileProperty.metadata_key("creator"),
-            filter=filters.Equals(SourceFileProperty.directory, "/streamlit-apps/"),
+        result = self.client.tool.documents.unique(
+            ("sourceFile", "metadata", "creator"),
+            filter={"equals": {"property": ["sourceFile", "directory"], "value": "/streamlit-apps/"}},
         )
         if not result:
             raise ToolkitMissingResourceError("No Streamlit apps found")
@@ -885,8 +896,17 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             console (Console | None): Optional Rich console for printing warnings.
         """
         try:
-            content = self.client.files.download_bytes(external_id=app.external_id)
-        except CogniteAPIError as e:
+            retrieved = self.client.tool.filemetadata.retrieve(
+                [ExternalId(external_id=app.external_id)], ignore_unknown_ids=True
+            )
+            if not retrieved:
+                raise ToolkitAPIError(
+                    message=f"File ids not found: {app.external_id}",
+                    code=400,
+                    missing=[{"externalId": app.external_id}],
+                )
+            content = _download_file_bytes(self.client, retrieved[0].id)
+        except ToolkitAPIError as e:
             if e.code == 400 and e.missing:
                 HighSeverityWarning(
                     f"The source code for {app.external_id!r} could not be retrieved from CDF."
