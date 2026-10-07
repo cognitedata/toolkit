@@ -8,12 +8,14 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_Identifier, T_RequestResource
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     FailedReadExtra,
     ResourceIO,
     ResourceType,
     SuccessExtra,
 )
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import find_unique_match_position
 
 from ._insights import (
@@ -28,6 +30,7 @@ from ._insights import (
     ModelSyntaxError,
     ModelSyntaxWarning,
     error_insight_type,
+    v09_gate,
     warning_insight_type,
 )
 from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId
@@ -223,7 +226,9 @@ class BuiltModule(BaseModel):
             for failed_extra in resource.failed_extra:
                 insights.append(
                     error_insight_type(FileReadError, BuildError)(
-                        message=failed_extra.error,
+                        message=v09_gate(
+                            failed_extra.error, f"In {failed_extra.source_path.as_posix()!r}: {failed_extra.error}"
+                        ),
                         code=failed_extra.code,
                         title=failed_extra.title,
                         source_file=resource.source_path,
@@ -234,22 +239,10 @@ class BuiltModule(BaseModel):
         for path, warnings in self.syntax_warnings_by_source.items():
             insights.extend(warnings)
         for path, variables in self.unresolved_variables_by_source.items():
-            # One insight per variable, such that all files missing the same variable are grouped when displayed.
-            content = _read_text_or_empty(path)
-            for variable in variables:
-                position = find_unique_match_position(content, _variable_pattern(variable))
-                insights.append(
-                    error_insight_type(ConsistencyError)(
-                        code="VARIABLE-UNRESOLVED",
-                        title="Unresolved variable",
-                        message=f"Unresolved variable {{{{ {variable} }}}}",
-                        fix="Make sure to define the variable in the 'config.<env>.yaml' file and that it is "
-                        "correctly placed in the variables section matching the file path",
-                        source_file=path,
-                        line=position.line if position else None,
-                        column=position.column if position else None,
-                    )
-                )
+            if Flags.V09.is_enabled():
+                insights.extend(self._unresolved_variable_insights(path, variables))
+            else:
+                insights.append(self._aggregated_unresolved_variables_insight(path, variables))
         for failed_file in self.failed_files:
             if failed_file.code == "FILE-CONTENT-INVALID" and failed_file.unresolved_variables:
                 # An unresolved placeholder such as `key: {{ variable }}` is not valid YAML. The unresolved
@@ -259,7 +252,9 @@ class BuiltModule(BaseModel):
                 error_insight_type(FileReadError, BuildError)(
                     code=failed_file.code,
                     title=failed_file.title,
-                    message=failed_file.error,
+                    message=v09_gate(
+                        failed_file.error, f"In {failed_file.source_path.as_posix()!r}: {failed_file.error}"
+                    ),
                     source_file=failed_file.source_path,
                 )
             )
@@ -275,6 +270,38 @@ class BuiltModule(BaseModel):
             )
 
         return insights
+
+    @classmethod
+    def _unresolved_variable_insights(cls, path: Path, variables: list[str]) -> list[Insight]:
+        """One insight per variable, such that all files missing the same variable are grouped when displayed."""
+        content = _read_text_or_empty(path)
+        insights: list[Insight] = []
+        for variable in variables:
+            position = find_unique_match_position(content, _variable_pattern(variable))
+            insights.append(
+                BuildError(
+                    code="VARIABLE-UNRESOLVED",
+                    title="Unresolved variable",
+                    message=f"Unresolved variable {{{{ {variable} }}}}",
+                    fix="Make sure to define the variable in the 'config.<env>.yaml' file and that it is "
+                    "correctly placed in the variables section matching the file path",
+                    source_file=path,
+                    line=position.line if position else None,
+                    column=position.column if position else None,
+                )
+            )
+        return insights
+
+    @classmethod
+    def _aggregated_unresolved_variables_insight(cls, path: Path, variables: list[str]) -> Insight:
+        quoted_variables = humanize_collection([f"{variable!r}" for variable in variables])
+        return ConsistencyError(
+            code="UNRESOLVED-VARIABLES",
+            message=f"Unresolved variable{'s' if len(variables) > 1 else ''} {quoted_variables}",
+            fix="Make sure to define the variables in the 'config.<env>.yaml' file and that they are "
+            "correctly placed in the variables section matching the file path",
+            source_file=path,
+        )
 
     def __hash__(self) -> int:
         return hash(self.module_id.path)

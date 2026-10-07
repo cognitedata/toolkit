@@ -1,8 +1,10 @@
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
+from pydantic_core import PydanticCustomError
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 from .base import ToolkitResource
 
@@ -18,7 +20,9 @@ class StreamlitYAML(ToolkitResource):
         max_length=255,
     )
     creator: str = Field(description="The creator of the Streamlit app.")
-    entrypoint: str = Field(description="Path to the entrypoint file of the Streamlit app.")
+    entrypoint: str | None = Field(
+        None, validate_default=True, description="Path to the entrypoint file of the Streamlit app."
+    )
     description: str | None = Field(None, description="The description of the Streamlit app.")
     published: bool = Field(False, description="Whether the Streamlit app is published or not.")
     theme: Literal["Light", "Dark"] = Field("Light", description="The theme of the Streamlit app.")
@@ -26,6 +30,14 @@ class StreamlitYAML(ToolkitResource):
     data_set_external_id: str | None = Field(
         None, description="The external ID of the data set to associate with the app."
     )
+
+    @field_validator("entrypoint", mode="after")
+    @classmethod
+    def _entrypoint_required(cls, value: str | None) -> str | None:
+        """The entrypoint is required with the v09 flag."""
+        if value is None and Flags.V09.is_enabled():
+            raise PydanticCustomError("missing", "Field required")
+        return value
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)

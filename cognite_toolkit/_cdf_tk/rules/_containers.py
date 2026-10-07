@@ -4,6 +4,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     Insight,
     error_insight_type,
+    v09_gate,
 )
 from cognite_toolkit._cdf_tk.rules._base import ToolkitLocalRule, with_position
 from cognite_toolkit._cdf_tk.yaml_classes import ContainerYAML
@@ -56,6 +57,7 @@ class DeployableContainer(ToolkitLocalRule):
     """
 
     CODE = "VALUE-INVALID"
+    LEGACY_CODE = "DMS-CONTAINER-001"  # Used when the v09 flag is not enabled
     TITLE = "Non-nullable direct relation"
     insight_type = ConsistencyError
 
@@ -76,7 +78,7 @@ class DeployableContainer(ToolkitLocalRule):
                 yield with_position(
                     error_insight_type(ConsistencyError)(
                         message=message,
-                        code=self.CODE,
+                        code=v09_gate(self.CODE, self.LEGACY_CODE),
                         title=self.TITLE,
                         fix=fix,
                         source_file=source_file.source_path,

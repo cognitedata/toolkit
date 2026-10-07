@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     RelativeDirPath,
     RelativeFilePath,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import error_insight_type
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import error_insight_type, v09_gate
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
     BuildVariable,
@@ -239,7 +239,7 @@ class ModuleParser:
                                 is_selected=path in selected_paths,
                                 iteration=iteration,
                                 error=error_insight_type(ModelSyntaxError)(
-                                    code="VARIABLE-PATH-INVALID",
+                                    code=v09_gate("VARIABLE-PATH-INVALID", "CONFIG_VARIABLE_001"),
                                     title="Invalid variable path",
                                     message=f"Invalid variable path: {'.'.join(subpath.parts)}. This does not correspond to the "
                                     f"folder structure inside the {MODULES} directory.",
@@ -267,7 +267,7 @@ class ModuleParser:
                                 is_selected=path in selected_paths,
                                 iteration=iteration,
                                 error=error_insight_type(ModelSyntaxError)(
-                                    code="VARIABLE-TYPE-INVALID",
+                                    code=v09_gate("VARIABLE-TYPE-INVALID", "CONFIG_VARIABLE_001"),
                                     title="Invalid variable type",
                                     message=f"Invalid variable type in list for variable {'.'.join(subpath.parts)}.",
                                     fix="Ensure that all items in the list are of the same supported type either (str, int, float, bool) or dict.",

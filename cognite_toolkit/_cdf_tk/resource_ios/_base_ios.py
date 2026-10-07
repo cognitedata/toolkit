@@ -6,7 +6,7 @@ from pathlib import Path
 from types import GenericAlias
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 from typing_extensions import TypeForm
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 from cognite_toolkit._cdf_tk.client.resource_classes.group import ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
 
 if TYPE_CHECKING:
@@ -41,6 +42,18 @@ class FailedReadExtra(ReadExtra):
     code: str
     title: str
     error: str
+
+    @field_validator("code", mode="after")
+    @classmethod
+    def _legacy_code_without_v09(cls, code: str) -> str:
+        """Without the v09 flag, the codes are the legacy 'MISSING' and 'SYNTAX-ERROR'."""
+        if Flags.V09.is_enabled():
+            return code
+        if code in ("REFERENCED-FILE-MISSING", "REFERENCED-DIRECTORY-MISSING"):
+            return "MISSING"
+        if code == "FILE-CONTENT-INVALID":
+            return "SYNTAX-ERROR"
+        return code
 
 
 class SuccessExtra(ReadExtra):

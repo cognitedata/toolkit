@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.commands._utils import (
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList, v09_gate
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable, Selector
@@ -1022,7 +1022,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code="RESOURCE-NOT-EXISTING",
+                            code=v09_gate("RESOURCE-NOT-EXISTING", "NOT-EXISTING"),
                             source_file=resource.source_files[0],
                             reason=f"Will not delete {identifier!s} does not exist in CDF",
                         )
@@ -1032,7 +1032,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code="RESOURCE-HAS-DATA",
+                            code=v09_gate("RESOURCE-HAS-DATA", "HAS-DATA"),
                             source_file=resource.source_files[0],
                             reason=f"{identifier!s} has data and --drop-data flag is not set, skipping deletion to avoid data loss",
                         )
@@ -1042,7 +1042,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code="RESOURCE-DELETE-NOT-SUPPORTED",
+                            code=v09_gate("RESOURCE-DELETE-NOT-SUPPORTED", "DELETE-NOT-SUPPORTED"),
                             source_file=resource.source_files[0],
                             reason=f"{crud.display_name.capitalize()!s} does not support deletion, skipping",
                         )
@@ -1063,7 +1063,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code="RESOURCE-HAS-DATA",
+                            code=v09_gate("RESOURCE-HAS-DATA", "HAS-DATA"),
                             source_file=resource.source_files[0],
                             reason=(f"{identifier!s} contains data and does not support updates."),
                         )

@@ -13,8 +13,10 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
     InternalValidatorException,
     T_Insight,
+    v09_gate,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable, Module, SuccessfulReadYAMLFile
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.file import yaml_find_unique_position
 from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
@@ -53,6 +55,8 @@ def with_position(
             that values built from variables, e.g., 'sp_{{ location }}_assets', are found. Substituted values
             can shift the column of text after them on the same line, but not where a key or value starts.
     """
+    if not Flags.V09.is_enabled():
+        return insight
     try:
         content = insight.source_file.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
@@ -92,6 +96,7 @@ class ToolkitLocalRule(ABC):
     """
 
     CODE: ClassVar[str]
+    LEGACY_CODE: ClassVar[str]  # Used when the v09 flag is not enabled
     IS_ALPHA: ClassVar[bool] = False
     IS_FIXABLE: ClassVar[bool] = False
 
@@ -128,10 +133,15 @@ class ToolkitGlobalRuleSet(ABC):
 
     CODE_PREFIX: ClassVar[str]
     DISPLAY_NAME: ClassVar[str]
+    LEGACY_DISPLAY_NAME: ClassVar[str]  # Used when the v09 flag is not enabled
 
     def __init__(self, modules: list[BuiltModule], client: ToolkitClient | None = None) -> None:
         self.modules = modules
         self.client = client
+
+    @property
+    def display_name(self) -> str:
+        return v09_gate(self.DISPLAY_NAME, self.LEGACY_DISPLAY_NAME)
 
     @abstractmethod
     def get_status(self) -> RuleSetStatus:

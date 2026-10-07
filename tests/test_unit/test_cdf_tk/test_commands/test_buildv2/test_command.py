@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, BuildParameters, RelativeDirPath
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import InsightList, ModelSyntaxWarning
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning, InsightList
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
     FailedReadYAMLFile,
@@ -565,7 +565,7 @@ class TestDisplayInsightsOutput:
 
         insights = InsightList(
             [
-                ModelSyntaxWarning(
+                BuildWarning(
                     code="FIELD-UNRECOGNIZED",
                     title="Unrecognized field",
                     message="Unrecognized field: 'Name'",
@@ -586,7 +586,7 @@ class TestDisplayInsightsOutput:
         console, output = self._console()
         insights = InsightList(
             [
-                ModelSyntaxWarning(
+                BuildWarning(
                     code="FIELD-UNRECOGNIZED",
                     title="Unrecognized field",
                     message="Unrecognized field: 'Name'",
@@ -610,7 +610,7 @@ class TestDisplayInsightsOutput:
         yaml_file = tmp_path / "modules/quality/data_products/Quality.DataProduct.yaml"
         insights = InsightList(
             [
-                ModelSyntaxWarning(
+                BuildWarning(
                     code="VALUE-UNRECOGNIZED",
                     title="Unrecognized value",
                     message=f"In field externalId string should match pattern '{pattern}'",

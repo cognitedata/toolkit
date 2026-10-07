@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
     InternalValidatorException,
     error_insight_type,
+    v09_gate,
 )
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet, with_position
@@ -38,6 +39,7 @@ RUNTIME_CAPABILITY_REQUIREMENTS: tuple[RuntimeCapabilityRequirement, ...] = (
 class AgentRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "AGENT"
     DISPLAY_NAME = "Agents"
+    LEGACY_DISPLAY_NAME = "Agents checks"
 
     def get_status(self) -> RuleSetStatus:
         if not self.client:
@@ -94,7 +96,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                         f"Agent '{agent_def.external_id}' model {agent_def.model!r} is not available in this "
                         f"CDF project. Available models: {quoted_models}."
                     ),
-                    code="VALUE-INVALID",
+                    code=v09_gate("VALUE-INVALID", f"{self.CODE_PREFIX}-MODEL"),
                     title="Invalid agent model",
                     fix="Use one of the available models for this CDF project.",
                     source_file=resource.source_path,
@@ -115,7 +117,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                             f"available in this CDF project. "
                             f"Available runtime versions: {quoted_runtime_versions}."
                         ),
-                        code="VALUE-INVALID",
+                        code=v09_gate("VALUE-INVALID", f"{self.CODE_PREFIX}-UNKNOWN-RUNTIME"),
                         title="Invalid agent runtime",
                         fix="Use one of the available runtime versions for this CDF project.",
                         source_file=resource.source_path,
@@ -140,7 +142,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                                 f"Agent '{agent_def.external_id}' runtime version {effective_runtime_version!r} "
                                 f"does not support the '{requirement.field_name}' field."
                             ),
-                            code="FIELD-INVALID",
+                            code=v09_gate("FIELD-INVALID", f"{self.CODE_PREFIX}-RUNTIME-UNSUPPORTED-CAPABILITY"),
                             title="Unsupported agent capability",
                             fix=(
                                 f"Use a runtime version that supports '{requirement.field_name}', "
@@ -159,7 +161,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                         f"Agent '{agent_def.external_id}' has {len(agent_def.tools)} tools, "
                         f"which exceeds the maximum of {max_tools} tools per agent for this CDF project."
                     ),
-                    code="LIMIT-EXCEEDED",
+                    code=v09_gate("LIMIT-EXCEEDED", f"{self.CODE_PREFIX}-TOOLS-LIMIT"),
                     title="Too many agent tools",
                     fix=f"Reduce the number of tools to at most {max_tools}.",
                     source_file=resource.source_path,

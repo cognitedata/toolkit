@@ -185,11 +185,10 @@ def humanize_validation_error_categorized(
         if error_type == "missing":
             msg = f"Missing required field: {loc[-1]!r}"
         elif error_type == "extra_forbidden":
-            msg = (
-                f"{loc[-1]!r} is not a known field for this resource"
-                if for_insights
-                else f"Unrecognized field: {loc[-1]!r}"
-            )
+            if for_insights:
+                msg = f"{loc[-1]!r} is not a known field for this resource"
+            else:
+                msg = f"Unrecognized field: {loc[-1]!r}"
             category = "warning"
             code = UNRECOGNIZED_FIELD_CODE
             title = UNRECOGNIZED_FIELD_TITLE

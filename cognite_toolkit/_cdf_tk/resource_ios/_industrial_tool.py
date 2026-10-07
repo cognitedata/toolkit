@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotADirectoryError,
     ToolkitRequiredValueError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
@@ -117,7 +118,15 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
             )
             return
         if "entrypoint" not in item:
-            # The entrypoint is required by the Streamlit schema, so it is already reported as a syntax error.
+            # With the v09 flag, the entrypoint is required by the Streamlit schema, so it is already reported
+            # as a syntax error.
+            if not Flags.V09.is_enabled():
+                yield FailedReadExtra(
+                    code="MISSING",
+                    title="Missing Streamlit entrypoint",
+                    error=f"Cannot create Streamlit app code for {identifier.external_id!r} as 'entrypoint' is missing in the YAML definition.",
+                    source_path=app_path,
+                )
             return
 
         # This mutates the input object, but it is the easiest way to pass

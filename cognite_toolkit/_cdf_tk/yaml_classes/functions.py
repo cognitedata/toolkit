@@ -4,6 +4,7 @@ from pydantic import Field, model_validator
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 from .base import ToolkitResource
 
@@ -81,7 +82,7 @@ class FunctionsYAML(ToolkitResource):
     @model_validator(mode="after")
     def validate_code_storage(self) -> Self:
         """The function code is uploaded as a file, which must be stored in either a data set or a space."""
-        if self.data_set_external_id is None and self.space is None:
+        if Flags.V09.is_enabled() and self.data_set_external_id is None and self.space is None:
             raise ValueError("Either dataSetExternalId or space must be set, to store the function code.")
         return self
 

@@ -55,6 +55,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ModelSyntaxError,
     ModelSyntaxWarning,
     error_insight_type,
+    v09_gate,
     warning_insight_type,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
@@ -922,7 +923,7 @@ class BuildV2Command(ToolkitCommand):
             return (
                 IgnoredFile(
                     filepath=resource_file,
-                    code="FILE-SUFFIX-MISSING",
+                    code=v09_gate("FILE-SUFFIX-MISSING", "MISSING-SUFFIX"),
                     title="Missing file suffix",
                     reason=f"Resource file {resource_file.name!r} is ignored because it does not have a suffix to indicate the resource type.",
                     fix=f"Rename it with the resource type: {resource_file.stem}.<ResourceType>{resource_file.suffix}.",
@@ -937,7 +938,7 @@ class BuildV2Command(ToolkitCommand):
                 None,
                 FailedReadYAMLFile(
                     source_path=resource_file,
-                    code="FILE-SUFFIX-INVALID",
+                    code=v09_gate("FILE-SUFFIX-INVALID", "INVALID-KIND"),
                     title="Invalid resource type",
                     error=f"Resource file {resource_file.name!r} has unknown resource type '{resource_type}' for folder '{resource_folder}'",
                 ),
@@ -961,7 +962,7 @@ class BuildV2Command(ToolkitCommand):
             return FailedReadYAMLFile(
                 source_path=resource_file,
                 error=f"Failed to read resource file: {read_error!s}",
-                code="FILE-UNREADABLE",
+                code=v09_gate("FILE-UNREADABLE", "READ-ERROR"),
                 title="Unreadable file",
             )
         # Ignore rules in file?
@@ -981,7 +982,7 @@ class BuildV2Command(ToolkitCommand):
         elif parsed_yaml is None:
             return FailedReadYAMLFile(
                 source_path=resource_file,
-                code="FILE-EMPTY",
+                code=v09_gate("FILE-EMPTY", "EMPTY-FILE"),
                 title="Empty file",
                 error="The YAML file is empty. Please add content to the file or remove it if it is not needed.",
                 unresolved_variables=unresolved_variables,
@@ -1018,11 +1019,20 @@ class BuildV2Command(ToolkitCommand):
         try:
             return read_yaml_content(content)
         except yaml.YAMLError as yaml_error:
+            error = f"Failed to parse YAML content.\n{yaml_error!s}"
+            if unresolved_variables and not Flags.V09.is_enabled():
+                # With the v09 flag, the unresolved variables are reported on their own.
+                quoted_variables = humanize_collection([f"{variable!r}" for variable in unresolved_variables])
+                error = (
+                    f"Failed to parse YAML content. "
+                    f"This is likely due to unresolved variables: {quoted_variables}.\n"
+                    f"Error: {yaml_error!s}"
+                )
             return FailedReadYAMLFile(
                 source_path=resource_file,
-                code="FILE-CONTENT-INVALID",
+                code=v09_gate("FILE-CONTENT-INVALID", "YAML-PARSE-ERROR"),
                 title="Invalid YAML",
-                error=f"Failed to parse YAML content.\n{yaml_error!s}",
+                error=error,
                 unresolved_variables=unresolved_variables,
             )
 
@@ -1051,7 +1061,7 @@ class BuildV2Command(ToolkitCommand):
             except KeyError:
                 return FailedReadYAMLFile(
                     source_path=result.source_path,
-                    code="FILE-UNREADABLE",
+                    code=v09_gate("FILE-UNREADABLE", "READ-ERROR"),
                     title="Unreadable file",
                     error=f"Failed to get identifier for resource file '{resource_file.name!r}' after validation error: {errors!s}",
                 )
@@ -1097,7 +1107,7 @@ class BuildV2Command(ToolkitCommand):
                 except KeyError:
                     return FailedReadYAMLFile(
                         source_path=result.source_path,
-                        code="FILE-UNREADABLE",
+                        code=v09_gate("FILE-UNREADABLE", "READ-ERROR"),
                         title="Unreadable file",
                         error=f"Failed to get identifier for resource in file '{resource_file.name!r}' after validation error.",
                     )
@@ -1156,6 +1166,8 @@ class BuildV2Command(ToolkitCommand):
     def _create_syntax_insights(
         self, error: ValidationError, resource_file: AbsoluteFilePath, content: str, validation_type: Any = None
     ) -> tuple[ModelSyntaxError | BuildError | None, list[ModelSyntaxWarning | BuildWarning]]:
+        if not Flags.V09.is_enabled():
+            return self._create_syntax_insights_legacy(error, resource_file, validation_type)
         validation_messages = humanize_validation_error_categorized(error, validation_type, for_insights=True) or [
             ValidationMessage("The YAML doesn't follow the required format.", "error")
         ]
@@ -1188,6 +1200,36 @@ class BuildV2Command(ToolkitCommand):
                     line=line,
                     column=column,
                     fix="Check it against the reference documentation. It will be deployed as-is, but may be ignored or rejected by CDF.",
+                )
+            )
+        return syntax_error, syntax_warnings
+
+    def _create_syntax_insights_legacy(
+        self, error: ValidationError, resource_file: AbsoluteFilePath, validation_type: Any = None
+    ) -> tuple[ModelSyntaxError | BuildError | None, list[ModelSyntaxWarning | BuildWarning]]:
+        validation_messages = humanize_validation_error_categorized(error, validation_type) or [
+            ValidationMessage("The YAML doesn't follow the required format.", "error")
+        ]
+        warning_messages = [item.message for item in validation_messages if item.category == "warning"]
+        error_messages = [item.message for item in validation_messages if item.category == "error"]
+
+        syntax_error = None
+        if error_messages:
+            syntax_error = ModelSyntaxError(
+                code="MODEL-SYNTAX-ERROR",
+                message="\n".join(error_messages),
+                fix="Compare the YAML with reference documentation and make sure it is valid.",
+                source_file=resource_file,
+            )
+
+        syntax_warnings: list[ModelSyntaxWarning | BuildWarning] = []
+        if warning_messages:
+            syntax_warnings.append(
+                ModelSyntaxWarning(
+                    code="MODEL-SYNTAX-WARNING",
+                    message="\n".join(warning_messages),
+                    source_file=resource_file,
+                    fix="Compare the YAML with reference documentation and make sure it is valid. It will be deployed as-is, but may be ignored or rejected by CDF.",
                 )
             )
         return syntax_error, syntax_warnings
@@ -1346,7 +1388,7 @@ class BuildV2Command(ToolkitCommand):
             ]
             status_display = f"[{status_style}]{step.status.code.capitalize()}[/]"
             message = step.status.message or "-"
-            table.add_row(step.rule.DISPLAY_NAME, status_display, message)
+            table.add_row(step.rule.display_name, status_display, message)
 
         border_style = {0: AuraColor.GREEN.rich, 1: AuraColor.AMBER.rich, 2: AuraColor.RED.rich}[border_color]
 
@@ -1367,7 +1409,7 @@ class BuildV2Command(ToolkitCommand):
             for step in plan:
                 if step.status.code not in EXECUTE_RULE_STATUS:
                     continue
-                display_name = step.rule.DISPLAY_NAME
+                display_name = step.rule.display_name
                 progress.update(validating_task, description=f"Running '{display_name}'...")
 
                 insights: list[Insight] = []
@@ -1390,17 +1432,135 @@ class BuildV2Command(ToolkitCommand):
     def _display_insights(self, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None:
         if not insights:
             return
+        if Flags.V09.is_enabled():
+            self._display_grouped_insights(insights, insight_path, console, verbose)
+        else:
+            self._display_insights_legacy(insights, insight_path, console, verbose)
 
+    def _display_insights_legacy(
+        self, insights: InsightList, insight_path: Path, console: Console, verbose: bool
+    ) -> None:
         severity_style = {
             "FileReadError": (AuraColor.RED.rich, "✗"),
             "ConsistencyError": (AuraColor.RED.rich, "✗"),
             "InternalValidatorException": (AuraColor.AMBER.rich, "!"),
             "ModelSyntaxError": (AuraColor.RED.rich, "✗"),
             "ModelSyntaxWarning": (AuraColor.AMBER.rich, "!"),
+            "Recommendation": (AuraColor.SKY.rich, "*"),
+            "IgnoredFileWarning": (AuraColor.MOUNTAIN.rich, "○"),
+        }
+
+        display_insights = self._select_display_insights_legacy(insights, max_display_count=30 if verbose else 5)
+        remaining_count = len(insights) - len(display_insights)
+
+        insights_by_type: dict[str, list[Insight]] = {}
+        for insight in display_insights:
+            insight_type_name = type(insight).__name__
+            insights_by_type.setdefault(insight_type_name, []).append(insight)
+
+        max_border_severity = 0
+        insight_sections: list[RenderableType] = []
+        for insight_type_name, insight_content in insights_by_type.items():
+            style, icon = severity_style.get(insight_type_name, ("white", "•"))
+            plural_suffix = "s" if len(insight_content) > 1 else ""
+
+            insight_subsections: list[RenderableType] = []
+            for insight in insight_content:
+                message = self._truncate_for_terminal(insight.message)
+                content: list[RenderableType] = [hanging_indent(icon, message, marker_style=style)]
+                if insight.fix:
+                    content.append(
+                        hanging_indent(
+                            "→",
+                            Text(f"Fix: {insight.fix}"),
+                            marker_style=AuraColor.GREEN.rich,
+                        )
+                    )
+                insight_subsections.append(
+                    ToolkitPanelSection(
+                        title=self._insight_section_title_legacy(insight),
+                        content=content,
+                    )
+                )
+                max_border_severity = max(max_border_severity, type(insight).severity)
+
+            insight_sections.append(
+                ToolkitPanelSection(
+                    title=f"[{style}]{insight_type_name}{plural_suffix}[/]",
+                    content=insight_subsections,
+                )
+            )
+
+        insight_destination = relative_to_if_possible(insight_path)
+        footer = f"All insights are written to {insight_destination.as_posix()}"
+        suffix = ""
+        if not verbose:
+            suffix = " Add --verbose to show more."
+        if remaining_count > 0:
+            footer = f"... and {remaining_count} more insights not shown.{suffix} {footer}"
+        insight_sections.append(ToolkitPanelSection(content=[f"[dim]{footer}[/dim]"]))
+
+        match max_border_severity:
+            case severity if severity < 15:
+                border_style = AuraColor.GREEN.rich
+            case severity if 15 <= severity <= 35:
+                border_style = AuraColor.AMBER.rich
+            case _:
+                border_style = AuraColor.RED.rich
+        console.print(
+            ToolkitPanel(
+                Group(*insight_sections),
+                title="Build Insights",
+                border_style=border_style,
+            )
+        )
+
+    @staticmethod
+    def _humanize_insight_code(code: str | None) -> str:
+        if code is None:
+            return "Undefined"
+        return code.replace("-", " ").replace("_", " ").capitalize()
+
+    @classmethod
+    def _insight_section_title_legacy(cls, insight: Insight) -> str:
+        title = cls._humanize_insight_code(insight.code)
+        return f"{title} in {insight.display_source_file_cwd}"
+
+    @classmethod
+    def _insight_severity(cls, insight: Insight) -> int:
+        return type(insight).severity
+
+    @classmethod
+    def _insight_order(cls, insight: Insight) -> tuple[int, str]:
+        return type(insight).severity, insight.code or ""
+
+    def _select_display_insights_legacy(self, insights: InsightList, max_display_count: int) -> list[Insight]:
+        """Prioritize one insight per code, then by severity"""
+        insights_by_code: dict[str, Insight] = {}
+        remaining_insights: list[Insight] = []
+
+        for insight in insights:
+            code = insight.code or "UNDEFINED"
+            if code not in insights_by_code:
+                insights_by_code[code] = insight
+            else:
+                remaining_insights.append(insight)
+
+        # Sort the unique codes by severity
+        sorted_unique_insights = sorted(insights_by_code.values(), key=self._insight_severity, reverse=True)
+        # Sort remaining by severity
+        sorted_remaining = sorted(remaining_insights, key=self._insight_severity, reverse=True)
+        # Combine them
+        prioritized_insights = sorted_unique_insights + sorted_remaining
+        return sorted(prioritized_insights[:max_display_count], key=self._insight_order, reverse=True)
+
+    def _display_grouped_insights(
+        self, insights: InsightList, insight_path: Path, console: Console, verbose: bool
+    ) -> None:
+        severity_style = {
             BUILD_ERROR_TYPE: (AuraColor.RED.rich, "✗"),
             BUILD_WARNING_TYPE: (AuraColor.AMBER.rich, "!"),
             "Recommendation": (AuraColor.SKY.rich, "*"),
-            "IgnoredFileWarning": (AuraColor.MOUNTAIN.rich, "○"),
         }
 
         display_groups = self._select_display_insights(insights, max_display_count=30 if verbose else 5)
@@ -1422,16 +1582,12 @@ class BuildV2Command(ToolkitCommand):
             footer.append(" ")
         footer.append("All insights are written to ")
         footer.append(insight_destination.as_posix(), style=f"underline {AuraColor.SKY.rich}")
-        footer_lines: list[RenderableType] = [footer]
-        if Flags.V09.is_enabled():
-            footer_lines.append(
-                Text(
-                    "To ignore a rule, add '# rules: ignore[CODE]' to the file, where CODE is the code in "
-                    "brackets, or list the code under 'ignore' in the [rules] section of cdf.toml.",
-                    style="dim",
-                )
-            )
-        insight_sections.append(ToolkitPanelSection(content=footer_lines))
+        ignore_hint = Text(
+            "To ignore a rule, add '# rules: ignore[CODE]' to the file, where CODE is the code in "
+            "brackets, or list the code under 'ignore' in the [rules] section of cdf.toml.",
+            style="dim",
+        )
+        insight_sections.append(ToolkitPanelSection(content=[footer, ignore_hint]))
 
         match max_border_severity:
             case severity if severity < 15:

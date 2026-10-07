@@ -31,15 +31,18 @@ class BaseGroupYAML(ToolkitResource):
         # Lazy import to avoid circular dependency (yaml_classes → commands.build_v2 → resource_ios → yaml_classes).
         from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
             ModelSyntaxWarning,
+            v09_gate,
             warning_insight_type,
         )
 
         return [
             warning_insight_type(ModelSyntaxWarning)(
-                code="VALUE-UNRECOGNIZED",
+                code=v09_gate("VALUE-UNRECOGNIZED", "MODEL-SYNTAX-WARNING"),
                 title="Unrecognized value",
-                message=f"'{cap.original_name}' is not a known capability name. "
-                "It will be deployed as-is, but may be rejected by CDF.",
+                message=(
+                    f"'{cap.original_name}' is not a known capability name. "
+                    "It will be deployed as-is, but may be rejected by CDF."
+                ),
                 source_file=source_file,
                 fix="Compare the YAML with reference documentation. The resource will still be deployed.",
             )

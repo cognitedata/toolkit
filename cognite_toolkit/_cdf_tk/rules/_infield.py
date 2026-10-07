@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     Insight,
     error_insight_type,
+    v09_gate,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO, ResourceType
@@ -39,6 +40,7 @@ _DEFAULT_ASSET_VIEW_ID = ViewId(space="cdf_cdm", external_id="CogniteAsset", ver
 class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "INFIELD"
     DISPLAY_NAME = "Infield config"
+    LEGACY_DISPLAY_NAME = "Infield CDM checks"
 
     def get_status(self) -> RuleSetStatus:
         if not self.client:
@@ -155,7 +157,7 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
             quoted_missing = humanize_collection([f"{property_name!r}" for property_name in missing])
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code="REFERENCED-RESOURCE-INVALID",
+                    code=v09_gate("REFERENCED-RESOURCE-INVALID", f"{self.CODE_PREFIX}-VIEW-MISSING-PROPERTIES"),
                     title="Invalid InField view",
                     message=(
                         f"View {view_id!s} used as {card_key!r} is missing required properties: {quoted_missing}."
@@ -183,7 +185,7 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
             quoted_unknown = humanize_collection([f"{property_name!r}" for property_name in unknown])
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code="REFERENCED-PROPERTY-MISSING",
+                    code=v09_gate("REFERENCED-PROPERTY-MISSING", f"{self.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY"),
                     title="Missing InField view property",
                     message=(f"View {view_id!s} used for {config_key!r} does not have properties: {quoted_unknown}."),
                     fix=f"Use property names that exist on the view: {quoted_unknown}.",

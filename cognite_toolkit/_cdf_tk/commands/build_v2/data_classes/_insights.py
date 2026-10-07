@@ -6,7 +6,16 @@ from collections import Counter, UserList, defaultdict
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Final, Literal, TypeVar
 
-from pydantic import BaseModel, Field, TypeAdapter, field_serializer, field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    SerializerFunctionWrapHandler,
+    TypeAdapter,
+    field_serializer,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
@@ -21,7 +30,9 @@ else:
     from typing_extensions import Self
 
 T_Insight = TypeVar("T_Insight", bound="InsightDefinition")
+T_Value = TypeVar("T_Value")
 
+PATH_SEP_CSV = " | "  # Separator for multiple source files in the legacy CSV output
 BUILD_ERROR_TYPE: Final = "Error"
 BUILD_WARNING_TYPE: Final = "Warning"
 
@@ -74,6 +85,33 @@ class InsightDefinition(BaseModel):
         if self.title is not None:
             return self.title
         return self.code.replace("-", " ").replace("_", " ").capitalize()
+
+    @model_validator(mode="before")
+    @classmethod
+    def _from_legacy_source_files(cls, data: Any) -> Any:
+        """Insight files written without the v09 flag have a 'source_files' list (or separator-joined cell)."""
+        if not isinstance(data, dict) or "source_files" not in data or "source_file" in data:
+            return data
+        data = dict(data)
+        source_files = data.pop("source_files")
+        if isinstance(source_files, str):
+            source_files = _split_source_files(source_files, PATH_SEP_CSV)
+        if not source_files:
+            raise ValueError("source_files must contain at least one file")
+        data["source_file"] = source_files[0]
+        return data
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """Without the v09 flag, serialize in the legacy shape: 'source_files' and 'alpha', without positions."""
+        data: dict[str, Any] = handler(self)
+        if Flags.V09.is_enabled():
+            return data
+        data.pop("line", None)
+        data.pop("column", None)
+        data["source_files"] = [data.pop("source_file")]
+        data["alpha"] = self.alpha
+        return data
 
     @field_validator("line", "column", mode="before")
     @classmethod
@@ -200,6 +238,11 @@ Insight = Annotated[
 ]
 
 
+def v09_gate(new: T_Value, legacy: T_Value) -> T_Value:
+    """Returns the new behavior with the v09 flag enabled, otherwise the legacy behavior."""
+    return new if Flags.V09.is_enabled() else legacy
+
+
 def error_insight_type(
     legacy_type: type[T_Insight], error_type: type[BuildError] = BuildError
 ) -> type[T_Insight] | type[BuildError]:
@@ -218,6 +261,11 @@ InsightListAdapter: TypeAdapter[list[Insight]] = TypeAdapter(list[Insight])
 def _normalize_csv_cell(text: str) -> str:
     """Normalize line breaks so CSV cells stay readable and consistent across platforms."""
     return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _split_source_files(raw: str, separator: str) -> list[str]:
+    """Split a serialized source-file cell into relative (or absolute) path strings."""
+    return [part.strip() for part in raw.split(separator) if part.strip()]
 
 
 class InsightList(UserList[Insight]):
@@ -277,7 +325,10 @@ class InsightList(UserList[Insight]):
         Returns:
             CSV formatted string with columns: insight_type, code, source_file, message, fix
         """
-        field_names = [name for name, field in InsightDefinition.model_fields.items() if not field.exclude]
+        field_names = v09_gate(
+            [name for name, field in InsightDefinition.model_fields.items() if not field.exclude],
+            ["insight_type", "code", "message", "source_files", "fix", "alpha"],
+        )
         with io.StringIO() as output:
             writer = csv.DictWriter(
                 output,
@@ -288,7 +339,10 @@ class InsightList(UserList[Insight]):
             )
             writer.writeheader()
             for insight in self.data:
-                writer.writerow(insight.model_dump())
+                row = insight.model_dump()
+                if not Flags.V09.is_enabled():
+                    row["source_files"] = PATH_SEP_CSV.join(row["source_files"])
+                writer.writerow(row)
             return output.getvalue()
 
     def to_json(self) -> str:

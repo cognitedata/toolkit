@@ -5,6 +5,7 @@ from typing import Any
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_hash, humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import create_zip_in_memory, sanitize_filename, yaml_safe_dump
@@ -89,7 +90,15 @@ class FunctionCodeBundle:
         )
         name = item.get("name")
         if not isinstance(name, str):
-            # The name is required by the function schema, so a missing name is already reported as a syntax error.
+            # With the v09 flag, the name is required by the function schema, so a missing name is already
+            # reported as a syntax error.
+            if not Flags.V09.is_enabled():
+                yield FailedReadExtra(
+                    source_path=function_rootdir,
+                    code="MISSING",
+                    title="Missing function name",
+                    error=f"Cannot find function name for function {external_id!r} in {filepath.as_posix()}. This is required and is necessary for creating the function code.",
+                )
             return
         filename = sanitize_filename(name)
         if data_set_external_id := item.get("dataSetExternalId"):
@@ -126,7 +135,14 @@ class FunctionCodeBundle:
                 resource_field=None,
                 write_to_build=True,
             )
-        # Without a dataSetExternalId or space, the function schema already reports a syntax error.
+        elif not Flags.V09.is_enabled():
+            # With the v09 flag, the function schema already reports a syntax error.
+            yield FailedReadExtra(
+                source_path=function_rootdir,
+                code="MISSING",
+                title="Missing function code storage",
+                error=f"Failed to create function code metadata for function {external_id!r} in {filepath.as_posix()}. This is required for creating the function code. The function must have either a dataSetExternalId or a space specified.",
+            )
 
     def as_file_by_external_id(self, external_ids: Iterable[str]) -> tuple[dict[Path, str], dict[Path, str]]:
         filemetadata_files: dict[Path, str] = {}
