@@ -200,12 +200,9 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], list[Scope
         scopes_by_name = self._get_scopes_for_action(acl_cls, first)
         for action in actions[1:]:
             scopes_for_action = self._get_scopes_for_action(acl_cls, action)
-            if ALL_SCOPE_NAME in scopes_by_name:
-                scope_name_intersections = set(scopes_for_action.keys())
-            elif ALL_SCOPE_NAME in scopes_for_action:
-                scope_name_intersections = set(scopes_by_name.keys())
-            else:
-                scope_name_intersections = set(scopes_by_name.keys()) & set(scopes_for_action.keys())
+            scope_name_intersections = self._scope_name_intersection(
+                set(scopes_by_name.keys()), set(scopes_for_action.keys())
+            )
 
             new_scopes_by_name: dict[str, list[Scope]] = defaultdict(list)
             for scope_name in scope_name_intersections:
@@ -216,11 +213,27 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], list[Scope
             scopes_by_name = new_scopes_by_name
         resulting_scopes: list[Scope] = []
         for scopes in scopes_by_name.values():
-            intersection = scope_intersection(*scopes)
+            try:
+                intersection = scope_intersection(*scopes)
+            except TypeError:
+                # If unknown scope we cannot intersect, so we return all of them as they are not covered by any other scope.
+                resulting_scopes.extend(scopes)
+                continue
             if intersection is not None:
                 resulting_scopes.append(intersection)
 
         return resulting_scopes
+
+    @staticmethod
+    def _scope_name_intersection(s1: set[str], s2: set[str]) -> set[str]:
+        if ALL_SCOPE_NAME in s1 and ALL_SCOPE_NAME in s2:
+            return {ALL_SCOPE_NAME}
+        elif ALL_SCOPE_NAME in s1:
+            return s2
+        elif ALL_SCOPE_NAME in s2:
+            return s1
+        else:
+            return s1 & s2
 
     def _get_scopes_for_action(
         self,
