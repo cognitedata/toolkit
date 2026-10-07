@@ -2,8 +2,7 @@ import re
 import sys
 from typing import Any
 
-from pydantic import Field, field_validator, model_serializer, model_validator
-from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
+from pydantic import Field, field_validator, model_validator
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -24,7 +23,7 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
 from .base import ToolkitResource
-from .view_field_definitions import ViewProperty, ViewReference
+from .view_field_definitions import ViewPropertyType, ViewReference
 
 KEY_PATTERN = re.compile(CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN)
 
@@ -74,7 +73,7 @@ class ViewYAML(ToolkitResource):
         min_length=1,
         max_length=1,
     )
-    properties: dict[str, ViewProperty] | None = Field(
+    properties: dict[str, ViewPropertyType] | None = Field(
         default=None, description="Set of properties to apply to the View."
     )
 
@@ -111,12 +110,3 @@ class ViewYAML(ToolkitResource):
                     f"'{key}' is a reserved property identifier. Reserved identifiers are: {humanize_collection(FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER)}"
                 )
         return val
-
-    @model_serializer(mode="wrap")
-    def serialize_container(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
-        serialized_data = handler(self)
-        if self.properties:
-            serialized_data["properties"] = {
-                key: value.model_dump(**vars(info)) for key, value in self.properties.items()
-            }
-        return serialized_data

@@ -1,10 +1,9 @@
 import re
-import sys
-from types import MappingProxyType
-from typing import Any, ClassVar, Literal, cast
+from abc import ABC
+from typing import Annotated, Any, Literal
 
-from pydantic import Field, ModelWrapValidatorHandler, model_serializer, model_validator
-from pydantic_core.core_schema import SerializerFunctionWrapHandler
+from pydantic import Field
+from pydantic.functional_validators import BeforeValidator
 
 from cognite_toolkit._cdf_tk.client import identifiers
 from cognite_toolkit._cdf_tk.constants import (
@@ -13,15 +12,9 @@ from cognite_toolkit._cdf_tk.constants import (
     DM_VERSION_PATTERN,
     SPACE_FORMAT_PATTERN,
 )
-from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
 from .base import BaseModelResource
 from .container_field_definitions import ContainerReference
-
-if sys.version_info < (3, 11):
-    from typing_extensions import Self
-else:
-    from typing import Self
 
 KEY_PATTERN = re.compile(CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN)
 
@@ -77,7 +70,14 @@ class ThroughRelationReference(BaseModelResource):
     )
 
 
-class ViewProperty(BaseModelResource):
+class ViewProperty(BaseModelResource, ABC):
+    """Base for view properties.
+
+    Mapped container properties have no ``connectionType`` in YAML. A before-validator
+    fills in ``primary_property`` so the same discriminator can select them.
+    """
+
+    connection_type: str
     name: str | None = Field(
         default=None,
         description="Name of the property.",
@@ -89,50 +89,9 @@ class ViewProperty(BaseModelResource):
         max_length=1024,
     )
 
-    @model_validator(mode="wrap")
-    @classmethod
-    def find_property_type_cls(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
-        if isinstance(data, ViewProperty):
-            return cast(Self, data)
-        if not isinstance(data, dict):
-            raise ValueError(f"Invalid property type data '{type(data)}' expected dict")
-
-        if cls is not ViewProperty:
-            data_copy = dict(data)
-            if cls in _CONNECTION_DEFINITION_CLASS_BY_TYPE.values():
-                data_copy.pop("connectionType", None)
-            return handler(data_copy)
-
-        cls_: type[ContainerViewProperty] | type[ConnectionDefinition]
-        if "container" in data:
-            cls_ = ContainerViewProperty
-        elif "connectionType" in data:
-            connection_type = data.get("connectionType")
-            if connection_type is None:
-                raise ValueError("Missing 'connectionType' field in connection definition data")
-            if connection_type not in _CONNECTION_DEFINITION_CLASS_BY_TYPE:
-                raise ValueError(
-                    f"invalid connection type '{connection_type}'. Expected one of {humanize_collection(_CONNECTION_DEFINITION_CLASS_BY_TYPE.keys(), bind_word='or')}"
-                )
-            cls_ = _CONNECTION_DEFINITION_CLASS_BY_TYPE[connection_type]
-        else:
-            raise ValueError(
-                "Invalid Property data. If it is a connection definition, it must contain 'connectionType' field. If it is a view property, it must contain 'container' and 'containerPropertIdentifier' field."
-            )
-
-        data_copy = dict(data)
-        data_copy.pop("connectionType", None)
-        return cast(Self, cls_.model_validate(data_copy))
-
-    @model_serializer(mode="wrap", when_used="always", return_type=dict)
-    def serialize_property_type(self, handler: SerializerFunctionWrapHandler) -> dict:
-        serialized_data = handler(self)
-        if hasattr(self, "connection_type"):
-            serialized_data["connectionType"] = getattr(self, "connection_type")
-        return serialized_data
-
 
 class ContainerViewProperty(ViewProperty):
+    connection_type: Literal["primary_property"] = Field(default="primary_property", exclude=True)
     container: ContainerReference = Field(
         description="Reference to the container where this property is defined.",
     )
@@ -148,15 +107,13 @@ class ContainerViewProperty(ViewProperty):
     )
 
 
-class ConnectionDefinition(ViewProperty):
-    connection_type: ClassVar[str]
+class ConnectionDefinition(ViewProperty, ABC):
     source: ViewReference = Field(
         description="Indicates the view which is either the target node(s) or the node(s) containing the direct relation property."
     )
 
 
-class EdgeConnectionDefinition(ConnectionDefinition):
-    connection_type: ClassVar[Literal["single_edge_connection", "multi_edge_connection"]]
+class EdgeConnectionDefinition(ConnectionDefinition, ABC):
     type: DirectRelationReference = Field(
         description="Reference to the node pointed to by the direct relation.",
     )
@@ -168,46 +125,42 @@ class EdgeConnectionDefinition(ConnectionDefinition):
 
 
 class SingleEdgeConnectionDefinition(EdgeConnectionDefinition):
-    connection_type = "single_edge_connection"
+    connection_type: Literal["single_edge_connection"] = "single_edge_connection"
 
 
 class MultiEdgeConnectionDefinition(EdgeConnectionDefinition):
-    connection_type = "multi_edge_connection"
+    connection_type: Literal["multi_edge_connection"] = "multi_edge_connection"
 
 
-class ReverseDirectRelationConnectionDefinition(ConnectionDefinition):
-    connection_type: ClassVar[Literal["single_reverse_direct_relation", "multi_reverse_direct_relation"]]
+class ReverseDirectRelationConnectionDefinition(ConnectionDefinition, ABC):
     through: ThroughRelationReference = Field(
         description="The view or container of the node containing the direct relation property.",
     )
 
 
 class SingleReverseDirectRelationConnectionDefinition(ReverseDirectRelationConnectionDefinition):
-    connection_type = "single_reverse_direct_relation"
+    connection_type: Literal["single_reverse_direct_relation"] = "single_reverse_direct_relation"
 
 
 class MultiReverseDirectRelationConnectionDefinition(ReverseDirectRelationConnectionDefinition):
-    connection_type = "multi_reverse_direct_relation"
+    connection_type: Literal["multi_reverse_direct_relation"] = "multi_reverse_direct_relation"
 
 
-def get_connection_definition_type_leaf_classes(base_class: type[ConnectionDefinition]) -> list:
-    subclasses = base_class.__subclasses__()
-    result = []
-
-    if not subclasses:
-        if base_class is not ConnectionDefinition:
-            result.append(base_class)
-    else:
-        for subclass in subclasses:
-            result.extend(get_connection_definition_type_leaf_classes(subclass))
-
-    return result
+def _ensure_view_property_connection_type(value: Any) -> Any:
+    """Mapped properties omit ``connectionType``; treat that as ``primary_property``."""
+    if isinstance(value, ViewProperty):
+        return value
+    if isinstance(value, dict) and "connectionType" not in value and "connection_type" not in value:
+        return {**value, "connectionType": "primary_property"}
+    return value
 
 
-_CONNECTION_DEFINITION_CLASS_BY_TYPE: MappingProxyType[str, type[ConnectionDefinition]] = MappingProxyType(
-    {
-        c.connection_type: c
-        for c in get_connection_definition_type_leaf_classes(ConnectionDefinition)
-        if hasattr(c, "connection_type") and c.connection_type is not None
-    }
-)
+ViewPropertyType = Annotated[
+    ContainerViewProperty
+    | SingleEdgeConnectionDefinition
+    | MultiEdgeConnectionDefinition
+    | SingleReverseDirectRelationConnectionDefinition
+    | MultiReverseDirectRelationConnectionDefinition,
+    Field(discriminator="connection_type"),
+    BeforeValidator(_ensure_view_property_connection_type),
+]
