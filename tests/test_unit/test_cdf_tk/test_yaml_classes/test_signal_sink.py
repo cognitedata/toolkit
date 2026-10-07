@@ -1,13 +1,15 @@
 from collections.abc import Iterable
 from pathlib import Path
+from typing import get_args
 
 import pytest
 from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
-from cognite_toolkit._cdf_tk.yaml_classes.signal_sink import EmailSinkYAML, SignalSinkYAML, UserSinkYAML
+from cognite_toolkit._cdf_tk.yaml_classes.signal_sink import EmailSinkYAML, SignalSink, SignalSinkYAML, UserSinkYAML
 from tests.data import COMPLETE_ORG_ALPHA_FLAGS
 from tests.test_unit.utils import find_resources
 
@@ -64,3 +66,10 @@ class TestSignalSinkYAML:
         format_warning = warning_list[0]
         assert isinstance(format_warning, ResourceFormatWarning)
         assert set(format_warning.errors) == expected_errors
+
+    def test_all_sinks_in_union(self) -> None:
+        """Test that all sink types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(SignalSink))
+        subclasses = set(get_args(SignalSinkYAML.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"

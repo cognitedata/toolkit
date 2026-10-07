@@ -1,11 +1,21 @@
 from collections.abc import Iterable
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
-from cognite_toolkit._cdf_tk.yaml_classes.hosted_extractor_job import HostedExtractorJobYAML
+from cognite_toolkit._cdf_tk.yaml_classes.hosted_extractor_job import (
+    HostedExtractorJobYAML,
+    IncrementalLoad,
+    IncrementalLoadType,
+    JobFormat,
+    JobFormatType,
+    NextURLIncrementalLoad,
+    RequestIncrementalLoad,
+)
 from tests.test_unit.utils import find_resources
 
 
@@ -237,3 +247,24 @@ class TestHostedExtractorJobYAML:
         assert isinstance(format_warning, ResourceFormatWarning)
 
         assert set(format_warning.errors) == expected_errors
+
+    def test_all_formats_in_union(self) -> None:
+        """Test that all job format types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(JobFormat))
+        subclasses = set(get_args(JobFormatType.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"
+
+    def test_all_incremental_loads_in_union(self) -> None:
+        """Test that all incremental load types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(IncrementalLoad))
+        subclasses = set(get_args(IncrementalLoadType.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"
+
+    def test_request_incremental_load_union(self) -> None:
+        """nextUrl is valid for pagination, and is excluded from request incremental load."""
+        expected_subclasses = set(get_concrete_subclasses(IncrementalLoad)) - {NextURLIncrementalLoad}
+        subclasses = set(get_args(RequestIncrementalLoad.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"

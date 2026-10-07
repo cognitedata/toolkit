@@ -1,3 +1,4 @@
+from abc import ABC
 from typing import Annotated, Literal
 
 from pydantic import Field
@@ -62,7 +63,7 @@ class Destination(BaseModelResource):
     type: str
 
 
-class StandardDataSource(Destination):
+class StandardDataSource(Destination, ABC):
     type: Literal[
         "assets",
         "events",
@@ -138,7 +139,7 @@ class DataModelSource(Destination):
     )
 
 
-class ViewDataSource(Destination):
+class ViewDataSource(Destination, ABC):
     type: Literal["nodes", "edges"]
     view: ViewInfo | None = Field(default=None, description="Target view info.")
     edge_type: EdgeType | None = Field(default=None, description="Target type of the connection definition.")
