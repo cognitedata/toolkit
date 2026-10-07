@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
+from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -29,7 +30,7 @@ def invalid_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"type": "invalid", "externalId": "my-sink"},
-        {"Invalid signal sink type 'invalid'. Expected one of email or user"},
+        {"Input tag 'invalid' found using 'type' does not match any of the expected tags: 'email', 'user'"},
         id="invalid-type",
     )
     yield pytest.param(
@@ -42,16 +43,18 @@ def invalid_test_cases() -> Iterable:
 class TestSignalSinkYAML:
     @pytest.mark.parametrize("data", list(find_resources("Sink", base=COMPLETE_ORG_ALPHA_FLAGS / MODULES)))
     def test_load_valid_sink(self, data: dict[str, object]) -> None:
-        loaded = SignalSinkYAML.model_validate(data)
+        loaded = TypeAdapter(SignalSinkYAML).validate_python(data)
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
     def test_email_sink_returns_correct_subclass(self) -> None:
-        loaded = SignalSinkYAML.model_validate({"type": "email", "externalId": "s1", "emailAddress": "a@b.com"})
+        loaded = TypeAdapter(SignalSinkYAML).validate_python(
+            {"type": "email", "externalId": "s1", "emailAddress": "a@b.com"}
+        )
         assert isinstance(loaded, EmailSinkYAML)
         assert loaded.email_address == "a@b.com"
 
     def test_user_sink_returns_correct_subclass(self) -> None:
-        loaded = SignalSinkYAML.model_validate({"type": "user", "externalId": "s2"})
+        loaded = TypeAdapter(SignalSinkYAML).validate_python({"type": "user", "externalId": "s2"})
         assert isinstance(loaded, UserSinkYAML)
 
     @pytest.mark.parametrize("data, expected_errors", list(invalid_test_cases()))
