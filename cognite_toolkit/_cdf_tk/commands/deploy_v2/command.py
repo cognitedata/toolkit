@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     T_ResponseResource,
 )
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, InternalId, RawTableId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, InternalId, RawTableId, SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, DataSetsAcl, DataSetScope, IDScope
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._utils import (
@@ -647,7 +647,8 @@ class DeployV2Command(ToolkitCommand):
                 continue
             if step.crud_cls is SpaceIO:
                 space_ids = [s.space for s in existing]
-                for space_stats in client.data_modeling.statistics.spaces.retrieve(space_ids) or []:
+                space_statistics = client.statistics.spaces.retrieve([SpaceId(space=space) for space in space_ids])
+                for space_stats in space_statistics:
                     total += space_stats.nodes + space_stats.edges
             else:
                 total += len(existing)
@@ -699,7 +700,7 @@ class DeployV2Command(ToolkitCommand):
         """Show safety gates before any --drop-data deletion. Returns False if the user aborts."""
         instance_count = self._count_dms_instances_in_plan(client, plan, options)
         if instance_count > 0:
-            project_instance_statistics = client.data_modeling.statistics.project().instances
+            project_instance_statistics = client.statistics.retrieve().instances
             validate_soft_delete_capacity(
                 project_instance_statistics.soft_deleted_instances,
                 project_instance_statistics.soft_deleted_instances_limit,
