@@ -5,6 +5,7 @@ from typing import cast
 from unittest.mock import MagicMock, patch
 
 import pytest
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     DataSet,
     filters,
@@ -321,7 +322,9 @@ class TestMigrate3D:
             raise AssertionError(f"{self.ERROR_HEADING}Migrated 3D revision ID does not match expected format.")
 
         # Verify that the asset mapping exists in data modeling
-        cognite_asset = client.data_modeling.instances.retrieve_nodes(asset_node.as_id(), node_cls=CogniteAsset)
+        cognite_asset = client.data_modeling.instances.retrieve_nodes(
+            dm.NodeId(space=asset_node.space, external_id=asset_node.external_id), node_cls=CogniteAsset
+        )
         if not cognite_asset:
             raise EndpointAssertionError(
                 "data_modeling.instances.retrieve",
