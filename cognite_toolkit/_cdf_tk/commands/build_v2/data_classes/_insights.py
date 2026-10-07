@@ -32,10 +32,10 @@ class InsightDefinition(BaseModel):
     insight_type: str = "InsightDefinition"
     severity: ClassVar[int] = 999
 
-    # Codes follow <RESOURCE>-<PROBLEM> for resource-specific insights, e.g. AGENT-INVALID-MODEL.
+    # Codes follow <SUBJECT>-<PROBLEM>, with the problem word last, e.g. FILE-SUFFIX-MISSING, VALUE-INVALID.
     # The title is the human-readable heading shown for the code, e.g. 'Invalid agent model'.
-    # Vocabulary: MISSING-* / INVALID-* means we know there is a problem.
-    # UNVERIFIED-* / UNRECOGNIZED-* means we cannot confirm it, so we only guess (always a warning).
+    # Vocabulary: *-MISSING / *-INVALID / *-EXCEEDED means we know there is a problem.
+    # *-UNVERIFIED / *-UNRECOGNIZED means we cannot confirm it, so we only guess (always a warning).
     code: str
     title: str | None = Field(default=None, exclude=True)
     message: str

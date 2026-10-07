@@ -179,7 +179,7 @@ class TestInFieldCDMRuleSet:
         rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
-        assert errors[0].code == f"{InFieldCDMRuleSet.CODE_PREFIX}-VIEW-MISSING-PROPERTIES"
+        assert errors[0].code == "REFERENCED-RESOURCE-INVALID"
         assert "mainAsset" in errors[0].message
 
     def test_view_not_found_in_cdf_skips_property_check(
@@ -323,7 +323,7 @@ class TestInFieldCDMRuleSet:
         rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
-        assert errors[0].code == f"{InFieldCDMRuleSet.CODE_PREFIX}-VIEW-INVALID-PROPERTY"
+        assert errors[0].code == "REFERENCED-PROPERTY-MISSING"
         assert "files" in errors[0].message
         assert errors[0].source_file == yaml_file
 
@@ -434,7 +434,7 @@ class TestInFieldCDMRuleSet:
         rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
-        assert errors[0].code == f"{InFieldCDMRuleSet.CODE_PREFIX}-VIEW-INVALID-PROPERTY"
+        assert errors[0].code == "REFERENCED-PROPERTY-MISSING"
         assert "unknownField" in errors[0].message
         assert errors[0].source_file == yaml_file
 

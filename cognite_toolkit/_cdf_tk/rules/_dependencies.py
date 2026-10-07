@@ -36,9 +36,11 @@ from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, Resou
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from ._base import (
-    INVALID_REFERENCE,
-    INVALID_REFERENCE_TITLE,
-    UNVERIFIED_REFERENCE,
+    MISSING_REFERENCE_TITLE,
+    REFERENCED_RESOURCE_MISSING,
+    REFERENCED_RESOURCE_UNVERIFIED,
+    RESOURCE_CHANGE_INVALID,
+    RESOURCE_REMOVAL_UNSUPPORTED,
     UNVERIFIED_REFERENCE_TITLE,
     InternalValidatorException,
     RuleSetStatus,
@@ -56,12 +58,6 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
     """
 
     DISPLAY_NAME = "Dependencies"
-    CONTAINER_INVALID_OPERATION_CODE: ClassVar[str] = "CONTAINER-INVALID-OPERATION"
-    VIEW_INVALID_OPERATION_CODE: ClassVar[str] = "VIEW-INVALID-OPERATION"
-    DATA_MODEL_INVALID_OPERATION_CODE: ClassVar[str] = "DATA-MODEL-INVALID-OPERATION"
-    CONTAINER_UNSUPPORTED_REMOVAL_CODE: ClassVar[str] = "CONTAINER-UNSUPPORTED-REMOVAL"
-    VIEW_UNSUPPORTED_REMOVAL_CODE: ClassVar[str] = "VIEW-UNSUPPORTED-REMOVAL"
-    DATA_MODEL_UNSUPPORTED_REMOVAL_CODE: ClassVar[str] = "DATA-MODEL-UNSUPPORTED-REMOVAL"
     CONTAINER_INVALID_OPERATION_TITLE: ClassVar[str] = "Invalid container change"
     VIEW_INVALID_OPERATION_TITLE: ClassVar[str] = "Invalid view change"
     DATA_MODEL_INVALID_OPERATION_TITLE: ClassVar[str] = "Invalid data model change"
@@ -119,8 +115,8 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                         for resource in expected_by_identifier[identifier]:
                             yield with_position(
                                 error_insight_type(ConsistencyError)(
-                                    code=INVALID_REFERENCE,
-                                    title=INVALID_REFERENCE_TITLE,
+                                    code=REFERENCED_RESOURCE_MISSING,
+                                    title=MISSING_REFERENCE_TITLE,
                                     message=(
                                         f"The {resource_label} {quote_identifier(identifier)} does not exist locally or in CDF. "
                                         f"It is referenced by {quote_identifier(resource.identifier)}."
@@ -138,7 +134,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     for resource in expected_resources:
                         yield with_position(
                             warning_insight_type(ConsistencyError)(
-                                code=UNVERIFIED_REFERENCE,
+                                code=REFERENCED_RESOURCE_UNVERIFIED,
                                 title=UNVERIFIED_REFERENCE_TITLE,
                                 message=(
                                     f"Missing {resource_type_name} {quote_identifier(identifier)}. "
@@ -291,7 +287,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             affected = humanize_collection([f"{name!r}" for name in sorted({*removed, *changed})])
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=self.CONTAINER_INVALID_OPERATION_CODE,
+                    code=RESOURCE_CHANGE_INVALID,
                     title=self.CONTAINER_INVALID_OPERATION_TITLE,
                     message=(
                         f"Local config for container {container_id} has some properties {affected} that have been modified in a way CDF "
@@ -308,7 +304,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         if missing and not changed:
             yield with_position(
                 warning_insight_type(ConsistencyError)(
-                    code=self.CONTAINER_UNSUPPORTED_REMOVAL_CODE,
+                    code=RESOURCE_REMOVAL_UNSUPPORTED,
                     title=self.CONTAINER_UNSUPPORTED_REMOVAL_TITLE,
                     message=(
                         f"Local config for container {container_id} is missing properties "
@@ -331,7 +327,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             # is metadata and CDF applies changes to it without restriction, so it is not checked here.
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=self.CONTAINER_INVALID_OPERATION_CODE,
+                    code=RESOURCE_CHANGE_INVALID,
                     title=self.CONTAINER_INVALID_OPERATION_TITLE,
                     message=(
                         f"Local config for container {container_id} has modified usedFor ('{local_used_for}') compared to the deployed "
@@ -367,7 +363,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             affected = humanize_collection([f"{name!r}" for name in sorted({*removed, *changed})])
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=self.VIEW_INVALID_OPERATION_CODE,
+                    code=RESOURCE_CHANGE_INVALID,
                     title=self.VIEW_INVALID_OPERATION_TITLE,
                     message=(
                         f"Local config for view {view_id} has some properties {affected} that have been modified in a way CDF "
@@ -384,7 +380,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         elif removed:
             yield with_position(
                 warning_insight_type(ConsistencyError)(
-                    code=self.VIEW_UNSUPPORTED_REMOVAL_CODE,
+                    code=RESOURCE_REMOVAL_UNSUPPORTED,
                     title=self.VIEW_UNSUPPORTED_REMOVAL_TITLE,
                     message=(
                         f"Local config for view {view_id} is missing properties "
@@ -403,7 +399,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             # name, description and filter are metadata/query-only and can always change.
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=self.VIEW_INVALID_OPERATION_CODE,
+                    code=RESOURCE_CHANGE_INVALID,
                     title=self.VIEW_INVALID_OPERATION_TITLE,
                     message=(
                         f"Local config for view {view_id} has changed implements compared to the view version already deployed to CDF"
@@ -445,7 +441,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             )
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=self.DATA_MODEL_INVALID_OPERATION_CODE,
+                    code=RESOURCE_CHANGE_INVALID,
                     title=self.DATA_MODEL_INVALID_OPERATION_TITLE,
                     message=(
                         f"Local config for data model {data_model_id} has changed the view version of {changes} compared to the existing deployed data model version in CDF. "
@@ -462,7 +458,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         if removed:
             yield with_position(
                 warning_insight_type(ConsistencyError)(
-                    code=self.DATA_MODEL_UNSUPPORTED_REMOVAL_CODE,
+                    code=RESOURCE_REMOVAL_UNSUPPORTED,
                     title=self.DATA_MODEL_UNSUPPORTED_REMOVAL_TITLE,
                     message=(
                         f"Local config for data model {data_model_id} is missing the view(s) "

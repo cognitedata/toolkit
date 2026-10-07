@@ -32,7 +32,7 @@ class CheckDataSetMissing(ToolkitLocalRule):
     ```
     """
 
-    CODE = "UNGOVERNED-RESOURCE"
+    CODE = "RESOURCE-UNGOVERNED"
     TITLE = "Ungoverned resource"
     insight_type = Recommendation
 

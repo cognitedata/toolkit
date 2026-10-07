@@ -79,7 +79,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                             f"Function '{function_def.external_id}' CPU cores ({function_def.cpu}) "
                             f"must be between {limits.cpu_cores.min} and {limits.cpu_cores.max}."
                         ),
-                        code=f"{self.CODE_PREFIX}-CPU-OUT-OF-RANGE",
+                        code="LIMIT-EXCEEDED",
                         title="Function CPU out of range",
                         fix=f"Ensure that CPU cores is between {limits.cpu_cores.min} and {limits.cpu_cores.max}.",
                         source_file=resource.source_path,
@@ -96,7 +96,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                             f"Function '{function_def.external_id}' memory ({function_def.memory} GB) "
                             f"must be between {limits.memory_gb.min} and {limits.memory_gb.max} GB."
                         ),
-                        code=f"{self.CODE_PREFIX}-MEMORY-OUT-OF-RANGE",
+                        code="LIMIT-EXCEEDED",
                         title="Function memory out of range",
                         fix=f"Ensure that memory is between {limits.memory_gb.min} and {limits.memory_gb.max} GB.",
                         source_file=resource.source_path,
@@ -114,7 +114,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                         f"available in this CDF project. "
                         f"Available runtimes: {quoted_runtimes}."
                     ),
-                    code=f"{self.CODE_PREFIX}-INVALID-RUNTIME",
+                    code="VALUE-INVALID",
                     title="Invalid function runtime",
                     fix=f"Use one of the available runtimes: {quoted_runtimes}.",
                     source_file=resource.source_path,
@@ -128,7 +128,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
             if not pip_result.success:
                 yield error_insight_type(ConsistencyError)(
                     message=pip_result.create_message("Function", function_def.external_id),
-                    code=f"{self.CODE_PREFIX}-INVALID-REQUIREMENTS",
+                    code="FUNCTION-REQUIREMENTS-INVALID",
                     title="Invalid function requirements",
                     fix="Ensure that requirements.txt is valid.",
                     source_file=resource.source_path,

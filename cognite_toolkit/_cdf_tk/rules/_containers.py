@@ -55,7 +55,7 @@ class DeployableContainer(ToolkitLocalRule):
     ```
     """
 
-    CODE = "CONTAINER-NON-NULLABLE-DIRECT-RELATION"
+    CODE = "VALUE-INVALID"
     TITLE = "Non-nullable direct relation"
     insight_type = ConsistencyError
 

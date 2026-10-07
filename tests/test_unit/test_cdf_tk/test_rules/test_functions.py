@@ -183,7 +183,7 @@ class TestFunctionLimitsRule:
         rule = self._create_rule_with_client(function_limits)
         errors = list(rule._validate_function(resource))
         assert len(errors) == 1
-        assert errors[0].code == "FUNCTION-INVALID-RUNTIME"
+        assert errors[0].code == "VALUE-INVALID"
         assert "py314" in errors[0].message
 
     def test_validate_function_supported_runtime(self, tmp_path: Path, function_limits: FunctionLimits) -> None:
@@ -256,7 +256,7 @@ class TestFunctionLimitsRule:
         errors = list(rule._validate_function(resource))
         assert len(errors) == 1
         error = errors[0]
-        assert error.code == "FUNCTION-CPU-OUT-OF-RANGE"
+        assert error.code == "LIMIT-EXCEEDED"
         assert error.message is not None
         assert error.fix is not None
 
@@ -292,7 +292,7 @@ class TestFunctionLimitsRule:
         errors = list(rule._validate_function(resource))
 
         assert len(errors) == 1
-        assert errors[0].code == "FUNCTION-INVALID-REQUIREMENTS"
+        assert errors[0].code == "FUNCTION-REQUIREMENTS-INVALID"
         mock_validate_pip.assert_called_once()
 
     @patch("cognite_toolkit._cdf_tk.rules._functions.validate_requirements_with_pip")

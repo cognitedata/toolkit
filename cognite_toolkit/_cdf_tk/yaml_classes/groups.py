@@ -36,7 +36,7 @@ class BaseGroupYAML(ToolkitResource):
 
         return [
             warning_insight_type(ModelSyntaxWarning)(
-                code="UNRECOGNIZED-VALUE",
+                code="VALUE-UNRECOGNIZED",
                 title="Unrecognized value",
                 message=f"'{cap.original_name}' is not a known capability name. "
                 "It will be deployed as-is, but may be rejected by CDF.",

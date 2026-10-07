@@ -120,7 +120,7 @@ class ValidationStep:
 SelectionSource = Literal["cli-arg", "config", "interactive"]
 
 # Precompiled once at import time so it isn't recompiled/looked up per file when
-# scanning 100s of resource files. Matches e.g. "# rules: ignore[UNGOVERNED-RESOURCE, INVALID-REFERENCE]".
+# scanning 100s of resource files. Matches e.g. "# rules: ignore[RESOURCE-UNGOVERNED, REFERENCED-RESOURCE-INVALID]".
 _IGNORE_RULE_PATTERN = re.compile(r"#\s*rules?\s*:\s*ignore\s*\[([^\]]*)\]")
 
 
@@ -922,7 +922,7 @@ class BuildV2Command(ToolkitCommand):
             return (
                 IgnoredFile(
                     filepath=resource_file,
-                    code="MISSING-FILE-SUFFIX",
+                    code="FILE-SUFFIX-MISSING",
                     title="Missing file suffix",
                     reason=f"Resource file {resource_file.name!r} is ignored because it does not have a suffix to indicate the resource type.",
                     fix=f"Rename it with the resource type: {resource_file.stem}.<ResourceType>{resource_file.suffix}.",
@@ -937,7 +937,7 @@ class BuildV2Command(ToolkitCommand):
                 None,
                 FailedReadYAMLFile(
                     source_path=resource_file,
-                    code="INVALID-RESOURCE-TYPE",
+                    code="FILE-SUFFIX-INVALID",
                     title="Invalid resource type",
                     error=f"Resource file {resource_file.name!r} has unknown resource type '{resource_type}' for folder '{resource_folder}'",
                 ),
@@ -961,7 +961,7 @@ class BuildV2Command(ToolkitCommand):
             return FailedReadYAMLFile(
                 source_path=resource_file,
                 error=f"Failed to read resource file: {read_error!s}",
-                code="UNREADABLE-FILE",
+                code="FILE-UNREADABLE",
                 title="Unreadable file",
             )
         # Ignore rules in file?
@@ -981,7 +981,7 @@ class BuildV2Command(ToolkitCommand):
         elif parsed_yaml is None:
             return FailedReadYAMLFile(
                 source_path=resource_file,
-                code="EMPTY-FILE",
+                code="FILE-EMPTY",
                 title="Empty file",
                 error="The YAML file is empty. Please add content to the file or remove it if it is not needed.",
                 unresolved_variables=unresolved_variables,
@@ -1020,7 +1020,7 @@ class BuildV2Command(ToolkitCommand):
         except yaml.YAMLError as yaml_error:
             return FailedReadYAMLFile(
                 source_path=resource_file,
-                code="INVALID-YAML",
+                code="FILE-CONTENT-INVALID",
                 title="Invalid YAML",
                 error=f"Failed to parse YAML content.\n{yaml_error!s}",
                 unresolved_variables=unresolved_variables,
@@ -1051,7 +1051,7 @@ class BuildV2Command(ToolkitCommand):
             except KeyError:
                 return FailedReadYAMLFile(
                     source_path=result.source_path,
-                    code="UNREADABLE-FILE",
+                    code="FILE-UNREADABLE",
                     title="Unreadable file",
                     error=f"Failed to get identifier for resource file '{resource_file.name!r}' after validation error: {errors!s}",
                 )
@@ -1097,7 +1097,7 @@ class BuildV2Command(ToolkitCommand):
                 except KeyError:
                     return FailedReadYAMLFile(
                         source_path=result.source_path,
-                        code="UNREADABLE-FILE",
+                        code="FILE-UNREADABLE",
                         title="Unreadable file",
                         error=f"Failed to get identifier for resource in file '{resource_file.name!r}' after validation error.",
                     )
@@ -1167,7 +1167,7 @@ class BuildV2Command(ToolkitCommand):
         if errors:
             line, column = self._single_position(errors, positions)
             syntax_error = error_insight_type(ModelSyntaxError, BuildError)(
-                code="SYNTAX-ERROR",
+                code="FIELD-INVALID",
                 title="Syntax error",
                 message="\n".join(item.message for item in errors),
                 fix="Compare the YAML with reference documentation and make sure it is valid.",

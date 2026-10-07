@@ -31,9 +31,10 @@ from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, ViewIO
 
 from ._base import (
-    INVALID_REFERENCE,
-    INVALID_REFERENCE_TITLE,
-    UNVERIFIED_REFERENCE,
+    MISSING_REFERENCE_TITLE,
+    REFERENCED_PROPERTY_INVALID,
+    REFERENCED_PROPERTY_MISSING,
+    REFERENCED_PROPERTY_UNVERIFIED,
     UNVERIFIED_REFERENCE_TITLE,
     InternalValidatorException,
     RuleSetStatus,
@@ -86,7 +87,6 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
 
     CODE_PREFIX = "DATA-MODELING"
     DISPLAY_NAME = "Data modeling"
-    INVALID_REVERSE_DIRECT_RELATION = "VIEW-INVALID-REVERSE-DIRECT-RELATION"
     INVALID_REVERSE_DIRECT_RELATION_TITLE = "Invalid reverse direct relation"
 
     def get_status(self) -> RuleSetStatus:
@@ -410,7 +410,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             for resource in ref.resources:
                 yield with_position(
                     warning_insight_type(ConsistencyError)(
-                        code=UNVERIFIED_REFERENCE,
+                        code=REFERENCED_PROPERTY_UNVERIFIED,
                         title=UNVERIFIED_REFERENCE_TITLE,
                         message=(
                             f"Missing container property '{ref.label}'. "
@@ -431,7 +431,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             for resource in ref.resources:
                 yield with_position(
                     warning_insight_type(ConsistencyError)(
-                        code=UNVERIFIED_REFERENCE,
+                        code=REFERENCED_PROPERTY_UNVERIFIED,
                         title=UNVERIFIED_REFERENCE_TITLE,
                         message=(
                             f"Missing direct relation '{ref.through}'. "
@@ -451,8 +451,8 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         for resource in ref.resources:
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=INVALID_REFERENCE,
-                    title=INVALID_REFERENCE_TITLE,
+                    code=REFERENCED_PROPERTY_MISSING,
+                    title=MISSING_REFERENCE_TITLE,
                     message=(
                         f"Container property '{ref.label}' does not exist locally or in CDF. "
                         f"It is referenced by {quote_identifier(resource.identifier)}."
@@ -468,8 +468,8 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         for resource in ref.resources:
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=INVALID_REFERENCE,
-                    title=INVALID_REFERENCE_TITLE,
+                    code=REFERENCED_PROPERTY_MISSING,
+                    title=MISSING_REFERENCE_TITLE,
                     message=(
                         f"Direct relation '{ref.through}' does not exist locally or in CDF. "
                         f"It is referenced by {quote_identifier(resource.identifier)}."
@@ -485,7 +485,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         for resource in ref.resources:
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=self.INVALID_REVERSE_DIRECT_RELATION,
+                    code=REFERENCED_PROPERTY_INVALID,
                     title=self.INVALID_REVERSE_DIRECT_RELATION_TITLE,
                     message=(
                         f"Reverse direct relation through '{ref.through}' points at '{ref.through.identifier}', "

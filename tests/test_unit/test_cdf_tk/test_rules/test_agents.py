@@ -98,7 +98,7 @@ class TestAgentRuleSet:
     @pytest.mark.parametrize(
         "model, with_client, expected_codes",
         [
-            pytest.param("gcp/claude-5-opus", True, ["AGENT-INVALID-MODEL"], id="unknown-model"),
+            pytest.param("gcp/claude-5-opus", True, ["VALUE-INVALID"], id="unknown-model"),
             pytest.param("azure/gpt-4.1", True, [], id="known-model"),
             pytest.param(None, True, [], id="unset-model-is-allowed"),
             pytest.param("some-brand-new-model", False, [], id="no-client-allows-any-model"),
@@ -142,19 +142,19 @@ class TestAgentRuleSet:
         rule = self._create_rule_with_client(service_availability)
         errors = list(rule._validate_agent(resource))
         assert len(errors) == 1
-        assert errors[0].code == "AGENT-TOO-MANY-TOOLS"
+        assert errors[0].code == "LIMIT-EXCEEDED"
 
     @pytest.mark.parametrize(
         "runtime_version, extra_fields, with_client, expected_codes",
         [
             pytest.param("1.0.0", {}, True, [], id="known-runtime-version-no-gated-fields"),
-            pytest.param("9.9.9", {}, True, ["AGENT-INVALID-RUNTIME"], id="unknown-runtime-version"),
+            pytest.param("9.9.9", {}, True, ["VALUE-INVALID"], id="unknown-runtime-version"),
             pytest.param("9.9.9", {}, False, [], id="no-client-allows-any-runtime-version"),
             pytest.param(
                 "1.0.0",
                 {"subagents": [{"agentExternalId": "specialist"}]},
                 True,
-                ["AGENT-UNSUPPORTED-CAPABILITY"],
+                ["FIELD-INVALID"],
                 id="subagents-unsupported-runtime-version",
             ),
             pytest.param(
@@ -168,14 +168,14 @@ class TestAgentRuleSet:
                 "1.0.0",
                 {"skills": ["my_skill"]},
                 True,
-                ["AGENT-UNSUPPORTED-CAPABILITY"],
+                ["FIELD-INVALID"],
                 id="skills-unsupported-runtime-version",
             ),
             pytest.param(
                 None,
                 {"subagents": [{"agentExternalId": "specialist"}]},
                 True,
-                ["AGENT-UNSUPPORTED-CAPABILITY"],
+                ["FIELD-INVALID"],
                 id="unset-runtime-version-falls-back-to-unsupported-default",
             ),
             pytest.param(

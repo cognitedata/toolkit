@@ -364,7 +364,7 @@ class TestAgentIOExtraFiles:
 
         assert len(extras) == 1
         extra = extras[0]
-        assert extra.model_dump(exclude_unset=True)["code"] == "MISSING-FILE"
+        assert extra.model_dump(exclude_unset=True)["code"] == "REFERENCED-FILE-MISSING"
 
     @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="We only split files in v0.9+")
     def test_split_resource_writes_markdown_and_tools(

@@ -60,7 +60,7 @@ class TestInsightList:
 
     def test_heading(self, valid_yaml_absolute_path) -> None:
         titled_insight = BuildError(
-            message="m", code="INVALID-YAML", title="Invalid YAML", source_file=valid_yaml_absolute_path
+            message="m", code="FILE-CONTENT-INVALID", title="Invalid YAML", source_file=valid_yaml_absolute_path
         )
         untitled_insight = BuildError(message="m", code="SOME-CODE", source_file=valid_yaml_absolute_path)
 

@@ -65,7 +65,7 @@ class FunctionCodeBundle:
         function_rootdir = cls.get_code_implicitly(filepath, external_id)
         if not function_rootdir.is_dir():
             yield FailedReadExtra(
-                code="MISSING-DIRECTORY",
+                code="REFERENCED-DIRECTORY-MISSING",
                 title="Missing function code",
                 error=f"Cannot find function code for function {external_id!r} in {filepath.as_posix()}. Expected function code directory {function_rootdir.as_posix()} to exist. ",
                 source_path=function_rootdir,
