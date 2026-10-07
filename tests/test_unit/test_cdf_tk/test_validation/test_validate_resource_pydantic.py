@@ -79,8 +79,8 @@ def group_yaml_test_cases() -> Iterable:
             }
         ],
         {
-            "Invalid value at item [1].capabilities[1].scope: invalid scope name 'notExisting'. "
-            "Expected all or spaceIdScope",
+            "Invalid value at item [1].capabilities[1].scope: Input tag 'notExisting' found using "
+            "'scope_name' | 'scopeName' does not match any of the expected tags: 'all', 'spaceIdScope'",
         },
         id="Invalid scope name",
     )

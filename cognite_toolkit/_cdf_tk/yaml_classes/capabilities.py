@@ -1,603 +1,668 @@
-import sys
-from types import MappingProxyType, UnionType
-from typing import Any, ClassVar, Literal, cast, get_args
+from typing import Annotated, Any, Literal
 
-from pydantic import Field, ModelWrapValidatorHandler, PrivateAttr, field_validator, model_serializer, model_validator
+from pydantic import Field, model_serializer
+from pydantic.functional_validators import BeforeValidator
 from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
-from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
-
-if sys.version_info < (3, 11):
-    from typing_extensions import Self
-else:
-    from typing import Self
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 from .base import BaseModelResource
 
+# Populated after the scope and capability classes are defined. Validators run later, at call time.
+_KNOWN_SCOPE_NAMES: set[str] = set()
+_KNOWN_CAPABILITY_NAMES: set[str] = set()
+
+
+def _lift_name(value: Any, field_name: str, alias: str) -> Any:
+    """Turn a one-key YAML object, such as ``{"all": {}}``, into ``{alias: "all"}``."""
+    if isinstance(value, dict) and field_name not in value and alias not in value and len(value) == 1:
+        name, content = next(iter(value.items()))
+        if isinstance(content, dict):
+            return {alias: name, **content}
+    return value
+
+
+def _lift_scope_name(value: Any) -> Any:
+    if isinstance(value, Scope):
+        return value
+    return _lift_name(value, "scope_name", "scopeName")
+
+
+def _lift_scope_name_or_unknown(value: Any) -> Any:
+    if isinstance(value, Scope):
+        return value
+    lifted = _lift_scope_name(value)
+    if not isinstance(lifted, dict):
+        return lifted
+    name = lifted.get("scopeName", lifted.get("scope_name"))
+    if not isinstance(name, str) or name in _KNOWN_SCOPE_NAMES or name == "__unknown__":
+        return lifted
+    return {"scopeName": "__unknown__", "unknownName": name, "rawData": value}
+
+
+def _lift_capability_name(value: Any) -> Any:
+    if isinstance(value, Capability):
+        return value
+    return _lift_name(value, "capability_name", "capabilityName")
+
+
+def _lift_capability_name_or_unknown(value: Any) -> Any:
+    if isinstance(value, Capability):
+        return value
+    lifted = _lift_capability_name(value)
+    if not isinstance(lifted, dict):
+        return lifted
+    name = lifted.get("capabilityName", lifted.get("capability_name"))
+    if not isinstance(name, str) or name in _KNOWN_CAPABILITY_NAMES or name == "__unknown__":
+        return lifted
+    raw = value if isinstance(value, dict) else {}
+    content = next(iter(raw.values()), {}) if len(raw) == 1 else {}
+    scope = content.get("scope") if isinstance(content, dict) else None
+    return {
+        "capabilityName": "__unknown__",
+        "unknownName": name,
+        "rawData": raw,
+        "scope": scope if isinstance(scope, dict) else {"all": {}},
+        "actions": [],
+    }
+
 
 class Scope(BaseModelResource):
-    _scope_name: ClassVar[str]
-
-    @model_validator(mode="wrap")
-    @classmethod
-    def find_scope_cls(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
-        if isinstance(data, Scope):
-            return cast(Self, data)
-        if not isinstance(data, dict):
-            raise ValueError(f"Invalid scope data '{type(data)}' expected dict")
-
-        if cls is not Scope:
-            return handler(data)
-        name, content = next(iter(data.items()))
-        if name not in _SCOPE_CLASS_BY_NAME:
-            scope = UnknownScope.model_construct()
-            scope._unknown_name = name
-            scope._raw_data = data
-            return cast(Self, scope)
-        cls_ = _SCOPE_CLASS_BY_NAME[name]
-        return cast(Self, cls_.model_validate(content))
+    scope_name: str = Field(exclude=True)
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def include_scope_name(self, handler: SerializerFunctionWrapHandler) -> dict:
-        if self._scope_name is None:
-            raise ValueError("Scope name is not set")
         serialized_data = handler(self)
-        return {self._scope_name: serialized_data}
+        return {self.scope_name: serialized_data}
 
 
 class AgentExternalIdScope(Scope):
-    _scope_name = "agentExternalIdScope"
+    scope_name: Literal["agentExternalIdScope"] = Field("agentExternalIdScope", exclude=True)
     external_ids: list[str]
 
 
 class AllScope(Scope):
-    _scope_name = "all"
+    scope_name: Literal["all"] = Field("all", exclude=True)
 
 
 class AppConfigScope(Scope):
-    _scope_name = "appScope"
+    scope_name: Literal["appScope"] = Field("appScope", exclude=True)
     apps: list[Literal["SEARCH"]]
 
 
 class AppExternalIdScope(Scope):
-    _scope_name = "appExternalIdScope"
+    scope_name: Literal["appExternalIdScope"] = Field("appExternalIdScope", exclude=True)
     external_ids: list[str]
 
 
 class DataProductScope(Scope):
-    _scope_name = "dataProductScope"
+    scope_name: Literal["dataProductScope"] = Field("dataProductScope", exclude=True)
     external_ids: list[str]
 
 
 class CurrentUserScope(Scope):
-    _scope_name = "currentuserscope"
+    scope_name: Literal["currentuserscope"] = Field("currentuserscope", exclude=True)
 
 
 class IDScope(Scope):
-    _scope_name = "idScope"
+    scope_name: Literal["idScope"] = Field("idScope", exclude=True)
     ids: list[str]
 
 
 class IDScopeLowerCase(Scope):
     """Necessary due to lack of API standardisation on scope name: 'idScope' VS 'idscope'"""
 
-    _scope_name = "idscope"
+    scope_name: Literal["idscope"] = Field("idscope", exclude=True)
     ids: list[str]
 
 
 class InstancesScope(Scope):
-    _scope_name = "instancesScope"
+    scope_name: Literal["instancesScope"] = Field("instancesScope", exclude=True)
     instances: list[str]
 
 
 class ExtractionPipelineScope(Scope):
-    _scope_name = "extractionPipelineScope"
+    scope_name: Literal["extractionPipelineScope"] = Field("extractionPipelineScope", exclude=True)
     ids: list[str]
 
 
 class PostgresGatewayUsersScope(Scope):
-    _scope_name = "usersScope"
+    scope_name: Literal["usersScope"] = Field("usersScope", exclude=True)
     usernames: list[str]
 
 
 class DataSetScope(Scope):
-    _scope_name = "datasetScope"
+    scope_name: Literal["datasetScope"] = Field("datasetScope", exclude=True)
     ids: list[str]
 
 
 class TableScope(Scope):
-    _scope_name = "tableScope"
+    scope_name: Literal["tableScope"] = Field("tableScope", exclude=True)
     dbs_to_tables: dict[str, list[str]]
 
 
 class AssetRootIDScope(Scope):
-    _scope_name = "assetRootIdScope"
+    scope_name: Literal["assetRootIdScope"] = Field("assetRootIdScope", exclude=True)
     root_ids: list[str]
 
 
 class ExperimentScope(Scope):
-    _scope_name = "experimentscope"
+    scope_name: Literal["experimentscope"] = Field("experimentscope", exclude=True)
     experiments: list[str]
 
 
 class SpaceIDScope(Scope):
-    _scope_name = "spaceIdScope"
+    scope_name: Literal["spaceIdScope"] = Field("spaceIdScope", exclude=True)
     space_ids: list[str]
 
 
 class PartitionScope(Scope):
-    _scope_name = "partition"
+    scope_name: Literal["partition"] = Field("partition", exclude=True)
     partition_ids: list[int]
 
 
 class LegacySpaceScope(Scope):
-    _scope_name = "spaceScope"
+    scope_name: Literal["spaceScope"] = Field("spaceScope", exclude=True)
     external_ids: list[str]
 
 
 class LegacyDataModelScope(Scope):
-    _scope_name = "dataModelScope"
+    scope_name: Literal["dataModelScope"] = Field("dataModelScope", exclude=True)
     external_ids: list[str]
 
 
+_LiftScopeName = BeforeValidator(_lift_scope_name)
+
+AllScopeType = Annotated[AllScope, _LiftScopeName]
+ExperimentScopeType = Annotated[ExperimentScope, _LiftScopeName]
+AllOrAgentExternalIdScope = Annotated[
+    AllScope | AgentExternalIdScope, Field(discriminator="scope_name"), _LiftScopeName
+]
+AllOrAppConfigScope = Annotated[AllScope | AppConfigScope, Field(discriminator="scope_name"), _LiftScopeName]
+AllOrAppExternalIdScope = Annotated[AllScope | AppExternalIdScope, Field(discriminator="scope_name"), _LiftScopeName]
+AllOrCurrentUserScope = Annotated[AllScope | CurrentUserScope, Field(discriminator="scope_name"), _LiftScopeName]
+AllOrDataProductScope = Annotated[AllScope | DataProductScope, Field(discriminator="scope_name"), _LiftScopeName]
+AllOrDataSetScope = Annotated[AllScope | DataSetScope, Field(discriminator="scope_name"), _LiftScopeName]
+AllOrIDScope = Annotated[AllScope | IDScope, Field(discriminator="scope_name"), _LiftScopeName]
+AllOrIDScopeLowerCase = Annotated[AllScope | IDScopeLowerCase, Field(discriminator="scope_name"), _LiftScopeName]
+AllOrInstancesScope = Annotated[AllScope | InstancesScope, Field(discriminator="scope_name"), _LiftScopeName]
+AllOrPartitionScope = Annotated[AllScope | PartitionScope, Field(discriminator="scope_name"), _LiftScopeName]
+AllOrPostgresGatewayUsersScope = Annotated[
+    AllScope | PostgresGatewayUsersScope, Field(discriminator="scope_name"), _LiftScopeName
+]
+AllOrSpaceIDScope = Annotated[AllScope | SpaceIDScope, Field(discriminator="scope_name"), _LiftScopeName]
+AllOrTableScope = Annotated[AllScope | TableScope, Field(discriminator="scope_name"), _LiftScopeName]
+AllIDOrDataSetScope = Annotated[AllScope | IDScope | DataSetScope, Field(discriminator="scope_name"), _LiftScopeName]
+AllDataSetOrExtractionPipelineScope = Annotated[
+    AllScope | DataSetScope | ExtractionPipelineScope, Field(discriminator="scope_name"), _LiftScopeName
+]
+AllDataSetIDOrAssetRootScope = Annotated[
+    AllScope | DataSetScope | IDScopeLowerCase | AssetRootIDScope, Field(discriminator="scope_name"), _LiftScopeName
+]
+
+
 class Capability(BaseModelResource):
-    _capability_name: ClassVar[str]
+    capability_name: str = Field(exclude=True)
     scope: Scope
-
-    @field_validator("scope", mode="before")
-    @classmethod
-    def find_scope_cls(cls, data: Any) -> Scope:
-        annotation = cls.model_fields["scope"].annotation
-        if isinstance(annotation, UnionType):
-            valid_types = {s._scope_name for s in get_args(annotation)}
-        elif annotation is not None and issubclass(annotation, Scope):
-            valid_types = {annotation._scope_name}
-        else:
-            raise ValueError(f"Invalid scope annotation '{annotation}'")
-
-        name = next(iter(data.keys()))
-        if name not in valid_types:
-            raise ValueError(
-                f"invalid scope name '{name}'. Expected {humanize_collection(valid_types, bind_word='or')}"
-            )
-
-        return Scope.model_validate(data)
-
-    @model_validator(mode="wrap")
-    @classmethod
-    def find_capability_cls(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
-        if cls is not Capability:
-            return handler(data)
-        if not isinstance(data, dict):
-            raise ValueError(f"Invalid capability data '{type(data)}' expected dict")
-        name, content = next(iter(data.items()))
-        if name not in _CAPABILITY_CLASS_BY_NAME:
-            content = next(iter(data.values()), {})
-            scope_raw = content.get("scope") if isinstance(content, dict) else None
-            parsed_scope: Scope = Scope.model_validate(scope_raw) if isinstance(scope_raw, dict) else AllScope()
-            cap = UnknownCapability.model_construct(scope=parsed_scope, actions=[])
-            cap._unknown_name = name
-            cap._raw_data = data
-            return cast(Self, cap)
-        cls_ = _CAPABILITY_CLASS_BY_NAME[name]
-        return cast(Self, cls_.model_validate(content))
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def include_capability_name(self, handler: SerializerFunctionWrapHandler) -> dict:
-        if self._capability_name is None:
-            raise ValueError("Capability name is not set")
         serialized_data = handler(self)
-        return {self._capability_name: serialized_data}
+        return {self.capability_name: serialized_data}
 
 
 class AgentsAcl(Capability):
-    _capability_name = "agentsAcl"
+    capability_name: Literal["agentsAcl"] = Field("agentsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE", "RUN"]]
-    scope: AllScope | AgentExternalIdScope
+    scope: AllOrAgentExternalIdScope
 
 
 class AnalyticsAcl(Capability):
-    _capability_name = "analyticsAcl"
+    capability_name: Literal["analyticsAcl"] = Field("analyticsAcl", exclude=True)
     actions: list[Literal["READ", "EXECUTE", "LIST"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class AnnotationsAcl(Capability):
-    _capability_name = "annotationsAcl"
+    capability_name: Literal["annotationsAcl"] = Field("annotationsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE", "SUGGEST", "REVIEW"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class AppConfigAcl(Capability):
-    _capability_name = "appConfigAcl"
+    capability_name: Literal["appConfigAcl"] = Field("appConfigAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | AppConfigScope
+    scope: AllOrAppConfigScope
 
 
 class AppHostingAcl(Capability):
-    _capability_name = "appHostingAcl"
+    capability_name: Literal["appHostingAcl"] = Field("appHostingAcl", exclude=True)
     actions: list[Literal["READ", "WRITE", "RUN"]]
-    scope: AllScope | AppExternalIdScope
+    scope: AllOrAppExternalIdScope
 
 
 class AssetsAcl(Capability):
-    _capability_name = "assetsAcl"
+    capability_name: Literal["assetsAcl"] = Field("assetsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | DataSetScope
+    scope: AllOrDataSetScope
 
 
 class ChartsAdminAcl(Capability):
-    _capability_name = "chartsAdminAcl"
+    capability_name: Literal["chartsAdminAcl"] = Field("chartsAdminAcl", exclude=True)
     actions: list[Literal["READ", "UPDATE", "DELETE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class DataProductsAcl(Capability):
     """ACL for Data Products resources."""
 
-    _capability_name = "dataProductsAcl"
+    capability_name: Literal["dataProductsAcl"] = Field("dataProductsAcl", exclude=True)
     actions: list[Literal["CREATE", "READ", "UPDATE", "DELETE"]]
-    scope: AllScope | DataProductScope
+    scope: AllOrDataProductScope
 
 
 class DataSetsAcl(Capability):
-    _capability_name = "datasetsAcl"
+    capability_name: Literal["datasetsAcl"] = Field("datasetsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE", "OWNER"]]
-    scope: AllScope | IDScope
+    scope: AllOrIDScope
 
 
 class DiagramParsingAcl(Capability):
-    _capability_name = "diagramParsingAcl"
+    capability_name: Literal["diagramParsingAcl"] = Field("diagramParsingAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class DigitalTwinAcl(Capability):
-    _capability_name = "digitalTwinAcl"
+    capability_name: Literal["digitalTwinAcl"] = Field("digitalTwinAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class EntityMatchingAcl(Capability):
-    _capability_name = "entitymatchingAcl"
+    capability_name: Literal["entitymatchingAcl"] = Field("entitymatchingAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class EventsAcl(Capability):
-    _capability_name = "eventsAcl"
+    capability_name: Literal["eventsAcl"] = Field("eventsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | DataSetScope
+    scope: AllOrDataSetScope
 
 
 class ExtractionPipelinesAcl(Capability):
-    _capability_name = "extractionPipelinesAcl"
+    capability_name: Literal["extractionPipelinesAcl"] = Field("extractionPipelinesAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | IDScope | DataSetScope
+    scope: AllIDOrDataSetScope
 
 
 class ExtractionsRunAcl(Capability):
-    _capability_name = "extractionRunsAcl"
+    capability_name: Literal["extractionRunsAcl"] = Field("extractionRunsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | DataSetScope | ExtractionPipelineScope
+    scope: AllDataSetOrExtractionPipelineScope
 
 
 class ExtractionConfigsAcl(Capability):
-    _capability_name = "extractionConfigsAcl"
+    capability_name: Literal["extractionConfigsAcl"] = Field("extractionConfigsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | DataSetScope | ExtractionPipelineScope
+    scope: AllDataSetOrExtractionPipelineScope
 
 
 class FilesAcl(Capability):
-    _capability_name = "filesAcl"
+    capability_name: Literal["filesAcl"] = Field("filesAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | DataSetScope
+    scope: AllOrDataSetScope
 
 
 class FunctionsAcl(Capability):
-    _capability_name = "functionsAcl"
+    capability_name: Literal["functionsAcl"] = Field("functionsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE", "RUN"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class GeospatialAcl(Capability):
-    _capability_name = "geospatialAcl"
+    capability_name: Literal["geospatialAcl"] = Field("geospatialAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class GeospatialCrsAcl(Capability):
-    _capability_name = "geospatialCrsAcl"
+    capability_name: Literal["geospatialCrsAcl"] = Field("geospatialCrsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class GroupsAcl(Capability):
-    _capability_name = "groupsAcl"
+    capability_name: Literal["groupsAcl"] = Field("groupsAcl", exclude=True)
     actions: list[Literal["CREATE", "DELETE", "READ", "LIST", "UPDATE"]]
-    scope: AllScope | CurrentUserScope
+    scope: AllOrCurrentUserScope
 
 
 class LabelsAcl(Capability):
-    _capability_name = "labelsAcl"
+    capability_name: Literal["labelsAcl"] = Field("labelsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | DataSetScope
+    scope: AllOrDataSetScope
 
 
 class LocationFiltersAcl(Capability):
-    _capability_name = "locationFiltersAcl"
+    capability_name: Literal["locationFiltersAcl"] = Field("locationFiltersAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | IDScope
+    scope: AllOrIDScope
 
 
 class ProjectsAcl(Capability):
-    _capability_name = "projectsAcl"
+    capability_name: Literal["projectsAcl"] = Field("projectsAcl", exclude=True)
     actions: list[Literal["READ", "CREATE", "LIST", "UPDATE", "DELETE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class RawAcl(Capability):
-    _capability_name = "rawAcl"
+    capability_name: Literal["rawAcl"] = Field("rawAcl", exclude=True)
     actions: list[Literal["READ", "WRITE", "LIST"]]
-    scope: AllScope | TableScope
+    scope: AllOrTableScope
 
 
 class RelationshipsAcl(Capability):
-    _capability_name = "relationshipsAcl"
+    capability_name: Literal["relationshipsAcl"] = Field("relationshipsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | DataSetScope
+    scope: AllOrDataSetScope
 
 
 class RoboticsAcl(Capability):
-    _capability_name = "roboticsAcl"
+    capability_name: Literal["roboticsAcl"] = Field("roboticsAcl", exclude=True)
     actions: list[Literal["READ", "CREATE", "UPDATE", "DELETE"]]
-    scope: AllScope | DataSetScope
+    scope: AllOrDataSetScope
 
 
 class RuleSetsAcl(Capability):
-    _capability_name = "ruleSetsAcl"
+    capability_name: Literal["ruleSetsAcl"] = Field("ruleSetsAcl", exclude=True)
     actions: list[Literal["CREATE", "READ", "UPDATE", "DELETE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class SAPWritebackAcl(Capability):
-    _capability_name = "sapWritebackAcl"
+    capability_name: Literal["sapWritebackAcl"] = Field("sapWritebackAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | InstancesScope
+    scope: AllOrInstancesScope
 
 
 class SAPWritebackRequestsAcl(Capability):
-    _capability_name = "sapWritebackRequestsAcl"
+    capability_name: Literal["sapWritebackRequestsAcl"] = Field("sapWritebackRequestsAcl", exclude=True)
     actions: list[Literal["WRITE", "LIST"]]
-    scope: AllScope | InstancesScope
+    scope: AllOrInstancesScope
 
 
 class SecurityCategoriesAcl(Capability):
-    _capability_name = "securityCategoriesAcl"
+    capability_name: Literal["securityCategoriesAcl"] = Field("securityCategoriesAcl", exclude=True)
     actions: list[Literal["MEMBEROF", "LIST", "CREATE", "UPDATE", "DELETE"]]
-    scope: AllScope | IDScopeLowerCase
+    scope: AllOrIDScopeLowerCase
 
 
 class SeismicAcl(Capability):
-    _capability_name = "seismicAcl"
+    capability_name: Literal["seismicAcl"] = Field("seismicAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | PartitionScope
+    scope: AllOrPartitionScope
 
 
 class SequencesAcl(Capability):
-    _capability_name = "sequencesAcl"
+    capability_name: Literal["sequencesAcl"] = Field("sequencesAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | DataSetScope
+    scope: AllOrDataSetScope
 
 
 class SessionsAcl(Capability):
-    _capability_name = "sessionsAcl"
+    capability_name: Literal["sessionsAcl"] = Field("sessionsAcl", exclude=True)
     actions: list[Literal["LIST", "CREATE", "DELETE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class ThreeDAcl(Capability):
-    _capability_name = "threedAcl"
+    capability_name: Literal["threedAcl"] = Field("threedAcl", exclude=True)
     actions: list[Literal["READ", "CREATE", "UPDATE", "DELETE"]]
-    scope: AllScope | DataSetScope
+    scope: AllOrDataSetScope
 
 
 class TimeSeriesAcl(Capability):
-    _capability_name = "timeSeriesAcl"
+    capability_name: Literal["timeSeriesAcl"] = Field("timeSeriesAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | DataSetScope | IDScopeLowerCase | AssetRootIDScope
+    scope: AllDataSetIDOrAssetRootScope
 
 
 class TimeSeriesSubscriptionsAcl(Capability):
-    _capability_name = "timeSeriesSubscriptionsAcl"
+    capability_name: Literal["timeSeriesSubscriptionsAcl"] = Field("timeSeriesSubscriptionsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | DataSetScope
+    scope: AllOrDataSetScope
 
 
 class TransformationsAcl(Capability):
-    _capability_name = "transformationsAcl"
+    capability_name: Literal["transformationsAcl"] = Field("transformationsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | DataSetScope
+    scope: AllOrDataSetScope
 
 
 class TransformationsExternalDataSourcesAcl(Capability):
-    _capability_name = "transformationsExternalDataSourcesAcl"
+    capability_name: Literal["transformationsExternalDataSourcesAcl"] = Field(
+        "transformationsExternalDataSourcesAcl", exclude=True
+    )
     actions: list[Literal["READ", "WRITE", "USE"]]
-    scope: AllScope | DataSetScope
+    scope: AllOrDataSetScope
 
 
 class TypesAcl(Capability):
-    _capability_name = "typesAcl"
+    capability_name: Literal["typesAcl"] = Field("typesAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class WellsAcl(Capability):
-    _capability_name = "wellsAcl"
+    capability_name: Literal["wellsAcl"] = Field("wellsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class ExperimentsAcl(Capability):
-    _capability_name = "experimentAcl"
+    capability_name: Literal["experimentAcl"] = Field("experimentAcl", exclude=True)
     actions: list[Literal["USE"]]
-    scope: ExperimentScope
+    scope: ExperimentScopeType
 
 
 class TemplateGroupsAcl(Capability):
-    _capability_name = "templateGroupsAcl"
+    capability_name: Literal["templateGroupsAcl"] = Field("templateGroupsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | DataSetScope
+    scope: AllOrDataSetScope
 
 
 class TemplateInstancesAcl(Capability):
-    _capability_name = "templateInstancesAcl"
+    capability_name: Literal["templateInstancesAcl"] = Field("templateInstancesAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | DataSetScope
+    scope: AllOrDataSetScope
 
 
 class DataModelInstancesAcl(Capability):
-    _capability_name = "dataModelInstancesAcl"
+    capability_name: Literal["dataModelInstancesAcl"] = Field("dataModelInstancesAcl", exclude=True)
     actions: list[Literal["READ", "WRITE", "WRITE_PROPERTIES"]]
-    scope: AllScope | SpaceIDScope
+    scope: AllOrSpaceIDScope
 
 
 class DataModelsAcl(Capability):
-    _capability_name = "dataModelsAcl"
+    capability_name: Literal["dataModelsAcl"] = Field("dataModelsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | SpaceIDScope
+    scope: AllOrSpaceIDScope
 
 
 class PipelinesAcl(Capability):
-    _capability_name = "pipelinesAcl"
+    capability_name: Literal["pipelinesAcl"] = Field("pipelinesAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class DocumentPipelinesAcl(Capability):
-    _capability_name = "documentPipelinesAcl"
+    capability_name: Literal["documentPipelinesAcl"] = Field("documentPipelinesAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class FilePipelinesAcl(Capability):
-    _capability_name = "filePipelinesAcl"
+    capability_name: Literal["filePipelinesAcl"] = Field("filePipelinesAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class NotificationsAcl(Capability):
-    _capability_name = "notificationsAcl"
+    capability_name: Literal["notificationsAcl"] = Field("notificationsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class ScheduledCalculationsAcl(Capability):
-    _capability_name = "scheduledCalculationsAcl"
+    capability_name: Literal["scheduledCalculationsAcl"] = Field("scheduledCalculationsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class MonitoringTasksAcl(Capability):
-    _capability_name = "monitoringTasksAcl"
+    capability_name: Literal["monitoringTasksAcl"] = Field("monitoringTasksAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class HostedExtractorsAcl(Capability):
-    _capability_name = "hostedExtractorsAcl"
+    capability_name: Literal["hostedExtractorsAcl"] = Field("hostedExtractorsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class IntegrationConfigsAcl(Capability):
-    _capability_name = "integrationConfigsAcl"
+    capability_name: Literal["integrationConfigsAcl"] = Field("integrationConfigsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class IntegrationsAcl(Capability):
-    _capability_name = "integrationsAcl"
+    capability_name: Literal["integrationsAcl"] = Field("integrationsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE", "USE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class VisionModelAcl(Capability):
-    _capability_name = "visionModelAcl"
+    capability_name: Literal["visionModelAcl"] = Field("visionModelAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class DocumentFeedbackAcl(Capability):
-    _capability_name = "documentFeedbackAcl"
+    capability_name: Literal["documentFeedbackAcl"] = Field("documentFeedbackAcl", exclude=True)
     actions: list[Literal["CREATE", "READ", "DELETE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class WorkflowOrchestrationAcl(Capability):
-    _capability_name = "workflowOrchestrationAcl"
+    capability_name: Literal["workflowOrchestrationAcl"] = Field("workflowOrchestrationAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | DataSetScope
+    scope: AllOrDataSetScope
 
 
 class PostgresGatewayAcl(Capability):
-    _capability_name = "postgresGatewayAcl"
+    capability_name: Literal["postgresGatewayAcl"] = Field("postgresGatewayAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | PostgresGatewayUsersScope
+    scope: AllOrPostgresGatewayUsersScope
 
 
 class UserProfilesAcl(Capability):
-    _capability_name = "userProfilesAcl"
+    capability_name: Literal["userProfilesAcl"] = Field("userProfilesAcl", exclude=True)
     actions: list[Literal["READ"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class AuditlogAcl(Capability):
-    _capability_name = "auditlogAcl"
+    capability_name: Literal["auditlogAcl"] = Field("auditlogAcl", exclude=True)
     actions: list[Literal["READ"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class VideoStreamingAcl(Capability):
-    _capability_name = "videoStreamingAcl"
+    capability_name: Literal["videoStreamingAcl"] = Field("videoStreamingAcl", exclude=True)
     actions: list[Literal["READ", "WRITE", "SUBSCRIBE", "PUBLISH"]]
-    scope: AllScope | DataSetScope
+    scope: AllOrDataSetScope
 
 
 class LegacyModelHostingAcl(Capability):
-    _capability_name = "modelHostingAcl"
+    capability_name: Literal["modelHostingAcl"] = Field("modelHostingAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class LegacyGenericsAcl(Capability):
-    _capability_name = "genericsAcl"
+    capability_name: Literal["genericsAcl"] = Field("genericsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class SimulatorsAcl(Capability):
-    _capability_name = "simulatorsAcl"
+    capability_name: Literal["simulatorsAcl"] = Field("simulatorsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE", "DELETE", "RUN", "MANAGE"]]
-    scope: AllScope | DataSetScope
+    scope: AllOrDataSetScope
 
 
 class SubscribeSignalsAcl(Capability):
-    _capability_name = "subscribeSignalsAcl"
+    capability_name: Literal["subscribeSignalsAcl"] = Field("subscribeSignalsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | CurrentUserScope
+    scope: AllOrCurrentUserScope
 
 
 class StreamsAcl(Capability):
-    _capability_name = "streamsAcl"
+    capability_name: Literal["streamsAcl"] = Field("streamsAcl", exclude=True)
     actions: list[Literal["READ", "CREATE", "DELETE"]]
-    scope: AllScope
+    scope: AllScopeType
 
 
 class StreamRecordsAcl(Capability):
-    _capability_name = "streamRecordsAcl"
+    capability_name: Literal["streamRecordsAcl"] = Field("streamRecordsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | SpaceIDScope
+    scope: AllOrSpaceIDScope
+
+
+class UnknownScope(Scope):
+    """Wraps an unrecognised scope name; preserved for round-trip serialization."""
+
+    scope_name: Literal["__unknown__"] = Field("__unknown__", exclude=True)
+    unknown_name: str = Field(exclude=True)
+    raw_data: dict[str, Any] = Field(exclude=True)
+
+    @model_serializer(mode="wrap", when_used="always", return_type=dict)
+    def serialize_raw(self, handler: SerializerFunctionWrapHandler) -> dict:
+        return self.raw_data
+
+    @property
+    def original_name(self) -> str:
+        return self.unknown_name
+
+
+ScopeType = Annotated[
+    AgentExternalIdScope
+    | AllScope
+    | AppConfigScope
+    | AppExternalIdScope
+    | AssetRootIDScope
+    | CurrentUserScope
+    | DataProductScope
+    | DataSetScope
+    | ExperimentScope
+    | ExtractionPipelineScope
+    | IDScope
+    | IDScopeLowerCase
+    | InstancesScope
+    | LegacyDataModelScope
+    | LegacySpaceScope
+    | PartitionScope
+    | PostgresGatewayUsersScope
+    | SpaceIDScope
+    | TableScope
+    | UnknownScope,
+    Field(discriminator="scope_name"),
+    BeforeValidator(_lift_scope_name_or_unknown),
+]
 
 
 class UnknownCapability(Capability):
@@ -608,47 +673,103 @@ class UnknownCapability(Capability):
     by the capability name and cannot be inferred here.
     """
 
-    _capability_name: ClassVar[str] = "__unknown__"
-    _unknown_name: str = PrivateAttr(default="")
-    _raw_data: dict[str, Any] = PrivateAttr(default_factory=dict)
-    scope: Scope = Field(default_factory=AllScope)
+    capability_name: Literal["__unknown__"] = Field("__unknown__", exclude=True)
+    unknown_name: str = Field(exclude=True)
+    raw_data: dict[str, Any] = Field(exclude=True)
+    scope: ScopeType = Field(default_factory=AllScope)
     actions: list[str] = Field(default_factory=list)
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def serialize_raw(self, handler: SerializerFunctionWrapHandler) -> dict:
-        return self._raw_data
+        return self.raw_data
 
     @property
     def original_name(self) -> str:
-        return self._unknown_name
+        return self.unknown_name
 
 
-_CAPABILITY_CLASS_BY_NAME: MappingProxyType[str, type[Capability]] = MappingProxyType(
-    {c._capability_name: c for c in Capability.__subclasses__() if c is not UnknownCapability}
+CapabilityType = Annotated[
+    AgentsAcl
+    | AnalyticsAcl
+    | AnnotationsAcl
+    | AppConfigAcl
+    | AppHostingAcl
+    | AssetsAcl
+    | AuditlogAcl
+    | ChartsAdminAcl
+    | DataModelInstancesAcl
+    | DataModelsAcl
+    | DataProductsAcl
+    | DataSetsAcl
+    | DiagramParsingAcl
+    | DigitalTwinAcl
+    | DocumentFeedbackAcl
+    | DocumentPipelinesAcl
+    | EntityMatchingAcl
+    | EventsAcl
+    | ExperimentsAcl
+    | ExtractionConfigsAcl
+    | ExtractionPipelinesAcl
+    | ExtractionsRunAcl
+    | FilePipelinesAcl
+    | FilesAcl
+    | FunctionsAcl
+    | GeospatialAcl
+    | GeospatialCrsAcl
+    | GroupsAcl
+    | HostedExtractorsAcl
+    | IntegrationConfigsAcl
+    | IntegrationsAcl
+    | LabelsAcl
+    | LegacyGenericsAcl
+    | LegacyModelHostingAcl
+    | LocationFiltersAcl
+    | MonitoringTasksAcl
+    | NotificationsAcl
+    | PipelinesAcl
+    | PostgresGatewayAcl
+    | ProjectsAcl
+    | RawAcl
+    | RelationshipsAcl
+    | RoboticsAcl
+    | RuleSetsAcl
+    | SAPWritebackAcl
+    | SAPWritebackRequestsAcl
+    | ScheduledCalculationsAcl
+    | SecurityCategoriesAcl
+    | SeismicAcl
+    | SequencesAcl
+    | SessionsAcl
+    | SimulatorsAcl
+    | StreamRecordsAcl
+    | StreamsAcl
+    | SubscribeSignalsAcl
+    | TemplateGroupsAcl
+    | TemplateInstancesAcl
+    | ThreeDAcl
+    | TimeSeriesAcl
+    | TimeSeriesSubscriptionsAcl
+    | TransformationsAcl
+    | TransformationsExternalDataSourcesAcl
+    | TypesAcl
+    | UnknownCapability
+    | UserProfilesAcl
+    | VideoStreamingAcl
+    | VisionModelAcl
+    | WellsAcl
+    | WorkflowOrchestrationAcl,
+    Field(discriminator="capability_name"),
+    BeforeValidator(_lift_capability_name_or_unknown),
+]
+
+_KNOWN_SCOPE_NAMES.update(
+    scope.model_fields["scope_name"].default
+    for scope in get_concrete_subclasses(Scope)
+    if scope.model_fields["scope_name"].default != "__unknown__"
 )
-ALL_CAPABILITIES = sorted(_CAPABILITY_CLASS_BY_NAME)
-
-
-class UnknownScope(Scope):
-    """Wraps an unrecognised scope name; preserved for round-trip serialization."""
-
-    _scope_name: ClassVar[str] = "__unknown__"
-    _unknown_name: str = PrivateAttr(default="")
-    _raw_data: dict[str, Any] = PrivateAttr(default_factory=dict)
-
-    @model_serializer(mode="wrap", when_used="always", return_type=dict)
-    def serialize_raw(self, handler: SerializerFunctionWrapHandler) -> dict:
-        return self._raw_data
-
-    @property
-    def original_name(self) -> str:
-        return self._unknown_name
-
-
-_SCOPE_CLASS_BY_NAME: MappingProxyType[str, type[Scope]] = MappingProxyType(
-    {s._scope_name: s for s in Scope.__subclasses__() if s is not UnknownScope}
+_KNOWN_CAPABILITY_NAMES.update(
+    capability.model_fields["capability_name"].default
+    for capability in get_concrete_subclasses(Capability)
+    if capability.model_fields["capability_name"].default != "__unknown__"
 )
-
-_SCOPE_BY_CLASS_NAME: MappingProxyType[str, str] = MappingProxyType(
-    {scope_cls.__name__: scope_name for scope_name, scope_cls in _SCOPE_CLASS_BY_NAME.items()}
-)
+ALL_CAPABILITIES = sorted(_KNOWN_CAPABILITY_NAMES)
