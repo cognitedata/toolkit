@@ -1,4 +1,3 @@
-import sys
 from typing import Annotated, Literal
 
 from pydantic import Field, JsonValue
@@ -7,11 +6,6 @@ from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ExternalId
 
 from .authentication import AuthenticationClientIdSecret
 from .base import BaseModelResource, ToolkitResource
-
-if sys.version_info < (3, 11):
-    pass
-else:
-    pass
 
 
 class TriggerRuleYAML(BaseModelResource):
