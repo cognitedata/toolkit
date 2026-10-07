@@ -110,7 +110,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         app_path = filepath.with_name(identifier.external_id)
         if not app_path.is_dir():
             yield FailedReadExtra(
-                code="STREAMLIT-MISSING-CODE",
+                code="MISSING-DIRECTORY",
                 title="Missing Streamlit app code",
                 error=f"Cannot find Streamlit app code for {identifier.external_id!r}. Expected directory {app_path.as_posix()} to exist.",
                 source_path=app_path,
@@ -157,7 +157,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
 
             error_str = "\n - ".join(humanize_validation_error(e))
             yield FailedReadExtra(
-                code="STREAMLIT-INVALID-CONTENT",
+                code="INVALID-CONTENT",
                 title="Invalid Streamlit app content",
                 source_path=app_path,
                 error=f"Cannot create Streamlit app code for {identifier.external_id!r}.\n{error_str}",

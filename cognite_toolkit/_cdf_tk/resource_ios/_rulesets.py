@@ -201,7 +201,7 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
         if ttl_path is None:
             yield FailedReadExtra(
                 source_path=filepath,
-                code="RULESET-MISSING-RULES",
+                code="MISSING-FILE",
                 title="Missing rule set rules",
                 error=f"Missing rules for {rule_set_id!r} in {filepath.as_posix()}. No 'rules' field found and no .ttl file found. Expected one of: {humanize_collection(ttl_candidates)}",
             )
