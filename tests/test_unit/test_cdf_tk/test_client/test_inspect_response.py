@@ -128,12 +128,41 @@ class TestProjectCapability:
             pytest.param(
                 {
                     (TimeSeriesAcl, "timeSeriesAcl", "READ"): [DataSetScope(ids=[37, 42]), IDScopeLowerCase(ids=[37])],
-                    (TimeSeriesAcl, "timeSeriesAclWRITE"): [DataSetScope(ids=[37])],
+                    (TimeSeriesAcl, "timeSeriesAcl", "WRITE"): [DataSetScope(ids=[37])],
                 },
                 TimeSeriesAcl,
                 ["READ", "WRITE"],
                 [DataSetScope(ids=[37])],
                 id="Intersection of scopes for multiple actions of the same ACL type with different scope types",
+            ),
+            pytest.param(
+                {
+                    (TimeSeriesAcl, "timeSeriesAcl", "READ"): [DataSetScope(ids=[42])],
+                    (TimeSeriesAcl, "timeSeriesAcl", "WRITE"): [DataSetScope(ids=[37])],
+                },
+                TimeSeriesAcl,
+                ["READ", "WRITE"],
+                [],
+                id="No intersection of scopes for multiple actions of the same ACL type",
+            ),
+            pytest.param(
+                {
+                    (TimeSeriesAcl, "timeSeriesAcl", "WRITE"): [DataSetScope(ids=[37])],
+                },
+                TimeSeriesAcl,
+                ["READ"],
+                [],
+                id="No scopes available for the requested action of the ACL type",
+            ),
+            pytest.param(
+                {
+                    (TimeSeriesAcl, "timeSeriesAcl", "READ"): [AllScope(), DataSetScope(ids=[37])],
+                    (TimeSeriesAcl, "timeSeriesAcl", "WRITE"): [AllScope()],
+                },
+                TimeSeriesAcl,
+                ["READ", "WRITE"],
+                [AllScope()],
+                id="AllScope for one action results in AllScope for the intersection of scopes for multiple actions of the same ACL type",
             ),
         ],
     )
