@@ -143,7 +143,13 @@ class ToolkitTokenAPI:
 
     def verify_acls(self, required_acls: Sequence[AclType]) -> Sequence[AclType]:
         """Verify that the current token has the required ACLs, for the current project. Returns the list of missing ACLs."""
-        return self.project_capabilities.verify(required_acls)
+        try:
+            capabilities = self.project_capabilities
+        except AuthorizationError as e:
+            raise AuthorizationError(
+                f"Failed to validate {humanize_collection([repr(acl) for acl in required_acls])}. \n{e!s}"
+            )
+        return capabilities.verify(required_acls)
 
     def check_available_scopes(self, acl_cls: type[Acl], actions: Sequence[str]) -> list[Scope]:
         """Check the available scopes for the given ACL class and actions. Returns a list of scopes that are available for all actions."""
