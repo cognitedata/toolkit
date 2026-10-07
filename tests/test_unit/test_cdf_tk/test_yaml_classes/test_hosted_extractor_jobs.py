@@ -19,7 +19,8 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "config": {"topicFilter": "some_filter"},
         },
         {
-            "Invalid value for format: invalid type 'invalid'. Expected one of cognite, custom, rockwell or value",
+            "Invalid value for format: Input tag 'invalid' found using 'type' does not match any of the expected tags: "
+            "'custom', 'cognite', 'rockwell', 'value'",
         },
         id="Invalid type",
     )
@@ -45,7 +46,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": {"encoding": "utf8"},
         },
         {
-            "Invalid value for format: Invalid input format missing 'type' key",
+            "Invalid value for format: Missing required field: 'type'",
         },
         id="Format missing type",
     )
@@ -173,7 +174,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": "invalid_format",
         },
         {
-            "Invalid value for format: Invalid input for format '<class 'str'>' expected dict",
+            "Invalid value for format: Input should be a valid dictionary or object to extract fields from",
         },
         id="Format non-dict type",
     )
@@ -187,7 +188,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "format": None,
         },
         {
-            "Invalid value for format: Invalid input for format '<class 'NoneType'>' expected dict",
+            "Invalid value for format: Input should be a valid dictionary or object to extract fields from",
         },
         id="Format null type",
     )
@@ -214,8 +215,8 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "Missing required field in config.MQTTConfig: 'topicFilter'",
             "Unrecognized fields in config.MQTTConfig: 'incrementalLoad', 'interval', 'method', "
             "'pagination' and 'path'. ",
-            "Invalid value at config.RestConfig.incrementalLoad: Invalid type 'nextUrl'. Expected one of "
-            "body, headerValue and queryParameter",
+            "Invalid value at config.RestConfig.incrementalLoad: Input tag 'nextUrl' found using 'type' "
+            "does not match any of the expected tags: 'body', 'headerValue', 'queryParameter'",
         },
         id="Invalid IncrementalLoad and Pagination type",
     )
