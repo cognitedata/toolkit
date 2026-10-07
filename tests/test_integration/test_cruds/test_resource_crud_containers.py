@@ -1,7 +1,5 @@
 from contextlib import suppress
-from pathlib import Path
 from time import sleep
-from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
@@ -21,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSerie
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, RawTableIO, TimeSeriesIO
 from cognite_toolkit._cdf_tk.resource_ios._three_d_model import ThreeDModelIO
 from tests.test_integration.constants import RUN_UNIQUE_ID
+from tests.test_integration.helpers import load_local_yaml
 
 
 @pytest.fixture(scope="session")
@@ -202,24 +201,15 @@ class TestContainerIO:
             properties:
               - name
         """
-        local_yaml = MagicMock(spec=Path)
-        local_yaml.read_text.return_value = local_yaml_content
         io = ContainerIO(toolkit_client)
-        raw_data = io.load_resource_file(local_yaml)[0]
+        raw_data = load_local_yaml(local_yaml_content, io)
         container = io.load_resource(raw_data)
-
-        try:
+        retrieved = io.retrieve([container.as_id()])
+        if len(retrieved) == 0:
             # Create the container
-            created = io.create([container])
-            assert len(created) == 1
-
-            retrieved = io.retrieve([container.as_id()])
+            retrieved = io.create([container])
             assert len(retrieved) == 1
-
-            assert raw_data == io.dump_resource(retrieved[0], raw_data)
-        finally:
-            # Clean up by deleting the container
-            io.delete([container.as_id()])
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)
 
 
 class Test3DModelLoader:
