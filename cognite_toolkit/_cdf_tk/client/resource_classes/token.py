@@ -215,8 +215,8 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], list[Scope
         for scopes in scopes_by_name.values():
             try:
                 intersection = scope_intersection(*scopes)
-            except TypeError:
-                # If unknown scope we cannot intersect, so we return all of them as they are not covered by any other scope.
+            except (TypeError, ValueError):
+                # If unknown scope or incompatible types we cannot intersect, so we return all of them as they are not covered by any other scope.
                 resulting_scopes.extend(scopes)
                 continue
             if intersection is not None:
