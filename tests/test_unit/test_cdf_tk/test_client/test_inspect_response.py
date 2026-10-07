@@ -218,7 +218,45 @@ class TestProjectCapability:
                     name="test_project",
                     groups=[],
                 ),
-                id=" If any ACL of a given type and action has AllScope, the resulting capabilities should only include AllScope for that type and action",
+                id="If any ACL of a given type and action has AllScope, the resulting capabilities should only include AllScope for that type and action",
+            ),
+            pytest.param(
+                InspectResponse(
+                    subject="test",
+                    projects=[InspectProjectInfo(project_url_name="test_project", groups=[])],
+                    project="test_project",
+                    capabilities=[
+                        InspectCapability(
+                            acl=TimeSeriesAcl(
+                                actions=["READ"],
+                                scope=DataSetScope(ids=[1]),
+                            ),
+                            project_scope=AllProjects(all_projects={}),
+                        ),
+                        InspectCapability(
+                            acl=TimeSeriesAcl(actions=["READ"], scope=IDScopeLowerCase(ids=[2, 3])),
+                            project_scope=AllProjects(all_projects={}),
+                        ),
+                        InspectCapability(
+                            acl=TimeSeriesAcl(
+                                actions=["READ"],
+                                scope=DataSetScope(ids=[2]),
+                            ),
+                            project_scope=AllProjects(all_projects={}),
+                        ),
+                    ],
+                ),
+                FlatCapabilities(
+                    {
+                        (TimeSeriesAcl, "timeSeriesAcl", "READ"): [
+                            DataSetScope(ids=[1, 2]),
+                            IDScopeLowerCase(ids=[2, 3]),
+                        ],
+                    },
+                    name="test_project",
+                    groups=[],
+                ),
+                id="Multiple ACLs of the same type and action with overlapping scopes should be merged appropriately in the resulting capabilities",
             ),
         ],
     )
