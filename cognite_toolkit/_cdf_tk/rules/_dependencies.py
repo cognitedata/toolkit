@@ -36,12 +36,6 @@ from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, Resou
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from ._base import (
-    MISSING_REFERENCE_TITLE,
-    REFERENCED_RESOURCE_MISSING,
-    REFERENCED_RESOURCE_UNVERIFIED,
-    RESOURCE_CHANGE_INVALID,
-    RESOURCE_REMOVAL_UNSUPPORTED,
-    UNVERIFIED_REFERENCE_TITLE,
     InternalValidatorException,
     RuleSetStatus,
     ToolkitGlobalRuleSet,
@@ -58,12 +52,6 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
     """
 
     DISPLAY_NAME = "Dependencies"
-    CONTAINER_INVALID_OPERATION_TITLE: ClassVar[str] = "Invalid container change"
-    VIEW_INVALID_OPERATION_TITLE: ClassVar[str] = "Invalid view change"
-    DATA_MODEL_INVALID_OPERATION_TITLE: ClassVar[str] = "Invalid data model change"
-    CONTAINER_UNSUPPORTED_REMOVAL_TITLE: ClassVar[str] = "Unsupported container removal"
-    VIEW_UNSUPPORTED_REMOVAL_TITLE: ClassVar[str] = "Unsupported view removal"
-    DATA_MODEL_UNSUPPORTED_REMOVAL_TITLE: ClassVar[str] = "Unsupported data model removal"
 
     def get_status(self) -> RuleSetStatus:
         if self.client is None:
@@ -115,8 +103,8 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                         for resource in expected_by_identifier[identifier]:
                             yield with_position(
                                 error_insight_type(ConsistencyError)(
-                                    code=REFERENCED_RESOURCE_MISSING,
-                                    title=MISSING_REFERENCE_TITLE,
+                                    code="REFERENCED-RESOURCE-MISSING",
+                                    title="Missing reference",
                                     message=(
                                         f"The {resource_label} {quote_identifier(identifier)} does not exist locally or in CDF. "
                                         f"It is referenced by {quote_identifier(resource.identifier)}."
@@ -134,8 +122,8 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     for resource in expected_resources:
                         yield with_position(
                             warning_insight_type(ConsistencyError)(
-                                code=REFERENCED_RESOURCE_UNVERIFIED,
-                                title=UNVERIFIED_REFERENCE_TITLE,
+                                code="REFERENCED-RESOURCE-UNVERIFIED",
+                                title="Unverified reference",
                                 message=(
                                     f"Missing {resource_type_name} {quote_identifier(identifier)}. "
                                     f"It is referenced by {quote_identifier(resource.identifier)}."
@@ -287,8 +275,8 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             affected = humanize_collection([f"{name!r}" for name in sorted({*removed, *changed})])
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=RESOURCE_CHANGE_INVALID,
-                    title=self.CONTAINER_INVALID_OPERATION_TITLE,
+                    code="RESOURCE-CHANGE-INVALID",
+                    title="Invalid container change",
                     message=(
                         f"Local config for container {container_id} has some properties {affected} that have been modified in a way CDF "
                         f"does not support. Deploying the current local YAML config will not apply these changes to the container in CDF."
@@ -304,8 +292,8 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         if missing and not changed:
             yield with_position(
                 warning_insight_type(ConsistencyError)(
-                    code=RESOURCE_REMOVAL_UNSUPPORTED,
-                    title=self.CONTAINER_UNSUPPORTED_REMOVAL_TITLE,
+                    code="RESOURCE-REMOVAL-UNSUPPORTED",
+                    title="Unsupported container removal",
                     message=(
                         f"Local config for container {container_id} is missing properties "
                         f"{humanize_collection([f'{name!r}' for name in missing])} that have previously been deployed to CDF. "
@@ -327,8 +315,8 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             # is metadata and CDF applies changes to it without restriction, so it is not checked here.
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=RESOURCE_CHANGE_INVALID,
-                    title=self.CONTAINER_INVALID_OPERATION_TITLE,
+                    code="RESOURCE-CHANGE-INVALID",
+                    title="Invalid container change",
                     message=(
                         f"Local config for container {container_id} has modified usedFor ('{local_used_for}') compared to the deployed "
                         f"container in CDF ('{cdf_response.used_for}'). CDF does not support changing the usedFor of an existing container, so deploying the current "
@@ -363,8 +351,8 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             affected = humanize_collection([f"{name!r}" for name in sorted({*removed, *changed})])
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=RESOURCE_CHANGE_INVALID,
-                    title=self.VIEW_INVALID_OPERATION_TITLE,
+                    code="RESOURCE-CHANGE-INVALID",
+                    title="Invalid view change",
                     message=(
                         f"Local config for view {view_id} has some properties {affected} that have been modified in a way CDF "
                         f"does not support without a version bump. Deploying the current local YAML config will not apply "
@@ -380,8 +368,8 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         elif removed:
             yield with_position(
                 warning_insight_type(ConsistencyError)(
-                    code=RESOURCE_REMOVAL_UNSUPPORTED,
-                    title=self.VIEW_UNSUPPORTED_REMOVAL_TITLE,
+                    code="RESOURCE-REMOVAL-UNSUPPORTED",
+                    title="Unsupported view removal",
                     message=(
                         f"Local config for view {view_id} is missing properties "
                         f"{humanize_collection([f'{name!r}' for name in removed])} that have previously been deployed to CDF for the "
@@ -399,8 +387,8 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             # name, description and filter are metadata/query-only and can always change.
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=RESOURCE_CHANGE_INVALID,
-                    title=self.VIEW_INVALID_OPERATION_TITLE,
+                    code="RESOURCE-CHANGE-INVALID",
+                    title="Invalid view change",
                     message=(
                         f"Local config for view {view_id} has changed implements compared to the view version already deployed to CDF"
                     ),
@@ -441,8 +429,8 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             )
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=RESOURCE_CHANGE_INVALID,
-                    title=self.DATA_MODEL_INVALID_OPERATION_TITLE,
+                    code="RESOURCE-CHANGE-INVALID",
+                    title="Invalid data model change",
                     message=(
                         f"Local config for data model {data_model_id} has changed the view version of {changes} compared to the existing deployed data model version in CDF. "
                         "View version used by a data model can only be updated if you also update the data model version."
@@ -458,8 +446,8 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         if removed:
             yield with_position(
                 warning_insight_type(ConsistencyError)(
-                    code=RESOURCE_REMOVAL_UNSUPPORTED,
-                    title=self.DATA_MODEL_UNSUPPORTED_REMOVAL_TITLE,
+                    code="RESOURCE-REMOVAL-UNSUPPORTED",
+                    title="Unsupported data model removal",
                     message=(
                         f"Local config for data model {data_model_id} is missing the view(s) "
                         f"{humanize_collection([f'{view_id!s}' for view_id in removed])} compared to the existing deployed data model version in CDF. "

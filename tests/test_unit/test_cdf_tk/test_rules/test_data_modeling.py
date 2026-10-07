@@ -24,12 +24,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Modul
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, ResourceIO, ResourceType, ViewIO
-from cognite_toolkit._cdf_tk.rules._base import (
-    REFERENCED_PROPERTY_INVALID,
-    REFERENCED_PROPERTY_MISSING,
-    REFERENCED_PROPERTY_UNVERIFIED,
-    RESOURCE_REMOVAL_UNSUPPORTED,
-)
 from cognite_toolkit._cdf_tk.rules._data_modeling import DataModelingRuleSet
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 
@@ -259,7 +253,7 @@ class TestContainerPropertyReferences:
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "my_space:MyContainer.name" in insight.message) for insight in insights] == [
-            (REFERENCED_PROPERTY_UNVERIFIED, True)
+            ("REFERENCED-PROPERTY-UNVERIFIED", True)
         ]
 
     def test_property_found_in_cdf_is_accepted(self, tmp_path: Path) -> None:
@@ -276,7 +270,7 @@ class TestContainerPropertyReferences:
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "my_space:MyContainer.name" in insight.message) for insight in insights] == [
-            (REFERENCED_PROPERTY_MISSING, True)
+            ("REFERENCED-PROPERTY-MISSING", True)
         ]
 
     def test_container_retrieve_error_is_reported(self, tmp_path: Path) -> None:
@@ -329,7 +323,7 @@ class TestReverseDirectRelations:
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "not a direct relation" in insight.message) for insight in insights] == [
-            (REFERENCED_PROPERTY_INVALID, True)
+            ("REFERENCED-PROPERTY-INVALID", True)
         ]
 
     def test_missing_reverse_without_client_is_unverified(self, tmp_path: Path) -> None:
@@ -338,7 +332,7 @@ class TestReverseDirectRelations:
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "direct relation" in insight.message) for insight in insights] == [
-            (REFERENCED_PROPERTY_UNVERIFIED, True)
+            ("REFERENCED-PROPERTY-UNVERIFIED", True)
         ]
 
     def test_direct_relation_found_on_cdf_view_is_accepted(self, tmp_path: Path) -> None:
@@ -354,7 +348,7 @@ class TestReverseDirectRelations:
         rule = DataModelingRuleSet(modules=[_module([(reverse_view, ViewIO, VIEW_ID)])], client=client)
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
-        assert [insight.code for insight in insights] == [REFERENCED_PROPERTY_INVALID]
+        assert [insight.code for insight in insights] == ["REFERENCED-PROPERTY-INVALID"]
 
     def test_reverse_missing_in_cdf_is_unknown(self, tmp_path: Path) -> None:
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
@@ -362,7 +356,7 @@ class TestReverseDirectRelations:
         rule = DataModelingRuleSet(modules=[_module([(reverse_view, ViewIO, VIEW_ID)])], client=client)
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
-        assert [insight.code for insight in insights] == [REFERENCED_PROPERTY_MISSING]
+        assert [insight.code for insight in insights] == ["REFERENCED-PROPERTY-MISSING"]
 
 
 @pytest.mark.usefixtures("alpha_rules_enabled")
@@ -389,4 +383,4 @@ class TestDataModelingChangesMove:
             [insight.code for insight in data_modeling],
             "is missing properties 'description'" in data_modeling[0].message,
             dependencies,
-        ) == ([RESOURCE_REMOVAL_UNSUPPORTED], True, [])
+        ) == (["RESOURCE-REMOVAL-UNSUPPORTED"], True, [])

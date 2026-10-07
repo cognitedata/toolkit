@@ -41,7 +41,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     TimeSeriesIO,
     ViewIO,
 )
-from cognite_toolkit._cdf_tk.rules._base import RESOURCE_CHANGE_INVALID, RESOURCE_REMOVAL_UNSUPPORTED
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 
 CONTAINER_ID = ContainerId(space="my_space", external_id="MyContainer")
@@ -390,7 +389,7 @@ class TestDependencyRuleSetDataModelingChanges:
                 {"name": _container_property(), "description": _container_property()},
                 None,
                 "node",
-                [RESOURCE_REMOVAL_UNSUPPORTED],
+                ["RESOURCE-REMOVAL-UNSUPPORTED"],
                 "is missing properties 'description'",
                 id="property-removed-locally-is-disallowed",
             ),
@@ -408,7 +407,7 @@ class TestDependencyRuleSetDataModelingChanges:
                 {"name": _container_property(nullable=False), "description": _container_property()},
                 None,
                 "node",
-                [RESOURCE_CHANGE_INVALID],
+                ["RESOURCE-CHANGE-INVALID"],
                 "has some properties 'description' and 'name' that have been modified",
                 id="property-changed-and-removed-locally-reports-as-changed",
             ),
@@ -426,7 +425,7 @@ class TestDependencyRuleSetDataModelingChanges:
                 {"name": _container_property()},
                 None,
                 "edge",
-                [RESOURCE_CHANGE_INVALID],
+                ["RESOURCE-CHANGE-INVALID"],
                 "has modified usedFor",
                 id="container-used-for-change-is-disallowed",
             ),
@@ -502,7 +501,7 @@ class TestDependencyRuleSetDataModelingChanges:
                 {"name": _view_property(), "description": _view_property()},
                 None,
                 None,
-                [RESOURCE_REMOVAL_UNSUPPORTED],
+                ["RESOURCE-REMOVAL-UNSUPPORTED"],
                 "is missing properties 'description'",
                 id="property-removed-locally",
             ),
@@ -529,7 +528,7 @@ class TestDependencyRuleSetDataModelingChanges:
                 {"name": _view_property()},
                 None,
                 [ViewId(space="my_space", external_id="ParentView", version="v1")],
-                [RESOURCE_CHANGE_INVALID],
+                ["RESOURCE-CHANGE-INVALID"],
                 "has changed implements",
                 id="view-implements-change-is-disallowed",
             ),
@@ -542,7 +541,7 @@ class TestDependencyRuleSetDataModelingChanges:
                 },
                 None,
                 None,
-                [RESOURCE_CHANGE_INVALID],
+                ["RESOURCE-CHANGE-INVALID"],
                 "has some properties 'description' and 'myEdge' that have been modified",
                 id="connection-property-changed-and-base-property-removed-reports-as-changed",
             ),
@@ -575,13 +574,13 @@ class TestDependencyRuleSetDataModelingChanges:
             pytest.param([("MyView", "v1")], [], None, id="no-change"),
             pytest.param(
                 [("MyView", "v1"), ("OtherView", "v1")],
-                [RESOURCE_REMOVAL_UNSUPPORTED],
+                ["RESOURCE-REMOVAL-UNSUPPORTED"],
                 "is missing the view(s)",
                 id="view-removed-locally",
             ),
             pytest.param(
                 [("MyView", "v0")],
-                [RESOURCE_CHANGE_INVALID],
+                ["RESOURCE-CHANGE-INVALID"],
                 "has changed the view version of 'my_space:MyView' from 'v0' to 'v1'",
                 id="view-version-changed-without-data-model-bump",
             ),

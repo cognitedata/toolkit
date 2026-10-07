@@ -18,16 +18,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Build
 from cognite_toolkit._cdf_tk.utils.file import yaml_find_unique_position
 from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
-REFERENCED_RESOURCE_MISSING = "REFERENCED-RESOURCE-MISSING"
-REFERENCED_RESOURCE_UNVERIFIED = "REFERENCED-RESOURCE-UNVERIFIED"
-REFERENCED_PROPERTY_MISSING = "REFERENCED-PROPERTY-MISSING"
-REFERENCED_PROPERTY_INVALID = "REFERENCED-PROPERTY-INVALID"
-REFERENCED_PROPERTY_UNVERIFIED = "REFERENCED-PROPERTY-UNVERIFIED"
-RESOURCE_CHANGE_INVALID = "RESOURCE-CHANGE-INVALID"
-RESOURCE_REMOVAL_UNSUPPORTED = "RESOURCE-REMOVAL-UNSUPPORTED"
-MISSING_REFERENCE_TITLE = "Missing reference"
-UNVERIFIED_REFERENCE_TITLE = "Unverified reference"
-
 
 def quote_identifier(identifier: Identifier) -> str:
     """Formats an identifier for messages, e.g. 'my_id' instead of "externalId='my_id'"."""
