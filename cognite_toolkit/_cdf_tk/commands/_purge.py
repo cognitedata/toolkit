@@ -36,7 +36,9 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    AllScope,
     AssetsAcl,
+    DataModelInstancesAcl,
     DataSetScope,
     EventsAcl,
     ExtractionConfigsAcl,
@@ -45,6 +47,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     LabelsAcl,
     RelationshipsAcl,
     SequencesAcl,
+    SpaceIDScope,
     ThreeDAcl,
     TimeSeriesAcl,
     TransformationsAcl,
@@ -788,7 +791,7 @@ class PurgeCommand(ToolkitCommand):
         io = InstanceIO(client)
         console = client.console
         validator = ValidateAccess(client, default_operation="purge")
-        self.validate_instance_access(validator, selector.get_instance_spaces())
+        self.validate_instance_access(client, selector.get_instance_spaces())
         if unlink:
             self.validate_timeseries_access(validator)
             self.validate_file_access(validator)
@@ -882,19 +885,28 @@ class PurgeCommand(ToolkitCommand):
             "[bold yellow]cdf data purge space[/] instead or select other views containing the same instances."
         )
 
-    def validate_instance_access(self, validator: ValidateAccess, instance_spaces: list[str] | None) -> None:
-        space_ids = validator.instances(
-            ["read", "write"], spaces=set(instance_spaces) if instance_spaces else None, operation="purge"
-        )
-        if space_ids is None:
-            # Full access
-            return
-        self.warn(
-            LimitedAccessWarning(
-                f"You can only purge instances in the following instance spaces: {humanize_collection(space_ids)}."
+    def validate_instance_access(self, client: ToolkitClient, instance_spaces: list[str] | None) -> None:
+        available_scopes = client.tool.token.check_available_scopes(DataModelInstancesAcl, ["READ", "WRITE"])
+        space_ids: set[str] = set()
+        for scope in available_scopes:
+            if isinstance(scope, AllScope):
+                # Full access
+                return None
+            elif isinstance(scope, SpaceIDScope):
+                space_ids.update(scope.space_ids)
+            raise RuntimeError("Bug in Toolkit: unexpected scope type returned from check_available_scopes")
+        if instance_spaces is None:
+            self.warn(
+                LimitedAccessWarning(
+                    f"You can only purge instances in the following instance spaces: {humanize_collection(space_ids)}."
+                )
             )
-        )
-        return
+        elif missing_ids := set(instance_spaces) - space_ids:
+            client.tool.token.create_error(
+                [DataModelInstancesAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=sorted(missing_ids)))],
+                action="purging instances",
+            )
+        return None
 
     def validate_model_access(self, validator: ValidateAccess, view: list[str] | None) -> None:
         space = view[0] if isinstance(view, list) and view and isinstance(view[0], str) else None
