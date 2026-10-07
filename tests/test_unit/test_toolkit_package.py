@@ -92,11 +92,7 @@ def test_no_private_third_party_imports() -> None:
                     return imp.lineno, f"imports private name '{name}' from '{imp.module}'"
         return None
 
-    _assert_import_violations(
-        check,
-        "private imports from third-party packages",
-        expected_total=1,
-    )
+    _assert_import_violations(check, "private imports from third-party packages")
 
 
 def test_no_cognite_sdk_imports() -> None:
