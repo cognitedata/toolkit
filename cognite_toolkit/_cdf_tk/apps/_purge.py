@@ -368,8 +368,8 @@ class PurgeApp(typer.Typer):
 
         # TEMPORARY: The GET /models/statistics endpoint requires datamodelsAcl:read with All scope.
         # This check will be removed once DMS limits are available through the limits service.
-        available_scopes = client.tool.token.check_available_scopes(DataModelsAcl, ["READ"])
-        if not any(isinstance(scope, AllScope) for scope in available_scopes):
+        missing_scope = client.tool.token.verify_acls([DataModelsAcl(actions=["READ"], scope=AllScope())])
+        if missing_scope:
             raise AuthorizationError("Purging instances currently requires datamodelsAcl:read with All scope.")
 
         is_interactive = view is None and instance_list is None
