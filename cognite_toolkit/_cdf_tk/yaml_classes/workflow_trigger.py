@@ -1,60 +1,25 @@
 import sys
-from types import MappingProxyType
-from typing import Any, ClassVar, cast
+from typing import Annotated, Literal
 
-from pydantic import Field, JsonValue, ModelWrapValidatorHandler, model_serializer, model_validator
-from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
+from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ExternalId
-from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .authentication import AuthenticationClientIdSecret
 from .base import BaseModelResource, ToolkitResource
 
 if sys.version_info < (3, 11):
-    from typing_extensions import Self
+    pass
 else:
-    from typing import Self
+    pass
 
 
 class TriggerRuleYAML(BaseModelResource):
-    _trigger_type: ClassVar[str]
-
-    @model_validator(mode="wrap")
-    @classmethod
-    def find_trigger_type(
-        cls, data: "dict[str, Any] | TriggerRuleYAML", handler: ModelWrapValidatorHandler[Self]
-    ) -> Self:
-        if isinstance(data, TriggerRuleYAML):
-            return cast(Self, data)
-        if not isinstance(data, dict):
-            raise ValueError(f"Invalid trigger rule data '{type(data)}' expected dict")
-
-        if cls is not TriggerRuleYAML:
-            # We are already in a subclass, so just validate as usual
-            return handler(data)
-        # If not we need to find the right subclass based on the triggerType field.
-        if "triggerType" not in data:
-            raise ValueError("Invalid trigger rule data missing 'triggerType' key")
-        trigger_type = data["triggerType"]
-        if trigger_type not in _TRIGGER_CLS_BY_NAME:
-            raise ValueError(
-                f"invalid trigger type '{trigger_type}'. Expected one of {humanize_collection(_TRIGGER_CLS_BY_NAME.keys(), bind_word='or')}"
-            )
-        cls_ = _TRIGGER_CLS_BY_NAME[trigger_type]
-        return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "triggerType"}))
-
-    @model_serializer(mode="wrap", when_used="always", return_type=dict)
-    def include_trigger_type(self, handler: SerializerFunctionWrapHandler) -> dict:
-        if self._trigger_type is None:
-            raise ValueError("Trigger type is not set")
-        serialized_data = handler(self)
-        serialized_data["triggerType"] = self._trigger_type
-        return serialized_data
+    trigger_type: str
 
 
 class ScheduleTrigger(TriggerRuleYAML):
-    _trigger_type = "schedule"
+    trigger_type: Literal["schedule"] = Field("schedule")
     cron_expression: str = Field(
         description="A cron expression (UNIX format) specifying when the trigger should be executed. Use https://crontab.guru/ to create a cron expression. The API may adjust the exact timing of cron job executions to distribute the backend load more evenly. However, it will aim to maintain the overall frequency of executions as specified in the cron expression.",
     )
@@ -65,7 +30,7 @@ class ScheduleTrigger(TriggerRuleYAML):
 
 
 class DataModelingTrigger(TriggerRuleYAML):
-    _trigger_type = "dataModeling"
+    trigger_type: Literal["dataModeling"] = Field("dataModeling")
     data_modeling_query: JsonValue
     batch_size: int = Field(
         ge=100, le=1_000, description="The maximum number of items to pass to a workflow execution."
@@ -87,7 +52,7 @@ class RecordSource(BaseModelResource):
 
 
 class RecordStreamTriggerRule(TriggerRuleYAML):
-    _trigger_type = "recordStream"
+    trigger_type: Literal["recordStream"] = Field("recordStream")
     stream_external_id: str = Field(
         description="The external ID of the stream to subscribe to for record changes.",
         pattern="^[a-z]([a-z0-9_-]{0,98}[a-z0-9])?$",
@@ -108,13 +73,18 @@ class RecordStreamTriggerRule(TriggerRuleYAML):
     )
 
 
+TriggerRule = Annotated[
+    ScheduleTrigger | DataModelingTrigger | RecordStreamTriggerRule, Field(discriminator="trigger_type")
+]
+
+
 class WorkflowTriggerYAML(ToolkitResource):
     external_id: str = Field(
         max_length=255,
         description="Identifier for a trigger. Must be unique for the project. "
         "No trailing or leading whitespace and no null characters allowed.",
     )
-    trigger_rule: TriggerRuleYAML
+    trigger_rule: TriggerRule
     input: JsonValue | None = None
     metadata: dict[str, str] | None = None
     workflow_external_id: str = Field(
@@ -138,18 +108,3 @@ class WorkflowTriggerYAML(ToolkitResource):
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
-
-    @model_serializer(mode="wrap")
-    def serialize_trigger_rules(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
-        # Trigger rules are serialized as empty dicts [{}, {}, ...]
-        # This issue arises because Pydantic's serialization mechanism doesn't automatically
-        # handle polymorphic serialization for subclasses of TriggerRuleYAML.
-        # To address this, we include the below to explicitly calling model dump on the trigger rule
-        serialized_data = handler(self)
-        serialized_data["triggerRule"] = self.trigger_rule.model_dump(**vars(info))
-        return serialized_data
-
-
-_TRIGGER_CLS_BY_NAME: MappingProxyType[str, type[TriggerRuleYAML]] = MappingProxyType(
-    {s._trigger_type: s for s in TriggerRuleYAML.__subclasses__()}
-)
