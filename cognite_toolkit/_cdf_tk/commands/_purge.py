@@ -1,6 +1,6 @@
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import date
 from functools import partial
@@ -35,6 +35,21 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    AssetsAcl,
+    DataSetScope,
+    EventsAcl,
+    ExtractionConfigsAcl,
+    ExtractionPipelinesAcl,
+    FilesAcl,
+    LabelsAcl,
+    RelationshipsAcl,
+    SequencesAcl,
+    ThreeDAcl,
+    TimeSeriesAcl,
+    TransformationsAcl,
+    WorkflowOrchestrationAcl,
+)
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
@@ -601,17 +616,36 @@ class PurgeCommand(ToolkitCommand):
                 return DeployResults([], "purge", dry_run=dry_run)
 
         # Validate Auth
-        validator = ValidateAccess(client, "purge")
         data_set_id = client.lookup.data_sets.id(selected_data_set_external_id)
         if data_set_id is None:
             raise ToolkitMissingResourceError(f"DataSet {selected_data_set_external_id!r} does not exist")
-        action = cast(Sequence[Literal["read", "write"]], ["read"] if dry_run else ["read", "write"])
+        actions: list[Literal["READ", "WRITE"]] = ["READ"] if dry_run else ["READ", "WRITE"]
         if include_data:
-            # Check asset, events, time series, files, and sequences access, relationships, labels, 3D access.
-            validator.dataset_data(action, dataset_ids={data_set_id})
+            if missing := client.tool.token.verify_acls(
+                [
+                    AssetsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    EventsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    TimeSeriesAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    FilesAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    SequencesAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    RelationshipsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    LabelsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    ThreeDAcl(
+                        actions=["READ"] if dry_run else ["READ", "DELETE"], scope=DataSetScope(ids=[data_set_id])
+                    ),
+                ]
+            ):
+                client.tool.token.create_error(missing, action=f"purging {selected_data_set_external_id} dataset")
         if include_configurations:
-            # Check workflow, transformations, extraction pipeline access
-            validator.dataset_configurations(action, dataset_ids={data_set_id})
+            if missing := client.tool.token.verify_acls(
+                [
+                    WorkflowOrchestrationAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    TransformationsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    ExtractionConfigsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    ExtractionPipelinesAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                ]
+            ):
+                client.tool.token.create_error(missing, action=f"purging {selected_data_set_external_id} dataset")
 
         to_delete: list[ToDelete] = self._create_to_delete_list_purge_dataset(
             client,
