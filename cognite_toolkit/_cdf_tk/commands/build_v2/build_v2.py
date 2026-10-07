@@ -1168,7 +1168,7 @@ class BuildV2Command(ToolkitCommand):
             line, column = self._single_position(errors, positions)
             syntax_error = error_insight_type(ModelSyntaxError, BuildError)(
                 code="FIELD-INVALID",
-                title="Syntax error",
+                title="Invalid field",
                 message="\n".join(item.message for item in errors),
                 fix="Compare the YAML with reference documentation and make sure it is valid.",
                 source_file=resource_file,

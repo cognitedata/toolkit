@@ -22,8 +22,8 @@ __all__ = [
 
 T_BaseModel = TypeVar("T_BaseModel", bound=BaseModel)
 
-SYNTAX_ERROR_CODE = "FIELD-INVALID"
-SYNTAX_ERROR_TITLE = "Syntax error"
+INVALID_FIELD_CODE = "FIELD-INVALID"
+INVALID_FIELD_TITLE = "Invalid field"
 UNRECOGNIZED_FIELD_CODE = "FIELD-UNRECOGNIZED"
 UNRECOGNIZED_FIELD_TITLE = "Unrecognized field"
 UNRECOGNIZED_VALUE_CODE = "VALUE-UNRECOGNIZED"
@@ -44,8 +44,8 @@ class ValidationMessage(NamedTuple):
     message: str
     category: str
     loc: tuple[str | int, ...] | None = None
-    code: str = SYNTAX_ERROR_CODE
-    title: str = SYNTAX_ERROR_TITLE
+    code: str = INVALID_FIELD_CODE
+    title: str = INVALID_FIELD_TITLE
 
 
 class _GroupEntry(NamedTuple):
@@ -162,8 +162,8 @@ def humanize_validation_error_categorized(
             loc = _remove_discriminator_tags(loc, core_schema)
         error_type = item["type"]
         category = "error"
-        code = SYNTAX_ERROR_CODE
-        title = SYNTAX_ERROR_TITLE
+        code = INVALID_FIELD_CODE
+        title = INVALID_FIELD_TITLE
         is_metadata_string_value_error = error_type == "string_type" and len(loc) >= 2 and loc[-2] == "metadata"
         # A nested object field left empty in YAML (e.g. "view:" with nothing indented under it) is
         # reported by Pydantic as "model_type" with a None input. The field is present but empty, which

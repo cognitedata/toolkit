@@ -405,7 +405,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                 yield with_position(
                     warning_insight_type(ConsistencyError)(
                         code="REFERENCED-PROPERTY-UNVERIFIED",
-                        title="Unverified reference",
+                        title="Unverified container property",
                         message=(
                             f"Missing container property '{ref.label}'. "
                             f"It is referenced by {quote_identifier(resource.identifier)}."
@@ -426,7 +426,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                 yield with_position(
                     warning_insight_type(ConsistencyError)(
                         code="REFERENCED-PROPERTY-UNVERIFIED",
-                        title="Unverified reference",
+                        title="Unverified direct relation",
                         message=(
                             f"Missing direct relation '{ref.through}'. "
                             f"It is referenced by {quote_identifier(resource.identifier)}."
@@ -446,7 +446,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             yield with_position(
                 error_insight_type(ConsistencyError)(
                     code="REFERENCED-PROPERTY-MISSING",
-                    title="Missing reference",
+                    title="Missing container property",
                     message=(
                         f"Container property '{ref.label}' does not exist locally or in CDF. "
                         f"It is referenced by {quote_identifier(resource.identifier)}."
@@ -463,7 +463,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             yield with_position(
                 error_insight_type(ConsistencyError)(
                     code="REFERENCED-PROPERTY-MISSING",
-                    title="Missing reference",
+                    title="Missing direct relation",
                     message=(
                         f"Direct relation '{ref.through}' does not exist locally or in CDF. "
                         f"It is referenced by {quote_identifier(resource.identifier)}."

@@ -245,7 +245,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
             except json.JSONDecodeError as error:
                 yield FailedReadExtra(
                     code="FILE-CONTENT-INVALID",
-                    title="Invalid app content",
+                    title="Invalid app manifest",
                     error=f"App {app_external_id!r} has an invalid manifest.json at {manifest_json.as_posix()}: {error}",
                     source_path=manifest_json,
                 )

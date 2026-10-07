@@ -104,7 +104,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                             yield with_position(
                                 error_insight_type(ConsistencyError)(
                                     code="REFERENCED-RESOURCE-MISSING",
-                                    title="Missing reference",
+                                    title="Missing referenced resource",
                                     message=(
                                         f"The {resource_label} {quote_identifier(identifier)} does not exist locally or in CDF. "
                                         f"It is referenced by {quote_identifier(resource.identifier)}."
@@ -123,7 +123,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                         yield with_position(
                             warning_insight_type(ConsistencyError)(
                                 code="REFERENCED-RESOURCE-UNVERIFIED",
-                                title="Unverified reference",
+                                title="Unverified referenced resource",
                                 message=(
                                     f"Missing {resource_type_name} {quote_identifier(identifier)}. "
                                     f"It is referenced by {quote_identifier(resource.identifier)}."
