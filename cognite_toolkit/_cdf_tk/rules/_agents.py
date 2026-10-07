@@ -94,7 +94,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                         f"Agent '{agent_def.external_id}' model {agent_def.model!r} is not available in this "
                         f"CDF project. Available models: {quoted_models}."
                     ),
-                    code=f"{self.CODE_PREFIX}-MODEL",
+                    code=f"{self.CODE_PREFIX}-UNKNOWN-MODEL",
                     fix="Use one of the available models for this CDF project.",
                     source_file=resource.source_path,
                 ),
@@ -138,7 +138,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                                 f"Agent '{agent_def.external_id}' runtime version {effective_runtime_version!r} "
                                 f"does not support the '{requirement.field_name}' field."
                             ),
-                            code=f"{self.CODE_PREFIX}-RUNTIME-UNSUPPORTED-CAPABILITY",
+                            code=f"{self.CODE_PREFIX}-UNSUPPORTED-CAPABILITY",
                             fix=(
                                 f"Use a runtime version that supports '{requirement.field_name}', "
                                 f"or remove the '{requirement.field_name}' field."
@@ -156,7 +156,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                         f"Agent '{agent_def.external_id}' has {len(agent_def.tools)} tools, "
                         f"which exceeds the maximum of {max_tools} tools per agent for this CDF project."
                     ),
-                    code=f"{self.CODE_PREFIX}-TOOLS-LIMIT",
+                    code=f"{self.CODE_PREFIX}-TOO-MANY-TOOLS",
                     fix=f"Reduce the number of tools to at most {max_tools}.",
                     source_file=resource.source_path,
                 ),

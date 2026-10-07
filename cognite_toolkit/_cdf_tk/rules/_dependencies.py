@@ -54,7 +54,9 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
     """
 
     DISPLAY_NAME = "Dependencies"
-    INVALID_OPERATION_CODE: ClassVar[str] = "INVALID-OPERATION"
+    CONTAINER_INVALID_OPERATION_CODE: ClassVar[str] = "CONTAINER-INVALID-OPERATION"
+    VIEW_INVALID_OPERATION_CODE: ClassVar[str] = "VIEW-INVALID-OPERATION"
+    DATA_MODEL_INVALID_OPERATION_CODE: ClassVar[str] = "DATA-MODEL-INVALID-OPERATION"
 
     def get_status(self) -> RuleSetStatus:
         if self.client is None:
@@ -276,7 +278,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             affected = humanize_collection([f"{name!r}" for name in sorted({*removed, *changed})])
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=self.INVALID_OPERATION_CODE,
+                    code=self.CONTAINER_INVALID_OPERATION_CODE,
                     message=(
                         f"Local config for container {container_id} has some properties {affected} that have been modified in a way CDF "
                         f"does not support. Deploying the current local YAML config will not apply these changes to the container in CDF."
@@ -292,7 +294,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         if missing and not changed:
             yield with_position(
                 warning_insight_type(ConsistencyError)(
-                    code=self.INVALID_OPERATION_CODE,
+                    code=self.CONTAINER_INVALID_OPERATION_CODE,
                     message=(
                         f"Local config for container {container_id} is missing properties "
                         f"{humanize_collection([f'{name!r}' for name in missing])} that have previously been deployed to CDF. "
@@ -314,7 +316,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             # is metadata and CDF applies changes to it without restriction, so it is not checked here.
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=self.INVALID_OPERATION_CODE,
+                    code=self.CONTAINER_INVALID_OPERATION_CODE,
                     message=(
                         f"Local config for container {container_id} has modified usedFor ('{local_used_for}') compared to the deployed "
                         f"container in CDF ('{cdf_response.used_for}'). CDF does not support changing the usedFor of an existing container, so deploying the current "
@@ -349,7 +351,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             affected = humanize_collection([f"{name!r}" for name in sorted({*removed, *changed})])
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=self.INVALID_OPERATION_CODE,
+                    code=self.VIEW_INVALID_OPERATION_CODE,
                     message=(
                         f"Local config for view {view_id} has some properties {affected} that have been modified in a way CDF "
                         f"does not support without a version bump. Deploying the current local YAML config will not apply "
@@ -365,7 +367,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         elif removed:
             yield with_position(
                 warning_insight_type(ConsistencyError)(
-                    code=self.INVALID_OPERATION_CODE,
+                    code=self.VIEW_INVALID_OPERATION_CODE,
                     message=(
                         f"Local config for view {view_id} is missing properties "
                         f"{humanize_collection([f'{name!r}' for name in removed])} that have previously been deployed to CDF for the "
@@ -383,7 +385,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             # name, description and filter are metadata/query-only and can always change.
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=self.INVALID_OPERATION_CODE,
+                    code=self.VIEW_INVALID_OPERATION_CODE,
                     message=(
                         f"Local config for view {view_id} has changed implements compared to the view version already deployed to CDF"
                     ),
@@ -424,7 +426,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             )
             yield with_position(
                 error_insight_type(ConsistencyError)(
-                    code=self.INVALID_OPERATION_CODE,
+                    code=self.DATA_MODEL_INVALID_OPERATION_CODE,
                     message=(
                         f"Local config for data model {data_model_id} has changed the view version of {changes} compared to the existing deployed data model version in CDF. "
                         "View version used by a data model can only be updated if you also update the data model version."
@@ -440,7 +442,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         if removed:
             yield with_position(
                 warning_insight_type(ConsistencyError)(
-                    code=self.INVALID_OPERATION_CODE,
+                    code=self.DATA_MODEL_INVALID_OPERATION_CODE,
                     message=(
                         f"Local config for data model {data_model_id} is missing the view(s) "
                         f"{humanize_collection([f'{view_id!s}' for view_id in removed])} compared to the existing deployed data model version in CDF. "

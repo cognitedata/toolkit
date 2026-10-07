@@ -26,6 +26,11 @@ def invalid_function_test_cases() -> Iterable:
         },
         id="Too many secrets",
     )
+    yield pytest.param(
+        {"externalId": "my_function", "name": "my_function"},
+        {"Either dataSetExternalId or space must be set, to store the function code."},
+        id="Missing dataSetExternalId and space",
+    )
 
 
 class TestFunctionsYAML:

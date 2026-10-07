@@ -84,7 +84,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
 
     CODE_PREFIX = "DATA-MODELING"
     DISPLAY_NAME = "Data modeling"
-    INVALID_REVERSE_DIRECT_RELATION = "INVALID-REVERSE-DIRECT-RELATION"
+    INVALID_REVERSE_DIRECT_RELATION = "VIEW-INVALID-REVERSE-DIRECT-RELATION"
 
     def get_status(self) -> RuleSetStatus:
         if not Flags.ALPHA_RULES.is_enabled():

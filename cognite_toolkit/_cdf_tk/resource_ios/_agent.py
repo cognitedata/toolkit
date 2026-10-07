@@ -123,7 +123,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         if not instructions_file.is_file():
             yield FailedReadExtra(
                 source_path=instructions_file,
-                code="MISSING",
+                code="MISSING-INSTRUCTIONS-FILE",
                 error=f"Instructions file {instructions_file.as_posix()} not found or is not a file",
             )
             return
@@ -152,7 +152,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             if not tools_file.is_file():
                 yield FailedReadExtra(
                     source_path=tools_file,
-                    code="MISSING",
+                    code="MISSING-TOOLS-FILE",
                     error=f"Tools file {tools_file.as_posix()} not found or is not a file",
                 )
                 continue
@@ -162,7 +162,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             if parsed_content is None:
                 yield FailedReadExtra(
                     source_path=tools_file,
-                    code="SYNTAX-ERROR",
+                    code="INVALID-CONTENT",
                     error=f"Tools file {tools_file.as_posix()} is not valid YAML",
                 )
                 continue
@@ -220,7 +220,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         if not code_file.is_file():
             return FailedReadExtra(
                 source_path=code_file,
-                code="MISSING",
+                code="MISSING-PYTHON-CODE-FILE",
                 error=f"Python code file {code_file.as_posix()} not found or is not a file",
             )
         content = safe_read(code_file, encoding=BUILD_FOLDER_ENCODING)

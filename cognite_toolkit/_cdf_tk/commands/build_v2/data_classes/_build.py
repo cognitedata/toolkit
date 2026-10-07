@@ -26,7 +26,6 @@ from ._insights import (
     InsightList,
     InternalValidatorException,
     InvalidContentError,
-    MissingContentError,
     ModelSyntaxError,
     ModelSyntaxWarning,
     ParseFileError,
@@ -67,9 +66,7 @@ def _failed_file_error_type(code: str) -> type[BuildError]:
 
 def _failed_extra_error_type(code: str) -> type[BuildError]:
     match code:
-        case "MISSING":
-            return MissingContentError
-        case "SYNTAX-ERROR":
+        case "INVALID-CONTENT":
             return InvalidContentError
         case _:
             return BuildError

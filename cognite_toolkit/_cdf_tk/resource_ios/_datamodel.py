@@ -1490,7 +1490,7 @@ class GraphQLIO(
 
         if not graphql_file.is_file():
             yield FailedReadExtra(
-                code="MISSING",
+                code="MISSING-GRAPHQL-FILE",
                 error=f"Cannot find GraphQL file for data model {identifier}. Expected {graphql_file.name} adjacent to {filepath.as_posix()}.",
                 source_path=graphql_file,
             )

@@ -323,7 +323,7 @@ class TestInFieldCDMRuleSet:
         rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
-        assert errors[0].code == f"{InFieldCDMRuleSet.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY"
+        assert errors[0].code == f"{InFieldCDMRuleSet.CODE_PREFIX}-VIEW-UNKNOWN-PROPERTY"
         assert "files" in errors[0].message
         assert errors[0].source_file == yaml_file
 
@@ -434,7 +434,7 @@ class TestInFieldCDMRuleSet:
         rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
-        assert errors[0].code == f"{InFieldCDMRuleSet.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY"
+        assert errors[0].code == f"{InFieldCDMRuleSet.CODE_PREFIX}-VIEW-UNKNOWN-PROPERTY"
         assert "unknownField" in errors[0].message
         assert errors[0].source_file == yaml_file
 

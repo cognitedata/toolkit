@@ -184,10 +184,10 @@ name: My Space
         } == {
             "resource_count": 1,
             "syntax_errors": 1,
-            "insight_codes": {"MODEL-SYNTAX-ERROR"},
+            "insight_codes": {"SYNTAX-ERROR"},
         }
 
-        syntax_insight = next(i for i in folder.all_insights if i.code == "MODEL-SYNTAX-ERROR")
+        syntax_insight = next(i for i in folder.all_insights if i.code == "SYNTAX-ERROR")
         assert syntax_insight.source_file == resource_file
 
         insights_csv = (build_dir / "insights.csv").read_text()
@@ -577,7 +577,7 @@ class TestDisplayInsightsOutput:
         BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
 
         rendered = output.getvalue()
-        assert "! Unrecognized syntax" in rendered
+        assert "! Unrecognized syntax  [UNRECOGNIZED-SYNTAX]" in rendered
         assert "╰─ modules/my_module/data_modeling/my_space.Space.yaml" in rendered
         assert "Unrecognized field: 'Name'" in rendered
 
@@ -598,7 +598,7 @@ class TestDisplayInsightsOutput:
 
         rendered = output.getvalue()
         assert rendered.count("Unrecognized syntax") == 1
-        assert "Unrecognized syntax  (5)" in rendered
+        assert "Unrecognized syntax  [UNRECOGNIZED-SYNTAX]  (5)" in rendered
         assert "+ 2 more files" in rendered
         assert "more insights not shown" not in rendered
 

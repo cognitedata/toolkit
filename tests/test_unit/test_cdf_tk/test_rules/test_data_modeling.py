@@ -384,4 +384,4 @@ class TestDataModelingChangesMove:
             [insight.code for insight in data_modeling],
             "is missing properties 'description'" in data_modeling[0].message,
             dependencies,
-        ) == ([DependencyRuleSet.INVALID_OPERATION_CODE], True, [])
+        ) == ([DependencyRuleSet.CONTAINER_INVALID_OPERATION_CODE], True, [])

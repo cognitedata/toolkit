@@ -26,8 +26,6 @@ from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_BASE_IO_BY_FOLDER_NAME
 
 
 class ModuleParser:
-    VARIABLE_ERROR_CODE = "CONFIG_VARIABLE_001"
-
     @classmethod
     def parse(
         cls,
@@ -241,7 +239,7 @@ class ModuleParser:
                                 is_selected=path in selected_paths,
                                 iteration=iteration,
                                 error=error_insight_type(ModelSyntaxError)(
-                                    code=cls.VARIABLE_ERROR_CODE,
+                                    code="INVALID-VARIABLE-PATH",
                                     message=f"Invalid variable path: {'.'.join(subpath.parts)}. This does not correspond to the "
                                     f"folder structure inside the {MODULES} directory.",
                                     fix="Ensure that the variable paths correspond to the folder structure inside the modules directory.",
@@ -268,7 +266,7 @@ class ModuleParser:
                                 is_selected=path in selected_paths,
                                 iteration=iteration,
                                 error=error_insight_type(ModelSyntaxError)(
-                                    code=cls.VARIABLE_ERROR_CODE,
+                                    code="INVALID-VARIABLE-TYPE",
                                     message=f"Invalid variable type in list for variable {'.'.join(subpath.parts)}.",
                                     fix="Ensure that all items in the list are of the same supported type either (str, int, float, bool) or dict.",
                                     # We only have variables in the config file, so this cast is safe

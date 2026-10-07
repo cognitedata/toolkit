@@ -188,10 +188,6 @@ class FileSyntaxError(BuildError):
     title = "Syntax error"
 
 
-class MissingContentError(BuildError):
-    title = "Missing content"
-
-
 class InvalidContentError(BuildError):
     title = "Invalid content"
 

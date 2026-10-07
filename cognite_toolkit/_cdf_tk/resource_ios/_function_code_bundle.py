@@ -65,7 +65,7 @@ class FunctionCodeBundle:
         function_rootdir = cls.get_code_implicitly(filepath, external_id)
         if not function_rootdir.is_dir():
             yield FailedReadExtra(
-                code="MISSING",
+                code="MISSING-FUNCTION-CODE",
                 error=f"Cannot find function code for function {external_id!r} in {filepath.as_posix()}. Expected function code directory {function_rootdir.as_posix()} to exist. ",
                 source_path=function_rootdir,
             )
@@ -88,11 +88,7 @@ class FunctionCodeBundle:
         )
         name = item.get("name")
         if not isinstance(name, str):
-            yield FailedReadExtra(
-                source_path=function_rootdir,
-                code="MISSING",
-                error=f"Cannot find function name for function {external_id!r} in {filepath.as_posix()}. This is required and is necessary for creating the function code.",
-            )
+            # The name is required by the function schema, so a missing name is already reported as a syntax error.
             return
         filename = sanitize_filename(name)
         if data_set_external_id := item.get("dataSetExternalId"):
@@ -129,12 +125,7 @@ class FunctionCodeBundle:
                 resource_field=None,
                 write_to_build=True,
             )
-        else:
-            yield FailedReadExtra(
-                source_path=function_rootdir,
-                code="MISSING",
-                error=f"Failed to create function code metadata for function {external_id!r} in {filepath.as_posix()}. This is required for creating the function code. The function must have either a dataSetExternalId or a space specified.",
-            )
+        # Without a dataSetExternalId or space, the function schema already reports a syntax error.
 
     def as_file_by_external_id(self, external_ids: Iterable[str]) -> tuple[dict[Path, str], dict[Path, str]]:
         filemetadata_files: dict[Path, str] = {}

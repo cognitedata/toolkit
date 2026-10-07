@@ -124,7 +124,7 @@ class ReadBuildDirectory:
         for resource_dir in self.resource_directories:
             for invalid_file in resource_dir.invalid_files:
                 yield LowSeverityWarning(
-                    f"File {invalid_file.name!r} in {resource_dir.directory.name!r} does not match any known resource kind, skipping."
+                    f"File {invalid_file.name!r} in {resource_dir.directory.name!r} does not match any known resource type, skipping."
                 )
 
     def skipped_cruds(self) -> set[type[ResourceIO]]:

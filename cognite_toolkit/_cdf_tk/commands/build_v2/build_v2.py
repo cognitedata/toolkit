@@ -924,21 +924,21 @@ class BuildV2Command(ToolkitCommand):
                 IgnoredFile(
                     filepath=resource_file,
                     code="MISSING-SUFFIX",
-                    reason=f"Resource file '{resource_file.stem!r}' is ignored because it does not have a suffix to indicate resource kind.",
-                    fix=f"Rename it with an appropriate kind: {resource_file.stem}.<kind>{resource_file.suffix}.",
+                    reason=f"Resource file {resource_file.name!r} is ignored because it does not have a suffix to indicate the resource type.",
+                    fix=f"Rename it with the resource type: {resource_file.stem}.<ResourceType>{resource_file.suffix}.",
                 ),
                 None,
                 None,
             )
-        kind = resource_file.stem.rsplit(".", maxsplit=1)[-1]
-        kind_key = kind.lower()
+        resource_type = resource_file.stem.rsplit(".", maxsplit=1)[-1]
+        kind_key = resource_type.lower()
         if kind_key not in class_by_kind:
             return (
                 None,
                 FailedReadYAMLFile(
                     source_path=resource_file,
-                    code="INVALID-KIND",
-                    error=f"Resource file '{resource_file.name!r}' has unknown resource kind '{kind}' for folder '{resource_folder}'",
+                    code="INVALID-RESOURCE-TYPE",
+                    error=f"Resource file {resource_file.name!r} has unknown resource type '{resource_type}' for folder '{resource_folder}'",
                 ),
                 None,
             )
@@ -1159,7 +1159,7 @@ class BuildV2Command(ToolkitCommand):
         if errors:
             line, column = self._single_position(errors, positions)
             syntax_error = error_insight_type(ModelSyntaxError, FileSyntaxError)(
-                code="MODEL-SYNTAX-ERROR",
+                code="SYNTAX-ERROR",
                 message="\n".join(item.message for item in errors),
                 fix="Compare the YAML with reference documentation and make sure it is valid.",
                 source_file=resource_file,
@@ -1412,7 +1412,16 @@ class BuildV2Command(ToolkitCommand):
             footer.append(" ")
         footer.append("All insights are written to ")
         footer.append(insight_destination.as_posix(), style=f"underline {AuraColor.SKY.rich}")
-        insight_sections.append(ToolkitPanelSection(content=[footer]))
+        footer_lines: list[RenderableType] = [footer]
+        if Flags.V09.is_enabled():
+            footer_lines.append(
+                Text(
+                    "To ignore a rule, add '# rules: ignore[CODE]' to the file, where CODE is the code in "
+                    "brackets, or list the code under 'ignore' in the [rules] section of cdf.toml.",
+                    style="dim",
+                )
+            )
+        insight_sections.append(ToolkitPanelSection(content=footer_lines))
 
         match max_border_severity:
             case severity if severity < 15:
@@ -1435,7 +1444,7 @@ class BuildV2Command(ToolkitCommand):
     def _render_insight(cls, group: list[Insight], style: str, icon: str) -> RenderableType:
         """Renders insights with the same message as a heading, followed by their locations, the message and the fix."""
         insight = group[0]
-        heading = Text.assemble((f"{icon} ", style), (insight.heading, f"bold {style}"))
+        heading = Text.assemble((f"{icon} ", style), (insight.heading, f"bold {style}"), (f"  [{insight.code}]", "dim"))
         if len(group) > 1:
             heading.append(f"  ({len(group)})", style="dim")
 

@@ -12,11 +12,18 @@ from tests.test_unit.utils import find_resources
 def invalid_streamlit_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "MyApp", "name": "MyApp"},
-        {"Missing required field: 'creator'"},
+        {"Missing required field: 'creator'", "Missing required field: 'entrypoint'"},
         id="Missing required field: creator",
     )
     yield pytest.param(
-        {"externalId": "MyApp", "creator": "doctrino", "name": "MyApp", "published": "yes", "draft": "no"},
+        {
+            "externalId": "MyApp",
+            "creator": "doctrino",
+            "name": "MyApp",
+            "entrypoint": "main.py",
+            "published": "yes",
+            "draft": "no",
+        },
         {
             "Invalid value for published: Input should be a valid boolean. Got 'yes' of type str.",
             "Unrecognized field: 'draft'",

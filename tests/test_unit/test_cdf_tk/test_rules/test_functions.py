@@ -84,6 +84,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "cpu": 3.0,
             },
         )
@@ -103,6 +104,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "cpu": 0.05,
             },
         )
@@ -120,6 +122,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "memory": 5.0,
             },
         )
@@ -137,6 +140,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "memory": 0.1,
             },
         )
@@ -153,6 +157,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "cpu": 1.0,
                 "memory": 2.0,
             },
@@ -170,6 +175,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "runtime": "py314",
             },
         )
@@ -188,6 +194,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "runtime": "py312",
             },
         )
@@ -204,6 +211,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
             },
         )
         resource = self._create_built_resource(yaml_file, yaml_file)
@@ -219,6 +227,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "cpu": 3.0,
                 "memory": 5.0,
             },
@@ -238,6 +247,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "cpu": 5.0,
             },
         )
@@ -266,6 +276,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
             },
         )
         # Create the function code directory with requirements.txt
@@ -295,6 +306,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
             },
         )
         # Don't create the function directory or requirements.txt
@@ -317,6 +329,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
             },
         )
         # Create the function code directory with requirements.txt
