@@ -41,6 +41,7 @@ class SignalSubscriptionIO(
     yaml_cls = SignalSubscriptionYAML
     dependencies = frozenset({SignalSinkIO, WorkflowIO, HostedExtractorDestinationIO, HostedExtractorSourceIO})
     support_update = True
+    _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Signals/operation/createSignalSubscriptions"
 
     @property
