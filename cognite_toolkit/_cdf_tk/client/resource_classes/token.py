@@ -12,24 +12,26 @@ from pydantic import JsonValue, SerializationInfo, model_serializer, model_valid
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AclType,
     GroupCapability,
     GroupResponse,
+    GroupsAcl,
+    ProjectsAcl,
     Scope,
     ScopeDefinition,
+    UnknownAcl,
     UnknownScope,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import ACL_NAME
-from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import (
-    _KNOWN_ACLS,
-    Acl,
-    AclType,
-    GroupsAcl,
-    ProjectsAcl,
-    UnknownAcl,
-)
+from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import _KNOWN_ACLS
 from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import (
     scope_difference,
+    scope_intersection,
     scope_union,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group.scopes import (
+    ALL_SCOPE_NAME,
 )
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -189,6 +191,62 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], list[Scope
                     missing_actions_by_type_and_scope[(type(acl), acl.acl_name, missing_scope)].add(action)
 
         return self._merge_als(missing_actions_by_type_and_scope)
+
+    def get_available_scopes(self, acl_cls: type[Acl], actions: Sequence[str]) -> list[Scope]:
+        """Get the available scopes for the given ACL class and actions."""
+        if not actions:
+            raise RuntimeError("Bug in Toolkit: get_available_scopes called with empty actions list.")
+        first = actions[0]
+        scopes_by_name = self._get_scopes_for_action(acl_cls, first)
+        for action in actions[1:]:
+            scopes_for_action = self._get_scopes_for_action(acl_cls, action)
+            scope_name_intersections = self._scope_name_intersection(
+                set(scopes_by_name.keys()), set(scopes_for_action.keys())
+            )
+
+            new_scopes_by_name: dict[str, list[Scope]] = defaultdict(list)
+            for scope_name in scope_name_intersections:
+                new_scopes_by_name[scope_name] = scopes_by_name[scope_name] + scopes_for_action[scope_name]
+            if not new_scopes_by_name:
+                # If there are no intersecting scopes, we cannot combine them, so we return an empty list.
+                return []
+            scopes_by_name = new_scopes_by_name
+        resulting_scopes: list[Scope] = []
+        for scopes in scopes_by_name.values():
+            try:
+                intersection = scope_intersection(*scopes)
+            except (TypeError, ValueError):
+                # If unknown scope or incompatible types we cannot intersect, so we return all of them as they are not covered by any other scope.
+                resulting_scopes.extend(scopes)
+                continue
+            if intersection is not None:
+                resulting_scopes.append(intersection)
+
+        return resulting_scopes
+
+    @staticmethod
+    def _scope_name_intersection(s1: set[str], s2: set[str]) -> set[str]:
+        if ALL_SCOPE_NAME in s1 and ALL_SCOPE_NAME in s2:
+            return {ALL_SCOPE_NAME}
+        elif ALL_SCOPE_NAME in s1:
+            return s2
+        elif ALL_SCOPE_NAME in s2:
+            return s1
+        else:
+            return s1 & s2
+
+    def _get_scopes_for_action(
+        self,
+        acl_cls: type[Acl],
+        action: str,
+    ) -> dict[str, list[Scope]]:
+        key = (acl_cls, acl_cls.model_fields["acl_name"].default, action)
+        if key not in self.data:
+            return {}
+        scopes_for_action: dict[str, list[Scope]] = defaultdict(list)
+        for scope in self.data[key]:
+            scopes_for_action[scope.scope_name].append(scope)
+        return scopes_for_action
 
     @classmethod
     def merge_acls(cls, acls: list[AclType]) -> Sequence[AclType]:

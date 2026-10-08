@@ -9,7 +9,7 @@ from typing import Annotated, Any, Literal, TypeAlias
 from pydantic import BeforeValidator, ConfigDict, Field, TypeAdapter, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import SCOPE_NAME
+from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import ALL_SCOPE_NAME, SCOPE_NAME
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 
@@ -61,7 +61,7 @@ class DataProductScope(ScopeDefinition):
 class AllScope(ScopeDefinition):
     """Scope that applies to all resources."""
 
-    scope_name: Literal["all"] = Field("all", exclude=True)
+    scope_name: Literal["all"] = Field(ALL_SCOPE_NAME, exclude=True)
 
 
 class CurrentUserScope(ScopeDefinition):
