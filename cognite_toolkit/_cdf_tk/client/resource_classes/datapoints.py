@@ -1,8 +1,8 @@
 import builtins
 import sys
-from typing import Any, Literal
+from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import Field, model_validator
+from pydantic import BeforeValidator, Field, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
+from cognite_toolkit._cdf_tk.client._types import Timestamp
 from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId
 
 if sys.version_info >= (3, 11):
@@ -50,7 +51,7 @@ class DatapointStatus(BaseModelObject):
 class Datapoint(BaseModelObject):
     """A data point to insert."""
 
-    timestamp: int
+    timestamp: Timestamp
     value: int | float | str
     status: DatapointStatus | None = None
 
@@ -62,7 +63,7 @@ class NumericDatapointResponse(BaseModelObject):
     ``NaN``, ``Infinity``, or ``-Infinity``.
     """
 
-    timestamp: int
+    timestamp: Timestamp
     value: int | float | Literal["NaN", "Infinity", "-Infinity"] | None = None
     status: DatapointStatus | None = None
 
@@ -73,7 +74,7 @@ class StringDatapointResponse(BaseModelObject):
     ``value`` is omitted when the point has a bad status.
     """
 
-    timestamp: int
+    timestamp: Timestamp
     value: str | None = None
     status: DatapointStatus | None = None
 
@@ -81,7 +82,7 @@ class StringDatapointResponse(BaseModelObject):
 class AggregateExtremeDatapoint(BaseModelObject):
     """Timestamp and value of the first minimum or maximum point in an aggregate window."""
 
-    timestamp: int
+    timestamp: Timestamp
     value: int | float
     status: DatapointStatus | None = None
 
@@ -89,7 +90,7 @@ class AggregateExtremeDatapoint(BaseModelObject):
 class AggregateDatapointResponse(BaseModelObject):
     """One aggregated window. Only the requested aggregate fields are set."""
 
-    timestamp: int
+    timestamp: Timestamp
     count: int | None = None
     count_good: int | None = None
     count_uncertain: int | None = None
@@ -135,12 +136,12 @@ class DatapointsId(Identifier):
     id: int | None = None
     external_id: str | None = None
     instance_id: NodeUntypedId | None = None
-    timestamps: tuple[int, ...] = ()
-    start: int | str | None = None
-    end: int | str | None = None
-    before: int | str | None = None
-    inclusive_begin: int | None = None
-    exclusive_end: int | None = None
+    timestamps: tuple[Timestamp, ...] = ()
+    start: Timestamp | None = None
+    end: Timestamp | None = None
+    before: Timestamp | None = None
+    inclusive_begin: Timestamp | None = None
+    exclusive_end: Timestamp | None = None
 
     def __str__(self) -> str:
         if self.external_id is not None:
@@ -224,8 +225,8 @@ class DatapointsQueryRequest(TimeSeriesDatapointSelector, _UnitTarget, RequestRe
     See `API docs <https://api-docs.cognite.com/20230101/tag/Time-series/operation/getMultiTimeSeriesDatapoints>`_.
     """
 
-    start: int | str | None = None
-    end: int | str | None = None
+    start: Timestamp | None = None
+    end: Timestamp | None = None
     limit: int | None = None
     aggregates: list[DatapointAggregate] | None = Field(default=None, min_length=1)
     granularity: str | None = None
@@ -243,8 +244,8 @@ class DatapointsQueryRequest(TimeSeriesDatapointSelector, _UnitTarget, RequestRe
 class DatapointsQueryDefaults(BaseModelObject):
     """Defaults applied to every query item in a retrieve request when the item omits the field."""
 
-    start: int | str | None = None
-    end: int | str | None = None
+    start: Timestamp | None = None
+    end: Timestamp | None = None
     limit: int | None = None
     aggregates: list[DatapointAggregate] | None = Field(default=None, min_length=1)
     granularity: str | None = None
@@ -259,7 +260,7 @@ class LatestDatapointRequest(TimeSeriesDatapointSelector, _UnitTarget, RequestRe
     See `API docs <https://api-docs.cognite.com/20230101/tag/Time-series/operation/getLatest>`_.
     """
 
-    before: int | str | None = None
+    before: Timestamp | None = None
     include_status: bool | None = None
     ignore_bad_datapoints: bool | None = None
     treat_uncertain_as_bad: bool | None = None
@@ -271,15 +272,15 @@ class LatestDatapointRequest(TimeSeriesDatapointSelector, _UnitTarget, RequestRe
 class DatapointsDeleteRequest(TimeSeriesDatapointSelector, RequestResource):
     """Data points to delete from one time series.
 
-    ``inclusive_begin`` is required and is the first timestamp to delete, in epoch milliseconds.
+    ``inclusive_begin`` is required. It is the first timestamp to delete.
     ``exclusive_end`` is the first timestamp to keep. When it is omitted, only the data point at
-    ``inclusive_begin`` is deleted.
+    ``inclusive_begin`` is deleted. Both are serialized as epoch milliseconds.
 
     See `API docs <https://api-docs.cognite.com/20230101/tag/Time-series/operation/deleteDatapoints>`_.
     """
 
-    inclusive_begin: int
-    exclusive_end: int | None = None
+    inclusive_begin: Timestamp
+    exclusive_end: Timestamp | None = None
 
     def as_id(self) -> DatapointsId:
         return DatapointsId(
@@ -340,8 +341,6 @@ class AggregateDatapointsResponse(_DatapointsSeries):
         raise ValueError("Aggregate datapoints cannot be converted to an insert request.")
 
 
-DatapointsSeriesResponse = NumericDatapointsResponse | StringDatapointsResponse | AggregateDatapointsResponse
-
 _AGGREGATE_POINT_FIELDS = frozenset(
     {
         "count",
@@ -366,7 +365,9 @@ _AGGREGATE_POINT_FIELDS = frozenset(
 )
 
 
-def parse_datapoints_series(item: dict[str, Any]) -> DatapointsSeriesResponse:
+def parse_datapoints_series(
+    item: dict[str, Any],
+) -> NumericDatapointsResponse | StringDatapointsResponse | AggregateDatapointsResponse:
     """Parse one retrieve or latest item into the series type that matches its points."""
     points = item.get("datapoints") or []
     if any(isinstance(point, dict) and _AGGREGATE_POINT_FIELDS.intersection(point) for point in points):
@@ -374,6 +375,22 @@ def parse_datapoints_series(item: dict[str, Any]) -> DatapointsSeriesResponse:
     if item.get("isString") is True:
         return StringDatapointsResponse.model_validate(item)
     return NumericDatapointsResponse.model_validate(item)
+
+
+def _coerce_datapoints_series(
+    value: Any,
+) -> NumericDatapointsResponse | StringDatapointsResponse | AggregateDatapointsResponse:
+    if isinstance(value, (NumericDatapointsResponse, StringDatapointsResponse, AggregateDatapointsResponse)):
+        return value
+    if isinstance(value, dict):
+        return parse_datapoints_series(value)
+    raise TypeError(f"Expected a datapoints series object, got {type(value).__name__}.")
+
+
+DatapointsSeriesResponse: TypeAlias = Annotated[
+    NumericDatapointsResponse | StringDatapointsResponse | AggregateDatapointsResponse,
+    BeforeValidator(_coerce_datapoints_series),
+]
 
 
 def _as_insert_request(

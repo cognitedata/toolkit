@@ -1,8 +1,10 @@
 import builtins
-import json
 from collections.abc import Iterable, Sequence
-from typing import Any
+from typing import Any, ClassVar
 
+from pydantic import TypeAdapter
+
+from cognite_toolkit._cdf_tk.client._types import Timestamp
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
@@ -14,7 +16,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import (
     DatapointsRequest,
     DatapointsSeriesResponse,
     LatestDatapointRequest,
-    parse_datapoints_series,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
@@ -32,6 +33,8 @@ class DatapointsAPI(CDFResourceAPI[DatapointsSeriesResponse]):
     - Retrieve and latest: at most 100 time series per request.
     - Retrieve returns at most 100,000 raw data points, or 10,000 aggregated data points, per request.
     """
+
+    _page_response_adapter: ClassVar[TypeAdapter[PagedResponse[DatapointsSeriesResponse]] | None] = None
 
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
@@ -51,14 +54,16 @@ class DatapointsAPI(CDFResourceAPI[DatapointsSeriesResponse]):
         # Latest uses the retrieve method with this path. Both endpoints accept 100 items per request.
         self._latest_endpoint = Endpoint(method="POST", path="/timeseries/data/latest", item_limit=100)
 
+    @classmethod
+    def _get_page_response_adapter(cls) -> TypeAdapter[PagedResponse[DatapointsSeriesResponse]]:
+        if cls._page_response_adapter is None:
+            cls._page_response_adapter = TypeAdapter(PagedResponse[DatapointsSeriesResponse])
+        return cls._page_response_adapter
+
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[DatapointsSeriesResponse]:
-        payload = json.loads(response.body)
-        items = [parse_datapoints_series(item) for item in payload["items"]]
-        # Keep the concrete series class. Validating the union again would accept a numeric
-        # series as an aggregate series, because aggregate fields are optional.
-        return PagedResponse[DatapointsSeriesResponse].model_construct(items=items, next_cursor=None)
+        return self._get_page_response_adapter().validate_json(response.body)
 
     def create(self, items: Sequence[DatapointsRequest]) -> None:
         """Insert data points into one or more time series.
@@ -83,8 +88,8 @@ class DatapointsAPI(CDFResourceAPI[DatapointsSeriesResponse]):
         self,
         items: Sequence[DatapointsQueryRequest],
         *,
-        start: int | str | None = None,
-        end: int | str | None = None,
+        start: Timestamp | None = None,
+        end: Timestamp | None = None,
         limit: int | None = None,
         aggregates: list[DatapointAggregate] | None = None,
         granularity: str | None = None,
@@ -106,8 +111,8 @@ class DatapointsAPI(CDFResourceAPI[DatapointsSeriesResponse]):
 
         Args:
             items: Per-series queries. At most 100 are sent in one request.
-            start: Inclusive start time as epoch milliseconds or a timestamp string such as ``1d-ago``.
-            end: Exclusive end time as epoch milliseconds or a timestamp string.
+            start: Inclusive start. Epoch milliseconds, an ISO 8601 string, ``now``, or ``1d-ago``.
+            end: Exclusive end. Same formats as ``start``.
             limit: Maximum number of data points per series. The service default is 100.
             aggregates: Aggregates to return instead of raw data points.
             granularity: Aggregation window, for example ``5m`` or ``1h``. Required when aggregates are set.
@@ -214,8 +219,8 @@ def _require_granularity(
 
 def _query_defaults_body(
     *,
-    start: int | str | None,
-    end: int | str | None,
+    start: Timestamp | None,
+    end: Timestamp | None,
     limit: int | None,
     aggregates: list[DatapointAggregate] | None,
     granularity: str | None,

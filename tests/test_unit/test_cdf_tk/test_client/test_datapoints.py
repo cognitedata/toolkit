@@ -1,12 +1,14 @@
 import json
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx2
 import pytest
 import respx
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client._types import Timestamp
 from cognite_toolkit._cdf_tk.client.api.datapoints import DatapointsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -152,7 +154,7 @@ class TestDatapointsAPI:
         )
         retrieved = api.retrieve(
             [DatapointsQueryRequest(external_id="ts_001", cursor="cursor-1")],
-            start="1d-ago",
+            start=datetime(2020, 1, 1, tzinfo=timezone.utc),
             aggregates=["average", "max", "maxDatapoint", "count"],
             granularity="1h",
             time_zone="Europe/Oslo",
@@ -171,7 +173,7 @@ class TestDatapointsAPI:
                 "accept": "application/json",
                 "body": {
                     "items": [{"externalId": "ts_001", "cursor": "cursor-1"}],
-                    "start": "1d-ago",
+                    "start": 1_577_836_800_000,
                     "aggregates": ["average", "max", "maxDatapoint", "count"],
                     "granularity": "1h",
                     "timeZone": "Europe/Oslo",
@@ -211,7 +213,7 @@ class TestDatapointsAPI:
             )
         )
         retrieved = api.latest(
-            [LatestDatapointRequest(id=7, before="now")],
+            [LatestDatapointRequest(id=7, before=datetime(2020, 1, 2, tzinfo=timezone.utc))],
             ignore_unknown_ids=True,
         )
 
@@ -225,7 +227,7 @@ class TestDatapointsAPI:
                 "content_type": "application/json",
                 "accept": "application/json",
                 "body": {
-                    "items": [{"id": 7, "before": "now"}],
+                    "items": [{"id": 7, "before": 1_577_923_200_000}],
                     "ignoreUnknownIds": True,
                 },
             },
@@ -315,3 +317,53 @@ class TestDatapointsAPI:
             "numeric": (NumericDatapointsResponse, 1.5),
             "string": (StringDatapointsResponse, "on"),
         }
+
+
+class TestTimestamp:
+    def test_parses_epoch_and_string_formats(self) -> None:
+        adapter = TypeAdapter(Timestamp)
+        epoch = datetime(2020, 1, 1, tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        parsed = {
+            key: adapter.validate_python(value)
+            for key, value in {
+                "epoch": 1_577_836_800_000,
+                "negative": -1_000,
+                "float": 1_577_836_800_000.9,
+                "digit_string": "1577836800000",
+                "iso_z": "2020-01-01T00:00:00Z",
+                "iso_space": "2020-01-01 00:00:00",
+                "naive": "2020-01-01T00:00:00",
+            }.items()
+        }
+        relative = {
+            "now": adapter.validate_python("now"),
+            "ago": adapter.validate_python("1d-ago"),
+            "ahead": adapter.validate_python("2h-ahead"),
+        }
+
+        assert {
+            "parsed": parsed,
+            "dump": Datapoint(timestamp=epoch, value=1).dump()["timestamp"],
+            "close": {
+                "now": abs(relative["now"] - now) < timedelta(seconds=2),
+                "ago": abs(relative["ago"] - (now - timedelta(days=1))) < timedelta(seconds=2),
+                "ahead": abs(relative["ahead"] - (now + timedelta(hours=2))) < timedelta(seconds=2),
+            },
+        } == {
+            "parsed": {
+                "epoch": epoch,
+                "negative": datetime(1969, 12, 31, 23, 59, 59, tzinfo=timezone.utc),
+                "float": epoch,
+                "digit_string": epoch,
+                "iso_z": epoch,
+                "iso_space": epoch,
+                "naive": epoch,
+            },
+            "dump": 1_577_836_800_000,
+            "close": {"now": True, "ago": True, "ahead": True},
+        }
+
+    def test_rejects_bool(self) -> None:
+        with pytest.raises(ValidationError):
+            TypeAdapter(Timestamp).validate_python(True)
