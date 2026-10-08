@@ -1526,14 +1526,6 @@ class BuildV2Command(ToolkitCommand):
         title = cls._humanize_insight_code(insight.code)
         return f"{title} in {insight.display_source_file_cwd}"
 
-    @classmethod
-    def _insight_severity(cls, insight: Insight) -> int:
-        return type(insight).severity
-
-    @classmethod
-    def _insight_order(cls, insight: Insight) -> tuple[int, str]:
-        return type(insight).severity, insight.code or ""
-
     def _select_display_insights_legacy(self, insights: InsightList, max_display_count: int) -> list[Insight]:
         """Prioritize one insight per code, then by severity"""
         insights_by_code: dict[str, Insight] = {}
@@ -1547,12 +1539,14 @@ class BuildV2Command(ToolkitCommand):
                 remaining_insights.append(insight)
 
         # Sort the unique codes by severity
-        sorted_unique_insights = sorted(insights_by_code.values(), key=self._insight_severity, reverse=True)
+        sorted_unique_insights = sorted(insights_by_code.values(), key=lambda i: type(i).severity, reverse=True)
         # Sort remaining by severity
-        sorted_remaining = sorted(remaining_insights, key=self._insight_severity, reverse=True)
+        sorted_remaining = sorted(remaining_insights, key=lambda i: type(i).severity, reverse=True)
         # Combine them
         prioritized_insights = sorted_unique_insights + sorted_remaining
-        return sorted(prioritized_insights[:max_display_count], key=self._insight_order, reverse=True)
+        return sorted(
+            prioritized_insights[:max_display_count], key=lambda i: (type(i).severity, i.code or ""), reverse=True
+        )
 
     def _display_grouped_insights(
         self, insights: InsightList, insight_path: Path, console: Console, verbose: bool
