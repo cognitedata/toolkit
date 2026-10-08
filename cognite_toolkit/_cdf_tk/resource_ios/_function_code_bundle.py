@@ -89,8 +89,8 @@ class FunctionCodeBundle:
         )
         name = item.get("name")
         if not isinstance(name, str):
-            # With the v09 flag, the name is required by the function schema, so a missing name is already
-            # reported as a syntax error.
+            # 'name' is required by the function schema, so a missing name is already
+            # reported as a syntax error. From v09 and on, we drop this extraneous error.
             if not Flags.V09.is_enabled():
                 yield FailedReadExtra(
                     source_path=function_rootdir,
@@ -134,7 +134,8 @@ class FunctionCodeBundle:
                 write_to_build=True,
             )
         elif not Flags.V09.is_enabled():
-            # With the v09 flag, the function schema already reports a syntax error.
+            # With the v09 flag, the function schema now reports a syntax error if the function
+            # does not have a dataSetExternalId or a space specified, so we drop this extraneous error.
             yield FailedReadExtra(
                 source_path=function_rootdir,
                 code="MISSING",
