@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetReque
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleData,
+    FunctionScheduleId,
     FunctionScheduleResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
@@ -284,6 +285,7 @@ class TestApplyPlan:
                             updated_count=0,
                             unchanged_count=0,
                             is_missing_write_acl=False,
+                            created_ids=[SpaceId(space="${MY_VAR}")],
                         )
                     ],
                     expected_warning=EnvironmentVariableMissingWarning,
@@ -332,6 +334,7 @@ class TestApplyPlan:
                             updated_count=0,
                             unchanged_count=0,
                             is_missing_write_acl=False,
+                            created_ids=[SpaceId(space="my_space")],
                             skipped=[
                                 Skipped(
                                     id=SpaceId(space="my_space"),
@@ -374,6 +377,8 @@ class TestApplyPlan:
                             updated_count=0,
                             unchanged_count=0,
                             is_missing_write_acl=False,
+                            created_ids=[FunctionScheduleId(function_external_id="my_function", name="my schedule")],
+                            deleted_ids=[FunctionScheduleId(function_external_id="my_function", name="my schedule")],
                         )
                     ],
                 ),
@@ -399,6 +404,7 @@ class TestApplyPlan:
                             updated_count=1,
                             unchanged_count=0,
                             is_missing_write_acl=False,
+                            updated_ids=[SpaceId(space="my_space")],
                         )
                     ],
                 ),
@@ -420,6 +426,7 @@ class TestApplyPlan:
                             updated_count=0,
                             unchanged_count=0,
                             is_missing_write_acl=False,
+                            created_ids=[SpaceId(space="new_space")],
                         )
                     ],
                 ),
@@ -443,6 +450,7 @@ class TestApplyPlan:
                             updated_count=0,
                             unchanged_count=1,
                             is_missing_write_acl=False,
+                            unchanged_ids=[SpaceId(space="my_space")],
                         )
                     ],
                 ),
@@ -928,4 +936,205 @@ class TestDeployAccessControlErrors:
                 "and ensure that you have setup authentication for the CDF toolkit correctly."
             ),
             "create_called": False,
+        }
+
+
+def _render_results(results: Sequence[DeploymentResult], *, verbose: bool, width: int = 100) -> str:
+    buffer = io.StringIO()
+    console = Console(
+        file=buffer,
+        width=width,
+        height=80,
+        legacy_windows=False,
+        force_terminal=True,
+        color_system=None,
+        highlight=False,
+    )
+    DeployV2Command._display_results(results, "deploy", console, verbose)
+    return buffer.getvalue()
+
+
+class TestVerboseResourceOutcomes:
+    def test_verbose_lists_each_outcome_and_quiet_mode_does_not(self) -> None:
+        schedule = FunctionScheduleId(function_external_id="my_function", name="my schedule")
+        results = [
+            DeploymentResult(
+                resource_name="spaces",
+                is_dry_run=True,
+                created_count=1,
+                deleted_count=1,
+                updated_count=1,
+                unchanged_count=1,
+                is_missing_write_acl=False,
+                created_ids=[SpaceId(space="new_space")],
+                updated_ids=[SpaceId(space="edited_space")],
+                deleted_ids=[SpaceId(space="old_space")],
+                unchanged_ids=[SpaceId(space="same_space")],
+                skipped=[
+                    Skipped(
+                        id=SpaceId(space="dup_space"),
+                        code="AMBIGUOUS",
+                        source_file=Path("data_modeling/b.Space.yaml"),
+                        reason="Identifier is not unique",
+                    )
+                ],
+            ),
+            DeploymentResult(
+                resource_name="function schedules",
+                is_dry_run=True,
+                created_count=1,
+                deleted_count=1,
+                updated_count=0,
+                unchanged_count=0,
+                is_missing_write_acl=False,
+                created_ids=[schedule],
+                deleted_ids=[schedule],
+            ),
+        ]
+
+        verbose_output = " ".join(_render_results(results, verbose=True).split())
+        quiet_output = " ".join(_render_results(results, verbose=False).split())
+
+        assert {
+            "panel": "Resources" in verbose_output and "(dry run)" in verbose_output,
+            "would_create": "would create" in verbose_output,
+            "would_update": "would update" in verbose_output,
+            "would_delete": "would delete" in verbose_output,
+            "created_id": "new_space" in verbose_output,
+            "updated_id": "edited_space" in verbose_output,
+            "deleted_id": "old_space" in verbose_output,
+            "unchanged_id": "same_space" in verbose_output,
+            "skipped_id": "dup_space" in verbose_output,
+            "skipped_code": "AMBIGUOUS" in verbose_output,
+            "skipped_file": "b.Space.yaml" in verbose_output,
+            "schedule_id": "my_function" in verbose_output and "my schedule" in verbose_output,
+            "quiet_hides_ids": "new_space" not in quiet_output and "dup_space" not in quiet_output,
+            "quiet_points_at_verbose": "list each resource and its outcome" in quiet_output,
+        } == {
+            "panel": True,
+            "would_create": True,
+            "would_update": True,
+            "would_delete": True,
+            "created_id": True,
+            "updated_id": True,
+            "deleted_id": True,
+            "unchanged_id": True,
+            "skipped_id": True,
+            "skipped_code": True,
+            "skipped_file": True,
+            "schedule_id": True,
+            "quiet_hides_ids": True,
+            "quiet_points_at_verbose": True,
+        }
+
+    def test_verbose_keeps_every_id_when_there_are_many(self) -> None:
+        unchanged = [SpaceId(space=f"space_{index:03d}") for index in range(80)]
+        long_id = "asset_" + ("external-id-" * 20)
+        results = [
+            DeploymentResult(
+                resource_name="spaces",
+                is_dry_run=False,
+                created_count=1,
+                deleted_count=0,
+                updated_count=0,
+                unchanged_count=len(unchanged),
+                is_missing_write_acl=False,
+                created_ids=[SpaceId(space=long_id)],
+                unchanged_ids=unchanged,
+            )
+        ]
+
+        output = " ".join(_render_results(results, verbose=False, width=72).split())
+        verbose_output = " ".join(_render_results(results, verbose=True, width=72).split())
+
+        assert {
+            "lists_every_unchanged_id": all(f"space_{index:03d}" in verbose_output for index in range(80)),
+            "keeps_long_id": verbose_output.count("external-id-") == 20 and "asset_external-id-" in verbose_output,
+            "sorts_ids": verbose_output.index("space_002") < verbose_output.index("space_010"),
+            "quiet_omits_ids": "space_000" not in output,
+            "live_label": "created" in verbose_output and "would create" not in verbose_output,
+        } == {
+            "lists_every_unchanged_id": True,
+            "keeps_long_id": True,
+            "sorts_ids": True,
+            "quiet_omits_ids": True,
+            "live_label": True,
+        }
+
+    def test_dry_run_drop_reclassifies_unchanged_and_updated_ids(self) -> None:
+        crud = MagicMock()
+        crud.display_name = "spaces"
+        crud.support_drop = True
+        crud.get_id.side_effect = lambda resource: resource
+        new = SpaceId(space="new")
+        edited = SpaceId(space="edited")
+        same = SpaceId(space="same")
+        old = SpaceId(space="old")
+        resources = ResourceToDeploy(
+            to_create=[new],
+            to_update=[edited],
+            to_delete=[old],
+            unchanged=[same],
+        )
+
+        result = DeployV2Command.deploy_dry_run(
+            crud,
+            resources,
+            is_missing_write_acl=False,
+            is_write_acl_unknown=False,
+            options=DeployOptions(dry_run=True, drop=True),
+        )
+
+        assert {
+            "created_ids": result.created_ids,
+            "deleted_ids": result.deleted_ids,
+            "updated_ids": result.updated_ids,
+            "unchanged_ids": result.unchanged_ids,
+            "created_count": result.created_count,
+            "deleted_count": result.deleted_count,
+        } == {
+            "created_ids": [new, same, edited],
+            "deleted_ids": [old, same, edited],
+            "updated_ids": [],
+            "unchanged_ids": [],
+            "created_count": 3,
+            "deleted_count": 3,
+        }
+
+    def test_deploy_resources_records_ids(self) -> None:
+        crud = MagicMock()
+        crud.display_name = "spaces"
+        crud.get_id.side_effect = lambda resource: resource
+        created = SpaceId(space="new")
+        updated = SpaceId(space="edited")
+        deleted = SpaceId(space="old")
+        unchanged = SpaceId(space="same")
+        resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy(
+            to_create=[created],
+            to_update=[updated],
+            to_delete=[deleted],
+            unchanged=[unchanged],
+        )
+        crud.delete.return_value = 1
+        crud.create.return_value = [created]
+        crud.update.return_value = [updated]
+
+        result = DeployV2Command.deploy_resources(crud, resources, skipped_cruds=set())
+
+        assert {
+            "created_ids": result.created_ids,
+            "updated_ids": result.updated_ids,
+            "deleted_ids": result.deleted_ids,
+            "unchanged_ids": result.unchanged_ids,
+            "created_count": result.created_count,
+            "updated_count": result.updated_count,
+            "deleted_count": result.deleted_count,
+        } == {
+            "created_ids": [created],
+            "updated_ids": [updated],
+            "deleted_ids": [deleted],
+            "unchanged_ids": [unchanged],
+            "created_count": 1,
+            "updated_count": 1,
+            "deleted_count": 1,
         }
