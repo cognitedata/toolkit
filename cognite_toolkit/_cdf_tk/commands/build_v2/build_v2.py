@@ -1501,6 +1501,20 @@ class BuildV2Command(ToolkitCommand):
             )
         )
 
+    _MAX_TERMINAL_MESSAGE_LENGTH: ClassVar[int] = 500
+
+    @classmethod
+    def _truncate_for_terminal(cls, message: str) -> RenderableType:
+        """Truncates a message for terminal display only."""
+        if len(message) <= cls._MAX_TERMINAL_MESSAGE_LENGTH:
+            return Text(message)
+        truncated_notice = Text.from_markup("[dim italic](truncated, see insights file for more details)[/]")
+        return Text.assemble(
+            message[: cls._MAX_TERMINAL_MESSAGE_LENGTH],
+            "... ",
+            truncated_notice,
+        )
+
     @staticmethod
     def _humanize_insight_code(code: str | None) -> str:
         if code is None:
@@ -1616,20 +1630,6 @@ class BuildV2Command(ToolkitCommand):
         # The message lines up with the path, which comes after the three characters of the '╰─ ' marker.
         body = Group(*shown_locations, Padding(Group(*details), (0, 0, 0, 3)))
         return Padding(Group(heading, body), (0, 0, 1, 0))
-
-    _MAX_TERMINAL_MESSAGE_LENGTH: ClassVar[int] = 500
-
-    @classmethod
-    def _truncate_for_terminal(cls, message: str) -> RenderableType:
-        """Truncates a message for terminal display only."""
-        if len(message) <= cls._MAX_TERMINAL_MESSAGE_LENGTH:
-            return Text(message)
-        truncated_notice = Text.from_markup("[dim italic](truncated, see insights file for more details)[/]")
-        return Text.assemble(
-            message[: cls._MAX_TERMINAL_MESSAGE_LENGTH],
-            "... ",
-            truncated_notice,
-        )
 
     @classmethod
     def _group_key(cls, insight: Insight) -> tuple[str, str, str, str | None]:
