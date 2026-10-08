@@ -7,14 +7,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
-from cognite.client import data_modeling as dm
-from cognite.client.data_classes import FileMetadataUpdate, TimeSeriesUpdate
 from pydantic import TypeAdapter
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.apps._migrate_app import MigrateApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError, RequestMessage
+from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import InstanceId, NodeId, SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
@@ -245,6 +243,7 @@ def infield_legacy(
     # Cleanup
     client.tool.instances.delete([item.as_id() for item in instances])
 
+
 def _update(client: ToolkitClient, endpoint: str, body: dict[str, Any]) -> None:
     request = RequestMessage(
         endpoint_url=client.config.create_api_url(endpoint),
@@ -253,6 +252,7 @@ def _update(client: ToolkitClient, endpoint: str, body: dict[str, Any]) -> None:
     )
     result = client.http_client.request_single_retries(request)
     _ = result.get_success_or_raise(request)
+
 
 def wait_for_resources(api_call: Callable[[], Any], resource_name: str, timeout: float = 30) -> None:
     end_time = time.time() + timeout

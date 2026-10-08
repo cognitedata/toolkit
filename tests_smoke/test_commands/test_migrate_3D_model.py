@@ -5,12 +5,10 @@ from typing import cast
 from unittest.mock import MagicMock, patch
 
 import pytest
-from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     DataSet,
     filters,
 )
-from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 
 from cognite_toolkit._cdf_tk.apps import MigrateApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -322,21 +320,24 @@ class TestMigrate3D:
             raise AssertionError(f"{self.ERROR_HEADING}Migrated 3D revision ID does not match expected format.")
 
         # Verify that the asset mapping exists in data modeling
-        cognite_asset = client.data_modeling.instances.retrieve_nodes(
-            dm.NodeId(space=asset_node.space, external_id=asset_node.external_id), node_cls=CogniteAsset
+        asset_view = ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")
+        asset_nodes = client.tool.instances.retrieve(
+            [NodeId(space=smoke_space.space, external_id=asset_node.external_id)], source=asset_view
         )
-        if not cognite_asset:
+        if not asset_nodes:
             raise EndpointAssertionError(
                 "data_modeling.instances.retrieve",
                 f"{self.ERROR_HEADING}CogniteAsset instance not found in data modeling after migration.",
             )
-        if cognite_asset.object_3d is None:
+        cognite_asset = asset_nodes[0]
+        object_3d_raw = (cognite_asset.properties or {}).get("object3D")
+        if object_3d_raw is None:
             raise AssertionError(f"{self.ERROR_HEADING}CogniteAsset instance has no 3D object mapping after migration.")
-        object3D = cognite_asset.object_3d
+        object_3d = NodeId.model_validate(object_3d_raw)
         cad_node_view = ViewId(space="cdf_cdm", external_id="CogniteCADNode", version="v1")
         is_cad_node = filters.Equals(
             cad_node_view.as_property_reference("object3D"),
-            {"space": object3D.space, "externalId": object3D.external_id},
+            object_3d.dump(include_instance_type=False),
         )
         cad_node = [
             item
