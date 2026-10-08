@@ -17,6 +17,8 @@ def _lift_name(value: Any, field_name: str, alias: str) -> Any:
     """Turn a one-key YAML object, such as ``{"all": {}}``, into ``{alias: "all"}``."""
     if isinstance(value, dict) and field_name not in value and alias not in value and len(value) == 1:
         name, content = next(iter(value.items()))
+        if content is None:
+            return {alias: name}
         if isinstance(content, dict):
             return {alias: name, **content}
     return value
@@ -56,8 +58,7 @@ def _lift_capability_name_or_unknown(value: Any) -> Any:
     if not isinstance(name, str) or name in _KNOWN_CAPABILITY_NAMES or name == "__unknown__":
         return lifted
     raw = value if isinstance(value, dict) else {}
-    content = next(iter(raw.values()), {}) if len(raw) == 1 else {}
-    scope = content.get("scope") if isinstance(content, dict) else None
+    scope = lifted.get("scope")
     return {
         "capabilityName": "__unknown__",
         "unknownName": name,
@@ -763,12 +764,12 @@ CapabilityType = Annotated[
 ]
 
 _KNOWN_SCOPE_NAMES.update(
-    scope.model_fields["scope_name"].default
+    default
     for scope in get_concrete_subclasses(Scope)
-    if scope.model_fields["scope_name"].default != "__unknown__"
+    if isinstance(default := scope.model_fields["scope_name"].default, str) and default != "__unknown__"
 )
 _KNOWN_CAPABILITY_NAMES.update(
-    capability.model_fields["capability_name"].default
+    default
     for capability in get_concrete_subclasses(Capability)
-    if capability.model_fields["capability_name"].default != "__unknown__"
+    if isinstance(default := capability.model_fields["capability_name"].default, str) and default != "__unknown__"
 )
