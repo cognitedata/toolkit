@@ -25,7 +25,6 @@ from time import sleep
 from typing import Literal
 
 import questionary
-from cognite.client.exceptions import CogniteAPIError
 from rich import print
 from rich.panel import Panel
 from rich.prompt import Prompt
@@ -489,7 +488,7 @@ class AuthCommand(ToolkitCommand):
             crud = crud_cls.create_io(client)
             try:
                 warning_str = crud.prerequisite_warning()
-            except (ToolkitAPIError, CogniteAPIError):
+            except ToolkitAPIError:
                 # Requires access we do not have.
                 continue
             if warning_str is not None:
@@ -661,7 +660,7 @@ class AuthCommand(ToolkitCommand):
             return None
         try:
             function_status = client.tool.functions.status()
-        except CogniteAPIError as e:
+        except ToolkitAPIError as e:
             self.warn(HighSeverityWarning(f"Unable to check function service status.\n{e}"))
             return None
 
@@ -686,7 +685,7 @@ class AuthCommand(ToolkitCommand):
                 return function_status.status
             try:
                 client.tool.functions.activate()
-            except CogniteAPIError as e:
+            except ToolkitAPIError as e:
                 self.warn(HighSeverityWarning(f"Unable to activate function service.\n{e}"))
                 return function_status.status
             print(
