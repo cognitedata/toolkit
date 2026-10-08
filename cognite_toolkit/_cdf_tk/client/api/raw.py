@@ -4,7 +4,13 @@ from typing import Any
 from urllib.parse import quote
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse, ResponseItems
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import (
+    FailedResponse,
+    HTTPClient,
+    ItemsSuccessResponse,
+    RequestMessage,
+    SuccessResponse,
+)
 from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawRowId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
@@ -349,7 +355,7 @@ class RawRowsAPI(CDFResourceAPI[RAWRowResponse]):
                 row.db_name = item.db_name
                 row.table_name = item.table_name
                 result.append(row)
-            elif ignore_unknown_ids:
+            elif ignore_unknown_ids and isinstance(response, FailedResponse) and 400 <= response.status_code < 500:
                 continue
             else:
                 _ = response.get_success_or_raise(request)
