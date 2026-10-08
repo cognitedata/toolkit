@@ -898,7 +898,9 @@ def _wait_until_function_ready(
             return function
         if status in {"Failed", "Retired"}:
             error_message = function.error.message if function.error is not None else None
-            raise EndpointAssertionError(endpoint.path, f"Function deployment failed with status {status}: {error_message}")
+            raise EndpointAssertionError(
+                endpoint.path, f"Function deployment failed with status {status}: {error_message}"
+            )
         time.sleep(poll_interval)
     raise EndpointAssertionError(
         endpoint.path,
