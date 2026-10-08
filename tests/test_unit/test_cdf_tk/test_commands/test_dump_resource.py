@@ -1,8 +1,8 @@
 import json
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
@@ -10,7 +10,6 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.data_classes.functions import FunctionsStatus
-from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 from rich.console import Console
 
@@ -30,6 +29,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
     OneLakeSettingsRead,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import DownloadResponse, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
@@ -949,16 +949,45 @@ def three_functions() -> list[FunctionResponse]:
     ]
 
 
+class _DownloadStream:
+    def __init__(self, body: bytes) -> None:
+        self.status_code = 200
+        self.text = ""
+        self._body = body
+
+    def __enter__(self) -> "_DownloadStream":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+    def iter_bytes(self) -> Iterator[bytes]:
+        yield self._body
+
+
+def _mock_file_bytes(client: MagicMock, content: bytes) -> None:
+    client.tool.filemetadata.retrieve.return_value = [
+        FileMetadataResponse(
+            id=1,
+            name="file",
+            external_id="file",
+            uploaded=True,
+            created_time=1,
+            last_updated_time=1,
+        )
+    ]
+    client.tool.filemetadata.get_download_url.return_value = [
+        DownloadResponse(id=1, download_url="https://example.test/file")
+    ]
+
+
 class TestDumpFunctions:
     def test_dump_functions(self, three_functions: list[FunctionResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
             client.tool.functions.retrieve.return_value = three_functions[1:]
             client.functions.status.return_value = FunctionsStatus("activated")
-            client.files.retrieve.return_value = None
-            client.files.download_bytes.side_effect = CogniteAPIError(
-                "File ids not found",
-                code=400,
-            )
+            client.tool.filemetadata.retrieve.return_value = []
+            client.tool.filemetadata.get_download_url.return_value = []
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -1109,22 +1138,29 @@ class TestDumpStreamlitApps:
 
     def test_dump_streamlit_app(self, three_streamlit_apps: list[StreamlitResponse], tmp_path: Path) -> None:
         app_b = three_streamlit_apps[1]
-        with monkeypatch_toolkit_client() as client:
-            client.tool.streamlit.retrieve.return_value = [app_b]
-            client.files.download_bytes.return_value = json.dumps(
-                {
-                    "entrypoint": "main.py",
-                    "files": {
-                        "main.py": {
-                            "content": {
-                                "text": 'import streamlit as st\nfrom cognite.client import CogniteClient\n\nst.title("An example app in CDF")\nclient = CogniteClient()\n\n\n@st.cache_data\ndef get_assets():\n    assets = client.assets.list(limit=1000).to_pandas()\n    assets = assets.fillna(0)\n    return assets\n\n\nst.write(get_assets())\n',
-                                "$case": "text",
-                            }
+        content = json.dumps(
+            {
+                "entrypoint": "main.py",
+                "files": {
+                    "main.py": {
+                        "content": {
+                            "text": 'import streamlit as st\nfrom cognite.client import CogniteClient\n\nst.title("An example app in CDF")\nclient = CogniteClient()\n\n\n@st.cache_data\ndef get_assets():\n    assets = client.assets.list(limit=1000).to_pandas()\n    assets = assets.fillna(0)\n    return assets\n\n\nst.write(get_assets())\n',
+                            "$case": "text",
                         }
-                    },
-                    "requirements": ["pyodide-http==0.2.1", "cognite-sdk==7.51.1"],
-                }
-            ).encode("utf-8")
+                    }
+                },
+                "requirements": ["pyodide-http==0.2.1", "cognite-sdk==7.51.1"],
+            }
+        ).encode("utf-8")
+        with (
+            monkeypatch_toolkit_client() as client,
+            patch(
+                "cognite_toolkit._cdf_tk.commands.dump_resource.httpx2.stream",
+                return_value=_DownloadStream(content),
+            ),
+        ):
+            client.tool.streamlit.retrieve.return_value = [app_b]
+            _mock_file_bytes(client, content)
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -1213,14 +1249,16 @@ class TestDumpStreamlitApps:
         app = three_streamlit_apps[1]
         with monkeypatch_toolkit_client() as client:
             if content is None:
-                client.files.download_bytes.side_effect = CogniteAPIError(
-                    message=f"Files ids not found: {app.external_id}", code=400, missing=[app.external_id]
-                )
+                client.tool.filemetadata.retrieve.return_value = []
             else:
-                client.files.download_bytes.return_value = content.encode("utf-8")
-
-            finder = StreamlitFinder(client, (app.external_id,))
-            finder.dump_code(app, tmp_path, console)
+                _mock_file_bytes(client, content.encode("utf-8"))
+            download = patch(
+                "cognite_toolkit._cdf_tk.commands.dump_resource.httpx2.stream",
+                return_value=_DownloadStream(b"" if content is None else content.encode("utf-8")),
+            )
+            with download:
+                finder = StreamlitFinder(client, (app.external_id,))
+                finder.dump_code(app, tmp_path, console)
 
             assert console.print.call_count == 1
             severity, actual_message = console.print.call_args.args
