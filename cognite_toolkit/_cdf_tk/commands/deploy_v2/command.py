@@ -11,10 +11,8 @@ from typing import Any, Generic, Literal, TypeAlias, cast
 
 import questionary
 from pydantic import ValidationError
-from rich.cells import cell_len
-from rich.console import Console, ConsoleOptions, Group, RenderableType, RenderResult
+from rich.console import Console, Group, RenderableType
 from rich.markup import escape
-from rich.measure import Measurement
 from rich.padding import Padding
 from rich.progress import Progress
 from rich.table import Table
@@ -241,105 +239,6 @@ class DeploymentResult:
         self.deleted_ids.extend(other.deleted_ids)
         self.unchanged_ids.extend(other.unchanged_ids)
         return self
-
-
-class _SoftWrapped:
-    """Wrap one string on spaces and punctuation inside a table cell."""
-
-    def __init__(self, text: str, style: str = "") -> None:
-        self.text = text
-        self.style = style
-
-    def __rich_measure__(self, console: Console, options: ConsoleOptions) -> Measurement:
-        longest = cell_len(self.text)
-        maximum = min(longest, options.max_width)
-        return Measurement(min(8, maximum), maximum)
-
-    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
-        width = max(options.max_width, 1)
-        for part in _PackedIdentifiers._wrap_identifier(self.text, width):
-            yield Text(part, style=self.style)
-
-
-class _PackedIdentifiers:
-    """Flow resource ids across the terminal width.
-
-    Short ids share a row. An id wider than the row stays on its own line and
-    wraps, so a few hundred resources stay scannable without truncating any id.
-    """
-
-    _gap: str = " · "
-
-    def __init__(self, identifiers: Sequence[str]) -> None:
-        self.identifiers = list(identifiers)
-
-    def __rich_measure__(self, console: Console, options: ConsoleOptions) -> Measurement:
-        if not self.identifiers:
-            return Measurement(0, 0)
-        longest = max(cell_len(identifier) for identifier in self.identifiers)
-        maximum = min(longest, options.max_width)
-        return Measurement(min(12, maximum), maximum)
-
-    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
-        width = max(options.max_width, 1)
-        row: list[str] = []
-        row_width = 0
-        for identifier in self.identifiers:
-            identifier_width = cell_len(identifier)
-            if identifier_width > width:
-                if row:
-                    yield self._render_row(row)
-                    row = []
-                    row_width = 0
-                for part in self._wrap_identifier(identifier, width):
-                    yield Text(part)
-                continue
-            extra = identifier_width if not row else cell_len(self._gap) + identifier_width
-            if row and row_width + extra > width:
-                yield self._render_row(row)
-                row = [identifier]
-                row_width = identifier_width
-                continue
-            row.append(identifier)
-            row_width += extra
-        if row:
-            yield self._render_row(row)
-
-    def _render_row(self, identifiers: Sequence[str]) -> Text:
-        line = Text()
-        for index, identifier in enumerate(identifiers):
-            if index:
-                line.append(self._gap, style="dim")
-            line.append(identifier)
-        return line
-
-    @staticmethod
-    def _wrap_identifier(identifier: str, width: int) -> list[str]:
-        """Wrap text on spaces, then punctuation, and only then mid-token.
-
-        A punctuation break in the first half of the line is ignored so a short
-        prefix such as ``space:`` does not sit on a line by itself.
-        """
-        breaks = set(":/_-()")
-        lines: list[str] = []
-        remaining = identifier
-        while remaining:
-            if cell_len(remaining) <= width:
-                lines.append(remaining)
-                break
-            window = remaining[:width]
-            split = window.rfind(" ")
-            if split <= 0:
-                split = 0
-                for index in range(len(window), 0, -1):
-                    if window[index - 1] in breaks and index >= width // 2:
-                        split = index
-                        break
-            if split <= 0:
-                split = width
-            lines.append(remaining[:split])
-            remaining = remaining[split:].lstrip(" ")
-        return lines
 
 
 class DeployV2Command(ToolkitCommand):
@@ -1634,7 +1533,7 @@ class DeployV2Command(ToolkitCommand):
             if status == "skipped":
                 if result.skipped:
                     rows.append(cls._verbose_status_grid(label, style, marker, len(result.skipped), Text("")))
-                    rows.append(Padding(cls._skipped_detail(result.skipped), (0, 0, 0, 2)))
+                    rows.extend(cls._skipped_rows(result.skipped))
                 continue
             identifiers = ids_by_status[status]
             if identifiers:
@@ -1651,63 +1550,12 @@ class DeployV2Command(ToolkitCommand):
     def _verbose_identifier_row(
         cls, label: str, style: str, marker: str, identifiers: Sequence[Identifier]
     ) -> RenderableType:
-        packed = _PackedIdentifiers(sorted((str(identifier) for identifier in identifiers), key=str))
-        return cls._verbose_status_grid(label, style, marker, len(identifiers), packed)
-
-    @classmethod
-    def _skipped_detail(cls, skipped: Sequence[Skipped[Identifier]]) -> RenderableType:
-        """Render skips at full width.
-
-        Skips that share a code and reason are packed onto as few lines as possible.
-        The rest keep a row each so the distinct reason and source file stay visible.
-        """
-        grouped: dict[tuple[str, str], list[Skipped[Identifier]]] = defaultdict(list)
-        for skip in skipped:
-            grouped[(skip.code, skip.reason)].append(skip)
-
-        details: list[RenderableType] = []
-        singles: list[Skipped[Identifier]] = []
-        for (code, reason), items in sorted(grouped.items()):
-            ordered = sorted(items, key=lambda item: (str(item.id), item.source_file.as_posix()))
-            if len(ordered) == 1:
-                singles.extend(ordered)
-                continue
-            files = sorted({item.source_file.as_posix() for item in ordered})
-            summary = Text.assemble((code, "yellow"), ("  ", ""), (reason, "dim"))
-            if len(files) == 1:
-                summary.append("  ")
-                summary.append(files[0], style="dim")
-            details.append(summary)
-            details.append(_PackedIdentifiers([str(item.id) for item in ordered]))
-            if len(files) > 1:
-                details.append(Text("files", style="dim"))
-                details.append(_PackedIdentifiers(files))
-        if singles:
-            details.append(cls._skipped_detail_table(singles))
-        return Group(*details)
-
-    @classmethod
-    def _skipped_detail_table(cls, skipped: Sequence[Skipped[Identifier]]) -> Table:
-        table = Table(
-            box=None,
-            show_header=True,
-            header_style="dim",
-            padding=(0, 1),
-            expand=True,
-            show_edge=False,
-        )
-        table.add_column("Identifier", overflow="fold", min_width=18, ratio=3)
-        table.add_column("Code", overflow="ellipsis", no_wrap=True, min_width=10)
-        table.add_column("Reason", overflow="fold", min_width=24, ratio=4)
-        table.add_column("File", overflow="fold", min_width=16, ratio=3)
-        for skip in sorted(skipped, key=lambda item: (item.code, str(item.id), item.source_file.as_posix())):
-            table.add_row(
-                _SoftWrapped(str(skip.id)),
-                f"[yellow]{escape(skip.code)}[/]",
-                _SoftWrapped(skip.reason, style="dim"),
-                _SoftWrapped(skip.source_file.as_posix(), style="dim"),
-            )
-        return table
+        text = Text(overflow="fold")
+        for index, identifier in enumerate(sorted(str(identifier) for identifier in identifiers)):
+            if index:
+                text.append(" · ", style="dim")
+            text.append(identifier)
+        return cls._verbose_status_grid(label, style, marker, len(identifiers), text)
 
     @staticmethod
     def _verbose_status_grid(label: str, style: str, marker: str, count: int, detail: RenderableType) -> Table:
@@ -1717,6 +1565,18 @@ class DeployV2Command(ToolkitCommand):
         grid.add_column(ratio=1, overflow="fold")
         grid.add_row(f"[{style}]{marker} {label}[/]", str(count), detail)
         return grid
+
+    @classmethod
+    def _skipped_rows(cls, skipped: Sequence[Skipped[Identifier]]) -> list[RenderableType]:
+        return [
+            hanging_indent(
+                "!",
+                f"[bold]{escape(str(skip.id))}[/] {escape(skip.source_file.as_posix())} "
+                f"[{escape(skip.code)}] {escape(skip.reason)}",
+                marker_style="yellow",
+            )
+            for skip in sorted(skipped, key=lambda item: (item.code, str(item.id)))
+        ]
 
     @classmethod
     def _track_deployment_result(

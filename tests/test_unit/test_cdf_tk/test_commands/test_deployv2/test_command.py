@@ -1049,7 +1049,7 @@ class TestVerboseResourceOutcomes:
 
         assert {
             "lists_every_unchanged_id": all(f"space_{index:03d}" in verbose_output for index in range(80)),
-            "keeps_long_id": verbose_output.count("external-id-") == 20 and "asset_external-id-" in verbose_output,
+            "keeps_long_id": long_id in verbose_output.replace("│", "").replace(" ", ""),
             "sorts_ids": verbose_output.index("space_002") < verbose_output.index("space_010"),
             "quiet_omits_ids": "space_000" not in output,
             "live_label": "created" in verbose_output and "would create" not in verbose_output,
