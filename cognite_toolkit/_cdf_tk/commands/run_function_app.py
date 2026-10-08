@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from cognite.client import CogniteClient
 from rich import print
 
 if TYPE_CHECKING:
@@ -64,7 +65,7 @@ class RunFunctionAppCommand(ToolkitCommand):
             raise RuntimeError("Function App reload factory must be started through 'cdf dev run function-app'.")
         handler_path = Path(handler_path_value)
         handle = RunFunctionAppCommand._load_handler(handler_path)
-        return create_asgi_app(handle, client_factory=RunFunctionAppCommand._create_cognite_client)
+        return create_asgi_app(handle, client_factory=RunFunctionAppCommand.create_cognite_client)
 
     @staticmethod
     def _run_with_reload(uvicorn: Any, handler_path: Path, port: int, log_level: str) -> None:
@@ -112,7 +113,9 @@ class RunFunctionAppCommand(ToolkitCommand):
             raise SystemExit(1)
 
     @staticmethod
-    def _create_cognite_client() -> "ToolkitClient":
+    def create_cognite_client() -> CogniteClient:
         from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 
-        return EnvironmentVariables.create_from_environment().get_client(is_strict_validation=False)
+        config = EnvironmentVariables.create_from_environment().get_config(is_strict_validation=False)
+        return CogniteClient(config)
+
