@@ -6,12 +6,19 @@ https://api-docs.cognite.com/20230101/tag/Functions/operation/postFunctions
 
 import builtins
 from collections.abc import Iterable, Sequence
+from typing import Literal
 
+from cognite_toolkit._cdf_tk.client.api.function_calls import FunctionCallsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits, FunctionRequest, FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function import (
+    FunctionLimits,
+    FunctionRequest,
+    FunctionResponse,
+    FunctionsActivation,
+)
 
 
 class FunctionsAPI(CDFResourceAPI[FunctionResponse]):
@@ -31,6 +38,7 @@ class FunctionsAPI(CDFResourceAPI[FunctionResponse]):
             },
         )
         self.schedules = FunctionSchedulesAPI(http_client)
+        self.calls = FunctionCallsAPI(http_client)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
@@ -129,3 +137,29 @@ class FunctionsAPI(CDFResourceAPI[FunctionResponse]):
         )
         response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         return FunctionLimits.model_validate_json(response.body)
+
+    def _activation_status(self, method: Literal["GET", "POST"]) -> FunctionsActivation:
+        request = RequestMessage(
+            endpoint_url=self._make_url("/functions/status"),
+            method=method,
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        return FunctionsActivation.model_validate_json(response.body)
+
+    def activate(self) -> FunctionsActivation:
+        """Activate Cognite Functions for the project.
+
+        This creates the backend infrastructure required to run functions.
+
+        Returns:
+            The activation status after the request is accepted.
+        """
+        return self._activation_status("POST")
+
+    def status(self) -> FunctionsActivation:
+        """Get the Cognite Functions activation status for the project.
+
+        Returns:
+            Whether Functions are inactive, requested, or activated.
+        """
+        return self._activation_status("GET")

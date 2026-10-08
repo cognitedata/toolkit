@@ -5,7 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from itertools import product
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 from rich.console import Console, Group, RenderableType
 from rich.markup import escape
@@ -522,7 +522,7 @@ def _unify_scopes(scopes: list[Scope]) -> Scope | None:
         return None
     if unified is None:
         return None
-    return cast(Scope, unified)
+    return unified
 
 
 def _unauthenticated_panel(status: AuthStatus) -> Panel:

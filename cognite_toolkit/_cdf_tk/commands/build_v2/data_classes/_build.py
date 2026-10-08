@@ -1,4 +1,5 @@
 import builtins
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -27,6 +28,8 @@ from ._insights import (
 )
 from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
+
+UNRESOLVED_VARIABLE_PATTERN = re.compile(r"\{\{.*?\}\}")
 
 
 class BuildParameters(BaseModel):

@@ -42,6 +42,7 @@ from .api.events import EventsAPI
 from .api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
 from .api.filemetadata import FileMetadataAPI
+from .api.function_calls import FunctionCallsAPI
 from .api.function_schedules import FunctionSchedulesAPI
 from .api.functions import FunctionsAPI
 from .api.groups import GroupsAPI
@@ -109,7 +110,6 @@ from .api.three_d import (
     ThreeDDMAssetMappingAPI,
 )
 from .api.timeseries import TimeSeriesAPI
-from .api.token import TokenAPI as LegacyTokenAPI
 from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
 from .api.user_profiles import UserProfilesAPI
@@ -220,6 +220,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.location_filters = MagicMock(spec=LocationFiltersAPI)
         self.tool.events = MagicMock(spec_set=EventsAPI)
         self.tool.functions = MagicMock(spec=FunctionsAPI)
+        self.tool.functions.calls = MagicMock(spec_set=FunctionCallsAPI)
         self.tool.functions.schedules = MagicMock(spec_set=FunctionSchedulesAPI)
         self.tool.groups = MagicMock(spec_set=GroupsAPI)
         self.tool.search_configurations = MagicMock(spec_set=SearchConfigurationsAPI)
@@ -278,7 +279,6 @@ class ToolkitClientMock(CogniteClientMock):
         self.integrations.errors = MagicMock(spec_set=IntegrationErrorsAPI)
 
         # This is a helper API, not a real API.
-        self.token = LegacyTokenAPI(self)
         self.user_profiles = MagicMock(spec_set=UserProfilesAPI)
         self.verify = MagicMock(spec_set=VerifyAPI)
 
