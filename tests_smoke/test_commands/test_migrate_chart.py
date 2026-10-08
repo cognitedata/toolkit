@@ -18,7 +18,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
-from cognite_toolkit._cdf_tk.client.resource_classes.session import TokenExchangeSessionRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    TokenExchangeSessionRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.dataio import ChartIO

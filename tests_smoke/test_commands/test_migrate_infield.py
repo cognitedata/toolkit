@@ -232,11 +232,11 @@ def infield_legacy(
     wait_for_resources(
         lambda: client.tool.timeseries.retrieve(node_ids["timeseries"], ignore_unknown_ids=False), "timeseries"
     )
-    _update(client, "/timeseries/update", {"items": [updates["timeseries"]]})
+    _update(client, "/timeseries/update", {"items": updates["timeseries"]})
     wait_for_resources(
         lambda: client.tool.filemetadata.retrieve(node_ids["files"], ignore_unknown_ids=False), "filemetadata"
     )
-    _update(client, "/files/update", {"items": [updates["files"]]})
+    _update(client, "/files/update", {"items": updates["files"]})
 
     yield instances
 

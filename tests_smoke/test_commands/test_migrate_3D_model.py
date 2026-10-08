@@ -330,7 +330,8 @@ class TestMigrate3D:
                 f"{self.ERROR_HEADING}CogniteAsset instance not found in data modeling after migration.",
             )
         cognite_asset = asset_nodes[0]
-        object_3d_raw = (cognite_asset.properties or {}).get("object3D")
+        asset_properties = (cognite_asset.properties or {}).get(asset_view) or {}
+        object_3d_raw = asset_properties.get("object3D")
         if object_3d_raw is None:
             raise AssertionError(f"{self.ERROR_HEADING}CogniteAsset instance has no 3D object mapping after migration.")
         object_3d = NodeId.model_validate(object_3d_raw)

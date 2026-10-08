@@ -178,7 +178,7 @@ def file_ts_nodes(
         sources=[
             InstanceSource(
                 source=ViewId(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"),
-                properties={"name": "Test TS for Purge with Unlink", "isStep": ts_is_step, "timeSeriesType": ts_type},
+                properties={"name": "Test TS for Purge with Unlink", "isStep": ts_is_step, "type": ts_type},
             )
         ],
     )
