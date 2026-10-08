@@ -17,7 +17,7 @@ def _data_fields(scope: ScopeDefinition) -> dict[str, Any]:
     return scope.model_dump(by_alias=False, exclude={"scope_name"})
 
 
-def scope_intersection(*scopes: ScopeDefinition) -> ScopeDefinition | None:
+def scope_intersection(*scopes: Scope) -> Scope | None:
     """Return the intersection of all given scopes, or None if the result is empty.
 
     Rules:
@@ -46,7 +46,7 @@ def scope_intersection(*scopes: ScopeDefinition) -> ScopeDefinition | None:
     fields = _data_fields(first)
 
     if not fields:
-        return cast(Callable[[], ScopeDefinition], type(first))()
+        return cast(Callable[[], Scope], type(first))()
 
     if isinstance(first, TableScope):
         table_scopes = [s for s in scopes if isinstance(s, TableScope)]
