@@ -1155,7 +1155,7 @@ class BuildV2Command(ToolkitCommand):
         self, error: ValidationError, resource_file: AbsoluteFilePath, content: str, validation_type: Any = None
     ) -> tuple[ModelSyntaxError | BuildError | None, list[ModelSyntaxWarning | BuildWarning]]:
         if not Flags.V09.is_enabled():
-            return self._create_syntax_insights_legacy(error, resource_file, validation_type)
+            return self._create_syntax_warning(error, resource_file, validation_type)
         validation_messages = humanize_validation_error_categorized(error, validation_type, for_insights=True) or [
             ValidationMessage("The YAML doesn't follow the required format.", "error")
         ]
@@ -1190,7 +1190,7 @@ class BuildV2Command(ToolkitCommand):
             )
         return syntax_error, syntax_warnings
 
-    def _create_syntax_insights_legacy(
+    def _create_syntax_warning(
         self, error: ValidationError, resource_file: AbsoluteFilePath, validation_type: Any = None
     ) -> tuple[ModelSyntaxError | BuildError | None, list[ModelSyntaxWarning | BuildWarning]]:
         validation_messages = humanize_validation_error_categorized(error, validation_type) or [
