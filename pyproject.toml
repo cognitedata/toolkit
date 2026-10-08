@@ -134,11 +134,11 @@ include = ["cognite_toolkit", "tests_smoke", "tests"]
 exclude = [
     "tests/data/",
     "tests/test_unit/",
-    "tests/test_integration/test_commands/",
-    "tests/test_integration/test_cruds/",
-    "tests/test_integration/test_storeageio/",
-    "tests/test_integration/test_toolkit_client/",
-    "tests/test_integration/test_utils/",
+    "tests/test_integration/test_commands/", # 35
+    "tests/test_integration/test_cruds/", # 6
+    "tests/test_integration/test_storeageio/", # 6
+    "tests/test_integration/test_toolkit_client/", # 22
+    "tests/test_integration/test_utils/", # 9
 ]
 [tool.ty.environment]
 python-version = "3.14"
