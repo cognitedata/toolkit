@@ -56,6 +56,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     AssetIO,
     CogniteFileIO,
@@ -484,6 +485,7 @@ class TestApplyPlan:
                     ],
                     expected_skipped_count=1,
                 ),
+                marks=pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled"),
                 id="raw_database_with_extra_fields_is_skipped_not_attempted_deleted",
             ),
             pytest.param(
@@ -514,6 +516,7 @@ class TestApplyPlan:
                     ],
                     expected_skipped_count=1,
                 ),
+                marks=pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled"),
                 id="raw_table_with_extra_fields_is_skipped_not_attempted_deleted",
             ),
         ],

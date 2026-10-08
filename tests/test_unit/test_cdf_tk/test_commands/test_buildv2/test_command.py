@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteDirPath, AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import FileMetadataIO, SearchConfigIO, SpaceIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, ResourceType
 from cognite_toolkit._cdf_tk.resource_ios._datamodel import DataModelIO, ViewIO
@@ -160,6 +161,7 @@ class TestBuildCommand:
         assert len(lineage_file) == 1
         assert len(insights_file) == 1
 
+    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
     def test_end_to_end_invalid_space_emits_syntax_error(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
         cmd = BuildV2Command()
 
@@ -559,6 +561,7 @@ class TestDisplayInsightsOutput:
         output = StringIO()
         return Console(file=output, force_terminal=False, width=120), output
 
+    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
     def test_displays_source_file_in_panel(self, tmp_path: Path) -> None:
         console, output = self._console()
         source_file = tmp_path / "modules/my_module/data_modeling/my_space.Space.yaml"
@@ -581,6 +584,7 @@ class TestDisplayInsightsOutput:
         assert "╰─ modules/my_module/data_modeling/my_space.Space.yaml" in rendered
         assert "Unrecognized field: 'Name'" in rendered
 
+    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
     def test_groups_insights_with_same_message(self, tmp_path: Path) -> None:
         console, output = self._console()
         insights = InsightList(
@@ -660,6 +664,7 @@ class TestReadResourceFile:
             ),
         ],
     )
+    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
     def test_read_resource_file_failed(
         self,
         filename: str,

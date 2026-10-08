@@ -5,6 +5,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.resource_ios._skill import SkillIO
 
@@ -70,6 +71,7 @@ class TestSkillIO:
             ),
         ],
     )
+    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
     def test_get_extra_files_invalid_markdown_yields_failed_read_extra(
         self, tmp_path: Path, invalid_content: str
     ) -> None:
@@ -81,6 +83,7 @@ class TestSkillIO:
         assert isinstance(extras[0], FailedReadExtra)
         assert extras[0].code == "INVALID-FILE-CONTENT"
 
+    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
     def test_get_extra_files_missing_sidecar_yields_failed_read_extra(self, tmp_path: Path) -> None:
         yaml_path = tmp_path / "my_skill.Skill.yaml"
         extras = list(

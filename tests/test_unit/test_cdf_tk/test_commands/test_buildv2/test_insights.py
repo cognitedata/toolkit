@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     InsightList,
     Recommendation,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 
 
@@ -68,6 +69,7 @@ class TestInsightList:
 
         assert insight.display_location == f"{insight.display_source_file_cwd}:3:6"
 
+    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
     def test_position_round_trips_through_csv(self, valid_yaml_absolute_path) -> None:
         insights = InsightList(
             [
@@ -81,6 +83,7 @@ class TestInsightList:
 
         assert [(insight.line, insight.column) for insight in loaded] == [(3, 6), (None, None)]
 
+    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
     def test_insight_list_to_csv_preserves_multiline_message_and_fix(
         self, some_insights: InsightList, valid_yaml_absolute_path
     ) -> None:
