@@ -9,7 +9,16 @@ from cognite_toolkit._cdf_tk.client.api._classic_aggregate import (
     aggregate_count,
     aggregate_unique,
 )
-from cognite_toolkit._cdf_tk.client.api._classic_list import ObjectIds, Sort, TimeRange, event_list_body
+from cognite_toolkit._cdf_tk.client.api._classic_list import (
+    ObjectIds,
+    Sort,
+    TimeRange,
+    _int_ids,
+    _object_ids,
+    _str_ids,
+    _time_range,
+    classic_list_body,
+)
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
@@ -290,24 +299,24 @@ class EventsAPI(CDFResourceAPI[EventResponse]):
         sort: Sort | None = None,
         partition: str | None = None,
     ) -> dict[str, Any]:
-        return event_list_body(
+        return classic_list_body(
             filter=filter,
-            start_time=start_time,
-            end_time=end_time,
-            active_at_time=active_at_time,
-            type=type,
-            subtype=subtype,
-            metadata=metadata,
-            asset_ids=asset_ids,
-            asset_external_ids=asset_external_ids,
-            asset_subtree_ids=asset_subtree_ids,
-            asset_subtree_external_ids=asset_subtree_external_ids,
-            data_set_ids=data_set_ids,
-            data_set_external_ids=data_set_external_ids,
-            source=source,
-            created_time=created_time,
-            last_updated_time=last_updated_time,
-            external_id_prefix=external_id_prefix,
+            fields={
+                "startTime": _time_range(start_time),
+                "endTime": _time_range(end_time),
+                "activeAtTime": _time_range(active_at_time),
+                "metadata": metadata,
+                "assetIds": _int_ids(asset_ids),
+                "assetExternalIds": _str_ids(asset_external_ids),
+                "assetSubtreeIds": _object_ids(asset_subtree_ids, asset_subtree_external_ids),
+                "dataSetIds": _object_ids(data_set_ids, data_set_external_ids),
+                "source": source,
+                "type": type,
+                "subtype": subtype,
+                "createdTime": _time_range(created_time),
+                "lastUpdatedTime": _time_range(last_updated_time),
+                "externalIdPrefix": external_id_prefix,
+            },
             advanced_filter=advanced_filter,
             sort=sort,
             partition=partition,

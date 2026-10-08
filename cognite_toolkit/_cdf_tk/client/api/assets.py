@@ -14,7 +14,13 @@ from cognite_toolkit._cdf_tk.client.api._classic_list import (
     ObjectIds,
     Sort,
     TimeRange,
-    asset_list_body,
+    _aggregated_properties,
+    _dump_model,
+    _int_ids,
+    _object_ids,
+    _str_ids,
+    _time_range,
+    classic_list_body,
 )
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -310,28 +316,29 @@ class AssetsAPI(CDFResourceAPI[AssetResponse]):
         sort: Sort | None = None,
         partition: str | None = None,
     ) -> dict[str, Any]:
-        return asset_list_body(
+        aggregated = _aggregated_properties(aggregated_properties)
+        return classic_list_body(
             filter=filter,
-            name=name,
-            parent_ids=parent_ids,
-            parent_external_ids=parent_external_ids,
-            root_ids=root_ids,
-            asset_subtree_ids=asset_subtree_ids,
-            asset_subtree_external_ids=asset_subtree_external_ids,
-            data_set_ids=data_set_ids,
-            data_set_external_ids=data_set_external_ids,
-            metadata=metadata,
-            source=source,
-            created_time=created_time,
-            last_updated_time=last_updated_time,
-            root=root,
-            external_id_prefix=external_id_prefix,
-            labels=labels,
-            geo_location=geo_location,
-            aggregated_properties=aggregated_properties,
+            fields={
+                "name": name,
+                "parentIds": _int_ids(parent_ids),
+                "parentExternalIds": _str_ids(parent_external_ids),
+                "rootIds": _object_ids(root_ids),
+                "assetSubtreeIds": _object_ids(asset_subtree_ids, asset_subtree_external_ids),
+                "dataSetIds": _object_ids(data_set_ids, data_set_external_ids),
+                "metadata": metadata,
+                "source": source,
+                "createdTime": _time_range(created_time),
+                "lastUpdatedTime": _time_range(last_updated_time),
+                "root": root,
+                "externalIdPrefix": external_id_prefix,
+                "labels": _dump_model(labels),
+                "geoLocation": _dump_model(geo_location),
+            },
             advanced_filter=advanced_filter,
             sort=sort,
             partition=partition,
+            extra={"aggregatedProperties": aggregated} if aggregated is not None else None,
         )
 
     def count(

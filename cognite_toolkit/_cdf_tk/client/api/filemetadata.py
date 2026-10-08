@@ -7,7 +7,16 @@ from typing import IO, Any, Literal
 import httpx2
 
 from cognite_toolkit._cdf_tk.client.api._classic_aggregate import files_aggregate_count
-from cognite_toolkit._cdf_tk.client.api._classic_list import ObjectIds, TimeRange, file_list_body
+from cognite_toolkit._cdf_tk.client.api._classic_list import (
+    ObjectIds,
+    TimeRange,
+    _dump_model,
+    _int_ids,
+    _object_ids,
+    _str_ids,
+    _time_range,
+    classic_list_body,
+)
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -404,30 +413,29 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         geo_location: GeoLocationFilter | dict[str, Any] | None = None,
         partition: str | None = None,
     ) -> dict[str, Any]:
-        return file_list_body(
+        return classic_list_body(
             filter=filter,
-            name=name,
-            directory_prefix=directory_prefix,
-            mime_type=mime_type,
-            metadata=metadata,
-            asset_ids=asset_ids,
-            asset_external_ids=asset_external_ids,
-            root_asset_ids=root_asset_ids,
-            root_asset_external_ids=root_asset_external_ids,
-            data_set_ids=data_set_ids,
-            data_set_external_ids=data_set_external_ids,
-            asset_subtree_ids=asset_subtree_ids,
-            asset_subtree_external_ids=asset_subtree_external_ids,
-            source=source,
-            created_time=created_time,
-            last_updated_time=last_updated_time,
-            uploaded_time=uploaded_time,
-            source_created_time=source_created_time,
-            source_modified_time=source_modified_time,
-            external_id_prefix=external_id_prefix,
-            uploaded=uploaded,
-            labels=labels,
-            geo_location=geo_location,
+            fields={
+                "name": name,
+                "directoryPrefix": directory_prefix,
+                "mimeType": mime_type,
+                "metadata": metadata,
+                "assetIds": _int_ids(asset_ids),
+                "assetExternalIds": _str_ids(asset_external_ids),
+                "rootAssetIds": _object_ids(root_asset_ids, root_asset_external_ids),
+                "dataSetIds": _object_ids(data_set_ids, data_set_external_ids),
+                "assetSubtreeIds": _object_ids(asset_subtree_ids, asset_subtree_external_ids),
+                "source": source,
+                "createdTime": _time_range(created_time),
+                "lastUpdatedTime": _time_range(last_updated_time),
+                "uploadedTime": _time_range(uploaded_time),
+                "sourceCreatedTime": _time_range(source_created_time),
+                "sourceModifiedTime": _time_range(source_modified_time),
+                "externalIdPrefix": external_id_prefix,
+                "uploaded": uploaded,
+                "labels": _dump_model(labels),
+                "geoLocation": _dump_model(geo_location),
+            },
             partition=partition,
         )
 
