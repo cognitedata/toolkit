@@ -21,7 +21,6 @@ from pydantic_core.core_schema import ValidationInfo
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
-    BUILD_ERROR_TYPE,
     ConsistencyError,
     ModelSyntaxError,
 )
@@ -143,7 +142,7 @@ class ModuleLineageItem(_BaseLineageModel):
         return (
             self.insights_summary.get(ModelSyntaxError.__name__, 0) == 0
             and self.insights_summary.get(ConsistencyError.__name__, 0) == 0
-            and self.insights_summary.get(BUILD_ERROR_TYPE, 0) == 0
+            and self.insights_summary.get("Error", 0) == 0
             and bool(self.resource_lineage)
         )
 
@@ -157,8 +156,8 @@ class ModuleLineageItem(_BaseLineageModel):
             return "FAILED: ModelSyntaxError"
         elif self.insights_summary.get(ConsistencyError.__name__, 0) > 0:
             return "FAILED: ConsistencyError"
-        elif self.insights_summary.get(BUILD_ERROR_TYPE, 0) > 0:
-            return f"FAILED: {BUILD_ERROR_TYPE}"
+        elif self.insights_summary.get("Error", 0) > 0:
+            return "FAILED: Error"
         else:
             return "FAILED: Unknown reason"
 

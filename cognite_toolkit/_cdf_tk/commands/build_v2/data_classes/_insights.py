@@ -4,7 +4,7 @@ import json
 import sys
 from collections import Counter, UserList, defaultdict
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Final, Literal, TypeVar
+from typing import Annotated, Any, ClassVar, Literal, TypeVar
 
 from pydantic import (
     BaseModel,
@@ -33,8 +33,6 @@ T_Insight = TypeVar("T_Insight", bound="InsightDefinition")
 T_Value = TypeVar("T_Value")
 
 PATH_SEP_CSV = " | "  # Separator for multiple source files in the legacy CSV output
-BUILD_ERROR_TYPE: Final = "Error"
-BUILD_WARNING_TYPE: Final = "Warning"
 
 
 class InsightDefinition(BaseModel):
@@ -214,14 +212,14 @@ class Recommendation(InsightDefinition):
 class BuildError(InsightDefinition):
     """A confirmed problem. The resource cannot be built or deployed as configured."""
 
-    insight_type: Literal["Error"] = BUILD_ERROR_TYPE
+    insight_type: Literal["Error"] = "Error"
     severity = 50
 
 
 class BuildWarning(InsightDefinition):
     """A potential problem that could not be confirmed, or an issue that does not block the build."""
 
-    insight_type: Literal["Warning"] = BUILD_WARNING_TYPE
+    insight_type: Literal["Warning"] = "Warning"
     severity = 20
 
 

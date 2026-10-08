@@ -46,8 +46,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     ValidationResult,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
-    BUILD_ERROR_TYPE,
-    BUILD_WARNING_TYPE,
     BuildError,
     BuildWarning,
     Insight,
@@ -1556,8 +1554,8 @@ class BuildV2Command(ToolkitCommand):
         self, insights: InsightList, insight_path: Path, console: Console, verbose: bool
     ) -> None:
         severity_style = {
-            BUILD_ERROR_TYPE: (AuraColor.RED.rich, "✗"),
-            BUILD_WARNING_TYPE: (AuraColor.AMBER.rich, "!"),
+            "Error": (AuraColor.RED.rich, "✗"),
+            "Warning": (AuraColor.AMBER.rich, "!"),
             "Recommendation": (AuraColor.SKY.rich, "*"),
         }
 
