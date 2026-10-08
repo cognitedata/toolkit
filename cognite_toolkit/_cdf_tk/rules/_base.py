@@ -132,6 +132,7 @@ class ToolkitGlobalRuleSet(ABC):
 
     CODE_PREFIX: ClassVar[str]
     DISPLAY_NAME: ClassVar[str]
+
     def __init__(self, modules: list[BuiltModule], client: ToolkitClient | None = None) -> None:
         self.modules = modules
         self.client = client
