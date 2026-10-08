@@ -68,7 +68,7 @@ from cognite_toolkit._cdf_tk.client.api.workflow_executions import WorkflowExecu
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse, ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage, SuccessResponse, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExtractionPipelineConfigId,
     InternalId,
@@ -212,7 +212,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sequence import (
     SequenceResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.session import OneshotTokenExchangeSessionRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    OneshotTokenExchangeSessionRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_sink import SignalSinkRequest, SignalSinkResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import (
     SignalSubscriptionRequest,
@@ -381,7 +383,7 @@ def crud_cdf_resource_apis() -> Iterable[tuple]:
         base_cls = next(
             (
                 base
-                for base in api_cls.__orig_bases__  # type: ignore[attr-defined]
+                for base in getattr(api_cls, "__orig_bases__", ())
                 if get_origin(base) in (CDFResourceAPI, WrappedInstancesAPI)
             ),
             None,
@@ -1004,7 +1006,7 @@ class TestCDFResourceAPI:
         self,
         example_data: dict[str, Any],
         response_cls: type[ResponseResource],
-        api_cls: type[CDFResourceAPI],
+        api_cls: Callable[[HTTPClient], CDFResourceAPI],
         toolkit_client: ToolkitClient,
         smoke_dataset: DataSetResponse,
     ) -> None:
@@ -1034,32 +1036,36 @@ class TestCDFResourceAPI:
             # If the request does not have enough info to create an identifier yet, we set id to None
             id = None
 
-        # We now that all subclasses only need http_client as argument, even though
-        # CDFResourceAPI also require endpoint map (and disable gzip).
-        api = api_cls(toolkit_client.http_client)  # type: ignore[call-arg]
+        # Subclasses are constructed with the HTTP client. The base class also requires an endpoint map.
+        api = api_cls(toolkit_client.http_client)
         methods = api._method_endpoint_map
 
         try:
-            if hasattr(api, "create"):
+            create = getattr(api, "create", None)
+            if create is not None:
                 create_endpoint = methods["create"] if "create" in methods else methods["upsert"]
-                id = self.assert_endpoint_method(lambda: api.create([request]), "create", create_endpoint, id)
-            if hasattr(api, "retrieve"):
+                id = self.assert_endpoint_method(lambda: create([request]), "create", create_endpoint, id)
+            retrieve = getattr(api, "retrieve", None)
+            if retrieve is not None:
                 retrieve_endpoint = methods["retrieve"]
-                self.assert_endpoint_method(lambda: api.retrieve([id]), "retrieve", retrieve_endpoint, id)
-            if hasattr(api, "update"):
+                self.assert_endpoint_method(lambda: retrieve([id]), "retrieve", retrieve_endpoint, id)
+            update = getattr(api, "update", None)
+            if update is not None:
                 updated_endpoint = methods["update"] if "update" in methods else methods["upsert"]
-                self.assert_endpoint_method(lambda: api.update([request]), "update", updated_endpoint, id)
-            if hasattr(api, "list"):
+                self.assert_endpoint_method(lambda: update([request]), "update", updated_endpoint, id)
+            list_ = getattr(api, "list", None)
+            if list_ is not None:
                 list_endpoint = methods["list"]
                 try:
-                    listed_items = self.wait_until_has_value(lambda: list(api.list(limit=1)))
+                    listed_items = self.wait_until_has_value(lambda: list(list_(limit=1)))
                 except TypeError:
-                    listed_items = api.list()
+                    listed_items = list_()
                 if len(listed_items) == 0:
                     raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed item, got 0")
         finally:
-            if hasattr(api, "delete") and id is not None:
-                api.delete([id])
+            delete = getattr(api, "delete", None)
+            if delete is not None and id is not None:
+                delete([id])
 
     def wait_until_has_value(
         self,
@@ -1661,7 +1667,7 @@ class TestCDFResourceAPI:
         workflow_trigger_request = WorkflowTriggerRequest.model_validate(workflow_trigger)
         workflow_trigger_id = workflow_trigger_request.as_id()
         workflow_trigger_request.authentication = NonceCredentials(
-            nonce=toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
+            nonce=toolkit_client.sessions.create_one_shot_token_exchange_session().nonce
         )
 
         try:
@@ -1727,7 +1733,7 @@ class TestCDFResourceAPI:
             try:
                 execution = client.tool.workflows.executions.run(
                     workflow_version_id,
-                    nonce=toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce,
+                    nonce=toolkit_client.sessions.create_one_shot_token_exchange_session().nonce,
                 )
             except ToolkitAPIError as e:
                 raise EndpointAssertionError(run_path, f"run method failed with error: {e!s}") from e
@@ -1772,7 +1778,7 @@ class TestCDFResourceAPI:
                 try:
                     retried = client.tool.workflows.executions.retry(
                         [execution.as_id()],
-                        nonce=toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce,
+                        nonce=toolkit_client.sessions.create_one_shot_token_exchange_session().nonce,
                     )
                 except ToolkitAPIError as e:
                     raise EndpointAssertionError(retry_path, f"retry method failed with error: {e!s}") from e
@@ -1893,7 +1899,8 @@ class TestCDFResourceAPI:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed security category, got 0")
         finally:
             # Clean up
-            client.tool.security_categories.delete([created_id])  # type: ignore[list-item]
+            if isinstance(created_id, InternalUnwrappedId):
+                client.tool.security_categories.delete([created_id])
 
     def test_infield_cdm_location_config_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
@@ -2135,9 +2142,7 @@ class TestCDFResourceAPI:
 
             # Create function schedule (dependent on function)
             function_schedule_request.function_id = created.id
-            function_schedule_request.nonce = toolkit_client.iam.sessions.create(
-                session_type="ONESHOT_TOKEN_EXCHANGE"
-            ).nonce
+            function_schedule_request.nonce = toolkit_client.sessions.create_one_shot_token_exchange_session().nonce
             schedule_create_endpoint = client.tool.functions.schedules._method_endpoint_map["create"]
             try:
                 created_schedule_list = client.tool.functions.schedules.create([function_schedule_request])
@@ -2257,7 +2262,7 @@ class TestCDFResourceAPI:
         schedule_id: InternalId | None = None
         notification_id: InternalId | None = None
 
-        session = toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
+        session = toolkit_client.sessions.create_one_shot_token_exchange_session()
         credentials = TransformationNonceCredentials(
             session_id=session.id,
             nonce=session.nonce,
@@ -2696,18 +2701,50 @@ class TestCDFResourceAPI:
                 "The documents cardinality has been fixed. It now returns the cardinality and not the total.",
             )
 
+    def test_classic_resource_aggregates(self, toolkit_client: ToolkitClient) -> None:
+        """Smoke-test asset, event, time series, file, and sequence aggregate endpoints (read-only)."""
+        tool = toolkit_client.tool
+        checks: list[tuple[str, Callable[[], object]]] = [
+            ("/assets/aggregate", lambda: tool.assets.count()),
+            ("/assets/aggregate", lambda: tool.assets.cardinality(("name",))),
+            ("/assets/aggregate", lambda: tool.assets.cardinality(("metadata",))),
+            ("/assets/aggregate", lambda: tool.assets.unique(("name",))),
+            ("/assets/aggregate", lambda: tool.assets.unique(("metadata",))),
+            ("/events/aggregate", lambda: tool.events.count()),
+            ("/events/aggregate", lambda: tool.events.cardinality(("source",))),
+            ("/events/aggregate", lambda: tool.events.cardinality(("metadata",))),
+            ("/events/aggregate", lambda: tool.events.unique(("source",))),
+            ("/events/aggregate", lambda: tool.events.unique(("metadata",))),
+            ("/timeseries/aggregate", lambda: tool.timeseries.count()),
+            ("/timeseries/aggregate", lambda: tool.timeseries.cardinality(("unit",))),
+            ("/timeseries/aggregate", lambda: tool.timeseries.cardinality(("metadata",))),
+            ("/timeseries/aggregate", lambda: tool.timeseries.unique(("unit",))),
+            ("/timeseries/aggregate", lambda: tool.timeseries.unique(("metadata",))),
+            ("/files/aggregate", lambda: tool.filemetadata.count()),
+            ("/sequences/aggregate", lambda: tool.sequences.count()),
+            ("/sequences/aggregate", lambda: tool.sequences.cardinality(("name",))),
+            ("/sequences/aggregate", lambda: tool.sequences.cardinality(("metadata",))),
+            ("/sequences/aggregate", lambda: tool.sequences.unique(("name",))),
+            ("/sequences/aggregate", lambda: tool.sequences.unique(("metadata",))),
+        ]
+        for path, call in checks:
+            try:
+                _ = call()
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(path, f"Aggregate call failed: {e!s}") from e
+
     @pytest.mark.parametrize(
         "property_",
         [pytest.param(option, id=str(option)) for option in DOCUMENT_PROPERTY_OPTIONS],
     )
     def test_document_cardinality_properties(
-        self, property_: tuple[DocumentPropertyPath, ...], toolkit_client: ToolkitClient
+        self, property_: DocumentPropertyPath, toolkit_client: ToolkitClient
     ) -> None:
         """Every DocumentPropertyPath variant is accepted by documents.cardinality (read-only aggregate)."""
         documents = toolkit_client.tool.documents
         aggregate_path = documents._method_endpoint_map["aggregate"].path
         try:
-            _ = documents.cardinality(property_)  # type:ignore[arg-type]
+            _ = documents.cardinality(property_)
         except ToolkitAPIError as e:
             raise EndpointAssertionError(
                 aggregate_path,
@@ -2840,7 +2877,7 @@ class TestCDFResourceAPI:
             channel_id=channels[0].id,
             model=ChartMonitoringJobModel(timeseries_external_id=smoke_timeseries.external_id, lower_threshold=1.0),
             source_id=smoke_chart.external_id,
-            nonce=client.iam.sessions.create().nonce,
+            nonce=client.sessions.create_one_shot_token_exchange_session().nonce,
         )
         job_id = request.as_id()
         try:
@@ -2864,7 +2901,10 @@ class TestCDFResourceAPI:
             )
 
             upsert_request = request.model_copy(
-                update={"name": "upsert_name", "nonce": client.iam.sessions.create().nonce}
+                update={
+                    "name": "upsert_name",
+                    "nonce": client.sessions.create_one_shot_token_exchange_session().nonce,
+                }
             )
             try:
                 upserted = client.charts.monitoring_jobs.upsert([upsert_request])
@@ -2946,7 +2986,7 @@ class TestCDFResourceAPI:
             window_size=period_ms,
             target_timeseries_external_id=output_ts_request.external_id,
             graph=graph,
-            nonce=client.iam.sessions.create().nonce,
+            nonce=client.sessions.create_one_shot_token_exchange_session().nonce,
         )
         calc_id = request.as_id()
         try:

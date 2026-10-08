@@ -26,7 +26,6 @@ from ._file_content import (
     FileContentSelector,
     FileDataModelingTemplate,
     FileDataModelingTemplateSelector,
-    FileIdentifierSelector,
     FileMetadataTemplate,
     FileMetadataTemplateSelector,
 )
@@ -77,14 +76,14 @@ Selector = Annotated[
     | FileMetadataFilesSelectorV2
     | CogniteFileTemplateSelectorV2
     | CogniteFileFilesSelectorV2
-    | FileIdentifierSelector
     | RecordContainerSelector
     | InstanceQuerySelector,
     Field(discriminator="type"),
 ]
 
-ALPHA_SELECTORS = {FileIdentifierSelector, RecordContainerSelector}
+ALPHA_SELECTORS = {RecordContainerSelector}
 INTERNAL = {ThreeDModelIdSelector, ThreeDModelFilteredSelector}
+DEPRECATED = {FileMetadataTemplateSelector, FileDataModelingTemplateSelector}
 SelectorAdapter: TypeAdapter[Selector] = TypeAdapter(Selector)
 
 
@@ -103,13 +102,25 @@ def load_selector(manifest_file: Path) -> Selector | ToolkitWarning:
     except ValidationError as e:
         errors = humanize_validation_error(e)
         return ResourceFormatWarning(manifest_file, tuple(errors), text="Invalid selector in metadata file, skipping.")
-    if not Flags.EXTEND_UPLOAD.is_enabled() and type(selector) in ALPHA_SELECTORS:
+    if not (Flags.EXTEND_UPLOAD.is_enabled() or Flags.V09.is_enabled()) and type(selector) in ALPHA_SELECTORS:
         return MediumSeverityWarning(
             f"Selector type '{type(selector).__name__}' in file '{manifest_file}' is in alpha. To enable it set the alpha flag 'extend-upload = true' in your CDF.toml file."
         )
     elif type(selector) in INTERNAL:
         return MediumSeverityWarning(
             f"Selector type '{type(selector).__name__}' in file '{manifest_file}' is for internal use only and cannot be used."
+        )
+    elif type(selector) in DEPRECATED:
+        if Flags.V09.is_enabled():
+            return ResourceFormatWarning(
+                manifest_file,
+                (
+                    f"Selector type '{type(selector).__name__}' has been deprecated and is no longer supported in version 0.9. Please update your selector to use the new format.",
+                ),
+                text="Invalid selector in metadata file, skipping.",
+            )
+        return MediumSeverityWarning(
+            f"Selector type '{type(selector).__name__}' in file '{manifest_file}' is deprecated and may be removed in future versions."
         )
     return selector
 
@@ -138,7 +149,6 @@ __all__ = [
     "FileContentSelector",
     "FileDataModelingTemplate",
     "FileDataModelingTemplateSelector",
-    "FileIdentifierSelector",
     "FileMetadataContentSelectorV2",
     "FileMetadataFilesSelectorV2",
     "FileMetadataTemplate",

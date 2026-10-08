@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Sequence
 from typing import Any
 
@@ -31,7 +32,7 @@ class ChartMonitoringJobsAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
     ) -> PagedResponse[ChartMonitoringJobResponse]:
         return PagedResponse[ChartMonitoringJobResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[ChartMonitoringJobRequest]) -> list[ChartMonitoringJobResponse]:
+    def create(self, items: Sequence[ChartMonitoringJobRequest]) -> builtins.list[ChartMonitoringJobResponse]:
         """Create monitoring tasks in CDF.
 
         Args:
@@ -43,7 +44,7 @@ class ChartMonitoringJobsAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
 
     def retrieve(
         self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
-    ) -> list[ChartMonitoringJobResponse]:
+    ) -> builtins.list[ChartMonitoringJobResponse]:
         """Retrieve monitoring tasks by internal or external ID.
 
         Args:
@@ -65,7 +66,7 @@ class ChartMonitoringJobsAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
         """
         self._request_no_response(items, "delete")
 
-    def update(self, items: Sequence[ChartMonitoringJobRequest]) -> list[ChartMonitoringJobResponse]:
+    def update(self, items: Sequence[ChartMonitoringJobRequest]) -> builtins.list[ChartMonitoringJobResponse]:
         """Update monitoring tasks.
 
         Args:
@@ -76,7 +77,7 @@ class ChartMonitoringJobsAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
         # Mode does not matter.
         return self._update(items, mode="replace")
 
-    def upsert(self, items: Sequence[ChartMonitoringJobRequest]) -> list[ChartMonitoringJobResponse]:
+    def upsert(self, items: Sequence[ChartMonitoringJobRequest]) -> builtins.list[ChartMonitoringJobResponse]:
         """Upsert monitoring tasks.
 
         Args:
@@ -86,7 +87,9 @@ class ChartMonitoringJobsAPI(CDFResourceAPI[ChartMonitoringJobResponse]):
         """
         return self._request_item_response(items, "upsert")
 
-    def list(self, filter_: ChartMonitorJobFilter | None = None, limit: int = 100) -> list[ChartMonitoringJobResponse]:
+    def list(
+        self, filter_: ChartMonitorJobFilter | None = None, limit: int = 100
+    ) -> builtins.list[ChartMonitoringJobResponse]:
         """List monitoring tasks.
 
         Args:

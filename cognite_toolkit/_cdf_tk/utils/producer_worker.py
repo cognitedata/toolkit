@@ -29,11 +29,15 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRepeatedUploadFailureError
 
 T_Download = TypeVar("T_Download", bound=Sized)
 T_Processed = TypeVar("T_Processed", bound=Sized)
-T_Item = TypeVar("T_Item")
+
+
+class _FinishSentinel:
+    """Marks the end of a producer or worker queue."""
+
 
 # Sentinels for signaling finish
-PROCESS_FINISH_SENTINEL = object()
-WRITE_FINISH_SENTINEL = object()
+PROCESS_FINISH_SENTINEL = _FinishSentinel()
+WRITE_FINISH_SENTINEL = _FinishSentinel()
 
 
 class ItemCountColumn(ProgressColumn):
@@ -119,8 +123,8 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         self._error_event = threading.Event()
         # Queues for managing the flow of data between threads
         # Download -> [process_queue] -> Process -> [write_queue] -> Write
-        self.process_queue: queue.Queue[T_Download] = queue.Queue(maxsize=max_queue_size)
-        self.write_queue: queue.Queue[T_Processed] = queue.Queue(maxsize=max_queue_size)
+        self.process_queue: queue.Queue[T_Download | _FinishSentinel] = queue.Queue(maxsize=max_queue_size)
+        self.write_queue: queue.Queue[T_Processed | _FinishSentinel] = queue.Queue(maxsize=max_queue_size)
         self.downloaded_items = 0
         self.error_message = ""
         self.error_traceback = ""
@@ -283,7 +287,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 items = next(iterator)
                 batch_len = len(items)
                 self.downloaded_items += batch_len
-                if self._put_with_error_check(items, self.process_queue):
+                if self._put_with_error_check(lambda: self.process_queue.put(items, timeout=0.5)):
                     progress.update(download_task, advance=batch_len, item_count=self.downloaded_items)
                     continue
                 break  # Exit if error event was set while waiting to put
@@ -292,13 +296,13 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             except Exception as e:
                 self._report_error(self.download_description, e)
                 break
-        self._put_with_error_check(PROCESS_FINISH_SENTINEL, self.process_queue)  # type: ignore[misc]
+        self._put_with_error_check(lambda: self.process_queue.put(PROCESS_FINISH_SENTINEL, timeout=0.5))
 
-    def _put_with_error_check(self, items: T_Item, target_queue: queue.Queue[T_Item]) -> bool:
-        """Helper to put items into a queue with error checking."""
+    def _put_with_error_check(self, put: Callable[[], None]) -> bool:
+        """Put into a queue, retrying while it is full unless an error was reported."""
         while not self._error_event.is_set():
             try:
-                target_queue.put(items, timeout=0.5)
+                put()
                 return True
             except queue.Full:
                 continue
@@ -311,13 +315,13 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         while not self._error_event.is_set():
             try:
                 items = self.process_queue.get(timeout=0.5)
-                if items is PROCESS_FINISH_SENTINEL:
+                if isinstance(items, _FinishSentinel):
                     # Signal writer to finish
-                    self._put_with_error_check(WRITE_FINISH_SENTINEL, self.write_queue)  # type: ignore[misc]
+                    self._put_with_error_check(lambda: self.write_queue.put(WRITE_FINISH_SENTINEL, timeout=0.5))
                     self.process_queue.task_done()
                     break
                 processed_items = self._process(items)
-                if self._put_with_error_check(processed_items, self.write_queue):
+                if self._put_with_error_check(lambda: self.write_queue.put(processed_items, timeout=0.5)):
                     batch_len = len(processed_items)
                     process_count += batch_len
                     progress.update(process_task, advance=batch_len, item_count=process_count)
@@ -339,7 +343,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         while not self._error_event.is_set():
             try:
                 items = self.write_queue.get(timeout=0.5)
-                if items is WRITE_FINISH_SENTINEL:
+                if isinstance(items, _FinishSentinel):
                     self.write_queue.task_done()
                     break
                 self._write(items)

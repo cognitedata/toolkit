@@ -11,7 +11,7 @@ from functools import lru_cache
 from io import IOBase, TextIOWrapper
 from pathlib import Path
 from types import TracebackType
-from typing import TYPE_CHECKING, Generic
+from typing import TYPE_CHECKING, Any, Generic
 
 import yaml
 
@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.useful_types import DataType
 
-from ._base import T_IO, CellValue, Chunk, FileIO, SchemaColumn
+from ._base import T_IO, CellValue, Chunk, FileIO, PrimaryCellValue, SchemaColumn
 from ._compression import Compression, Uncompressed
 
 if sys.version_info >= (3, 11):
@@ -69,7 +69,7 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
             latest_filepath = max(self._writer_by_filepath.keys(), key=lambda p: p.stat().st_mtime)
             return latest_filepath
 
-    def write_chunks(self, chunks: Iterable[Chunk], filestem: str = "") -> None:
+    def write_chunks(self, chunks: Iterable[Mapping[str, CellValue]], filestem: str = "") -> None:
         with self._lock:
             selected_filestem = filestem or self.default_filestem or ""
             filepath = self._get_filepath(selected_filestem)
@@ -117,12 +117,14 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
 
     def _is_above_file_size_limit(self, filepath: Path, writer: T_IO) -> bool:
         """Check if the file size is above the limit."""
-        try:
-            writer.flush()
-        except (AttributeError, ValueError):
-            # Some writers might not support flush (e.g. already closed).
-            # We can ignore this and proceed to check the file size on disk.
-            pass
+        flush = getattr(writer, "flush", None)
+        if callable(flush):
+            try:
+                flush()
+            except (AttributeError, ValueError):
+                # Some writers might not support flush (e.g. already closed).
+                # We can ignore this and proceed to check the file size on disk.
+                pass
         return filepath.exists() and filepath.stat().st_size > self.max_file_size_bytes
 
     @abstractmethod
@@ -131,7 +133,7 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
         raise NotImplementedError("This method should be implemented in subclasses.")
 
     @abstractmethod
-    def _write(self, writer: T_IO, chunks: Iterable[Chunk]) -> None:
+    def _write(self, writer: T_IO, chunks: Iterable[Mapping[str, CellValue]]) -> None:
         """Write the chunk to the file."""
         raise NotImplementedError("This method should be implemented in subclasses.")
 
@@ -175,16 +177,16 @@ class NDJsonWriter(FileWriter[TextIOWrapper]):
     FORMAT = ".ndjson"
 
     class _DateTimeEncoder(json.JSONEncoder):
-        def default(self, obj: object) -> object:
-            if isinstance(obj, date | datetime):
-                return obj.isoformat()
-            return super().default(obj)
+        def default(self, o: Any) -> Any:
+            if isinstance(o, date | datetime):
+                return o.isoformat()
+            return super().default(o)
 
     def _create_writer(self, filepath: Path) -> TextIOWrapper:
         """Create a writer for the given file path."""
         return self.compression_cls(filepath).open("w")
 
-    def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
+    def _write(self, writer: TextIOWrapper, chunks: Iterable[Mapping[str, CellValue]]) -> None:
         writer.writelines(
             f"{json.dumps(chunk, cls=self._DateTimeEncoder)}{self.compression_cls.newline}" for chunk in chunks
         )
@@ -200,7 +202,7 @@ class YAMLBaseWriter(FileWriter[TextIOWrapper], ABC):
     def _create_writer(self, filepath: Path) -> TextIOWrapper:
         return self.compression_cls(filepath).open("w")
 
-    def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
+    def _write(self, writer: TextIOWrapper, chunks: Iterable[Mapping[str, CellValue]]) -> None:
         yaml.safe_dump_all(chunks, writer, sort_keys=False, explicit_start=True)
 
 
@@ -232,7 +234,7 @@ class CSVWriter(TableWriter[TextIOWrapper]):
         self._csvwriter_by_file[file] = self._create_dict_writer(file)
         return file
 
-    def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
+    def _write(self, writer: TextIOWrapper, chunks: Iterable[Mapping[str, CellValue]]) -> None:
         try:
             csv_writer = self._csvwriter_by_file[writer]
         except KeyError:
@@ -241,7 +243,7 @@ class CSVWriter(TableWriter[TextIOWrapper]):
         csv_writer.writerows(self._prepare_row(row) for row in chunks)
 
     @staticmethod
-    def _prepare_row(row: Chunk) -> dict[str, str | int | float | bool]:
+    def _prepare_row(row: Mapping[str, CellValue]) -> dict[str, str | int | float | bool]:
         """Prepare a row for writing to CSV."""
         prepared_row = {}
         value: str | int | float | bool
@@ -265,7 +267,7 @@ class CSVWriter(TableWriter[TextIOWrapper]):
         return csv_writer
 
 
-class ParquetWriter(TableWriter["pq.ParquetWriter"]):  # type: ignore[type-var]
+class ParquetWriter(TableWriter["pq.ParquetWriter"]):
     FORMAT = ".parquet"
 
     def __init__(
@@ -286,7 +288,7 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):  # type: ignore[type-var]
         schema = self._create_schema()
         return pq.ParquetWriter(filepath, schema)
 
-    def _write(self, writer: "pq.ParquetWriter", chunks: Iterable[Chunk]) -> None:
+    def _write(self, writer: "pq.ParquetWriter", chunks: Iterable[Mapping[str, CellValue]]) -> None:
         import pyarrow as pa
 
         json_columns = self._json_columns()
@@ -301,19 +303,22 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):  # type: ignore[type-var]
         processed_chunks: list[Chunk] = []
         for chunk in chunks:
             # Create a copy to avoid mutating the input, which is an unexpected side-effect.
-            processed_chunk = chunk.copy()
+            processed_chunk = dict(chunk)
             for col, cell_value in processed_chunk.items():
                 if col in json_columns:
                     processed_chunk[col] = json.dumps(cell_value)
                 elif col in timestamp_columns:
                     if isinstance(cell_value, list):
-                        # MyPy fails to recognize that list of datetime and date are valid CellValues.
-                        processed_chunk[col] = [self._to_datetime(value) for value in cell_value]  # type: ignore[assignment]
+                        converted_timestamps: list[PrimaryCellValue] = []
+                        converted_timestamps.extend(self._to_datetime(value) for value in cell_value)
+                        processed_chunk[col] = converted_timestamps
                     else:
                         processed_chunk[col] = self._to_datetime(cell_value)
                 elif col in date_columns:
                     if isinstance(cell_value, list):
-                        processed_chunk[col] = [self._to_date(value) for value in cell_value]  # type: ignore[assignment]
+                        converted_dates: list[PrimaryCellValue] = []
+                        converted_dates.extend(self._to_date(value) for value in cell_value)
+                        processed_chunk[col] = converted_dates
                     else:
                         processed_chunk[col] = self._to_date(cell_value)
             processed_chunks.append(processed_chunk)
@@ -339,7 +344,7 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):  # type: ignore[type-var]
         return {col.name for col in self.columns if col.type == "date"}
 
     @classmethod
-    def _to_datetime(cls, value: CellValue) -> CellValue:
+    def _to_datetime(cls, value: CellValue) -> datetime | None:
         if isinstance(value, datetime) or value is None:
             output = value
         elif isinstance(value, date):
@@ -362,7 +367,7 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):  # type: ignore[type-var]
         return output
 
     @classmethod
-    def _to_date(cls, value: CellValue) -> CellValue:
+    def _to_date(cls, value: CellValue) -> date | None:
         if isinstance(value, date) or value is None:
             return value
         elif isinstance(value, datetime):

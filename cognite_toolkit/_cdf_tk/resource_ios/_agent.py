@@ -49,7 +49,11 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
     kind = "Agent"
     yaml_cls = AgentYAML
     dependencies = frozenset(
-        {FunctionIO, DataModelIO, *({SkillIO} if FeatureFlag.is_enabled(Flags.AGENT_SKILLS) else set())}
+        {
+            FunctionIO,
+            DataModelIO,
+            *({SkillIO} if FeatureFlag.is_enabled(Flags.AGENT_SKILLS) or FeatureFlag.is_enabled(Flags.V09) else set()),
+        }
     )
     _doc_base_url = ""
     _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/main_ai_agents_post/"
@@ -290,7 +294,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
                     yield from cls._query_knowledge_graph_dependencies(tool)
                 case Query():
                     yield from cls._query_dependencies(tool)
-        if FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
+        if FeatureFlag.is_enabled(Flags.AGENT_SKILLS) or FeatureFlag.is_enabled(Flags.V09):
             for skill_external_id in resource.skills or []:
                 yield SkillIO, ExternalId(external_id=skill_external_id)
 

@@ -1,6 +1,7 @@
 """Set operations (intersection and union) for scope definitions."""
 
-from typing import Any
+from collections.abc import Callable
+from typing import Any, cast
 
 from cognite_toolkit._cdf_tk.client.resource_classes.group.scopes import (
     AllScope,
@@ -45,7 +46,7 @@ def scope_intersection(*scopes: ScopeDefinition) -> ScopeDefinition | None:
     fields = _data_fields(first)
 
     if not fields:
-        return type(first)()
+        return cast(Callable[[], ScopeDefinition], type(first))()
 
     if isinstance(first, TableScope):
         table_scopes = [s for s in scopes if isinstance(s, TableScope)]
@@ -97,7 +98,7 @@ def scope_union(*scopes: Scope) -> Scope:
     fields = _data_fields(first)
 
     if not fields:
-        return type(first)()
+        return cast(Callable[[], Scope], type(first))()
 
     if isinstance(first, TableScope):
         table_scopes = [s for s in scopes if isinstance(s, TableScope)]

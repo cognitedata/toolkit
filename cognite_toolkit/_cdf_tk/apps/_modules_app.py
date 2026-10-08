@@ -23,7 +23,7 @@ class ModulesListFormats(str, Enum):
 
 
 class ModulesApp(typer.Typer):
-    def __init__(self, *args, **kwargs) -> None:  # type: ignore
+    def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.main)
         self.command()(self.init)

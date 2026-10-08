@@ -6,6 +6,7 @@ from typing import IO, Any, Literal
 
 import httpx2
 
+from cognite_toolkit._cdf_tk.client.api._classic_aggregate import files_aggregate_count
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -66,6 +67,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                 "update": Endpoint(method="POST", path="/files/update", item_limit=1000, concurrency_max_workers=1),
                 "delete": Endpoint(method="POST", path="/files/delete", item_limit=1000, concurrency_max_workers=1),
                 "list": Endpoint(method="POST", path="/files/list", item_limit=1000),
+                "aggregate": Endpoint(method="POST", path="/files/aggregate", item_limit=1000),
             },
             api_version="alpha",
         )
@@ -84,7 +86,9 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[FileMetadataRequest], overwrite: bool = False) -> list[FileMetadataResponse]:
+    def create(
+        self, items: Sequence[FileMetadataRequest], overwrite: bool = False
+    ) -> builtins.list[FileMetadataResponse]:
         """Upload file metadata to CDF.
 
         Args:
@@ -98,7 +102,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         # - It only allow one item per request that is not wrapped in a "items" field.
         # - It uses a query parameter for "overwrite" instead of including it in the body
         endpoint = self._method_endpoint_map["create"]
-        results: list[FileMetadataResponse] = []
+        results: builtins.list[FileMetadataResponse] = []
         for item in items:
             request = RequestMessage(
                 endpoint_url=self._make_url(endpoint.path),
@@ -135,7 +139,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
 
     def retrieve(
         self, items: Sequence[InternalId | ExternalId | InstanceId], ignore_unknown_ids: bool = False
-    ) -> list[FileMetadataResponse]:
+    ) -> builtins.list[FileMetadataResponse]:
         """Retrieve file metadata from CDF.
 
         Args:
@@ -150,7 +154,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
 
     def update(
         self, items: Sequence[FileMetadataRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[FileMetadataResponse]:
+    ) -> builtins.list[FileMetadataResponse]:
         """Update file metadata in CDF.
 
         Args:
@@ -209,7 +213,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         directory_prefix: str | None = None,
         uploaded: bool | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[FileMetadataResponse]]:
+    ) -> Iterable[builtins.list[FileMetadataResponse]]:
         """Iterate over file metadata in CDF.
 
         Args:
@@ -235,7 +239,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
     def list(
         self,
         limit: int | None = 100,
-    ) -> list[FileMetadataResponse]:
+    ) -> builtins.list[FileMetadataResponse]:
         """List all file metadata in CDF.
 
         Args:
@@ -245,6 +249,15 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             List of FileMetadataResponse objects.
         """
         return self._list(limit=limit)
+
+    def count(self, *, filter: ClassicFilter | dict[str, Any] | None = None) -> int:
+        """Count files matching an optional filter.
+
+        The files aggregate endpoint returns only ``count``.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Files/operation/aggregateFiles>`_.
+        """
+        return files_aggregate_count(self, filter=filter)
 
     def set_pending_ids(self, items: Sequence[PendingInstanceId]) -> builtins.list[FileMetadataResponse]:
         """Set pending instance IDs for one or more file metadata entries.
@@ -409,7 +422,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             List of updated FileMetadataResponse objects.
 
         """
-        results: list[FileMetadataResponse] = []
+        results: builtins.list[FileMetadataResponse] = []
         for item in items:
             # The API only supports one
             request = RequestMessage(
@@ -462,7 +475,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         Returns:
                 List of DownloadResponse objects containing the download URLs.
         """
-        results: list[DownloadResponse] = []
+        results: builtins.list[DownloadResponse] = []
         for chunk in chunker_sequence(items, self._download_link.item_limit):
             request = RequestMessage(
                 endpoint_url=self._http_client.config.create_api_url(self._download_link.path),

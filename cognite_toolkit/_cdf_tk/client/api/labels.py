@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -27,7 +28,7 @@ class LabelsAPI(CDFResourceAPI[LabelResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[ExternalId]:
         return ResponseItems[ExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[LabelRequest]) -> list[LabelResponse]:
+    def create(self, items: Sequence[LabelRequest]) -> builtins.list[LabelResponse]:
         """Create labels in CDF.
 
         Args:
@@ -37,7 +38,7 @@ class LabelsAPI(CDFResourceAPI[LabelResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[LabelResponse]:
+    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> builtins.list[LabelResponse]:
         """Retrieve labels from CDF.
 
         Args:
@@ -90,7 +91,7 @@ class LabelsAPI(CDFResourceAPI[LabelResponse]):
         self,
         filter: ClassicFilter | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[LabelResponse]]:
+    ) -> Iterable[builtins.list[LabelResponse]]:
         """Iterate over all labels in CDF.
 
         Args:
@@ -112,7 +113,7 @@ class LabelsAPI(CDFResourceAPI[LabelResponse]):
     def list(
         self,
         limit: int | None = 100,
-    ) -> list[LabelResponse]:
+    ) -> builtins.list[LabelResponse]:
         """List all labels in CDF.
 
         Returns:

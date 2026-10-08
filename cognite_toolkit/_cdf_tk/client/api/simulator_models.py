@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
@@ -39,7 +40,7 @@ class SimulatorModelsAPI(CDFResourceAPI[SimulatorModelResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[SimulatorModelRequest]) -> list[SimulatorModelResponse]:
+    def create(self, items: Sequence[SimulatorModelRequest]) -> builtins.list[SimulatorModelResponse]:
         """Create simulator models in CDF.
 
         Args:
@@ -52,7 +53,7 @@ class SimulatorModelsAPI(CDFResourceAPI[SimulatorModelResponse]):
 
     def retrieve(
         self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
-    ) -> list[SimulatorModelResponse]:
+    ) -> builtins.list[SimulatorModelResponse]:
         """Retrieve simulator models from CDF.
 
         Args:
@@ -71,7 +72,7 @@ class SimulatorModelsAPI(CDFResourceAPI[SimulatorModelResponse]):
 
     def update(
         self, items: Sequence[SimulatorModelRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[SimulatorModelResponse]:
+    ) -> builtins.list[SimulatorModelResponse]:
         """Update simulator models in CDF.
 
         Args:
@@ -119,7 +120,7 @@ class SimulatorModelsAPI(CDFResourceAPI[SimulatorModelResponse]):
         self,
         filter: SimulatorModelFilter | None = None,
         limit: int = 100,
-    ) -> Iterable[list[SimulatorModelResponse]]:
+    ) -> Iterable[builtins.list[SimulatorModelResponse]]:
         """Iterate over simulator models in CDF.
 
         Args:
@@ -139,7 +140,7 @@ class SimulatorModelsAPI(CDFResourceAPI[SimulatorModelResponse]):
     def list(
         self,
         limit: int | None = 100,
-    ) -> list[SimulatorModelResponse]:
+    ) -> builtins.list[SimulatorModelResponse]:
         """List all simulator models in CDF.
 
         Args:

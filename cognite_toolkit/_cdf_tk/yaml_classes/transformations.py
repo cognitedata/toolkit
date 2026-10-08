@@ -1,13 +1,12 @@
 from typing import Any, Literal
 
-from pydantic import Field, field_validator, model_serializer
-from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
+from pydantic import Field, field_validator
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 from .authentication import AuthenticationClientIdSecret, OIDCCredential
 from .base import ToolkitResource
-from .transformation_destination import Destination
+from .transformation_destination import DestinationType
 
 
 class TransformationYAML(ToolkitResource):
@@ -16,7 +15,7 @@ class TransformationYAML(ToolkitResource):
     ignore_null_fields: bool = Field(
         description="Indicates how null values are handled on updates: ignore or set null."
     )
-    destination: Destination | None = Field(default=None, description="Destination data type.")
+    destination: DestinationType | None = Field(default=None, description="Destination data type.")
     query: str | None = Field(default=None, description="SQL query of the transformation.")
     conflict_mode: Literal["abort", "delete", "update", "upsert"] | None = Field(
         default=None,
@@ -51,13 +50,6 @@ class TransformationYAML(ToolkitResource):
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
-
-    @model_serializer(mode="wrap")
-    def serialize_transformation(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
-        serialized_data = handler(self)
-        if self.destination:
-            serialized_data["destination"] = self.destination.model_dump(**vars(info))
-        return serialized_data
 
     @field_validator("authentication", mode="before")
     @classmethod

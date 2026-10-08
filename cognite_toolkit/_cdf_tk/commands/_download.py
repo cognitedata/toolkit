@@ -15,13 +15,13 @@ from cognite_toolkit._cdf_tk.dataio import (
     DataIO,
     DataItem,
     Page,
+    T_DataResponse,
     T_Selector,
     TableDataIO,
     UploadableDataIO,
 )
 from cognite_toolkit._cdf_tk.dataio.logger import FileWithAggregationLogger, ItemsResult, display_item_results
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.protocols import T_ResourceResponse
 from cognite_toolkit._cdf_tk.utils.file import create_logfile_stem, safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import (
     TABLE_WRITE_CLS_BY_FORMAT,
@@ -89,7 +89,7 @@ class DownloadCommand(ToolkitCommand):
     def download(
         self,
         selectors: Sequence[T_Selector],
-        io: DataIO[T_Selector, T_ResourceResponse],
+        io: DataIO[T_Selector, T_DataResponse],
         output_dir: Path,
         verbose: bool,
         file_format: str,
@@ -139,7 +139,7 @@ class DownloadCommand(ToolkitCommand):
     @classmethod
     def _create_plan(
         cls,
-        io: DataIO[T_Selector, T_ResourceResponse],
+        io: DataIO[T_Selector, T_DataResponse],
         selectors: Sequence[T_Selector],
         output_dir: Path,
         file_format: str,
@@ -183,7 +183,7 @@ class DownloadCommand(ToolkitCommand):
 
     @classmethod
     def _get_columns(
-        cls, io: DataIO[T_Selector, T_ResourceResponse], selector: T_Selector, file_format: str
+        cls, io: DataIO[T_Selector, T_DataResponse], selector: T_Selector, file_format: str
     ) -> tuple[list[SchemaColumn] | None, FormatType]:
         columns: list[SchemaColumn] | None = None
         is_table = file_format in TABLE_WRITE_CLS_BY_FORMAT
@@ -219,7 +219,7 @@ class DownloadCommand(ToolkitCommand):
 
     def _download_data(
         self,
-        io: DataIO[T_Selector, T_ResourceResponse],
+        io: DataIO[T_Selector, T_DataResponse],
         step: DownloadStep[T_Selector],
         writer: FileWriter,
         logger: FileWithAggregationLogger,
@@ -227,7 +227,7 @@ class DownloadCommand(ToolkitCommand):
     ) -> int:
         io.logger = logger
         logger.reset()
-        executor = ProducerWorkerExecutor[Page[T_ResourceResponse], Page[dict[str, JsonVal]]](
+        executor = ProducerWorkerExecutor[Page[T_DataResponse], Page[dict[str, JsonVal]]](
             download_iterable=io.stream_data(step.selector, step.limit),
             process=self.create_data_process(io=io, selector=step.selector, is_table=step.is_table),
             write=self.create_writer(writer, step.filestem),
@@ -252,10 +252,10 @@ class DownloadCommand(ToolkitCommand):
 
     @staticmethod
     def create_data_process(
-        io: DataIO[T_Selector, T_ResourceResponse],
+        io: DataIO[T_Selector, T_DataResponse],
         selector: T_Selector,
         is_table: bool,
-    ) -> Callable[[Page[T_ResourceResponse]], Page[dict[str, JsonVal]]]:
+    ) -> Callable[[Page[T_DataResponse]], Page[dict[str, JsonVal]]]:
         """Creates a data processing function based on the IO type and whether the output is a table."""
         if is_table and isinstance(io, TableDataIO):
             return partial(io.data_to_row, selector=selector)
@@ -266,14 +266,12 @@ class DownloadCommand(ToolkitCommand):
         """Creates a writer function that writes processed data to files using the provided FileWriter."""
 
         def write(page: Page[dict[str, JsonVal]]) -> None:
-            writer.write_chunks(page.as_raw_items(), filestem=filestem)  # type: ignore[arg-type]
+            writer.write_chunks(page.as_raw_items(), filestem=filestem)
 
         return write
 
     @staticmethod
-    def _dump_configuration(
-        io: ConfigurableDataIO[T_Selector, T_ResourceResponse], step: DownloadStep[T_Selector]
-    ) -> None:
+    def _dump_configuration(io: ConfigurableDataIO[T_Selector, T_DataResponse], step: DownloadStep[T_Selector]) -> None:
         for config in io.configurations(step.selector):
             filename = config.filename or step.filestem
             config_file = step.target_dir / DATA_RESOURCE_DIR / config.folder_name / f"{filename}.{config.kind}.yaml"
@@ -283,7 +281,7 @@ class DownloadCommand(ToolkitCommand):
     @classmethod
     def _convert_json_to_table(
         cls,
-        io: TableDataIO[T_Selector, T_ResourceResponse],
+        io: TableDataIO[T_Selector, T_DataResponse],
         step: DownloadStep[T_Selector],
         file_format: str,
         compression: str,
@@ -318,7 +316,7 @@ class DownloadCommand(ToolkitCommand):
 
     @classmethod
     def _create_json_to_row(
-        cls, io: TableDataIO[T_Selector, T_ResourceResponse]
+        cls, io: TableDataIO[T_Selector, T_DataResponse]
     ) -> Callable[[Page[dict[str, JsonVal]]], Page[dict[str, JsonVal]]]:
         def process(page: Page[dict[str, JsonVal]]) -> Page[dict[str, JsonVal]]:
             rows = [DataItem(item=io.json_to_row(item.item), tracking_id=item.tracking_id) for item in page.items]

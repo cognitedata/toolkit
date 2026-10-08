@@ -476,8 +476,9 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
         if self.support_upload:
             items_by_id = {
                 response.as_id(): response
-                # We know that file responses will always be NodeIds.
-                for response in self.client.tool.cognite_files.retrieve([item.as_id() for item in responses])  # type:ignore[misc]
+                for response in self.client.tool.cognite_files.retrieve(
+                    [NodeId(space=item.space, external_id=item.external_id) for item in responses]
+                )
             }
             for item in items:
                 if not item.filepath:

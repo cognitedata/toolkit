@@ -1,6 +1,6 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, cast
 from unittest.mock import MagicMock
 
 from cognite.client.testing import CogniteClientMock
@@ -189,6 +189,13 @@ class ToolkitClientMock(CogniteClientMock):
         self.principals = MagicMock(spec_set=PrincipalsAPI)
         self.sessions = MagicMock(spec_set=SessionAPI)
 
+        def create_single(item: object) -> object:
+            # SessionAPI.create_single delegates to create. Keep that so tests that stub
+            # sessions.create still produce a real session response.
+            return self.sessions.create([item])[0]
+
+        self.sessions.create_single.side_effect = create_single
+
         self.tool = MagicMock(spec=ToolAPI)
         self.tool.agents = MagicMock(spec=AgentsAPI)
         self.tool.skills = MagicMock(spec=SkillsAPI)
@@ -280,7 +287,9 @@ class ToolkitClientMock(CogniteClientMock):
 def monkeypatch_toolkit_client() -> Iterator[ToolkitClientMock]:
     toolkit_client_mock = ToolkitClientMock()
     try:
-        ToolkitClient.__new__ = lambda *args, **kwargs: toolkit_client_mock  # type: ignore[method-assign]
+        ToolkitClient.__new__ = cast(Any, lambda *args, **kwargs: toolkit_client_mock)  # type: ignore[method-assign]
         yield toolkit_client_mock
     finally:
-        ToolkitClient.__new__ = lambda cls, *args, **kwargs: object.__new__(cls)  # type: ignore[method-assign]
+        ToolkitClient.__new__ = cast(  # type: ignore[method-assign]
+            Any, lambda cls, *args, **kwargs: object.__new__(cls)
+        )

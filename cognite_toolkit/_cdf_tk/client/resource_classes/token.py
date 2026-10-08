@@ -5,12 +5,10 @@ https://api-docs.cognite.com/20230101/tag/Token/operation/inspectToken
 """
 
 from collections import UserDict, defaultdict
-from collections.abc import Sequence
-from typing import Any, TypeAlias
+from collections.abc import Callable, Sequence
+from typing import Any, TypeAlias, cast
 
-from cognite.client.data_classes.capabilities import UnknownScope
-from pydantic import JsonValue, model_serializer, model_validator
-from pydantic_core.core_schema import FieldSerializationInfo
+from pydantic import JsonValue, SerializationInfo, model_serializer, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
@@ -18,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupResponse,
     Scope,
     ScopeDefinition,
+    UnknownScope,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import ACL_NAME
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import (
@@ -86,10 +85,8 @@ class InspectCapability(BaseModelObject):
         value_copy["acl"] = acl_data
         return value_copy
 
-    # MyPy complains that info; FieldSerializationInfo is not compatible with info: Any
-    # It is.
-    @model_serializer  # type: ignore[type-var]
-    def serialize_acl_name(self, info: FieldSerializationInfo) -> dict[str, Any]:
+    @model_serializer
+    def serialize_acl_name(self, info: SerializationInfo) -> dict[str, Any]:
         """Serialize 'acl' field back to its specific ACL key (e.g., 'assetsAcl') for API compatibility."""
         acl_data = self.acl.model_dump(**vars(info))
         output: dict[str, Any] = {self.acl.acl_name: acl_data}
@@ -98,15 +95,72 @@ class InspectCapability(BaseModelObject):
         return output
 
 
-class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
+def _collapse_scopes(scopes: list[Scope]) -> list[Scope]:
+    """Union scopes that share a type.
+
+    Different scope types are kept as separate entries. Unknown scopes that cannot
+    be combined are kept as-is in the list.
+
+    """
+    if len(scopes) <= 1:
+        return list(scopes)
+    try:
+        return [scope_union(*scopes)]
+    except ValueError:
+        pass
+    except TypeError:
+        if any(isinstance(scope, UnknownScope) for scope in scopes):
+            return scopes
+        raise
+
+    grouped: dict[tuple[type[ScopeDefinition], str], list[Scope]] = {}
+    for scope in scopes:
+        grouped.setdefault((type(scope), scope.scope_name), []).append(scope)
+
+    collapsed: list[Scope] = []
+    for group in grouped.values():
+        if len(group) == 1:
+            collapsed.append(group[0])
+            continue
+        try:
+            collapsed.append(scope_union(*group))
+        except TypeError:
+            if any(isinstance(scope, UnknownScope) for scope in group):
+                # Unknown scopes with unhashable fields cannot be combined, and are never required
+                # when verifying capabilities.
+                collapsed.extend(group)  # keep instead of dropping
+                continue
+            raise
+    return collapsed
+
+
+def _uncovered_scope(required: ScopeDefinition, granted_scopes: list[Scope]) -> ScopeDefinition | None:
+    """Return the part of ``required`` that none of ``granted_scopes`` covers."""
+    remaining: ScopeDefinition | None = required
+    for granted in granted_scopes:
+        if remaining is None:
+            return None
+        try:
+            remaining = scope_difference(remaining, granted)
+        except (TypeError, ValueError):
+            continue
+    return remaining
+
+
+class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], list[Scope]]):
     """A helper class to represent the capabilities for a project and group(s)
 
-    The capabilities are stored as a mapping from (ACL type, AclName, action) to scope, which allows for easy verification of ACLs against the capabilities.
+    The capabilities are stored as a mapping from (ACL type, AclName, action) to scopes. Scopes of the
+    same type are combined into one scope. Scopes of different types are kept separate, since they cannot
+    be represented as a single scope. This allows for easy verification of ACLs against the capabilities.
     Note that AclName is included to account for UnknownAcls, which may have the same ACL type but different names, and thus different capabilities.
     """
 
     def __init__(
-        self, capabilities: dict[tuple[type[Acl], AclName, AclAction], Scope], name: str, groups: list[int]
+        self,
+        capabilities: dict[tuple[type[Acl], AclName, AclAction], list[Scope]],
+        name: str,
+        groups: list[int],
     ) -> None:
         super().__init__(capabilities)
         self.name = name
@@ -127,10 +181,11 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
         for acl in acls:
             for action in acl.actions:
                 key = (type(acl), acl.acl_name, action)
-                if key not in self.data:
+                granted_scopes = self.data.get(key)
+                if not granted_scopes:
                     missing_actions_by_type_and_scope[(type(acl), acl.acl_name, acl.scope)].add(action)
                     continue
-                if missing_scope := scope_difference(acl.scope, self.data[key]):
+                if missing_scope := _uncovered_scope(acl.scope, granted_scopes):
                     missing_actions_by_type_and_scope[(type(acl), acl.acl_name, missing_scope)].add(action)
 
         return self._merge_als(missing_actions_by_type_and_scope)
@@ -148,7 +203,9 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
     ) -> Sequence[AclType]:
         merged_acls: list[AclType] = []
         for (acl_type, acl_name, scope), actions in actions_by_type_and_scope.items():
-            merged_acls.append(acl_type(actions=sorted(actions), acl_name=acl_name, scope=scope))  # type: ignore[arg-type]
+            merged_acls.append(
+                cast(Callable[..., AclType], acl_type)(actions=sorted(actions), acl_name=acl_name, scope=scope)
+            )
         return merged_acls
 
     @classmethod
@@ -157,7 +214,8 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
     ) -> "FlatCapabilities":
         """Convert a list of capabilities to a FlatCapabilities object for a specific project.
 
-        This method filters the capabilities for the specified project and merges the scopes for each ACL and action.
+        This method filters the capabilities for the specified project. Scopes for the same ACL and action
+        are combined when they have the same type, and kept as a list when they do not.
 
         Args:
             capabilities: The list of capabilities to convert.
@@ -168,7 +226,8 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
             A FlatCapabilities object containing the capabilities for the specified project.
 
         """
-        scopes_by_acl_action: dict[tuple[type[Acl], AclName, AclAction], set[Scope]] = defaultdict(set)
+        scopes_by_acl_action: dict[tuple[type[Acl], AclName, AclAction], list[Scope]] = defaultdict(list)
+        seen_scopes: dict[tuple[type[Acl], AclName, AclAction], set[Scope]] = defaultdict(set)
         for capability in capabilities:
             if isinstance(capability, InspectCapability) and not (
                 isinstance(capability.project_scope, AllProjects)
@@ -184,20 +243,16 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
                 # The type(capability.acl) can be UnknownAcl for a known Acl, if there is an action or scope
                 # that is unknown. Thus, we use the acl_name instead.
                 acl_type = _KNOWN_ACLS.get(capability.acl.acl_name, UnknownAcl)
-                scopes_by_acl_action[(acl_type, capability.acl.acl_name, action)].add(capability.acl.scope)
-
-        scope_by_acl_action: dict[tuple[type[Acl], AclName, AclAction], Scope] = {}
-        for key, scopes in scopes_by_acl_action.items():
-            try:
-                union = scope_union(*scopes)
-            except TypeError:
-                if any(isinstance(scope, UnknownScope) for scope in scopes):
-                    # We use ProjectCapabilities to verify whether we have a specific set of required capabilities.
-                    # We will never check for an unknown ACL and unknown scope, thus we can safely ignore the TypeError due to
-                    # an UnknownScope being unhashable.
+                key = (acl_type, capability.acl.acl_name, action)
+                scope = capability.acl.scope
+                if scope in seen_scopes[key]:
                     continue
-                raise
-            scope_by_acl_action[key] = union
+                seen_scopes[key].add(scope)
+                scopes_by_acl_action[key].append(scope)
+
+        scope_by_acl_action: dict[tuple[type[Acl], AclName, AclAction], list[Scope]] = {}
+        for key, scopes in scopes_by_acl_action.items():
+            scope_by_acl_action[key] = _collapse_scopes(scopes)
         return FlatCapabilities(capabilities=scope_by_acl_action, name=project, groups=groups)
 
     @classmethod

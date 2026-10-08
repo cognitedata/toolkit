@@ -54,7 +54,7 @@ from cognite.client.data_classes.data_modeling import (
 )
 from cognite.client.data_classes.data_modeling.ids import DataModelIdentifier
 from cognite.client.data_classes.functions import FunctionsStatus
-from cognite.client.data_classes.iam import CreatedSession, GroupWrite, ProjectSpec, TokenInspection
+from cognite.client.data_classes.iam import GroupWrite, ProjectSpec, TokenInspection
 from cognite.client.utils._text import to_camel_case
 from cognite.client.utils.useful_types import SequenceNotStr
 from requests import Response
@@ -73,6 +73,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMet
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source._base import SourceRequestDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.project import ProjectStatus, ProjectStatusList
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionCreateResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.commands.auth import CLIENT_NAME
@@ -190,9 +191,15 @@ class ApprovalToolkitClient:
 
         # Set the side effect of the MagicMock to the real method
         self.mock_client.iam.compare_capabilities.side_effect = IAMAPI.compare_capabilities
-        self.mock_client.iam.sessions.create.return_value = CreatedSession(
-            id=1234, status="READY", nonce="123", type="CLIENT_CREDENTIALS", client_id="12345-12345-12345-12345"
-        )
+        self.mock_client.sessions.create.return_value = [
+            SessionCreateResponse(
+                id=1234,
+                status="READY",
+                nonce="123",
+                type="CLIENT_CREDENTIALS",
+                client_id="12345-12345-12345-12345",
+            )
+        ]
         # Set the token verify to never be missing ACLs.
         self.mock_client.tool.token.verify_acls.return_value = []
         # Set functions to be activated
@@ -1299,8 +1306,9 @@ class ApprovalToolkitClient:
                         # this is a sub api that must be checked
                         to_check.append(((*parent_key, api_name), vars(method)))
 
-        # This is mocked in the __init__
-        not_mocked.pop(("iam", "sessions", "create"), None)
+        # These are mocked in the __init__. create_single delegates to create.
+        not_mocked.pop(("sessions", "create"), None)
+        not_mocked.pop(("sessions", "create_single"), None)
         return dict(not_mocked)
 
     def auth_create_group_calls(self) -> Iterable[AuthGroupCalls]:

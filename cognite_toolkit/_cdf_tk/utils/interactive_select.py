@@ -96,7 +96,8 @@ class AssetCentricInteractiveSelect(ABC):
     @lru_cache
     def _get_available_hierarchies(self, data_set: str | None = None) -> list[Asset]:
         data_set_external_ids = [data_set] if data_set else None
-        return list(self.client.assets.list(root=True, limit=-1, data_set_external_ids=data_set_external_ids))
+        roots = self.client.assets.list(root=True, limit=-1, data_set_external_ids=data_set_external_ids)
+        return [asset for asset in roots if isinstance(asset, Asset)]
 
     def _create_choice(self, item: Asset | DataSetResponse) -> tuple[questionary.Choice, int]:
         """Create a questionary choice for the given item."""
@@ -480,12 +481,14 @@ class AssetCentricDestinationSelect:
 
     @classmethod
     def validate(cls, destination_type: str) -> AssetCentricDestinationType:
-        if destination_type not in cls.valid_destinations:
-            raise ToolkitValueError(
-                f"Invalid destination type: {destination_type!r}. Must be one of {humanize_collection(cls.valid_destinations)}."
-            )
-        # We validated the destination type above
-        return destination_type  # type: ignore[return-value]
+        match destination_type:
+            case "assets" | "files" | "events" | "timeseries" | "sequences":
+                return destination_type
+            case _:
+                raise ToolkitValueError(
+                    f"Invalid destination type: {destination_type!r}. "
+                    f"Must be one of {humanize_collection(cls.valid_destinations)}."
+                )
 
     @classmethod
     def select(cls) -> AssetCentricDestinationType:

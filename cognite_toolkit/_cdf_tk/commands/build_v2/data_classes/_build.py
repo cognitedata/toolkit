@@ -1,11 +1,12 @@
 import builtins
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
-from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_RequestResource
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_Identifier, T_RequestResource
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     FailedReadExtra,
@@ -27,6 +28,8 @@ from ._insights import (
 )
 from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
+
+UNRESOLVED_VARIABLE_PATTERN = re.compile(r"\{\{.*?\}\}")
 
 
 class BuildParameters(BaseModel):
@@ -168,8 +171,8 @@ class BuiltModule(BaseModel):
         return self.files_built
 
     def load_local_resources(
-        self, crud: ResourceIO[Any, T_RequestResource, Any, Any]
-    ) -> dict[Identifier, tuple[BuiltResource, T_RequestResource]]:
+        self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any]
+    ) -> dict[T_Identifier, tuple[BuiltResource, T_RequestResource]]:
         """Reload this module's built resources for the given CRUD, the same way ``cdf deploy`` does.
 
         Only resources matching the CRUD's resource type and without syntax/read errors are considered.
@@ -184,7 +187,7 @@ class BuiltModule(BaseModel):
             return {}
 
         build_paths = {resource.build_path for resource in resource_by_id.values()}
-        local_by_id: dict[Identifier, tuple[BuiltResource, T_RequestResource]] = {}
+        local_by_id: dict[T_Identifier, tuple[BuiltResource, T_RequestResource]] = {}
         for build_path in build_paths:
             for raw in crud.load_resource_file(build_path):
                 request = crud.load_resource(raw)

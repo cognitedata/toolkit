@@ -439,19 +439,28 @@ def load_infield_source_data(
             if isinstance(timeseries_values, str):
                 timeseries_external_ids.add(timeseries_values)
             elif isinstance(timeseries_values, list):
-                timeseries_external_ids.update(timeseries_values)  # type: ignore[arg-type]
+                timeseries_external_ids.update(value for value in timeseries_values if isinstance(value, str))
 
     file_external_ids: set[str] = set()
     for key in ["checklistItem", "observation"]:
         reading = instances[key]
-        if reading.sources and reading.sources[0].properties and "files" in reading.sources[0].properties:
-            file_external_ids.update(reading.sources[0].properties["files"])  # type: ignore[arg-type]
+        sources = reading.sources
+        properties = sources[0].properties if sources else None
+        if properties is None or "files" not in properties:
+            continue
+        files = properties["files"]
+        if isinstance(files, list):
+            file_external_ids.update(value for value in files if isinstance(value, str))
 
     asset_instance = instances["asset"]
+    sources = asset_instance.sources
+    properties = sources[0].properties if sources else None
+    title = properties["title"] if properties is not None else None
+    if not isinstance(title, str):
+        raise ValueError("Infield asset is missing a string title")
     asset_request = AssetRequest(
         external_id=asset_instance.external_id,
-        # MyPy this is validated by the AssetRequest pydantic model.
-        name=asset_instance.sources[0].properties["title"],  # type: ignore[index, arg-type]
+        name=title,
     )
 
     return (

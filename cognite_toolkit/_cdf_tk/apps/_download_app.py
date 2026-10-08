@@ -1,6 +1,7 @@
+from collections.abc import Sequence
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, TypeVar
 
 import questionary
 import typer
@@ -18,7 +19,6 @@ from cognite_toolkit._cdf_tk.dataio import (
     CogniteFileContentIO,
     DataIO,
     DatapointsIO,
-    DataSelector,
     EventDataIO,
     FileMetadataContentIO,
     FileMetadataDataIO,
@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.dataio import (
     InstanceIO,
     RawIO,
     RecordIO,
+    T_Selector,
     TimeSeriesDataIO,
 )
 from cognite_toolkit._cdf_tk.dataio.selectors import (
@@ -71,6 +72,8 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
 
 from ._helpers import print_help_if_no_subcommand
 
+T_Format = TypeVar("T_Format", bound=Enum)
+
 
 class RawFormats(str, Enum):
     ndjson = "ndjson"
@@ -101,7 +104,7 @@ class DatapointsDataTypes(str, Enum):
     string = "string"
 
 
-if Flags.EXTEND_DOWNLOAD.is_enabled():
+if Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled():
 
     class InstanceFormats(str, Enum):
         ndjson = "ndjson"
@@ -153,7 +156,7 @@ class DownloadApp(typer.Typer):
         self.command("events")(self.download_events_cmd)
         self.command("files")(self.download_files_cmd)
         self.command("hierarchy")(self.download_hierarchy_cmd)
-        if Flags.EXTEND_DOWNLOAD.is_enabled():
+        if Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled():
             self.command("datapoints")(self.download_datapoints_cmd)
             self.command("records")(self.download_records_cmd)
         self.command("instances")(self.download_instances_cmd)
@@ -195,7 +198,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         compression: Annotated[
@@ -290,7 +293,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         compression: Annotated[
@@ -398,7 +401,7 @@ class DownloadApp(typer.Typer):
             ).unsafe_ask()
         )
         api_format = ApiFormat.request
-        if Flags.EXTEND_DOWNLOAD.is_enabled():
+        if Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled():
             api_format = questionary.select(
                 message=f"Select the API format to download the {display_name}:",
                 choices=[
@@ -433,7 +436,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         compression: Annotated[
@@ -525,7 +528,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         compression: Annotated[
@@ -610,7 +613,7 @@ class DownloadApp(typer.Typer):
                 "-c",
                 help="Whether to include file contents when downloading assets. Note if you enable this option, you can"
                 "only download 100 files at a time.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = False,
         file_format: Annotated[
@@ -626,7 +629,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         compression: Annotated[
@@ -666,7 +669,7 @@ class DownloadApp(typer.Typer):
         """This command will download file metadata from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
-            if Flags.EXTEND_DOWNLOAD.is_enabled():
+            if Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled():
                 include_file_contents = questionary.select(
                     "Do you want to include file contents when downloading file metadata?",
                     choices=[
@@ -688,8 +691,21 @@ class DownloadApp(typer.Typer):
                     max_limit=1000 if include_file_contents else None,
                     available_formats=AssetCentricFormats,
                 )
-        io: DataIO
-        selectors: list[DataSelector]
+        cmd = DownloadCommand(client=client)
+
+        def run_download(selectors: Sequence[T_Selector], io: DataIO[T_Selector, Any]) -> None:
+            cmd.run(
+                lambda: cmd.download(
+                    selectors=selectors,
+                    io=io,
+                    output_dir=output_dir,
+                    file_format=f".{file_format.value}",
+                    compression=compression.value,
+                    limit=limit if limit != -1 else None,
+                    verbose=verbose,
+                )
+            )
+
         if include_file_contents:
             selector = DocumentsInteractiveSelect(client, max_selected=100)
             file_format = questionary.select(
@@ -705,66 +721,59 @@ class DownloadApp(typer.Typer):
             selected = selector.select_documents()
             if selected.selection.file_type == "dms":
                 download_dir_name = "cognite-file-with-content"
-                io = CogniteFileContentIO(
-                    client,
-                    config_directory=output_dir / download_dir_name,
-                    file_directory=output_dir / download_dir_name / "files",
-                    api_format=api_format.value,
+                run_download(
+                    [
+                        CogniteFileFilesSelectorV2(
+                            download_dir_name=download_dir_name,
+                            ids=tuple(
+                                NodeWithNameId(
+                                    space=doc.instance_id.space,
+                                    external_id=doc.instance_id.external_id,
+                                    name=doc.source_file.name,
+                                )
+                                for doc in selected.documents
+                                if doc.instance_id
+                            ),
+                        )
+                    ],
+                    CogniteFileContentIO(
+                        client,
+                        config_directory=output_dir / download_dir_name,
+                        file_directory=output_dir / download_dir_name / "files",
+                        api_format=api_format.value,
+                    ),
                 )
-                selectors = [
-                    CogniteFileFilesSelectorV2(
-                        download_dir_name=download_dir_name,
-                        ids=tuple(
-                            NodeWithNameId(
-                                space=doc.instance_id.space,
-                                external_id=doc.instance_id.external_id,
-                                name=doc.source_file.name,
-                            )
-                            for doc in selected.documents
-                            if doc.instance_id
-                        ),
-                    )
-                ]
             else:
                 download_dir_name = "asset-centric-files-with-content"
-                io = FileMetadataContentIO(
-                    client,
-                    config_directory=output_dir / download_dir_name,
-                    file_directory=output_dir / download_dir_name / "files",
-                    api_format=api_format.value,
+                run_download(
+                    [
+                        FileMetadataFilesSelectorV2(
+                            ids=tuple(
+                                InternalWithNameId(id=document.id, name=document.source_file.name)
+                                for document in selected.documents
+                            ),
+                            download_dir_name=download_dir_name,
+                        )
+                    ],
+                    FileMetadataContentIO(
+                        client,
+                        config_directory=output_dir / download_dir_name,
+                        file_directory=output_dir / download_dir_name / "files",
+                        api_format=api_format.value,
+                    ),
                 )
-                selectors = [
-                    FileMetadataFilesSelectorV2(
-                        ids=tuple(
-                            InternalWithNameId(id=document.id, name=document.source_file.name)
-                            for document in selected.documents
-                        ),
-                        download_dir_name=download_dir_name,
-                    )
-                ]
         elif data_sets is not None:
-            selectors = [
-                DataSetSelector(
-                    kind="FileMetadata", data_set_external_id=data_set, download_dir_name="asset-centric-files"
-                )
-                for data_set in data_sets
-            ]
-            io = FileMetadataDataIO(client, api_format=api_format.value)
+            run_download(
+                [
+                    DataSetSelector(
+                        kind="FileMetadata", data_set_external_id=data_set, download_dir_name="asset-centric-files"
+                    )
+                    for data_set in data_sets
+                ],
+                FileMetadataDataIO(client, api_format=api_format.value),
+            )
         else:
             raise NotImplementedError("Bug in Toolkit. Unexpected execution path.")
-
-        cmd = DownloadCommand(client=client)
-        cmd.run(
-            lambda: cmd.download(
-                selectors=selectors,  # type: ignore[misc]
-                io=io,
-                output_dir=output_dir,
-                file_format=f".{file_format.value}",
-                compression=compression.value,
-                limit=limit if limit != -1 else None,
-                verbose=verbose,
-            )
-        )
 
     @staticmethod
     def download_hierarchy_cmd(
@@ -788,7 +797,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         compression: Annotated[
@@ -907,7 +916,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         include_edges: Annotated[
@@ -915,7 +924,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--include-edges",
                 help="Include edges connected to downloaded node instances.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = False,
         compression: Annotated[
@@ -990,7 +999,7 @@ class DownloadApp(typer.Typer):
             if select_instance_space:
                 selected_instance_spaces = tuple(selector.select_instance_space(multiselect=True))
             edge_type_ids_by_view_id: dict[ViewNoVersionId, set[EdgeTypeId]] = {}
-            if Flags.EXTEND_DOWNLOAD.is_enabled():
+            if Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled():
                 include_edges = questionary.confirm(
                     "Do you want to include edges when downloading node instances? If yes, all edges connected to the downloaded nodes will be downloaded as well.",
                     default=include_edges,
@@ -1025,7 +1034,7 @@ class DownloadApp(typer.Typer):
                         endpoint="sync",
                     )
                 )
-            output_dir, file_format, compression, limit = cls._interactive_select_shared(  # type: ignore[assignment]
+            output_dir, file_format, compression, limit = cls._interactive_select_shared(
                 output_dir, file_format, InstanceFormats, compression, limit, "instances", "view"
             )
         elif schema_space is not None and view_external_ids is not None:
@@ -1080,14 +1089,14 @@ class DownloadApp(typer.Typer):
     def _interactive_select_shared(
         cls,
         output_dir: Path,
-        file_format: Enum,
-        file_format_options: type[Enum],
+        file_format: T_Format,
+        file_format_options: type[T_Format],
         compression: CompressionFormat,
         limit: int,
         display_name: str,
         selector_type: str,
         max_limit: int | None = None,
-    ) -> tuple[Path, Enum, Enum, int]:
+    ) -> tuple[Path, T_Format, CompressionFormat, int]:
         """Interactive selection of output_dir, file_format, compression and limit for the download commands."""
         selected_output_dir = Path(
             questionary.path("Where to download the data:", default=str(output_dir), only_directories=True).unsafe_ask()
@@ -1100,14 +1109,18 @@ class DownloadApp(typer.Typer):
             selected_file_format = questionary.select(
                 "Select format to download the data in:",
                 choices=file_formats,
-                default=file_format,  # type: ignore[arg-type]
+                default=file_format.value,
             ).unsafe_ask()
+        if not isinstance(selected_file_format, file_format_options):
+            raise ValueError(f"Expected a {file_format_options.__name__} value, got {selected_file_format!r}.")
 
         selected_compression = questionary.select(
             "Select compression format to use when downloading the data:",
             choices=[Choice(title=comp.value, value=comp) for comp in CompressionFormat],
             default=compression,
         ).unsafe_ask()
+        if not isinstance(selected_compression, CompressionFormat):
+            raise ValueError(f"Expected a compression format, got {selected_compression!r}.")
         limit_prompt = f"The maximum number of {display_name} to download per {selector_type}. "
         if max_limit is not None:
             limit_prompt += f"Use -1 to download up to the maximum of {max_limit:,} {display_name}."
@@ -1120,7 +1133,7 @@ class DownloadApp(typer.Typer):
                 validate=lambda value: value.lstrip("-").isdigit() and (int(value) == -1 or int(value) > 0),
             ).unsafe_ask()
         )
-        return selected_output_dir, selected_file_format, selected_compression, selected_limit  # type: ignore[return-value]
+        return selected_output_dir, selected_file_format, selected_compression, selected_limit
 
     @staticmethod
     def download_datapoints_cmd(
@@ -1167,7 +1180,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         output_dir: Annotated[
@@ -1285,7 +1298,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         skip_backend_services: Annotated[
@@ -1293,9 +1306,9 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--skip-backend-services",
                 help="Skip downloading backend-services for charts, i.e., monitoring jobs and scheduled calculations.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
-        ] = not Flags.EXTEND_DOWNLOAD.is_enabled(),
+        ] = not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
         compression: Annotated[
             CompressionFormat,
             typer.Option(
@@ -1374,7 +1387,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         compression: Annotated[
@@ -1485,7 +1498,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--api-format",
                 help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
-                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
+                hidden=not (Flags.EXTEND_DOWNLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = ApiFormat.request,
         compression: Annotated[
@@ -1556,7 +1569,7 @@ class DownloadApp(typer.Typer):
                 )
                 for container in selected_containers
             ]
-            output_dir, file_format, compression, limit = cls._interactive_select_shared(  # type: ignore[assignment]
+            output_dir, file_format, compression, limit = cls._interactive_select_shared(
                 output_dir,
                 file_format,
                 RecordFormats,

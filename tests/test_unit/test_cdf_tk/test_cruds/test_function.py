@@ -8,15 +8,14 @@ import respx
 import yaml
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
-    ClientCredentials,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
     FunctionWrite,
 )
 from cognite.client.data_classes.capabilities import FilesAcl, FunctionsAcl
-from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
@@ -24,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
     FunctionScheduleResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployV2Command
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
@@ -422,7 +422,7 @@ authentication:
             pytest.param(
                 "invalid-client-id",
                 "invalid-client-secret",
-                CogniteAPIError(message="Invalid client credentials", code=400),
+                ToolkitAPIError(message="Invalid client credentials", code=400),
                 id="Invalid credentials no extra hint",
             ),
             pytest.param(
@@ -473,7 +473,7 @@ authentication:
             cron_expression="0 8 * * *",
         )
         id_ = loader.get_id(schedule)
-        loader.authentication_by_id[id_] = ClientCredentials(
+        loader.authentication_by_id[id_] = ClientCredentialsSessionRequest(
             client_id=client_id,
             client_secret=client_secret,
         )

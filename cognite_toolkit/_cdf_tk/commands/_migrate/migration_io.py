@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Generic, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -40,6 +40,7 @@ from cognite_toolkit._cdf_tk.dataio import (
     AnnotationIO,
     HierarchyIO,
     InstanceIO,
+    T_DataRequest,
     T_Selector,
     UploadableDataIO,
 )
@@ -84,17 +85,16 @@ from .selectors import (
 )
 
 
-class AssetCentricMigrationIO(
-    UploadableDataIO[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResource], NodeOrEdgeRequest]
+class AssetCentricMigrationSource(
+    Generic[T_AssetCentricResource, T_DataRequest],
+    UploadableDataIO[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResource], T_DataRequest],
 ):
-    KIND = "AssetCentricMigration"
-    CHUNK_SIZE = 1000
-    UPLOAD_ENDPOINT = InstanceIO.UPLOAD_ENDPOINT
+    """Read path shared by asset-centric migrations.
 
-    PENDING_INSTANCE_ID_ENDPOINT_BY_KIND: ClassVar[Mapping[AssetCentricKindExtended, str]] = {
-        "TimeSeries": "/timeseries/set-pending-instance-ids",
-        "FileMetadata": "/files/set-pending-instance-ids",
-    }
+    Subclasses choose the upload request type, for example nodes and edges or records.
+    """
+
+    CHUNK_SIZE = 1000
 
     def __init__(self, client: ToolkitClient, skip_linking: bool = True, skip_existing: bool = False) -> None:
         super().__init__(client)
@@ -132,7 +132,7 @@ class AssetCentricMigrationIO(
             )
 
         for items in iterator:
-            page = Page(
+            page = Page[AssetCentricMapping[T_AssetCentricResource]](
                 worker_id="main",
                 items=[DataItem(tracking_id=str(item.mapping.as_asset_centric_id()), item=item) for item in items],
             )
@@ -214,8 +214,18 @@ class AssetCentricMigrationIO(
             [DataItem(tracking_id=item.tracking_id, item=item.item.dump()) for item in data_chunk.items]
         )
 
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> NodeOrEdgeRequest:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> T_DataRequest:
         raise NotImplementedError()
+
+
+class AssetCentricMigrationIO(AssetCentricMigrationSource[T_AssetCentricResource, NodeOrEdgeRequest]):
+    KIND = "AssetCentricMigration"
+    UPLOAD_ENDPOINT = InstanceIO.UPLOAD_ENDPOINT
+
+    PENDING_INSTANCE_ID_ENDPOINT_BY_KIND: ClassVar[Mapping[AssetCentricKindExtended, str]] = {
+        "TimeSeries": "/timeseries/set-pending-instance-ids",
+        "FileMetadata": "/files/set-pending-instance-ids",
+    }
 
     def upload_items(
         self,
@@ -330,11 +340,10 @@ class AssetCentricMigrationIO(
         )
 
 
-class RecordsMigrationIO(AssetCentricMigrationIO):
+class RecordsMigrationIO(AssetCentricMigrationSource[T_AssetCentricResource, RecordRequest]):
     """IO class for migrating asset-centric resources to records.
 
-    Inherits all read-side logic (streaming, counting) from AssetCentricMigrationIO
-    and overrides only the upload path to target a records stream.
+    Uses the shared asset-centric read path and uploads records to a stream.
     """
 
     KIND = "RecordsMigration"
@@ -348,7 +357,7 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
         self.skip_existing = skip_existing
         self._last_updated_time_windows: list[dict[str, int] | None] | None = None
 
-    def _remove_existing(self, data_chunk: Page[RecordRequest]) -> Page[RecordRequest]:  # type: ignore[override]
+    def _remove_existing(self, data_chunk: Page[RecordRequest]) -> Page[RecordRequest]:
         """Return a page with items whose (space, externalId) are not already in the stream.
 
         Logs skipped items on the migration logger.
@@ -393,7 +402,7 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
 
         return data_chunk.create_from(to_upload)
 
-    def upload_items(  # type: ignore[override]
+    def upload_items(
         self,
         data_chunk: Page[RecordRequest],
         http_client: HTTPClient,
@@ -468,7 +477,7 @@ class AnnotationMigrationIO(
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
         for items in iterator:
-            page = Page(
+            page = Page[AssetCentricMapping[AnnotationResponse]](
                 worker_id="main",
                 items=[DataItem(tracking_id=str(item.mapping.as_asset_centric_id()), item=item) for item in items],
             )
@@ -484,7 +493,8 @@ class AnnotationMigrationIO(
             mapping_list: list[AssetCentricMapping[AnnotationResponse]] = []
             for data_item in data_chunk.items:
                 resource = data_item.item
-                if resource.annotation_type not in self.SUPPORTED_ANNOTATION_TYPES:
+                annotation_type = resource.annotation_type
+                if annotation_type not in ("diagrams.AssetLink", "diagrams.FileLink"):
                     # This should not happen, as the annotation_io should already filter these out.
                     # This is just in case.
                     continue
@@ -493,7 +503,7 @@ class AnnotationMigrationIO(
                     id=resource.id,
                     ingestion_mapping=self._get_mapping(selector.ingestion_mapping, resource),
                     preferred_consumer_view=selector.preferred_consumer_view,
-                    annotation_type=resource.annotation_type,  # type: ignore[arg-type]
+                    annotation_type=annotation_type,
                 )
                 mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))
             yield mapping_list
@@ -677,6 +687,44 @@ class Image360CollectionInstanceIO(InstanceIO):
         return node.model_copy(update={"sources": updated_sources})
 
 
+def verify_target_spaces_exist(client: ToolkitClient, spaces: Iterable[str]) -> None:
+    """Fail before a 3D migration when a target instance space is missing.
+
+    The 3D migration APIs return HTTP 500 when ``object3DSpace``, ``cadNodeSpace``,
+    the contextualization space, or a model's target instance space does not exist
+    in the project. Check the spaces up front, including the case where the same
+    space is passed more than once. Invalid space identifiers are left to the
+    spaces API, which returns a 4XX response.
+    """
+    requested = list(dict.fromkeys(spaces))
+    if not requested:
+        return
+
+    space_ids = [SpaceId(space=space) for space in requested]
+    existing = client.tool.spaces.retrieve(space_ids)
+    found = {item.space: item for item in existing}
+    missing = [space for space in requested if space not in found]
+    if missing:
+        raise ToolkitMigrationError(_missing_target_spaces_message(missing))
+
+    global_spaces = [space for space in requested if found[space].is_global]
+    if global_spaces:
+        raise ToolkitMigrationError(
+            "The following target spaces are system spaces and cannot store 3D migration instances: "
+            f"{humanize_collection(global_spaces)}. "
+            "Choose a project space that has been deployed."
+        )
+
+
+def _missing_target_spaces_message(missing: Sequence[str]) -> str:
+    return (
+        "The following target spaces do not exist or are not deployed in the CDF project: "
+        f"{humanize_collection(missing)}. "
+        "Deploy these spaces before running the 3D migration. "
+        "Missing target spaces cause the 3D APIs to return HTTP 500."
+    )
+
+
 def verify_threed_dm_migration_enabled(client: ToolkitClient) -> None:
     """
     Probe /3d/migrate/models to check if the 3D DM migration feature flag is
@@ -754,7 +802,7 @@ class ThreeDMigrationIO(UploadableDataIO[ThreeDSelector, ThreeDModelClassicRespo
             if items:
                 bm: Bookmark = CursorBookmark(cursor=response.next_cursor) if response.next_cursor else NoBookmark()
                 yield self.emit_registered_page(
-                    Page(
+                    Page[ThreeDModelClassicResponse](
                         worker_id="main",
                         items=[DataItem(tracking_id=item.name, item=item) for item in items],
                         bookmark=bm,
@@ -786,6 +834,7 @@ class ThreeDMigrationIO(UploadableDataIO[ThreeDSelector, ThreeDModelClassicRespo
         if len(data_chunk) > self.CHUNK_SIZE:
             raise RuntimeError(f"Uploading more than {self.CHUNK_SIZE} 3D models at a time is not supported.")
 
+        verify_target_spaces_exist(self.client, [data.item.space for data in data_chunk.items])
         results = ItemsResultList()
         responses = http_client.request_items_retries(
             message=ItemsRequest(
@@ -892,7 +941,7 @@ class ThreeDAssetMappingMigrationIO(
                             CursorBookmark(cursor=response.next_cursor) if response.next_cursor else NoBookmark()
                         )
                         yield self.emit_registered_page(
-                            Page(
+                            Page[AssetMappingClassicResponse](
                                 worker_id="main",
                                 items=[
                                     DataItem(
@@ -921,6 +970,7 @@ class ThreeDAssetMappingMigrationIO(
         """Migrate 3D asset mappings by uploading them to the migrate/asset-mappings endpoint."""
         if not data_chunk:
             return ItemsResultList()
+        verify_target_spaces_exist(self.client, [self.object_3D_space, self.cad_node_space])
         # Assume all items in the chunk belong to the same model and revision, they should
         # if the .stream_data method is used for downloading.
         first = data_chunk.items[0]
@@ -1008,7 +1058,7 @@ class Image360AnnotationMigrationIO(
                     continue
                 total += len(filtered)
                 yield self.emit_registered_page(
-                    Page(
+                    Page[AnnotationResponse](
                         worker_id="main",
                         items=[DataItem(tracking_id=str(ann.id), item=ann) for ann in filtered],
                     )
@@ -1031,6 +1081,7 @@ class Image360AnnotationMigrationIO(
         """
         if not data_chunk or selector is None:
             return ItemsResultList()
+        verify_target_spaces_exist(self.client, [selector.object3d_space, selector.instance_space])
 
         groups: dict[tuple[str, str], list[DataItem[Image360AnnotationItem]]] = {}
         skipped_entries: list[MigrationEntryV2] = []

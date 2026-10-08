@@ -3,7 +3,12 @@ from collections.abc import Iterable
 from typing import Any, ClassVar
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client._resource_base import (
+    Identifier,
+    T_Identifier,
+    T_RequestResource,
+    T_ResponseResource,
+)
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, DataModelId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -117,31 +122,34 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         Today this is only discovered during (or after) ``cdf deploy``. This surfaces the same findings
         during ``cdf build``.
         """
-        cruds: tuple[ResourceIO[Any, Any, Any, Any], ...] = (
-            ContainerIO(client),
-            ViewIO(client),
-            DataModelIO(client),
-        )
-        for crud in cruds:
-            try:
-                local_by_id: dict[Identifier, tuple[BuiltResource, Any]] = {}
-                for module in self.modules:
-                    local_by_id.update(module.load_local_resources(crud))
-                if not local_by_id:
-                    continue
-                cdf_items = crud.retrieve(list(local_by_id.keys()))
-            except Exception as e:
-                yield InternalValidatorException(
-                    message=f"Failed to compare local {crud.display_name} with CDF: {e}",
-                    source=crud.kind,
-                )
+        yield from self._compare_data_modeling_resource(ContainerIO(client))
+        yield from self._compare_data_modeling_resource(ViewIO(client))
+        yield from self._compare_data_modeling_resource(DataModelIO(client))
+
+    def _compare_data_modeling_resource(
+        self,
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
+    ) -> Iterable[ConsistencyError | InternalValidatorException]:
+        """Compare one data-modeling resource type against CDF."""
+        try:
+            local_by_id: dict[T_Identifier, tuple[BuiltResource, T_RequestResource]] = {}
+            for module in self.modules:
+                local_by_id.update(module.load_local_resources(crud))
+            if not local_by_id:
+                return
+            cdf_items = crud.retrieve(list(local_by_id.keys()))
+        except ToolkitAPIError as e:
+            yield InternalValidatorException(
+                message=f"Failed to compare local {crud.display_name} with CDF: {e}",
+                source=crud.kind,
+            )
+            return
+        for cdf_item in cdf_items:
+            item_id = crud.get_id(cdf_item)
+            if item_id not in local_by_id:
                 continue
-            for cdf_item in cdf_items:
-                item_id = crud.get_id(cdf_item)
-                if item_id not in local_by_id:
-                    continue
-                resource, request = local_by_id[item_id]
-                yield from self._as_data_modeling_insights(item_id, resource, request, cdf_item)
+            resource, request = local_by_id[item_id]
+            yield from self._as_data_modeling_insights(item_id, resource, request, cdf_item)
 
     def _as_data_modeling_insights(
         self,

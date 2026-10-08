@@ -4,6 +4,7 @@ import urllib.parse
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from itertools import product
 from typing import Any, Literal, cast
 
 from rich.console import Console, Group, RenderableType
@@ -230,13 +231,14 @@ def merged_capability_rows(capabilities: FlatCapabilities) -> list[MergedCapabil
     index: dict[tuple[str, str], list[str]] = {}
     order: list[tuple[str, str]] = []
     scopes: dict[tuple[str, str], Scope] = {}
-    for (_, acl_name, action), scope in capabilities.items():
-        key = (acl_name, scope.model_dump_json())
-        if key not in index:
-            index[key] = []
-            order.append(key)
-            scopes[key] = scope
-        index[key].append(action)
+    for (_, acl_name, action), capability_scopes in capabilities.items():
+        for scope in capability_scopes:
+            key = (acl_name, scope.model_dump_json())
+            if key not in index:
+                index[key] = []
+                order.append(key)
+                scopes[key] = scope
+            index[key].append(action)
     for key in order:
         grouped.append(MergedCapability(acl_name=key[0], actions=tuple(sorted(index[key])), scope=scopes[key]))
     grouped.sort(key=lambda row: (row.acl_name, row.actions))
@@ -295,23 +297,28 @@ def resolve_action_access(
     missing: list[str] = []
     for acl in required:
         found_actions: list[str] = []
-        found_scopes: list[Scope] = []
+        action_scopes: list[list[Scope]] = []
         acl_missing: list[str] = []
         for acl_action in acl.actions:
-            scope = capabilities.get((type(acl), acl.acl_name, acl_action))
-            if scope is None:
+            scopes = capabilities.get((type(acl), acl.acl_name, acl_action))
+            if not scopes:
                 acl_missing.append(acl_action)
                 continue
             found_actions.append(acl_action)
-            found_scopes.append(scope)
+            action_scopes.append(scopes)
         if acl_missing:
             missing.extend(f"{acl.acl_name} {acl_action}" for acl_action in acl_missing)
             continue
-        unified = _unify_scopes(found_scopes)
-        if unified is None:
+        if len(action_scopes) == 1:
+            for scope in action_scopes[0]:
+                grants.append(AclScopeGrant(acl_name=acl.acl_name, actions=tuple(found_actions), scope=scope))
+            continue
+        unified = _scope_covering_actions(action_scopes)
+        if not unified:
             missing.append(f"{acl.acl_name} (scopes do not overlap)")
             continue
-        grants.append(AclScopeGrant(acl_name=acl.acl_name, actions=tuple(found_actions), scope=unified))
+        for scope in unified:
+            grants.append(AclScopeGrant(acl_name=acl.acl_name, actions=tuple(found_actions), scope=scope))
     return ActionAccess(applicable=True, grants=grants, missing=missing)
 
 
@@ -486,6 +493,22 @@ def _cluster_name(client: ToolkitClient) -> str | None:
     if hostname.endswith(".cognitedata.com"):
         return hostname.removesuffix(".cognitedata.com")
     return hostname or None
+
+
+def _scope_covering_actions(action_scopes: list[list[Scope]]) -> list[Scope]:
+    """Return a scope shared by every action.
+
+    Scopes on one action are alternatives. Scopes on different actions must overlap.
+    """
+    if all(len(scopes) == 1 for scopes in action_scopes):
+        unifed = _unify_scopes([scopes[0] for scopes in action_scopes])
+        return [unifed] if unifed is not None else []
+    covering: list[Scope] = []
+    for combination in product(*action_scopes):
+        unified = _unify_scopes(list(combination))
+        if unified is not None and unified not in covering:
+            covering.append(unified)
+    return covering
 
 
 def _unify_scopes(scopes: list[Scope]) -> Scope | None:

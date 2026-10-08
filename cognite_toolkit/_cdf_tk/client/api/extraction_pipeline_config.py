@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
@@ -33,7 +34,9 @@ class ExtractionPipelineConfigsAPI(CDFResourceAPI[ExtractionPipelineConfigRespon
     ) -> PagedResponse[ExtractionPipelineConfigResponse]:
         return PagedResponse[ExtractionPipelineConfigResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[ExtractionPipelineConfigRequest]) -> list[ExtractionPipelineConfigResponse]:
+    def create(
+        self, items: Sequence[ExtractionPipelineConfigRequest]
+    ) -> builtins.list[ExtractionPipelineConfigResponse]:
         """Create new configuration revisions for extraction pipelines.
 
         The CDF API creates one revision at a time, so items are created sequentially.
@@ -45,7 +48,7 @@ class ExtractionPipelineConfigsAPI(CDFResourceAPI[ExtractionPipelineConfigRespon
             List of created configuration revisions.
         """
         endpoint = self._method_endpoint_map["create"]
-        results: list[ExtractionPipelineConfigResponse] = []
+        results: builtins.list[ExtractionPipelineConfigResponse] = []
         for item in items:
             request = RequestMessage(
                 endpoint_url=self._make_url(endpoint.path),
@@ -58,7 +61,7 @@ class ExtractionPipelineConfigsAPI(CDFResourceAPI[ExtractionPipelineConfigRespon
 
     def retrieve(
         self, items: Sequence[ExtractionPipelineConfigId], ignore_unknown_ids: bool = False
-    ) -> list[ExtractionPipelineConfigResponse]:
+    ) -> builtins.list[ExtractionPipelineConfigResponse]:
         """Retrieve configuration revisions by their identifiers.
 
         Each identifier specifies an extraction pipeline external ID and a revision number.
@@ -72,7 +75,7 @@ class ExtractionPipelineConfigsAPI(CDFResourceAPI[ExtractionPipelineConfigRespon
             List of retrieved configuration revisions.
         """
         endpoint = self._method_endpoint_map["retrieve"]
-        results: list[ExtractionPipelineConfigResponse] = []
+        results: builtins.list[ExtractionPipelineConfigResponse] = []
         for item in items:
             request = RequestMessage(
                 endpoint_url=self._make_url(endpoint.path),
@@ -115,7 +118,7 @@ class ExtractionPipelineConfigsAPI(CDFResourceAPI[ExtractionPipelineConfigRespon
         self,
         external_id: str,
         limit: int | None = None,
-    ) -> Iterable[list[ExtractionPipelineConfigResponse]]:
+    ) -> Iterable[builtins.list[ExtractionPipelineConfigResponse]]:
         """Iterate over all configuration revisions for an extraction pipeline.
 
         Args:
@@ -134,7 +137,7 @@ class ExtractionPipelineConfigsAPI(CDFResourceAPI[ExtractionPipelineConfigRespon
         self,
         external_id: str,
         limit: int | None = None,
-    ) -> list[ExtractionPipelineConfigResponse]:
+    ) -> builtins.list[ExtractionPipelineConfigResponse]:
         """List all configuration revisions for an extraction pipeline.
 
         Args:

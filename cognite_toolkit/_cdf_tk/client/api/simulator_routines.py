@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
@@ -30,7 +31,7 @@ class SimulatorRoutinesAPI(CDFResourceAPI[SimulatorRoutineResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[SimulatorRoutineRequest]) -> list[SimulatorRoutineResponse]:
+    def create(self, items: Sequence[SimulatorRoutineRequest]) -> builtins.list[SimulatorRoutineResponse]:
         """Create simulator routines in CDF.
 
         Args:
@@ -75,7 +76,7 @@ class SimulatorRoutinesAPI(CDFResourceAPI[SimulatorRoutineResponse]):
         self,
         filter: SimulatorModelRoutineFilter | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[SimulatorRoutineResponse]]:
+    ) -> Iterable[builtins.list[SimulatorRoutineResponse]]:
         """Iterate over simulator routines in CDF.
 
         Args:
@@ -95,7 +96,7 @@ class SimulatorRoutinesAPI(CDFResourceAPI[SimulatorRoutineResponse]):
     def list(
         self,
         limit: int | None = 100,
-    ) -> list[SimulatorRoutineResponse]:
+    ) -> builtins.list[SimulatorRoutineResponse]:
         """List all simulator routines in CDF.
 
         Args:

@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
@@ -32,7 +33,7 @@ class HostedExtractorJobsAPI(CDFResourceAPI[HostedExtractorJobResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[ExternalId]:
         return ResponseItems[ExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
+    def create(self, items: Sequence[HostedExtractorJobRequest]) -> builtins.list[HostedExtractorJobResponse]:
         """Create hosted extractor jobs in CDF.
 
         Args:
@@ -44,7 +45,7 @@ class HostedExtractorJobsAPI(CDFResourceAPI[HostedExtractorJobResponse]):
 
     def retrieve(
         self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
-    ) -> list[HostedExtractorJobResponse]:
+    ) -> builtins.list[HostedExtractorJobResponse]:
         """Retrieve hosted extractor jobs from CDF.
 
         Args:
@@ -59,7 +60,7 @@ class HostedExtractorJobsAPI(CDFResourceAPI[HostedExtractorJobResponse]):
 
     def update(
         self, items: Sequence[HostedExtractorJobRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[HostedExtractorJobResponse]:
+    ) -> builtins.list[HostedExtractorJobResponse]:
         """Update hosted extractor jobs in CDF.
 
         Args:
@@ -99,7 +100,7 @@ class HostedExtractorJobsAPI(CDFResourceAPI[HostedExtractorJobResponse]):
     def iterate(
         self,
         limit: int | None = 100,
-    ) -> Iterable[list[HostedExtractorJobResponse]]:
+    ) -> Iterable[builtins.list[HostedExtractorJobResponse]]:
         """Iterate over hosted extractor jobs in CDF.
 
         Args:
@@ -110,7 +111,7 @@ class HostedExtractorJobsAPI(CDFResourceAPI[HostedExtractorJobResponse]):
         """
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = 100) -> list[HostedExtractorJobResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[HostedExtractorJobResponse]:
         """List all hosted extractor jobs in CDF.
 
         Args:

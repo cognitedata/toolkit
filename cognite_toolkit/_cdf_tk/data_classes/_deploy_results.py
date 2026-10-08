@@ -55,7 +55,7 @@ class ResourceDeployResult(DeployResult):
         return self
 
 
-class DeployResults(UserDict):
+class DeployResults(UserDict[str, DeployResult]):
     def __init__(
         self,
         collection: Iterable[DeployResult],
@@ -114,11 +114,17 @@ class DeployResults(UserDict):
 
         return table
 
-    def __getitem__(self, item: str) -> DeployResult:
-        return self.data[item]
+    def __getitem__(self, key: str) -> DeployResult:
+        return self.data[key]
 
-    def __setitem__(self, key: str, value: DeployResult) -> None:
+    def __setitem__(self, key: str, item: DeployResult) -> None:
         if key not in self.data:
-            self.data[key] = value
-        else:
-            self.data[key] += value
+            self.data[key] = item
+            return
+        existing = self.data[key]
+        if existing is item:
+            return
+        if not isinstance(existing, ResourceDeployResult) or not isinstance(item, ResourceDeployResult):
+            raise TypeError("Cannot add two DeployResult objects unless both are ResourceDeployResult")
+        existing += item
+        self.data[key] = existing

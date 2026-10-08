@@ -4,6 +4,7 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Containers/operation/ApplyContainers
 """
 
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
@@ -42,7 +43,7 @@ class ContainersAPI(CDFResourceAPI[ContainerResponse]):
     ) -> PagedResponse[ContainerResponse]:
         return PagedResponse[ContainerResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
+    def create(self, items: Sequence[ContainerRequest]) -> builtins.list[ContainerResponse]:
         """Create (create or update) containers in CDF.
 
         Args:
@@ -53,7 +54,7 @@ class ContainersAPI(CDFResourceAPI[ContainerResponse]):
         """
         return self._request_item_response(items, "upsert")
 
-    def update(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
+    def update(self, items: Sequence[ContainerRequest]) -> builtins.list[ContainerResponse]:
         """Update (create or update) containers in CDF.
 
         Args:
@@ -63,7 +64,7 @@ class ContainersAPI(CDFResourceAPI[ContainerResponse]):
         """
         return self._request_item_response(items, "upsert")
 
-    def retrieve(self, items: Sequence[ContainerId]) -> list[ContainerResponse]:
+    def retrieve(self, items: Sequence[ContainerId]) -> builtins.list[ContainerResponse]:
         """Retrieve containers from CDF.
 
         Args:
@@ -108,7 +109,7 @@ class ContainersAPI(CDFResourceAPI[ContainerResponse]):
         self,
         filter: ContainerFilter | None = None,
         limit: int | None = None,
-    ) -> Iterable[list[ContainerResponse]]:
+    ) -> Iterable[builtins.list[ContainerResponse]]:
         """Iterate over all containers in CDF.
 
         Args:
@@ -125,7 +126,7 @@ class ContainersAPI(CDFResourceAPI[ContainerResponse]):
 
     def inspect(
         self, items: Sequence[ContainerId], all_versions: bool = True, include_unavailable_views: bool = True
-    ) -> list[ContainerInspectResultItem]:
+    ) -> builtins.list[ContainerInspectResultItem]:
         """Inspect containers to discover which views reference them.
 
         Args:
@@ -143,14 +144,14 @@ class ContainersAPI(CDFResourceAPI[ContainerResponse]):
                 "includeUnavailableViews": include_unavailable_views,
             },
         }
-        results: list[ContainerInspectResultItem] = []
+        results: builtins.list[ContainerInspectResultItem] = []
         for response in self._chunk_requests(
             items, "inspect", self._serialize_items, extra_body={"inspectionOperations": inspection_operations}
         ):
             results.extend(ResponseItems[ContainerInspectResultItem].model_validate_json(response.body).items)
         return results
 
-    def list(self, filter: ContainerFilter | None = None, limit: int | None = None) -> list[ContainerResponse]:
+    def list(self, filter: ContainerFilter | None = None, limit: int | None = None) -> builtins.list[ContainerResponse]:
         """List all containers in CDF.
 
         Args:

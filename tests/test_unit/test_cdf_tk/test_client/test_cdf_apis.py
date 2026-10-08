@@ -94,7 +94,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.search_config import Search
 from cognite_toolkit._cdf_tk.client.resource_classes.session import (
     ClientCredentialsSessionRequest,
     OneshotTokenExchangeSessionRequest,
-    Session,
+    SessionCreateResponse,
+    SessionResponse,
     TokenExchangeSessionRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest
@@ -1685,6 +1686,7 @@ description: Smoke test skill
             {"items": [{"oneshotTokenExchange": True}]},
         ]
         assert [item.dump() for item in created] == created_items
+        assert all(isinstance(item, SessionCreateResponse) for item in created)
 
         listed_session = {
             "id": 1,
@@ -1699,13 +1701,14 @@ description: Smoke test skill
         )
         retrieved = api.retrieve([InternalId(id=1)])
         assert retrieved[0].dump() == listed_session
+        assert isinstance(retrieved[0], SessionResponse)
         assert _request_json(respx_mock.calls[-1].request) == {"items": [{"id": 1}]}
 
         respx_mock.post(config.create_api_url("/sessions/revoke")).mock(
             return_value=httpx2.Response(status_code=200, json={"items": [{"id": 1}]})
         )
         revoked = api.revoke([retrieved[0].as_id()])
-        assert revoked[0] == Session(id=1)
+        assert revoked[0] == SessionResponse(id=1)
         assert _request_json(respx_mock.calls[-1].request) == {"items": [{"id": 1}]}
 
         respx_mock.get(config.create_api_url("/sessions")).mock(
@@ -1713,6 +1716,7 @@ description: Smoke test skill
         )
         listed = api.list(status="ACTIVE", limit=25)
         assert listed[0].dump() == listed_session
+        assert isinstance(listed[0], SessionResponse)
         assert dict(respx_mock.calls[-1].request.url.params) == {"status": "ACTIVE", "limit": "25"}
 
 

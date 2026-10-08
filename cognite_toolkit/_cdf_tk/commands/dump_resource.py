@@ -260,7 +260,10 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId | tuple[DataModelId, .
                     self.container_ids |= set(item.mapped_containers)
         elif isinstance(first, SpaceResponse):
             return
-        self.space_ids |= {SpaceId(space=item.space) for item in resources if hasattr(item, "space")}
+        for item in resources:
+            space = getattr(item, "space", None)
+            if isinstance(space, str):
+                self.space_ids.add(SpaceId(space=space))
 
     def __iter__(
         self,
@@ -415,7 +418,7 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
         schedule_loader = TransformationScheduleIO.create_io(self.client)
         schedule_list = list(schedule_loader.iterate(parent_ids=external_ids))
         yield [], schedule_list, schedule_loader, None
-        if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES):
+        if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) or FeatureFlag.is_enabled(Flags.V09):
             transformations = (
                 [t for t in self.transformations if t.external_id in self.identifier]
                 if self.transformations

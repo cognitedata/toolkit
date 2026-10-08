@@ -65,7 +65,8 @@ class RecordIO(
                 "aggregates": {"total": {"count": {}}},
             }
             if last_updated_time is not None:
-                body["lastUpdatedTime"] = last_updated_time  # type: ignore[assignment]
+                time_window: dict[str, JsonValue] = {key: value for key, value in last_updated_time.items()}
+                body["lastUpdatedTime"] = time_window
             request = RequestMessage(endpoint_url=aggregate_url, method="POST", body_content=body)
             result = self.client.http_client.request_single_retries(request)
             response = result.get_success_or_raise(request)

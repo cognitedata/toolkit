@@ -8,7 +8,6 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 from cognite.client.data_classes import (
-    CreatedSession,
     FileMetadata,
     TransformationSchedule,
 )
@@ -21,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersi
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionCreateResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -188,20 +188,18 @@ def test_resource_types_is_up_to_date() -> None:
         extra.discard("cdf_applications")
     if not FeatureFlag.is_enabled(Flags.MIGRATE):
         extra.discard("migration")
-    if not FeatureFlag.is_enabled(Flags.SIGNALS):
+    if not (FeatureFlag.is_enabled(Flags.SIGNALS) or FeatureFlag.is_enabled(Flags.V09)):
         extra.discard("signals")
     if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
         extra.discard("data_products")
         extra.discard("rulesets")
     if not FeatureFlag.is_enabled(Flags.CUSTOM_APPS):
         extra.discard("apps")
-    if not FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
-        extra.discard("skills")
-    if not FeatureFlag.is_enabled(Flags.SAP_WRITEBACK):
+    if not (FeatureFlag.is_enabled(Flags.SAP_WRITEBACK) or FeatureFlag.is_enabled(Flags.V09)):
         extra.discard("SAPwritebacks")
-    if not FeatureFlag.is_enabled(Flags.INTEGRATIONS):
+    if not (FeatureFlag.is_enabled(Flags.INTEGRATIONS) or FeatureFlag.is_enabled(Flags.V09)):
         extra.discard("integrations")
-    if not FeatureFlag.is_enabled(Flags.SIGNALS):
+    if not (FeatureFlag.is_enabled(Flags.SIGNALS) or FeatureFlag.is_enabled(Flags.V09)):
         extra.discard("signals")
     assert not missing, f"Missing {missing=}"
     assert not extra, f"Extra {extra=}"
@@ -378,7 +376,7 @@ class TestResourceCRUDs:
         # Avoid returning an external .sql file for TransformationIO.
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
         with monkeypatch_toolkit_client() as client:
-            client.iam.sessions.create.return_value = CreatedSession(123, "READY", "my-nonce")
+            client.sessions.create.return_value = [SessionCreateResponse(id=123, status="READY", nonce="my-nonce")]
             loader = loader_cls.create_io(client)
 
         file = MagicMock(spec=Path)

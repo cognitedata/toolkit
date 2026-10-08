@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import stat
+import sys
 import tempfile
 import time
 import typing
@@ -189,6 +190,106 @@ def read_yaml_content(content: str) -> dict[str, Any] | list[dict[str, Any]]:
     return result
 
 
+class YamlPosition(typing.NamedTuple):
+    """A 1-based line and column in a YAML file."""
+
+    line: int
+    column: int
+
+
+def yaml_positions(content: str) -> dict[tuple[str | int, ...], YamlPosition]:
+    """Maps each location in the YAML content to its position (1-based line and column).
+
+    A location is the tuple of keys and list indices leading to a value, matching the locations in
+    Pydantic validation errors, for example, (0, "properties", "name"). Mapping keys point to the position
+    of the key, and list items point to the position where the item starts.
+
+    This is slower than read_yaml_content, so it should only be used when positions are needed,
+    for example, when reporting validation errors.
+
+    Args:
+        content: string containing the YAML content
+
+    Returns:
+        A dictionary from location to position. Empty if the content has no YAML document.
+    """
+    positions: dict[tuple[str | int, ...], YamlPosition] = {}
+    root = yaml.compose(content, Loader=yaml.SafeLoader)
+    if root is not None:
+        _collect_positions(root, (), positions)
+    return positions
+
+
+def _collect_positions(
+    node: yaml.Node, location: tuple[str | int, ...], positions: dict[tuple[str | int, ...], YamlPosition]
+) -> None:
+    if isinstance(node, yaml.MappingNode):
+        for key_node, value_node in node.value:
+            if not isinstance(key_node, yaml.ScalarNode):
+                continue
+            key_location = (*location, key_node.value)
+            positions[key_location] = YamlPosition(key_node.start_mark.line + 1, key_node.start_mark.column + 1)
+            _collect_positions(value_node, key_location, positions)
+    elif isinstance(node, yaml.SequenceNode):
+        for index, item_node in enumerate(node.value):
+            item_location = (*location, index)
+            positions[item_location] = YamlPosition(item_node.start_mark.line + 1, item_node.start_mark.column + 1)
+            _collect_positions(item_node, item_location, positions)
+
+
+def find_unique_match_position(content: str, pattern: re.Pattern[str]) -> YamlPosition | None:
+    """Finds the position (1-based line and column) of the pattern in the content, if it matches exactly once."""
+    matches = list(pattern.finditer(content))
+    if len(matches) != 1:
+        return None
+    start = matches[0].start()
+    line_start = content.rfind("\n", 0, start) + 1
+    return YamlPosition(content.count("\n", 0, start) + 1, start - line_start + 1)
+
+
+def yaml_find_unique_position(content: str, text: str, *, as_key: bool = False) -> YamlPosition | None:
+    """Finds the position of the scalar (mapping value or list item, or mapping key if as_key) equal to text.
+
+    Args:
+        content: string containing the YAML content
+        text: the text of the scalar to find
+        as_key: whether to look for a mapping key instead of a mapping value or list item. A key that occurs
+            at different depths, for example, 'properties' in both a container and its indexes, is
+            found at its shallowest depth.
+
+    Returns:
+        The position if there is exactly one match (at the shallowest depth for keys), otherwise None.
+        Also None if the content is not valid YAML.
+    """
+    try:
+        root = yaml.compose(content, Loader=yaml.SafeLoader)
+    except yaml.YAMLError:
+        return None
+    matches: list[tuple[int, YamlPosition]] = []
+    if root is not None:
+        _collect_scalar_matches(root, text, as_key, 0, matches)
+    if as_key and matches:
+        shallowest = min(depth for depth, _ in matches)
+        matches = [match for match in matches if match[0] == shallowest]
+    return matches[0][1] if len(matches) == 1 else None
+
+
+def _collect_scalar_matches(
+    node: yaml.Node, text: str, as_key: bool, depth: int, matches: list[tuple[int, YamlPosition]]
+) -> None:
+    if isinstance(node, yaml.ScalarNode):
+        if not as_key and node.value == text:
+            matches.append((depth, YamlPosition(node.start_mark.line + 1, node.start_mark.column + 1)))
+    elif isinstance(node, yaml.MappingNode):
+        for key_node, value_node in node.value:
+            if as_key and isinstance(key_node, yaml.ScalarNode) and key_node.value == text:
+                matches.append((depth, YamlPosition(key_node.start_mark.line + 1, key_node.start_mark.column + 1)))
+            _collect_scalar_matches(value_node, text, as_key, depth + 1, matches)
+    elif isinstance(node, yaml.SequenceNode):
+        for item_node in node.value:
+            _collect_scalar_matches(item_node, text, as_key, depth + 1, matches)
+
+
 # Spaces are allowed, but we replace them as well
 _ILLEGAL_CHARACTERS = re.compile(r"[<>:\"/\\|?*\s]")
 
@@ -353,7 +454,10 @@ class YAMLWithComments(UserDict[T_Key, T_Value]):
                     continue
                 # This is a new comment.
                 if (position == "after" or variable is None) and variable is not init_value:
-                    key = (*key_prefix, *parent_variables, *((variable and [variable]) or []))  # type: ignore[misc]
+                    if isinstance(variable, str) and variable:
+                        key = (*key_prefix, *parent_variables, variable)
+                    else:
+                        key = (*key_prefix, *parent_variables)
                     if position == "after":
                         comments[key].after.append(comment.strip())
                     else:
@@ -424,20 +528,30 @@ def remove_trailing_newline(content: str) -> str:
     return content
 
 
-def _handle_remove_readonly(func: Any, path: Any, exc: Any) -> None:
-    excvalue = exc[1]
-    if func in (os.rmdir, os.remove) and excvalue.errno == errno.EACCES:
-        # Typically on Windows, if the file is read-only, first remove the read-only attribute
-        # https://stackoverflow.com/questions/1213706/what-user-do-python-scripts-run-as-in-windows
+def _clear_readonly_and_retry(func: Any, path: str, exc: BaseException) -> None:
+    # Typically on Windows, if the file is read-only, first remove the read-only attribute
+    # https://stackoverflow.com/questions/1213706/what-user-do-python-scripts-run-as-in-windows
+    if func in (os.rmdir, os.remove) and isinstance(exc, OSError) and exc.errno == errno.EACCES:
         os.chmod(path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)  # 0777
         func(path)
-    else:
-        raise
+        return
+    raise exc
+
+
+def _handle_remove_readonly(func: Any, path: Any, exc: Any) -> None:
+    """Compatibility callback for shutil.rmtree(onerror=...) on Python < 3.12."""
+    _exc_type, exc_value, _exc_tb = exc
+    if not isinstance(exc_value, BaseException):
+        raise exc_value
+    _clear_readonly_and_retry(func, path, exc_value)
 
 
 def safe_rmtree(path: Path) -> None:
     try:
-        shutil.rmtree(path, ignore_errors=False, onerror=_handle_remove_readonly)
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(path, onexc=_clear_readonly_and_retry)
+        else:
+            shutil.rmtree(path, onerror=_handle_remove_readonly)
     except PermissionError:
         if path.is_dir():
             name = "directory"

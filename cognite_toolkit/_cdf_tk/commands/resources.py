@@ -1,10 +1,13 @@
 import difflib
 import subprocess
+import typing
 from pathlib import Path
 from typing import Any
 
 import questionary
 import typer
+from pydantic import BaseModel
+from pydantic.fields import FieldInfo
 from questionary import Choice
 from rich import print
 
@@ -93,6 +96,25 @@ class ResourcesCommand(ToolkitCommand):
 
         return resolved_cruds
 
+    @staticmethod
+    def _resolve_model_fields(yaml_cls: Any) -> dict[str, FieldInfo]:
+        """Return model_fields for a BaseModel, or the first BaseModel member of an
+        Annotated union (e.g. Annotated[Union[A, B], Field(discriminator=...)])."""
+
+        def find_base_model(t: Any) -> type[BaseModel] | None:
+            if isinstance(t, type) and issubclass(t, BaseModel):
+                return t
+            for arg in typing.get_args(t):
+                res = find_base_model(arg)
+                if res is not None:
+                    return res
+            return None
+
+        base_model = find_base_model(yaml_cls)
+        if base_model is not None:
+            return base_model.model_fields
+        raise TypeError(f"Cannot extract model fields from {yaml_cls!r}")
+
     def _get_resource_yaml_content(
         self,
         resource_crud: type[ResourceIO],
@@ -118,7 +140,7 @@ class ResourcesCommand(ToolkitCommand):
         optional_with_value: list[tuple[str, Any, str]] = []
         optional_null: list[tuple[str, None, str]] = []
 
-        for field_name, field in resource_crud.yaml_cls.model_fields.items():
+        for field_name, field in self._resolve_model_fields(resource_crud.yaml_cls).items():
             name = field.alias or field_name
             description = field.description or ""
 
@@ -127,9 +149,6 @@ class ResourcesCommand(ToolkitCommand):
                 required_fields.append((name, overrides[name], f"# {description}"))
             elif field.is_required():
                 required_fields.append((name, f"<{name}>", f"# (Required) {description}"))
-            elif field.default_factory is not None:
-                value = field.default_factory()
-                optional_with_value.append((name, value, f"# {description}"))
             elif field.default is not None:
                 optional_with_value.append((name, field.default, f"# {description}"))
             else:
@@ -191,10 +210,11 @@ class ResourcesCommand(ToolkitCommand):
             return final_prefix
 
         overrides: dict[str, Any] = {"externalId": final_prefix}
-        if "name" in resource_crud.yaml_cls.model_fields:
+        model_fields = self._resolve_model_fields(resource_crud.yaml_cls)
+        if "name" in model_fields:
             overrides["name"] = final_prefix
         owner = self._get_git_user()
-        if owner and "owner" in resource_crud.yaml_cls.model_fields:
+        if owner and "owner" in model_fields:
             overrides["owner"] = owner
         yaml_content = self._get_resource_yaml_content(resource_crud, overrides=overrides)
         file_path.write_text(yaml_content)

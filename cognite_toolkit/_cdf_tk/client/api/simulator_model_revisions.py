@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
@@ -30,7 +31,7 @@ class SimulatorModelRevisionsAPI(CDFResourceAPI[SimulatorModelRevisionResponse])
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[SimulatorModelRevisionResponse]:
+    def create(self, items: Sequence[SimulatorModelRevisionRequest]) -> builtins.list[SimulatorModelRevisionResponse]:
         """Create simulator model revisions in CDF.
 
         Args:
@@ -43,7 +44,7 @@ class SimulatorModelRevisionsAPI(CDFResourceAPI[SimulatorModelRevisionResponse])
 
     def retrieve(
         self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
-    ) -> list[SimulatorModelRevisionResponse]:
+    ) -> builtins.list[SimulatorModelRevisionResponse]:
         """Retrieve simulator model revisions from CDF.
 
         Args:
@@ -86,7 +87,7 @@ class SimulatorModelRevisionsAPI(CDFResourceAPI[SimulatorModelRevisionResponse])
         self,
         filter: SimulatorModelRevisionFilter | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[SimulatorModelRevisionResponse]]:
+    ) -> Iterable[builtins.list[SimulatorModelRevisionResponse]]:
         """Iterate over simulator model revisions in CDF.
 
         Args:
@@ -106,7 +107,7 @@ class SimulatorModelRevisionsAPI(CDFResourceAPI[SimulatorModelRevisionResponse])
     def list(
         self,
         limit: int | None = 100,
-    ) -> list[SimulatorModelRevisionResponse]:
+    ) -> builtins.list[SimulatorModelRevisionResponse]:
         """List all simulator model revisions in CDF.
 
         Args:

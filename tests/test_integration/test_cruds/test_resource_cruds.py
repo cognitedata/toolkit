@@ -15,7 +15,6 @@ from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
-    ClientCredentials,
     DataSet,
     Function,
     FunctionSchedulesList,
@@ -54,6 +53,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     TimeSeriesAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
@@ -105,8 +105,9 @@ class TestFunctionScheduleLoader:
         )
         identifier = loader.get_id(function_schedule)
         assert isinstance(toolkit_client_config.credentials, OAuthClientCredentials)
-        loader.authentication_by_id[identifier] = ClientCredentials(
-            toolkit_client_config.credentials.client_id, toolkit_client_config.credentials.client_secret
+        loader.authentication_by_id[identifier] = ClientCredentialsSessionRequest(
+            client_id=toolkit_client_config.credentials.client_id,
+            client_secret=toolkit_client_config.credentials.client_secret,
         )
 
         # Function schedules cannot be updated, they must be deleted and recreated.
@@ -134,8 +135,9 @@ class TestFunctionScheduleLoader:
         )
         loader = FunctionScheduleIO(toolkit_client)
         assert isinstance(toolkit_client_config.credentials, OAuthClientCredentials)
-        loader.authentication_by_id[loader.get_id(local)] = ClientCredentials(
-            toolkit_client_config.credentials.client_id, toolkit_client_config.credentials.client_secret
+        loader.authentication_by_id[loader.get_id(local)] = ClientCredentialsSessionRequest(
+            client_id=toolkit_client_config.credentials.client_id,
+            client_secret=toolkit_client_config.credentials.client_secret,
         )
 
         created: FunctionSchedulesList | None = None

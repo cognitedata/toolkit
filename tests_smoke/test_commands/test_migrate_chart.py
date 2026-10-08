@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
+from cognite_toolkit._cdf_tk.client.resource_classes.session import TokenExchangeSessionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.dataio import ChartIO
@@ -74,8 +75,8 @@ def legacy_chart(
         raise AssertionError("Chart migration failed - no monitoring jobs.")
     monitoring_job = chart.monitoring_jobs[0]
 
-    calculation.nonce = client.iam.sessions.create().nonce
-    monitoring_job.nonce = client.iam.sessions.create().nonce
+    calculation.nonce = client.sessions.create([TokenExchangeSessionRequest()])[0].nonce
+    monitoring_job.nonce = client.sessions.create([TokenExchangeSessionRequest()])[0].nonce
     alert_cannels = client.alerts.channels.list()
     if len(alert_cannels) == 0:
         raise AssertionError("Chart migration failed - no alert cannels available.")
@@ -91,7 +92,10 @@ def legacy_chart(
     created_job = client.charts.monitoring_jobs.create([monitoring_job])[0]
     # Update internal ID used to link monitoring job with Chart UI element.
     chart.monitoring_jobs[0].id = created_job.id
-    chart.data.monitoring_jobs[0].id = created_job.id  # type: ignore[index]
+    data_jobs = chart.data.monitoring_jobs
+    if data_jobs is None:
+        raise AssertionError("Chart migration failed - no monitoring jobs in chart data.")
+    data_jobs[0].id = created_job.id
 
     created_charts = client.charts.create([chart])
 
@@ -172,14 +176,16 @@ class TestMigrateChart:
                 job.model.timeseries_id = None
 
         dumped = request.dump()
-        dumped["monitoringJobs"] = [job.dump() for job in request.monitoring_jobs or []] or None
+        monitoring_jobs_dump = [job.dump() for job in request.monitoring_jobs or []]
+        dumped["monitoringJobs"] = monitoring_jobs_dump or None
         dumped["scheduledCalculations"] = [
             calculation.dump() for calculation in request.scheduled_calculations or []
         ] or None
         # Changes depending on test run and service principal used.
         del dumped["data"]["userInfo"]["id"]
         del dumped["data"]["monitoringJobs"][0]["id"]
-        del dumped["monitoringJobs"][0]["channelId"]
+        if monitoring_jobs_dump:
+            del monitoring_jobs_dump[0]["channelId"]
 
         data_regression.check({"chart": dumped})
 

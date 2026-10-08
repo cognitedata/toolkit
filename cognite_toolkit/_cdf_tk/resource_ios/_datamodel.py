@@ -381,13 +381,10 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             if isinstance((cdf_value := dumped.get(key)), dict) and isinstance((local_value := local.get(key)), dict):
                 for cdf_id, cdf_item in cdf_value.items():
                     local_item = local_value.get(cdf_id)
-                    if (
-                        isinstance(local_item, dict)
-                        and "bySpace" not in local_item
-                        and isinstance(cdf_item, dict)
-                        and cdf_item.get("bySpace") is False
-                    ):
-                        cdf_item.pop("bySpace", None)
+                    if isinstance(local_item, dict) and isinstance(cdf_item, dict):
+                        for index_prop, default_value in [("bySpace", False), ("cursorable", False)]:
+                            if cdf_item.get(index_prop) == default_value and index_prop not in local_item:
+                                cdf_item.pop(index_prop, None)
         local_prop_by_id = local.get("properties", {})
         for prop_id, cdf_prop in dumped.get("properties", {}).items():
             if prop_id not in local_prop_by_id:
@@ -697,7 +694,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
 
         yield SpaceIO, SpaceId(space=resource.space)
 
-        if FeatureFlag.is_enabled(Flags.RECORD_VIEWS):
+        if FeatureFlag.is_enabled(Flags.RECORD_VIEWS) or FeatureFlag.is_enabled(Flags.V09):
             for stream_id in resource.stream_id or []:
                 yield StreamIO, ExternalId(external_id=stream_id)
 
@@ -736,7 +733,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
     def dump_resource(self, resource: ViewResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
         local = local or {}
-        if not FeatureFlag.is_enabled(Flags.RECORD_VIEWS):
+        if not (FeatureFlag.is_enabled(Flags.RECORD_VIEWS) or FeatureFlag.is_enabled(Flags.V09)):
             dumped.pop("streamId", None)
         if not dumped.get("properties") and not local.get("properties"):
             if "properties" in local:

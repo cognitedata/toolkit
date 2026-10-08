@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Sized
 from functools import cache
 from pathlib import Path
+from types import GenericAlias
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
@@ -150,8 +151,8 @@ class BaseResourceIO(ABC, Generic[T_Identifier, T_YamlResource]):
         cls,
     ) -> TypeAdapter[list[T_YamlResource]]:
         """Returns a TypeAdapter for a list of yaml_cls. This is used to validate the user input."""
-        # We know that cls.yaml_cls is defined.
-        return TypeAdapter[list[T_YamlResource]](list[cls.yaml_cls])  # type: ignore[name-defined]
+        # yaml_cls is a class attribute, so the list type has to be built at runtime.
+        return TypeAdapter[list[T_YamlResource]](GenericAlias(list, (cls.yaml_cls,)))
 
     @classmethod
     @abstractmethod

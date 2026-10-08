@@ -1,36 +1,13 @@
 from abc import ABC, abstractmethod
-from functools import lru_cache
-from typing import ClassVar, Generic, Literal, TypeVar
-
-from cognite.client.data_classes import (
-    AssetFilter,
-    EventFilter,
-    FileMetadataFilter,
-    SequenceFilter,
-    TimeSeriesFilter,
-    Transformation,
-    filters,
-)
-from cognite.client.data_classes.assets import AssetProperty
-from cognite.client.data_classes.documents import SourceFileProperty
-from cognite.client.data_classes.events import EventProperty
-from cognite.client.data_classes.sequences import SequenceProperty
-from cognite.client.data_classes.time_series import TimeSeriesProperty
+from typing import Any, ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.utils.cdf import (
     label_aggregate_count,
-    label_count,
-    metadata_key_counts,
     relationship_aggregate_count,
-)
-from cognite_toolkit._cdf_tk.utils.sql_parser import SQLParser
-
-T_CogniteFilter = TypeVar(
-    "T_CogniteFilter",
-    bound=AssetFilter | EventFilter | FileMetadataFilter | TimeSeriesFilter | SequenceFilter,
-    contravariant=True,
 )
 
 
@@ -51,34 +28,13 @@ class AssetCentricAggregator(ABC):
     ) -> int:
         raise NotImplementedError
 
-    def transformation_count(self) -> int:
-        """Returns the number of transformations associated with the resource."""
-        transformation_count = 0
-        for destination in self._transformation_destination:
-            for chunk in self.client.transformations(chunk_size=1000, destination_type=destination, limit=None):
-                transformation_count += len(chunk)
-        return transformation_count
-
     @abstractmethod
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
         raise NotImplementedError
 
-    def used_transformations(self, data_set_external_ids: list[str]) -> list[Transformation]:
-        """Returns a list of transformations used by the resource."""
-        data_set_ids = self.client.lookup.data_sets.id(data_set_external_ids, allow_empty=True)
-        found_transformations: list[Transformation] = []
-        for destination in self._transformation_destination:
-            for chunk in self.client.transformations(chunk_size=1000, destination_type=destination, limit=None):
-                for transformation in chunk:
-                    if SQLParser(transformation.query or "", operation="profiling").is_using_data_set(
-                        data_set_ids, data_set_external_ids
-                    ):
-                        found_transformations.append(transformation)
-        return found_transformations
-
     @staticmethod
-    def _to_unique_int_list(results: list) -> list[int]:
+    def _to_unique_int_list(results: list[Any]) -> list[int]:
         """Converts a list of results to a unique list of integers.
 
         This method does the following:
@@ -115,41 +71,20 @@ class AssetCentricAggregator(ABC):
             dataset_id = self.client.lookup.data_sets.id(data_set_external_id, allow_empty=False)
         return dataset_id
 
+    def _data_set_external_ids(self, values: list[Any], *, coerce: bool) -> list[str]:
+        if coerce:
+            ids = self._to_unique_int_list(values)
+        else:
+            ids = [value for value in values if isinstance(value, int)]
+        return self.client.lookup.data_sets.external_id(ids)
 
-class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
-    filter_cls: type[T_CogniteFilter]
 
+class MetadataAggregator(AssetCentricAggregator, ABC):
     def __init__(
         self, client: ToolkitClient, resource_name: Literal["assets", "events", "files", "timeseries", "sequences"]
     ) -> None:
         super().__init__(client)
         self.resource_name = resource_name
-
-    def metadata_key_count(
-        self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None
-    ) -> int:
-        """Returns the number of metadata keys used by the resource."""
-        return len(self.used_metadata_keys(hierarchy=hierarchy, data_sets=data_sets))
-
-    def used_metadata_keys(
-        self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None
-    ) -> list[tuple[str, int]]:
-        """Returns a list of metadata keys and their counts."""
-        hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(
-            hierarchy, data_sets, operation="find metadata keys"
-        )
-        return self._used_metadata_keys(hierarchy=hierarchy_ids, data_sets=data_set_ids)
-
-    @lru_cache(maxsize=1)
-    def _used_metadata_keys(
-        self, hierarchy: tuple[int, ...] | None = None, data_sets: tuple[int, ...] | None = None
-    ) -> list[tuple[str, int]]:
-        return metadata_key_counts(
-            self.client,
-            self.resource_name,
-            hierarchies=list(hierarchy) if hierarchy else None,
-            data_sets=list(data_sets) if data_sets else None,
-        )
 
     def _lookup_hierarchy_data_set_pair(
         self, hierarchy: str | list[str] | None, data_sets: str | list[str] | None, operation: str
@@ -198,63 +133,29 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
         cls,
         hierarchy: str | list[str] | tuple[str, ...] | None = None,
         data_set_external_id: str | list[str] | tuple[str, ...] | None = None,
-    ) -> T_CogniteFilter | None:
+    ) -> ClassicFilter | None:
         """Creates a filter for the resource based on hierarchy and data set external ID."""
-        if cls._is_empty(hierarchy) and cls._is_empty(data_set_external_id):
+        asset_subtree_ids = cls._as_external_ids(hierarchy)
+        data_set_ids = cls._as_external_ids(data_set_external_id)
+        if asset_subtree_ids is None and data_set_ids is None:
             return None
-        asset_subtree_ids: list[dict[str, str]] | None = None
-        if isinstance(hierarchy, str):
-            asset_subtree_ids = [{"externalId": hierarchy}]
-        elif isinstance(hierarchy, list | tuple) and hierarchy:
-            asset_subtree_ids = [{"externalId": item} for item in hierarchy]
-        data_set_ids: list[dict[str, str]] | None = None
-        if isinstance(data_set_external_id, str):
-            data_set_ids = [{"externalId": data_set_external_id}]
-        elif isinstance(data_set_external_id, list | tuple) and data_set_external_id:
-            data_set_ids = [{"externalId": item} for item in data_set_external_id]
+        if asset_subtree_ids is None:
+            return ClassicFilter(data_set_ids=data_set_ids)
+        if data_set_ids is None:
+            return ClassicFilter(asset_subtree_ids=asset_subtree_ids)
+        return ClassicFilter(asset_subtree_ids=asset_subtree_ids, data_set_ids=data_set_ids)
 
-        return cls.filter_cls(asset_subtree_ids=asset_subtree_ids, data_set_ids=data_set_ids)
-
-    @classmethod
-    def _is_empty(cls, items: str | list[str] | tuple[str, ...] | None) -> bool:
-        """Checks if the provided items are empty."""
-        if items is None:
-            return True
-        if isinstance(items, list | tuple):
-            return not items
-        return False
+    @staticmethod
+    def _as_external_ids(items: str | list[str] | tuple[str, ...] | None) -> list[ExternalId | InternalId] | None:
+        if isinstance(items, str):
+            return [ExternalId(external_id=items)]
+        if not items:
+            return None
+        return [ExternalId(external_id=item) for item in items]
 
 
-class LabelAggregator(MetadataAggregator, ABC, Generic[T_CogniteFilter]):
-    def label_count(self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None) -> int:
-        """Returns the number of labels used by the resource."""
-        return len(self.used_labels(hierarchy=hierarchy, data_sets=data_sets))
-
-    def used_labels(
-        self, hierarchy: str | list[str] | None = None, data_sets: str | list[str] | None = None
-    ) -> list[tuple[str, int]]:
-        """Returns a list of labels and their counts."""
-        hierarchy_ids, data_set_ids = self._lookup_hierarchy_data_set_pair(
-            hierarchy, data_sets, operation="find labels"
-        )
-        return self._used_labels(hierarchy=hierarchy_ids, data_sets=data_set_ids)
-
-    @lru_cache(maxsize=1)
-    def _used_labels(
-        self, hierarchy: tuple[int, ...] | None = None, data_sets: tuple[int, ...] | None = None
-    ) -> list[tuple[str, int]]:
-        """Returns a list of labels and their counts."""
-        return label_count(
-            self.client,
-            self.resource_name,
-            hierarchies=list(hierarchy) if hierarchy else None,
-            data_sets=list(data_sets) if data_sets else None,
-        )
-
-
-class AssetAggregator(LabelAggregator[AssetFilter]):
+class AssetAggregator(MetadataAggregator):
     _transformation_destination = ("assets", "asset_hierarchy")
-    filter_cls = AssetFilter
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client, "assets")
@@ -268,19 +169,16 @@ class AssetAggregator(LabelAggregator[AssetFilter]):
         hierarchy: str | list[str] | tuple[str, ...] | None = None,
         data_set_external_id: str | list[str] | tuple[str, ...] | None = None,
     ) -> int:
-        return self.client.assets.aggregate_count(filter=self.create_filter(hierarchy, data_set_external_id))
+        return self.client.tool.assets.count(filter=self.create_filter(hierarchy, data_set_external_id))
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
-        results = self.client.assets.aggregate_unique_values(
-            AssetProperty.data_set_id, filter=self.create_filter(hierarchy)
-        )
-        return self.client.lookup.data_sets.external_id([id_ for id_ in results.unique if isinstance(id_, int)])
+        results = self.client.tool.assets.unique(("dataSetId",), filter=self.create_filter(hierarchy))
+        return self._data_set_external_ids([bucket.value for bucket in results], coerce=False)
 
 
-class EventAggregator(MetadataAggregator[EventFilter]):
+class EventAggregator(MetadataAggregator):
     _transformation_destination = ("events",)
-    filter_cls = EventFilter
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client, "events")
@@ -292,19 +190,16 @@ class EventAggregator(MetadataAggregator[EventFilter]):
     def count(
         self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
     ) -> int:
-        return self.client.events.aggregate_count(filter=self.create_filter(hierarchy, data_set_external_id))
+        return self.client.tool.events.count(filter=self.create_filter(hierarchy, data_set_external_id))
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
-        results = self.client.events.aggregate_unique_values(
-            property=EventProperty.data_set_id, filter=self.create_filter(hierarchy)
-        )
-        return self.client.lookup.data_sets.external_id([id_ for id_ in results.unique if isinstance(id_, int)])
+        results = self.client.tool.events.unique(("dataSetId",), filter=self.create_filter(hierarchy))
+        return self._data_set_external_ids([bucket.value for bucket in results], coerce=False)
 
 
-class FileAggregator(LabelAggregator[FileMetadataFilter]):
+class FileAggregator(MetadataAggregator):
     _transformation_destination = ("files",)
-    filter_cls = FileMetadataFilter
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client, "files")
@@ -316,23 +211,20 @@ class FileAggregator(LabelAggregator[FileMetadataFilter]):
     def count(
         self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
     ) -> int:
-        return self.client.files.aggregate_count(filter=self.create_filter(hierarchy, data_set_external_id))
+        return self.client.tool.filemetadata.count(filter=self.create_filter(hierarchy, data_set_external_id))
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
-        filter_: filters.Filter | None = None
+        # Files aggregate only returns a count, so distinct data set IDs come from the documents API.
+        filter_: dict[str, Any] | None = None
         if hierarchy is not None:
-            filter_ = filters.InAssetSubtree("assetExternalIds", [hierarchy])
-        results = self.client.documents.aggregate_unique_values(
-            property=SourceFileProperty.data_set_id, filter=filter_, limit=1000
-        )
-        ids = self._to_unique_int_list(results.unique)
-        return self.client.lookup.data_sets.external_id(list(ids))
+            filter_ = {"inAssetSubtree": {"property": ["assetExternalIds"], "values": [hierarchy]}}
+        results = self.client.tool.documents.unique(("sourceFile", "dataSetId"), filter=filter_, limit=1000)
+        return self._data_set_external_ids([bucket.value for bucket in results], coerce=True)
 
 
-class TimeSeriesAggregator(MetadataAggregator[TimeSeriesFilter]):
+class TimeSeriesAggregator(MetadataAggregator):
     _transformation_destination = ("timeseries",)
-    filter_cls = TimeSeriesFilter
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client, "timeseries")
@@ -344,20 +236,16 @@ class TimeSeriesAggregator(MetadataAggregator[TimeSeriesFilter]):
     def count(
         self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
     ) -> int:
-        return self.client.time_series.aggregate_count(filter=self.create_filter(hierarchy, data_set_external_id))
+        return self.client.tool.timeseries.count(filter=self.create_filter(hierarchy, data_set_external_id))
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
-        results = self.client.time_series.aggregate_unique_values(
-            property=TimeSeriesProperty.data_set_id, filter=self.create_filter(hierarchy)
-        )
-        ids = self._to_unique_int_list(results.unique)
-        return self.client.lookup.data_sets.external_id(ids)
+        results = self.client.tool.timeseries.unique(("dataSetId",), filter=self.create_filter(hierarchy))
+        return self._data_set_external_ids([bucket.value for bucket in results], coerce=True)
 
 
 class SequenceAggregator(MetadataAggregator):
     _transformation_destination = ("sequences",)
-    filter_cls = SequenceFilter
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client, "sequences")
@@ -369,15 +257,12 @@ class SequenceAggregator(MetadataAggregator):
     def count(
         self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
     ) -> int:
-        return self.client.sequences.aggregate_count(filter=self.create_filter(hierarchy, data_set_external_id))
+        return self.client.tool.sequences.count(filter=self.create_filter(hierarchy, data_set_external_id))
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
-        results = self.client.sequences.aggregate_unique_values(
-            property=SequenceProperty.data_set_id, filter=self.create_filter(hierarchy)
-        )
-        ids = self._to_unique_int_list(results.unique)
-        return self.client.lookup.data_sets.external_id(ids)
+        results = self.client.tool.sequences.unique(("dataSetId",), filter=self.create_filter(hierarchy))
+        return self._data_set_external_ids([bucket.value for bucket in results], coerce=True)
 
 
 class RelationshipAggregator(AssetCentricAggregator):

@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from functools import partial
 from typing import Literal, TypeVar
@@ -45,7 +46,7 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[ThreeDModelClassicResponse]):
 
     def create(
         self, items: Sequence[ThreeDModelClassicRequest | ThreeDModelDMSRequest]
-    ) -> list[ThreeDModelClassicResponse]:
+    ) -> builtins.list[ThreeDModelClassicResponse]:
         """Create 3D models.
 
         Args:
@@ -56,7 +57,7 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[ThreeDModelClassicResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, ids: Sequence[InternalId]) -> list[ThreeDModelClassicResponse]:
+    def retrieve(self, ids: Sequence[InternalId]) -> builtins.list[ThreeDModelClassicResponse]:
         """Retrieve 3D models by their IDs.
 
         Args:
@@ -65,7 +66,7 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[ThreeDModelClassicResponse]):
         Returns:
             list[ThreeDModelClassicResponse]: The retrieved 3D model(s).
         """
-        retrieved: list[ThreeDModelClassicResponse] = []
+        retrieved: builtins.list[ThreeDModelClassicResponse] = []
         endpoint = self._method_endpoint_map["retrieve"]
         for id in ids:
             url = endpoint.path.format(modelId=id.id)
@@ -82,7 +83,7 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[ThreeDModelClassicResponse]):
 
     def update(
         self, items: Sequence[ThreeDModelClassicRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[ThreeDModelClassicResponse]:
+    ) -> builtins.list[ThreeDModelClassicResponse]:
         """Update 3D models in classic format.
 
         Args:
@@ -131,7 +132,7 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[ThreeDModelClassicResponse]):
         include_revision_info: bool = False,
         limit: int | None = 100,
         cursor: str | None = None,
-    ) -> Iterable[list[ThreeDModelClassicResponse]]:
+    ) -> Iterable[builtins.list[ThreeDModelClassicResponse]]:
         params = self._create_list_filter(include_revision_info, published)
         return self._iterate(limit=limit, cursor=cursor, params=params)
 
@@ -140,7 +141,7 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[ThreeDModelClassicResponse]):
         published: bool | None = None,
         include_revision_info: bool = False,
         limit: int | None = 100,
-    ) -> list[ThreeDModelClassicResponse]:
+    ) -> builtins.list[ThreeDModelClassicResponse]:
         params = self._create_list_filter(include_revision_info, published)
         return self._list(limit=limit, params=params)
 
@@ -164,7 +165,7 @@ class ThreeDClassicRevisionsAPI(CDFResourceAPI[ThreeDRevisionClassicResponse]):
     ) -> PagedResponse[ThreeDRevisionClassicResponse]:
         return PagedResponse[ThreeDRevisionClassicResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[ThreeDRevisionClassicRequest]) -> list[ThreeDRevisionClassicResponse]:
+    def create(self, items: Sequence[ThreeDRevisionClassicRequest]) -> builtins.list[ThreeDRevisionClassicResponse]:
         """Create 3D revisions in classic format.
 
         Items are grouped by model_id and the path is formatted accordingly.
@@ -175,7 +176,7 @@ class ThreeDClassicRevisionsAPI(CDFResourceAPI[ThreeDRevisionClassicResponse]):
         Returns:
             The created 3D revision(s).
         """
-        results: list[ThreeDRevisionClassicResponse] = []
+        results: builtins.list[ThreeDRevisionClassicResponse] = []
         for (model_id,), group in self._group_items_by_text_field(items, "model_id").items():
             path = self.ENDPOINT.format(modelId=model_id)
             result = self._request_item_response(group, "create", endpoint=path)
@@ -188,7 +189,7 @@ class ThreeDClassicRevisionsAPI(CDFResourceAPI[ThreeDRevisionClassicResponse]):
         self,
         items: Sequence[ThreeDRevisionClassicRequest],
         mode: Literal["patch", "replace"] = "replace",
-    ) -> list[ThreeDRevisionClassicResponse]:
+    ) -> builtins.list[ThreeDRevisionClassicResponse]:
         """Update 3D revisions in classic format.
 
         Items are grouped by model_id and the path is formatted accordingly.
@@ -201,7 +202,7 @@ class ThreeDClassicRevisionsAPI(CDFResourceAPI[ThreeDRevisionClassicResponse]):
         Returns:
             The updated 3D revision(s).
         """
-        results: list[ThreeDRevisionClassicResponse] = []
+        results: builtins.list[ThreeDRevisionClassicResponse] = []
         endpoint = self._method_endpoint_map["update"]
         for (model_id,), group in self._group_items_by_text_field(items, "model_id").items():
             path = endpoint.path.format(modelId=model_id)
@@ -262,7 +263,7 @@ class ThreeDClassicRevisionsAPI(CDFResourceAPI[ThreeDRevisionClassicResponse]):
         model_id: int,
         published: bool | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[ThreeDRevisionClassicResponse]]:
+    ) -> Iterable[builtins.list[ThreeDRevisionClassicResponse]]:
         """Iterate over all 3D revisions for a model, handling pagination automatically.
 
         Args:
@@ -285,7 +286,7 @@ class ThreeDClassicRevisionsAPI(CDFResourceAPI[ThreeDRevisionClassicResponse]):
         model_id: int,
         published: bool | None = None,
         limit: int | None = 100,
-    ) -> list[ThreeDRevisionClassicResponse]:
+    ) -> builtins.list[ThreeDRevisionClassicResponse]:
         """List all 3D revisions for a model.
 
         Args:
@@ -326,7 +327,7 @@ class ThreeDClassicAssetMappingAPI(CDFResourceAPI[AssetMappingClassicResponse]):
     ) -> PagedResponse[AssetMappingClassicResponse]:
         return PagedResponse[AssetMappingClassicResponse].model_validate_json(response.body)
 
-    def create(self, mappings: Sequence[AssetMappingClassicRequestId]) -> list[AssetMappingClassicResponse]:
+    def create(self, mappings: Sequence[AssetMappingClassicRequestId]) -> builtins.list[AssetMappingClassicResponse]:
         """Create 3D asset mappings.
 
         Args:
@@ -336,7 +337,7 @@ class ThreeDClassicAssetMappingAPI(CDFResourceAPI[AssetMappingClassicResponse]):
         Returns:
             list[AssetMappingClassicResponse]: The created 3D asset mapping(s).
         """
-        results: list[AssetMappingClassicResponse] = []
+        results: builtins.list[AssetMappingClassicResponse] = []
         endpoint = self._method_endpoint_map["create"]
         for (model_id, revision_id), group in self._group_items_by_text_field(
             mappings, "model_id", "revision_id"
@@ -394,7 +395,7 @@ class ThreeDClassicAssetMappingAPI(CDFResourceAPI[AssetMappingClassicResponse]):
         revision_id: int,
         filter: ThreeDAssetMappingFilter | None = None,
         limit: int = 100,
-    ) -> Iterable[list[AssetMappingClassicResponse]]:
+    ) -> Iterable[builtins.list[AssetMappingClassicResponse]]:
         endpoint = self._method_endpoint_map["list"]
         path = endpoint.path.format(modelId=model_id, revisionId=revision_id)
         for items in self._iterate(
@@ -414,7 +415,7 @@ class ThreeDClassicAssetMappingAPI(CDFResourceAPI[AssetMappingClassicResponse]):
         revision_id: int,
         filter: ThreeDAssetMappingFilter | None = None,
         limit: int | None = 100,
-    ) -> list[AssetMappingClassicResponse]:
+    ) -> builtins.list[AssetMappingClassicResponse]:
         endpoint = self._method_endpoint_map["list"]
         path = endpoint.path.format(modelId=model_id, revisionId=revision_id)
         items = self._list(
@@ -450,7 +451,7 @@ class ThreeDDMAssetMappingAPI(CDFResourceAPI[AssetMappingDMResponse]):
 
     def create(
         self, mappings: Sequence[AssetMappingDMRequestId], object_3d_space: str, cad_node_space: str
-    ) -> list[AssetMappingDMResponse]:
+    ) -> builtins.list[AssetMappingDMResponse]:
         """Create 3D asset mappings in Data Modeling format.
 
         Args:
@@ -463,7 +464,7 @@ class ThreeDDMAssetMappingAPI(CDFResourceAPI[AssetMappingDMResponse]):
         Returns:
             list[AssetMappingDMResponse]: The created 3D asset mapping(s).
         """
-        results: list[AssetMappingDMResponse] = []
+        results: builtins.list[AssetMappingDMResponse] = []
         for (model_id, revision_id), group in self._group_items_by_text_field(
             mappings, "model_id", "revision_id"
         ).items():
@@ -544,7 +545,7 @@ class ThreeDDMAssetMappingAPI(CDFResourceAPI[AssetMappingDMResponse]):
         revision_id: int,
         filter: ThreeDAssetMappingFilter | None = None,
         limit: int = 100,
-    ) -> Iterable[list[AssetMappingDMResponse]]:
+    ) -> Iterable[builtins.list[AssetMappingDMResponse]]:
         endpoint = self._method_endpoint_map["list"]
         path = endpoint.path.format(modelId=model_id, revisionId=revision_id)
         for items in self._iterate(
@@ -562,7 +563,7 @@ class ThreeDDMAssetMappingAPI(CDFResourceAPI[AssetMappingDMResponse]):
         revision_id: int,
         filter: ThreeDAssetMappingFilter | None = None,
         limit: int | None = 100,
-    ) -> list[AssetMappingDMResponse]:
+    ) -> builtins.list[AssetMappingDMResponse]:
         endpoint = self._method_endpoint_map["list"]
         path = endpoint.path.format(modelId=model_id, revisionId=revision_id)
         items = self._list(

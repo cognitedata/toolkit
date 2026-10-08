@@ -302,12 +302,12 @@ class TestAuthStatus:
         }
 
     def test_group_read_requires_every_action(self) -> None:
-        capabilities = FlatCapabilities({(GroupsAcl, "groupsAcl", "READ"): AllScope()}, name=CDF_PROJECT, groups=[])
+        capabilities = FlatCapabilities({(GroupsAcl, "groupsAcl", "READ"): [AllScope()]}, name=CDF_PROJECT, groups=[])
         access = resolve_action_access(GroupIO, capabilities, "READ")
         assert (access.granted, access.missing) == (False, ["groupsAcl LIST"])
 
     def test_data_modeling_only_skips_classic_assets(self) -> None:
-        capabilities = FlatCapabilities({(AssetsAcl, "assetsAcl", "READ"): AllScope()}, name=CDF_PROJECT, groups=[1])
+        capabilities = FlatCapabilities({(AssetsAcl, "assetsAcl", "READ"): [AllScope()]}, name=CDF_PROJECT, groups=[1])
         hybrid, _ = resources_from_capabilities(capabilities, "HYBRID")
         data_modeling_only, _ = resources_from_capabilities(capabilities, "DATA_MODELING_ONLY")
         assert {
@@ -393,8 +393,8 @@ class TestAuthStatus:
     def test_data_modeling_resources_are_listed_once(self) -> None:
         capabilities = FlatCapabilities(
             {
-                (DataModelsAcl, "dataModelsAcl", "READ"): AllScope(),
-                (DataModelInstancesAcl, "dataModelInstancesAcl", "READ"): AllScope(),
+                (DataModelsAcl, "dataModelsAcl", "READ"): [AllScope()],
+                (DataModelInstancesAcl, "dataModelInstancesAcl", "READ"): [AllScope()],
             },
             name=CDF_PROJECT,
             groups=[1],

@@ -110,7 +110,7 @@ _INSIGHT_ORDER: tuple[str, ...] = tuple(
 
 
 _FILE_DOWNLOADERS_BY_TYPE: dict[str, type[FileDownloader]] = {
-    downloader_cls._type: downloader_cls  # type: ignore
+    downloader_cls._type: downloader_cls  # type: ignore[type-abstract]
     for downloader_cls in FileDownloader.__subclasses__()
 }
 
@@ -178,7 +178,7 @@ class ModulesCommand(ToolkitCommand):
         self,
         organization_dir: Path,
         selected_packages: Packages,
-        environments: list[EnvType],
+        environments: builtins.list[EnvType],
         modules_source_path: Path,
         mode: Literal["new", "clean", "update"] | None,
         download_data: bool = False,
@@ -328,7 +328,7 @@ class ModulesCommand(ToolkitCommand):
         select_all: bool = False,
         clean: bool = False,
         user_select: str | None = None,
-        user_environments: list[str] | None = None,
+        user_environments: builtins.list[EnvType] | None = None,
         user_download_data: bool | None = None,
         library_url: str | None = None,
         library_checksum: str | None = None,
@@ -407,6 +407,7 @@ class ModulesCommand(ToolkitCommand):
             print("Exiting...")
             raise typer.Exit()
 
+        environments: list[EnvType]
         if user_environments is None:
             environments = questionary.checkbox(
                 "Which environments would you like to include?",
@@ -481,7 +482,7 @@ class ModulesCommand(ToolkitCommand):
             ).unsafe_ask()
         return download_data
 
-    def _select_modules_in_package(self, package: Package) -> list[ModuleDirectory]:
+    def _select_modules_in_package(self, package: Package) -> builtins.list[ModuleDirectory]:
         dependencies: set[str] = set()
         for module in package.modules:
             if not module.module_toml:
@@ -513,7 +514,7 @@ class ModulesCommand(ToolkitCommand):
             validate=lambda choices: True if choices else "You must select at least one module.",
         ).unsafe_ask()
 
-    def _select_packages(self, packages: Packages, existing_module_names: list[str] | None = None) -> Packages:
+    def _select_packages(self, packages: Packages, existing_module_names: builtins.list[str] | None = None) -> Packages:
         adding_to_existing = False
         if existing_module_names is not None:
             adding_to_existing = True
@@ -580,7 +581,7 @@ class ModulesCommand(ToolkitCommand):
         self,
         packages: Packages,
         module_name: str,
-        existing_module_names: list[str],
+        existing_module_names: builtins.list[str],
     ) -> Packages:
         """
         Find a package or module by name and return it as a Packages selection.

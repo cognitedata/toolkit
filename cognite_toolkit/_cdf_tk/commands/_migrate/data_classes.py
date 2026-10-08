@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Generic, Literal
+from typing import Any, Generic, Literal, cast
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricKindExtended,
+    AssetCentricTypeExtended,
     JsonVal,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
@@ -64,8 +65,8 @@ class MigrationMapping(BaseModel, alias_generator=to_camel, extra="ignore", popu
         raise ToolkitValueError(f"No default ingestion view specified for resource type '{self.resource_type}'")
 
     def as_asset_centric_id(self) -> AssetCentricId:
-        # MyPy fails to understand that resource_type is AssetCentricKindExtended in subclasses
-        return AssetCentricId(resource_type=self.resource_type, id_=self.id)  # type: ignore[arg-type]
+        # Subclasses narrow resource_type to AssetCentricTypeExtended.
+        return AssetCentricId(resource_type=cast(AssetCentricTypeExtended, self.resource_type), id_=self.id)
 
     @model_validator(mode="before")
     def _handle_flat_dict(cls, values: Any) -> Any:
@@ -259,7 +260,7 @@ class AssetCentricMapping(
         mapping["resourceType" if camel_case else "resource_type"] = self.mapping.resource_type
         return {
             "mapping": mapping,
-            "resource": self.resource.dump(camel_case=camel_case),
+            "resource": cast(BaseModelObject, self.resource).dump(camel_case=camel_case),
         }
 
 

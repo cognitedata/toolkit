@@ -1,12 +1,23 @@
 import builtins
 from collections.abc import Iterable, Sequence
-from typing import Literal
+from typing import Any, Literal
 
+from pydantic import JsonValue
+
+from cognite_toolkit._cdf_tk.client.api._classic_aggregate import (
+    aggregate_cardinality,
+    aggregate_count,
+    aggregate_unique,
+)
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceId, InternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.classic_aggregate import (
+    ClassicAggregateUniqueBucket,
+    TimeSeriesPropertyPath,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 
@@ -27,6 +38,7 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
                     method="POST", path="/timeseries/delete", item_limit=1000, concurrency_max_workers=1
                 ),
                 "list": Endpoint(method="POST", path="/timeseries/list", item_limit=1000),
+                "aggregate": Endpoint(method="POST", path="/timeseries/aggregate", item_limit=1000),
             },
             api_version="alpha",
         )
@@ -39,7 +51,7 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[TimeSeriesRequest]) -> list[TimeSeriesResponse]:
+    def create(self, items: Sequence[TimeSeriesRequest]) -> builtins.list[TimeSeriesResponse]:
         """Create time series in CDF.
 
         Args:
@@ -51,7 +63,7 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
 
     def retrieve(
         self, items: Sequence[InternalId | ExternalId | InstanceId], ignore_unknown_ids: bool = False
-    ) -> list[TimeSeriesResponse]:
+    ) -> builtins.list[TimeSeriesResponse]:
         """Retrieve time series from CDF.
 
         Args:
@@ -66,7 +78,7 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
 
     def update(
         self, items: Sequence[TimeSeriesRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[TimeSeriesResponse]:
+    ) -> builtins.list[TimeSeriesResponse]:
         """Update time series in CDF.
 
         Args:
@@ -113,7 +125,7 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
         self,
         filter: ClassicFilter | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[TimeSeriesResponse]]:
+    ) -> Iterable[builtins.list[TimeSeriesResponse]]:
         """Iterate over all time series in CDF.
 
         Args:
@@ -131,13 +143,71 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
     def list(
         self,
         limit: int | None = 100,
-    ) -> list[TimeSeriesResponse]:
+    ) -> builtins.list[TimeSeriesResponse]:
         """List all time series in CDF.
 
         Returns:
             List of TimeSeriesResponse objects.
         """
         return self._list(limit=limit)
+
+    def count(
+        self,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+    ) -> int:
+        """Count time series matching optional filters.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Time-series/operation/aggregateTimeSeries>`_.
+        """
+        return aggregate_count(self, filter=filter, advanced_filter=advanced_filter)
+
+    def cardinality(
+        self,
+        property: TimeSeriesPropertyPath,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        aggregate_filter: dict[str, JsonValue] | None = None,
+    ) -> int:
+        """Approximate number of distinct values for ``property``.
+
+        Uses ``cardinalityProperties`` when ``property`` is exactly ``("metadata",)``, and
+        ``cardinalityValues`` for every other path.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Time-series/operation/aggregateTimeSeries>`_.
+        """
+        return aggregate_cardinality(
+            self,
+            property,
+            filter=filter,
+            advanced_filter=advanced_filter,
+            aggregate_filter=aggregate_filter,
+        )
+
+    def unique(
+        self,
+        property: TimeSeriesPropertyPath,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        aggregate_filter: dict[str, JsonValue] | None = None,
+    ) -> builtins.list[ClassicAggregateUniqueBucket]:
+        """Distinct values for ``property``, each with a count.
+
+        Uses ``uniqueProperties`` when ``property`` is exactly ``("metadata",)``, and
+        ``uniqueValues`` for every other path. The service returns at most 1000 buckets.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Time-series/operation/aggregateTimeSeries>`_.
+        """
+        return aggregate_unique(
+            self,
+            property,
+            filter=filter,
+            advanced_filter=advanced_filter,
+            aggregate_filter=aggregate_filter,
+        )
 
     def set_pending_ids(self, items: Sequence[PendingInstanceId]) -> builtins.list[TimeSeriesResponse]:
         """Set pending instance IDs for one or more time series.

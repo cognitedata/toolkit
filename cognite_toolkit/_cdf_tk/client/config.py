@@ -1,3 +1,4 @@
+import re
 from typing import Literal
 from urllib.parse import urljoin
 
@@ -54,7 +55,7 @@ class ToolkitClientConfig(ClientConfig):
 
     @property
     def cloud_provider(self) -> Literal["azure", "aws", "gcp", "unknown"]:
-        cdf_cluster = self.cdf_cluster
+        cdf_cluster = self.attempt_to_get_cdf_cluster()
         if cdf_cluster is None:
             return "unknown"
         elif cdf_cluster.startswith("az-") or cdf_cluster in {"azure-dev", "bluefield", "westeurope-1"}:
@@ -130,3 +131,14 @@ class ToolkitClientConfig(ClientConfig):
         if not endpoint.startswith("/"):
             endpoint = f"/{endpoint}"
         return f"https://auth.cognite.com/api/v1{endpoint}"
+
+    def attempt_to_get_cdf_cluster(self) -> str | None:
+        """A best effort attempt to extract the cluster from the base url when cluster was not explicitly provided in init."""
+        if self._cluster is not None:
+            return self._cluster
+
+        if match := re.match(
+            r"https?://([^/\.\s]*\.plink\.)?([^/\.\s]+)\.cognitedata\.com(?::\d+)?(?:/|$)", self.base_url
+        ):
+            return match.group(2)
+        return None

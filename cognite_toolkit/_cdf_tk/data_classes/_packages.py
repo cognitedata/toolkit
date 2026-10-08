@@ -1,8 +1,8 @@
 import sys
-from collections.abc import ItemsView, Iterable, Iterator, KeysView, Mapping, MutableMapping, ValuesView
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ModuleDirectory
@@ -55,7 +55,7 @@ class Package:
         )
 
 
-class Packages(dict, MutableMapping[str, Package]):
+class Packages(dict[str, Package]):
     warnings: WarningList[ToolkitWarning] | None = None
 
     def __init__(
@@ -66,9 +66,9 @@ class Packages(dict, MutableMapping[str, Package]):
         if packages is None:
             super().__init__()
         elif isinstance(packages, Mapping):
-            super().__init__(packages)
+            super().__init__(cast(Mapping[str, Package], packages))
         else:
-            super().__init__({p.name: p for p in packages})
+            super().__init__({package.name: package for package in packages})
 
         if warnings:
             self.warnings = warnings
@@ -112,19 +112,3 @@ class Packages(dict, MutableMapping[str, Package]):
                         packages_with_modules[package_name].modules.append(module_or_none)
 
         return cls(packages_with_modules, warnings)
-
-    # The methods are overloads to provide type hints for the methods.
-    def items(self) -> ItemsView[str, Package]:  # type: ignore[override]
-        return super().items()
-
-    def keys(self) -> KeysView[str]:  # type: ignore[override]
-        return super().keys()
-
-    def values(self) -> ValuesView[Package]:  # type: ignore[override]
-        return super().values()
-
-    def __iter__(self) -> Iterator[str]:
-        yield from super().__iter__()
-
-    def __getitem__(self, package_name: str) -> Package:
-        return super().__getitem__(package_name)

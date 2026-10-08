@@ -38,10 +38,13 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     SuccessfulReadYAMLFile,
     ValidationType,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, ValidationResult
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
+    UNRESOLVED_VARIABLE_PATTERN,
+    BuiltResource,
+    ValidationResult,
+)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
-    InsightDefinition,
     InternalValidatorException,
     ModelSyntaxError,
     ModelSyntaxWarning,
@@ -90,7 +93,11 @@ from cognite_toolkit._cdf_tk.utils.file import (
     safe_rmtree,
     yaml_safe_dump,
 )
-from cognite_toolkit._cdf_tk.validation import humanize_validation_error, humanize_validation_error_categorized
+from cognite_toolkit._cdf_tk.validation import (
+    ValidationMessage,
+    humanize_validation_error,
+    humanize_validation_error_categorized,
+)
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 
@@ -1109,7 +1116,7 @@ class BuildV2Command(ToolkitCommand):
             dict.fromkeys(
                 # Removing the '{{' and '}}'
                 variable[2:-2].strip()
-                for variable in re.findall(pattern=r"\{\{.*?\}\}", string=content)
+                for variable in UNRESOLVED_VARIABLE_PATTERN.findall(content)
             )
         )
 
@@ -1132,10 +1139,10 @@ class BuildV2Command(ToolkitCommand):
         self, error: ValidationError, resource_file: AbsoluteFilePath, validation_type: Any = None
     ) -> tuple[ModelSyntaxError | None, ModelSyntaxWarning | None]:
         categorized_errors = humanize_validation_error_categorized(error, validation_type) or [
-            ("The YAML doesn't follow the required format.", "error")
+            ValidationMessage("The YAML doesn't follow the required format.", "error")
         ]
-        warning_messages = [message for message, category in categorized_errors if category == "warning"]
-        error_messages = [message for message, category in categorized_errors if category == "error"]
+        warning_messages = [item.message for item in categorized_errors if item.category == "warning"]
+        error_messages = [item.message for item in categorized_errors if item.category == "error"]
 
         syntax_error = None
         if error_messages:
@@ -1328,10 +1335,10 @@ class BuildV2Command(ToolkitCommand):
                 insights: list[Insight] = []
                 errors: list[InternalValidatorException] = []
                 for result in step.rule.validate():
-                    if isinstance(result, InsightDefinition):
-                        insights.append(result)
-                    elif isinstance(result, InternalValidatorException):
+                    if isinstance(result, InternalValidatorException):
                         errors.append(result)
+                    else:
+                        insights.append(result)
 
                 validation_results.append(ValidationResult(name=display_name, insights=insights, errors=errors))
                 progress.update(
