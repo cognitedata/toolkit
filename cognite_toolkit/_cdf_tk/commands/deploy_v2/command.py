@@ -15,6 +15,8 @@ from rich.console import Console, Group, RenderableType
 from rich.markup import escape
 from rich.padding import Padding
 from rich.progress import Progress
+from rich.table import Table
+from rich.text import Text
 from yaml import YAMLError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -210,6 +212,10 @@ class DeploymentResult:
     is_missing_read_acl: bool = False
     is_write_acl_unknown: bool = False
     skipped: list[Skipped] = field(default_factory=list)
+    created_ids: list[Identifier] = field(default_factory=list)
+    updated_ids: list[Identifier] = field(default_factory=list)
+    deleted_ids: list[Identifier] = field(default_factory=list)
+    unchanged_ids: list[Identifier] = field(default_factory=list)
 
     @property
     def skipped_count(self) -> int:
@@ -228,6 +234,10 @@ class DeploymentResult:
         self.is_missing_read_acl = self.is_missing_read_acl or other.is_missing_read_acl
         self.is_write_acl_unknown = self.is_write_acl_unknown or other.is_write_acl_unknown
         self.skipped.extend(other.skipped)
+        self.created_ids.extend(other.created_ids)
+        self.updated_ids.extend(other.updated_ids)
+        self.deleted_ids.extend(other.deleted_ids)
+        self.unchanged_ids.extend(other.unchanged_ids)
         return self
 
 
@@ -1098,29 +1108,31 @@ class DeployV2Command(ToolkitCommand):
         is_write_acl_unknown: bool,
         options: DeployOptions,
     ) -> DeploymentResult:
-        created = len(resources.to_create)
-        updated = len(resources.to_update)
-        deleted = len(resources.to_delete)
-        unchanged = len(resources.unchanged)
+        created_ids, updated_ids, deleted_ids, unchanged_ids = cls._collect_resource_ids(crud, resources)
 
         is_container = isinstance(crud, ResourceContainerIO)
         if options.drop and crud.support_drop and (not is_container or options.drop_data):
             # If drop/drop_data arguments are passed, then we will delete and recreate resources.
-            created += unchanged + updated
-            deleted += unchanged + updated
-            unchanged = 0
-            updated = 0
+            recreated = [*unchanged_ids, *updated_ids]
+            created_ids = [*created_ids, *recreated]
+            deleted_ids = [*deleted_ids, *recreated]
+            updated_ids = []
+            unchanged_ids = []
 
         return DeploymentResult(
             resource_name=crud.display_name,
             is_dry_run=True,
-            created_count=created,
-            updated_count=updated,
-            deleted_count=deleted,
-            unchanged_count=unchanged,
+            created_count=len(created_ids),
+            updated_count=len(updated_ids),
+            deleted_count=len(deleted_ids),
+            unchanged_count=len(unchanged_ids),
             skipped=resources.skipped,
             is_missing_write_acl=is_missing_write_acl,
             is_write_acl_unknown=is_write_acl_unknown,
+            created_ids=created_ids,
+            updated_ids=updated_ids,
+            deleted_ids=deleted_ids,
+            unchanged_ids=unchanged_ids,
         )
 
     @staticmethod
@@ -1168,16 +1180,37 @@ class DeployV2Command(ToolkitCommand):
         except ValidationError as error:
             cls._handle_validation_error(error, action, crud, resources.to_create + resources.to_update, deploy_dir)
 
+        created_ids, updated_ids, deleted_ids, unchanged_ids = cls._collect_resource_ids(crud, resources)
         return DeploymentResult(
             resource_name=crud.display_name,
             is_dry_run=False,
             created_count=created,
             updated_count=updated,
             deleted_count=deleted,
-            unchanged_count=len(resources.unchanged),
+            unchanged_count=len(unchanged_ids),
             skipped=resources.skipped,
             is_missing_write_acl=False,
+            created_ids=created_ids,
+            updated_ids=updated_ids,
+            deleted_ids=deleted_ids,
+            unchanged_ids=unchanged_ids,
         )
+
+    @classmethod
+    def _collect_resource_ids(
+        cls,
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
+        resources: ResourceToDeploy[T_Identifier, T_RequestResource],
+    ) -> tuple[list[Identifier], list[Identifier], list[Identifier], list[Identifier]]:
+        created_ids: list[Identifier] = []
+        created_ids.extend(crud.get_id(resource) for resource in resources.to_create)
+        updated_ids: list[Identifier] = []
+        updated_ids.extend(crud.get_id(resource) for resource in resources.to_update)
+        deleted_ids: list[Identifier] = []
+        deleted_ids.extend(resources.to_delete)
+        unchanged_ids: list[Identifier] = []
+        unchanged_ids.extend(resources.unchanged)
+        return created_ids, updated_ids, deleted_ids, unchanged_ids
 
     @classmethod
     def _handle_deploy_error(
@@ -1444,26 +1477,107 @@ class DeployV2Command(ToolkitCommand):
                     description=(
                         f"{HINT_LEAD_TEXT}A total of {total.skipped_count} resources were skipped during {operation}. "
                         f"The most common reasons were: {', '.join(f'{code} ({count} occurrences)' for code, count in most_common)}. "
-                        f"Use --verbose to see all skipped resources."
+                        "Use --verbose to list each resource and its outcome."
                     )
-                )
-            )
-        elif verbose and total.skipped:
-            sections.append(
-                ToolkitPanelSection(
-                    title="Skipped resources",
-                    content=[
-                        hanging_indent(
-                            "○",
-                            f"[bold]{skip.id}[/] {skip.source_file.as_posix()} [{skip.code}] {skip.reason}",
-                            marker_style="dim",
-                        )
-                        for skip in total.skipped
-                    ],
                 )
             )
 
         console.print(ToolkitPanel(Group(*sections), title=panel_title))
+        if verbose:
+            cls._print_verbose_resources(results, is_dry_run, console)
+
+    # Outcome order puts the long unchanged list last so creates, updates, deletes, and skips stay visible.
+    _VERBOSE_OUTCOMES: tuple[tuple[str, str, str], ...] = (
+        ("created", "green", "+"),
+        ("updated", "yellow", "~"),
+        ("deleted", "red", "-"),
+        ("skipped", "yellow", "!"),
+        ("unchanged", "dim", "·"),
+    )
+
+    @classmethod
+    def _print_verbose_resources(cls, results: Sequence[DeploymentResult], is_dry_run: bool, console: Console) -> None:
+        blocks: list[RenderableType] = []
+        for result in results:
+            section = cls._verbose_resource_section(result, is_dry_run)
+            if section is None:
+                continue
+            if blocks:
+                blocks.append("")
+            blocks.append(section)
+        if not blocks:
+            return
+        title = "Resources"
+        if is_dry_run:
+            title += " [dim](dry run)[/]"
+        console.print(ToolkitPanel(Group(*blocks), title=title, expand=True))
+
+    @classmethod
+    def _verbose_resource_section(cls, result: DeploymentResult, is_dry_run: bool) -> ToolkitPanelSection | None:
+        content = cls._verbose_outcome_rows(result, is_dry_run)
+        if not content:
+            return None
+        style = "red" if result.is_missing_read_acl else "cyan"
+        return ToolkitPanelSection(title=f"[{style}]{escape(result.resource_name)}[/]", content=content)
+
+    @classmethod
+    def _verbose_outcome_rows(cls, result: DeploymentResult, is_dry_run: bool) -> list[RenderableType]:
+        ids_by_status: dict[str, Sequence[Identifier]] = {
+            "created": result.created_ids,
+            "updated": result.updated_ids,
+            "deleted": result.deleted_ids,
+            "unchanged": result.unchanged_ids,
+        }
+        rows: list[RenderableType] = []
+        for status, style, marker in cls._VERBOSE_OUTCOMES:
+            label = cls._verbose_status_label(status, is_dry_run)
+            if status == "skipped":
+                if result.skipped:
+                    rows.append(cls._verbose_status_grid(label, style, marker, len(result.skipped), Text("")))
+                    rows.extend(cls._skipped_rows(result.skipped))
+                continue
+            identifiers = ids_by_status[status]
+            if identifiers:
+                rows.append(cls._verbose_identifier_row(label, style, marker, identifiers))
+        return rows
+
+    @staticmethod
+    def _verbose_status_label(status: str, is_dry_run: bool) -> str:
+        if is_dry_run and status in {"created", "updated", "deleted"}:
+            return f"would {status.removesuffix('d')}"
+        return status
+
+    @classmethod
+    def _verbose_identifier_row(
+        cls, label: str, style: str, marker: str, identifiers: Sequence[Identifier]
+    ) -> RenderableType:
+        text = Text(overflow="fold")
+        for index, identifier in enumerate(sorted(str(identifier) for identifier in identifiers)):
+            if index:
+                text.append(" · ", style="dim")
+            text.append(identifier)
+        return cls._verbose_status_grid(label, style, marker, len(identifiers), text)
+
+    @staticmethod
+    def _verbose_status_grid(label: str, style: str, marker: str, count: int, detail: RenderableType) -> Table:
+        grid = Table.grid(padding=(0, 1), expand=True)
+        grid.add_column(width=15, no_wrap=True, overflow="ellipsis")
+        grid.add_column(width=6, justify="right", style="dim", no_wrap=True)
+        grid.add_column(ratio=1, overflow="fold")
+        grid.add_row(f"[{style}]{marker} {label}[/]", str(count), detail)
+        return grid
+
+    @classmethod
+    def _skipped_rows(cls, skipped: Sequence[Skipped[Identifier]]) -> list[RenderableType]:
+        return [
+            hanging_indent(
+                "!",
+                f"[bold]{escape(str(skip.id))}[/] {escape(skip.source_file.as_posix())} "
+                f"[{escape(skip.code)}] {escape(skip.reason)}",
+                marker_style="yellow",
+            )
+            for skip in sorted(skipped, key=lambda item: (item.code, str(item.id)))
+        ]
 
     @classmethod
     def _track_deployment_result(
