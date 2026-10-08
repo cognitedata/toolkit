@@ -68,7 +68,7 @@ from cognite_toolkit._cdf_tk.client.api.workflow_executions import WorkflowExecu
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse, ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage, SuccessResponse, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExtractionPipelineConfigId,
     InternalId,
@@ -383,7 +383,7 @@ def crud_cdf_resource_apis() -> Iterable[tuple]:
         base_cls = next(
             (
                 base
-                for base in api_cls.__orig_bases__  # type: ignore[attr-defined]
+                for base in getattr(api_cls, "__orig_bases__", ())
                 if get_origin(base) in (CDFResourceAPI, WrappedInstancesAPI)
             ),
             None,
@@ -1006,7 +1006,7 @@ class TestCDFResourceAPI:
         self,
         example_data: dict[str, Any],
         response_cls: type[ResponseResource],
-        api_cls: type[CDFResourceAPI],
+        api_cls: Callable[[HTTPClient], CDFResourceAPI],
         toolkit_client: ToolkitClient,
         smoke_dataset: DataSetResponse,
     ) -> None:
@@ -1036,32 +1036,36 @@ class TestCDFResourceAPI:
             # If the request does not have enough info to create an identifier yet, we set id to None
             id = None
 
-        # We now that all subclasses only need http_client as argument, even though
-        # CDFResourceAPI also require endpoint map (and disable gzip).
-        api = api_cls(toolkit_client.http_client)  # type: ignore[call-arg]
+        # Subclasses are constructed with the HTTP client. The base class also requires an endpoint map.
+        api = api_cls(toolkit_client.http_client)
         methods = api._method_endpoint_map
 
         try:
-            if hasattr(api, "create"):
+            create = getattr(api, "create", None)
+            if create is not None:
                 create_endpoint = methods["create"] if "create" in methods else methods["upsert"]
-                id = self.assert_endpoint_method(lambda: api.create([request]), "create", create_endpoint, id)
-            if hasattr(api, "retrieve"):
+                id = self.assert_endpoint_method(lambda: create([request]), "create", create_endpoint, id)
+            retrieve = getattr(api, "retrieve", None)
+            if retrieve is not None:
                 retrieve_endpoint = methods["retrieve"]
-                self.assert_endpoint_method(lambda: api.retrieve([id]), "retrieve", retrieve_endpoint, id)
-            if hasattr(api, "update"):
+                self.assert_endpoint_method(lambda: retrieve([id]), "retrieve", retrieve_endpoint, id)
+            update = getattr(api, "update", None)
+            if update is not None:
                 updated_endpoint = methods["update"] if "update" in methods else methods["upsert"]
-                self.assert_endpoint_method(lambda: api.update([request]), "update", updated_endpoint, id)
-            if hasattr(api, "list"):
+                self.assert_endpoint_method(lambda: update([request]), "update", updated_endpoint, id)
+            list_ = getattr(api, "list", None)
+            if list_ is not None:
                 list_endpoint = methods["list"]
                 try:
-                    listed_items = self.wait_until_has_value(lambda: list(api.list(limit=1)))
+                    listed_items = self.wait_until_has_value(lambda: list(list_(limit=1)))
                 except TypeError:
-                    listed_items = api.list()
+                    listed_items = list_()
                 if len(listed_items) == 0:
                     raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed item, got 0")
         finally:
-            if hasattr(api, "delete") and id is not None:
-                api.delete([id])
+            delete = getattr(api, "delete", None)
+            if delete is not None and id is not None:
+                delete([id])
 
     def wait_until_has_value(
         self,
@@ -1895,7 +1899,8 @@ class TestCDFResourceAPI:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed security category, got 0")
         finally:
             # Clean up
-            client.tool.security_categories.delete([created_id])  # type: ignore[list-item]
+            if isinstance(created_id, InternalUnwrappedId):
+                client.tool.security_categories.delete([created_id])
 
     def test_infield_cdm_location_config_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
@@ -2733,13 +2738,13 @@ class TestCDFResourceAPI:
         [pytest.param(option, id=str(option)) for option in DOCUMENT_PROPERTY_OPTIONS],
     )
     def test_document_cardinality_properties(
-        self, property_: tuple[DocumentPropertyPath, ...], toolkit_client: ToolkitClient
+        self, property_: DocumentPropertyPath, toolkit_client: ToolkitClient
     ) -> None:
         """Every DocumentPropertyPath variant is accepted by documents.cardinality (read-only aggregate)."""
         documents = toolkit_client.tool.documents
         aggregate_path = documents._method_endpoint_map["aggregate"].path
         try:
-            _ = documents.cardinality(property_)  # type:ignore[arg-type]
+            _ = documents.cardinality(property_)
         except ToolkitAPIError as e:
             raise EndpointAssertionError(
                 aggregate_path,

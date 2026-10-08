@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSerie
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, RawTableIO, TimeSeriesIO
 from cognite_toolkit._cdf_tk.resource_ios._three_d_model import ThreeDModelIO
 from tests.test_integration.constants import RUN_UNIQUE_ID
+from tests.test_integration.helpers import load_local_yaml
 
 
 @pytest.fixture(scope="session")
@@ -89,7 +90,7 @@ def edge_container(cognite_client: CogniteClient, integration_space: dm.Space) -
     return cognite_client.data_modeling.containers.apply(container)
 
 
-class TestContainerLoader:
+class TestContainerIO:
     # The DMS service is fairly unstable, so we need to rerun the tests if they fail.
     @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError", "ToolkitAPIError"])
     def test_populate_count_drop_data_node_container(
@@ -181,6 +182,34 @@ class TestContainerLoader:
             assert updated[0].description == write_container.description
         finally:
             toolkit_client.data_modeling.instances.delete(nodes=nodes.as_ids(), edges=edge.as_id())
+
+    def test_unchanged_container_not_redeployed(
+        self, integration_space: dm.Space, toolkit_client: ToolkitClient
+    ) -> None:
+        local_yaml_content = f"""
+        space: {integration_space.space}
+        externalId: test_unchanged_container_not_redeployed
+        name: test_unchanged_container_not_redeployed
+        usedFor: node
+        properties:
+          name:
+            type:
+              type: text
+        indexes:
+          nameIndex:
+            indexType: btree
+            properties:
+              - name
+        """
+        io = ContainerIO(toolkit_client)
+        raw_data = load_local_yaml(local_yaml_content, io)
+        container = io.load_resource(raw_data)
+        retrieved = io.retrieve([container.as_id()])
+        if len(retrieved) == 0:
+            # Create the container
+            retrieved = io.create([container])
+            assert len(retrieved) == 1
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)
 
 
 class Test3DModelLoader:
