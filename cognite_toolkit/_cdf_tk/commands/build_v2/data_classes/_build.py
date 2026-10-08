@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     SuccessExtra,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import find_unique_match_position
+from cognite_toolkit._cdf_tk.utils.file import find_unique_variable_position
 
 from ._insights import (
     BuildError,
@@ -38,17 +38,6 @@ UNRESOLVED_VARIABLE_PATTERN = re.compile(r"\{\{.*?\}\}")
 
 def contains_unresolved_variable(value: object) -> bool:
     return UNRESOLVED_VARIABLE_PATTERN.search(str(value)) is not None
-
-
-def _variable_pattern(variable: str) -> re.Pattern[str]:
-    return re.compile(rf"\{{\{{\s*{re.escape(variable)}\s*\}}\}}")
-
-
-def _read_text_or_empty(path: Path) -> str:
-    try:
-        return path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return ""
 
 
 class BuildParameters(BaseModel):
@@ -277,10 +266,9 @@ class BuiltModule(BaseModel):
     @classmethod
     def _unresolved_variable_insights(cls, path: Path, variables: list[str]) -> list[Insight]:
         """One insight per variable, such that all files missing the same variable are grouped when displayed."""
-        content = _read_text_or_empty(path)
         insights: list[Insight] = []
         for variable in variables:
-            position = find_unique_match_position(content, _variable_pattern(variable))
+            position = find_unique_variable_position(path, variable)
             insights.append(
                 BuildError(
                     code="UNRESOLVED-VARIABLE",
