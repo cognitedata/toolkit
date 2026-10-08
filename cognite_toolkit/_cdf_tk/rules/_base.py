@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     T_Insight,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable, Module, SuccessfulReadYAMLFile
-from cognite_toolkit._cdf_tk.feature_flags import Flags, v09_gate
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.file import yaml_find_unique_position
 from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
@@ -132,15 +132,9 @@ class ToolkitGlobalRuleSet(ABC):
 
     CODE_PREFIX: ClassVar[str]
     DISPLAY_NAME: ClassVar[str]
-    LEGACY_DISPLAY_NAME: ClassVar[str]  # Used when the v09 flag is not enabled
-
     def __init__(self, modules: list[BuiltModule], client: ToolkitClient | None = None) -> None:
         self.modules = modules
         self.client = client
-
-    @property
-    def display_name(self) -> str:
-        return v09_gate(self.DISPLAY_NAME, self.LEGACY_DISPLAY_NAME)
 
     @abstractmethod
     def get_status(self) -> RuleSetStatus:

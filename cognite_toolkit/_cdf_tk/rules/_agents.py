@@ -39,7 +39,6 @@ RUNTIME_CAPABILITY_REQUIREMENTS: tuple[RuntimeCapabilityRequirement, ...] = (
 class AgentRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "AGENT"
     DISPLAY_NAME = "Agents"
-    LEGACY_DISPLAY_NAME = "Agents checks"
 
     def get_status(self) -> RuleSetStatus:
         if not self.client:

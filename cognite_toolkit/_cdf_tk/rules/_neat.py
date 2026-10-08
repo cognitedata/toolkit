@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 class NeatRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "NEAT"
     DISPLAY_NAME = "Neat data modeling"
-    LEGACY_DISPLAY_NAME = "Data modeling checks"
 
     def get_status(self) -> RuleSetStatus:
         if Flags.ALPHA_RULES.is_enabled():

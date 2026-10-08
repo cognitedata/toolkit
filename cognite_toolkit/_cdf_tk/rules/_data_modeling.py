@@ -83,7 +83,6 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
 
     CODE_PREFIX = "DATA-MODELING"
     DISPLAY_NAME = "Data modeling"
-    LEGACY_DISPLAY_NAME = "Data modeling checks"
     # Codes used when the v09 flag is not enabled
     UNKNOWN_PROPERTY_REFERENCE = "UNKNOWN-REFERENCE"
     UNVERIFIED_PROPERTY_REFERENCE = "UNVERIFIED-PROPERTY-REFERENCE"

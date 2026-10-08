@@ -20,7 +20,6 @@ from cognite_toolkit._cdf_tk.yaml_classes.functions import FunctionsYAML
 class FunctionRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "FUNCTION"
     DISPLAY_NAME = "Functions"
-    LEGACY_DISPLAY_NAME = "Functions checks"
 
     def get_status(self) -> RuleSetStatus:
         if not self.client:

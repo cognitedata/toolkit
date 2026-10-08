@@ -53,7 +53,6 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
     """
 
     DISPLAY_NAME = "Dependencies"
-    LEGACY_DISPLAY_NAME = "Dependency checks"
     INVALID_OPERATION_CODE: ClassVar[str] = "INVALID-OPERATION"  # Used when the v09 flag is not enabled
 
     @staticmethod

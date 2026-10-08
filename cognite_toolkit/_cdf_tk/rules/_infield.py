@@ -40,7 +40,6 @@ _DEFAULT_ASSET_VIEW_ID = ViewId(space="cdf_cdm", external_id="CogniteAsset", ver
 class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "INFIELD"
     DISPLAY_NAME = "Infield config"
-    LEGACY_DISPLAY_NAME = "Infield CDM checks"
 
     def get_status(self) -> RuleSetStatus:
         if not self.client:

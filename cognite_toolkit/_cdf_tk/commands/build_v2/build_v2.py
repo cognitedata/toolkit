@@ -1374,7 +1374,7 @@ class BuildV2Command(ToolkitCommand):
             ]
             status_display = f"[{status_style}]{step.status.code.capitalize()}[/]"
             message = step.status.message or "-"
-            table.add_row(step.rule.display_name, status_display, message)
+            table.add_row(step.rule.DISPLAY_NAME, status_display, message)
 
         border_style = {0: AuraColor.GREEN.rich, 1: AuraColor.AMBER.rich, 2: AuraColor.RED.rich}[border_color]
 
@@ -1395,7 +1395,7 @@ class BuildV2Command(ToolkitCommand):
             for step in plan:
                 if step.status.code not in EXECUTE_RULE_STATUS:
                     continue
-                display_name = step.rule.display_name
+                display_name = step.rule.DISPLAY_NAME
                 progress.update(validating_task, description=f"Running '{display_name}'...")
 
                 insights: list[Insight] = []
