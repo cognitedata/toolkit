@@ -500,6 +500,9 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
         if "isPublic" in dumped and "isPublic" not in local:
             # Default set from server side.
             dumped.pop("isPublic")
+        if dumped.get("dataDomainExternalId") == "UNGOVERNED" and "dataDomainExternalId" not in local:
+            # Default set from server side is "UNGOVERNED".
+            dumped.pop("dataDomainExternalId")
         if "authentication" in local:
             # The hash added to the beginning of the query detects the change in the authentication
             dumped["authentication"] = local["authentication"]

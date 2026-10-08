@@ -38,6 +38,13 @@ class TransformationYAML(ToolkitResource):
         default=None,
         description="External ID of the data set to which the transformation belongs.",
     )
+    data_domain_external_id: str | None = Field(
+        default=None,
+        description="External ID of the data domain the transformation belongs to. Defaults to UNGOVERNED.",
+        min_length=1,
+        max_length=100,
+        pattern=r"^[a-z]([a-z0-9_-]{0,98}[a-z0-9])?$",
+    )
     tags: list[str] | None = Field(
         default=None,
         description="List of tags for the Transformation.",
