@@ -1436,7 +1436,7 @@ class BuildV2Command(ToolkitCommand):
             "IgnoredFileWarning": (AuraColor.MOUNTAIN.rich, "○"),
         }
 
-        display_insights = self._select_display_insights_legacy(insights, max_display_count=30 if verbose else 5)
+        display_insights = self._select_display_insights(insights, max_display_count=30 if verbose else 5)
         remaining_count = len(insights) - len(display_insights)
 
         insights_by_type: dict[str, list[Insight]] = {}
@@ -1526,7 +1526,7 @@ class BuildV2Command(ToolkitCommand):
         title = cls._humanize_insight_code(insight.code)
         return f"{title} in {insight.display_source_file_cwd}"
 
-    def _select_display_insights_legacy(self, insights: InsightList, max_display_count: int) -> list[Insight]:
+    def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
         """Prioritize one insight per code, then by severity"""
         insights_by_code: dict[str, Insight] = {}
         remaining_insights: list[Insight] = []
@@ -1557,7 +1557,7 @@ class BuildV2Command(ToolkitCommand):
             "Recommendation": (AuraColor.SKY.rich, "*"),
         }
 
-        display_groups = self._select_display_insights(insights, max_display_count=30 if verbose else 5)
+        display_groups = self._select_display_insight_groups(insights, max_display_count=30 if verbose else 5)
         remaining_count = len(insights) - sum(len(group) for group in display_groups)
 
         max_border_severity = 0
@@ -1629,36 +1629,15 @@ class BuildV2Command(ToolkitCommand):
     def _group_key(cls, insight: Insight) -> tuple[str, str, str, str | None]:
         return insight.insight_type, insight.code, insight.message, insight.fix
 
-    @classmethod
-    def _group_severity(cls, group: list[Insight]) -> int:
-        return type(group[0]).severity
-
-    @classmethod
-    def _group_order(cls, group: list[Insight]) -> tuple[int, str]:
-        return type(group[0]).severity, group[0].code or ""
-
-    def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[list[Insight]]:
+    def _select_display_insight_groups(self, insights: InsightList, max_display_count: int) -> list[list[Insight]]:
         """Groups insights with the same message, and prioritizes one group per code, then by severity."""
         groups_by_key: dict[tuple[str, str, str, str | None], list[Insight]] = {}
         for insight in insights:
             groups_by_key.setdefault(self._group_key(insight), []).append(insight)
 
-        first_group_by_code: dict[str, list[Insight]] = {}
-        remaining_groups: list[list[Insight]] = []
-        for group in groups_by_key.values():
-            code = group[0].code or "UNDEFINED"
-            if code not in first_group_by_code:
-                first_group_by_code[code] = group
-            else:
-                remaining_groups.append(group)
-
-        # Sort the unique codes by severity
-        sorted_unique_groups = sorted(first_group_by_code.values(), key=self._group_severity, reverse=True)
-        # Sort remaining by severity
-        sorted_remaining = sorted(remaining_groups, key=self._group_severity, reverse=True)
-        # Combine them
-        prioritized_groups = sorted_unique_groups + sorted_remaining
-        return sorted(prioritized_groups[:max_display_count], key=self._group_order, reverse=True)
+        representatives = InsightList([group[0] for group in groups_by_key.values()])
+        selected = self._select_display_insights(representatives, max_display_count)
+        return [groups_by_key[self._group_key(insight)] for insight in selected]
 
     def _display_build_summary(
         self, build_folder: BuildFolder, insights: InsightList, console: Console, verbose: bool
