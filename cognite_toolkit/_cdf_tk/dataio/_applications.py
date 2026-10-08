@@ -463,15 +463,24 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         )
         log_entries.extend(job_upsert_logs)
 
-        existing_calculation_ids = {
-            calculation.as_id()
+        existing_calculations = {
+            calculation.as_id(): calculation
             for calculation in self.client.charts.scheduled_calculations.retrieve(
                 list(calculation_by_id.keys()), ignore_unknown_ids=True
             )
         }
+        for ext_id, (request, tracking_id) in calculation_by_id.items():
+            existing = existing_calculations.get(ext_id)
+            if (
+                existing is not None
+                and existing.target_timeseries_external_id is not None
+                and request.target_timeseries_instance_id is not None
+            ):
+                request = request.with_target_update()
+                calculation_by_id[ext_id] = request, tracking_id
         calculation_upsert_logs, failed_calculations, _ = self._upsert_unique_backend_requests(
             calculation_by_id,
-            existing_calculation_ids,
+            set(existing_calculations),
             self.client.charts.scheduled_calculations.update,
             self.client.charts.scheduled_calculations.create,
             "scheduled calculation",

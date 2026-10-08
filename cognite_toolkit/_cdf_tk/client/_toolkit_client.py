@@ -54,7 +54,7 @@ from .api.streamlit_ import StreamlitAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI
 from .api.timeseries import TimeSeriesAPI
-from .api.token import TokenAPI, ToolkitTokenAPI
+from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
 from .api.user_profiles import UserProfilesAPI
 from .api.verify import VerifyAPI
@@ -125,7 +125,6 @@ class ToolkitClient(CogniteClient):
         self.lookup = LookUpGroup(self)
         self.canvas = IndustrialCanvasAPI(http_client)
         self.migration = MigrationAPI(self.tool.instances, http_client)
-        self.token = TokenAPI(self)
         self.charts = ChartsAPI(http_client)
         self.project = ProjectAPI(http_client)
         self.principals = PrincipalsAPI(http_client=http_client, project_api=self.project)

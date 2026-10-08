@@ -7,6 +7,7 @@ import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse
+from cognite_toolkit._cdf_tk.client.identifiers import NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
     ContainerReferenceItem,
@@ -370,6 +371,39 @@ class TestChartIO:
         assert chart_request["data"]["timeSeriesCollection"][0]["tsExternalId"] == _CHART_TS_EXTERNAL_ID
         assert chart_request["data"]["timeSeriesCollection"][0]["tsId"] == _CHART_TS_INTERNAL_ID
         assert chart_request["data"]["monitoringJobs"][0]["id"] == _CHART_MONITOR_JOB_INTERNAL_ID_AFTER_UPLOAD
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_upload_migrates_scheduled_calculation_target(self) -> None:
+        chart = _example_chart_response_for_download()
+        monitoring_job = _example_monitoring_job_response()
+        stored = _example_scheduled_calculation_response()
+        linked = stored.model_copy(
+            update={
+                "target_timeseries_external_id": None,
+                "target_timeseries_instance_id": NodeId(space="plant", external_id="shared_ts_calc_output"),
+            }
+        )
+        downloaded = self._create_downloaded_chart(chart, monitoring_job, linked)
+        with monkeypatch_toolkit_client() as client:
+            client.lookup.time_series.id.side_effect = lambda arg: (
+                [_CHART_TS_INTERNAL_ID for _ in arg] if isinstance(arg, list) else _CHART_TS_INTERNAL_ID
+            )
+            client.charts.monitoring_jobs.retrieve.return_value = [monitoring_job]
+            client.charts.monitoring_jobs.update.return_value = [monitoring_job]
+            client.charts.scheduled_calculations.retrieve.return_value = [stored]
+            client.charts.scheduled_calculations.update.return_value = [linked]
+            io = ChartIO(client, skip_backend_services=False, skip_existing=False)
+            page = io.json_chunk_to_data(
+                Page(worker_id="main", items=[DataItem(tracking_id="line 1", item=downloaded)])
+            )
+
+            failed_charts = io._upload_backend_services(page.items)
+
+            updates = client.charts.scheduled_calculations.update.call_args_list
+            assert len(updates) == 1
+            sent = updates[0].args[0][0].as_update("replace")
+            assert sent["targetTimeseriesInstanceId"] == {"space": "plant", "externalId": "shared_ts_calc_output"}
+        assert not failed_charts
 
     @pytest.mark.parametrize(
         "limit,selector,expected_external_ids",

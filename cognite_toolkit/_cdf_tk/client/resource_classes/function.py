@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 FunctionStatus: TypeAlias = Literal["Queued", "Deploying", "Ready", "Failed", "Retired"]
 FunctionRuntime: TypeAlias = Literal["py38", "py39", "py310", "py311", "py312", "py313", "py314"]
+FunctionsActivationStatus: TypeAlias = Literal["inactive", "requested", "activated"]
 
 
 class FunctionBase(BaseModelObject):
@@ -80,3 +81,9 @@ class FunctionLimits(BaseModelObject):
     runtimes: list[FunctionRuntime | str]
     # As of 24.04.2026 this is marked as a required field in the API, but it's currently only returned for projects on Gcloud
     response_size_mb: int | None = None
+
+
+class FunctionsActivation(BaseModelObject):
+    """Whether Cognite Functions have been requested or activated for the project."""
+
+    status: FunctionsActivationStatus | str
