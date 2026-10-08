@@ -1,23 +1,15 @@
-import sys
-from types import MappingProxyType
-from typing import Any, ClassVar, Literal, cast
+from abc import ABC
+from typing import Annotated, Literal
 
-from pydantic import Field, ModelWrapValidatorHandler, model_serializer, model_validator
-from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
+from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client import identifiers
 from cognite_toolkit._cdf_tk.constants import (
     DM_EXTERNAL_ID_PATTERN,
     SPACE_FORMAT_PATTERN,
 )
-from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
 from .base import BaseModelResource
-
-if sys.version_info < (3, 11):
-    from typing_extensions import Self
-else:
-    from typing import Self
 
 
 class ContainerReference(BaseModelResource):
@@ -41,95 +33,33 @@ class ContainerReference(BaseModelResource):
 
 
 class ConstraintDefinition(BaseModelResource):
-    constraint_type: ClassVar[str]
-
-    @model_validator(mode="wrap")
-    @classmethod
-    def find_constraint_definition_cls(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
-        if isinstance(data, ConstraintDefinition):
-            return cast(Self, data)
-        if not isinstance(data, dict):
-            raise ValueError(f"Invalid constraint definition data '{type(data)}' expected dict")
-
-        if cls is not ConstraintDefinition:
-            data_copy = dict(data)
-            data_copy.pop("constraintType", None)
-            return handler(data_copy)
-
-        constraint_type = data.get("constraintType")
-        if constraint_type is None:
-            raise ValueError("Missing 'constraintType' field in constraint data")
-        if constraint_type not in _CONSTRAINT_DEFINITION_CLASS_BY_TYPE:
-            raise ValueError(
-                f"invalid destination type '{constraint_type}'. Expected one of {humanize_collection(_CONSTRAINT_DEFINITION_CLASS_BY_TYPE.keys(), bind_word='or')}"
-            )
-        cls_ = _CONSTRAINT_DEFINITION_CLASS_BY_TYPE[constraint_type]
-        data_copy = dict(data)
-        data_copy.pop("constraintType")
-
-        return cast(Self, cls_.model_validate(data_copy))
-
-    @model_serializer(mode="wrap", when_used="always", return_type=dict)
-    def serialize_constrain_definition(self, handler: SerializerFunctionWrapHandler) -> dict:
-        serialized_data = handler(self)
-        serialized_data["constraintType"] = self.__class__.constraint_type
-        return serialized_data
+    constraint_type: str
 
 
 class UniquenessConstraintDefinition(ConstraintDefinition):
-    constraint_type = "uniqueness"
+    constraint_type: Literal["uniqueness"] = "uniqueness"
     properties: list[str] = Field(description="List of properties included in the constraint.")
     by_space: bool | None = Field(default=None, description="Whether to make the constraint space-specific.")
 
 
 class RequiresConstraintDefinition(ConstraintDefinition):
-    constraint_type = "requires"
+    constraint_type: Literal["requires"] = "requires"
     require: ContainerReference = Field(description="Reference to an existing container.")
 
 
-_CONSTRAINT_DEFINITION_CLASS_BY_TYPE: MappingProxyType[str, type[ConstraintDefinition]] = MappingProxyType(
-    {c.constraint_type: c for c in ConstraintDefinition.__subclasses__()}
-)
+ConstraintType = Annotated[
+    UniquenessConstraintDefinition | RequiresConstraintDefinition,
+    Field(discriminator="constraint_type"),
+]
 
 
 class IndexDefinition(BaseModelResource):
-    index_type: ClassVar[str]
+    index_type: str
     properties: list[str] = Field(description="List of properties to define the index across.")
-
-    @model_validator(mode="wrap")
-    @classmethod
-    def find_index_definition_cls(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
-        if isinstance(data, IndexDefinition):
-            return cast(Self, data)
-        if not isinstance(data, dict):
-            raise ValueError(f"Invalid index definition data '{type(data)}' expected dict")
-
-        if cls is not IndexDefinition:
-            data_copy = dict(data)
-            data_copy.pop("indexType", None)
-            return handler(data_copy)
-
-        index_type = data.get("indexType")
-        if index_type is None:
-            raise ValueError("Missing 'indexType' field in index definition data")
-        if index_type not in _INDEX_DEFINITION_CLASS_BY_TYPE:
-            raise ValueError(
-                f"invalid index type '{index_type}'. Expected one of {humanize_collection(_INDEX_DEFINITION_CLASS_BY_TYPE.keys(), bind_word='or')}"
-            )
-        cls_ = _INDEX_DEFINITION_CLASS_BY_TYPE[index_type]
-        data_copy = dict(data)
-        data_copy.pop("indexType")
-        return cast(Self, cls_.model_validate(data_copy))
-
-    @model_serializer(mode="wrap", when_used="always", return_type=dict)
-    def serialize_index(self, handler: SerializerFunctionWrapHandler) -> dict:
-        serialized_data = handler(self)
-        serialized_data["indexType"] = self.__class__.index_type
-        return serialized_data
 
 
 class BtreeIndex(IndexDefinition):
-    index_type = "btree"
+    index_type: Literal["btree"] = "btree"
     by_space: bool | None = Field(default=None, description="Whether to make the index space-specific.")
     cursorable: bool | None = Field(
         default=None, description="Whether the index can be used for cursor-based pagination."
@@ -137,51 +67,20 @@ class BtreeIndex(IndexDefinition):
 
 
 class InvertedIndex(IndexDefinition):
-    index_type = "inverted"
+    index_type: Literal["inverted"] = "inverted"
 
 
-_INDEX_DEFINITION_CLASS_BY_TYPE: MappingProxyType[str, type[IndexDefinition]] = MappingProxyType(
-    {c.index_type: c for c in IndexDefinition.__subclasses__()}
-)
+IndexType = Annotated[
+    BtreeIndex | InvertedIndex,
+    Field(discriminator="index_type"),
+]
 
 
 class PropertyTypeDefinition(BaseModelResource):
-    type: ClassVar[str]
-
-    @model_validator(mode="wrap")
-    @classmethod
-    def find_property_type_cls(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
-        if isinstance(data, PropertyTypeDefinition):
-            return cast(Self, data)
-        if not isinstance(data, dict):
-            raise ValueError(f"Invalid property type data '{type(data)}' expected dict")
-
-        if cls is not PropertyTypeDefinition:
-            data_copy = dict(data)
-            data_copy.pop("type", None)
-            return handler(data_copy)
-
-        property_type = data.get("type")
-        if property_type is None:
-            raise ValueError("Missing 'type' field in property type data")
-        if property_type not in _PROPERTY_TYPE_CLASS_BY_TYPE:
-            raise ValueError(
-                f"invalid property type '{property_type}'. Expected one of {humanize_collection(_PROPERTY_TYPE_CLASS_BY_TYPE.keys(), bind_word='or')}"
-            )
-        cls_ = _PROPERTY_TYPE_CLASS_BY_TYPE[property_type]
-        data_copy = dict(data)
-        data_copy.pop("type")
-        return cast(Self, cls_.model_validate(data_copy))
-
-    @model_serializer(mode="wrap", when_used="always", return_type=dict)
-    def serialize_property_type(self, handler: SerializerFunctionWrapHandler) -> dict:
-        serialized_data = handler(self)
-        serialized_data["type"] = self.__class__.type
-        return serialized_data
+    type: str
 
 
-class ListablePropertyTypeDefinition(PropertyTypeDefinition):
-    type: ClassVar[str]
+class ListablePropertyTypeDefinition(PropertyTypeDefinition, ABC):
     list: bool | None = Field(
         default=None,
         description="Specifies that the data type is a list of values.",
@@ -193,7 +92,7 @@ class ListablePropertyTypeDefinition(PropertyTypeDefinition):
 
 
 class TextProperty(ListablePropertyTypeDefinition):
-    type = "text"
+    type: Literal["text"] = "text"
     collation: str | None = Field(
         default=None,
         description="he set of language specific rules - used when sorting text fields.",
@@ -204,8 +103,7 @@ class TextProperty(ListablePropertyTypeDefinition):
     )
 
 
-class FloatPrimitiveProperty(ListablePropertyTypeDefinition):
-    type: ClassVar[Literal["float32", "float64"]]
+class FloatPrimitiveProperty(ListablePropertyTypeDefinition, ABC):
     unit: dict[Literal["externalId", "sourceUnit"], str] | None = Field(
         default=None,
         description="The unit of the data stored in this property.",
@@ -213,51 +111,51 @@ class FloatPrimitiveProperty(ListablePropertyTypeDefinition):
 
 
 class Float32PrimitiveProperty(FloatPrimitiveProperty):
-    type = "float32"
+    type: Literal["float32"] = "float32"
 
 
 class Float64PrimitiveProperty(FloatPrimitiveProperty):
-    type = "float64"
+    type: Literal["float64"] = "float64"
 
 
 class BooleanPrimitiveProperty(ListablePropertyTypeDefinition):
-    type = "boolean"
+    type: Literal["boolean"] = "boolean"
 
 
 class Int32PrimitiveProperty(ListablePropertyTypeDefinition):
-    type = "int32"
+    type: Literal["int32"] = "int32"
 
 
 class Int64PrimitiveProperty(ListablePropertyTypeDefinition):
-    type = "int64"
+    type: Literal["int64"] = "int64"
 
 
 class TimestampPrimitiveProperty(ListablePropertyTypeDefinition):
-    type = "timestamp"
+    type: Literal["timestamp"] = "timestamp"
 
 
 class DatePrimitiveProperty(ListablePropertyTypeDefinition):
-    type = "date"
+    type: Literal["date"] = "date"
 
 
 class JSONPrimitiveProperty(ListablePropertyTypeDefinition):
-    type = "json"
+    type: Literal["json"] = "json"
 
 
 class TimeseriesCDFExternalIdReference(ListablePropertyTypeDefinition):
-    type = "timeseries"
+    type: Literal["timeseries"] = "timeseries"
 
 
 class FileCDFExternalIdReference(ListablePropertyTypeDefinition):
-    type = "file"
+    type: Literal["file"] = "file"
 
 
 class SequenceCDFExternalIdReference(ListablePropertyTypeDefinition):
-    type = "sequence"
+    type: Literal["sequence"] = "sequence"
 
 
 class DirectNodeRelation(ListablePropertyTypeDefinition):
-    type = "direct"
+    type: Literal["direct"] = "direct"
     container: ContainerReference | None = Field(
         default=None,
         description="The (optional) required type for the node the direct relation points to.",
@@ -265,7 +163,7 @@ class DirectNodeRelation(ListablePropertyTypeDefinition):
 
 
 class EnumProperty(PropertyTypeDefinition):
-    type = "enum"
+    type: Literal["enum"] = "enum"
     unknown_value: str | None = Field(
         default=None,
         description="The value to use when the enum value is unknown.",
@@ -275,27 +173,23 @@ class EnumProperty(PropertyTypeDefinition):
     )
 
 
-def get_all_property_type_leaf_classes(base_class: type[PropertyTypeDefinition]) -> list:
-    subclasses = base_class.__subclasses__()
-    result = []
-
-    if not subclasses:
-        if base_class is not PropertyTypeDefinition:
-            result.append(base_class)
-    else:
-        for subclass in subclasses:
-            result.extend(get_all_property_type_leaf_classes(subclass))
-
-    return result
-
-
-_PROPERTY_TYPE_CLASS_BY_TYPE: MappingProxyType[str, type[PropertyTypeDefinition]] = MappingProxyType(
-    {
-        cls.type: cls
-        for cls in get_all_property_type_leaf_classes(PropertyTypeDefinition)
-        if hasattr(cls, "type") and cls.type is not None
-    }
-)
+PropertyType = Annotated[
+    TextProperty
+    | Float32PrimitiveProperty
+    | Float64PrimitiveProperty
+    | BooleanPrimitiveProperty
+    | Int32PrimitiveProperty
+    | Int64PrimitiveProperty
+    | TimestampPrimitiveProperty
+    | DatePrimitiveProperty
+    | JSONPrimitiveProperty
+    | TimeseriesCDFExternalIdReference
+    | FileCDFExternalIdReference
+    | SequenceCDFExternalIdReference
+    | DirectNodeRelation
+    | EnumProperty,
+    Field(discriminator="type"),
+]
 
 
 class ContainerPropertyDefinition(BaseModelResource):
@@ -325,11 +219,4 @@ class ContainerPropertyDefinition(BaseModelResource):
         description="Readable property name.",
         max_length=255,
     )
-    type: PropertyTypeDefinition = Field(description="The type of data you can store in this property.")
-
-    @model_serializer(mode="wrap")
-    def serialize_type(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
-        serialized_data = handler(self)
-        if self.type:
-            serialized_data["type"] = self.type.model_dump(**vars(info))
-        return serialized_data
+    type: PropertyType = Field(description="The type of data you can store in this property.")
