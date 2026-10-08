@@ -4,6 +4,7 @@ from typing import Any
 import httpx2
 import pytest
 import respx
+from pydantic import ValidationError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.api.datapoints import DatapointsAPI
@@ -12,12 +13,16 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import (
+    AggregateDatapointsResponse,
     Datapoint,
     DatapointsDeleteRequest,
     DatapointsQueryRequest,
     DatapointsRequest,
     DatapointStatus,
     LatestDatapointRequest,
+    NumericDatapointsResponse,
+    StringDatapointsResponse,
+    parse_datapoints_series,
 )
 
 
@@ -123,6 +128,7 @@ class TestDatapointsAPI:
                     "id": 1,
                     "externalId": "ts_001",
                     "isString": False,
+                    "type": "numeric",
                     "isStep": False,
                     "nextCursor": "cursor-2",
                     "datapoints": [
@@ -155,6 +161,7 @@ class TestDatapointsAPI:
 
         assert {
             "request": _request_payload(respx_mock.calls[0]),
+            "series": type(retrieved[0]),
             "datapoint": retrieved[0].datapoints[0].dump(),
             "next_cursor": retrieved[0].next_cursor,
         } == {
@@ -171,6 +178,7 @@ class TestDatapointsAPI:
                     "ignoreUnknownIds": True,
                 },
             },
+            "series": AggregateDatapointsResponse,
             "datapoint": {
                 "timestamp": 10,
                 "average": 1.5,
@@ -194,6 +202,7 @@ class TestDatapointsAPI:
                             "id": 7,
                             "externalId": "ts_001",
                             "isString": False,
+                            "type": "numeric",
                             "isStep": True,
                             "datapoints": [{"timestamp": 50, "value": 4}],
                         }
@@ -208,6 +217,7 @@ class TestDatapointsAPI:
 
         assert {
             "request": _request_payload(respx_mock.calls[0]),
+            "series": type(retrieved[0]),
             "value": retrieved[0].datapoints[0].value,
         } == {
             "request": {
@@ -219,6 +229,7 @@ class TestDatapointsAPI:
                     "ignoreUnknownIds": True,
                 },
             },
+            "series": NumericDatapointsResponse,
             "value": 4,
         }
 
@@ -270,3 +281,37 @@ class TestDatapointsAPI:
                 external_id="ts_001",
                 datapoints=[Datapoint(timestamp=1, value=1)],
             )
+
+    def test_delete_requires_inclusive_begin(self) -> None:
+        with pytest.raises(ValidationError):
+            DatapointsDeleteRequest(external_id="ts_001", exclusive_end=20)
+
+    def test_series_requires_is_string_and_type(self) -> None:
+        with pytest.raises(ValidationError):
+            NumericDatapointsResponse.model_validate({"id": 1, "datapoints": [{"timestamp": 1, "value": 1.5}]})
+
+    def test_raw_points_use_separate_numeric_and_string_models(self) -> None:
+        numeric = parse_datapoints_series(
+            {
+                "id": 1,
+                "isString": False,
+                "type": "numeric",
+                "datapoints": [{"timestamp": 1, "value": 1.5}],
+            }
+        )
+        string = parse_datapoints_series(
+            {
+                "id": 2,
+                "isString": True,
+                "type": "string",
+                "datapoints": [{"timestamp": 1, "value": "on"}],
+            }
+        )
+
+        assert {
+            "numeric": (type(numeric), numeric.datapoints[0].value),
+            "string": (type(string), string.datapoints[0].value),
+        } == {
+            "numeric": (NumericDatapointsResponse, 1.5),
+            "string": (StringDatapointsResponse, "on"),
+        }

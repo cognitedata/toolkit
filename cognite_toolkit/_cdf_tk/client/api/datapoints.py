@@ -1,4 +1,5 @@
 import builtins
+import json
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -11,8 +12,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import (
     DatapointsQueryDefaults,
     DatapointsQueryRequest,
     DatapointsRequest,
-    DatapointsResponse,
+    DatapointsSeriesResponse,
     LatestDatapointRequest,
+    parse_datapoints_series,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
@@ -20,7 +22,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 _INSERT_DATAPOINT_LIMIT = 100_000
 
 
-class DatapointsAPI(CDFResourceAPI[DatapointsResponse]):
+class DatapointsAPI(CDFResourceAPI[DatapointsSeriesResponse]):
     """Insert, retrieve, and delete time series data points.
 
     Requests and responses use ``application/json``.
@@ -51,8 +53,12 @@ class DatapointsAPI(CDFResourceAPI[DatapointsResponse]):
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
-    ) -> PagedResponse[DatapointsResponse]:
-        return PagedResponse[DatapointsResponse].model_validate_json(response.body)
+    ) -> PagedResponse[DatapointsSeriesResponse]:
+        payload = json.loads(response.body)
+        items = [parse_datapoints_series(item) for item in payload["items"]]
+        # Keep the concrete series class. Validating the union again would accept a numeric
+        # series as an aggregate series, because aggregate fields are optional.
+        return PagedResponse[DatapointsSeriesResponse].model_construct(items=items, next_cursor=None)
 
     def create(self, items: Sequence[DatapointsRequest]) -> None:
         """Insert data points into one or more time series.
@@ -85,12 +91,13 @@ class DatapointsAPI(CDFResourceAPI[DatapointsResponse]):
         include_outside_points: bool | None = None,
         time_zone: str | None = None,
         ignore_unknown_ids: bool = False,
-    ) -> builtins.list[DatapointsResponse]:
+    ) -> builtins.list[DatapointsSeriesResponse]:
         """Retrieve data points from multiple time series.
 
-        Fields set on an item override the corresponding argument. When aggregates are omitted, raw
-        data points are returned. Each returned series includes ``next_cursor`` when more points are
-        available; pass that value as ``cursor`` on the next query for that series.
+        Fields set on an item override the corresponding argument. When aggregates are omitted, each
+        series is a ``NumericDatapointsResponse`` or ``StringDatapointsResponse``. When aggregates are
+        set, each series is an ``AggregateDatapointsResponse``. A series includes ``next_cursor`` when
+        more points are available; pass that value as ``cursor`` on the next query for that series.
 
         ``start`` defaults to epoch 0 on the service when omitted, which excludes points before 1970.
         Pass a negative timestamp to include those points.
@@ -126,7 +133,7 @@ class DatapointsAPI(CDFResourceAPI[DatapointsResponse]):
 
     def latest(
         self, items: Sequence[LatestDatapointRequest], ignore_unknown_ids: bool = False
-    ) -> builtins.list[DatapointsResponse]:
+    ) -> builtins.list[DatapointsSeriesResponse]:
         """Retrieve the latest data point before a timestamp for one or more time series.
 
         The latest point is the one with the highest timestamp, which is not necessarily the most
@@ -141,7 +148,7 @@ class DatapointsAPI(CDFResourceAPI[DatapointsResponse]):
         Returns:
             The latest data point for each found time series.
         """
-        responses: list[DatapointsResponse] = []
+        responses: list[DatapointsSeriesResponse] = []
         for chunk in chunker_sequence(list(items), self._latest_endpoint.item_limit):
             responses.extend(
                 self._request_item_response(
@@ -216,19 +223,13 @@ def _query_defaults_body(
     time_zone: str | None,
     ignore_unknown_ids: bool,
 ) -> dict[str, Any]:
-    values: dict[str, Any] = {"ignore_unknown_ids": ignore_unknown_ids}
-    if start is not None:
-        values["start"] = start
-    if end is not None:
-        values["end"] = end
-    if limit is not None:
-        values["limit"] = limit
-    if aggregates is not None:
-        values["aggregates"] = aggregates
-    if granularity is not None:
-        values["granularity"] = granularity
-    if include_outside_points is not None:
-        values["include_outside_points"] = include_outside_points
-    if time_zone is not None:
-        values["time_zone"] = time_zone
-    return DatapointsQueryDefaults(**values).dump()
+    return DatapointsQueryDefaults(
+        start=start,
+        end=end,
+        limit=limit,
+        aggregates=aggregates,
+        granularity=granularity,
+        include_outside_points=include_outside_points,
+        time_zone=time_zone,
+        ignore_unknown_ids=ignore_unknown_ids,
+    ).model_dump(mode="json", by_alias=True, exclude_none=True)

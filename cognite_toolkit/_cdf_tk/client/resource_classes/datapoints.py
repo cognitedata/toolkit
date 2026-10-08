@@ -55,35 +55,53 @@ class Datapoint(BaseModelObject):
     status: DatapointStatus | None = None
 
 
-class AggregateDatapoint(BaseModelObject):
-    """The raw data point selected by a min or max aggregate."""
+class NumericDatapointResponse(BaseModelObject):
+    """A raw numeric data point.
+
+    ``value`` is omitted when the point has a bad status. A bad point may instead use one of
+    ``NaN``, ``Infinity``, or ``-Infinity``.
+    """
+
+    timestamp: int
+    value: int | float | Literal["NaN", "Infinity", "-Infinity"] | None = None
+    status: DatapointStatus | None = None
+
+
+class StringDatapointResponse(BaseModelObject):
+    """A raw string data point.
+
+    ``value`` is omitted when the point has a bad status.
+    """
+
+    timestamp: int
+    value: str | None = None
+    status: DatapointStatus | None = None
+
+
+class AggregateExtremeDatapoint(BaseModelObject):
+    """Timestamp and value of the first minimum or maximum point in an aggregate window."""
 
     timestamp: int
     value: int | float
     status: DatapointStatus | None = None
 
 
-class DatapointResponse(BaseModelObject):
-    """One returned data point, either raw or aggregated.
-
-    Raw points set ``value``. Aggregated points set the requested aggregate fields instead.
-    """
+class AggregateDatapointResponse(BaseModelObject):
+    """One aggregated window. Only the requested aggregate fields are set."""
 
     timestamp: int
-    value: int | float | str | None = None
-    status: DatapointStatus | None = None
     count: int | None = None
     count_good: int | None = None
     count_uncertain: int | None = None
     count_bad: int | None = None
-    duration_good: int | float | None = None
-    duration_uncertain: int | float | None = None
-    duration_bad: int | float | None = None
+    duration_good: int | None = None
+    duration_uncertain: int | None = None
+    duration_bad: int | None = None
     average: int | float | None = None
     max: int | float | None = None
-    max_datapoint: AggregateDatapoint | None = None
+    max_datapoint: AggregateExtremeDatapoint | None = None
     min: int | float | None = None
-    min_datapoint: AggregateDatapoint | None = None
+    min_datapoint: AggregateExtremeDatapoint | None = None
     sum: int | float | None = None
     interpolation: int | float | None = None
     step_interpolation: int | float | None = None
@@ -251,15 +269,16 @@ class LatestDatapointRequest(TimeSeriesDatapointSelector, _UnitTarget, RequestRe
 
 
 class DatapointsDeleteRequest(TimeSeriesDatapointSelector, RequestResource):
-    """Range of data points to delete from one time series.
+    """Data points to delete from one time series.
 
-    ``inclusive_begin`` and ``exclusive_end`` are epoch milliseconds. Omit ``inclusive_begin`` to delete
-    from the start of the series, and omit ``exclusive_end`` to delete through the latest point.
+    ``inclusive_begin`` is required and is the first timestamp to delete, in epoch milliseconds.
+    ``exclusive_end`` is the first timestamp to keep. When it is omitted, only the data point at
+    ``inclusive_begin`` is deleted.
 
     See `API docs <https://api-docs.cognite.com/20230101/tag/Time-series/operation/deleteDatapoints>`_.
     """
 
-    inclusive_begin: int | None = None
+    inclusive_begin: int
     exclusive_end: int | None = None
 
     def as_id(self) -> DatapointsId:
@@ -270,42 +289,113 @@ class DatapointsDeleteRequest(TimeSeriesDatapointSelector, RequestResource):
         )
 
 
-class DatapointsResponse(TimeSeriesIdentifiers, ResponseResource[DatapointsRequest]):
-    """Data points returned for one time series."""
+class _DatapointsSeries(TimeSeriesIdentifiers, ResponseResource[DatapointsRequest]):
+    """Data points returned for one time series.
 
-    is_string: bool | None = None
-    type: str | None = None
-    is_step: bool | None = None
+    ``id``, ``is_string``, and ``type`` are always present. ``is_string`` is false for numeric series
+    and for aggregates, which CDF only returns for numeric series.
+    """
+
+    id: int
+    is_string: bool
+    type: str
     unit: str | None = None
     unit_external_id: str | None = None
     next_cursor: str | None = None
-    datapoints: list[DatapointResponse]
 
     @classmethod
     def request_cls(cls) -> builtins.type[DatapointsRequest]:
         return DatapointsRequest
 
+
+class NumericDatapointsResponse(_DatapointsSeries):
+    """Raw data points from a numeric time series."""
+
+    is_string: Literal[False]
+    is_step: bool | None = None
+    datapoints: list[NumericDatapointResponse]
+
     def as_request_resource(self) -> DatapointsRequest:
-        identifier = _insert_identifier(self)
-        return DatapointsRequest(datapoints=_insert_datapoints(self.datapoints), **identifier)
+        return _as_insert_request(self, self.datapoints)
 
 
-def _insert_identifier(response: DatapointsResponse) -> dict[str, Any]:
+class StringDatapointsResponse(_DatapointsSeries):
+    """Raw data points from a string time series."""
+
+    is_string: Literal[True]
+    datapoints: list[StringDatapointResponse]
+
+    def as_request_resource(self) -> DatapointsRequest:
+        return _as_insert_request(self, self.datapoints)
+
+
+class AggregateDatapointsResponse(_DatapointsSeries):
+    """Aggregated data points from a numeric time series."""
+
+    is_string: Literal[False]
+    is_step: bool
+    datapoints: list[AggregateDatapointResponse]
+
+    def as_request_resource(self) -> DatapointsRequest:
+        raise ValueError("Aggregate datapoints cannot be converted to an insert request.")
+
+
+DatapointsSeriesResponse = NumericDatapointsResponse | StringDatapointsResponse | AggregateDatapointsResponse
+
+_AGGREGATE_POINT_FIELDS = frozenset(
+    {
+        "count",
+        "countGood",
+        "countUncertain",
+        "countBad",
+        "durationGood",
+        "durationUncertain",
+        "durationBad",
+        "average",
+        "max",
+        "maxDatapoint",
+        "min",
+        "minDatapoint",
+        "sum",
+        "interpolation",
+        "stepInterpolation",
+        "continuousVariance",
+        "discreteVariance",
+        "totalVariation",
+    }
+)
+
+
+def parse_datapoints_series(item: dict[str, Any]) -> DatapointsSeriesResponse:
+    """Parse one retrieve or latest item into the series type that matches its points."""
+    points = item.get("datapoints") or []
+    if any(isinstance(point, dict) and _AGGREGATE_POINT_FIELDS.intersection(point) for point in points):
+        return AggregateDatapointsResponse.model_validate(item)
+    if item.get("isString") is True:
+        return StringDatapointsResponse.model_validate(item)
+    return NumericDatapointsResponse.model_validate(item)
+
+
+def _as_insert_request(
+    response: NumericDatapointsResponse | StringDatapointsResponse,
+    points: list[NumericDatapointResponse] | list[StringDatapointResponse],
+) -> DatapointsRequest:
+    datapoints = _insert_datapoints(points)
     if response.external_id is not None:
-        return {"external_id": response.external_id}
+        return DatapointsRequest(external_id=response.external_id, datapoints=datapoints)
     if response.instance_id is not None:
-        return {"instance_id": response.instance_id}
-    if response.id is not None:
-        return {"id": response.id}
-    raise ValueError("Datapoints response is missing a time series identifier.")
+        return DatapointsRequest(instance_id=response.instance_id, datapoints=datapoints)
+    return DatapointsRequest(id=response.id, datapoints=datapoints)
 
 
-def _insert_datapoints(points: list[DatapointResponse]) -> list[Datapoint]:
+def _insert_datapoints(
+    points: list[NumericDatapointResponse] | list[StringDatapointResponse],
+) -> list[Datapoint]:
     converted: list[Datapoint] = []
     for point in points:
         value = point.value
         if value is None:
-            raise ValueError("Aggregate datapoints cannot be converted to an insert request.")
+            raise ValueError("A data point without a value cannot be converted to an insert request.")
         if point.status is None:
             converted.append(Datapoint(timestamp=point.timestamp, value=value))
         else:
