@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, NamedTuple, TypeVar
+from typing import Any, Literal, NamedTuple, TypeVar
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic_core import ErrorDetails
@@ -32,7 +32,7 @@ class ValidationMessage(NamedTuple):
     """
 
     message: str
-    category: str
+    category: Literal["error", "warning"]
 
 
 class _GroupEntry(NamedTuple):
@@ -145,7 +145,7 @@ def humanize_validation_error_categorized(
         if core_schema is not None:
             loc = _remove_discriminator_tags(loc, core_schema)
         error_type = item["type"]
-        category = "error"
+        category: Literal["error", "warning"] = "error"
         is_metadata_string_value_error = error_type == "string_type" and len(loc) >= 2 and loc[-2] == "metadata"
         # A nested object field left empty in YAML (e.g. "view:" with nothing indented under it) is
         # reported by Pydantic as "model_type" with a None input. The field is present but empty, which
