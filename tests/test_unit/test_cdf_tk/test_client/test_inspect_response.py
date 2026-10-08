@@ -1,16 +1,21 @@
+from collections.abc import Sequence
+
 import pytest
 
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     Acl,
     AllScope,
     AssetsAcl,
+    CurrentUserScope,
     DataModelsAcl,
     DataSetScope,
     EventsAcl,
     GroupsAcl,
     IDScopeLowerCase,
+    RawAcl,
     Scope,
     SpaceIDScope,
+    TableScope,
     TimeSeriesAcl,
     UnknownAcl,
     UnknownScope,
@@ -102,6 +107,191 @@ class TestProjectCapability:
         actual = project.verify(required_acls)
 
         assert actual == expected_missing
+
+    @pytest.mark.parametrize(
+        "capabilities, acl_cls, actions, expected_scopes",
+        [
+            pytest.param(
+                {(AssetsAcl, "assetsAcl", "READ"): [AllScope()]},
+                AssetsAcl,
+                ["READ"],
+                [AllScope()],
+                id="Exact match on ACL type and action with AllScope",
+            ),
+            pytest.param(
+                {
+                    (AssetsAcl, "assetsAcl", "READ"): [DataSetScope(ids=[37, 42])],
+                    (AssetsAcl, "assetsAcl", "WRITE"): [DataSetScope(ids=[37])],
+                },
+                AssetsAcl,
+                ["READ", "WRITE"],
+                [DataSetScope(ids=[37])],
+                id="Intersection of scopes for multiple actions of the same ACL type",
+            ),
+            pytest.param(
+                {
+                    (TimeSeriesAcl, "timeSeriesAcl", "READ"): [DataSetScope(ids=[37, 42]), IDScopeLowerCase(ids=[37])],
+                    (TimeSeriesAcl, "timeSeriesAcl", "WRITE"): [DataSetScope(ids=[37])],
+                },
+                TimeSeriesAcl,
+                ["READ", "WRITE"],
+                [DataSetScope(ids=[37])],
+                id="Intersection of scopes for multiple actions of the same ACL type with different scope types",
+            ),
+            pytest.param(
+                {
+                    (TimeSeriesAcl, "timeSeriesAcl", "READ"): [DataSetScope(ids=[42])],
+                    (TimeSeriesAcl, "timeSeriesAcl", "WRITE"): [DataSetScope(ids=[37])],
+                },
+                TimeSeriesAcl,
+                ["READ", "WRITE"],
+                [],
+                id="No intersection of scopes for multiple actions of the same ACL type",
+            ),
+            pytest.param(
+                {
+                    (TimeSeriesAcl, "timeSeriesAcl", "WRITE"): [DataSetScope(ids=[37])],
+                },
+                TimeSeriesAcl,
+                ["READ"],
+                [],
+                id="No scopes available for the requested action of the ACL type",
+            ),
+            pytest.param(
+                {
+                    (TimeSeriesAcl, "timeSeriesAcl", "READ"): [AllScope(), DataSetScope(ids=[37])],
+                    (TimeSeriesAcl, "timeSeriesAcl", "WRITE"): [AllScope()],
+                },
+                TimeSeriesAcl,
+                ["READ", "WRITE"],
+                [AllScope()],
+                id="AllScope for one action results in AllScope for the intersection of scopes for multiple actions of the same ACL type",
+            ),
+            pytest.param(
+                {
+                    (TimeSeriesAcl, "timeSeriesAcl", "READ"): [AllScope(), DataSetScope(ids=[37])],
+                    (TimeSeriesAcl, "timeSeriesAcl", "WRITE"): [DataSetScope(ids=[37])],
+                },
+                TimeSeriesAcl,
+                ["READ", "WRITE"],
+                [DataSetScope(ids=[37])],
+                id="AllScope in first action together with a narrower scope of the same type as second action",
+            ),
+            pytest.param(
+                {
+                    (TimeSeriesAcl, "timeSeriesAcl", "READ"): [DataSetScope(ids=[37])],
+                    (TimeSeriesAcl, "timeSeriesAcl", "WRITE"): [AllScope(), DataSetScope(ids=[37])],
+                },
+                TimeSeriesAcl,
+                ["READ", "WRITE"],
+                [DataSetScope(ids=[37])],
+                id="AllScope in second action together with a narrower scope of the same type as first action",
+            ),
+            pytest.param(
+                {
+                    (TimeSeriesAcl, "timeSeriesAcl", "READ"): [AllScope()],
+                    (TimeSeriesAcl, "timeSeriesAcl", "WRITE"): [AllScope(), DataSetScope(ids=[37])],
+                },
+                TimeSeriesAcl,
+                ["READ", "WRITE"],
+                [AllScope()],
+                id="AllScope in both actions, second action also has a narrower scope (order-swapped existing case)",
+            ),
+            pytest.param(
+                {
+                    (TimeSeriesAcl, "timeSeriesAcl", "READ"): [DataSetScope(ids=[37, 42])],
+                    (TimeSeriesAcl, "timeSeriesAcl", "WRITE"): [AllScope()],
+                    (TimeSeriesAcl, "timeSeriesAcl", "LIST"): [DataSetScope(ids=[42, 99])],
+                },
+                TimeSeriesAcl,
+                ["READ", "WRITE", "LIST"],
+                [DataSetScope(ids=[42])],
+                id="Three actions with AllScope in the middle",
+            ),
+            pytest.param(
+                {
+                    (TimeSeriesAcl, "timeSeriesAcl", "READ"): [DataSetScope(ids=[37])],
+                    (TimeSeriesAcl, "timeSeriesAcl", "WRITE"): [IDScopeLowerCase(ids=[37])],
+                },
+                TimeSeriesAcl,
+                ["READ", "WRITE"],
+                [],
+                id="Different scope types for each action have no intersection",
+            ),
+            pytest.param(
+                {(TimeSeriesAcl, "timeSeriesAcl", "READ"): [DataSetScope(ids=[37])]},
+                TimeSeriesAcl,
+                ["READ", "READ"],
+                [DataSetScope(ids=[37])],
+                id="Duplicate actions",
+            ),
+            pytest.param(
+                {
+                    (GroupsAcl, "groupsAcl", "READ"): [CurrentUserScope()],
+                    (GroupsAcl, "groupsAcl", "LIST"): [CurrentUserScope()],
+                },
+                GroupsAcl,
+                ["READ", "LIST"],
+                [CurrentUserScope()],
+                id="Scope without data fields (CurrentUserScope)",
+            ),
+            pytest.param(
+                {
+                    (RawAcl, "rawAcl", "READ"): [TableScope(dbs_to_tables={"db1": ["t1", "t2"], "db2": ["t3"]})],
+                    (RawAcl, "rawAcl", "WRITE"): [TableScope(dbs_to_tables={"db1": ["t2", "t4"]})],
+                },
+                RawAcl,
+                ["READ", "WRITE"],
+                [TableScope(dbs_to_tables={"db1": ["t2"]})],
+                id="TableScope intersection",
+            ),
+            pytest.param(
+                {
+                    (RawAcl, "rawAcl", "READ"): [TableScope(dbs_to_tables={"db1": []})],
+                    (RawAcl, "rawAcl", "WRITE"): [TableScope(dbs_to_tables={"db1": ["t1"]})],
+                },
+                RawAcl,
+                ["READ", "WRITE"],
+                [TableScope(dbs_to_tables={"db1": []})],
+                id="TableScope with empty table list (entire database) intersected with specific table",
+            ),
+            pytest.param(
+                {
+                    (AssetsAcl, "assetsAcl", "READ"): [
+                        UnknownScope.model_validate({"scopeName": "newScope", "someIds": [1]})
+                    ],
+                },
+                AssetsAcl,
+                ["READ"],
+                [UnknownScope.model_validate({"scopeName": "newScope", "someIds": [1]})],
+                id="Single action with unknown scope",
+            ),
+            pytest.param(
+                {
+                    (AssetsAcl, "assetsAcl", "READ"): [
+                        AllScope(),
+                        UnknownScope.model_validate({"scopeName": "newScope", "someIds": [1]}),
+                    ],
+                    (AssetsAcl, "assetsAcl", "WRITE"): [AllScope()],
+                },
+                AssetsAcl,
+                ["READ", "WRITE"],
+                [AllScope()],
+                id="AllScope in both actions with an unknown scope in one of them",
+            ),
+        ],
+    )
+    def test_get_available_scopes(
+        self,
+        capabilities: dict[tuple[type[Acl], AclName, AclAction], list[Scope]],
+        acl_cls: type[Acl],
+        actions: Sequence[str],
+        expected_scopes: list[Scope],
+    ) -> None:
+        project = FlatCapabilities(capabilities=capabilities, name="MyProject", groups=[37])
+        available_scopes = project.get_available_scopes(acl_cls, actions)
+
+        assert available_scopes == expected_scopes
 
     @pytest.mark.parametrize(
         "token, expected_capabilities",

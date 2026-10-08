@@ -1,11 +1,14 @@
 from collections.abc import Iterable
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes import TransformationYAML
+from cognite_toolkit._cdf_tk.yaml_classes.transformation_destination import Destination, DestinationType
 from tests.test_unit.utils import find_resources
 
 
@@ -237,3 +240,10 @@ class TestTransformationYAML:
         assert isinstance(format_warning, ResourceFormatWarning)
 
         assert set(format_warning.errors) == expected_errors
+
+    def test_all_destinations_in_union(self) -> None:
+        """Test that all destination types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(Destination))
+        subclasses = set(get_args(DestinationType.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"

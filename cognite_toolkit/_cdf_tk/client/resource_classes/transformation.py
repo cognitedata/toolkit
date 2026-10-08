@@ -137,6 +137,7 @@ class Transformation(BaseModelObject):
     ignore_null_fields: bool
     data_set_id: int | None = None
     tags: list[str] | None = None
+    data_domain_external_id: str | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)

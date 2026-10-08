@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, V
 from cognite_toolkit._cdf_tk.client.resource_classes import streamlit_
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationStatus, AnnotationType
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallStatus
 
 from .base import BaseModelRequest
 
@@ -203,6 +204,15 @@ class SimulatorModelRoutineRevisionFilter(SimulatorFilter):
 
 class ChartMonitorModelFilter(Filter):
     timeseries_id: list[int] | None = None
+
+
+class FunctionCallFilter(Filter):
+    """Filter for listing calls of a single function."""
+
+    schedule_id: int | None = None
+    status: FunctionCallStatus | str | None = None
+    start_time: EpochTimestampRange | None = None
+    end_time: EpochTimestampRange | None = None
 
 
 class ChartMonitorJobFilter(Filter):
