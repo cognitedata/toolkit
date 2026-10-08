@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
 from cognite_toolkit._cdf_tk.client.api.data_models import DataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractors import HostedExtractorsAPI
-from cognite_toolkit._cdf_tk.client.api.raw import RawAPI, RawDatabasesAPI, RawTablesAPI
+from cognite_toolkit._cdf_tk.client.api.raw import RawAPI, RawDatabasesAPI, RawRowsAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.signal_sinks import SignalSinksAPI
 from cognite_toolkit._cdf_tk.client.api.signal_subscriptions import SignalSubscriptionsAPI
@@ -243,7 +243,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.labels = MagicMock(spec_set=LabelsAPI)
         self.tool.raw = MagicMock(spec=RawAPI)
         self.tool.raw.databases = MagicMock(spec_set=RawDatabasesAPI)
-        self.tool.raw.tables = MagicMock(spec_set=RawTablesAPI)
+        self.tool.raw.tables = MagicMock(spec=RawTablesAPI)
+        self.tool.raw.tables.rows = MagicMock(spec_set=RawRowsAPI)
         self.tool.relationships = MagicMock(spec_set=RelationshipsAPI)
         self.tool.security_categories = MagicMock(spec_set=SecurityCategoriesAPI)
         self.tool.sequences = MagicMock(spec=SequencesAPI)
