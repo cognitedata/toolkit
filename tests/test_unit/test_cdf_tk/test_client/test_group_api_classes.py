@@ -243,9 +243,9 @@ class TestGroupAPIClasses:
             "unknownAcl"
         }
         spec_capabilities = {
-            capability._capability_name
+            capability.model_fields["capability_name"].default
             for capability in get_all_subclasses(Capability)
-            if capability._capability_name != "__unknown__"
+            if capability.model_fields["capability_name"].default != "__unknown__"
         }
 
         assert request_capabilities == spec_capabilities, (
