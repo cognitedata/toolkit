@@ -39,7 +39,7 @@ from cognite_toolkit._cdf_tk.client.api.integrations import (
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.migration import ResourceViewMappingsAPI
 from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
-from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawTablesAPI
+from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawRowsAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.ruleset_versions import RuleSetVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.rulesets import RuleSetsAPI
 from cognite_toolkit._cdf_tk.client.api.sap_writeback import SAPEndpointsAPI, SAPInstancesAPI, SAPWritebackAPI
@@ -291,8 +291,10 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # Do not support delete.
         DataSetsAPI,
         # RAW tables depend on existing RAW databases, so they are tested together.
+        # RAW rows depend on an existing table and use path parameters for the database and table.
         RawDatabasesAPI,
         RawTablesAPI,
+        RawRowsAPI,
         # Job depends on source and destination, so tested together.
         HostedExtractorJobsAPI,
         # Edge depend on nodes
