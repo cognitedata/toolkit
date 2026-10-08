@@ -48,7 +48,6 @@ Configuration integrity — three categorical severities (findings about the use
 | `WARNING` | The toolkit thinks something specific is probably wrong | Collected, never fails |
 | `HINT` | Advisory; a recommended practice or stylistic preference | Collected, never fails |
 
-
 ### Technical exceptions — `ToolkitError`
 
 A fourth category, outside the severity system. About the environment
