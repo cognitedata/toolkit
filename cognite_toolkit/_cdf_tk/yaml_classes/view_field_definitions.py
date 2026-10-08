@@ -151,7 +151,8 @@ def _ensure_view_property_connection_type(value: Any) -> Any:
     if isinstance(value, ViewProperty):
         return value
     if isinstance(value, dict) and "connectionType" not in value and "connection_type" not in value:
-        return {**value, "connectionType": "primary_property"}
+        if "container" in value or "containerPropertyIdentifier" in value or "container_property_identifier" in value:
+            return {**value, "connectionType": "primary_property"}
     return value
 
 
