@@ -228,7 +228,6 @@ class BuiltModule(BaseModel):
                             failed_extra.error, f"In {failed_extra.source_path.as_posix()!r}: {failed_extra.error}"
                         ),
                         code=failed_extra.code,
-                        title=failed_extra.title,
                         source_file=resource.source_path,
                     )
                 )
@@ -242,14 +241,13 @@ class BuiltModule(BaseModel):
             else:
                 insights.append(self._aggregated_unresolved_variables_insight(path, variables))
         for failed_file in self.failed_files:
-            if failed_file.code == "FILE-CONTENT-INVALID" and failed_file.unresolved_variables:
+            if failed_file.code == "INVALID-FILE-CONTENT" and failed_file.unresolved_variables:
                 # An unresolved placeholder such as `key: {{ variable }}` is not valid YAML. The unresolved
                 # variables are the root cause and are already reported as their own insight.
                 continue
             insights.append(
                 v09_gate(BuildError, FileReadError)(
                     code=failed_file.code,
-                    title=failed_file.title,
                     message=v09_gate(
                         failed_file.error, f"In {failed_file.source_path.as_posix()!r}: {failed_file.error}"
                     ),
@@ -260,7 +258,6 @@ class BuiltModule(BaseModel):
             insights.append(
                 v09_gate(BuildWarning, IgnoredFileWarning)(
                     code=ignored_file.code,
-                    title=ignored_file.title,
                     message=ignored_file.reason,
                     fix=ignored_file.fix,
                     source_file=ignored_file.filepath,
@@ -278,8 +275,7 @@ class BuiltModule(BaseModel):
             position = find_unique_match_position(content, _variable_pattern(variable))
             insights.append(
                 BuildError(
-                    code="VARIABLE-UNRESOLVED",
-                    title="Unresolved variable",
+                    code="UNRESOLVED-VARIABLE",
                     message=f"Unresolved variable {{{{ {variable} }}}}",
                     fix="Make sure to define the variable in the 'config.<env>.yaml' file and that it is "
                     "correctly placed in the variables section matching the file path",

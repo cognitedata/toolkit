@@ -467,7 +467,7 @@ class TestApplyPlan:
                             skipped=[
                                 Skipped(
                                     id=RawDatabaseId(name="my_db"),
-                                    code="RESOURCE-HAS-DATA",
+                                    code="NONEMPTY-RESOURCE",
                                     source_file=Path("raw/my.Database.yaml"),
                                     reason="name='my_db' contains data and does not support updates.",
                                 )
@@ -497,7 +497,7 @@ class TestApplyPlan:
                             skipped=[
                                 Skipped(
                                     id=RawTableId(db_name="my_db", name="my_table"),
-                                    code="RESOURCE-HAS-DATA",
+                                    code="NONEMPTY-RESOURCE",
                                     source_file=Path("raw/my.Table.yaml"),
                                     reason="my_db.my_table contains data and does not support updates.",
                                 )

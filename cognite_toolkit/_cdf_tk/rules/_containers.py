@@ -56,9 +56,8 @@ class DeployableContainer(ToolkitLocalRule):
     ```
     """
 
-    CODE = "VALUE-INVALID"
+    CODE = "INVALID-DIRECT-RELATION"
     LEGACY_CODE = "DMS-CONTAINER-001"  # Used when the v09 flag is not enabled
-    TITLE = "Non-nullable direct relation"
     insight_type = ConsistencyError
 
     def validate(self) -> Iterable[Insight]:
@@ -79,7 +78,6 @@ class DeployableContainer(ToolkitLocalRule):
                     v09_gate(BuildError, ConsistencyError)(
                         message=message,
                         code=v09_gate(self.CODE, self.LEGACY_CODE),
-                        title=self.TITLE,
                         fix=fix,
                         source_file=source_file.source_path,
                         alpha=True,

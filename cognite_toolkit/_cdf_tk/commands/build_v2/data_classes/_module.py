@@ -331,19 +331,17 @@ class ReadYAMLFile(BaseModel):
 
 class FailedReadYAMLFile(ReadYAMLFile):
     code: Literal[
-        "FILE-SUFFIX-MISSING",
-        "FILE-SUFFIX-INVALID",
-        "FILE-UNREADABLE",
-        "FILE-CONTENT-INVALID",
-        "FILE-EMPTY",
+        "MISSING-FILE-SUFFIX",
+        "INVALID-FILE-SUFFIX",
+        "UNREADABLE-FILE",
+        "INVALID-FILE-CONTENT",
+        "EMPTY-FILE",
         # Legacy codes, used when the v09 flag is not enabled
         "MISSING-SUFFIX",
         "INVALID-KIND",
         "READ-ERROR",
         "YAML-PARSE-ERROR",
-        "EMPTY-FILE",
     ]
-    title: str
     error: str
 
 
@@ -367,8 +365,7 @@ class SuccessfulReadYAMLFile(ReadYAMLFile):
 
 class IgnoredFile(BaseModel):
     filepath: Path
-    code: Literal["FILE-SUFFIX-MISSING", "MISSING-SUFFIX"]
-    title: str
+    code: Literal["MISSING-FILE-SUFFIX", "MISSING-SUFFIX"]
     reason: str
     fix: str
 

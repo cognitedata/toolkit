@@ -411,8 +411,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             for resource in ref.resources:
                 yield with_position(
                     v09_gate(BuildWarning, ConsistencyError)(
-                        code=v09_gate("REFERENCED-PROPERTY-UNVERIFIED", self.UNVERIFIED_PROPERTY_REFERENCE),
-                        title="Unverified container property",
+                        code=v09_gate("UNVERIFIED-REFERENCED-PROPERTY", self.UNVERIFIED_PROPERTY_REFERENCE),
                         message=(
                             f"Missing container property '{ref.label}'. "
                             f"It is referenced by {self._referenced_by(resource)}."
@@ -432,8 +431,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             for resource in ref.resources:
                 yield with_position(
                     v09_gate(BuildWarning, ConsistencyError)(
-                        code=v09_gate("REFERENCED-PROPERTY-UNVERIFIED", self.UNVERIFIED_PROPERTY_REFERENCE),
-                        title="Unverified direct relation",
+                        code=v09_gate("UNVERIFIED-REFERENCED-PROPERTY", self.UNVERIFIED_PROPERTY_REFERENCE),
                         message=(
                             f"Missing direct relation '{ref.through}'. "
                             f"It is referenced by {self._referenced_by(resource)}."
@@ -452,8 +450,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         for resource in ref.resources:
             yield with_position(
                 v09_gate(BuildError, ConsistencyError)(
-                    code=v09_gate("REFERENCED-PROPERTY-MISSING", self.UNKNOWN_PROPERTY_REFERENCE),
-                    title="Missing container property",
+                    code=v09_gate("MISSING-REFERENCED-PROPERTY", self.UNKNOWN_PROPERTY_REFERENCE),
                     message=v09_gate(
                         f"Container property '{ref.label}' does not exist locally or in CDF. "
                         f"It is referenced by {quote_identifier(resource.identifier)}.",
@@ -470,8 +467,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         for resource in ref.resources:
             yield with_position(
                 v09_gate(BuildError, ConsistencyError)(
-                    code=v09_gate("REFERENCED-PROPERTY-MISSING", self.UNKNOWN_PROPERTY_REFERENCE),
-                    title="Missing direct relation",
+                    code=v09_gate("MISSING-REFERENCED-PROPERTY", self.UNKNOWN_PROPERTY_REFERENCE),
                     message=v09_gate(
                         f"Direct relation '{ref.through}' does not exist locally or in CDF. "
                         f"It is referenced by {quote_identifier(resource.identifier)}.",
@@ -488,8 +484,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         for resource in ref.resources:
             yield with_position(
                 v09_gate(BuildError, ConsistencyError)(
-                    code=v09_gate("REFERENCED-PROPERTY-INVALID", self.INVALID_PROPERTY_REFERENCE),
-                    title="Invalid reverse direct relation",
+                    code=v09_gate("INVALID-REFERENCED-PROPERTY", self.INVALID_PROPERTY_REFERENCE),
                     message=(
                         f"Reverse direct relation through '{ref.through}' points at '{ref.through.identifier}', "
                         "which is not a direct relation."

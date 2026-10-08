@@ -76,9 +76,7 @@ class TestV09Disabled:
         assert [warning.code for warning in syntax_warnings] == ["MODEL-SYNTAX-WARNING"]
 
     def test_failed_read_extra_uses_legacy_code(self, tmp_path: Path) -> None:
-        extra = FailedReadExtra(
-            source_path=tmp_path, code="REFERENCED-FILE-MISSING", title="Missing file", error="not found"
-        )
+        extra = FailedReadExtra(source_path=tmp_path, code="MISSING-REFERENCED-FILE", error="not found")
 
         assert extra.code == "MISSING"
 

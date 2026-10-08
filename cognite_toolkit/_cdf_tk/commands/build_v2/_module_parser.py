@@ -239,8 +239,7 @@ class ModuleParser:
                                 is_selected=path in selected_paths,
                                 iteration=iteration,
                                 error=v09_gate(BuildError, ModelSyntaxError)(
-                                    code=v09_gate("VARIABLE-PATH-INVALID", "CONFIG_VARIABLE_001"),
-                                    title="Invalid variable path",
+                                    code=v09_gate("INVALID-VARIABLE-PATH", "CONFIG_VARIABLE_001"),
                                     message=f"Invalid variable path: {'.'.join(subpath.parts)}. This does not correspond to the "
                                     f"folder structure inside the {MODULES} directory.",
                                     fix="Ensure that the variable paths correspond to the folder structure inside the modules directory.",
@@ -267,8 +266,7 @@ class ModuleParser:
                                 is_selected=path in selected_paths,
                                 iteration=iteration,
                                 error=v09_gate(BuildError, ModelSyntaxError)(
-                                    code=v09_gate("VARIABLE-TYPE-INVALID", "CONFIG_VARIABLE_001"),
-                                    title="Invalid variable type",
+                                    code=v09_gate("INVALID-VARIABLE-TYPE", "CONFIG_VARIABLE_001"),
                                     message=f"Invalid variable type in list for variable {'.'.join(subpath.parts)}.",
                                     fix="Ensure that all items in the list are of the same supported type either (str, int, float, bool) or dict.",
                                     # We only have variables in the config file, so this cast is safe

@@ -32,9 +32,8 @@ class CheckDataSetMissing(ToolkitLocalRule):
     ```
     """
 
-    CODE = "RESOURCE-UNGOVERNED"
+    CODE = "UNGOVERNED-RESOURCE"
     LEGACY_CODE = "AUTH-001"  # Used when the v09 flag is not enabled
-    TITLE = "Ungoverned resource"
     insight_type = Recommendation
 
     def validate(self) -> Iterable[Recommendation]:
@@ -70,7 +69,6 @@ class CheckDataSetMissing(ToolkitLocalRule):
                 yield Recommendation(
                     message=message,
                     code=v09_gate(self.CODE, self.LEGACY_CODE),
-                    title=self.TITLE,
                     fix=fix,
                     source_file=source_file.source_path,
                 )

@@ -37,8 +37,7 @@ class BaseGroupYAML(ToolkitResource):
 
         return [
             v09_gate(BuildWarning, ModelSyntaxWarning)(
-                code=v09_gate("VALUE-UNRECOGNIZED", "MODEL-SYNTAX-WARNING"),
-                title="Unrecognized value",
+                code=v09_gate("UNRECOGNIZED-VALUE", "MODEL-SYNTAX-WARNING"),
                 message=(
                     f"'{cap.original_name}' is not a known capability name. "
                     "It will be deployed as-is, but may be rejected by CDF."

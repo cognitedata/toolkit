@@ -41,9 +41,8 @@ class InsightDefinition(BaseModel):
     insight_type: str = "InsightDefinition"
     severity: ClassVar[int] = 999
 
-    # See technical_decision_log/TDL-0005-insight-code-naming.md for the code and title conventions.
+    # See technical_decision_log/TDL-0005-insight-code-naming.md for the code conventions.
     code: str
-    title: str | None = Field(default=None, exclude=True)
     message: str
     source_file: AbsoluteFilePath
     line: int | None = None
@@ -76,9 +75,7 @@ class InsightDefinition(BaseModel):
 
     @property
     def heading(self) -> str:
-        """A short human-readable title for this insight."""
-        if self.title is not None:
-            return self.title
+        """A short human-readable heading, derived from the code."""
         return self.code.replace("-", " ").replace("_", " ").capitalize()
 
     @model_validator(mode="before")

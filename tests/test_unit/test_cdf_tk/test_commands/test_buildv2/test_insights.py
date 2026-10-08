@@ -59,13 +59,9 @@ class TestInsightList:
         assert InsightList.from_json(insights.to_json(), organization_dir).dump() == insights.dump()
 
     def test_heading(self, valid_yaml_absolute_path) -> None:
-        titled_insight = BuildError(
-            message="m", code="FILE-CONTENT-INVALID", title="Invalid YAML", source_file=valid_yaml_absolute_path
-        )
-        untitled_insight = BuildError(message="m", code="SOME-CODE", source_file=valid_yaml_absolute_path)
+        insight = BuildError(message="m", code="INVALID-FILE-CONTENT", source_file=valid_yaml_absolute_path)
 
-        assert titled_insight.heading == "Invalid YAML"
-        assert untitled_insight.heading == "Some code"
+        assert insight.heading == "Invalid file content"
 
     def test_display_location_includes_position(self, valid_yaml_absolute_path) -> None:
         insight = BuildError(message="m", code="SOME-CODE", source_file=valid_yaml_absolute_path, line=3, column=6)

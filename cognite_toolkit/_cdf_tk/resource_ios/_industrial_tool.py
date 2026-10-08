@@ -111,8 +111,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         app_path = filepath.with_name(identifier.external_id)
         if not app_path.is_dir():
             yield FailedReadExtra(
-                code="REFERENCED-DIRECTORY-MISSING",
-                title="Missing Streamlit app code",
+                code="MISSING-REFERENCED-DIRECTORY",
                 error=f"Cannot find Streamlit app code for {identifier.external_id!r}. Expected directory {app_path.as_posix()} to exist.",
                 source_path=app_path,
             )
@@ -123,7 +122,6 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
             if not Flags.V09.is_enabled():
                 yield FailedReadExtra(
                     code="MISSING",
-                    title="Missing Streamlit entrypoint",
                     error=f"Cannot create Streamlit app code for {identifier.external_id!r} as 'entrypoint' is missing in the YAML definition.",
                     source_path=app_path,
                 )
@@ -166,8 +164,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
 
             error_str = "\n - ".join(humanize_validation_error(e))
             yield FailedReadExtra(
-                code="FILE-CONTENT-INVALID",
-                title="Invalid Streamlit app content",
+                code="INVALID-FILE-CONTENT",
                 source_path=app_path,
                 error=f"Cannot create Streamlit app code for {identifier.external_id!r}.\n{error_str}",
             )

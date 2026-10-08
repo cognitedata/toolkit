@@ -117,7 +117,7 @@ class ValidationStep:
 SelectionSource = Literal["cli-arg", "config", "interactive"]
 
 # Precompiled once at import time so it isn't recompiled/looked up per file when
-# scanning 100s of resource files. Matches e.g. "# rules: ignore[RESOURCE-UNGOVERNED, REFERENCED-RESOURCE-INVALID]".
+# scanning 100s of resource files. Matches e.g. "# rules: ignore[UNGOVERNED-RESOURCE, INVALID-REFERENCED-RESOURCE]".
 _IGNORE_RULE_PATTERN = re.compile(r"#\s*rules?\s*:\s*ignore\s*\[([^\]]*)\]")
 
 
@@ -919,8 +919,7 @@ class BuildV2Command(ToolkitCommand):
             return (
                 IgnoredFile(
                     filepath=resource_file,
-                    code=v09_gate("FILE-SUFFIX-MISSING", "MISSING-SUFFIX"),
-                    title="Missing file suffix",
+                    code=v09_gate("MISSING-FILE-SUFFIX", "MISSING-SUFFIX"),
                     reason=f"Resource file {resource_file.name!r} is ignored because it does not have a suffix to indicate the resource type.",
                     fix=f"Rename it with the resource type: {resource_file.stem}.<ResourceType>{resource_file.suffix}.",
                 ),
@@ -934,8 +933,7 @@ class BuildV2Command(ToolkitCommand):
                 None,
                 FailedReadYAMLFile(
                     source_path=resource_file,
-                    code=v09_gate("FILE-SUFFIX-INVALID", "INVALID-KIND"),
-                    title="Invalid resource type",
+                    code=v09_gate("INVALID-FILE-SUFFIX", "INVALID-KIND"),
                     error=f"Resource file {resource_file.name!r} has unknown resource type '{resource_type}' for folder '{resource_folder}'",
                 ),
                 None,
@@ -958,8 +956,7 @@ class BuildV2Command(ToolkitCommand):
             return FailedReadYAMLFile(
                 source_path=resource_file,
                 error=f"Failed to read resource file: {read_error!s}",
-                code=v09_gate("FILE-UNREADABLE", "READ-ERROR"),
-                title="Unreadable file",
+                code=v09_gate("UNREADABLE-FILE", "READ-ERROR"),
             )
         # Ignore rules in file?
         rules_ignore = self._get_ignore_rule_codes(content)
@@ -978,8 +975,7 @@ class BuildV2Command(ToolkitCommand):
         elif parsed_yaml is None:
             return FailedReadYAMLFile(
                 source_path=resource_file,
-                code=v09_gate("FILE-EMPTY", "EMPTY-FILE"),
-                title="Empty file",
+                code="EMPTY-FILE",
                 error="The YAML file is empty. Please add content to the file or remove it if it is not needed.",
                 unresolved_variables=unresolved_variables,
             )
@@ -1026,8 +1022,7 @@ class BuildV2Command(ToolkitCommand):
                 )
             return FailedReadYAMLFile(
                 source_path=resource_file,
-                code=v09_gate("FILE-CONTENT-INVALID", "YAML-PARSE-ERROR"),
-                title="Invalid YAML",
+                code=v09_gate("INVALID-FILE-CONTENT", "YAML-PARSE-ERROR"),
                 error=error,
                 unresolved_variables=unresolved_variables,
             )
@@ -1057,8 +1052,7 @@ class BuildV2Command(ToolkitCommand):
             except KeyError:
                 return FailedReadYAMLFile(
                     source_path=result.source_path,
-                    code=v09_gate("FILE-UNREADABLE", "READ-ERROR"),
-                    title="Unreadable file",
+                    code=v09_gate("UNREADABLE-FILE", "READ-ERROR"),
                     error=f"Failed to get identifier for resource file '{resource_file.name!r}' after validation error: {errors!s}",
                 )
 
@@ -1103,8 +1097,7 @@ class BuildV2Command(ToolkitCommand):
                 except KeyError:
                     return FailedReadYAMLFile(
                         source_path=result.source_path,
-                        code=v09_gate("FILE-UNREADABLE", "READ-ERROR"),
-                        title="Unreadable file",
+                        code=v09_gate("UNREADABLE-FILE", "READ-ERROR"),
                         error=f"Failed to get identifier for resource in file '{resource_file.name!r}' after validation error.",
                     )
             else:
@@ -1175,8 +1168,7 @@ class BuildV2Command(ToolkitCommand):
         if errors:
             line, column = self._single_position(errors, positions)
             syntax_error = v09_gate(BuildError, ModelSyntaxError)(
-                code="FIELD-INVALID",
-                title="Invalid field",
+                code="INVALID-FIELD",
                 message="\n".join(item.message for item in errors),
                 fix="Compare the YAML with reference documentation and make sure it is valid.",
                 source_file=resource_file,
@@ -1190,7 +1182,6 @@ class BuildV2Command(ToolkitCommand):
             syntax_warnings.append(
                 v09_gate(BuildWarning, ModelSyntaxWarning)(
                     code=warning.code,
-                    title=warning.title,
                     message=warning.message,
                     source_file=resource_file,
                     line=line,
@@ -1556,7 +1547,7 @@ class BuildV2Command(ToolkitCommand):
         severity_style = {
             "Error": (AuraColor.RED.rich, "✗"),
             "Warning": (AuraColor.AMBER.rich, "!"),
-            "Recommendation": (AuraColor.SKY.rich, "*"),
+            "Recommendation": (AuraColor.SKY.rich, "i"),
         }
 
         display_groups = self._select_display_insights(insights, max_display_count=30 if verbose else 5)

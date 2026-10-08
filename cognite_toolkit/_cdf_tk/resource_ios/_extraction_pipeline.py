@@ -149,8 +149,7 @@ class ExtractionPipelineIO(
         if not documentation_file.is_file():
             yield FailedReadExtra(
                 source_path=documentation_file,
-                code="REFERENCED-FILE-MISSING",
-                title="Missing extraction pipeline documentation file",
+                code="MISSING-REFERENCED-FILE",
                 error=f"Documentation file {documentation_file.as_posix()} not found or is not a file",
             )
             return

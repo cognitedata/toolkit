@@ -171,8 +171,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
 
         if not app_root.is_dir():
             yield FailedReadExtra(
-                code="REFERENCED-DIRECTORY-MISSING",
-                title="Missing app directory",
+                code="MISSING-REFERENCED-DIRECTORY",
                 error=(
                     f"App directory not found for appExternalId {app_external_id!r}. "
                     f"Expected {app_root.as_posix()} to exist."
@@ -187,8 +186,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
             source_dir = dist_dir
         elif (app_root / "src").is_dir() and (app_root / "package.json").is_file():
             yield FailedReadExtra(
-                code="REFERENCED-DIRECTORY-MISSING",
-                title="Missing app build output",
+                code="MISSING-REFERENCED-DIRECTORY",
                 error=(
                     f"App {app_external_id!r} looks like an unbuilt web project: "
                     f"Run `npm run build` (or your project's build command) in {app_root.as_posix()} "
@@ -201,8 +199,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
             source_dir = app_root
         else:
             yield FailedReadExtra(
-                code="REFERENCED-FILE-MISSING",
-                title="Missing app entrypoint",
+                code="MISSING-REFERENCED-FILE",
                 error=(
                     f"Could not locate entrypoint {entrypoint!r} for app {app_external_id!r}. "
                     f"Expected {(dist_dir / entrypoint).as_posix()} or "
@@ -215,8 +212,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
         package_json = app_root / "package.json"
         if not package_json.is_file():
             yield FailedReadExtra(
-                code="REFERENCED-FILE-MISSING",
-                title="Missing app package.json",
+                code="MISSING-REFERENCED-FILE",
                 error=(
                     f"App {app_external_id!r} is missing package.json at {app_root.as_posix()}. "
                     f"This file is required to deploy to the App Hosting service."
@@ -228,8 +224,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
         package_lock = app_root / "package-lock.json"
         if not package_lock.is_file():
             yield FailedReadExtra(
-                code="REFERENCED-FILE-MISSING",
-                title="Missing app package-lock.json",
+                code="MISSING-REFERENCED-FILE",
                 error=(
                     f"App {app_external_id!r} is missing package-lock.json at {app_root.as_posix()}. "
                     f"This file is required to deploy to the App Hosting service."
@@ -244,8 +239,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
                 json.loads(manifest_json.read_text(encoding="utf-8"))
             except json.JSONDecodeError as error:
                 yield FailedReadExtra(
-                    code="FILE-CONTENT-INVALID",
-                    title="Invalid app manifest",
+                    code="INVALID-FILE-CONTENT",
                     error=f"App {app_external_id!r} has an invalid manifest.json at {manifest_json.as_posix()}: {error}",
                     source_path=manifest_json,
                 )

@@ -109,8 +109,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                         for resource in expected_by_identifier[identifier]:
                             yield with_position(
                                 v09_gate(BuildError, ConsistencyError)(
-                                    code=v09_gate("REFERENCED-RESOURCE-MISSING", "UNKNOWN-REFERENCE"),
-                                    title="Missing referenced resource",
+                                    code=v09_gate("MISSING-REFERENCED-RESOURCE", "UNKNOWN-REFERENCE"),
                                     message=v09_gate(
                                         f"The {resource_label} {quote_identifier(identifier)} does not exist locally or in CDF. "
                                         f"It is referenced by {quote_identifier(resource.identifier)}.",
@@ -129,8 +128,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     for resource in expected_resources:
                         yield with_position(
                             v09_gate(BuildWarning, ConsistencyError)(
-                                code=v09_gate("REFERENCED-RESOURCE-UNVERIFIED", "UNVERIFIED-REFERENCE"),
-                                title="Unverified referenced resource",
+                                code=v09_gate("UNVERIFIED-REFERENCED-RESOURCE", "UNVERIFIED-REFERENCE"),
                                 message=v09_gate(
                                     f"Missing {resource_type_name} {quote_identifier(identifier)}. "
                                     f"It is referenced by {quote_identifier(resource.identifier)}.",
@@ -284,8 +282,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             affected = humanize_collection([f"{name!r}" for name in sorted({*removed, *changed})])
             yield with_position(
                 v09_gate(BuildError, ConsistencyError)(
-                    code=v09_gate("RESOURCE-CHANGE-INVALID", self.INVALID_OPERATION_CODE),
-                    title="Invalid container change",
+                    code=v09_gate("INVALID-RESOURCE-CHANGE", self.INVALID_OPERATION_CODE),
                     message=(
                         f"Local config for container {container_id} has some properties {affected} that have been modified in a way CDF "
                         f"does not support. Deploying the current local YAML config will not apply these changes to the container in CDF."
@@ -301,8 +298,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         if missing and not changed:
             yield with_position(
                 v09_gate(BuildWarning, ConsistencyError)(
-                    code=v09_gate("RESOURCE-REMOVAL-UNSUPPORTED", self.INVALID_OPERATION_CODE),
-                    title="Unsupported container removal",
+                    code=v09_gate("UNSUPPORTED-RESOURCE-REMOVAL", self.INVALID_OPERATION_CODE),
                     message=(
                         f"Local config for container {container_id} is missing properties "
                         f"{humanize_collection([f'{name!r}' for name in missing])} that have previously been deployed to CDF. "
@@ -324,8 +320,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             # is metadata and CDF applies changes to it without restriction, so it is not checked here.
             yield with_position(
                 v09_gate(BuildError, ConsistencyError)(
-                    code=v09_gate("RESOURCE-CHANGE-INVALID", self.INVALID_OPERATION_CODE),
-                    title="Invalid container change",
+                    code=v09_gate("INVALID-RESOURCE-CHANGE", self.INVALID_OPERATION_CODE),
                     message=(
                         f"Local config for container {container_id} has modified usedFor ('{local_used_for}') compared to the deployed "
                         f"container in CDF ('{cdf_response.used_for}'). CDF does not support changing the usedFor of an existing container, so deploying the current "
@@ -360,8 +355,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             affected = humanize_collection([f"{name!r}" for name in sorted({*removed, *changed})])
             yield with_position(
                 v09_gate(BuildError, ConsistencyError)(
-                    code=v09_gate("RESOURCE-CHANGE-INVALID", self.INVALID_OPERATION_CODE),
-                    title="Invalid view change",
+                    code=v09_gate("INVALID-RESOURCE-CHANGE", self.INVALID_OPERATION_CODE),
                     message=(
                         f"Local config for view {view_id} has some properties {affected} that have been modified in a way CDF "
                         f"does not support without a version bump. Deploying the current local YAML config will not apply "
@@ -377,8 +371,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         elif removed:
             yield with_position(
                 v09_gate(BuildWarning, ConsistencyError)(
-                    code=v09_gate("RESOURCE-REMOVAL-UNSUPPORTED", self.INVALID_OPERATION_CODE),
-                    title="Unsupported view removal",
+                    code=v09_gate("UNSUPPORTED-RESOURCE-REMOVAL", self.INVALID_OPERATION_CODE),
                     message=(
                         f"Local config for view {view_id} is missing properties "
                         f"{humanize_collection([f'{name!r}' for name in removed])} that have previously been deployed to CDF for the "
@@ -396,8 +389,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             # name, description and filter are metadata/query-only and can always change.
             yield with_position(
                 v09_gate(BuildError, ConsistencyError)(
-                    code=v09_gate("RESOURCE-CHANGE-INVALID", self.INVALID_OPERATION_CODE),
-                    title="Invalid view change",
+                    code=v09_gate("INVALID-RESOURCE-CHANGE", self.INVALID_OPERATION_CODE),
                     message=(
                         f"Local config for view {view_id} has changed implements compared to the view version already deployed to CDF"
                     ),
@@ -438,8 +430,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             )
             yield with_position(
                 v09_gate(BuildError, ConsistencyError)(
-                    code=v09_gate("RESOURCE-CHANGE-INVALID", self.INVALID_OPERATION_CODE),
-                    title="Invalid data model change",
+                    code=v09_gate("INVALID-RESOURCE-CHANGE", self.INVALID_OPERATION_CODE),
                     message=(
                         f"Local config for data model {data_model_id} has changed the view version of {changes} compared to the existing deployed data model version in CDF. "
                         "View version used by a data model can only be updated if you also update the data model version."
@@ -455,8 +446,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         if removed:
             yield with_position(
                 v09_gate(BuildWarning, ConsistencyError)(
-                    code=v09_gate("RESOURCE-REMOVAL-UNSUPPORTED", self.INVALID_OPERATION_CODE),
-                    title="Unsupported data model removal",
+                    code=v09_gate("UNSUPPORTED-RESOURCE-REMOVAL", self.INVALID_OPERATION_CODE),
                     message=(
                         f"Local config for data model {data_model_id} is missing the view(s) "
                         f"{humanize_collection([f'{view_id!s}' for view_id in removed])} compared to the existing deployed data model version in CDF. "

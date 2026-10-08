@@ -1022,7 +1022,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code=v09_gate("RESOURCE-NOT-EXISTING", "NOT-EXISTING"),
+                            code=v09_gate("NONEXISTENT-RESOURCE", "NOT-EXISTING"),
                             source_file=resource.source_files[0],
                             reason=f"Will not delete {identifier!s} does not exist in CDF",
                         )
@@ -1032,7 +1032,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code=v09_gate("RESOURCE-HAS-DATA", "HAS-DATA"),
+                            code=v09_gate("NONEMPTY-RESOURCE", "HAS-DATA"),
                             source_file=resource.source_files[0],
                             reason=f"{identifier!s} has data and --drop-data flag is not set, skipping deletion to avoid data loss",
                         )
@@ -1042,7 +1042,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code=v09_gate("RESOURCE-DELETE-NOT-SUPPORTED", "DELETE-NOT-SUPPORTED"),
+                            code=v09_gate("UNSUPPORTED-RESOURCE-DELETION", "DELETE-NOT-SUPPORTED"),
                             source_file=resource.source_files[0],
                             reason=f"{crud.display_name.capitalize()!s} does not support deletion, skipping",
                         )
@@ -1063,7 +1063,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code=v09_gate("RESOURCE-HAS-DATA", "HAS-DATA"),
+                            code=v09_gate("NONEMPTY-RESOURCE", "HAS-DATA"),
                             source_file=resource.source_files[0],
                             reason=(f"{identifier!s} contains data and does not support updates."),
                         )

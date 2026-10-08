@@ -66,8 +66,7 @@ class FunctionCodeBundle:
         function_rootdir = cls.get_code_implicitly(filepath, external_id)
         if not function_rootdir.is_dir():
             yield FailedReadExtra(
-                code="REFERENCED-DIRECTORY-MISSING",
-                title="Missing function code",
+                code="MISSING-REFERENCED-DIRECTORY",
                 error=f"Cannot find function code for function {external_id!r} in {filepath.as_posix()}. Expected function code directory {function_rootdir.as_posix()} to exist. ",
                 source_path=function_rootdir,
             )
@@ -96,7 +95,6 @@ class FunctionCodeBundle:
                 yield FailedReadExtra(
                     source_path=function_rootdir,
                     code="MISSING",
-                    title="Missing function name",
                     error=f"Cannot find function name for function {external_id!r} in {filepath.as_posix()}. This is required and is necessary for creating the function code.",
                 )
             return
@@ -140,7 +138,6 @@ class FunctionCodeBundle:
             yield FailedReadExtra(
                 source_path=function_rootdir,
                 code="MISSING",
-                title="Missing function code storage",
                 error=f"Failed to create function code metadata for function {external_id!r} in {filepath.as_posix()}. This is required for creating the function code. The function must have either a dataSetExternalId or a space specified.",
             )
 

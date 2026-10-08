@@ -40,7 +40,6 @@ class ReadExtra(BaseModel):
 
 class FailedReadExtra(ReadExtra):
     code: str
-    title: str
     error: str
 
     @field_validator("code", mode="after")
@@ -49,9 +48,9 @@ class FailedReadExtra(ReadExtra):
         """Without the v09 flag, the codes are the legacy 'MISSING' and 'SYNTAX-ERROR'."""
         if Flags.V09.is_enabled():
             return code
-        if code in ("REFERENCED-FILE-MISSING", "REFERENCED-DIRECTORY-MISSING"):
+        if code in ("MISSING-REFERENCED-FILE", "MISSING-REFERENCED-DIRECTORY"):
             return "MISSING"
-        if code == "FILE-CONTENT-INVALID":
+        if code == "INVALID-FILE-CONTENT":
             return "SYNTAX-ERROR"
         return code
 

@@ -184,10 +184,10 @@ name: My Space
         } == {
             "resource_count": 1,
             "syntax_errors": 1,
-            "insight_codes": {"FIELD-INVALID"},
+            "insight_codes": {"INVALID-FIELD"},
         }
 
-        syntax_insight = next(i for i in folder.all_insights if i.code == "FIELD-INVALID")
+        syntax_insight = next(i for i in folder.all_insights if i.code == "INVALID-FIELD")
         assert syntax_insight.source_file == resource_file
 
         insights_csv = (build_dir / "insights.csv").read_text()
@@ -566,8 +566,7 @@ class TestDisplayInsightsOutput:
         insights = InsightList(
             [
                 BuildWarning(
-                    code="FIELD-UNRECOGNIZED",
-                    title="Unrecognized field",
+                    code="UNRECOGNIZED-FIELD",
                     message="Unrecognized field: 'Name'",
                     fix="Make sure the resource YAML content is valid and follows the expected structure.",
                     source_file=source_file,
@@ -578,7 +577,7 @@ class TestDisplayInsightsOutput:
         BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
 
         rendered = output.getvalue()
-        assert "! Unrecognized field  [FIELD-UNRECOGNIZED]" in rendered
+        assert "! Unrecognized field  [UNRECOGNIZED-FIELD]" in rendered
         assert "╰─ modules/my_module/data_modeling/my_space.Space.yaml" in rendered
         assert "Unrecognized field: 'Name'" in rendered
 
@@ -587,8 +586,7 @@ class TestDisplayInsightsOutput:
         insights = InsightList(
             [
                 BuildWarning(
-                    code="FIELD-UNRECOGNIZED",
-                    title="Unrecognized field",
+                    code="UNRECOGNIZED-FIELD",
                     message="Unrecognized field: 'Name'",
                     source_file=tmp_path / f"modules/my_module/my_space_{no}.Space.yaml",
                 )
@@ -599,8 +597,8 @@ class TestDisplayInsightsOutput:
         BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
 
         rendered = output.getvalue()
-        assert rendered.count("[FIELD-UNRECOGNIZED]") == 1
-        assert "Unrecognized field  [FIELD-UNRECOGNIZED]  (5)" in rendered
+        assert rendered.count("[UNRECOGNIZED-FIELD]") == 1
+        assert "Unrecognized field  [UNRECOGNIZED-FIELD]  (5)" in rendered
         assert "+ 2 more files" in rendered
         assert "more insights not shown" not in rendered
 
@@ -611,8 +609,7 @@ class TestDisplayInsightsOutput:
         insights = InsightList(
             [
                 BuildWarning(
-                    code="VALUE-UNRECOGNIZED",
-                    title="Unrecognized value",
+                    code="UNRECOGNIZED-VALUE",
                     message=f"In field externalId string should match pattern '{pattern}'",
                     fix="Make sure the resource YAML content is valid and follows the expected structure.",
                     source_file=yaml_file,
@@ -651,14 +648,14 @@ class TestReadResourceFile:
                 "nonexistent.Space.yaml",
                 None,
                 SpaceIO,
-                "FILE-UNREADABLE",
+                "UNREADABLE-FILE",
                 id="file_read_error",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "key: [unclosed",
                 SpaceIO,
-                "FILE-CONTENT-INVALID",
+                "INVALID-FILE-CONTENT",
                 id="yaml_parse_error",
             ),
         ],
