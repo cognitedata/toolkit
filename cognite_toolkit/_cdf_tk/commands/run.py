@@ -28,7 +28,7 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowExecutionId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, WorkflowExecutionId
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
@@ -211,7 +211,14 @@ if __name__ == "__main__":
             while result.status.casefold() == "running" and duration < max_time:
                 time.sleep(sleep_time)
                 sleep_time = min(sleep_time * 2, 60)
-                result.update()
+                results = client.tool.functions.calls.retrieve(
+                    function_id=function.id, items=[InternalId(id=result.id)], ignore_unknown_ids=True
+                )
+                if not results:
+                    raise ToolkitMissingResourceError(
+                        f"Could not find function call with id {result.id}. It may have been deleted."
+                    )
+                result = results[0]
                 duration = time.time() - start_time
                 progress.advance(call_task, advance=duration)
             progress.advance(call_task, advance=max_time - duration)
@@ -228,8 +235,7 @@ if __name__ == "__main__":
         run_time = finished_time - created_time
         table.add_row("Duration", f"{run_time.total_seconds():,} seconds")
         if result.error is not None:
-            table.add_row("Error", str(result.error.get("message", "Empty error")))
-            table.add_row("Error trace", str(result.error.get("trace", "Empty trace")))
+            table.add_row("Error", result.error)
         response = client.tool.functions.calls.get_response(function.id, call_id=result.id)
         table.add_row("Result", response.model_dump_json(indent=2))
         logs = client.tool.functions.calls.get_logs(function_id=function.id, call_id=result.id)
