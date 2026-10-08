@@ -69,6 +69,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import DatapointsRequest, DatapointsResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
@@ -597,6 +598,13 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
                 {"rowNumber": 0, "values": ["value1", 123]},
                 {"rowNumber": 1, "values": ["value2", 456]},
             ],
+        },
+        DatapointsResponse: {
+            "id": 456,
+            "externalId": "ts_001",
+            "isString": False,
+            "isStep": False,
+            "datapoints": [{"timestamp": 1622547800000, "value": 1.5}],
         },
         SearchConfigResponse: {
             "id": 789,
@@ -1192,6 +1200,14 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(SequenceRowsResponse),
         ),
         id="SequenceRows",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=DatapointsResponse,
+            request_cls=DatapointsRequest,
+            example_data=get_example_minimum_responses(DatapointsResponse),
+        ),
+        id="Datapoints",
     )
     yield pytest.param(
         CDFResource(
