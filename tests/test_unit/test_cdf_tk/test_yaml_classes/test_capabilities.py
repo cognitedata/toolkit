@@ -1,11 +1,14 @@
 from collections.abc import Iterable
 from pathlib import Path
+from typing import get_args
 
 import pytest
+from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
-from cognite_toolkit._cdf_tk.yaml_classes.capabilities import Capability
+from cognite_toolkit._cdf_tk.yaml_classes.capabilities import Capability, CapabilityType, Scope, ScopeType
 
 
 def all_acls() -> Iterable:
@@ -208,7 +211,7 @@ def all_acls() -> Iterable:
 class TestCapabilities:
     @pytest.mark.parametrize("acl", all_acls())
     def test_load_dump_capability(self, acl: dict[str, object]) -> None:
-        capability = Capability.model_validate(acl)
+        capability = TypeAdapter(CapabilityType).validate_python(acl)
         assert capability.model_dump(by_alias=True, exclude_unset=True) == acl
 
     @pytest.mark.parametrize(
@@ -216,7 +219,10 @@ class TestCapabilities:
         [
             pytest.param(
                 {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"idscope": {"ids": ["my_dataset"]}}}},
-                ["Invalid value for scope: invalid scope name 'idscope'. Expected all or idScope"],
+                [
+                    "Invalid value for scope: Input tag 'idscope' found using 'scope_name' | 'scopeName' "
+                    "does not match any of the expected tags: 'all', 'idScope'"
+                ],
                 id="Wrong case for datasetsAcl idScope",
             ),
             pytest.param(
@@ -227,7 +233,8 @@ class TestCapabilities:
                     }
                 },
                 [
-                    "Invalid value for scope: invalid scope name 'idscope'. Expected all, datasetScope or idScope",
+                    "Invalid value for scope: Input tag 'idscope' found using 'scope_name' | 'scopeName' "
+                    "does not match any of the expected tags: 'all', 'idScope', 'datasetScope'",
                     "Unrecognized value for actions[1]: Expected one of 'READ' or 'WRITE'. Got 'OWNER'.",
                 ],
                 id="Wrong case for extractionPipelinesAcl idScope",
@@ -240,7 +247,8 @@ class TestCapabilities:
             pytest.param(
                 {"agentsAcl": {"actions": ["READ", "LIST"], "scope": {"idScope": {"ids": ["my_agent"]}}}},
                 [
-                    "Invalid value for scope: invalid scope name 'idScope'. Expected agentExternalIdScope or all",
+                    "Invalid value for scope: Input tag 'idScope' found using 'scope_name' | 'scopeName' "
+                    "does not match any of the expected tags: 'all', 'agentExternalIdScope'",
                     "Unrecognized value for actions[2]: Expected one of 'READ', 'WRITE' or 'RUN'. Got 'LIST'.",
                 ],
                 id="AgentsAcl with invalid scope and action",
@@ -248,8 +256,22 @@ class TestCapabilities:
         ],
     )
     def test_invalid_capability(self, data: dict[str, object], expected_errors: list[str]) -> None:
-        warnings = validate_resource_yaml_pydantic(data, Capability, source_file=Path("filename.yaml"))
+        warnings = validate_resource_yaml_pydantic(data, CapabilityType, source_file=Path("filename.yaml"))
         assert len(warnings) == 1
         warning = warnings[0]
         assert isinstance(warning, ResourceFormatWarning)
         assert list(warning.errors) == expected_errors
+
+    def test_all_capabilities_in_union(self) -> None:
+        """Test that all capability types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(Capability))
+        subclasses = set(get_args(CapabilityType.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"
+
+    def test_all_scopes_in_union(self) -> None:
+        """Test that all scope types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(Scope))
+        subclasses = set(get_args(ScopeType.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"

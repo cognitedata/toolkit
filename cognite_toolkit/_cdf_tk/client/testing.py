@@ -110,7 +110,6 @@ from .api.three_d import (
     ThreeDDMAssetMappingAPI,
 )
 from .api.timeseries import TimeSeriesAPI
-from .api.token import TokenAPI as LegacyTokenAPI
 from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
 from .api.user_profiles import UserProfilesAPI
@@ -280,7 +279,6 @@ class ToolkitClientMock(CogniteClientMock):
         self.integrations.errors = MagicMock(spec_set=IntegrationErrorsAPI)
 
         # This is a helper API, not a real API.
-        self.token = LegacyTokenAPI(self)
         self.user_profiles = MagicMock(spec_set=UserProfilesAPI)
         self.verify = MagicMock(spec_set=VerifyAPI)
 
