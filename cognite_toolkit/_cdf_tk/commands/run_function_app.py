@@ -4,13 +4,10 @@ import importlib.util
 import os
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from cognite.client import CogniteClient
 from rich import print
-
-if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.client import ToolkitClient
 
 from ._base import ToolkitCommand
 
@@ -118,4 +115,3 @@ class RunFunctionAppCommand(ToolkitCommand):
 
         config = EnvironmentVariables.create_from_environment().get_config(is_strict_validation=False)
         return CogniteClient(config)
-

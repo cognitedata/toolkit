@@ -189,7 +189,7 @@ if __name__ == "__main__":
 
         # Todo: Get one shot token using the call_args.authentication
         session = client.sessions.create_one_shot_token_exchange_session()
-        result = client.functions.call(external_id=external_id, data=call_args.data, wait=False, nonce=session.nonce)
+        result = client.tool.functions.calls.call(function_id=function.id, nonce=session.nonce, data=call_args.data)
 
         table = Table(title=f"Function {external_id!r}, id {function.id!r}")
         table.add_column("Info", justify="left")
@@ -230,9 +230,9 @@ if __name__ == "__main__":
         if result.error is not None:
             table.add_row("Error", str(result.error.get("message", "Empty error")))
             table.add_row("Error trace", str(result.error.get("trace", "Empty trace")))
-        response = client.functions.calls.get_response(call_id=result.id or 0, function_id=function.id)
-        table.add_row("Result", str(json.dumps(response, indent=2, sort_keys=True)))
-        logs = client.functions.calls.get_logs(call_id=result.id or 0, function_id=function.id)
+        response = client.tool.functions.calls.get_response(function.id, call_id=result.id)
+        table.add_row("Result", response.model_dump_json(indent=2))
+        logs = client.tool.functions.calls.get_logs(function_id=function.id, call_id=result.id)
         table.add_row("Logs", str(logs))
         print(table)
         return True

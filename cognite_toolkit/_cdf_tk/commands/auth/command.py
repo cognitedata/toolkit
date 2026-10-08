@@ -660,7 +660,7 @@ class AuthCommand(ToolkitCommand):
             self.warn(HighSeverityWarning("Cannot check function service status, missing function read access."))
             return None
         try:
-            function_status = client.functions.status()
+            function_status = client.tool.functions.activate()
         except CogniteAPIError as e:
             self.warn(HighSeverityWarning(f"Unable to check function service status.\n{e}"))
             return None
@@ -685,7 +685,7 @@ class AuthCommand(ToolkitCommand):
                 )
                 return function_status.status
             try:
-                client.functions.activate()
+                client.tool.functions.activate()
             except CogniteAPIError as e:
                 self.warn(HighSeverityWarning(f"Unable to activate function service.\n{e}"))
                 return function_status.status
