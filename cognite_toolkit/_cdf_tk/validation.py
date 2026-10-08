@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.yaml_classes import BaseModelResource
 
 __all__ = [
+    "ValidationMessage",
     "humanize_validation_error",
     "humanize_validation_error_categorized",
 ]
@@ -22,7 +23,14 @@ __all__ = [
 T_BaseModel = TypeVar("T_BaseModel", bound=BaseModel)
 
 
-class _MessageEntry(NamedTuple):
+class ValidationMessage(NamedTuple):
+    """A human-readable validation message.
+
+    Args:
+        message: The message.
+        category: Either "error" or "warning".
+    """
+
     message: str
     category: str
 
@@ -105,10 +113,12 @@ def humanize_validation_error(error: ValidationError, validation_type: Any = Non
     Returns:
         A list of human-readable error messages.
     """
-    return [message for message, _ in humanize_validation_error_categorized(error, validation_type)]
+    return [item.message for item in humanize_validation_error_categorized(error, validation_type)]
 
 
-def humanize_validation_error_categorized(error: ValidationError, validation_type: Any = None) -> list[tuple[str, str]]:
+def humanize_validation_error_categorized(
+    error: ValidationError, validation_type: Any = None
+) -> list[ValidationMessage]:
     """Same as ``humanize_validation_error``, but also classifies each message as "error" or "warning".
 
     Unrecognized fields and invalid enum/literal values are classified as "warning" since they do not
@@ -121,11 +131,11 @@ def humanize_validation_error_categorized(error: ValidationError, validation_typ
             locations, such that the locations match the paths in the user input.
 
     Returns:
-        A list of (message, category) tuples, where category is either "error" or "warning".
+        A list of validation messages, where the category is either "error" or "warning".
     """
 
-    # Ordered list of either a (literal message, category) entry, or a group entry referring into `field_groups_by_loc`.
-    ordered_entries: list[_MessageEntry | _GroupEntry] = []
+    # Ordered list of either a message entry, or a group entry referring into `field_groups_by_loc`.
+    ordered_entries: list[ValidationMessage | _GroupEntry] = []
     field_groups_by_loc: dict[tuple[str | int, ...], dict[str, list[str]]] = {}
     item: ErrorDetails
     core_schema = _get_core_schema(validation_type) if validation_type is not None else None
@@ -218,22 +228,24 @@ def humanize_validation_error_categorized(error: ValidationError, validation_typ
                 # Nested or indexed paths (e.g. "settings.template.name", "actions[1]") still read fine with "at".
                 connector = "for" if len(loc) == 1 and isinstance(loc[0], str) else "at"
             msg = f"{prefix} {connector} {as_json_path(loc)}: {msg}"
-        ordered_entries.append(_MessageEntry(msg, category))
+        ordered_entries.append(ValidationMessage(msg, category))
 
-    errors: list[tuple[str, str]] = []
+    errors: list[ValidationMessage] = []
     for entry in ordered_entries:
-        if isinstance(entry, _MessageEntry):
-            errors.append((entry.message, entry.category))
+        if isinstance(entry, ValidationMessage):
+            errors.append(entry)
             continue
         group = field_groups_by_loc[entry.loc]
         path = as_json_path(entry.loc)
         if missing := group["missing"]:
             field_word = "field" if len(missing) == 1 else "fields"
-            errors.append((f"Missing required {field_word} in {path}: {humanize_collection(missing)}", "error"))
+            errors.append(
+                ValidationMessage(f"Missing required {field_word} in {path}: {humanize_collection(missing)}", "error")
+            )
         if empty := group["empty"]:
             field_word = "field" if len(empty) == 1 else "fields"
             errors.append(
-                (
+                ValidationMessage(
                     f"Empty {field_word} in {path}: {humanize_collection(empty)}. "
                     "Hint: Check that its properties are properly indented underneath it.",
                     "error",
@@ -241,7 +253,9 @@ def humanize_validation_error_categorized(error: ValidationError, validation_typ
             )
         if unknown := group["unknown"]:
             field_word = "field" if len(unknown) == 1 else "fields"
-            errors.append((f"Unrecognized {field_word} in {path}: {humanize_collection(unknown)}. ", "warning"))
+            errors.append(
+                ValidationMessage(f"Unrecognized {field_word} in {path}: {humanize_collection(unknown)}. ", "warning")
+            )
     return errors
 
 
