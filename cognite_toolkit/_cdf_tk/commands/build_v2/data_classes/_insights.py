@@ -76,6 +76,11 @@ class InsightDefinition(BaseModel):
         """A short human-readable heading, derived from the code."""
         return self.code.replace("-", " ").replace("_", " ").capitalize()
 
+    @property
+    def group_key(self) -> tuple[str, str, str, str | None]:
+        """Insights with the same key are displayed together, listing their locations."""
+        return self.insight_type, self.code, self.message, self.fix
+
     @model_validator(mode="before")
     @classmethod
     def _from_legacy_source_files(cls, data: Any) -> Any:

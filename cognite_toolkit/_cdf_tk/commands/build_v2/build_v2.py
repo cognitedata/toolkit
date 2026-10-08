@@ -1625,19 +1625,15 @@ class BuildV2Command(ToolkitCommand):
         body = Group(*shown_locations, Padding(Group(*details), (0, 0, 0, 3)))
         return Padding(Group(heading, body), (0, 0, 1, 0))
 
-    @classmethod
-    def _group_key(cls, insight: Insight) -> tuple[str, str, str, str | None]:
-        return insight.insight_type, insight.code, insight.message, insight.fix
-
     def _select_display_insight_groups(self, insights: InsightList, max_display_count: int) -> list[list[Insight]]:
         """Groups insights with the same message, and prioritizes one group per code, then by severity."""
         groups_by_key: dict[tuple[str, str, str, str | None], list[Insight]] = {}
         for insight in insights:
-            groups_by_key.setdefault(self._group_key(insight), []).append(insight)
+            groups_by_key.setdefault(insight.group_key, []).append(insight)
 
         representatives = InsightList([group[0] for group in groups_by_key.values()])
         selected = self._select_display_insights(representatives, max_display_count)
-        return [groups_by_key[self._group_key(insight)] for insight in selected]
+        return [groups_by_key[insight.group_key] for insight in selected]
 
     def _display_build_summary(
         self, build_folder: BuildFolder, insights: InsightList, console: Console, verbose: bool
