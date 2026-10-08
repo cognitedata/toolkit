@@ -1,4 +1,5 @@
 import io
+import textwrap
 import time
 import types
 import zipfile
@@ -23,6 +24,7 @@ from cognite_toolkit._cdf_tk.client.api.datapoint_subscription import DatapointS
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
+from cognite_toolkit._cdf_tk.client.api.function_calls import FunctionCallsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
@@ -132,6 +134,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config 
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
     FunctionScheduleResponse,
@@ -371,6 +374,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         IntegrationActionsAPI,
         IntegrationConfigurationAPI,
         IntegrationErrorsAPI,
+        # Needs a function deployed to test against
+        FunctionCallsAPI,
     }
 )
 
@@ -862,11 +867,14 @@ def smoke_extraction_pipeline(
     toolkit_client.tool.extraction_pipelines.delete([pipeline.as_id()], ignore_unknown_ids=True)
 
 
+FUNCTION_LOG_LINE = "Print statements will be shown in the logs."
+
+
 @pytest.fixture(scope="module")
 def function_code(toolkit_client: ToolkitClient) -> FileMetadataResponse:
     metadata = FileMetadataRequest(
         name="Smoke test function code",
-        external_id="smoke-test-function-code",
+        external_id="smoke-test-function-handler",
         mime_type="application/zip",
     )
 
@@ -878,17 +886,20 @@ def function_code(toolkit_client: ToolkitClient) -> FileMetadataResponse:
                 "A file with the same external ID already exists but is not uploaded. Please delete or change the external ID of the existing file.",
             )
         return file_response[0]
-    code = """from cognite.client import CogniteClient
+    code = textwrap.dedent(
+        f"""\
+        from cognite.client import CogniteClient
 
 
-    def handle(client: CogniteClient, data: dict, function_call_info: dict) -> str:
-        print("Print statements will be shown in the logs.")
-        print("Running with the following configuration:\n")
-        return {
-            "data": data,
-            "functionInfo": function_call_info,
-        }
-    """
+        def handle(client: CogniteClient, data: dict, function_call_info: dict) -> dict:
+            print("{FUNCTION_LOG_LINE}")
+            print("Running with the following configuration:")
+            return {{
+                "data": data,
+                "functionInfo": function_call_info,
+            }}
+        """
+    )
     # Create zip file in memory with handler.py
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -1083,6 +1094,88 @@ class TestCDFResourceAPI:
             time.sleep(poll_interval)
             result = list_func()
         return result
+
+    def wait_until_function_ready(
+        self,
+        client: ToolkitClient,
+        function_id: InternalId,
+        timeout_seconds: float = 600.0,
+        poll_interval: float = 10.0,
+    ) -> None:
+        """Poll until a function is Ready or deployment fails."""
+        endpoint = client.tool.functions._method_endpoint_map["retrieve"]
+        start_time = time.monotonic()
+        status: str | None = None
+        while (time.monotonic() - start_time) < timeout_seconds:
+            try:
+                retrieved = client.tool.functions.retrieve([function_id])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(endpoint.path, f"Retrieving function status failed: {e!s}") from e
+            if len(retrieved) != 1:
+                raise EndpointAssertionError(endpoint.path, f"Expected 1 function, got {len(retrieved)}")
+            function = retrieved[0]
+            status = function.status
+            if status == "Ready":
+                return
+            if status == "Failed":
+                error_message = function.error.message if function.error is not None else None
+                raise EndpointAssertionError(endpoint.path, f"Function deployment failed: {error_message}")
+            time.sleep(poll_interval)
+        raise EndpointAssertionError(
+            endpoint.path,
+            f"Function did not become Ready within {timeout_seconds:.0f}s. Last status: {status}.",
+        )
+
+    def wait_until_function_call_finished(
+        self,
+        client: ToolkitClient,
+        function_id: int,
+        call_id: InternalId,
+        timeout_seconds: float = 180.0,
+        poll_interval: float = 5.0,
+    ) -> FunctionCallResponse:
+        """Poll until a function call leaves the Running status."""
+        endpoint = client.tool.functions.calls._method_endpoint_map["retrieve"]
+        start_time = time.monotonic()
+        while (time.monotonic() - start_time) < timeout_seconds:
+            try:
+                retrieved = client.tool.functions.calls.retrieve(function_id, [call_id])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(endpoint.path, f"Retrieving function call failed: {e!s}") from e
+            if len(retrieved) != 1:
+                raise EndpointAssertionError(endpoint.path, f"Expected 1 function call, got {len(retrieved)}")
+            function_call = retrieved[0]
+            if function_call.status != "Running":
+                return function_call
+            time.sleep(poll_interval)
+        raise EndpointAssertionError(
+            endpoint.path,
+            f"Function call {call_id.id} stayed Running for {timeout_seconds:.0f}s.",
+        )
+
+    def wait_for_function_log_line(
+        self,
+        client: ToolkitClient,
+        function_id: int,
+        call_id: int,
+        expected_message: str,
+        timeout_seconds: float = 30.0,
+        poll_interval: float = 5.0,
+    ) -> list[str]:
+        """Poll call logs until the expected line is present."""
+        logs_path = f"/functions/{function_id}/calls/{call_id}/logs"
+        start_time = time.monotonic()
+        messages: list[str] = []
+        while (time.monotonic() - start_time) < timeout_seconds:
+            try:
+                logs = client.tool.functions.calls.get_logs(function_id, call_id)
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(logs_path, f"Retrieving function call logs failed: {e!s}") from e
+            messages = [entry.message or "" for entry in logs]
+            if any(expected_message in message for message in messages):
+                return messages
+            time.sleep(poll_interval)
+        raise EndpointAssertionError(logs_path, f"Expected log line {expected_message!r}, got {messages}")
 
     @classmethod
     def cancel_running_executions(
@@ -2173,6 +2266,57 @@ class TestCDFResourceAPI:
             if len(listed_schedules) == 0:
                 raise EndpointAssertionError(
                     schedule_list_endpoint.path, "Expected at least 1 listed function schedule, got 0"
+                )
+
+            # Call the function once it is deployed, then read the call back.
+            self.wait_until_function_ready(client, InternalId(id=created.id))
+            call_path = f"/functions/{created.id}/call"
+            try:
+                function_call = client.tool.functions.calls.call(
+                    function_id=created.id,
+                    nonce=toolkit_client.sessions.create_one_shot_token_exchange_session().nonce,
+                    data={"smoke": True},
+                )
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(call_path, f"Calling function failed: {e!s}") from e
+
+            call_retrieve_endpoint = client.tool.functions.calls._method_endpoint_map["retrieve"]
+            call_identifier = InternalId(id=function_call.id)
+            try:
+                retrieved_calls = client.tool.functions.calls.retrieve(created.id, [call_identifier])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(
+                    call_retrieve_endpoint.path, f"Retrieving function call failed: {e!s}"
+                ) from e
+            if len(retrieved_calls) != 1 or retrieved_calls[0].id != function_call.id:
+                raise EndpointAssertionError(
+                    call_retrieve_endpoint.path,
+                    f"Expected to retrieve function call {function_call.id}, got {len(retrieved_calls)}",
+                )
+
+            finished_call = self.wait_until_function_call_finished(client, created.id, call_identifier)
+            logs_path = f"/functions/{created.id}/calls/{function_call.id}/logs"
+            if finished_call.status != "Completed":
+                try:
+                    failed_logs = client.tool.functions.calls.get_logs(created.id, function_call.id)
+                except ToolkitAPIError as e:
+                    raise EndpointAssertionError(logs_path, f"Retrieving function call logs failed: {e!s}") from e
+                log_text = "\n".join(entry.message or "" for entry in failed_logs)
+                raise EndpointAssertionError(
+                    call_path,
+                    f"Function call finished with status {finished_call.status}: {finished_call.error}\n{log_text}",
+                )
+            self.wait_for_function_log_line(client, created.id, function_call.id, FUNCTION_LOG_LINE)
+
+            call_list_endpoint = client.tool.functions.calls._method_endpoint_map["list"]
+            try:
+                listed_calls = client.tool.functions.calls.list(function_id=created.id)
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(call_list_endpoint.path, f"Listing function calls failed: {e!s}") from e
+            if not any(item.id == function_call.id for item in listed_calls):
+                raise EndpointAssertionError(
+                    call_list_endpoint.path,
+                    f"Expected listed calls to include {function_call.id}, got {[item.id for item in listed_calls]}",
                 )
         finally:
             # Clean up
