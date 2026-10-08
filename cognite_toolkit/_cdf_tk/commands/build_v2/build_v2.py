@@ -52,7 +52,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     InternalValidatorException,
     ModelSyntaxError,
     ModelSyntaxWarning,
-    v09_gate,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
@@ -72,7 +71,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags, v09_gate
 from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_BASE_IO_BY_FOLDER_NAME, ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     BaseResourceIO,
@@ -1547,7 +1546,7 @@ class BuildV2Command(ToolkitCommand):
         severity_style = {
             "Error": (AuraColor.RED.rich, "✗"),
             "Warning": (AuraColor.AMBER.rich, "!"),
-            "Recommendation": (AuraColor.SKY.rich, "i"),
+            "Recommendation": (AuraColor.SKY.rich, "*"),
         }
 
         display_groups = self._select_display_insights(insights, max_display_count=30 if verbose else 5)

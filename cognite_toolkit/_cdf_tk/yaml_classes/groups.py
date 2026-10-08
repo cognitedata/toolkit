@@ -7,6 +7,7 @@ from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapH
 
 from cognite_toolkit._cdf_tk.client.identifiers import NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupAttributes
+from cognite_toolkit._cdf_tk.feature_flags import v09_gate
 
 from .base import ToolkitResource
 from .capabilities import Capability, UnknownCapability
@@ -32,7 +33,6 @@ class BaseGroupYAML(ToolkitResource):
         from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
             BuildWarning,
             ModelSyntaxWarning,
-            v09_gate,
         )
 
         return [

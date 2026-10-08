@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.feature_flags import v09_gate
 from cognite_toolkit._cdf_tk.resource_ios._auth import GroupAllScopedIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import (
@@ -201,7 +202,7 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
         if ttl_path is None:
             yield FailedReadExtra(
                 source_path=filepath,
-                code="MISSING-REFERENCED-FILE",
+                code=v09_gate("MISSING-REFERENCED-FILE", "MISSING"),
                 error=f"Missing rules for {rule_set_id!r} in {filepath.as_posix()}. No 'rules' field found and no .ttl file found. Expected one of: {humanize_collection(ttl_candidates)}",
             )
             return

@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation, v09_gate
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
+from cognite_toolkit._cdf_tk.feature_flags import v09_gate
 from cognite_toolkit._cdf_tk.rules._base import ToolkitLocalRule, quote_identifier
 
 

@@ -21,7 +21,7 @@ from pydantic_core.core_schema import ValidationInfo
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.feature_flags import Flags, v09_gate
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_modules
 
 if sys.version_info >= (3, 11):
@@ -30,8 +30,6 @@ else:
     from typing_extensions import Self
 
 T_Insight = TypeVar("T_Insight", bound="InsightDefinition")
-T_Value = TypeVar("T_Value")
-
 PATH_SEP_CSV = " | "  # Separator for multiple source files in CSV output
 
 
@@ -228,11 +226,6 @@ Insight = Annotated[
     | BuildWarning,
     Field(discriminator="insight_type"),
 ]
-
-
-def v09_gate(new: T_Value, legacy: T_Value) -> T_Value:
-    """Returns the new behavior with the v09 flag enabled, otherwise the legacy behavior."""
-    return new if Flags.V09.is_enabled() else legacy
 
 
 InsightListAdapter: TypeAdapter[list[Insight]] = TypeAdapter(list[Insight])

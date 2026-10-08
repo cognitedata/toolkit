@@ -13,10 +13,9 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
     InternalValidatorException,
     T_Insight,
-    v09_gate,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable, Module, SuccessfulReadYAMLFile
-from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.feature_flags import Flags, v09_gate
 from cognite_toolkit._cdf_tk.utils.file import yaml_find_unique_position
 from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 

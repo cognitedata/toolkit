@@ -98,7 +98,7 @@ _INSIGHT_STYLE: dict[str, tuple[str, str]] = {
     ModelSyntaxWarning.__name__: ("yellow", "!"),
     "Error": ("red", "✗"),
     "Warning": ("yellow", "!"),
-    Recommendation.__name__: ("green", "i"),
+    Recommendation.__name__: ("green", "*"),
 }
 _INSIGHT_SEVERITY: dict[str, int] = {
     FileReadError.__name__: FileReadError.severity,

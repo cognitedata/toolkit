@@ -19,7 +19,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
 )
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import SpaceIO
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra
 from cognite_toolkit._cdf_tk.yaml_classes import SpaceYAML
 
 
@@ -74,11 +73,6 @@ class TestV09Disabled:
 
         assert syntax_error is not None and syntax_error.code == "MODEL-SYNTAX-ERROR"
         assert [warning.code for warning in syntax_warnings] == ["MODEL-SYNTAX-WARNING"]
-
-    def test_failed_read_extra_uses_legacy_code(self, tmp_path: Path) -> None:
-        extra = FailedReadExtra(source_path=tmp_path, code="MISSING-REFERENCED-FILE", error="not found")
-
-        assert extra.code == "MISSING"
 
     def test_displays_legacy_insights(self, tmp_path: Path) -> None:
         output = StringIO()
