@@ -363,6 +363,7 @@ def _client_stub(
     return client
 
 
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 class TestDependencyRuleSetDataModelingChanges:
     """Integration-level tests: verifying that the CRUD wiring, aggregation and message/code plumbing in
     ``_validate_data_modeling_changes`` behaves correctly. Edge cases of the underlying predicates are

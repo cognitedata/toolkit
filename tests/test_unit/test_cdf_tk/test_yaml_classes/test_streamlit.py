@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes.streamlit_ import StreamlitYAML
@@ -32,6 +33,7 @@ def invalid_streamlit_test_cases() -> Iterable:
     )
 
 
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 class TestStreamlitYAML:
     @pytest.mark.parametrize("data", list(find_resources("Streamlit")))
     def test_load_valid_space(self, data: dict[str, object]) -> None:

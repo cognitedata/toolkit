@@ -10,11 +10,13 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltR
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._functions import FunctionRuleSet
 from cognite_toolkit._cdf_tk.utils import PipValidationResult
 
 
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 class TestFunctionLimitsRule:
     """Test suite for FunctionLimitsRule validation."""
 

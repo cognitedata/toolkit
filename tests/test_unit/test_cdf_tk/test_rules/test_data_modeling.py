@@ -230,6 +230,7 @@ class TestAlphaRulesEnabled:
 
 
 @pytest.mark.usefixtures("alpha_rules_enabled")
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 class TestContainerPropertyReferences:
     def test_local_container_property_is_accepted(self, tmp_path: Path) -> None:
         container_file = _write(tmp_path, "MyContainer.container.yaml", CONTAINER_YAML)
@@ -286,6 +287,7 @@ class TestContainerPropertyReferences:
 
 
 @pytest.mark.usefixtures("alpha_rules_enabled")
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 class TestReverseDirectRelations:
     def test_local_view_direct_relation_is_accepted(self, tmp_path: Path) -> None:
         container_file = _write(tmp_path, "MyContainer.container.yaml", DIRECT_CONTAINER_YAML)
@@ -360,6 +362,7 @@ class TestReverseDirectRelations:
 
 
 @pytest.mark.usefixtures("alpha_rules_enabled")
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 class TestDataModelingChangesMove:
     def test_state_changes_run_here_and_are_skipped_by_dependency_rules(self, tmp_path: Path) -> None:
         container_file = _write(tmp_path, "MyContainer.container.yaml", CONTAINER_REMOVED_PROPERTY_YAML)

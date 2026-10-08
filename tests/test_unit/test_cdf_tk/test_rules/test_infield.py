@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import (
     AbsoluteFilePath,
     RelativeDirPath,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._infield import _REQUIRED_PROPERTIES, InFieldCDMRuleSet
 
@@ -106,6 +107,7 @@ def create_module() -> Callable[[Path, list[BuiltResource]], BuiltModule]:
     return _create
 
 
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 class TestInFieldCDMRuleSet:
     def test_get_status_with_client(self) -> None:
         rule = InFieldCDMRuleSet(modules=[], client=MagicMock())

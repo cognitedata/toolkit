@@ -1,10 +1,14 @@
 from pathlib import Path
 
+import pytest
+
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.rules._base import with_position
 
 
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 class TestWithPosition:
     def test_keeps_positions_when_file_has_variables(self, tmp_path: Path) -> None:
         source_file = tmp_path / "my.Container.yaml"

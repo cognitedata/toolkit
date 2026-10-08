@@ -1084,6 +1084,7 @@ runtimeVersion: "1.3.0"
     assert [agent.external_id for agent in agents] == ["weather-specialist", "supervisor"]
 
 
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 def test_warning_missing_dependency(
     default_config_dev_yaml: str,
     env_vars_with_client: EnvironmentVariables,
@@ -1127,6 +1128,7 @@ capabilities:
     assert (insight.line, insight.column) == (12, 11)
 
 
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 def test_unresolved_variable_does_not_cause_unknown_reference(
     default_config_dev_yaml: str,
     env_vars_with_client: EnvironmentVariables,
@@ -1163,6 +1165,7 @@ capabilities:
     assert "MISSING-REFERENCED-RESOURCE" not in codes
 
 
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 def test_warning_missing_dependency_with_unknown_capability(
     default_config_dev_yaml: str,
     env_vars_with_client: EnvironmentVariables,

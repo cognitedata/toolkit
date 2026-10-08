@@ -354,6 +354,7 @@ class TestAgentIOExtraFiles:
             },
         ]
 
+    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
     def test_get_extra_files_missing_instructions_file(self, tmp_path: Path) -> None:
         yaml_path = MagicMock(spec=Path)
         yaml_path.parent = tmp_path
