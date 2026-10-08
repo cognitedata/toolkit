@@ -48,9 +48,6 @@ Configuration integrity — three categorical severities (findings about the use
 | `WARNING` | The toolkit thinks something specific is probably wrong | Collected, never fails |
 | `HINT` | Advisory; a recommended practice or stylistic preference | Collected, never fails |
 
-Examples: `ERROR` — `UnresolvedVariable`, `MissingRequiredParameter`.
-`WARNING` — `TemplateVariable` ("CHANGE_ME"), `UnknownResourceType`
-(typo). `HINT` — `DataSetMissing`, `NamingConvention`.
 
 ### Technical exceptions — `ToolkitError`
 

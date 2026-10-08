@@ -32,7 +32,7 @@ else:
 T_Insight = TypeVar("T_Insight", bound="InsightDefinition")
 T_Value = TypeVar("T_Value")
 
-PATH_SEP_CSV = " | "  # Separator for multiple source files in the legacy CSV output
+PATH_SEP_CSV = " | "  # Separator for multiple source files in CSV output
 
 
 class InsightDefinition(BaseModel):
@@ -41,10 +41,7 @@ class InsightDefinition(BaseModel):
     insight_type: str = "InsightDefinition"
     severity: ClassVar[int] = 999
 
-    # Codes follow <SUBJECT>-<PROBLEM>, with the problem word last, e.g. FILE-SUFFIX-MISSING, VALUE-INVALID.
-    # The title is the human-readable heading shown for the code, e.g. 'Invalid agent model'.
-    # Vocabulary: *-MISSING / *-INVALID / *-EXCEEDED means we know there is a problem.
-    # *-UNVERIFIED / *-UNRECOGNIZED means we cannot confirm it, so we only guess (always a warning).
+    # See technical_decision_log/TDL-0005-insight-code-naming.md for the code and title conventions.
     code: str
     title: str | None = Field(default=None, exclude=True)
     message: str
