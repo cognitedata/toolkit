@@ -238,7 +238,16 @@ class BuiltModule(BaseModel):
             if Flags.V09.is_enabled():
                 insights.extend(self._unresolved_variable_insights(path, variables))
             else:
-                insights.append(self._aggregated_unresolved_variables_insight(path, variables))
+                quoted_variables = humanize_collection([f"{variable!r}" for variable in variables])
+                insights.append(
+                    ConsistencyError(
+                        code="UNRESOLVED-VARIABLES",
+                        message=f"Unresolved variable{'s' if len(variables) > 1 else ''} {quoted_variables}",
+                        fix="Make sure to define the variables in the 'config.<env>.yaml' file and that they are "
+                        "correctly placed in the variables section matching the file path",
+                        source_file=path,
+                    )
+                )
         for failed_file in self.failed_files:
             if failed_file.code == "INVALID-FILE-CONTENT" and failed_file.unresolved_variables:
                 # An unresolved placeholder such as `key: {{ variable }}` is not valid YAML. The unresolved
@@ -284,17 +293,6 @@ class BuiltModule(BaseModel):
                 )
             )
         return insights
-
-    @classmethod
-    def _aggregated_unresolved_variables_insight(cls, path: Path, variables: list[str]) -> Insight:
-        quoted_variables = humanize_collection([f"{variable!r}" for variable in variables])
-        return ConsistencyError(
-            code="UNRESOLVED-VARIABLES",
-            message=f"Unresolved variable{'s' if len(variables) > 1 else ''} {quoted_variables}",
-            fix="Make sure to define the variables in the 'config.<env>.yaml' file and that they are "
-            "correctly placed in the variables section matching the file path",
-            source_file=path,
-        )
 
     def __hash__(self) -> int:
         return hash(self.module_id.path)
