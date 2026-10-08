@@ -589,8 +589,8 @@ class ThreeDNodesAPI(CDFResourceAPI[ThreeDNodeResponse]):
     The revision must be done before these endpoints succeed. Calling them earlier returns HTTP 400.
     """
 
-    ENDPOINT = "/3d/models/{modelId}/revisions/{revisionId}/nodes"
-    _FILTER = Endpoint(method="POST", path=f"{ENDPOINT}/list", item_limit=1000)
+    ENDPOINT: str = "/3d/models/{modelId}/revisions/{revisionId}/nodes"
+    _FILTER: Endpoint = Endpoint(method="POST", path=f"{ENDPOINT}/list", item_limit=1000)
 
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
