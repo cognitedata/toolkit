@@ -678,7 +678,7 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _archive_dataset(client: ToolkitClient, data_set: str) -> None:
-        # The Toolkit client does not have a way to update a dataset externalId, so w
+        # The Toolkit client does not have a way to update a dataset externalId, so
         # we use a direct HTTP request to do the update
         request = RequestMessage(
             endpoint_url=client.config.create_api_url("/datasets/update"),
