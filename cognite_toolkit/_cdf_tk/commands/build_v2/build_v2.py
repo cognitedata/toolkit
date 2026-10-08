@@ -1185,7 +1185,7 @@ class BuildV2Command(ToolkitCommand):
                     source_file=resource_file,
                     line=line,
                     column=column,
-                    fix="Check it against the reference documentation. It will be deployed as-is, but may be ignored or rejected by CDF.",
+                    fix="Compare the YAML with reference documentation and make sure it is valid. It will be deployed as-is, but may be ignored or rejected by CDF.",
                 )
             )
         return syntax_error, syntax_warnings
