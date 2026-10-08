@@ -4,10 +4,10 @@ from functools import cached_property
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    BuildError,
     ConsistencyError,
     Insight,
     InternalValidatorException,
-    error_insight_type,
     v09_gate,
 )
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, ResourceType
@@ -76,7 +76,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
         if function_def.cpu is not None and limits:
             if function_def.cpu < limits.cpu_cores.min or function_def.cpu > limits.cpu_cores.max:
                 yield with_position(
-                    error_insight_type(ConsistencyError)(
+                    v09_gate(BuildError, ConsistencyError)(
                         message=(
                             f"Function '{function_def.external_id}' CPU cores ({function_def.cpu}) "
                             f"must be between {limits.cpu_cores.min} and {limits.cpu_cores.max}."
@@ -93,7 +93,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
         if function_def.memory is not None and limits:
             if function_def.memory < limits.memory_gb.min or function_def.memory > limits.memory_gb.max:
                 yield with_position(
-                    error_insight_type(ConsistencyError)(
+                    v09_gate(BuildError, ConsistencyError)(
                         message=(
                             f"Function '{function_def.external_id}' memory ({function_def.memory} GB) "
                             f"must be between {limits.memory_gb.min} and {limits.memory_gb.max} GB."
@@ -110,7 +110,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
         if function_def.runtime is not None and limits is not None:
             if function_def.runtime not in limits.runtimes:
                 quoted_runtimes = humanize_collection([f"{runtime!r}" for runtime in limits.runtimes])
-                yield error_insight_type(ConsistencyError)(
+                yield v09_gate(BuildError, ConsistencyError)(
                     message=(
                         f"Function '{function_def.external_id}' runtime {function_def.runtime!r} is not "
                         f"available in this CDF project. "
@@ -128,7 +128,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                 requirement_txt, function_def.index_url, function_def.extra_index_urls
             )
             if not pip_result.success:
-                yield error_insight_type(ConsistencyError)(
+                yield v09_gate(BuildError, ConsistencyError)(
                     message=pip_result.create_message("Function", function_def.external_id),
                     code=v09_gate("FUNCTION-REQUIREMENTS-INVALID", f"{self.CODE_PREFIX}-INVALID-REQUIREMENTS"),
                     title="Invalid function requirements",

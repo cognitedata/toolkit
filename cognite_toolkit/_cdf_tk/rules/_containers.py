@@ -1,9 +1,9 @@
 from collections.abc import Iterable
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    BuildError,
     ConsistencyError,
     Insight,
-    error_insight_type,
     v09_gate,
 )
 from cognite_toolkit._cdf_tk.rules._base import ToolkitLocalRule, with_position
@@ -76,7 +76,7 @@ class DeployableContainer(ToolkitLocalRule):
                     "Direct relations must be nullable."
                 )
                 yield with_position(
-                    error_insight_type(ConsistencyError)(
+                    v09_gate(BuildError, ConsistencyError)(
                         message=message,
                         code=v09_gate(self.CODE, self.LEGACY_CODE),
                         title=self.TITLE,

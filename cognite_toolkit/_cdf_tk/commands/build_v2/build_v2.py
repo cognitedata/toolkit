@@ -54,9 +54,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     InternalValidatorException,
     ModelSyntaxError,
     ModelSyntaxWarning,
-    error_insight_type,
     v09_gate,
-    warning_insight_type,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
@@ -1178,7 +1176,7 @@ class BuildV2Command(ToolkitCommand):
         syntax_error = None
         if errors:
             line, column = self._single_position(errors, positions)
-            syntax_error = error_insight_type(ModelSyntaxError, BuildError)(
+            syntax_error = v09_gate(BuildError, ModelSyntaxError)(
                 code="FIELD-INVALID",
                 title="Invalid field",
                 message="\n".join(item.message for item in errors),
@@ -1192,7 +1190,7 @@ class BuildV2Command(ToolkitCommand):
         for warning in warnings:
             line, column = self._single_position([warning], positions)
             syntax_warnings.append(
-                warning_insight_type(ModelSyntaxWarning)(
+                v09_gate(BuildWarning, ModelSyntaxWarning)(
                     code=warning.code,
                     title=warning.title,
                     message=warning.message,

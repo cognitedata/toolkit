@@ -5,10 +5,10 @@ from typing import NamedTuple
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import ServicesAvailability
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    BuildError,
     ConsistencyError,
     Insight,
     InternalValidatorException,
-    error_insight_type,
     v09_gate,
 )
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO, ResourceType
@@ -91,7 +91,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
         if agent_def.model is not None and supported_models is not None and agent_def.model not in supported_models:
             quoted_models = humanize_collection([f"{model!r}" for model in supported_models])
             yield with_position(
-                error_insight_type(ConsistencyError)(
+                v09_gate(BuildError, ConsistencyError)(
                     message=(
                         f"Agent '{agent_def.external_id}' model {agent_def.model!r} is not available in this "
                         f"CDF project. Available models: {quoted_models}."
@@ -111,7 +111,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                     [f"{runtime_version!r}" for runtime_version in supported_runtime_versions]
                 )
                 yield with_position(
-                    error_insight_type(ConsistencyError)(
+                    v09_gate(BuildError, ConsistencyError)(
                         message=(
                             f"Agent '{agent_def.external_id}' runtime version {agent_def.runtime_version!r} is not "
                             f"available in this CDF project. "
@@ -137,7 +137,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                 )
                 if has_capability is False:
                     yield with_position(
-                        error_insight_type(ConsistencyError)(
+                        v09_gate(BuildError, ConsistencyError)(
                             message=(
                                 f"Agent '{agent_def.external_id}' runtime version {effective_runtime_version!r} "
                                 f"does not support the '{requirement.field_name}' field."
@@ -156,7 +156,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
         max_tools = availability.max_tools_per_agent
         if agent_def.tools is not None and max_tools is not None and len(agent_def.tools) > max_tools:
             yield with_position(
-                error_insight_type(ConsistencyError)(
+                v09_gate(BuildError, ConsistencyError)(
                     message=(
                         f"Agent '{agent_def.external_id}' has {len(agent_def.tools)} tools, "
                         f"which exceeds the maximum of {max_tools} tools per agent for this CDF project."

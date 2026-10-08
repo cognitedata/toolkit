@@ -243,18 +243,6 @@ def v09_gate(new: T_Value, legacy: T_Value) -> T_Value:
     return new if Flags.V09.is_enabled() else legacy
 
 
-def error_insight_type(
-    legacy_type: type[T_Insight], error_type: type[BuildError] = BuildError
-) -> type[T_Insight] | type[BuildError]:
-    """The insight class to use for errors: error_type with the v09 flag, otherwise the legacy class."""
-    return error_type if Flags.V09.is_enabled() else legacy_type
-
-
-def warning_insight_type(legacy_type: type[T_Insight]) -> type[T_Insight] | type[BuildWarning]:
-    """The insight class to use for warnings: BuildWarning with the v09 flag, otherwise the legacy class."""
-    return BuildWarning if Flags.V09.is_enabled() else legacy_type
-
-
 InsightListAdapter: TypeAdapter[list[Insight]] = TypeAdapter(list[Insight])
 
 

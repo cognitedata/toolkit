@@ -6,9 +6,9 @@ from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view import ViewResponse
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    BuildError,
     ConsistencyError,
     Insight,
-    error_insight_type,
     v09_gate,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
@@ -156,7 +156,7 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
         if missing:
             quoted_missing = humanize_collection([f"{property_name!r}" for property_name in missing])
             yield with_position(
-                error_insight_type(ConsistencyError)(
+                v09_gate(BuildError, ConsistencyError)(
                     code=v09_gate("REFERENCED-RESOURCE-INVALID", f"{self.CODE_PREFIX}-VIEW-MISSING-PROPERTIES"),
                     title="Invalid InField view",
                     message=(
@@ -184,7 +184,7 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
         if unknown:
             quoted_unknown = humanize_collection([f"{property_name!r}" for property_name in unknown])
             yield with_position(
-                error_insight_type(ConsistencyError)(
+                v09_gate(BuildError, ConsistencyError)(
                     code=v09_gate("REFERENCED-PROPERTY-MISSING", f"{self.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY"),
                     title="Missing InField view property",
                     message=(f"View {view_id!s} used for {config_key!r} does not have properties: {quoted_unknown}."),

@@ -29,9 +29,7 @@ from ._insights import (
     InternalValidatorException,
     ModelSyntaxError,
     ModelSyntaxWarning,
-    error_insight_type,
     v09_gate,
-    warning_insight_type,
 )
 from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
@@ -225,7 +223,7 @@ class BuiltModule(BaseModel):
         for resource in self.resources:
             for failed_extra in resource.failed_extra:
                 insights.append(
-                    error_insight_type(FileReadError, BuildError)(
+                    v09_gate(BuildError, FileReadError)(
                         message=v09_gate(
                             failed_extra.error, f"In {failed_extra.source_path.as_posix()!r}: {failed_extra.error}"
                         ),
@@ -249,7 +247,7 @@ class BuiltModule(BaseModel):
                 # variables are the root cause and are already reported as their own insight.
                 continue
             insights.append(
-                error_insight_type(FileReadError, BuildError)(
+                v09_gate(BuildError, FileReadError)(
                     code=failed_file.code,
                     title=failed_file.title,
                     message=v09_gate(
@@ -260,7 +258,7 @@ class BuiltModule(BaseModel):
             )
         for ignored_file in self.ignored_files:
             insights.append(
-                warning_insight_type(IgnoredFileWarning)(
+                v09_gate(BuildWarning, IgnoredFileWarning)(
                     code=ignored_file.code,
                     title=ignored_file.title,
                     message=ignored_file.reason,

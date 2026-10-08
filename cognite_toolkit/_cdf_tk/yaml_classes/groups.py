@@ -30,13 +30,13 @@ class BaseGroupYAML(ToolkitResource):
     def syntax_warnings(self, source_file: Path) -> "list[ModelSyntaxWarning | BuildWarning]":
         # Lazy import to avoid circular dependency (yaml_classes → commands.build_v2 → resource_ios → yaml_classes).
         from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+            BuildWarning,
             ModelSyntaxWarning,
             v09_gate,
-            warning_insight_type,
         )
 
         return [
-            warning_insight_type(ModelSyntaxWarning)(
+            v09_gate(BuildWarning, ModelSyntaxWarning)(
                 code=v09_gate("VALUE-UNRECOGNIZED", "MODEL-SYNTAX-WARNING"),
                 title="Unrecognized value",
                 message=(

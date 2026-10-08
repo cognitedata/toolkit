@@ -6,11 +6,12 @@ from typing import TYPE_CHECKING, Any
 
 from cognite_toolkit._cdf_tk.commands._cli_commands import package_install_command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    BuildError,
     ConsistencyError,
     Insight,
     ModelSyntaxError,
     Recommendation,
-    error_insight_type,
+    v09_gate,
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, ResourceType
@@ -143,11 +144,11 @@ class NeatRuleSet(ToolkitGlobalRuleSet):
                 # related to another file than the data model file.
                 dumped["source_file"] = source_file
             if isinstance(issue, NeatModelSyntaxError):
-                yield error_insight_type(ModelSyntaxError).model_validate(dumped)
+                yield v09_gate(BuildError, ModelSyntaxError).model_validate(dumped)
             elif isinstance(issue, NeatRecommendation):
                 yield Recommendation.model_validate(dumped)
             elif isinstance(issue, NeatConsistencyError):
-                yield error_insight_type(ConsistencyError).model_validate(dumped)
+                yield v09_gate(BuildError, ConsistencyError).model_validate(dumped)
 
     @cached_property
     def _neat_client(self) -> "NeatClient":

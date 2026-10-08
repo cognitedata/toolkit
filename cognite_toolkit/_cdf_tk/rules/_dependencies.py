@@ -24,11 +24,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, contains_unresolved_variable
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    BuildError,
+    BuildWarning,
     ConsistencyError,
     Insight,
-    error_insight_type,
     v09_gate,
-    warning_insight_type,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import URL
@@ -108,7 +108,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     for identifier in missing:
                         for resource in expected_by_identifier[identifier]:
                             yield with_position(
-                                error_insight_type(ConsistencyError)(
+                                v09_gate(BuildError, ConsistencyError)(
                                     code=v09_gate("REFERENCED-RESOURCE-MISSING", "UNKNOWN-REFERENCE"),
                                     title="Missing referenced resource",
                                     message=v09_gate(
@@ -128,7 +128,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 for identifier, expected_resources in expected_by_identifier.items():
                     for resource in expected_resources:
                         yield with_position(
-                            warning_insight_type(ConsistencyError)(
+                            v09_gate(BuildWarning, ConsistencyError)(
                                 code=v09_gate("REFERENCED-RESOURCE-UNVERIFIED", "UNVERIFIED-REFERENCE"),
                                 title="Unverified referenced resource",
                                 message=v09_gate(
@@ -283,7 +283,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             removed = sorted(set(cdf_properties) - set(local_properties))
             affected = humanize_collection([f"{name!r}" for name in sorted({*removed, *changed})])
             yield with_position(
-                error_insight_type(ConsistencyError)(
+                v09_gate(BuildError, ConsistencyError)(
                     code=v09_gate("RESOURCE-CHANGE-INVALID", self.INVALID_OPERATION_CODE),
                     title="Invalid container change",
                     message=(
@@ -300,7 +300,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         missing = sorted(set(cdf_properties) - set(local_properties))
         if missing and not changed:
             yield with_position(
-                warning_insight_type(ConsistencyError)(
+                v09_gate(BuildWarning, ConsistencyError)(
                     code=v09_gate("RESOURCE-REMOVAL-UNSUPPORTED", self.INVALID_OPERATION_CODE),
                     title="Unsupported container removal",
                     message=(
@@ -323,7 +323,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             # usedFor cannot change once set; every other top-level container field (name, description)
             # is metadata and CDF applies changes to it without restriction, so it is not checked here.
             yield with_position(
-                error_insight_type(ConsistencyError)(
+                v09_gate(BuildError, ConsistencyError)(
                     code=v09_gate("RESOURCE-CHANGE-INVALID", self.INVALID_OPERATION_CODE),
                     title="Invalid container change",
                     message=(
@@ -359,7 +359,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         if changed:
             affected = humanize_collection([f"{name!r}" for name in sorted({*removed, *changed})])
             yield with_position(
-                error_insight_type(ConsistencyError)(
+                v09_gate(BuildError, ConsistencyError)(
                     code=v09_gate("RESOURCE-CHANGE-INVALID", self.INVALID_OPERATION_CODE),
                     title="Invalid view change",
                     message=(
@@ -376,7 +376,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             )
         elif removed:
             yield with_position(
-                warning_insight_type(ConsistencyError)(
+                v09_gate(BuildWarning, ConsistencyError)(
                     code=v09_gate("RESOURCE-REMOVAL-UNSUPPORTED", self.INVALID_OPERATION_CODE),
                     title="Unsupported view removal",
                     message=(
@@ -395,7 +395,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
             # implements can break clients relying on inherited properties, so it requires a version bump.
             # name, description and filter are metadata/query-only and can always change.
             yield with_position(
-                error_insight_type(ConsistencyError)(
+                v09_gate(BuildError, ConsistencyError)(
                     code=v09_gate("RESOURCE-CHANGE-INVALID", self.INVALID_OPERATION_CODE),
                     title="Invalid view change",
                     message=(
@@ -437,7 +437,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                 ]
             )
             yield with_position(
-                error_insight_type(ConsistencyError)(
+                v09_gate(BuildError, ConsistencyError)(
                     code=v09_gate("RESOURCE-CHANGE-INVALID", self.INVALID_OPERATION_CODE),
                     title="Invalid data model change",
                     message=(
@@ -454,7 +454,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
 
         if removed:
             yield with_position(
-                warning_insight_type(ConsistencyError)(
+                v09_gate(BuildWarning, ConsistencyError)(
                     code=v09_gate("RESOURCE-REMOVAL-UNSUPPORTED", self.INVALID_OPERATION_CODE),
                     title="Unsupported data model removal",
                     message=(
