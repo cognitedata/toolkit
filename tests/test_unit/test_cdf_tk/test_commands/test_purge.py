@@ -128,7 +128,7 @@ def purge_responses(
         status_code=200,
         json={
             "subject": "123",
-            "projects": [],
+            "projects": [{"projectUrlName": config.project, "groups": [1]}],
             "capabilities": [
                 {
                     "projectScope": {"allProjects": {}},
