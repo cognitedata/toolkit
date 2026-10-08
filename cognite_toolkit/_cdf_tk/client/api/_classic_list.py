@@ -49,7 +49,7 @@ def classic_list_body(
 def _merge_filter(filter: ClassicFilter | dict[str, Any] | None, fields: dict[str, Any]) -> dict[str, Any] | None:
     if isinstance(filter, ClassicFilter):
         body = filter.dump()
-    elif isinstance(filter, dict):
+    elif isinstance(filter, Mapping):
         body = dict(filter)
     else:
         body = {}
@@ -94,7 +94,7 @@ def _time_range(value: TimeRange | None) -> dict[str, Any] | None:
 def _dump_model(value: LabelFilter | GeoLocationFilter | dict[str, Any] | None) -> dict[str, Any] | None:
     if value is None:
         return None
-    if isinstance(value, dict):
+    if isinstance(value, Mapping):
         return dict(value)
     return value.dump() or None
 

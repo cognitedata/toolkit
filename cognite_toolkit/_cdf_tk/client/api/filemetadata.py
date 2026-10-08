@@ -351,7 +351,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
 
         ``filter`` is a strict filter. Individual arguments override the same field on ``filter``.
         ``partition`` is an ``"M/N"`` string. ``root_asset_ids`` accepts an internal id, external id,
-        or ``{"id"}`` / ``{"externalId"}`` object. The files list endpoint has no advanced filter or sort.
+        or :class:`InternalId` / :class:`ExternalId` object. The files list endpoint has no advanced filter or sort.
 
         See `API docs <https://api-docs.cognite.com/20230101/tag/Files/operation/advancedListFiles>`_.
         """
