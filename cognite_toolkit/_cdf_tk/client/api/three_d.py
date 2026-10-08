@@ -1,7 +1,9 @@
 import builtins
+import json
 from collections.abc import Iterable, Sequence
 from functools import partial
-from typing import Literal, TypeVar
+from typing import Any, Literal, TypeVar
+from urllib.parse import quote
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -12,7 +14,11 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId, ThreeDModelRevisionId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ThreeDAssetMappingFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import (
+    ThreeDAssetMappingFilter,
+    ThreeDNodeNameFilter,
+    ThreeDNodePropertyFilter,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicRequestId,
     AssetMappingClassicResponse,
@@ -21,6 +27,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicRequest,
     ThreeDModelClassicResponse,
     ThreeDModelDMSRequest,
+    ThreeDNodeResponse,
     ThreeDRevisionClassicRequest,
     ThreeDRevisionClassicResponse,
 )
@@ -576,9 +583,391 @@ class ThreeDDMAssetMappingAPI(CDFResourceAPI[AssetMappingDMResponse]):
         return items
 
 
+class ThreeDNodesAPI(CDFResourceAPI[ThreeDNodeResponse]):
+    """Read nodes in a 3D model revision.
+
+    The revision must be done before these endpoints succeed. Calling them earlier returns HTTP 400.
+    """
+
+    ENDPOINT = "/3d/models/{modelId}/revisions/{revisionId}/nodes"
+    _FILTER = Endpoint(method="POST", path=f"{ENDPOINT}/list", item_limit=1000)
+
+    def __init__(self, http_client: HTTPClient) -> None:
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                "retrieve": Endpoint(method="POST", path=f"{self.ENDPOINT}/byids", item_limit=1000),
+                "list": Endpoint(method="GET", path=self.ENDPOINT, item_limit=1000),
+            },
+        )
+
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[ThreeDNodeResponse]:
+        return PagedResponse[ThreeDNodeResponse].model_validate_json(response.body)
+
+    @staticmethod
+    def _assign_revision(items: Iterable[ThreeDNodeResponse], model_id: int, revision_id: int) -> None:
+        for item in items:
+            item.model_id = model_id
+            item.revision_id = revision_id
+
+    def _nodes_path(self, model_id: int, revision_id: int, *suffix: int | str) -> str:
+        path = self.ENDPOINT.format(
+            modelId=quote(str(model_id), safe=""),
+            revisionId=quote(str(revision_id), safe=""),
+        )
+        if not suffix:
+            return path
+        encoded_suffix = "/".join(quote(str(part), safe="") for part in suffix)
+        return f"{path}/{encoded_suffix}"
+
+    def _list_params(
+        self,
+        node_id: int | None,
+        depth: int | None,
+        sort_by_node_id: bool,
+        partition: str | None,
+        properties: dict[str, dict[str, str]] | None,
+    ) -> dict[str, Any]:
+        if partition is not None and not sort_by_node_id:
+            raise ValueError("partition can only be used when sort_by_node_id is True.")
+        return (
+            self._filter_out_none_values(
+                {
+                    "sortByNodeId": sort_by_node_id,
+                    "nodeId": node_id,
+                    "depth": depth,
+                    "partition": partition,
+                    "properties": None if properties is None else json.dumps(properties, separators=(",", ":")),
+                }
+            )
+            or {}
+        )
+
+    def retrieve(self, model_id: int, revision_id: int, ids: Sequence[int]) -> builtins.list[ThreeDNodeResponse]:
+        """Retrieve nodes by ID.
+
+        Args:
+            model_id: Model ID.
+            revision_id: Revision ID.
+            ids: Node IDs to retrieve. Requests are sent in batches of 1000.
+
+        Returns:
+            The retrieved nodes.
+        """
+        path = self._nodes_path(model_id, revision_id, "byids")
+        items = self._request_item_response(InternalId.from_ids(ids), "retrieve", endpoint=path)
+        self._assign_revision(items, model_id, revision_id)
+        return items
+
+    def paginate(
+        self,
+        model_id: int,
+        revision_id: int,
+        node_id: int | None = None,
+        depth: int | None = None,
+        sort_by_node_id: bool = False,
+        partition: str | None = None,
+        properties: dict[str, dict[str, str]] | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> PagedResponse[ThreeDNodeResponse]:
+        """Fetch one page of nodes in a revision.
+
+        Args:
+            model_id: Model ID.
+            revision_id: Revision ID.
+            node_id: Root of the subtree to return. Defaults to the revision root.
+            depth: How many levels below ``node_id`` to include. Depth 0 is the root node.
+            sort_by_node_id: List nodes in ascending node ID order.
+            partition: Partition of the result, as ``"M/N"``. Requires ``sort_by_node_id``.
+            properties: Exact property match. Only nodes matching every given property are returned.
+            limit: Maximum number of nodes in the page.
+            cursor: Cursor for pagination.
+
+        Returns:
+            One page of nodes.
+        """
+        page = self._paginate(
+            limit=limit,
+            cursor=cursor,
+            params=self._list_params(node_id, depth, sort_by_node_id, partition, properties),
+            endpoint_path=self._nodes_path(model_id, revision_id),
+        )
+        self._assign_revision(page.items, model_id, revision_id)
+        return page
+
+    def iterate(
+        self,
+        model_id: int,
+        revision_id: int,
+        node_id: int | None = None,
+        depth: int | None = None,
+        sort_by_node_id: bool = False,
+        partition: str | None = None,
+        properties: dict[str, dict[str, str]] | None = None,
+        limit: int | None = 100,
+        cursor: str | None = None,
+    ) -> Iterable[builtins.list[ThreeDNodeResponse]]:
+        """Iterate nodes in a revision, following pagination cursors.
+
+        Args:
+            model_id: Model ID.
+            revision_id: Revision ID.
+            node_id: Root of the subtree to return. Defaults to the revision root.
+            depth: How many levels below ``node_id`` to include. Depth 0 is the root node.
+            sort_by_node_id: List nodes in ascending node ID order.
+            partition: Partition of the result, as ``"M/N"``. Requires ``sort_by_node_id``.
+            properties: Exact property match. Only nodes matching every given property are returned.
+            limit: Maximum number of nodes to return in total. None returns every node.
+            cursor: Cursor to start from.
+
+        Yields:
+            Batches of nodes.
+        """
+        params = self._list_params(node_id, depth, sort_by_node_id, partition, properties)
+        for items in self._iterate(
+            limit=limit,
+            cursor=cursor,
+            params=params,
+            endpoint_path=self._nodes_path(model_id, revision_id),
+        ):
+            self._assign_revision(items, model_id, revision_id)
+            yield items
+
+    def list(
+        self,
+        model_id: int,
+        revision_id: int,
+        node_id: int | None = None,
+        depth: int | None = None,
+        sort_by_node_id: bool = False,
+        partition: str | None = None,
+        properties: dict[str, dict[str, str]] | None = None,
+        limit: int | None = 100,
+    ) -> builtins.list[ThreeDNodeResponse]:
+        """List nodes in a revision.
+
+        Args:
+            model_id: Model ID.
+            revision_id: Revision ID.
+            node_id: Root of the subtree to return. Defaults to the revision root.
+            depth: How many levels below ``node_id`` to include. Depth 0 is the root node.
+            sort_by_node_id: List nodes in ascending node ID order.
+            partition: Partition of the result, as ``"M/N"``. Requires ``sort_by_node_id``.
+            properties: Exact property match. Only nodes matching every given property are returned.
+            limit: Maximum number of nodes to return. None returns every node.
+
+        Returns:
+            The matching nodes.
+        """
+        items = self._list(
+            limit=limit,
+            params=self._list_params(node_id, depth, sort_by_node_id, partition, properties),
+            endpoint_path=self._nodes_path(model_id, revision_id),
+        )
+        self._assign_revision(items, model_id, revision_id)
+        return items
+
+    def _paginate_filtered(
+        self,
+        model_id: int,
+        revision_id: int,
+        node_filter: ThreeDNodeNameFilter | ThreeDNodePropertyFilter | None,
+        partition: str | None,
+        limit: int,
+        cursor: str | None,
+    ) -> PagedResponse[ThreeDNodeResponse]:
+        if not (0 < limit <= self._FILTER.item_limit):
+            raise ValueError(f"Limit must be between 1 and {self._FILTER.item_limit}, got {limit}.")
+        body = self._filter_out_none_values(
+            {
+                "filter": node_filter.dump() if node_filter is not None else None,
+                "partition": partition,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        request = RequestMessage(
+            endpoint_url=self._make_url(self._nodes_path(model_id, revision_id, "list")),
+            method=self._FILTER.method,
+            body_content=body or {},
+            disable_gzip=self._disable_gzip,
+            api_version=self._api_version,
+        )
+        result = self._http_client.request_single_retries(request)
+        page = self._validate_page_response(result.get_success_or_raise(request))
+        self._assign_revision(page.items, model_id, revision_id)
+        return page
+
+    def paginate_filtered(
+        self,
+        model_id: int,
+        revision_id: int,
+        filter: ThreeDNodeNameFilter | ThreeDNodePropertyFilter | None = None,
+        partition: str | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> PagedResponse[ThreeDNodeResponse]:
+        """Fetch one page of nodes matching a name or property filter.
+
+        Args:
+            model_id: Model ID.
+            revision_id: Revision ID.
+            filter: Name or property filter. Omit to page every node through the filter endpoint.
+            partition: Partition of the result, as ``"M/N"``.
+            limit: Maximum number of nodes in the page.
+            cursor: Cursor for pagination.
+
+        Returns:
+            One page of nodes.
+        """
+        return self._paginate_filtered(model_id, revision_id, filter, partition, limit, cursor)
+
+    def iterate_filtered(
+        self,
+        model_id: int,
+        revision_id: int,
+        filter: ThreeDNodeNameFilter | ThreeDNodePropertyFilter | None = None,
+        partition: str | None = None,
+        limit: int | None = 100,
+        cursor: str | None = None,
+    ) -> Iterable[builtins.list[ThreeDNodeResponse]]:
+        """Iterate nodes matching a name or property filter.
+
+        Args:
+            model_id: Model ID.
+            revision_id: Revision ID.
+            filter: Name or property filter. Omit to iterate every node through the filter endpoint.
+            partition: Partition of the result, as ``"M/N"``.
+            limit: Maximum number of nodes to return in total. None returns every match.
+            cursor: Cursor to start from.
+
+        Yields:
+            Batches of nodes.
+        """
+        next_cursor = cursor
+        total = 0
+        while True:
+            page_limit = self._FILTER.item_limit if limit is None else min(limit - total, self._FILTER.item_limit)
+            page = self._paginate_filtered(model_id, revision_id, filter, partition, page_limit, next_cursor)
+            yield page.items
+            total += len(page.items)
+            if page.next_cursor is None or (limit is not None and total >= limit) or not page.items:
+                break
+            next_cursor = page.next_cursor
+
+    def list_filtered(
+        self,
+        model_id: int,
+        revision_id: int,
+        filter: ThreeDNodeNameFilter | ThreeDNodePropertyFilter | None = None,
+        partition: str | None = None,
+        limit: int | None = 100,
+    ) -> builtins.list[ThreeDNodeResponse]:
+        """List nodes matching a name or property filter.
+
+        Args:
+            model_id: Model ID.
+            revision_id: Revision ID.
+            filter: Name or property filter. Omit to list every node through the filter endpoint.
+            partition: Partition of the result, as ``"M/N"``.
+            limit: Maximum number of nodes to return. None returns every match.
+
+        Returns:
+            The matching nodes.
+        """
+        return [
+            item for batch in self.iterate_filtered(model_id, revision_id, filter, partition, limit) for item in batch
+        ]
+
+    def paginate_ancestors(
+        self,
+        model_id: int,
+        revision_id: int,
+        node_id: int,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> PagedResponse[ThreeDNodeResponse]:
+        """Fetch one page of ancestors of a node, including the node itself.
+
+        Args:
+            model_id: Model ID.
+            revision_id: Revision ID.
+            node_id: Node to walk upward from.
+            limit: Maximum number of nodes in the page.
+            cursor: Cursor for pagination.
+
+        Returns:
+            One page of ancestor nodes.
+        """
+        page = self._paginate(
+            limit=limit,
+            cursor=cursor,
+            endpoint_path=self._nodes_path(model_id, revision_id, node_id, "ancestors"),
+        )
+        self._assign_revision(page.items, model_id, revision_id)
+        return page
+
+    def iterate_ancestors(
+        self,
+        model_id: int,
+        revision_id: int,
+        node_id: int,
+        limit: int | None = 100,
+        cursor: str | None = None,
+    ) -> Iterable[builtins.list[ThreeDNodeResponse]]:
+        """Iterate ancestors of a node, including the node itself.
+
+        Args:
+            model_id: Model ID.
+            revision_id: Revision ID.
+            node_id: Node to walk upward from.
+            limit: Maximum number of nodes to return in total. None returns every ancestor.
+            cursor: Cursor to start from.
+
+        Yields:
+            Batches of ancestor nodes.
+        """
+        for items in self._iterate(
+            limit=limit,
+            cursor=cursor,
+            endpoint_path=self._nodes_path(model_id, revision_id, node_id, "ancestors"),
+        ):
+            self._assign_revision(items, model_id, revision_id)
+            yield items
+
+    def list_ancestors(
+        self,
+        model_id: int,
+        revision_id: int,
+        node_id: int,
+        limit: int | None = 100,
+    ) -> builtins.list[ThreeDNodeResponse]:
+        """List ancestors of a node, including the node itself.
+
+        Args:
+            model_id: Model ID.
+            revision_id: Revision ID.
+            node_id: Node to walk upward from.
+            limit: Maximum number of nodes to return. None returns every ancestor.
+
+        Returns:
+            The ancestor nodes.
+        """
+        items = self._list(
+            limit=limit,
+            endpoint_path=self._nodes_path(model_id, revision_id, node_id, "ancestors"),
+        )
+        self._assign_revision(items, model_id, revision_id)
+        return items
+
+
 class ThreeDAPI:
     def __init__(self, http_client: HTTPClient) -> None:
         self.models_classic = ThreeDClassicModelsAPI(http_client)
         self.revisions_classic = ThreeDClassicRevisionsAPI(http_client)
+        self.nodes = ThreeDNodesAPI(http_client)
         self.asset_mappings_classic = ThreeDClassicAssetMappingAPI(http_client)
         self.asset_mappings_dm = ThreeDDMAssetMappingAPI(http_client)
