@@ -1,16 +1,15 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from pydantic import Discriminator, Field, Tag, model_serializer
+from pydantic import Discriminator, Field, Tag
 from pydantic.functional_validators import BeforeValidator
-from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.client.identifiers import NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupAttributes
 from cognite_toolkit._cdf_tk.feature_flags import v09_gate
 
 from .base import ToolkitResource
-from .capabilities import Capability, UnknownCapability
+from .capabilities import CapabilityType, UnknownCapability
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning, ModelSyntaxWarning
@@ -21,7 +20,7 @@ class BaseGroupYAML(ToolkitResource):
         exclude=True
     )  # Not part of the YAML, but used to determine which subclass to use for validation
     name: str
-    capabilities: list[Capability] | None = None
+    capabilities: list[CapabilityType] | None = None
     metadata: dict[str, str] | None = None
     attributes: GroupAttributes | None = None
 
@@ -48,17 +47,6 @@ class BaseGroupYAML(ToolkitResource):
             for cap in (self.capabilities or [])
             if isinstance(cap, UnknownCapability)
         ]
-
-    @model_serializer(mode="wrap")
-    def serialize_group(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
-        # Capabilities are serialized as empty dicts [{}, {}, ...]
-        # This issue arises because Pydantic's serialization mechanism doesn't automatically
-        # handle polymorphic serialization for subclasses of Capability.
-        # To address this, we include the below to explicitly calling model dump on the capabilities
-        serialized_data = handler(self)
-        if self.capabilities:
-            serialized_data["capabilities"] = [cap.model_dump(**vars(info)) for cap in self.capabilities]
-        return serialized_data
 
 
 class ExternalGroupYAML(BaseGroupYAML):
