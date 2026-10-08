@@ -268,7 +268,7 @@ class _PackedIdentifiers:
     wraps, so a few hundred resources stay scannable without truncating any id.
     """
 
-    _gap = " · "
+    _gap: str = " · "
 
     def __init__(self, identifiers: Sequence[str]) -> None:
         self.identifiers = list(identifiers)
@@ -1655,18 +1655,18 @@ class DeployV2Command(ToolkitCommand):
         return cls._verbose_status_grid(label, style, marker, len(identifiers), packed)
 
     @classmethod
-    def _skipped_detail(cls, skipped: Sequence[Skipped]) -> RenderableType:
+    def _skipped_detail(cls, skipped: Sequence[Skipped[Identifier]]) -> RenderableType:
         """Render skips at full width.
 
         Skips that share a code and reason are packed onto as few lines as possible.
         The rest keep a row each so the distinct reason and source file stay visible.
         """
-        grouped: dict[tuple[str, str], list[Skipped]] = defaultdict(list)
+        grouped: dict[tuple[str, str], list[Skipped[Identifier]]] = defaultdict(list)
         for skip in skipped:
             grouped[(skip.code, skip.reason)].append(skip)
 
         details: list[RenderableType] = []
-        singles: list[Skipped] = []
+        singles: list[Skipped[Identifier]] = []
         for (code, reason), items in sorted(grouped.items()):
             ordered = sorted(items, key=lambda item: (str(item.id), item.source_file.as_posix()))
             if len(ordered) == 1:
@@ -1687,7 +1687,7 @@ class DeployV2Command(ToolkitCommand):
         return Group(*details)
 
     @classmethod
-    def _skipped_detail_table(cls, skipped: Sequence[Skipped]) -> Table:
+    def _skipped_detail_table(cls, skipped: Sequence[Skipped[Identifier]]) -> Table:
         table = Table(
             box=None,
             show_header=True,
