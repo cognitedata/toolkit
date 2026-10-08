@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.client.api._classic_aggregate import (
     aggregate_count,
     aggregate_unique,
 )
+from cognite_toolkit._cdf_tk.client.api._classic_list import ObjectIds, Sort, TimeRange, sequence_list_body
 from cognite_toolkit._cdf_tk.client.api.sequence_rows import SequenceRowsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -97,55 +98,186 @@ class SequencesAPI(CDFResourceAPI[SequenceResponse]):
 
     def paginate(
         self,
-        filter: ClassicFilter | None = None,
+        filter: ClassicFilter | dict[str, Any] | None = None,
         limit: int = 100,
         cursor: str | None = None,
+        *,
+        name: str | None = None,
+        external_id_prefix: str | None = None,
+        metadata: dict[str, str] | None = None,
+        asset_ids: int | Sequence[int] | None = None,
+        root_asset_ids: int | Sequence[int] | None = None,
+        asset_subtree_ids: ObjectIds | None = None,
+        asset_subtree_external_ids: str | Sequence[str] | None = None,
+        data_set_ids: ObjectIds | None = None,
+        data_set_external_ids: str | Sequence[str] | None = None,
+        created_time: TimeRange | None = None,
+        last_updated_time: TimeRange | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        sort: Sort | None = None,
+        partition: str | None = None,
     ) -> PagedResponse[SequenceResponse]:
-        """Iterate over all sequences in CDF.
+        """Fetch one page of sequences.
 
-        Args:
-            filter: Filter by data set IDs and/or asset subtree IDs.
-            limit: Maximum number of items to return.
-            cursor: Cursor for pagination.
+        Takes the same filter arguments as :meth:`list`.
 
-        Returns:
-            PagedResponse of SequenceResponse objects.
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Sequences/operation/advancedListSequences>`_.
         """
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body={"filter": filter.dump() if filter else None},
+            body=self._list_body(
+                filter=filter,
+                name=name,
+                external_id_prefix=external_id_prefix,
+                metadata=metadata,
+                asset_ids=asset_ids,
+                root_asset_ids=root_asset_ids,
+                asset_subtree_ids=asset_subtree_ids,
+                asset_subtree_external_ids=asset_subtree_external_ids,
+                data_set_ids=data_set_ids,
+                data_set_external_ids=data_set_external_ids,
+                created_time=created_time,
+                last_updated_time=last_updated_time,
+                advanced_filter=advanced_filter,
+                sort=sort,
+                partition=partition,
+            ),
         )
 
     def iterate(
         self,
-        filter: ClassicFilter | None = None,
+        filter: ClassicFilter | dict[str, Any] | None = None,
         limit: int | None = 100,
+        *,
+        name: str | None = None,
+        external_id_prefix: str | None = None,
+        metadata: dict[str, str] | None = None,
+        asset_ids: int | Sequence[int] | None = None,
+        root_asset_ids: int | Sequence[int] | None = None,
+        asset_subtree_ids: ObjectIds | None = None,
+        asset_subtree_external_ids: str | Sequence[str] | None = None,
+        data_set_ids: ObjectIds | None = None,
+        data_set_external_ids: str | Sequence[str] | None = None,
+        created_time: TimeRange | None = None,
+        last_updated_time: TimeRange | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        sort: Sort | None = None,
+        partition: str | None = None,
     ) -> Iterable[builtins.list[SequenceResponse]]:
-        """Iterate over all sequences in CDF.
+        """Iterate over sequences in CDF.
 
-        Args:
-            filter: Filter by data set IDs and/or asset subtree IDs.
-            limit: Maximum number of items to return per page.
+        Takes the same filter arguments as :meth:`list`. ``limit`` is the maximum number of
+        sequences to return in total; ``None`` reads every matching sequence.
 
-        Returns:
-            Iterable of lists of SequenceResponse objects.
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Sequences/operation/advancedListSequences>`_.
         """
         return self._iterate(
             limit=limit,
-            body={"filter": filter.dump() if filter else None},
+            body=self._list_body(
+                filter=filter,
+                name=name,
+                external_id_prefix=external_id_prefix,
+                metadata=metadata,
+                asset_ids=asset_ids,
+                root_asset_ids=root_asset_ids,
+                asset_subtree_ids=asset_subtree_ids,
+                asset_subtree_external_ids=asset_subtree_external_ids,
+                data_set_ids=data_set_ids,
+                data_set_external_ids=data_set_external_ids,
+                created_time=created_time,
+                last_updated_time=last_updated_time,
+                advanced_filter=advanced_filter,
+                sort=sort,
+                partition=partition,
+            ),
         )
 
     def list(
         self,
         limit: int | None = 100,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        name: str | None = None,
+        external_id_prefix: str | None = None,
+        metadata: dict[str, str] | None = None,
+        asset_ids: int | Sequence[int] | None = None,
+        root_asset_ids: int | Sequence[int] | None = None,
+        asset_subtree_ids: ObjectIds | None = None,
+        asset_subtree_external_ids: str | Sequence[str] | None = None,
+        data_set_ids: ObjectIds | None = None,
+        data_set_external_ids: str | Sequence[str] | None = None,
+        created_time: TimeRange | None = None,
+        last_updated_time: TimeRange | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        sort: Sort | None = None,
+        partition: str | None = None,
     ) -> builtins.list[SequenceResponse]:
-        """List all sequences in CDF.
+        """List sequences in CDF.
 
-        Returns:
-            List of SequenceResponse objects.
+        ``filter`` is a strict filter. Individual arguments override the same field on ``filter``.
+        ``advanced_filter`` is the filter DSL. ``sort`` is one item or a list of ``{property, order, nulls}``.
+        ``partition`` is an ``"M/N"`` string. ``root_asset_ids`` are internal asset ids.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Sequences/operation/advancedListSequences>`_.
         """
-        return self._list(limit=limit)
+        return self._list(
+            limit=limit,
+            body=self._list_body(
+                filter=filter,
+                name=name,
+                external_id_prefix=external_id_prefix,
+                metadata=metadata,
+                asset_ids=asset_ids,
+                root_asset_ids=root_asset_ids,
+                asset_subtree_ids=asset_subtree_ids,
+                asset_subtree_external_ids=asset_subtree_external_ids,
+                data_set_ids=data_set_ids,
+                data_set_external_ids=data_set_external_ids,
+                created_time=created_time,
+                last_updated_time=last_updated_time,
+                advanced_filter=advanced_filter,
+                sort=sort,
+                partition=partition,
+            ),
+        )
+
+    @staticmethod
+    def _list_body(
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        name: str | None = None,
+        external_id_prefix: str | None = None,
+        metadata: dict[str, str] | None = None,
+        asset_ids: int | Sequence[int] | None = None,
+        root_asset_ids: int | Sequence[int] | None = None,
+        asset_subtree_ids: ObjectIds | None = None,
+        asset_subtree_external_ids: str | Sequence[str] | None = None,
+        data_set_ids: ObjectIds | None = None,
+        data_set_external_ids: str | Sequence[str] | None = None,
+        created_time: TimeRange | None = None,
+        last_updated_time: TimeRange | None = None,
+        advanced_filter: dict[str, JsonValue] | None = None,
+        sort: Sort | None = None,
+        partition: str | None = None,
+    ) -> dict[str, Any]:
+        return sequence_list_body(
+            filter=filter,
+            name=name,
+            external_id_prefix=external_id_prefix,
+            metadata=metadata,
+            asset_ids=asset_ids,
+            root_asset_ids=root_asset_ids,
+            asset_subtree_ids=asset_subtree_ids,
+            asset_subtree_external_ids=asset_subtree_external_ids,
+            data_set_ids=data_set_ids,
+            data_set_external_ids=data_set_external_ids,
+            created_time=created_time,
+            last_updated_time=last_updated_time,
+            advanced_filter=advanced_filter,
+            sort=sort,
+            partition=partition,
+        )
 
     def count(
         self,

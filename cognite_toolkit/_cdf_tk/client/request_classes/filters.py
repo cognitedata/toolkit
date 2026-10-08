@@ -21,6 +21,30 @@ else:
 class Filter(BaseModelRequest): ...
 
 
+class LabelFilter(Filter):
+    """Match resources whose labels contain any or all of the given external IDs."""
+
+    contains_any: list[str] | None = None
+    contains_all: list[str] | None = None
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        contains_any_key = "containsAny" if camel_case else "contains_any"
+        contains_all_key = "containsAll" if camel_case else "contains_all"
+        body: dict[str, Any] = {}
+        if self.contains_any is not None:
+            body[contains_any_key] = [{"externalId": external_id} for external_id in self.contains_any]
+        if self.contains_all is not None:
+            body[contains_all_key] = [{"externalId": external_id} for external_id in self.contains_all]
+        return body
+
+
+class GeoLocationFilter(Filter):
+    """Geographic relation against a GeoJSON geometry in ``shape``."""
+
+    relation: Literal["INTERSECTS", "DISJOINT", "WITHIN"]
+    shape: dict[str, JsonValue]
+
+
 class ClassicFilter(Filter):
     asset_subtree_ids: list[ExternalId | InternalId] | None = None
     data_set_ids: list[ExternalId | InternalId] | None = None
