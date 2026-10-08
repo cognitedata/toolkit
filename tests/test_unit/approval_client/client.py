@@ -229,7 +229,6 @@ class ApprovalToolkitClient:
             mock_lookup = LookUpAPIMock(allow_reverse_lookup)
             lookup_api.id.side_effect = mock_lookup.id
             lookup_api.external_id.side_effect = mock_lookup.external_id
-        self.mock_client.verify.authorization.return_value = []
 
         # Setup all mock methods
         for resource in API_RESOURCES:
