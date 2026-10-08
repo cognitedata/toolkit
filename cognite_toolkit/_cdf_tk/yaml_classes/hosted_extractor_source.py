@@ -1,29 +1,11 @@
-import sys
 from abc import ABC
-from types import MappingProxyType
-from typing import Any, ClassVar, Literal, cast
+from typing import Annotated, Literal
 
-from pydantic import (
-    Field,
-    ModelWrapValidatorHandler,
-    SecretStr,
-    field_serializer,
-    field_validator,
-    model_serializer,
-    model_validator,
-)
-from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
+from pydantic import Field, SecretStr, field_serializer
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 from .base import BaseModelResource, ToolkitResource
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 
 class CACertificate(BaseModelResource):
@@ -61,43 +43,11 @@ class AuthCertificate(BaseModelResource):
 
 
 class Authentication(BaseModelResource):
-    type: ClassVar[str]
-
-    @model_validator(mode="wrap")
-    @classmethod
-    def find_source_type(
-        cls, data: "dict[str, Any] | Authentication", handler: ModelWrapValidatorHandler[Self]
-    ) -> Self:
-        if isinstance(data, Authentication):
-            return cast(Self, data)
-        if not isinstance(data, dict):
-            raise ValueError(f"Invalid authentication data '{type(data)}' expected dict")
-
-        if cls is not Authentication:
-            # We are already in a subclass, so just validate as usual
-            return handler(data)
-        # If not we need to find the right subclass based on the type field.
-        if "type" not in data:
-            raise ValueError("Invalid authentication data missing 'type' key")
-        type_ = data["type"]
-        if type_ not in _AUTHENTICATION_CLS_BY_TYPE:
-            raise ValueError(
-                f"invalid authentication type '{type_}'. Expected one of {humanize_collection(_AUTHENTICATION_CLS_BY_TYPE.keys(), bind_word='or')}"
-            )
-        cls_ = _AUTHENTICATION_CLS_BY_TYPE[type_]
-        return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
-
-    @model_serializer(mode="wrap", when_used="always", return_type=dict)
-    def include_type(self, handler: SerializerFunctionWrapHandler) -> dict:
-        if self.type is None:
-            raise ValueError("Type is not set")
-        serialized_data = handler(self)
-        serialized_data["type"] = self.type
-        return serialized_data
+    type: str
 
 
 class BasicAuthentication(Authentication):
-    type: ClassVar[str] = "basic"
+    type: Literal["basic"] = Field("basic")
     username: str = Field(
         description="Username used for basic authentication.",
         max_length=200,
@@ -113,7 +63,7 @@ class BasicAuthentication(Authentication):
 
 
 class ClientCredentials(Authentication):
-    type: ClassVar[str] = "clientCredentials"
+    type: Literal["clientCredentials"] = Field("clientCredentials")
     client_id: str = Field(
         description="Client ID for for the service principal used by the extractor",
     )
@@ -135,7 +85,7 @@ class ClientCredentials(Authentication):
 
 
 class QueryCredentials(Authentication):
-    type: ClassVar[str] = "query"
+    type: Literal["query"] = Field("query")
     key: str = Field(
         description="Key for the query parameter to place the authentication token in.",
     )
@@ -147,7 +97,7 @@ class QueryCredentials(Authentication):
 
 
 class HeaderCredentials(Authentication):
-    type: ClassVar[str] = "header"
+    type: Literal["header"] = Field("header")
     key: str = Field(
         description="Key for the header to place the authentication token in",
     )
@@ -174,58 +124,37 @@ class ScramSha(Authentication, ABC):
 
 
 class ScramSha256(ScramSha):
-    type: ClassVar[str] = "scramSha256"
+    type: Literal["scramSha256"] = Field("scramSha256")
 
 
 class ScramSha512(ScramSha):
-    type: ClassVar[str] = "scramSha512"
+    type: Literal["scramSha512"] = Field("scramSha512")
 
 
-class HostedExtractorSourceYAML(ToolkitResource):
-    type: ClassVar[str]
+RESTAuthentication = Annotated[
+    BasicAuthentication | ClientCredentials | QueryCredentials | HeaderCredentials,
+    Field(discriminator="type"),
+]
+
+KafkaAuthentication = Annotated[
+    BasicAuthentication | ClientCredentials | ScramSha256 | ScramSha512,
+    Field(discriminator="type"),
+]
+
+
+class HostedExtractorSource(ToolkitResource):
+    type: str
     external_id: str = Field(
         description="The external ID provided by the client. Must be unique for the resource type.",
         max_length=255,
     )
 
-    @model_validator(mode="wrap")
-    @classmethod
-    def find_source_type(
-        cls, data: "dict[str, Any] | HostedExtractorSourceYAML", handler: ModelWrapValidatorHandler[Self]
-    ) -> Self:
-        if isinstance(data, HostedExtractorSourceYAML):
-            return cast(Self, data)
-        if not isinstance(data, dict):
-            raise ValueError(f"Invalid hosted extractor source data '{type(data)}' expected dict")
-
-        if cls is not HostedExtractorSourceYAML:
-            # We are already in a subclass, so just validate as usual
-            return handler(data)
-        # If not we need to find the right subclass based on the type field.
-        if "type" not in data:
-            raise ValueError("Invalid hosted extractor source data missing 'type' key")
-        type_ = data["type"]
-        if type_ not in _SOURCE_CLS_BY_TYPE:
-            raise ValueError(
-                f"Invalid hosted extractor source type='{type_}'. Expected one of {humanize_collection(_SOURCE_CLS_BY_TYPE.keys(), bind_word='or')}"
-            )
-        cls_ = _SOURCE_CLS_BY_TYPE[type_]
-        return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
-
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
-    @model_serializer(mode="wrap", when_used="always", return_type=dict)
-    def include_type(self, handler: SerializerFunctionWrapHandler) -> dict:
-        if self.type is None:
-            raise ValueError("Type is not set")
-        serialized_data = handler(self)
-        serialized_data["type"] = self.type
-        return serialized_data
 
-
-class EventHubSource(HostedExtractorSourceYAML):
-    type: ClassVar[str] = "eventhub"
+class EventHubSource(HostedExtractorSource):
+    type: Literal["eventhub"] = Field("eventhub")
     host: str = Field(
         description="Host name or IP address of the event hub consumer endpoint.",
         max_length=200,
@@ -251,12 +180,12 @@ class EventHubSource(HostedExtractorSourceYAML):
     )
 
     @field_serializer("key_value", when_used="json")
-    def dump_secret(self, v: SecretStr) -> str:
-        return v.get_secret_value()
+    def dump_secret(self, v: SecretStr | None) -> str | None:
+        return v.get_secret_value() if v else None
 
 
-class RESTSource(HostedExtractorSourceYAML):
-    type: ClassVar[str] = "rest"
+class RESTSource(HostedExtractorSource):
+    type: Literal["rest"] = Field("rest")
     host: str = Field(
         description="Host or IP address to connect to.",
         max_length=200,
@@ -275,30 +204,10 @@ class RESTSource(HostedExtractorSourceYAML):
         None,
         description="Custom certificate authority certificate to let the source use a self signed certificate.",
     )
-    authentication: Authentication | None = Field(None, description="Authentication details for source")
-
-    @field_validator("authentication", mode="after")
-    def validate_authentication(cls, value: Authentication | None) -> Authentication | None:
-        valid_auth = (BasicAuthentication, ClientCredentials, QueryCredentials, HeaderCredentials)
-        if value is not None and not isinstance(value, valid_auth):
-            raise ValueError(
-                f"Invalid authentication type '{value.type}' for REST source. Expected one of {humanize_collection([a.type for a in valid_auth], bind_word='or')}"
-            )
-        return value
-
-    @model_serializer(mode="wrap")
-    def serialize_authentication(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
-        # Authentication are serialized as dict {}
-        # This issue arises because Pydantic's serialization mechanism doesn't automatically
-        # handle polymorphic serialization for subclasses of Authentication.
-        # To address this, we include the below to explicitly calling model dump on the authentication
-        serialized_data = handler(self)
-        if self.authentication:
-            serialized_data["authentication"] = self.authentication.model_dump(**vars(info))
-        return serialized_data
+    authentication: RESTAuthentication | None = Field(None, description="Authentication details for source")
 
 
-class MQTTSource(HostedExtractorSourceYAML, ABC):
+class MQTTSource(HostedExtractorSource, ABC):
     host: str = Field(
         description="Host or IP address of the MQTT broker to connect to.",
         max_length=200,
@@ -328,11 +237,11 @@ class MQTTSource(HostedExtractorSourceYAML, ABC):
 
 
 class MQTT3Source(MQTTSource):
-    type: ClassVar[str] = "mqtt3"
+    type: Literal["mqtt3"] = Field("mqtt3")
 
 
 class MQTT5Source(MQTTSource):
-    type: ClassVar[str] = "mqtt5"
+    type: Literal["mqtt5"] = Field("mqtt5")
 
 
 class KafkaBroker(BaseModelResource):
@@ -347,12 +256,12 @@ class KafkaBroker(BaseModelResource):
     )
 
 
-class KafkaSource(HostedExtractorSourceYAML):
-    type: ClassVar[str] = "kafka"
+class KafkaSource(HostedExtractorSource):
+    type: Literal["kafka"] = Field("kafka")
     bootstrap_brokers: list[KafkaBroker] = Field(
         description="List of redundant kafka brokers to connect to.", min_length=1, max_length=8
     )
-    authentication: Authentication | None = Field(None, description="Authentication details for source")
+    authentication: KafkaAuthentication | None = Field(None, description="Authentication details for source")
     use_tls: bool | None = Field(
         None,
         description="If true, use TLS when connecting to the broker",
@@ -366,31 +275,8 @@ class KafkaSource(HostedExtractorSourceYAML):
         description="Authentication certificate (if configured) used to authenticate to source.",
     )
 
-    @field_validator("authentication", mode="after")
-    def validate_authentication(cls, value: Authentication | None) -> Authentication | None:
-        valid_auth = (BasicAuthentication, ClientCredentials, ScramSha256, ScramSha512)
-        if value is not None and not isinstance(value, valid_auth):
-            raise ValueError(
-                f"Invalid authentication type '{value.type}' for Kafka source. Expected one of {humanize_collection([a.type for a in valid_auth], bind_word='or')}"
-            )
-        return value
 
-    @model_serializer(mode="wrap")
-    def serialize_authentication(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
-        # Authentication are serialized as dict {}
-        # This issue arises because Pydantic's serialization mechanism doesn't automatically
-        # handle polymorphic serialization for subclasses of Authentication.
-        # To address this, we include the below to explicitly calling model dump on the authentication
-        serialized_data = handler(self)
-        if self.authentication:
-            serialized_data["authentication"] = self.authentication.model_dump(**vars(info))
-        return serialized_data
-
-
-_SOURCE_CLS_BY_TYPE: MappingProxyType[str, type[HostedExtractorSourceYAML]] = MappingProxyType(
-    {source.type: source for source in get_concrete_subclasses(HostedExtractorSourceYAML)}
-)
-
-_AUTHENTICATION_CLS_BY_TYPE: MappingProxyType[str, type[Authentication]] = MappingProxyType(
-    {auth.type: auth for auth in get_concrete_subclasses(Authentication)}
-)
+HostedExtractorSourceYAML = Annotated[
+    EventHubSource | RESTSource | MQTT3Source | MQTT5Source | KafkaSource,
+    Field(discriminator="type"),
+]

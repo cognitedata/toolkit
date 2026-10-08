@@ -194,3 +194,32 @@ class TestFunctionsAPI:
         assert len(respx_mock.calls) == 1
         assert respx_mock.calls[0].request.url == url
         assert respx_mock.calls[0].request.method == "GET"
+
+    @pytest.mark.parametrize(
+        "method,expected_http_method",
+        [
+            ("activate", "POST"),
+            ("status", "GET"),
+        ],
+    )
+    def test_functions_activation_status(
+        self,
+        respx_mock: respx.MockRouter,
+        toolkit_config: ToolkitClientConfig,
+        method: str,
+        expected_http_method: str,
+    ) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        url = toolkit_config.create_api_url("/functions/status")
+        respx_mock.request(expected_http_method, url).mock(
+            return_value=Response(
+                status_code=202 if expected_http_method == "POST" else 200, json={"status": "requested"}
+            )
+        )
+
+        activation = getattr(client.tool.functions, method)()
+
+        assert activation.status == "requested"
+        assert len(respx_mock.calls) == 1
+        assert respx_mock.calls[0].request.url == url
+        assert respx_mock.calls[0].request.method == expected_http_method
