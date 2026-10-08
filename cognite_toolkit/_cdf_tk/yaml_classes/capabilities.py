@@ -772,4 +772,3 @@ _KNOWN_CAPABILITY_NAMES.update(
     for capability in get_concrete_subclasses(Capability)
     if capability.model_fields["capability_name"].default != "__unknown__"
 )
-ALL_CAPABILITIES = sorted(_KNOWN_CAPABILITY_NAMES)
