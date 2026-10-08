@@ -1,12 +1,14 @@
 from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
-from cognite_toolkit._cdf_tk.yaml_classes.workflow_trigger import WorkflowTriggerYAML
+from cognite_toolkit._cdf_tk.yaml_classes.workflow_trigger import TriggerRule, TriggerRuleYAML, WorkflowTriggerYAML
 from tests.test_unit.utils import find_resources
 
 
@@ -36,7 +38,7 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
         },
         {
             "Missing required fields in authentication: 'clientId' and 'clientSecret'",
-            "Invalid value for triggerRule: Invalid trigger rule data missing 'triggerType' key",
+            "Invalid value for triggerRule: Missing required field: 'trigger_type' | 'triggerType'",
             "Unknown field: 'foo'",
         },
         id="Extra field and missing triggerType in triggerRule",
@@ -51,7 +53,9 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
             "authentication": {"clientId": "id", "clientSecret": "secret"},
         },
         {
-            "Invalid value for triggerRule: invalid trigger type 'notAType'. Expected one of dataModeling, recordStream or schedule"
+            "Invalid value for triggerRule: Input tag 'notAType' found using "
+            "'trigger_type' | 'triggerType' does not match any of the expected tags: "
+            "'schedule', 'dataModeling', 'recordStream'"
         },
         id="Invalid triggerType value",
     )
@@ -81,9 +85,7 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
             "workflowVersion": "v1",
             "authentication": {"clientId": "id", "clientSecret": "secret"},
         },
-        {
-            "Invalid value at triggerRule.batchSize: Input should be a valid integer, unable to parse string as an integer"
-        },
+        {"Invalid value at triggerRule.batchSize: Input should be a valid integer. Got 'notAnInt' of type str."},
         id="Wrong type for batchSize in dataModeling trigger",
     )
     # Invalid value for batch_timeout (too low)
@@ -137,3 +139,14 @@ class TestWorkflowYAML:
         assert isinstance(format_warning, ResourceFormatWarning)
 
         assert set(format_warning.errors) == expected_errors
+
+    def test_all_schedules_in_union(self) -> None:
+        """Test that all schedule types are included in the union of trigger rules."""
+
+        # Get all subclasses of TriggerRuleYAML
+        expected_subclasses = set(get_concrete_subclasses(TriggerRuleYAML))
+
+        # Expected subclasses
+        subclasses = set(get_args(TriggerRule.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"
