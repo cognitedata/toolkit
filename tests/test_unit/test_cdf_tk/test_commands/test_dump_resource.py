@@ -9,7 +9,6 @@ from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
-from cognite.client.data_classes.functions import FunctionsStatus
 from questionary import Choice
 from rich.console import Console
 
@@ -30,7 +29,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import DownloadResponse, FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse, FunctionsActivation
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationResponse,
@@ -985,7 +984,7 @@ class TestDumpFunctions:
     def test_dump_functions(self, three_functions: list[FunctionResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
             client.tool.functions.retrieve.return_value = three_functions[1:]
-            client.functions.status.return_value = FunctionsStatus("activated")
+            client.tool.functions.status.return_value = FunctionsActivation(status="activated")
             client.tool.filemetadata.retrieve.return_value = []
             client.tool.filemetadata.get_download_url.return_value = []
 

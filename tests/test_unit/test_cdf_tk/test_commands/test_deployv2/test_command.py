@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceRequest, SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse, FunctionsActivation
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleData,
     FunctionScheduleId,
@@ -563,7 +563,7 @@ class TestApplyPlan:
         if issubclass(case.crud_cls, SpaceIO):
             client.tool.spaces.retrieve.return_value = case.cdf_resources
         elif issubclass(case.crud_cls, FunctionScheduleIO):
-            client.functions.status.return_value.status = "activated"
+            client.tool.functions.status.return_value = FunctionsActivation(status="activated")
             function_responses = []
             for resource in case.cdf_resources:
                 if hasattr(resource, "function_id") and resource.function_id is not None:
