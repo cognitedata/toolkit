@@ -8,7 +8,7 @@ from pydantic.alias_generators import to_camel
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ModelSyntaxWarning
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning, ModelSyntaxWarning
 
 
 class BaseModelResource(BaseModel, alias_generator=to_camel, extra="forbid"): ...
@@ -20,7 +20,7 @@ class ToolkitResource(BaseModelResource):
         """Return an identifier for this resource."""
         raise NotImplementedError()
 
-    def syntax_warnings(self, source_file: Path) -> "list[ModelSyntaxWarning]":
+    def syntax_warnings(self, source_file: Path) -> "list[ModelSyntaxWarning | BuildWarning]":
         """Return build-time syntax warnings after a successful ``model_validate``."""
         return []
 

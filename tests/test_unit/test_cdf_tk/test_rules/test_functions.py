@@ -7,14 +7,16 @@ import yaml
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits, ResourceLimit
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._functions import FunctionRuleSet
 from cognite_toolkit._cdf_tk.utils import PipValidationResult
 
 
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 class TestFunctionLimitsRule:
     """Test suite for FunctionLimitsRule validation."""
 
@@ -84,6 +86,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "cpu": 3.0,
             },
         )
@@ -91,7 +94,7 @@ class TestFunctionLimitsRule:
         rule = self._create_rule_with_client(function_limits)
         errors = list(rule._validate_function(resource))
         assert len(errors) == 1
-        assert isinstance(errors[0], ConsistencyError)
+        assert isinstance(errors[0], BuildError)
         assert "CPU cores" in errors[0].message
         assert "3.0" in errors[0].message
 
@@ -103,6 +106,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "cpu": 0.05,
             },
         )
@@ -120,6 +124,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "memory": 5.0,
             },
         )
@@ -137,6 +142,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "memory": 0.1,
             },
         )
@@ -153,6 +159,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "cpu": 1.0,
                 "memory": 2.0,
             },
@@ -170,6 +177,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "runtime": "py314",
             },
         )
@@ -177,7 +185,7 @@ class TestFunctionLimitsRule:
         rule = self._create_rule_with_client(function_limits)
         errors = list(rule._validate_function(resource))
         assert len(errors) == 1
-        assert errors[0].code == "FUNCTION-UNKNOWN-RUNTIME"
+        assert errors[0].code == "INVALID-VALUE"
         assert "py314" in errors[0].message
 
     def test_validate_function_supported_runtime(self, tmp_path: Path, function_limits: FunctionLimits) -> None:
@@ -188,6 +196,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "runtime": "py312",
             },
         )
@@ -204,6 +213,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
             },
         )
         resource = self._create_built_resource(yaml_file, yaml_file)
@@ -219,6 +229,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "cpu": 3.0,
                 "memory": 5.0,
             },
@@ -238,6 +249,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "cpu": 5.0,
             },
         )
@@ -246,7 +258,7 @@ class TestFunctionLimitsRule:
         errors = list(rule._validate_function(resource))
         assert len(errors) == 1
         error = errors[0]
-        assert error.code == "FUNCTION-CPU-OUT-OF-RANGE"
+        assert error.code == "EXCEEDED-LIMIT"
         assert error.message is not None
         assert error.fix is not None
 
@@ -266,6 +278,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
             },
         )
         # Create the function code directory with requirements.txt
@@ -281,7 +294,7 @@ class TestFunctionLimitsRule:
         errors = list(rule._validate_function(resource))
 
         assert len(errors) == 1
-        assert errors[0].code == "FUNCTION-INVALID-REQUIREMENTS"
+        assert errors[0].code == "INVALID-FUNCTION-REQUIREMENTS"
         mock_validate_pip.assert_called_once()
 
     @patch("cognite_toolkit._cdf_tk.rules._functions.validate_requirements_with_pip")
@@ -295,6 +308,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
             },
         )
         # Don't create the function directory or requirements.txt
@@ -317,6 +331,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
             },
         )
         # Create the function code directory with requirements.txt

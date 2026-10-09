@@ -42,7 +42,7 @@ def invalid_workflow_version_test_cases() -> Iterable:
             "foo": 123,
         },
         {
-            "Unknown field: 'foo'",
+            "Unrecognized field: 'foo'",
             "Invalid value at workflowDefinition.tasks: List should have at least 1 item after validation, not 0",
         },
         id="Extra field at top level",

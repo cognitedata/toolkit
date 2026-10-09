@@ -1,7 +1,17 @@
 from collections.abc import Iterable
+from typing import get_args
 
 import pytest
 
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
+from cognite_toolkit._cdf_tk.yaml_classes.container_field_definitions import (
+    ConstraintDefinition,
+    ConstraintType,
+    IndexDefinition,
+    IndexType,
+    PropertyType,
+    PropertyTypeDefinition,
+)
 from cognite_toolkit._cdf_tk.yaml_classes.containers import ContainerYAML
 from tests.test_unit.utils import find_resources
 
@@ -219,3 +229,24 @@ class TestContainerYAML:
     def test_invalid_container(self, data: dict[str, object], expected_match: str) -> None:
         with pytest.raises(ValueError, match=expected_match):
             ContainerYAML.model_validate(data)
+
+    def test_all_property_types_in_union(self) -> None:
+        """Test that all property types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(PropertyTypeDefinition))
+        subclasses = set(get_args(PropertyType.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"
+
+    def test_all_constraints_in_union(self) -> None:
+        """Test that all constraint types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(ConstraintDefinition))
+        subclasses = set(get_args(ConstraintType.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"
+
+    def test_all_indexes_in_union(self) -> None:
+        """Test that all index types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(IndexDefinition))
+        subclasses = set(get_args(IndexType.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"
