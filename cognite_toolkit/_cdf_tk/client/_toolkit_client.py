@@ -57,7 +57,6 @@ from .api.timeseries import TimeSeriesAPI
 from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
 from .api.user_profiles import UserProfilesAPI
-from .api.verify import VerifyAPI
 from .api.views import ViewsAPI
 from .api.workflows import WorkflowsAPI
 from .config import ToolkitClientConfig
@@ -121,7 +120,6 @@ class ToolkitClient(CogniteClient):
         self.console: Console = console or Console(markup=True)
         self.tool = ToolAPI(http_client, self.console)
 
-        self.verify = VerifyAPI(self)
         self.lookup = LookUpGroup(self)
         self.canvas = IndustrialCanvasAPI(http_client)
         self.migration = MigrationAPI(self.tool.instances, http_client)
