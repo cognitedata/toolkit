@@ -135,7 +135,7 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowRequest:
@@ -472,7 +472,7 @@ class WorkflowVersionIO(
                 yield from versions
 
     @classmethod
-    def as_str(cls, id: WorkflowVersionId) -> str:
+    def as_filename(cls, id: WorkflowVersionId) -> str:
         if id.version is None:
             version = ""
         elif id.version.startswith("v"):
@@ -541,7 +541,7 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod

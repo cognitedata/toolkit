@@ -67,7 +67,7 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return str(id)
 
     @classmethod
@@ -154,7 +154,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: AppVersionId) -> str:
+    def as_filename(cls, id: AppVersionId) -> str:
         return str(id)
 
     @classmethod

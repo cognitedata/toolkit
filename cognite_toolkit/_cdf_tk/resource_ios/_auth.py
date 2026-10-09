@@ -146,7 +146,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: NameId) -> str:
+    def as_filename(cls, id: NameId) -> str:
         return sanitize_filename(id.name)
 
     @classmethod
