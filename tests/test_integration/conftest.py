@@ -1,9 +1,9 @@
 import os
 import shutil
 import zipfile
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -217,7 +217,7 @@ def toolkit_dataset(cognite_client: CogniteClient) -> DataSet:
 
 
 @pytest.fixture
-def build_dir() -> Path:
+def build_dir() -> Iterator[Path]:
     pidid = os.getpid()
     build_path = TMP_FOLDER / f"build-{pidid}"
     build_path.mkdir(exist_ok=True, parents=True)
@@ -263,7 +263,12 @@ def dummy_function(cognite_client: CogniteClient) -> Function:
     if existing := cognite_client.functions.retrieve(external_id=external_id):
         return existing
 
-    def handle(client: CogniteClient, data: dict, function_call_info: dict) -> str:
+    async def handle(
+        client: CogniteClient | None = None,
+        data: dict[str, object] | None = None,
+        secrets: dict[str, str] | None = None,
+        function_call_info: dict[str, object] | None = None,
+    ) -> dict[str, object]:
         """
         [requirements]
         cognite-sdk>=7.37.0
@@ -415,7 +420,7 @@ def upsert_transformation_with_run(
                 },
             },
         )
-        job = TransformationJob._load(response.json(), cognite_client=toolkit_client)
+        job = TransformationJob._load(response.json()).set_client_ref(toolkit_client.get_async_client())
         job.wait()
         assert job.error is None
     return created
@@ -648,7 +653,7 @@ FROM `{aggregator_raw_db}`.`{table_name}`""",
 @pytest.fixture()
 def disable_throttler(
     toolkit_client: ToolkitClient,
-) -> None:
+) -> Iterator[None]:
     def no_op(*args, **kwargs) -> None:
         """No operation function to replace the write_last_call_epoc function."""
 
@@ -676,13 +681,18 @@ class HierarchyMinimal:
 @pytest.fixture(scope="session")
 def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinimal:
     root = "migration_test_root_asset"
+    child_external_id = "migration_test_child_asset_1"
+    event_external_id = "migration_test_event"
+    file_external_id = "migration_test_file"
+    timeseries_external_id = "migration_test_timeseries"
+    dataset_external_id = "migration_test_dataset"
     client = toolkit_client
     dataset_write = DataSetWrite(
-        external_id="migration_test_dataset",
+        external_id=dataset_external_id,
         name="Migration Test DataSet",
         description="DataSet for migration integration tests",
     )
-    data_set = client.data_sets.retrieve(external_id=dataset_write.external_id)
+    data_set = client.data_sets.retrieve(external_id=dataset_external_id)
     if data_set is None:
         data_set = client.data_sets.create(dataset_write)
     asset_source = "ToolkitAsset"
@@ -699,7 +709,7 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
             ),
             AssetWrite(
                 name="Migration Test Child Asset 1",
-                external_id="migration_test_child_asset_1",
+                external_id=child_external_id,
                 description="Child asset 1 for migration integration tests",
                 parent_external_id=root,
                 data_set_id=data_set.id,
@@ -710,7 +720,7 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
     created_assets = client.assets.upsert(assets, mode="replace")
     child_asset = created_assets[1]
     event = EventWrite(
-        external_id="migration_test_event",
+        external_id=event_external_id,
         data_set_id=data_set.id,
         start_time=1_600_000_000_000,
         end_time=1_600_000_000_500,
@@ -720,14 +730,14 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
     )
     created_event = client.events.upsert(event, mode="replace")
     file = FileMetadataWrite(
-        external_id="migration_test_file",
+        external_id=file_external_id,
         name="migration_test_file.txt",
         mime_type="text/plain",
         data_set_id=data_set.id,
         asset_ids=[child_asset.id],
         source=file_source,
     )
-    created_file = client.files.retrieve(external_id=file.external_id)
+    created_file = client.files.retrieve(external_id=file_external_id)
     if created_file is None:
         created_file, _ = client.files.create(file, overwrite=True)
     if not created_file.uploaded:
@@ -735,7 +745,7 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
 
     timeseries = TimeSeriesWrite(
         name="Migration Test Time Series",
-        external_id="migration_test_timeseries",
+        external_id=timeseries_external_id,
         unit="C",
         is_step=False,
         is_string=False,
@@ -743,13 +753,13 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
         data_set_id=data_set.id,
         unit_external_id="temperature:deg_c",
     )
-    created_timeseries = client.time_series.retrieve(external_id=timeseries.external_id)
+    created_timeseries = client.time_series.retrieve(external_id=timeseries_external_id)
     if created_timeseries is None:
         created_timeseries = client.time_series.create(timeseries)
 
-    if not client.time_series.data.retrieve_latest(external_id=timeseries.external_id):
+    if not client.time_series.data.retrieve_latest(external_id=timeseries_external_id):
         client.time_series.data.insert(
-            external_id=timeseries.external_id,
+            external_id=timeseries_external_id,
             datapoints=[(1_600_000_000_000, 20.0), (1_600_000_000_500, 21.5)],
         )
     file_annotation = AnnotationWrite(
@@ -795,13 +805,13 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
         created_asset_annotation = client.annotations.create(asset_annotation)
 
     # Create destination space
-    client.tool.spaces.create([SpaceRequest(space=data_set.external_id)])
+    client.tool.spaces.create([SpaceRequest(space=dataset_external_id)])
 
     # Populate the InstanceSourceView such that Annotation can look up file and asset information during migration.
     linage_nodes = [
         NodeRequest(
-            space=data_set.external_id,
-            external_id=resource.external_id,
+            space=dataset_external_id,
+            external_id=external_id,
             sources=[
                 InstanceSource(
                     source=INSTANCE_SOURCE_VIEW_ID,
@@ -809,17 +819,17 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
                         "resourceType": resource_type,
                         "id": resource.id,
                         "dataSetId": data_set.id,
-                        "classicExternalId": resource.external_id,
+                        "classicExternalId": external_id,
                     },
                 )
             ],
         )
-        for resource_type, resource in [
-            ("asset", created_assets[0]),
-            ("asset", created_assets[1]),
-            ("event", created_event),
-            ("file", created_file),
-            ("timeseries", created_timeseries),
+        for resource_type, resource, external_id in [
+            ("asset", created_assets[0], root),
+            ("asset", created_assets[1], child_external_id),
+            ("event", created_event, event_external_id),
+            ("file", created_file, file_external_id),
+            ("timeseries", created_timeseries, timeseries_external_id),
         ]
     ]
     client.tool.instances.create(linage_nodes)
@@ -934,7 +944,7 @@ def three_d_file(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> Fil
         mime_type="application/octet-stream",
         source="3d-models",
     )
-    read = cast(FileMetadata | None, client.files.retrieve(external_id=meta.external_id))
+    read = client.files.retrieve(external_id=meta.external_id)
     if read and read.uploaded is True:
         return read
     if read is None:
