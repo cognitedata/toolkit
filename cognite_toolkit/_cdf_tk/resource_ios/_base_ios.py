@@ -1,6 +1,6 @@
 import sys
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Iterable, Sequence, Sized
+from collections.abc import Hashable, Iterable, Sequence
 from functools import cache
 from pathlib import Path
 from types import GenericAlias
@@ -299,18 +299,18 @@ class ResourceIO(
         raise NotImplementedError(f"create_acl must be implemented for {cls.__name__} ")
 
     @abstractmethod
-    def create(self, items: Sequence[T_RequestResource]) -> Sized:
+    def create(self, items: Sequence[T_RequestResource]) -> Sequence[T_ResponseResource]:
         raise NotImplementedError
 
     @abstractmethod
     def retrieve(self, ids: Sequence[T_Identifier]) -> Sequence[T_ResponseResource]:
         raise NotImplementedError
 
-    def update(self, items: Sequence[T_RequestResource]) -> Sized:
+    def update(self, items: Sequence[T_RequestResource]) -> Sequence[T_ResponseResource]:
         raise NotImplementedError(f"Update is not supported for {type(self).__name__}.")
 
     @abstractmethod
-    def delete(self, ids: Sequence[T_Identifier]) -> int:
+    def delete(self, ids: Sequence[T_Identifier]) -> Sequence[T_Identifier]:
         raise NotImplementedError
 
     def iterate(
