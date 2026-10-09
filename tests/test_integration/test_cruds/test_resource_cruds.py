@@ -125,7 +125,11 @@ class TestFunctionScheduleLoader:
         assert retrieved[0].description == function_schedule.description
 
     def test_creating_schedule_then_print_ids(
-        self, toolkit_client: ToolkitClient, toolkit_client_config: ToolkitClientConfig, dummy_function: Function
+        self,
+        toolkit_client: ToolkitClient,
+        cognite_client: CogniteClient,
+        toolkit_client_config: ToolkitClientConfig,
+        dummy_function: Function,
     ) -> None:
         local = FunctionScheduleWrite(
             name="test_creating_schedule_then_print_ids",
@@ -146,10 +150,11 @@ class TestFunctionScheduleLoader:
             loader.get_ids(created)
         finally:
             if created:
-                toolkit_client.functions.schedules.delete(created[0].id)
+                cognite_client.functions.schedules.delete(created[0].id)
 
-    def test_iterating_over_schedules(self, toolkit_client: ToolkitClient, dummy_function: Function) -> None:
-        client = toolkit_client
+    def test_iterating_over_schedules(
+        self, toolkit_client: ToolkitClient, cognite_client: CogniteClient, dummy_function: Function
+    ) -> None:
         schedule = FunctionScheduleWrite(
             name="test_iterating_over_schedules",
             cron_expression="0 0 1 1 *",  # Yearly
@@ -157,10 +162,10 @@ class TestFunctionScheduleLoader:
             description="This schedule is persisted for the iteration test",
         )
         # Ensure the schedule exists
-        existing = client.functions.schedules.list(name=schedule.name, function_id=dummy_function.id, limit=1)
+        existing = cognite_client.functions.schedules.list(name=schedule.name, function_id=dummy_function.id, limit=1)
         if not existing:
-            _ = client.functions.schedules.create(schedule)
-        crud = FunctionScheduleIO(client)
+            _ = cognite_client.functions.schedules.create(schedule)
+        crud = FunctionScheduleIO(toolkit_client)
 
         schedules = list(crud.iterate(parent_ids=[ExternalId(external_id=dummy_function.external_id)]))
         assert len(schedules) >= 1
@@ -263,7 +268,7 @@ def one_hundred_and_one_timeseries(cognite_client: CogniteClient, toolkit_datase
 
 @pytest.fixture(scope="session")
 def three_hundred_and_three_cognite_timeseries(
-    toolkit_client: ToolkitClient, toolkit_space: Space
+    cognite_client: CogniteClient, toolkit_space: Space
 ) -> NodeList[CogniteTimeSeries]:
     ts_list = NodeApplyList(
         [
@@ -276,15 +281,15 @@ def three_hundred_and_three_cognite_timeseries(
             for i in range(1, 304)
         ]
     )
-    retrieved = toolkit_client.data_modeling.instances.retrieve_nodes(ts_list.as_ids(), node_cls=CogniteTimeSeries)
+    retrieved = cognite_client.data_modeling.instances.retrieve_nodes(ts_list.as_ids(), node_cls=CogniteTimeSeries)
     if len(retrieved) == len(ts_list):
         # All timeseries already exist, return the retrieved ones
         return retrieved
     existing = set(retrieved.as_ids())
     to_create = [ts for ts in ts_list if ts.as_id() not in existing]
     if to_create:
-        _ = toolkit_client.data_modeling.instances.apply(to_create)
-    return toolkit_client.data_modeling.instances.retrieve_nodes(ts_list.as_ids(), node_cls=CogniteTimeSeries)
+        _ = cognite_client.data_modeling.instances.apply(to_create)
+    return cognite_client.data_modeling.instances.retrieve_nodes(ts_list.as_ids(), node_cls=CogniteTimeSeries)
 
 
 class TestDatapointSubscriptionLoader:
@@ -429,7 +434,7 @@ class TestLabelLoader:
 
 
 class TestAssetLoader:
-    def test_create_delete_asset(self, toolkit_client: ToolkitClient) -> None:
+    def test_create_delete_asset(self, toolkit_client: ToolkitClient, cognite_client: CogniteClient) -> None:
         asset = AssetRequest(
             externalId=f"tmp_test_create_delete_asset_{RUN_UNIQUE_ID}",
             name="My Asset",
@@ -446,12 +451,12 @@ class TestAssetLoader:
             assert delete_count == 1
         finally:
             # Ensure that the asset is deleted even if the test fails.
-            toolkit_client.assets.delete(external_id=asset.external_id, ignore_unknown_ids=True)
+            cognite_client.assets.delete(external_id=asset.external_id, ignore_unknown_ids=True)
 
 
 @pytest.fixture(scope="module")
-def container_ephemeral(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> Iterable[dm.Container]:
-    a_container = toolkit_client.data_modeling.containers.apply(
+def container_ephemeral(cognite_client: CogniteClient, toolkit_space: dm.Space) -> Iterable[dm.Container]:
+    a_container = cognite_client.data_modeling.containers.apply(
         dm.ContainerApply(
             name=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
             space=toolkit_space.space,
@@ -460,7 +465,7 @@ def container_ephemeral(toolkit_client: ToolkitClient, toolkit_space: dm.Space) 
         )
     )
     yield a_container
-    toolkit_client.data_modeling.containers.delete([a_container.as_id()])
+    cognite_client.data_modeling.containers.delete([a_container.as_id()])
 
 
 @pytest.fixture(scope="module")
@@ -478,9 +483,9 @@ def container_persistent(toolkit_client: ToolkitClient, toolkit_space: dm.Space)
 
 @pytest.fixture(scope="module")
 def two_views_ephemeral(
-    toolkit_client: ToolkitClient, toolkit_space: dm.Space, container_ephemeral: dm.Container
+    cognite_client: CogniteClient, toolkit_space: dm.Space, container_ephemeral: dm.Container
 ) -> Iterable[dm.ViewList]:
-    created_views = toolkit_client.data_modeling.views.apply(
+    created_views = cognite_client.data_modeling.views.apply(
         [
             dm.ViewApply(
                 space=toolkit_space.space,
@@ -505,7 +510,7 @@ def two_views_ephemeral(
         ]
     )
     yield created_views
-    toolkit_client.data_modeling.views.delete(created_views.as_ids())
+    cognite_client.data_modeling.views.delete(created_views.as_ids())
 
 
 class TestDataModelLoader:
@@ -549,8 +554,8 @@ class TestDataModelLoader:
 
 
 @pytest.fixture
-def custom_file_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> dm.Container:
-    return toolkit_client.data_modeling.containers.apply(
+def custom_file_container(cognite_client: CogniteClient, toolkit_space: dm.Space) -> dm.Container:
+    return cognite_client.data_modeling.containers.apply(
         dm.ContainerApply(
             name="container_test_resource_loaders",
             space=toolkit_space.space,
@@ -725,7 +730,7 @@ workflowDefinition:
 
 class TestTransformationCRUD:
     def test_create_transformation_auth_without_scope(
-        self, toolkit_client: ToolkitClient, monkeypatch: MonkeyPatch
+        self, toolkit_client: ToolkitClient, cognite_client: CogniteClient, monkeypatch: MonkeyPatch
     ) -> None:
         transformation_text = """externalId: transformation_without_scope
 name: This is a test transformation
@@ -753,10 +758,10 @@ authentication:
             created = loader.create([transformation])
             assert len(created) == 1
         finally:
-            toolkit_client.transformations.delete(external_id="transformation_without_scope", ignore_unknown_ids=True)
+            cognite_client.transformations.delete(external_id="transformation_without_scope", ignore_unknown_ids=True)
 
     def test_create_transformation_reusing_source_destination_auth(
-        self, toolkit_client: ToolkitClient, monkeypatch
+        self, toolkit_client: ToolkitClient, cognite_client: CogniteClient, monkeypatch: MonkeyPatch
     ) -> None:
         transformation_text = """externalId: transformation_reusing_source_destination_auth
 name: This is a test transformation from the Toolkit
@@ -795,7 +800,7 @@ authentication:
                 " if they reuse the same credentials"
             )
         finally:
-            toolkit_client.transformations.delete(
+            cognite_client.transformations.delete(
                 external_id="transformation_reusing_source_destination_auth", ignore_unknown_ids=True
             )
 
@@ -1003,7 +1008,7 @@ class TestFunctionLoader:
         assert to_deploy_status(filepath, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     def test_delete_function_with_cognite_file_code(
-        self, toolkit_client: ToolkitClient, toolkit_space: Space, tmp_path: Path
+        self, toolkit_client: ToolkitClient, cognite_client: CogniteClient, toolkit_space: Space, tmp_path: Path
     ) -> None:
         client = toolkit_client
         external_id = f"toolkit_test_function_delete_cognite_file_code_{RUN_UNIQUE_ID}"
@@ -1036,7 +1041,7 @@ class TestFunctionLoader:
                 with contextlib.suppress(ToolkitAPIError):
                     client.tool.functions.delete([ExternalId(external_id=external_id)])
 
-                client.data_modeling.instances.delete((toolkit_space.space, external_id))
+                cognite_client.data_modeling.instances.delete((toolkit_space.space, external_id))
 
 
 class TestExtractionPipelineIO:
