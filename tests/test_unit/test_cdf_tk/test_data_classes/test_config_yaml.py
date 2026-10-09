@@ -204,17 +204,58 @@ variable4: "value with #in it" # But a comment after
         loaded = yaml.safe_load(dumped)
         assert loaded["variables"]["modules"]["infield"]["shared_variable"] == long_default_value
 
-    def test_add_variables_non_existing(self) -> None:
-        existing_file = """environment:
+    @pytest.mark.parametrize(
+        [
+            pytest.param(
+                """environment:
   name: prod
   project: my_project
   validation-type: prod
   selected:
     - modules/models/
-"""
+""",
+                id="No Variables section",
+            ),
+            pytest.param(
+                """environment:
+  name: dev
+  project: project-loader-dev
+  validation-type: dev
+  selected:
+  - modules/
+
+variables:""",
+                id="Empty Variables section",
+            ),
+        ]
+    )
+    def test_add_variables_to_no_variables(self, existing_config_content: str) -> None:
         new_default_config_file = """readwrite_source_id: <change_me>
 readonly_source_id: <change_me>"""
 
+        my_org, package_modules = self.mock_package(new_default_config_file)
+
+        config = InitConfigYAML.load_existing(existing_config_content, my_org).load_defaults(
+            package_modules, {Path("."), Path("common"), Path("common/cdf_auth_readwrite_all")}
+        )
+        assert (
+            config.dump_yaml_with_comments()
+            == """environment:
+  name: prod
+  project: my_project
+  validation-type: prod
+  selected:
+    - modules/models/
+variables:
+  modules:
+    common:
+      readwrite_source_id: <change_me>
+      readonly_source_id: <change_me>
+"""
+        )
+
+    @staticmethod
+    def mock_package(new_default_config_file: str) -> tuple[MagicMock, MagicMock]:
         # Mock the organization directory so the "selected" module path validation in
         # load_existing passes (organization_dir / "modules/models" must exist and be a dir).
         selected_dir = MagicMock(spec=Path)
@@ -238,23 +279,4 @@ readonly_source_id: <change_me>"""
 
         package_modules = MagicMock(spec=Path)
         package_modules.__truediv__.return_value = root_module_dir
-
-        config = InitConfigYAML.load_existing(existing_file, my_org).load_defaults(
-            package_modules, {Path("."), Path("common"), Path("common/cdf_auth_readwrite_all")}
-        )
-
-        assert (
-            config.dump_yaml_with_comments()
-            == """environment:
-  name: prod
-  project: my_project
-  validation-type: prod
-  selected:
-    - modules/models/
-variables:
-  modules:
-    common:
-      readwrite_source_id: <change_me>
-      readonly_source_id: <change_me>
-"""
-        )
+        return my_org, package_modules
