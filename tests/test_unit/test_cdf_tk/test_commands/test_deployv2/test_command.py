@@ -56,6 +56,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     AssetIO,
     CogniteFileIO,
@@ -475,7 +476,7 @@ class TestApplyPlan:
                             skipped=[
                                 Skipped(
                                     id=RawDatabaseId(name="my_db"),
-                                    code="HAS-DATA",
+                                    code="NONEMPTY-RESOURCE",
                                     source_file=Path("raw/my.Database.yaml"),
                                     reason="name='my_db' contains data and does not support updates.",
                                 )
@@ -484,6 +485,7 @@ class TestApplyPlan:
                     ],
                     expected_skipped_count=1,
                 ),
+                marks=pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled"),
                 id="raw_database_with_extra_fields_is_skipped_not_attempted_deleted",
             ),
             pytest.param(
@@ -505,7 +507,7 @@ class TestApplyPlan:
                             skipped=[
                                 Skipped(
                                     id=RawTableId(db_name="my_db", name="my_table"),
-                                    code="HAS-DATA",
+                                    code="NONEMPTY-RESOURCE",
                                     source_file=Path("raw/my.Table.yaml"),
                                     reason="my_db.my_table contains data and does not support updates.",
                                 )
@@ -514,6 +516,7 @@ class TestApplyPlan:
                     ],
                     expected_skipped_count=1,
                 ),
+                marks=pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled"),
                 id="raw_table_with_extra_fields_is_skipped_not_attempted_deleted",
             ),
         ],
@@ -763,8 +766,8 @@ def _space_lineage_with_insights(
         [
             ConsistencyError(
                 message="Space is fine this is a test",
-                code="NOT-REAL",
-                source_files=[source_file],
+                code="INVALID-VALUE",
+                source_file=source_file,
                 fix="Cannot be fixed as it is not an issue",
             )
         ]
@@ -820,7 +823,7 @@ class TestDeployResourcesRelatedInsights:
 
         # The insight details are rendered in a prominent panel rather than the exception message.
         output = console_output.getvalue()
-        assert "NOT-REAL" in output
+        assert "INVALID-VALUE" in output
         assert "Space is fine this is a test" in output
         assert "Suggested fix:" in output
         assert "Cannot be fixed as it is not an issue" in output

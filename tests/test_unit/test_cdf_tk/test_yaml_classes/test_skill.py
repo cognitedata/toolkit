@@ -20,8 +20,8 @@ def invalid_test_cases() -> Iterable:
         },
         [
             "Missing required field: 'externalId'",
-            "Unknown field: 'name'",
-            "Unknown field: 'description'",
+            "Unrecognized field: 'name'",
+            "Unrecognized field: 'description'",
         ],
         id="missing-external-id",
     )
@@ -33,8 +33,8 @@ def invalid_test_cases() -> Iterable:
             "content": "not markdown frontmatter format",
         },
         [
-            "Unknown field: 'name'",
-            "Unknown field: 'description'",
+            "Unrecognized field: 'name'",
+            "Unrecognized field: 'description'",
             "Invalid value for content: String should match pattern",
         ],
         id="schema-allows-content-but-rejects-invalid-markdown-format",
@@ -47,8 +47,8 @@ def invalid_test_cases() -> Iterable:
         },
         [
             "Invalid value for externalId: String should have at least 1 character",
-            "Unknown field: 'name'",
-            "Unknown field: 'description'",
+            "Unrecognized field: 'name'",
+            "Unrecognized field: 'description'",
         ],
         id="empty-strings",
     )
