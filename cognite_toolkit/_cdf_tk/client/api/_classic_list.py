@@ -59,7 +59,7 @@ def _merge_filter(filter: ClassicFilter | dict[str, Any] | None, fields: dict[st
     return body or None
 
 
-def _aggregated_properties(value: bool | Sequence[AggregatedAssetProperty]) -> list[str] | None:
+def aggregated_properties_normalized(value: bool | Sequence[AggregatedAssetProperty]) -> list[str] | None:
     if isinstance(value, bool):
         if not value:
             return None
@@ -83,7 +83,7 @@ def _sort(value: Sort | None) -> list[dict[str, Any]] | None:
     return [dict(item) for item in value]
 
 
-def _time_range(value: TimeRange | None) -> dict[str, Any] | None:
+def time_range(value: TimeRange | None) -> dict[str, Any] | None:
     if value is None:
         return None
     if isinstance(value, EpochTimestampRange):
@@ -91,7 +91,7 @@ def _time_range(value: TimeRange | None) -> dict[str, Any] | None:
     return dict(value)
 
 
-def _dump_model(value: LabelFilter | GeoLocationFilter | dict[str, Any] | None) -> dict[str, Any] | None:
+def dump_model(value: LabelFilter | GeoLocationFilter | dict[str, Any] | None) -> dict[str, Any] | None:
     if value is None:
         return None
     if isinstance(value, Mapping):
@@ -99,7 +99,7 @@ def _dump_model(value: LabelFilter | GeoLocationFilter | dict[str, Any] | None) 
     return value.dump() or None
 
 
-def _int_ids(value: int | Sequence[int] | None) -> list[int] | None:
+def int_ids(value: int | Sequence[int] | None) -> list[int] | None:
     if value is None:
         return None
     if isinstance(value, bool):
@@ -111,15 +111,13 @@ def _int_ids(value: int | Sequence[int] | None) -> list[int] | None:
     return list(value)
 
 
-def _str_ids(value: str | Sequence[str] | None) -> list[str] | None:
+def str_ids(value: str | Sequence[str] | None) -> list[str] | None:
     if value is None:
         return None
-    if isinstance(value, str):
-        return [value]
-    return list(value)
+    return _as_strings(value)
 
 
-def _object_ids(
+def object_ids(
     ids: ObjectIds | None = None,
     external_ids: str | Sequence[str] | None = None,
 ) -> list[dict[str, Any]] | None:
