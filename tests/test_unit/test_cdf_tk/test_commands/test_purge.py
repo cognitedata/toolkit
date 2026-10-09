@@ -350,9 +350,11 @@ class TestPurgeSpace:
         respx_mock.post(config.create_api_url("/models/statistics/spaces/byids")).respond(
             status_code=200,
             json={
-                "items": SpaceStatistics(
-                    space, container_count, view_count, data_model_count, edge_count, 0, node_count, 0
-                ).dump()
+                "items": [
+                    SpaceStatistics(
+                        space, container_count, view_count, data_model_count, edge_count, 0, node_count, 0
+                    ).dump()
+                ]
             },
         )
         if not dry_run:
@@ -492,7 +494,7 @@ class TestPurgeSpaceCrossReferenceCheck:
 
         respx_mock.post(config.create_api_url("/models/statistics/spaces/byids")).respond(
             status_code=200,
-            json={"items": SpaceStatistics(space, 1, 0, 0, 0, 0, 0, 0).dump()},
+            json={"items": [SpaceStatistics(space, 1, 0, 0, 0, 0, 0, 0).dump()]},
         )
 
         gen = FakeCogniteResourceGenerator(seed=1)
@@ -550,7 +552,7 @@ class TestPurgeSpaceCrossReferenceCheck:
 
         respx_mock.post(config.create_api_url("/models/statistics/spaces/byids")).respond(
             status_code=200,
-            json={"items": SpaceStatistics(space, 1, 0, 0, 0, 0, 0, 0).dump()},
+            json={"items": [SpaceStatistics(space, 1, 0, 0, 0, 0, 0, 0).dump()]},
         )
 
         gen = FakeCogniteResourceGenerator(seed=2)

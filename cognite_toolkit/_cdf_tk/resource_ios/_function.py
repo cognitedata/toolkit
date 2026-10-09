@@ -4,9 +4,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Literal, cast, final
 
-from cognite.client import data_modeling as dm
 from cognite.client.data_classes import capabilities as cap
-from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
 from rich import print
 
@@ -14,7 +12,9 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleId,
@@ -279,7 +279,8 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
 
         if file_id := dumped.pop("fileId", None):
             # The fileId is not part of the write object.
-            function_zip_file = self.client.files.retrieve(id=file_id)
+            retrieved_files = self.client.tool.filemetadata.retrieve([InternalId(id=file_id)], ignore_unknown_ids=True)
+            function_zip_file = retrieved_files[0] if retrieved_files else None
             if function_zip_file and (data_set_id := function_zip_file.data_set_id):
                 dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
             if function_zip_file and function_zip_file.instance_id is not None:
@@ -392,25 +393,43 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
 
         with create_temporary_zip(function_rootdir, "function.zip") as zip_path:
             if space:
-                cognite_file = CogniteFileApply(
+                cognite_file = CogniteFileRequest(
                     space=space,
                     external_id=external_id,
                     name=f"{sanitize_filename(item.name)}.zip",
                     mime_type="application/zip",
                 )
-                _ = self.client.data_modeling.instances.apply(cognite_file, replace=True)
-                upload_file = self.client.files.upload_content_bytes(
-                    zip_path.read_bytes(), instance_id=cognite_file.as_id()
+                _ = self.client.tool.cognite_files.create([cognite_file], replace=True)
+                upload_links = self.client.tool.filemetadata.get_upload_url([cognite_file.as_instance_id()])
+                if not upload_links or upload_links[0].upload_url is None:
+                    raise ResourceCreationError(
+                        f"Failed to get an upload URL for the function code of {external_id!r}."
+                    )
+                self.client.tool.filemetadata.upload_file(
+                    zip_path.read_bytes(), upload_links[0].upload_url, cognite_file.mime_type
                 )
+                upload_file_id = upload_links[0].id
             else:
-                upload_file = self.client.files.upload_bytes(
-                    zip_path.read_bytes(),
-                    name=f"{sanitize_filename(item.name)}.zip",
-                    external_id=external_id,
+                created_files = self.client.tool.filemetadata.create(
+                    [
+                        FileMetadataRequest(
+                            name=f"{sanitize_filename(item.name)}.zip",
+                            external_id=external_id,
+                            mime_type="application/zip",
+                            data_set_id=data_set_id,
+                        )
+                    ],
                     overwrite=True,
-                    data_set_id=data_set_id,
                 )
-        return InternalId(id=upload_file.id)
+                if not created_files or created_files[0].upload_url is None:
+                    raise ResourceCreationError(
+                        f"Failed to create file metadata for the function code of {external_id!r}."
+                    )
+                self.client.tool.filemetadata.upload_file(
+                    zip_path.read_bytes(), created_files[0].upload_url, created_files[0].mime_type
+                )
+                upload_file_id = created_files[0].id
+        return InternalId(id=upload_file_id)
 
     @staticmethod
     def _warn_if_cpu_or_memory_changed(created_item: FunctionResponse, item: FunctionRequest) -> None:
@@ -449,18 +468,22 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
 
         self.client.tool.functions.delete(list(ids), ignore_unknown_ids=True)
         file_ids = {func.file_id for func in functions if func.file_id}
-        files = self.client.files.retrieve_multiple(list(file_ids), ignore_unknown_ids=True)
-        dm_file_nodes: set[dm.NodeId] = set()
+        files = self.client.tool.filemetadata.retrieve(
+            [InternalId(id=file_id) for file_id in file_ids], ignore_unknown_ids=True
+        )
+        dm_file_nodes: set[NodeId] = set()
         classic_file_ids: set[int] = set()
         for file in files:
             if file.instance_id is not None:
-                dm_file_nodes.add(file.instance_id)
+                dm_file_nodes.add(NodeId(space=file.instance_id.space, external_id=file.instance_id.external_id))
             else:
                 classic_file_ids.add(file.id)
         if classic_file_ids:
-            self.client.files.delete(id=list(classic_file_ids), ignore_unknown_ids=True)
+            self.client.tool.filemetadata.delete(
+                [InternalId(id=file_id) for file_id in classic_file_ids], ignore_unknown_ids=True
+            )
         if dm_file_nodes:
-            self.client.data_modeling.instances.delete(list(dm_file_nodes))
+            self.client.tool.instances.delete(list(dm_file_nodes))
         return len(ids)
 
     def _iterate(

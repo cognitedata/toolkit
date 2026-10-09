@@ -543,10 +543,11 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             is_container = filters.HasData(
                 containers=[dm.ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
             )
-            for instances in self.client.data_modeling.instances(
-                chunk_size=1000, instance_type="node", filter=is_container, limit=-1
+            for instances in self.client.tool.instances.iterate(
+                filter=InstanceFilter(instance_type="node", filter=is_container.dump()),
+                limit=None,
             ):
-                yield [NodeId(space=nid.space, external_id=nid.external_id) for nid in instances.as_ids()]
+                yield [NodeId(space=instance.space, external_id=instance.external_id) for instance in instances]
 
     def _iterate_over_edges(self, containers: list[ContainerResponse]) -> Iterable[list[EdgeId]]:
         container_ids = [container.as_id() for container in containers if container.used_for in ["edge", "all"]]
@@ -557,10 +558,11 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             is_container = filters.HasData(
                 containers=[dm.ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
             )
-            for instances in self.client.data_modeling.instances(
-                chunk_size=1000, instance_type="edge", limit=-1, filter=is_container
+            for instances in self.client.tool.instances.iterate(
+                filter=InstanceFilter(instance_type="edge", filter=is_container.dump()),
+                limit=None,
             ):
-                yield [EdgeId(space=eid.space, external_id=eid.external_id) for eid in instances.as_ids()]
+                yield [EdgeId(space=instance.space, external_id=instance.external_id) for instance in instances]
 
     def _lookup_containers(self, container_ids: Sequence[ContainerId]) -> dict[ContainerId, ContainerResponse]:
         ids_to_lookup = [container_id for container_id in container_ids if container_id not in self._container_by_id]

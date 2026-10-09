@@ -8,6 +8,7 @@ from rich import print
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
@@ -52,7 +53,7 @@ class ImportTransformationCLI(ToolkitCommand):
 
         if not yaml_files:
             self.warn(LowSeverityWarning("No YAML files found in the source directory."))
-            return None
+            return
 
         count_by_resource_type: dict[str, int] = defaultdict(int)
         for yaml_file in yaml_files:
@@ -219,7 +220,8 @@ class ImportTransformationCLI(ToolkitCommand):
     def _lookup_dataset(self, dataset_id: int) -> str | None:
         if dataset_id in self._dataset_external_id_by_id:
             return self._dataset_external_id_by_id[dataset_id]
-        dataset = self.client.data_sets.retrieve(id=dataset_id)
+        retrieved = self.client.tool.datasets.retrieve([InternalId(id=dataset_id)], ignore_unknown_ids=True)
+        dataset = retrieved[0] if retrieved else None
         if dataset is None or dataset.external_id is None:
             return None
         self._dataset_external_id_by_id[dataset.id] = dataset.external_id

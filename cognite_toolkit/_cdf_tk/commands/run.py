@@ -15,15 +15,11 @@ from typing import Any, ClassVar, cast
 import questionary
 from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive, Token
 from cognite.client.data_classes import ClientCredentials, WorkflowTriggerUpsert
-from cognite.client.data_classes.transformations import TransformationList
-from cognite.client.data_classes.transformations.common import NonceCredentials
 from cognite.client.data_classes.workflows import (
     FunctionTaskParameters,
-    WorkflowExecutionDetailed,
     WorkflowVersionId,
     WorkflowVersionUpsert,
 )
-from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils import ms_to_datetime
 from pydantic import JsonValue
 from rich import print
@@ -179,7 +175,10 @@ if __name__ == "__main__":
         is_interactive = external_id is None
         external_id = cast(ExternalId, self._get_function(external_id, build_folder).identifier).external_id
         call_args = self._get_call_args(data_source, external_id, build_folder, env_vars.dump(), is_interactive)
-        function = client.functions.retrieve(external_id=external_id)
+        retrieved_functions = client.tool.functions.retrieve(
+            [ExternalId(external_id=external_id)], ignore_unknown_ids=True
+        )
+        function = retrieved_functions[0] if retrieved_functions else None
         if function is None:
             raise ToolkitMissingResourceError(
                 f"Could not find function with external id {external_id}. Have you deployed it?"
@@ -203,7 +202,7 @@ if __name__ == "__main__":
         if not wait:
             return True
 
-        max_time = client.functions.limits().timeout_minutes * 60
+        max_time = client.tool.functions.limits().timeout_minutes * 60
         with Progress() as progress:
             call_task = progress.add_task("Waiting for function call to complete...", total=max_time)
             start_time = time.time()
@@ -857,30 +856,37 @@ class RunTransformationCommand(ToolkitCommand):
         if isinstance(external_ids, str):
             external_ids = [external_ids]
         try:
-            transformations: TransformationList = client.transformations.retrieve_multiple(external_ids=external_ids)
-        except CogniteAPIError as e:
+            transformations = client.tool.transformations.retrieve(
+                [ExternalId(external_id=external_id) for external_id in external_ids]
+            )
+        except ToolkitAPIError as e:
             print("[bold red]ERROR:[/] Could not retrieve transformations.")
             print(e)
             return False
-        if transformations is None or len(transformations) == 0:
+        if len(transformations) == 0:
             print(f"[bold red]ERROR:[/] Could not find transformation with external_id {external_ids}")
             return False
+        updates = []
         for transformation in transformations:
             session = client.sessions.create_one_shot_token_exchange_session()
-            nonce = NonceCredentials(session_id=session.id, nonce=session.nonce, cdf_project_name=client.config.project)
-            transformation.source_nonce = nonce
-            transformation.destination_nonce = nonce
+            nonce = TransformationNonceCredentials(
+                session_id=session.id, nonce=session.nonce, cdf_project_name=client.config.project
+            )
+            request = transformation.as_request_resource()
+            request.source_nonce = nonce
+            request.destination_nonce = nonce
+            updates.append(request)
         try:
-            client.transformations.update(transformations)
-        except CogniteAPIError as e:
+            client.tool.transformations.update(updates)
+        except ToolkitAPIError as e:
             print("[bold red]ERROR:[/] Could not update transformations with oneshot session.")
             print(e)
             return False
         for transformation in transformations:
             try:
-                job = client.transformations.run(transformation_external_id=transformation.external_id, wait=False)
+                job = client.tool.transformations.run(ExternalId(external_id=transformation.external_id))
                 print(f"Running transformation {transformation.external_id}, status {job.status}...")
-            except CogniteAPIError as e:
+            except ToolkitAPIError as e:
                 print(f"[bold red]ERROR:[/] Could not run transformation {transformation.external_id}.")
                 print(e)
         return True
@@ -984,11 +990,11 @@ class RunWorkflowCommand(ToolkitCommand):
             wait = questionary.confirm("Do you want to wait for the workflow to complete?").unsafe_ask()
         if id_.version is None:
             raise ToolkitValueError("Version is required for workflow.")
-        execution = client.workflows.executions.run(
-            workflow_external_id=id_.workflow_external_id,
-            version=id_.version,
-            input=input_,
+        workflow_id = ToolkitWorkflowVersionId(workflow_external_id=id_.workflow_external_id, version=id_.version)
+        execution = client.tool.workflows.executions.run(
+            item=workflow_id,
             nonce=nonce,
+            input=input_,
         )
         table = Table(title=f"Workflow {id_!r}")
         table.add_column("Info", justify="left")
@@ -1001,13 +1007,15 @@ class RunWorkflowCommand(ToolkitCommand):
         if not wait:
             return True
 
-        workflow = client.workflows.versions.retrieve(WorkflowVersionId(id_.workflow_external_id, id_.version))
-        if workflow is None:
+        retrieved_versions = client.tool.workflows.versions.retrieve([workflow_id])
+        if not retrieved_versions:
             raise ToolkitMissingResourceError(f"Could not find workflow {id_!r}")
+        workflow = retrieved_versions[0]
 
         total = len(workflow.workflow_definition.tasks)
         max_time = sum((task.timeout or 3600) * (task.retries or 3) for task in workflow.workflow_definition.tasks)
-        result = cast(WorkflowExecutionDetailed, client.workflows.executions.retrieve_detailed(execution.id))
+        retrieved_executions = client.tool.workflows.executions.retrieve([execution.as_id()])
+        result = retrieved_executions[0] if retrieved_executions else None
         with Progress() as progress:
             call_task = progress.add_task("Waiting for workflow execution to complete...", total=total)
             start_time = time.time()
@@ -1016,10 +1024,8 @@ class RunWorkflowCommand(ToolkitCommand):
             while (result is None or str(result.status).upper() == "RUNNING") and duration < max_time:
                 time.sleep(sleep_time)
                 sleep_time = min(sleep_time * 2, 15)
-                result = cast(
-                    WorkflowExecutionDetailed,
-                    client.workflows.executions.retrieve_detailed(execution.id),
-                )
+                retrieved_executions = client.tool.workflows.executions.retrieve([execution.as_id()])
+                result = retrieved_executions[0] if retrieved_executions else None
                 duration = time.time() - start_time
                 if result is not None:
                     completed_count = sum(

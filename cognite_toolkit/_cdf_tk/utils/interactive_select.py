@@ -7,13 +7,9 @@ from functools import cached_property, lru_cache, partial
 from typing import Any, ClassVar, Literal, TypeVar, get_args, overload
 
 import questionary
-from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     Asset,
-    UserProfileList,
 )
-from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.utils import ms_to_datetime
 from questionary import Choice
 from rich.console import Console
@@ -32,6 +28,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse,
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerId,
     ContainerResponse,
+    CountAggregate,
     DataModelId,
     DataModelResponse,
     DataModelResponseWithViews,
@@ -50,8 +47,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.documents import (
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.statistics import SpaceStatisticsResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.user_profile import UserProfile
 from cognite_toolkit._cdf_tk.constants import LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW_DICT
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
@@ -347,7 +346,7 @@ class InteractiveCanvasSelect:
         available_canvases = self.client.canvas.list(visibility=select_filter.visibility, limit=None)
         if select_filter.select_all and select_filter.created_by is None:
             return [canvas.external_id for canvas in available_canvases]
-        users = self.client.iam.user_profiles.list(limit=-1)
+        users = self.client.user_profiles.list(limit=None)
         display_name_by_user_identifier = {user.user_identifier: user.display_name or "missing" for user in users}
         if select_filter.created_by == "user":
             canvas_by_user: dict[str, list[IndustrialCanvasResponse]] = defaultdict(list)
@@ -432,7 +431,7 @@ class InteractiveChartSelect:
         if select_filter.select_all and select_filter.owned_by is None:
             return [chart.external_id for chart in available_charts]
 
-        users = self.client.iam.user_profiles.list(limit=-1)
+        users = self.client.user_profiles.list(limit=None)
         display_name_by_user_identifier = {
             user.user_identifier: user.display_name for user in users if user.display_name
         }
@@ -457,7 +456,7 @@ class InteractiveChartSelect:
 
     @classmethod
     def _select_charts_by_user(
-        cls, available_charts: list[ChartResponse], users: UserProfileList
+        cls, available_charts: list[ChartResponse], users: list[UserProfile]
     ) -> list[ChartResponse]:
         chart_by_user: dict[str, list[ChartResponse]] = defaultdict(list)
         for chart in available_charts:
@@ -554,8 +553,8 @@ class DataModelingSelect:
         self._available_spaces: list[SpaceResponse] | None = None
 
     @cached_property
-    def stats_by_space(self) -> dict[str, SpaceStatistics]:
-        result = self.client.data_modeling.statistics.spaces.list()
+    def stats_by_space(self) -> dict[str, SpaceStatisticsResponse]:
+        result = self.client.statistics.spaces.list()
         return {stat.space: stat for stat in result}
 
     @overload
@@ -888,7 +887,7 @@ class DataModelingSelect:
         self, all_spaces: list[SpaceResponse], view_id: ViewId, instance_type: Literal["node", "edge"]
     ) -> dict[str, float]:
         count_by_space: dict[str, float] = {}
-        result = self.client.data_modeling.statistics.project()
+        result = self.client.statistics.retrieve()
         read_limit = result.concurrent_read_limit
 
         with ThreadPoolExecutor(max_workers=read_limit // 2) as executor:
@@ -907,10 +906,16 @@ class DataModelingSelect:
         self, space: str, view_id: ViewId, instance_type: Literal["node", "edge"]
     ) -> tuple[str, float]:
         """Get the count of instances in a specific space for a given view and instance type."""
-        sdk_view_id = dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version)
-        return space, self.client.data_modeling.instances.aggregate(
-            sdk_view_id, Count("externalId"), instance_type=instance_type, space=space
-        ).value or 0.0
+        aggregate_result = self.client.tool.instances.aggregate(
+            view_id,
+            aggregates=[CountAggregate(property="externalId")],
+            instance_type=instance_type,
+            filter={"equals": {"property": [instance_type, "space"], "value": space}},
+        )
+        count = 0.0
+        if aggregate_result.items and aggregate_result.items[0].aggregates:
+            count = float(aggregate_result.items[0].aggregates[0].value or 0.0)
+        return space, count
 
     def _get_available_spaces(self, include_global: bool = False) -> list[SpaceResponse]:
         if self._available_spaces is None:
