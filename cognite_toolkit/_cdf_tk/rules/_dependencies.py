@@ -291,7 +291,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     ),
                     source_file=source_path,
                 ),
-                keys=["properties"],
+                keys=[*changed, "properties"],
             )
         missing = sorted(set(cdf_properties) - set(local_properties))
         if missing and not changed:
@@ -365,7 +365,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     ),
                     source_file=source_path,
                 ),
-                keys=["properties"],
+                keys=[*changed, "properties"],
             )
         elif removed:
             yield with_position(
@@ -427,20 +427,21 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                     for view_id, local_version in version_changed
                 ]
             )
-            yield with_position(
-                v09_gate(BuildError, ConsistencyError)(
-                    code=v09_gate("INVALID-RESOURCE-CHANGE", self.INVALID_OPERATION_CODE),
-                    message=(
-                        f"Local config for data model {data_model_id} has changed the view version of {changes} compared to the existing deployed data model version in CDF. "
-                        "View version used by a data model can only be updated if you also update the data model version."
-                    ),
-                    fix=(
-                        f"Update the data model version to apply the change, or use 'cdf modules pull' to sync your local data model config with the deployed version. See {URL.dm_changes_docs}."
-                    ),
-                    source_file=source_path,
+            insight = v09_gate(BuildError, ConsistencyError)(
+                code=v09_gate("INVALID-RESOURCE-CHANGE", self.INVALID_OPERATION_CODE),
+                message=(
+                    f"Local config for data model {data_model_id} has changed the view version of {changes} compared to the existing deployed data model version in CDF. "
+                    "View version used by a data model can only be updated if you also update the data model version."
                 ),
-                keys=["views"],
+                fix=(
+                    f"Update the data model version to apply the change, or use 'cdf modules pull' to sync your local data model config with the deployed version. See {URL.dm_changes_docs}."
+                ),
+                source_file=source_path,
             )
+            insight = with_position(insight, values=[view_id.external_id for view_id, _ in version_changed])
+            if insight.line is None:
+                insight = with_position(insight, keys=["views"])
+            yield insight
 
         if removed:
             yield with_position(
