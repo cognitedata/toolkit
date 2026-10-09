@@ -7,6 +7,16 @@ from typing import IO, Any, Literal
 import httpx2
 
 from cognite_toolkit._cdf_tk.client.api._classic_aggregate import files_aggregate_count
+from cognite_toolkit._cdf_tk.client.api._classic_list import (
+    ObjectIds,
+    TimeRange,
+    classic_list_body,
+    dump_model,
+    int_ids,
+    object_ids,
+    str_ids,
+    time_range,
+)
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -18,7 +28,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceId, InternalId, InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter, GeoLocationFilter, LabelFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
     DownloadResponse,
     FileMetadataRequest,
@@ -177,78 +187,257 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
 
     def paginate(
         self,
-        filter: ClassicFilter | None = None,
+        filter: ClassicFilter | dict[str, Any] | None = None,
         directory_prefix: str | None = None,
         uploaded: bool | None = None,
         limit: int = 100,
         cursor: str | None = None,
+        *,
+        name: str | None = None,
+        mime_type: str | None = None,
+        metadata: dict[str, str] | None = None,
+        asset_ids: int | Sequence[int] | None = None,
+        asset_external_ids: str | Sequence[str] | None = None,
+        root_asset_ids: ObjectIds | None = None,
+        root_asset_external_ids: str | Sequence[str] | None = None,
+        data_set_ids: ObjectIds | None = None,
+        data_set_external_ids: str | Sequence[str] | None = None,
+        asset_subtree_ids: ObjectIds | None = None,
+        asset_subtree_external_ids: str | Sequence[str] | None = None,
+        source: str | None = None,
+        created_time: TimeRange | None = None,
+        last_updated_time: TimeRange | None = None,
+        uploaded_time: TimeRange | None = None,
+        source_created_time: TimeRange | None = None,
+        source_modified_time: TimeRange | None = None,
+        external_id_prefix: str | None = None,
+        labels: LabelFilter | dict[str, Any] | None = None,
+        geo_location: GeoLocationFilter | dict[str, Any] | None = None,
+        partition: str | None = None,
     ) -> PagedResponse[FileMetadataResponse]:
-        """Iterate over file metadata in CDF.
+        """Fetch one page of file metadata.
 
-        Args:
-            filter: Filter by data set IDs and/or asset subtree IDs.
-            directory_prefix: Filter by directory prefix.
-            uploaded: Filter by upload status.
-            limit: Maximum number of items to return per page.
-            cursor: Cursor for pagination.
+        Takes the same filter arguments as :meth:`list`.
 
-        Returns:
-            PagedResponse of FileMetadataResponse objects.
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Files/operation/advancedListFiles>`_.
         """
-        filter_: dict[str, Any] = filter.dump() if filter else {}
-        if directory_prefix is not None:
-            filter_["directoryPrefix"] = directory_prefix
-        if uploaded is not None:
-            filter_["uploaded"] = uploaded
-
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body={"filter": filter_ or None},
+            body=self._list_body(
+                filter=filter,
+                directory_prefix=directory_prefix,
+                uploaded=uploaded,
+                name=name,
+                mime_type=mime_type,
+                metadata=metadata,
+                asset_ids=asset_ids,
+                asset_external_ids=asset_external_ids,
+                root_asset_ids=root_asset_ids,
+                root_asset_external_ids=root_asset_external_ids,
+                data_set_ids=data_set_ids,
+                data_set_external_ids=data_set_external_ids,
+                asset_subtree_ids=asset_subtree_ids,
+                asset_subtree_external_ids=asset_subtree_external_ids,
+                source=source,
+                created_time=created_time,
+                last_updated_time=last_updated_time,
+                uploaded_time=uploaded_time,
+                source_created_time=source_created_time,
+                source_modified_time=source_modified_time,
+                external_id_prefix=external_id_prefix,
+                labels=labels,
+                geo_location=geo_location,
+                partition=partition,
+            ),
         )
 
     def iterate(
         self,
-        filter: ClassicFilter | None = None,
+        filter: ClassicFilter | dict[str, Any] | None = None,
         directory_prefix: str | None = None,
         uploaded: bool | None = None,
         limit: int | None = 100,
+        *,
+        name: str | None = None,
+        mime_type: str | None = None,
+        metadata: dict[str, str] | None = None,
+        asset_ids: int | Sequence[int] | None = None,
+        asset_external_ids: str | Sequence[str] | None = None,
+        root_asset_ids: ObjectIds | None = None,
+        root_asset_external_ids: str | Sequence[str] | None = None,
+        data_set_ids: ObjectIds | None = None,
+        data_set_external_ids: str | Sequence[str] | None = None,
+        asset_subtree_ids: ObjectIds | None = None,
+        asset_subtree_external_ids: str | Sequence[str] | None = None,
+        source: str | None = None,
+        created_time: TimeRange | None = None,
+        last_updated_time: TimeRange | None = None,
+        uploaded_time: TimeRange | None = None,
+        source_created_time: TimeRange | None = None,
+        source_modified_time: TimeRange | None = None,
+        external_id_prefix: str | None = None,
+        labels: LabelFilter | dict[str, Any] | None = None,
+        geo_location: GeoLocationFilter | dict[str, Any] | None = None,
+        partition: str | None = None,
     ) -> Iterable[builtins.list[FileMetadataResponse]]:
         """Iterate over file metadata in CDF.
 
-        Args:
-            filter: Filter by data set IDs and/or asset subtree IDs.
-            directory_prefix: Filter by directory prefix.
-            uploaded: Filter by upload status.
-            limit: Maximum number of items to return per page.
+        Takes the same filter arguments as :meth:`list`. ``limit`` is the maximum number of
+        files to return in total; ``None`` reads every matching file.
 
-        Returns:
-            Iterable of lists of FileMetadataResponse objects.
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Files/operation/advancedListFiles>`_.
         """
-        filter_: dict[str, Any] = filter.dump() if filter else {}
-        if directory_prefix is not None:
-            filter_["directoryPrefix"] = directory_prefix
-        if uploaded is not None:
-            filter_["uploaded"] = uploaded
-
         return self._iterate(
             limit=limit,
-            body={"filter": filter_ or None},
+            body=self._list_body(
+                filter=filter,
+                directory_prefix=directory_prefix,
+                uploaded=uploaded,
+                name=name,
+                mime_type=mime_type,
+                metadata=metadata,
+                asset_ids=asset_ids,
+                asset_external_ids=asset_external_ids,
+                root_asset_ids=root_asset_ids,
+                root_asset_external_ids=root_asset_external_ids,
+                data_set_ids=data_set_ids,
+                data_set_external_ids=data_set_external_ids,
+                asset_subtree_ids=asset_subtree_ids,
+                asset_subtree_external_ids=asset_subtree_external_ids,
+                source=source,
+                created_time=created_time,
+                last_updated_time=last_updated_time,
+                uploaded_time=uploaded_time,
+                source_created_time=source_created_time,
+                source_modified_time=source_modified_time,
+                external_id_prefix=external_id_prefix,
+                labels=labels,
+                geo_location=geo_location,
+                partition=partition,
+            ),
         )
 
     def list(
         self,
         limit: int | None = 100,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        name: str | None = None,
+        directory_prefix: str | None = None,
+        mime_type: str | None = None,
+        metadata: dict[str, str] | None = None,
+        asset_ids: int | Sequence[int] | None = None,
+        asset_external_ids: str | Sequence[str] | None = None,
+        root_asset_ids: ObjectIds | None = None,
+        root_asset_external_ids: str | Sequence[str] | None = None,
+        data_set_ids: ObjectIds | None = None,
+        data_set_external_ids: str | Sequence[str] | None = None,
+        asset_subtree_ids: ObjectIds | None = None,
+        asset_subtree_external_ids: str | Sequence[str] | None = None,
+        source: str | None = None,
+        created_time: TimeRange | None = None,
+        last_updated_time: TimeRange | None = None,
+        uploaded_time: TimeRange | None = None,
+        source_created_time: TimeRange | None = None,
+        source_modified_time: TimeRange | None = None,
+        external_id_prefix: str | None = None,
+        uploaded: bool | None = None,
+        labels: LabelFilter | dict[str, Any] | None = None,
+        geo_location: GeoLocationFilter | dict[str, Any] | None = None,
+        partition: str | None = None,
     ) -> builtins.list[FileMetadataResponse]:
-        """List all file metadata in CDF.
+        """List file metadata in CDF.
 
-        Args:
-            limit: Maximum number of items to return. None for all items.
+        ``filter`` is a strict filter. Individual arguments override the same field on ``filter``.
+        ``partition`` is an ``"M/N"`` string. ``root_asset_ids`` accepts an internal id, external id,
+        or :class:`InternalId` / :class:`ExternalId` object. The files list endpoint has no advanced filter or sort.
 
-        Returns:
-            List of FileMetadataResponse objects.
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Files/operation/advancedListFiles>`_.
         """
-        return self._list(limit=limit)
+        return self._list(
+            limit=limit,
+            body=self._list_body(
+                filter=filter,
+                name=name,
+                directory_prefix=directory_prefix,
+                mime_type=mime_type,
+                metadata=metadata,
+                asset_ids=asset_ids,
+                asset_external_ids=asset_external_ids,
+                root_asset_ids=root_asset_ids,
+                root_asset_external_ids=root_asset_external_ids,
+                data_set_ids=data_set_ids,
+                data_set_external_ids=data_set_external_ids,
+                asset_subtree_ids=asset_subtree_ids,
+                asset_subtree_external_ids=asset_subtree_external_ids,
+                source=source,
+                created_time=created_time,
+                last_updated_time=last_updated_time,
+                uploaded_time=uploaded_time,
+                source_created_time=source_created_time,
+                source_modified_time=source_modified_time,
+                external_id_prefix=external_id_prefix,
+                uploaded=uploaded,
+                labels=labels,
+                geo_location=geo_location,
+                partition=partition,
+            ),
+        )
+
+    @staticmethod
+    def _list_body(
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        name: str | None = None,
+        directory_prefix: str | None = None,
+        mime_type: str | None = None,
+        metadata: dict[str, str] | None = None,
+        asset_ids: int | Sequence[int] | None = None,
+        asset_external_ids: str | Sequence[str] | None = None,
+        root_asset_ids: ObjectIds | None = None,
+        root_asset_external_ids: str | Sequence[str] | None = None,
+        data_set_ids: ObjectIds | None = None,
+        data_set_external_ids: str | Sequence[str] | None = None,
+        asset_subtree_ids: ObjectIds | None = None,
+        asset_subtree_external_ids: str | Sequence[str] | None = None,
+        source: str | None = None,
+        created_time: TimeRange | None = None,
+        last_updated_time: TimeRange | None = None,
+        uploaded_time: TimeRange | None = None,
+        source_created_time: TimeRange | None = None,
+        source_modified_time: TimeRange | None = None,
+        external_id_prefix: str | None = None,
+        uploaded: bool | None = None,
+        labels: LabelFilter | dict[str, Any] | None = None,
+        geo_location: GeoLocationFilter | dict[str, Any] | None = None,
+        partition: str | None = None,
+    ) -> dict[str, Any]:
+        return classic_list_body(
+            filter=filter,
+            fields={
+                "name": name,
+                "directoryPrefix": directory_prefix,
+                "mimeType": mime_type,
+                "metadata": metadata,
+                "assetIds": int_ids(asset_ids),
+                "assetExternalIds": str_ids(asset_external_ids),
+                "rootAssetIds": object_ids(root_asset_ids, root_asset_external_ids),
+                "dataSetIds": object_ids(data_set_ids, data_set_external_ids),
+                "assetSubtreeIds": object_ids(asset_subtree_ids, asset_subtree_external_ids),
+                "source": source,
+                "createdTime": time_range(created_time),
+                "lastUpdatedTime": time_range(last_updated_time),
+                "uploadedTime": time_range(uploaded_time),
+                "sourceCreatedTime": time_range(source_created_time),
+                "sourceModifiedTime": time_range(source_modified_time),
+                "externalIdPrefix": external_id_prefix,
+                "uploaded": uploaded,
+                "labels": dump_model(labels),
+                "geoLocation": dump_model(geo_location),
+            },
+            partition=partition,
+        )
 
     def count(self, *, filter: ClassicFilter | dict[str, Any] | None = None) -> int:
         """Count files matching an optional filter.
