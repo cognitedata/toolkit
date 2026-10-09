@@ -586,7 +586,7 @@ class NodeFinder(ResourceFinder[ViewNoVersionId]):
             count = 0.0
             if aggregate_result.items and aggregate_result.items[0].aggregates:
                 count = aggregate_result.items[0].aggregates[0].value or 0.0
-            if count == 0 or count is None:
+            if count == 0:
                 raise ToolkitMissingResourceError(f"No nodes found in {self.identifier}")
             elif count > 50:
                 if not questionary.confirm(
