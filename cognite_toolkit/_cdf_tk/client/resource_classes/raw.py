@@ -1,14 +1,14 @@
 import sys
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BeforeValidator, Field, PlainSerializer
+from pydantic import BeforeValidator, Field, JsonValue, PlainSerializer
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     RequestResource,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawRowId, RawTableId
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 if sys.version_info >= (3, 11):
@@ -119,6 +119,43 @@ class RAWTableResponse(ResponseResource[RAWTableRequest]):
 
     def as_id(self) -> RawTableId:
         return RawTableId(db_name=self.db_name, name=self.name)
+
+
+class RAWRowRequest(RequestResource):
+    """Row to insert into a RAW table.
+
+    ``db_name`` and ``table_name`` select the table and are not part of the request body.
+    ``columns`` is a JSON object: values may be scalars, arrays, or nested objects.
+    """
+
+    db_name: str = Field(exclude=True)
+    table_name: str = Field(exclude=True)
+    key: str
+    columns: dict[str, JsonValue]
+
+    def as_id(self) -> RawRowId:
+        return RawRowId(key=self.key, db_name=self.db_name, table_name=self.table_name)
+
+
+class RAWRowResponse(ResponseResource[RAWRowRequest]):
+    """A row returned by the RAW rows API."""
+
+    db_name: str = Field(default="", exclude=True)
+    table_name: str = Field(default="", exclude=True)
+    key: str
+    columns: dict[str, JsonValue] = Field(default_factory=dict)
+    last_updated_time: int
+
+    @classmethod
+    def request_cls(cls) -> type[RAWRowRequest]:
+        return RAWRowRequest
+
+    def as_request_resource(self) -> RAWRowRequest:
+        dumped = {**self.dump(), "dbName": self.db_name, "tableName": self.table_name}
+        return RAWRowRequest.model_validate(dumped, extra="ignore")
+
+    def as_id(self) -> RawRowId:
+        return RawRowId(key=self.key, db_name=self.db_name, table_name=self.table_name)
 
 
 def _unzip_pairs(value: Any) -> Any:

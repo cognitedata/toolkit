@@ -17,7 +17,6 @@ from cognite.client.data_classes.data_modeling import (
     NodeOrEdgeData,
     View,
 )
-from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ItemsFailedRequest
@@ -61,6 +60,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._container im
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource as LegacyInstanceSource
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
+from cognite_toolkit._cdf_tk.client.resource_classes.statistics import ProjectStatisticsResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     LifecycleObject,
     LimitsObject,
@@ -282,6 +282,31 @@ class _FailingUploadIO:
                 error_message="Aborting further splitting of requests after 50 failed attempts.",
             )
         ]
+
+
+def _project_statistics(instances_limit: int) -> ProjectStatisticsResponse:
+    return ProjectStatisticsResponse.model_validate(
+        {
+            "spaces": {"count": 0, "limit": 1_000},
+            "containers": {"count": 0, "limit": 10_000},
+            "views": {"count": 0, "limit": 100_000},
+            "dataModels": {"count": 1, "limit": 10_000},
+            "containerProperties": {"count": 0, "limit": 1_000_000},
+            "instances": {
+                "nodes": 1000,
+                "edges": 0,
+                "softDeletedNodes": 0,
+                "softDeletedEdges": 0,
+                "instancesLimit": instances_limit,
+                "softDeletedInstancesLimit": 100_000_000,
+                "instances": 1000,
+                "softDeletedInstances": 0,
+            },
+            "concurrentReadLimit": 50,
+            "concurrentWriteLimit": 20,
+            "concurrentDeleteLimit": 10,
+        }
+    )
 
 
 @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
@@ -1328,18 +1353,7 @@ class TestMigrationCommand:
         cmd = MigrationCommand(silent=True)
 
         with monkeypatch_toolkit_client() as client:
-            stats = MagicMock(spec=ProjectStatistics)
-            stats.instances = InstanceStatistics(
-                nodes=1000,
-                edges=0,
-                soft_deleted_edges=0,
-                soft_deleted_nodes=0,
-                instances_limit=1500,
-                soft_deleted_instances_limit=10_000,
-                instances=1000,
-                soft_deleted_instances=0,
-            )
-            client.data_modeling.statistics.project.return_value = stats
+            client.statistics.retrieve.return_value = _project_statistics(instances_limit=1500)
             with pytest.raises(ToolkitValueError) as exc_info:
                 cmd.validate_available_capacity(client, 10_000)
 
@@ -1349,18 +1363,7 @@ class TestMigrationCommand:
         cmd = MigrationCommand(silent=True)
 
         with monkeypatch_toolkit_client() as client:
-            stats = MagicMock(spec=ProjectStatistics)
-            stats.instances = InstanceStatistics(
-                nodes=1000,
-                edges=0,
-                soft_deleted_edges=0,
-                soft_deleted_nodes=0,
-                instances_limit=5_000_000,
-                soft_deleted_instances_limit=100_000_000,
-                instances=1000,
-                soft_deleted_instances=0,
-            )
-            client.data_modeling.statistics.project.return_value = stats
+            client.statistics.retrieve.return_value = _project_statistics(instances_limit=5_000_000)
             cmd.validate_available_capacity(client, 10_000)
 
     def test_validate_stream_capacity_insufficient_records(self) -> None:

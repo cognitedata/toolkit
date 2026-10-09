@@ -1,11 +1,8 @@
 import time
 
-from cognite.client.data_classes import FileMetadata
-from cognite.client.data_classes.data_modeling import NodeApplyResultList
-from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
-
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
@@ -17,25 +14,28 @@ class TestExtendedFilesAPI:
         """Verify file metadata can be unlinked from a data model instance after linking."""
         client = toolkit_client
         space = SMOKE_SPACE
+        external_id = SMOKE_FILE_UNLINK_EXTERNAL_ID
         metadata = FileMetadataRequest(
-            external_id=SMOKE_FILE_UNLINK_EXTERNAL_ID,
+            external_id=external_id,
             name="Toolkit Smoke Test File Unlink",
             mime_type="text/plain",
         )
-        cognite_file = CogniteFileApply(
+        cognite_file = CogniteFileRequest(
             space=space,
             external_id=SMOKE_FILE_UNLINK_EXTERNAL_ID,
             name="Toolkit Smoke Test File Unlink",
         )
         content = b"Hello, this is a smoke test file's content."
         created: FileMetadataResponse | None = None
-        created_dm: NodeApplyResultList | None = None
+        created_dm = False
         try:
             created_files = client.tool.filemetadata.create([metadata])
             if len(created_files) != 1:
                 raise AssertionError("Expected exactly one file metadata record to be created.")
             created = created_files[0]
-            client.files.upload_content_bytes(content, external_id=created.external_id)
+            if created.external_id is None or created.upload_url is None:
+                raise AssertionError("Created file metadata is missing an external id or upload URL.")
+            client.tool.filemetadata.upload_file(content, created.upload_url, created.mime_type)
 
             updated = client.tool.filemetadata.set_pending_ids(
                 [
@@ -59,11 +59,13 @@ class TestExtendedFilesAPI:
             }:
                 raise AssertionError("Pending instance id on file metadata did not match the CogniteFile instance id.")
 
-            created_dm = client.data_modeling.instances.apply(cognite_file).nodes
+            client.tool.cognite_files.create([cognite_file], replace=True)
+            created_dm = True
 
-            retrieved_ts: FileMetadata | None = None
+            retrieved_ts: FileMetadataResponse | None = None
             for _ in range(60):
-                retrieved_ts = client.files.retrieve(instance_id=cognite_file.as_id())
+                retrieved = client.tool.filemetadata.retrieve([cognite_file.as_instance_id()], ignore_unknown_ids=True)
+                retrieved_ts = retrieved[0] if retrieved else None
                 if retrieved_ts is not None:
                     break
                 time.sleep(1)
@@ -77,16 +79,19 @@ class TestExtendedFilesAPI:
             if len(unlinked) != 1 or unlinked[0].id != created.id:
                 raise AssertionError("Unlinking file instance ids did not return the expected file metadata.")
 
-            client.data_modeling.instances.delete(cognite_file.as_id())
-            created_dm = None
+            client.tool.cognite_files.delete([cognite_file.as_id()])
+            created_dm = False
 
-            retrieved_ts = client.files.retrieve(external_id=metadata.external_id)
+            retrieved = client.tool.filemetadata.retrieve(
+                [ExternalId(external_id=external_id)], ignore_unknown_ids=True
+            )
+            retrieved_ts = retrieved[0] if retrieved else None
             if retrieved_ts is None or retrieved_ts.id != created.id:
                 raise AssertionError(
                     "Asset-centric file metadata should remain after unlinking and deleting the data model instance."
                 )
         finally:
-            if created is not None and created_dm is None:
-                client.files.delete(external_id=metadata.external_id, ignore_unknown_ids=True)
-            if created_dm is not None:
-                client.data_modeling.instances.delete(cognite_file.as_id())
+            if created is not None and not created_dm:
+                client.tool.filemetadata.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
+            if created_dm:
+                client.tool.cognite_files.delete([cognite_file.as_id()])

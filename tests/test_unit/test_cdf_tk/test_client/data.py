@@ -119,6 +119,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWDatabaseResponse,
+    RAWRowRequest,
+    RAWRowResponse,
     RAWTableRequest,
     RAWTableResponse,
 )
@@ -280,6 +282,13 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "dbName": "example_db",
             "name": "example_table",
             "createdTime": 1622547800000,
+        },
+        RAWRowResponse: {
+            "dbName": "example_db",
+            "tableName": "example_table",
+            "key": "row_001",
+            "columns": {"col": "value"},
+            "lastUpdatedTime": 1622547800000,
         },
         SimulatorModelResponse: {
             "id": 111,
@@ -928,6 +937,16 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             # a path parameter and thus custom endpoint mocking.
         ),
         id="RAWTable",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RAWRowResponse,
+            request_cls=RAWRowRequest,
+            example_data=get_example_minimum_responses(RAWRowResponse),
+            is_dump_equal_to_example=False,
+            # Database and table name are path parameters and are excluded from the response dump.
+        ),
+        id="RAWRow",
     )
     yield pytest.param(
         CDFResource(

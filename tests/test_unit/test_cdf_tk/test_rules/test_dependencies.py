@@ -24,7 +24,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_propert
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
-    ConsistencyError,
+    BuildError,
+    BuildWarning,
+    InsightDefinition,
     InternalValidatorException,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
@@ -361,6 +363,7 @@ def _client_stub(
     return client
 
 
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 class TestDependencyRuleSetDataModelingChanges:
     """Integration-level tests: verifying that the CRUD wiring, aggregation and message/code plumbing in
     ``_validate_data_modeling_changes`` behaves correctly. Edge cases of the underlying predicates are
@@ -387,7 +390,7 @@ class TestDependencyRuleSetDataModelingChanges:
                 {"name": _container_property(), "description": _container_property()},
                 None,
                 "node",
-                [DependencyRuleSet.INVALID_OPERATION_CODE],
+                ["UNSUPPORTED-RESOURCE-REMOVAL"],
                 "is missing properties 'description'",
                 id="property-removed-locally-is-disallowed",
             ),
@@ -405,7 +408,7 @@ class TestDependencyRuleSetDataModelingChanges:
                 {"name": _container_property(nullable=False), "description": _container_property()},
                 None,
                 "node",
-                [DependencyRuleSet.INVALID_OPERATION_CODE],
+                ["INVALID-RESOURCE-CHANGE"],
                 "has some properties 'description' and 'name' that have been modified",
                 id="property-changed-and-removed-locally-reports-as-changed",
             ),
@@ -423,7 +426,7 @@ class TestDependencyRuleSetDataModelingChanges:
                 {"name": _container_property()},
                 None,
                 "edge",
-                [DependencyRuleSet.INVALID_OPERATION_CODE],
+                ["INVALID-RESOURCE-CHANGE"],
                 "has modified usedFor",
                 id="container-used-for-change-is-disallowed",
             ),
@@ -449,9 +452,37 @@ class TestDependencyRuleSetDataModelingChanges:
 
         insights = list(rule.validate())
         assert [insight.code for insight in insights] == expected_codes
-        assert all(isinstance(insight, ConsistencyError) for insight in insights)
+        assert all(isinstance(insight, InsightDefinition) for insight in insights)
         if expected_message_fragment is not None:
             assert expected_message_fragment in insights[0].message
+
+    @pytest.mark.parametrize(
+        "cdf_properties, cdf_used_for, expected_insight_type",
+        [
+            pytest.param(
+                {"name": _container_property(), "description": _container_property()},
+                "node",
+                BuildWarning,
+                id="property-missing-locally-is-warning",
+            ),
+            pytest.param({"name": _container_property()}, "edge", BuildError, id="used-for-change-is-error"),
+        ],
+    )
+    def test_validate_container_insight_type(
+        self,
+        tmp_path: Path,
+        cdf_properties: dict[str, ContainerPropertyDefinition],
+        cdf_used_for: Literal["node", "edge", "record", "all"],
+        expected_insight_type: type[InsightDefinition],
+    ) -> None:
+        yaml_file = tmp_path / "MyContainer.container.yaml"
+        yaml_file.write_text(CONTAINER_YAML)
+        client = _client_stub(container=[_cdf_container(cdf_properties, used_for=cdf_used_for)])
+        rule = DependencyRuleSet(modules=[_built_module(yaml_file, ContainerIO, CONTAINER_ID)], client=client)
+
+        insights = list(rule.validate())
+
+        assert [type(insight) for insight in insights] == [expected_insight_type]
 
     @pytest.mark.parametrize(
         "local_yaml, cdf_properties, cdf_description, cdf_implements, expected_codes, expected_message_fragment",
@@ -471,7 +502,7 @@ class TestDependencyRuleSetDataModelingChanges:
                 {"name": _view_property(), "description": _view_property()},
                 None,
                 None,
-                [DependencyRuleSet.INVALID_OPERATION_CODE],
+                ["UNSUPPORTED-RESOURCE-REMOVAL"],
                 "is missing properties 'description'",
                 id="property-removed-locally",
             ),
@@ -498,7 +529,7 @@ class TestDependencyRuleSetDataModelingChanges:
                 {"name": _view_property()},
                 None,
                 [ViewId(space="my_space", external_id="ParentView", version="v1")],
-                [DependencyRuleSet.INVALID_OPERATION_CODE],
+                ["INVALID-RESOURCE-CHANGE"],
                 "has changed implements",
                 id="view-implements-change-is-disallowed",
             ),
@@ -511,7 +542,7 @@ class TestDependencyRuleSetDataModelingChanges:
                 },
                 None,
                 None,
-                [DependencyRuleSet.INVALID_OPERATION_CODE],
+                ["INVALID-RESOURCE-CHANGE"],
                 "has some properties 'description' and 'myEdge' that have been modified",
                 id="connection-property-changed-and-base-property-removed-reports-as-changed",
             ),
@@ -544,13 +575,13 @@ class TestDependencyRuleSetDataModelingChanges:
             pytest.param([("MyView", "v1")], [], None, id="no-change"),
             pytest.param(
                 [("MyView", "v1"), ("OtherView", "v1")],
-                [DependencyRuleSet.INVALID_OPERATION_CODE],
+                ["UNSUPPORTED-RESOURCE-REMOVAL"],
                 "is missing the view(s)",
                 id="view-removed-locally",
             ),
             pytest.param(
                 [("MyView", "v0")],
-                [DependencyRuleSet.INVALID_OPERATION_CODE],
+                ["INVALID-RESOURCE-CHANGE"],
                 "has changed the view version of 'my_space:MyView' from 'v0' to 'v1'",
                 id="view-version-changed-without-data-model-bump",
             ),
