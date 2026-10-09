@@ -1578,7 +1578,7 @@ class BuildV2Command(ToolkitCommand):
         footer.append(insight_destination.as_posix(), style=f"underline {AuraColor.SKY.rich}")
         ignore_hint = Text(
             "To ignore a rule, add '# rules: ignore[CODE]' to the file, where CODE is the code in "
-            "brackets, or list the code under 'ignore' in the [rules] section of cdf.toml.",
+            "brackets, or list the code under 'ignore' in the [rules] section of cdf.toml. to ignore it in all files",
             style="dim",
         )
         insight_sections.append(ToolkitPanelSection(content=[footer, ignore_hint]))
