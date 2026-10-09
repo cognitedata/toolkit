@@ -766,7 +766,7 @@ def _space_lineage_with_insights(
         [
             ConsistencyError(
                 message="Space is fine this is a test",
-                code="NOT-REAL",
+                code="INVALID-VALUE",
                 source_file=source_file,
                 fix="Cannot be fixed as it is not an issue",
             )
@@ -823,7 +823,7 @@ class TestDeployResourcesRelatedInsights:
 
         # The insight details are rendered in a prominent panel rather than the exception message.
         output = console_output.getvalue()
-        assert "NOT-REAL" in output
+        assert "INVALID-VALUE" in output
         assert "Space is fine this is a test" in output
         assert "Suggested fix:" in output
         assert "Cannot be fixed as it is not an issue" in output

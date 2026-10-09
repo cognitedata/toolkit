@@ -4,12 +4,13 @@ import json
 import sys
 from collections import Counter, UserList, defaultdict
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal, TypeVar
+from typing import Annotated, Any, ClassVar, Literal, TypeAlias, TypeVar
 
 from pydantic import (
     BaseModel,
     Field,
     SerializerFunctionWrapHandler,
+    StringConstraints,
     TypeAdapter,
     field_serializer,
     field_validator,
@@ -32,6 +33,67 @@ else:
 T_Insight = TypeVar("T_Insight", bound="InsightDefinition")
 PATH_SEP_CSV = " | "  # Separator for multiple source files in CSV output
 
+# See technical_decision_log/TDL-0005-insight-code-naming.md for the code conventions.
+InsightCode: TypeAlias = Literal[
+    "MISSING-FILE-SUFFIX",
+    "INVALID-FILE-SUFFIX",
+    "UNREADABLE-FILE",
+    "EMPTY-FILE",
+    "INVALID-FILE-CONTENT",
+    "INVALID-FIELD",
+    "UNRECOGNIZED-FIELD",
+    "UNRECOGNIZED-VALUE",
+    "MISSING-REFERENCED-FILE",
+    "MISSING-REFERENCED-DIRECTORY",
+    "UNRESOLVED-VARIABLE",
+    "INVALID-VARIABLE-PATH",
+    "INVALID-VARIABLE-TYPE",
+    "EXCEEDED-LIMIT",
+    "INVALID-VALUE",
+    "INVALID-FUNCTION-REQUIREMENTS",
+    "UNVERIFIED-REFERENCED-PROPERTY",
+    "MISSING-REFERENCED-PROPERTY",
+    "INVALID-REFERENCED-PROPERTY",
+    "INVALID-REFERENCED-RESOURCE",
+    "MISSING-REFERENCED-RESOURCE",
+    "UNVERIFIED-REFERENCED-RESOURCE",
+    "INVALID-RESOURCE-CHANGE",
+    "UNSUPPORTED-RESOURCE-REMOVAL",
+    "INVALID-DIRECT-RELATION",
+    "UNGOVERNED-RESOURCE",
+    # Legacy codes, used when the v09 flag is not enabled
+    "MISSING-SUFFIX",
+    "INVALID-KIND",
+    "READ-ERROR",
+    "YAML-PARSE-ERROR",
+    "MODEL-SYNTAX-ERROR",
+    "MODEL-SYNTAX-WARNING",
+    "MISSING",
+    "SYNTAX-ERROR",
+    "UNRESOLVED-VARIABLES",
+    "CONFIG_VARIABLE_001",
+    "UNKNOWN-REFERENCE",
+    "UNVERIFIED-REFERENCE",
+    "INVALID-OPERATION",
+    "UNVERIFIED-PROPERTY-REFERENCE",
+    "INVALID-PROPERTY-REFERENCE",
+    "DMS-CONTAINER-001",
+    "AUTH-001",
+    "FUNCTION-CPU-OUT-OF-RANGE",
+    "FUNCTION-MEMORY-OUT-OF-RANGE",
+    "FUNCTION-UNKNOWN-RUNTIME",
+    "FUNCTION-INVALID-REQUIREMENTS",
+    "AGENT-MODEL",
+    "AGENT-UNKNOWN-RUNTIME",
+    "AGENT-RUNTIME-UNSUPPORTED-CAPABILITY",
+    "AGENT-TOOLS-LIMIT",
+    "INFIELD-VIEW-MISSING-PROPERTIES",
+    "INFIELD-UNKNOWN-VIEW-PROPERTY",
+]
+# NEAT issues come with codes defined by the neat package.
+# Remove this once NEAT support is removed from Toolkit.
+NeatInsightCode: TypeAlias = Annotated[str, StringConstraints(pattern=r"^NEAT-")]
+
 
 class InsightDefinition(BaseModel):
     """Base class for all insights"""
@@ -39,14 +101,13 @@ class InsightDefinition(BaseModel):
     insight_type: str = "InsightDefinition"
     severity: ClassVar[int] = 999
 
-    # See technical_decision_log/TDL-0005-insight-code-naming.md for the code conventions.
-    code: str
+    code: InsightCode | NeatInsightCode
     message: str
     source_file: AbsoluteFilePath
     line: int | None = None
     column: int | None = None
     fix: str | None = None
-    alpha: bool = Field(default=False, exclude=True)
+    alpha: bool = False
 
     @property
     def display_source_file_cwd(self) -> str:

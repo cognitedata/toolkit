@@ -15,8 +15,8 @@ problem was certain or only suspected, and could not predict how to write the co
 2. The problem word carries the certainty of the finding:
    - `MISSING-*`, `INVALID-*`, `EXCEEDED-*`: we know there is a problem.
    - `UNVERIFIED-*`, `UNRECOGNIZED-*`: we cannot confirm it, so we only guess. These are always warnings.
-3. The heading shown to the user is derived from the code, e.g. `INVALID-AGENT-MODEL` is
-   shown as "Invalid agent model". Details that distinguish cases sharing a code (e.g. container vs. view) belong in
+3. The heading shown to the user is derived from the code, e.g. `INVALID-FIELD` is
+   shown as "Invalid field". Details that distinguish cases sharing a code (e.g. container vs. view) belong in
    the message.
 
 ## Why

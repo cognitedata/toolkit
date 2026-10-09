@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import UNRESOLVED_VARIABLE_PATTERN
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
+    InsightCode,
     InternalValidatorException,
     T_Insight,
 )
@@ -94,8 +95,8 @@ class ToolkitLocalRule(ABC):
         module: The module to validate.
     """
 
-    CODE: ClassVar[str]
-    LEGACY_CODE: ClassVar[str]  # Used when the v09 flag is not enabled
+    CODE: ClassVar[InsightCode]
+    LEGACY_CODE: ClassVar[InsightCode]  # Used when the v09 flag is not enabled
     IS_ALPHA: ClassVar[bool] = False
     IS_FIXABLE: ClassVar[bool] = False
 

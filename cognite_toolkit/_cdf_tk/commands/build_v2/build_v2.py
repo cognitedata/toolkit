@@ -1166,7 +1166,7 @@ class BuildV2Command(ToolkitCommand):
         syntax_error = None
         if errors:
             line, column = self._single_position(errors, positions)
-            syntax_error = v09_gate(BuildError, ModelSyntaxError)(
+            syntax_error = BuildError(
                 code="INVALID-FIELD",
                 message="\n".join(item.message for item in errors),
                 fix="Compare the YAML with reference documentation and make sure it is valid.",
@@ -1179,7 +1179,7 @@ class BuildV2Command(ToolkitCommand):
         for warning in warnings:
             line, column = self._single_position([warning], positions)
             syntax_warnings.append(
-                v09_gate(BuildWarning, ModelSyntaxWarning)(
+                BuildWarning(
                     code=warning.code,
                     message=warning.message,
                     source_file=resource_file,

@@ -156,7 +156,7 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
             quoted_missing = humanize_collection([f"{property_name!r}" for property_name in missing])
             yield with_position(
                 v09_gate(BuildError, ConsistencyError)(
-                    code=v09_gate("INVALID-REFERENCED-RESOURCE", f"{self.CODE_PREFIX}-VIEW-MISSING-PROPERTIES"),
+                    code=v09_gate("INVALID-REFERENCED-RESOURCE", "INFIELD-VIEW-MISSING-PROPERTIES"),
                     message=(
                         f"View {view_id!s} used as {card_key!r} is missing required properties: {quoted_missing}."
                     ),
@@ -183,7 +183,7 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
             quoted_unknown = humanize_collection([f"{property_name!r}" for property_name in unknown])
             yield with_position(
                 v09_gate(BuildError, ConsistencyError)(
-                    code=v09_gate("MISSING-REFERENCED-PROPERTY", f"{self.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY"),
+                    code=v09_gate("MISSING-REFERENCED-PROPERTY", "INFIELD-UNKNOWN-VIEW-PROPERTY"),
                     message=(f"View {view_id!s} used for {config_key!r} does not have properties: {quoted_unknown}."),
                     fix=f"Use property names that exist on the view: {quoted_unknown}.",
                     source_file=source_path,

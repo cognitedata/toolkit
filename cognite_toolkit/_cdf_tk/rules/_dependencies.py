@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildWarning,
     ConsistencyError,
     Insight,
+    InsightCode,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import URL
@@ -53,7 +54,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
     """
 
     DISPLAY_NAME = "Dependencies"
-    INVALID_OPERATION_CODE: ClassVar[str] = "INVALID-OPERATION"  # Used when the v09 flag is not enabled
+    INVALID_OPERATION_CODE: ClassVar[InsightCode] = "INVALID-OPERATION"  # Used when the v09 flag is not enabled
 
     @staticmethod
     def _is_unresolved(identifier: Identifier) -> bool:

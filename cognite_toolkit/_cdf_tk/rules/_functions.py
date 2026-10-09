@@ -80,7 +80,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                             f"Function '{function_def.external_id}' CPU cores ({function_def.cpu}) "
                             f"must be between {limits.cpu_cores.min} and {limits.cpu_cores.max}."
                         ),
-                        code=v09_gate("EXCEEDED-LIMIT", f"{self.CODE_PREFIX}-CPU-OUT-OF-RANGE"),
+                        code=v09_gate("EXCEEDED-LIMIT", "FUNCTION-CPU-OUT-OF-RANGE"),
                         fix=f"Ensure that CPU cores is between {limits.cpu_cores.min} and {limits.cpu_cores.max}.",
                         source_file=resource.source_path,
                     ),
@@ -96,7 +96,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                             f"Function '{function_def.external_id}' memory ({function_def.memory} GB) "
                             f"must be between {limits.memory_gb.min} and {limits.memory_gb.max} GB."
                         ),
-                        code=v09_gate("EXCEEDED-LIMIT", f"{self.CODE_PREFIX}-MEMORY-OUT-OF-RANGE"),
+                        code=v09_gate("EXCEEDED-LIMIT", "FUNCTION-MEMORY-OUT-OF-RANGE"),
                         fix=f"Ensure that memory is between {limits.memory_gb.min} and {limits.memory_gb.max} GB.",
                         source_file=resource.source_path,
                     ),
@@ -113,7 +113,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                         f"available in this CDF project. "
                         f"Available runtimes: {quoted_runtimes}."
                     ),
-                    code=v09_gate("INVALID-VALUE", f"{self.CODE_PREFIX}-UNKNOWN-RUNTIME"),
+                    code=v09_gate("INVALID-VALUE", "FUNCTION-UNKNOWN-RUNTIME"),
                     fix=f"Use one of the available runtimes: {quoted_runtimes}.",
                     source_file=resource.source_path,
                 )
@@ -126,7 +126,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
             if not pip_result.success:
                 yield v09_gate(BuildError, ConsistencyError)(
                     message=pip_result.create_message("Function", function_def.external_id),
-                    code=v09_gate("INVALID-FUNCTION-REQUIREMENTS", f"{self.CODE_PREFIX}-INVALID-REQUIREMENTS"),
+                    code=v09_gate("INVALID-FUNCTION-REQUIREMENTS", "FUNCTION-INVALID-REQUIREMENTS"),
                     fix="Ensure that requirements.txt is valid.",
                     source_file=resource.source_path,
                 )

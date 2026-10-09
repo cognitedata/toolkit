@@ -20,13 +20,13 @@ def some_insights(valid_yaml_absolute_path) -> InsightList:
         [
             ConsistencyError(
                 message="summary line\nnext line",
-                code="ERR-1",
+                code="INVALID-FIELD",
                 fix="do this\r\nthen that",
                 source_file=valid_yaml_absolute_path,
             ),
             Recommendation(
                 message='text with "quotes" and, commas',
-                code="REC-2",
+                code="INVALID-VALUE",
                 fix="single",
                 source_file=valid_yaml_absolute_path,
             ),
@@ -50,8 +50,10 @@ class TestInsightList:
     def test_build_error_and_warning_roundtrip(self, valid_yaml_absolute_path) -> None:
         insights = InsightList(
             [
-                BuildError(message="error", code="ERR-1", fix="fix", source_file=valid_yaml_absolute_path),
-                BuildWarning(message="warning", code="WARN-1", fix="fix", source_file=valid_yaml_absolute_path),
+                BuildError(message="error", code="INVALID-FIELD", fix="fix", source_file=valid_yaml_absolute_path),
+                BuildWarning(
+                    message="warning", code="UNRECOGNIZED-FIELD", fix="fix", source_file=valid_yaml_absolute_path
+                ),
             ]
         )
         organization_dir = valid_yaml_absolute_path.parent.parent
@@ -65,7 +67,7 @@ class TestInsightList:
         assert insight.heading == "Invalid file content"
 
     def test_display_location_includes_position(self, valid_yaml_absolute_path) -> None:
-        insight = BuildError(message="m", code="SOME-CODE", source_file=valid_yaml_absolute_path, line=3, column=6)
+        insight = BuildError(message="m", code="INVALID-VALUE", source_file=valid_yaml_absolute_path, line=3, column=6)
 
         assert insight.display_location == f"{insight.display_source_file_cwd}:3:6"
 
@@ -73,8 +75,8 @@ class TestInsightList:
     def test_position_round_trips_through_csv(self, valid_yaml_absolute_path) -> None:
         insights = InsightList(
             [
-                BuildError(message="m", code="A", source_file=valid_yaml_absolute_path, line=3, column=6),
-                BuildError(message="m", code="B", source_file=valid_yaml_absolute_path),
+                BuildError(message="m", code="INVALID-FIELD", source_file=valid_yaml_absolute_path, line=3, column=6),
+                BuildError(message="m", code="INVALID-VALUE", source_file=valid_yaml_absolute_path),
             ]
         )
         organization_dir = valid_yaml_absolute_path.parent.parent
@@ -94,7 +96,7 @@ class TestInsightList:
         assert rows == [
             {
                 "insight_type": "ConsistencyError",
-                "code": "ERR-1",
+                "code": "INVALID-FIELD",
                 "source_file": format_insight_source_file(valid_yaml_absolute_path),
                 "line": "",
                 "column": "",
@@ -103,7 +105,7 @@ class TestInsightList:
             },
             {
                 "insight_type": "Recommendation",
-                "code": "REC-2",
+                "code": "INVALID-VALUE",
                 "source_file": format_insight_source_file(valid_yaml_absolute_path),
                 "line": "",
                 "column": "",

@@ -2,7 +2,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
 from types import SimpleNamespace
-from typing import Literal, TypeVar, cast
+from typing import ClassVar, Literal, TypeVar, cast
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildWarning,
     ConsistencyError,
     Insight,
+    InsightCode,
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags, v09_gate
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, ViewIO
@@ -84,9 +85,9 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     CODE_PREFIX = "DATA-MODELING"
     DISPLAY_NAME = "Data modeling"
     # Codes used when the v09 flag is not enabled
-    UNKNOWN_PROPERTY_REFERENCE = "UNKNOWN-REFERENCE"
-    UNVERIFIED_PROPERTY_REFERENCE = "UNVERIFIED-PROPERTY-REFERENCE"
-    INVALID_PROPERTY_REFERENCE = "INVALID-PROPERTY-REFERENCE"
+    UNKNOWN_PROPERTY_REFERENCE: ClassVar[InsightCode] = "UNKNOWN-REFERENCE"
+    UNVERIFIED_PROPERTY_REFERENCE: ClassVar[InsightCode] = "UNVERIFIED-PROPERTY-REFERENCE"
+    INVALID_PROPERTY_REFERENCE: ClassVar[InsightCode] = "INVALID-PROPERTY-REFERENCE"
 
     def get_status(self) -> RuleSetStatus:
         if not Flags.ALPHA_RULES.is_enabled():

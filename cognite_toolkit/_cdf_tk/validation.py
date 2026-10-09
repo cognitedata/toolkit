@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal, NamedTuple, TypeVar
+from typing import Any, Final, Literal, NamedTuple, TypeAlias, TypeVar
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic_core import ErrorDetails
@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.yaml_classes import BaseModelResource
 
 __all__ = [
+    "ValidationCode",
     "ValidationMessage",
     "humanize_validation_error",
     "humanize_validation_error_categorized",
@@ -21,6 +22,12 @@ __all__ = [
 
 
 T_BaseModel = TypeVar("T_BaseModel", bound=BaseModel)
+
+ValidationCode: TypeAlias = Literal["INVALID-FIELD", "UNRECOGNIZED-FIELD", "UNRECOGNIZED-VALUE"]
+
+INVALID_FIELD_CODE: Final = "INVALID-FIELD"
+UNRECOGNIZED_FIELD_CODE: Final = "UNRECOGNIZED-FIELD"
+UNRECOGNIZED_VALUE_CODE: Final = "UNRECOGNIZED-VALUE"
 
 
 class ValidationMessage(NamedTuple):
@@ -36,7 +43,7 @@ class ValidationMessage(NamedTuple):
     message: str
     category: Literal["error", "warning"]
     loc: tuple[str | int, ...] | None = None
-    code: str = "INVALID-FIELD"
+    code: ValidationCode = INVALID_FIELD_CODE
 
 
 class _GroupEntry(NamedTuple):
@@ -152,7 +159,7 @@ def humanize_validation_error_categorized(
         if core_schema is not None:
             loc = _remove_discriminator_tags(loc, core_schema)
         error_type = item["type"]
-        code = "INVALID-FIELD"
+        code: ValidationCode = INVALID_FIELD_CODE
         category: Literal["error", "warning"] = "error"
         is_metadata_string_value_error = error_type == "string_type" and len(loc) >= 2 and loc[-2] == "metadata"
         # A nested object field left empty in YAML (e.g. "view:" with nothing indented under it) is
@@ -180,7 +187,7 @@ def humanize_validation_error_categorized(
             else:
                 msg = f"Unrecognized field: {loc[-1]!r}"
             category = "warning"
-            code = "UNRECOGNIZED-FIELD"
+            code = UNRECOGNIZED_FIELD_CODE
         elif error_type == "value_error":
             msg = str(item["ctx"]["error"])
         elif error_type == "literal_error":
@@ -192,7 +199,7 @@ def humanize_validation_error_categorized(
             else:
                 msg = f"{prefix} {expected}. Got {item['input']!r}."
             category = "warning"
-            code = "UNRECOGNIZED-VALUE"
+            code = UNRECOGNIZED_VALUE_CODE
         elif error_type == "list_type":
             msg = f"{item['msg']}. Got {item['input']!r}."
         elif is_metadata_string_value_error:
@@ -274,7 +281,7 @@ def humanize_validation_error_categorized(
         if (unknown := group["unknown"]) and for_insights:
             for name in unknown:
                 message = f"{name!r} in '{path}' is not a known field for this resource"
-                errors.append(ValidationMessage(message, "warning", (*entry.loc, name), "UNRECOGNIZED-FIELD"))
+                errors.append(ValidationMessage(message, "warning", (*entry.loc, name), UNRECOGNIZED_FIELD_CODE))
         elif unknown:
             field_word = "field" if len(unknown) == 1 else "fields"
             message = f"Unrecognized {field_word} in {path}: {_quote_names(unknown)}. "
@@ -283,7 +290,7 @@ def humanize_validation_error_categorized(
                     message,
                     "warning",
                     (*entry.loc, unknown[0]) if len(unknown) == 1 else None,
-                    "UNRECOGNIZED-FIELD",
+                    UNRECOGNIZED_FIELD_CODE,
                 )
             )
     return errors
