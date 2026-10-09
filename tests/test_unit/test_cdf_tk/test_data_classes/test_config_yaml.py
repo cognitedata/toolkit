@@ -205,29 +205,29 @@ variable4: "value with #in it" # But a comment after
         assert loaded["variables"]["modules"]["infield"]["shared_variable"] == long_default_value
 
     @pytest.mark.parametrize(
+        "existing_config_content",
         [
             pytest.param(
                 """environment:
-  name: prod
   project: my_project
   validation-type: prod
   selected:
-    - modules/models/
+    - modules/
 """,
                 id="No Variables section",
             ),
             pytest.param(
                 """environment:
-  name: dev
-  project: project-loader-dev
-  validation-type: dev
+  project: my_project
+  validation-type: prod
   selected:
   - modules/
 
-variables:""",
+variables:
+""",
                 id="Empty Variables section",
             ),
-        ]
+        ],
     )
     def test_add_variables_to_no_variables(self, existing_config_content: str) -> None:
         new_default_config_file = """readwrite_source_id: <change_me>
@@ -241,11 +241,11 @@ readonly_source_id: <change_me>"""
         assert (
             config.dump_yaml_with_comments()
             == """environment:
-  name: prod
   project: my_project
   validation-type: prod
   selected:
-    - modules/models/
+  - modules/
+
 variables:
   modules:
     common:
