@@ -1,7 +1,8 @@
 from pathlib import Path
 
+import click
 import pytest
-from cognite.client import data_modeling as dm
+import typer
 from cognite.client.data_classes.data_modeling import SpaceApply
 
 from cognite_toolkit._cdf_tk.apps._dump_app import DumpConfigApp
@@ -16,7 +17,7 @@ from tests.data import NAUGHTY_PROJECT
 
 
 @pytest.fixture()
-def deployed_misbehaving_grandparent(toolkit_client: ToolkitClient) -> dm.DataModelId:
+def deployed_misbehaving_grandparent(toolkit_client: ToolkitClient) -> DataModelId:
     loader = GraphQLIO.create_io(toolkit_client)
     filepaths = loader.find_files(NAUGHTY_PROJECT / MODULES / "difficult_graphql")
     assert len(filepaths) == 1
@@ -35,7 +36,7 @@ class TestDumpResource:
     def test_dump_model_without_version(self, toolkit_client: ToolkitClient, tmp_path: Path) -> None:
         data_model_id = ["cdf_cdm:CogniteCore/v1"] if Flags.V09.is_enabled() else ["cdf_cdm", "CogniteCore"]
         DumpConfigApp().dump_datamodel_cmd(
-            None,
+            typer.Context(click.Command("dump-datamodel")),
             data_model_id,
             tmp_path,
         )
@@ -63,7 +64,7 @@ class TestDumpResource:
 
     @pytest.mark.skip("Failing likely due to changes in the SchemaService validation.")
     def test_dump_misbehaving_grandparent(
-        self, deployed_misbehaving_grandparent: dm.DataModelId, toolkit_client: ToolkitClient, tmp_path: Path
+        self, deployed_misbehaving_grandparent: DataModelId, toolkit_client: ToolkitClient, tmp_path: Path
     ) -> None:
         output_dir = tmp_path / "output"
         cmd = DumpResourceCommand(silent=True)
@@ -85,4 +86,6 @@ class TestDumpResource:
 
         assert "NumericProperty" in views_by_id
         view = views_by_id["NumericProperty"]
-        assert [parent.external_id for parent in view.implements] == ["Property", "ScalarProperty"]
+        implements = view.implements
+        assert implements is not None
+        assert [parent.external_id for parent in implements] == ["Property", "ScalarProperty"]

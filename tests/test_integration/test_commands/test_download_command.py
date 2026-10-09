@@ -50,7 +50,7 @@ class TestDownloadCommand:
         cmd = DownloadCommand(silent=True, skip_tracking=True)
         selected = DataSetSelector(
             kind="Assets",
-            data_set_external_id=migration_hierarchy_minimal.dataset.external_id,
+            data_set_external_id=migration_hierarchy_minimal.data_set_external_id,
             download_dir_name="assets",
         )
         cmd.download(
