@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from cognite.client.data_classes import ClientCredentials
-from cognite.client.data_classes.functions import Function, FunctionCall
+from cognite.client.data_classes.functions import Function
 from cognite.client.data_classes.transformations import Transformation, TransformationDestination
 from pydantic import JsonValue
 from questionary import Choice
@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionCreateResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     Column,
@@ -256,10 +257,10 @@ class TestRunFunction:
                 secrets=function.secrets,
             )
         ]
-        toolkit_client_approval.mock_client.functions.call.return_value = FunctionCall(
+        toolkit_client_approval.mock_client.tool.functions.calls.call.return_value = FunctionCallResponse(
             id=1234567890,
-            status="RUNNING",
-            start_time=int(datetime.now().timestamp() / 1000),
+            status="Running",
+            start_time=1_700_000_000_000,
             function_id=1234567890,
         )
         cmd = RunFunctionCommand()
@@ -273,7 +274,7 @@ class TestRunFunction:
             wait=False,
             config_yaml=RUN_DATA / "config.dev.yaml",
         )
-        assert toolkit_client_approval.mock_client.functions.call.called
+        assert toolkit_client_approval.mock_client.tool.functions.calls.call.called
 
     @patch.dict(
         os.environ,

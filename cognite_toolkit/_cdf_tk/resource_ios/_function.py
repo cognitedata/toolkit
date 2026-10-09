@@ -302,7 +302,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         return dumped
 
     def _is_activated(self, action: str) -> bool:
-        status = self.client.functions.status()
+        status = self.client.tool.functions.status()
         if status.status == "activated":
             return True
         if status.status == "requested":
@@ -318,7 +318,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
                     "Function service has not been activated, activating now, this may take up to 2 hours..."
                 ).get_message()
             )
-            self.client.functions.activate()
+            self.client.tool.functions.activate()
         return False
 
     def create(self, items: Sequence[FunctionRequest]) -> list[FunctionResponse]:

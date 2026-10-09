@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 import questionary
-from cognite.client.data_classes import DataSetUpdate
 from cognite.client.data_classes.data_modeling import Edge
 from pydantic import JsonValue
 from rich import print
@@ -23,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsFailedResponse,
     ItemsRequest,
     ItemsSuccessResponse,
+    RequestMessage,
     ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import (
@@ -678,13 +678,26 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _archive_dataset(client: ToolkitClient, data_set: str) -> None:
-        archived = (
-            DataSetUpdate(external_id=data_set)
-            .external_id.set(str(uuid.uuid4()))
-            .metadata.add({"archived": "true"})
-            .write_protected.set(True)
+        # The Toolkit client does not have a way to update a dataset externalId, so
+        # we use a direct HTTP request to do the update
+        request = RequestMessage(
+            endpoint_url=client.config.create_api_url("/datasets/update"),
+            method="POST",
+            body_content={
+                "items": [
+                    {
+                        "externalId": data_set,
+                        "update": {
+                            "externalId": {"set": str(uuid.uuid4())},
+                            "metadata": {"add": {"archived": "true"}},
+                            "writeProtected": {"set": True},
+                        },
+                    }
+                ]
+            },
         )
-        client.data_sets.update(archived)
+        result = client.http_client.request_single_retries(request)
+        _ = result.get_success_or_raise(request)
         print(f"DataSet {data_set} archived")
 
     @staticmethod

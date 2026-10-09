@@ -9,15 +9,19 @@ from unittest.mock import MagicMock
 
 import pytest
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply, CogniteTimeSeriesApply
 from cognite.client.utils import datetime_to_ms
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, NodeId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceResponse, SpaceResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    InstanceResponse,
+    InstanceSource,
+    NodeRequest,
+    SpaceResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
@@ -153,39 +157,46 @@ def file_ts_nodes(
 ) -> Iterable[tuple[tuple[dm.NodeId, int], tuple[dm.NodeId, int]]]:
     client = toolkit_client
     space = smoke_space.space
-    file = CogniteFileApply(
+    file_external_id = f"test_file_purge_with_unlink_{RUN_UNIQUE_ID}"
+    file_mime_type = "text/plain"
+
+    file_node = NodeRequest(
         space=space,
-        external_id=f"test_file_purge_with_unlink_{RUN_UNIQUE_ID}",
-        name="Test File for Purge with Unlink",
-        mime_type="text/plain",
+        external_id=file_external_id,
+        sources=[
+            InstanceSource(
+                source=ViewId(space="cdf_cdm", external_id="CogniteFile", version="v1"),
+                properties={"name": "Test File for Purge with Unlink", "mimeType": file_mime_type},
+            )
+        ],
     )
-    ts = CogniteTimeSeriesApply(
+    ts_is_step = False
+    ts_type = "numeric"
+    ts_node = NodeRequest(
         space=space,
         external_id=f"test_ts_purge_with_unlink_{RUN_UNIQUE_ID}",
-        name="Test TS for Purge with Unlink",
-        is_step=False,
-        time_series_type="numeric",
+        sources=[
+            InstanceSource(
+                source=ViewId(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"),
+                properties={"name": "Test TS for Purge with Unlink", "isStep": ts_is_step, "type": ts_type},
+            )
+        ],
     )
     classic_file = FileMetadataRequest(
         name="Test File for Purge with Unlink",
-        external_id=file.external_id,
-        mime_type=file.mime_type,
+        external_id=file_external_id,
+        mime_type=file_mime_type,
     )
     classic_ts = TimeSeriesRequest(
-        external_id=ts.external_id,
+        external_id=ts_node.external_id,
         name="Test TS for Purge with Unlink",
-        is_step=ts.is_step,
-        is_string=ts.time_series_type == "string",
+        is_step=ts_is_step,
+        is_string=ts_type == "string",
     )
     file_id: int | None = None
     ts_id: int | None = None
     try:
-        client.tool.instances.delete(
-            [
-                NodeId(space=file.space, external_id=file.external_id),
-                NodeId(space=ts.space, external_id=ts.external_id),
-            ]
-        )
+        client.tool.instances.delete([file_node.as_id(), ts_node.as_id()])
         client.tool.filemetadata.delete([classic_file.as_id()], ignore_unknown_ids=True)
         client.tool.timeseries.delete([classic_ts.as_id()], ignore_unknown_ids=True)
 
@@ -201,37 +212,23 @@ def file_ts_nodes(
         ts_ms = datetime_to_ms(datetime(2020, 1, 1, 0, 0, 0))
         client.time_series.data.insert(datapoints=[(ts_ms, 1.0)], id=ts_id)
 
-        client.tool.filemetadata.set_pending_ids(
-            [
-                PendingInstanceId(
-                    pending_instance_id=NodeId(space=file.space, external_id=file.external_id),
-                    id=file_id,
-                )
-            ]
-        )
+        client.tool.filemetadata.set_pending_ids([PendingInstanceId(pending_instance_id=file_node.as_id(), id=file_id)])
         client.tool.timeseries.set_pending_ids(
             [
                 PendingInstanceId(
-                    pending_instance_id=NodeId(space=ts.space, external_id=ts.external_id),
+                    pending_instance_id=ts_node.as_id(),
                     id=ts_id,
                 )
             ]
         )
 
-        created = client.data_modeling.instances.apply([file, ts])
-        if len(created.nodes) != 2:
-            raise AssertionError(
-                f"Expected 2 data modeling nodes after apply, got {len(created.nodes)} nodes: {created.nodes!r}"
-            )
+        created = client.tool.instances.create([file_node, ts_node])
+        if len(created) != 2:
+            raise AssertionError(f"Expected 2 data modeling nodes after apply, got {len(created)} nodes: {created!r}")
 
-        yield (file.as_id(), file_id), (ts.as_id(), ts_id)
+        yield (file_node.as_id(), created_file.id), (ts_node.as_id(), created_ts.id)
     finally:
-        client.tool.instances.delete(
-            [
-                NodeId(space=file.space, external_id=file.external_id),
-                NodeId(space=ts.space, external_id=ts.external_id),
-            ]
-        )
+        client.tool.instances.delete([file_node.as_id(), ts_node.as_id()])
         if file_id is not None:
             client.tool.filemetadata.unlink_instance_ids([InternalId(id=file_id)])
             client.tool.filemetadata.delete([InternalId(id=file_id)], ignore_unknown_ids=True)
