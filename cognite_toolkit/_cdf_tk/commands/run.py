@@ -220,8 +220,8 @@ if __name__ == "__main__":
                     )
                 result = results[0]
                 duration = time.time() - start_time
-                progress.advance(call_task, advance=duration)
-            progress.advance(call_task, advance=max_time - duration)
+                progress.update(call_task, completed=duration)
+            progress.update(call_task, completed=max_time)
             progress.stop()
         table = Table(title=f"Function {external_id}, id {function.id}")
         table.add_column("Info", justify="left")
