@@ -235,12 +235,13 @@ readonly_source_id: <change_me>"""
 
         my_org, package_modules = self.mock_package(new_default_config_file)
 
-        config = InitConfigYAML.load_existing(existing_config_content, my_org).load_defaults(
+        config = InitConfigYAML.load_existing(existing_config_content, my_org, build_env_name="prod").load_defaults(
             package_modules, {Path("."), Path("common"), Path("common/cdf_auth_readwrite_all")}
         )
         assert (
             config.dump_yaml_with_comments()
             == """environment:
+  name: prod
   project: my_project
   validation-type: prod
   selected:
