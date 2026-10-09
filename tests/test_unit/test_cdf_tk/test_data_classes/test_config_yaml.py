@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path, WindowsPath
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
@@ -201,3 +203,35 @@ variable4: "value with #in it" # But a comment after
         dumped = config.dump_yaml_with_comments()
         loaded = yaml.safe_load(dumped)
         assert loaded["variables"]["modules"]["infield"]["shared_variable"] == long_default_value
+
+    def test_add_variables_non_existing(self) -> None:
+        existing_file = """environment:
+  name: prod
+  project: my_project
+  validation-type: prod
+  selected:
+    - modules/models/
+"""
+        new_default_config_file = """readwrite_source_id: <change_me>
+readonly_source_id: <change_me>"""
+        my_org = Path('org')
+
+        package_modules = MagicMock(spec=Path)
+
+
+        config = InitConfigYAML.load_existing(existing_file, my_org).load_defaults(
+            package_modules, {Path('.'), Path('common'), Path('common/cdf_auth_readwrite_all')}
+        )
+
+        assert config.dump_yaml_with_comments() == """environment:
+  name: prod
+  project: my_project
+  validation-type: prod
+  selected:
+    - modules/models/
+variables:
+  modules:
+    common:
+      readwrite_source_id: <change_me>
+      readonly_source_id: <change_me>
+"""
