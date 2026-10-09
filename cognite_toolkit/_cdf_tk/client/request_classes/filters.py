@@ -160,6 +160,26 @@ class ThreeDAssetMappingTreeIndexFilter(ThreeDAssetMappingFilter):
     tree_indexes: list[int] = Field(max_length=100)
 
 
+class ThreeDNodeNameFilter(Filter):
+    """Filter 3D nodes by exact name.
+
+    ``names`` is limited to 1000 entries.
+    """
+
+    names: list[str] = Field(min_length=1, max_length=1000)
+
+
+class ThreeDNodePropertyFilter(Filter):
+    """Filter 3D nodes by property values.
+
+    ``properties`` maps a category to property names, and each property to the values that
+    satisfy it. Values for one property are combined with OR. Properties and categories are
+    combined with AND. At most 1000 property values are allowed in total.
+    """
+
+    properties: dict[str, dict[str, list[str]]]
+
+
 class SequenceRowFilter(Filter):
     external_id: str
     start: int | None = None
