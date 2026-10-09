@@ -59,6 +59,7 @@ from cognite_toolkit._cdf_tk.client.api.three_d import (
     ThreeDClassicModelsAPI,
     ThreeDClassicRevisionsAPI,
     ThreeDDMAssetMappingAPI,
+    ThreeDNodesAPI,
 )
 from cognite_toolkit._cdf_tk.client.api.transformation_externaldata import TransformationExternalDataSourcesAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_jobs import TransformationJobsAPI
@@ -382,6 +383,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         IntegrationErrorsAPI,
         # Needs a function deployed to test against
         FunctionCallsAPI,
+        # Needs a 3D model processed
+        ThreeDNodesAPI,
     }
 )
 
