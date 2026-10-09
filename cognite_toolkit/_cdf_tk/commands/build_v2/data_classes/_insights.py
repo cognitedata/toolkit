@@ -2,16 +2,27 @@ import csv
 import io
 import json
 import sys
-from collections import UserList, defaultdict
+from collections import Counter, UserList, defaultdict
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal
+from typing import Annotated, Any, ClassVar, Literal, TypeAlias, TypeVar
 
-from pydantic import BaseModel, Field, TypeAdapter, field_serializer, field_validator
-from pydantic_core.core_schema import FieldSerializationInfo, ValidationInfo
+from pydantic import (
+    BaseModel,
+    Field,
+    SerializerFunctionWrapHandler,
+    StringConstraints,
+    TypeAdapter,
+    field_serializer,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
+from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
+from cognite_toolkit._cdf_tk.feature_flags import Flags, v09_gate
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_modules
 
 if sys.version_info >= (3, 11):
@@ -19,7 +30,69 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
+T_Insight = TypeVar("T_Insight", bound="InsightDefinition")
 PATH_SEP_CSV = " | "  # Separator for multiple source files in CSV output
+
+# See technical_decision_log/TDL-0005-insight-code-naming.md for the code conventions.
+InsightCode: TypeAlias = Literal[
+    "MISSING-FILE-SUFFIX",
+    "INVALID-FILE-SUFFIX",
+    "UNREADABLE-FILE",
+    "EMPTY-FILE",
+    "INVALID-FILE-CONTENT",
+    "INVALID-FIELD",
+    "UNRECOGNIZED-FIELD",
+    "UNRECOGNIZED-VALUE",
+    "MISSING-REFERENCED-FILE",
+    "MISSING-REFERENCED-DIRECTORY",
+    "UNRESOLVED-VARIABLE",
+    "INVALID-VARIABLE-PATH",
+    "INVALID-VARIABLE-TYPE",
+    "EXCEEDED-LIMIT",
+    "INVALID-VALUE",
+    "INVALID-FUNCTION-REQUIREMENTS",
+    "UNVERIFIED-REFERENCED-PROPERTY",
+    "MISSING-REFERENCED-PROPERTY",
+    "INVALID-REFERENCED-PROPERTY",
+    "INVALID-REFERENCED-RESOURCE",
+    "MISSING-REFERENCED-RESOURCE",
+    "UNVERIFIED-REFERENCED-RESOURCE",
+    "INVALID-RESOURCE-CHANGE",
+    "UNSUPPORTED-RESOURCE-REMOVAL",
+    "INVALID-DIRECT-RELATION",
+    "UNGOVERNED-RESOURCE",
+    # Legacy codes, used when the v09 flag is not enabled
+    "MISSING-SUFFIX",
+    "INVALID-KIND",
+    "READ-ERROR",
+    "YAML-PARSE-ERROR",
+    "MODEL-SYNTAX-ERROR",
+    "MODEL-SYNTAX-WARNING",
+    "MISSING",
+    "SYNTAX-ERROR",
+    "UNRESOLVED-VARIABLES",
+    "CONFIG_VARIABLE_001",
+    "UNKNOWN-REFERENCE",
+    "UNVERIFIED-REFERENCE",
+    "INVALID-OPERATION",
+    "UNVERIFIED-PROPERTY-REFERENCE",
+    "INVALID-PROPERTY-REFERENCE",
+    "DMS-CONTAINER-001",
+    "AUTH-001",
+    "FUNCTION-CPU-OUT-OF-RANGE",
+    "FUNCTION-MEMORY-OUT-OF-RANGE",
+    "FUNCTION-UNKNOWN-RUNTIME",
+    "FUNCTION-INVALID-REQUIREMENTS",
+    "AGENT-MODEL",
+    "AGENT-UNKNOWN-RUNTIME",
+    "AGENT-RUNTIME-UNSUPPORTED-CAPABILITY",
+    "AGENT-TOOLS-LIMIT",
+    "INFIELD-VIEW-MISSING-PROPERTIES",
+    "INFIELD-UNKNOWN-VIEW-PROPERTY",
+]
+# NEAT issues come with codes defined by the neat package.
+# Remove this once NEAT support is removed from Toolkit.
+NeatInsightCode: TypeAlias = Annotated[str, StringConstraints(pattern=r"^NEAT-")]
 
 
 class InsightDefinition(BaseModel):
@@ -28,55 +101,96 @@ class InsightDefinition(BaseModel):
     insight_type: str = "InsightDefinition"
     severity: ClassVar[int] = 999
 
-    code: str
+    code: InsightCode | NeatInsightCode
     message: str
-    source_files: list[AbsoluteFilePath] = Field(min_length=1)
+    source_file: AbsoluteFilePath
+    line: int | None = None
+    column: int | None = None
     fix: str | None = None
     alpha: bool = False
 
     @property
-    def source_file(self) -> AbsoluteFilePath:
-        """Return the first source file if multiple are present."""
-        return self.source_files[0]
+    def display_source_file_cwd(self) -> str:
+        """Returns the source file path relative to the current working directory."""
+        return format_insight_source_file(self.source_file)
 
     @property
-    def display_source_files_cwd(self) -> str:
-        """Returns a comma-separated string of unique source file paths relative to the current working directory."""
-        unique_paths = list(dict.fromkeys([format_insight_source_file(file) for file in self.source_files]))
-        return ", ".join(unique_paths)
+    def display_location(self) -> str:
+        """The source file, with ':line:column' appended when the position is known.
+
+        The 'path:line:column' format is made clickable by terminals such as the one in VS Code.
+        """
+        location = self.display_source_file_cwd
+        if self.line is None:
+            return location
+        if self.column is None:
+            return f"{location}:{self.line}"
+        return f"{location}:{self.line}:{self.column}"
 
     @property
-    def display_source_files_modules(self) -> str:
-        """Returns a comma-separated string of unique source file paths relative to the organization's modules directory."""
-        unique_paths = list(dict.fromkeys([relative_to_modules(file) for file in self.source_files]))
-        return ", ".join(unique_paths)
+    def display_source_file_modules(self) -> str:
+        """Returns the source file path relative to the organization's modules directory."""
+        return relative_to_modules(self.source_file)
 
-    @field_validator("source_files", mode="before")
+    @property
+    def heading(self) -> str:
+        """A short human-readable heading, derived from the code."""
+        return self.code.replace("-", " ").replace("_", " ").capitalize()
+
+    @property
+    def group_key(self) -> tuple[str, str, str, str | None]:
+        """Insights with the same key are displayed together, listing their locations."""
+        return self.insight_type, self.code, self.message, self.fix
+
+    @model_validator(mode="before")
     @classmethod
-    def _to_absolute_path(cls, value: Any, info: ValidationInfo) -> list[Path]:
-        """Convert source file paths to absolute paths relative to the organization directory."""
-        if isinstance(value, str):
-            # CSV serializes multiple source files into a single separator-joined cell.
-            values = _split_source_files(value, PATH_SEP_CSV)
-        elif isinstance(value, list):
-            # JSON serializes multiple source files into a list of strings.
-            values = [str(file) for file in value]
-        else:
-            raise ValueError(f"Unexpected type for source_files: {type(value)}")
+    def _from_legacy_source_files(cls, data: Any) -> Any:
+        """Insight files written without the v09 flag have a 'source_files' list (or separator-joined cell)."""
+        if not isinstance(data, dict) or "source_files" not in data or "source_file" in data:
+            return data
+        data = dict(data)
+        source_files = data.pop("source_files")
+        if isinstance(source_files, str):
+            source_files = _split_source_files(source_files, PATH_SEP_CSV)
+        if not source_files:
+            raise ValueError("source_files must contain at least one file")
+        # Only the first file is kept. Insights written by this code always have exactly one, and this legacy
+        # format will be removed together with the v09 flag.
+        data["source_file"] = source_files[0]
+        return data
 
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """Without the v09 flag, serialize in the legacy shape: 'source_files' and 'alpha', without positions."""
+        data: dict[str, Any] = handler(self)
+        if Flags.V09.is_enabled():
+            return data
+        data.pop("line", None)
+        data.pop("column", None)
+        data["source_files"] = [data.pop("source_file")]
+        data["alpha"] = self.alpha
+        return data
+
+    @field_validator("line", "column", mode="before")
+    @classmethod
+    def _empty_to_none(cls, value: Any) -> Any:
+        """CSV serializes a missing position as an empty cell."""
+        return None if value == "" else value
+
+    @field_validator("source_file", mode="before")
+    @classmethod
+    def _to_absolute_path(cls, value: Any, info: ValidationInfo) -> Path:
+        """Convert the source file path to an absolute path relative to the organization directory."""
+        if not isinstance(value, str | Path):
+            raise ValueError(f"Unexpected type for source_file: {type(value)}")
         if info.context and isinstance(organization_dir := info.context.get("organization_dir", None), Path):
-            return [(organization_dir / file).resolve() for file in values]
-        return [Path(file).resolve() for file in values]
+            return (organization_dir / value).resolve()
+        return Path(value).resolve()
 
-    @field_serializer("source_files")
-    def as_relative_to_modules(
-        self, source_files: list[AbsoluteFilePath], info: FieldSerializationInfo
-    ) -> list[str] | str:
-        """Serialize the source_files field as a comma-separated string of unique paths relative to the organization's modules directory."""
-        unique_paths = sorted(dict.fromkeys([relative_to_modules(file) for file in source_files]))
-        if info.context and info.context.get("format") == "csv":
-            return PATH_SEP_CSV.join(unique_paths)
-        return unique_paths
+    @field_serializer("source_file")
+    def as_relative_to_modules(self, source_file: AbsoluteFilePath) -> str:
+        """Serialize the source_file field as a path relative to the organization's modules directory."""
+        return relative_to_modules(source_file)
 
     @field_validator("message", "fix", mode="after")
     @classmethod
@@ -155,10 +269,32 @@ class Recommendation(InsightDefinition):
     severity = 10
 
 
+class BuildError(InsightDefinition):
+    """A confirmed problem. The resource cannot be built or deployed as configured."""
+
+    insight_type: Literal["Error"] = "Error"
+    severity = 50
+
+
+class BuildWarning(InsightDefinition):
+    """A potential problem that could not be confirmed, or an issue that does not block the build."""
+
+    insight_type: Literal["Warning"] = "Warning"
+    severity = 20
+
+
 Insight = Annotated[
-    ModelSyntaxError | ModelSyntaxWarning | ConsistencyError | Recommendation | FileReadError | IgnoredFileWarning,
+    ModelSyntaxError
+    | ModelSyntaxWarning
+    | ConsistencyError
+    | Recommendation
+    | FileReadError
+    | IgnoredFileWarning
+    | BuildError
+    | BuildWarning,
     Field(discriminator="insight_type"),
 ]
+
 
 InsightListAdapter: TypeAdapter[list[Insight]] = TypeAdapter(list[Insight])
 
@@ -199,12 +335,12 @@ class InsightList(UserList[Insight]):
     @property
     def has_model_syntax_errors(self) -> bool:
         """Returns True if there are any model syntax errors in the insights."""
-        return any(isinstance(insight, ModelSyntaxError) for insight in self.data)
+        return any(isinstance(insight, (ModelSyntaxError, BuildError)) for insight in self.data)
 
     @property
     def has_errors(self) -> bool:
         """Returns True if there are any errors (model syntax or consistency) in the insights."""
-        return any(isinstance(insight, (ModelSyntaxError, ConsistencyError)) for insight in self.data)
+        return any(isinstance(insight, (ModelSyntaxError, ConsistencyError, BuildError)) for insight in self.data)
 
     @property
     def summary(self) -> dict[str, int]:
@@ -214,9 +350,7 @@ class InsightList(UserList[Insight]):
             Dict with keys: syntax_errors, consistency_errors, recommendations
         """
 
-        by_type = self.by_type()
-
-        return {insight_type.__name__: len(insights) for insight_type, insights in by_type.items()}
+        return dict(Counter(insight.insight_type for insight in self.data))
 
     def dump(self) -> list[dict[str, Any]]:
         """Returns a list of insight dicts with keys insight_type, code, source_file, message, fix."""
@@ -232,7 +366,10 @@ class InsightList(UserList[Insight]):
         Returns:
             CSV formatted string with columns: insight_type, code, source_file, message, fix
         """
-        field_names = list(InsightDefinition.model_fields.keys())
+        field_names = v09_gate(
+            [name for name, field in InsightDefinition.model_fields.items() if not field.exclude],
+            ["insight_type", "code", "message", "source_files", "fix", "alpha"],
+        )
         with io.StringIO() as output:
             writer = csv.DictWriter(
                 output,
@@ -243,7 +380,10 @@ class InsightList(UserList[Insight]):
             )
             writer.writeheader()
             for insight in self.data:
-                writer.writerow(insight.model_dump(context={"format": "csv"}))
+                row = insight.model_dump()
+                if not Flags.V09.is_enabled():
+                    row["source_files"] = PATH_SEP_CSV.join(row["source_files"])
+                writer.writerow(row)
             return output.getvalue()
 
     def to_json(self) -> str:

@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import v09_gate
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     FailedReadExtra,
     ReadExtra,
@@ -321,7 +322,7 @@ def _iter_file_content_read_extras(
         return
     if not source.is_file():
         yield FailedReadExtra(
-            code="MISSING",
+            code=v09_gate("MISSING-REFERENCED-FILE", "MISSING"),
             error=f"File contents path does not exist: {source.as_posix()}",
             source_path=source,
         )
