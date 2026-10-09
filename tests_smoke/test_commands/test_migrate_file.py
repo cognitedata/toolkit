@@ -2,13 +2,14 @@ import time
 from collections.abc import Iterator
 from pathlib import Path
 
+import httpx2
 import pytest
 from cognite.client.data_classes import DataSet
-from cognite.client.data_classes import data_modeling as dm
 from cognite.client.data_classes.data_modeling import Space
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse, ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceId, InternalId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.commands import MigrationCommand
@@ -32,7 +33,7 @@ def classic_file_with_content(
         mime_type=mime_type,
     )
     # Ensure clean state
-    client.data_modeling.instances.delete((smoke_space.space, external_id))
+    client.tool.instances.delete([NodeId(space=smoke_space.space, external_id=external_id)])
     try:
         client.tool.filemetadata.delete([metadata.as_id()], ignore_unknown_ids=True)
     except ToolkitAPIError as e:
@@ -71,7 +72,7 @@ def classic_file_with_content(
     yield created_file
 
     # Cleanup
-    client.data_modeling.instances.delete((smoke_space.space, external_id))
+    client.tool.instances.delete([NodeId(space=smoke_space.space, external_id=external_id)])
     try:
         client.tool.filemetadata.delete([created_file.as_id()], ignore_unknown_ids=True)
     except ToolkitAPIError as e:
@@ -114,7 +115,7 @@ class TestMigrateFile:
         assert file.external_id is not None, "File external ID is None, cannot validate migration."
         # Validate that the file exists in data modeling and has content.
         # In addition, check that the instanceId is set on the file metadata in CDF.
-        nodes = client.data_modeling.instances.retrieve((space, file.external_id)).nodes
+        nodes = client.tool.instances.retrieve([NodeId(space=space, external_id=file.external_id)])
         if len(nodes) != 1:
             raise EndpointAssertionError(
                 "data_modeling.instances.retrieve",
@@ -125,7 +126,19 @@ class TestMigrateFile:
             raise AssertionError("Migrated file instance external ID does not match expected value.")
 
         time.sleep(5)  # Wait for eventual consistency in CDF before downloading content
-        content = client.files.download_bytes(instance_id=dm.NodeId(space, external_id=file.external_id))
+        linked_files = client.tool.filemetadata.retrieve(
+            [InstanceId(instance_id=NodeId(space=space, external_id=file.external_id))],
+            ignore_unknown_ids=True,
+        )
+        if not linked_files:
+            raise AssertionError("Migrated file metadata was not found for content download.")
+        download_links = client.tool.filemetadata.get_download_url([InternalId(id=linked_files[0].id)])
+        if not download_links or not download_links[0].download_url:
+            raise AssertionError("Migrated file has no download URL.")
+        with httpx2.stream("GET", download_links[0].download_url) as response:
+            if response.status_code != 200:
+                raise AssertionError(f"Failed to download migrated file content: {response.status_code}")
+            content = b"".join(response.iter_bytes())
         if content != b"Toolkit classic file content for migration smoke test.":
             raise AssertionError("Migrated file content does not match expected content.")
         migrated_file = client.tool.filemetadata.retrieve([file.as_id()])

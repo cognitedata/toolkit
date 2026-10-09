@@ -35,7 +35,7 @@ def invalid_stream_test_cases() -> Iterable:
             "settings": {"template": {"name": "ImmutableTestStream"}},
             "unknownField": "value",
         },
-        {"Unknown field: 'unknownField'"},
+        {"Unrecognized field: 'unknownField'"},
         id="Unknown field",
     )
     yield pytest.param(

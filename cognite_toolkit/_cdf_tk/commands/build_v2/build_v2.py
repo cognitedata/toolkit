@@ -15,6 +15,8 @@ import yaml
 from pydantic import JsonValue, ValidationError
 from questionary import Choice
 from rich.console import Console, Group, RenderableType
+from rich.markup import escape
+from rich.padding import Padding
 from rich.progress import Progress
 from rich.text import Text
 
@@ -44,10 +46,14 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     ValidationResult,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    BuildError,
+    BuildWarning,
     Insight,
+    InsightDefinition,
     InternalValidatorException,
     ModelSyntaxError,
     ModelSyntaxWarning,
+    Recommendation,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
@@ -67,7 +73,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags, v09_gate
 from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_BASE_IO_BY_FOLDER_NAME, ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     BaseResourceIO,
@@ -88,9 +94,11 @@ from cognite_toolkit._cdf_tk.utils import (
     tmp_build_directory,
 )
 from cognite_toolkit._cdf_tk.utils.file import (
+    YamlPosition,
     read_yaml_content,
     relative_to_if_possible,
     safe_rmtree,
+    yaml_positions,
     yaml_safe_dump,
 )
 from cognite_toolkit._cdf_tk.validation import (
@@ -110,7 +118,7 @@ class ValidationStep:
 SelectionSource = Literal["cli-arg", "config", "interactive"]
 
 # Precompiled once at import time so it isn't recompiled/looked up per file when
-# scanning 100s of resource files. Matches e.g. "# rules: ignore[AUTH-001, AUTH-002]".
+# scanning 100s of resource files. Matches e.g. "# rules: ignore[UNGOVERNED-RESOURCE, INVALID-REFERENCED-RESOURCE]".
 _IGNORE_RULE_PATTERN = re.compile(r"#\s*rules?\s*:\s*ignore\s*\[([^\]]*)\]")
 
 
@@ -607,17 +615,23 @@ class BuildV2Command(ToolkitCommand):
                 ToolkitPanelSection(
                     title="Selection",
                     description=self._module_selection_message(selection_source, config_file_name),
-                    content=[f"[green] -[/] {module.id.as_posix()}" for module in build_source.modules],
+                    content=[
+                        f"[{AuraColor.GREEN.rich}] -[/] {module.id.as_posix()}" for module in build_source.modules
+                    ],
                 )
             )
         summary_sections.append(
             ToolkitPanelSection(
                 title="Loaded",
                 content=[
-                    f"[green]✓[/] [bold]{module_count}[/] modules",
-                    f"[green]✓[/] [bold]{total_files}[/] total resource files",
-                    f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
-                    *([f"[green]✓[/] [bold]{read_variables}[/] read variables"] if read_variables else []),
+                    f"[{AuraColor.GREEN.rich}]✓[/] [bold]{module_count}[/] modules",
+                    f"[{AuraColor.GREEN.rich}]✓[/] [bold]{total_files}[/] total resource files",
+                    f"[{AuraColor.GREEN.rich}]✓[/] [bold]{resource_type_count}[/] resource types",
+                    *(
+                        [f"[{AuraColor.GREEN.rich}]✓[/] [bold]{read_variables}[/] read variables"]
+                        if read_variables
+                        else []
+                    ),
                 ],
             )
         )
@@ -629,10 +643,10 @@ class BuildV2Command(ToolkitCommand):
 
         if ambiguous_selected_count:
             issue_summary_section_content.append(
-                f"[red]✗[/] [bold]{ambiguous_selected_count}[/] user-selected modules had an ambiguous match with multiple module directories."
+                f"[{AuraColor.RED.rich}]✗[/] [bold]{ambiguous_selected_count}[/] user-selected modules had an ambiguous match with multiple module directories."
             )
             table = ToolkitTable(title="Ambiguous Module Selections")
-            table.add_column("Module Name", style="red")
+            table.add_column("Module Name", style=AuraColor.RED.rich)
             table.add_column("Matching Paths", style="dim")
             for selection in build_source.ambiguous_selection:
                 if selection.is_selected:
@@ -644,10 +658,10 @@ class BuildV2Command(ToolkitCommand):
 
         if misplaced_modules_count:
             issue_summary_section_content.append(
-                f"[yellow]![/] [bold]{misplaced_modules_count}[/] modules are located directly under another module (misplaced modules)."
+                f"[{AuraColor.AMBER.rich}]![/] [bold]{misplaced_modules_count}[/] modules are located directly under another module (misplaced modules)."
             )
             table = ToolkitTable(title="Misplaced Modules")
-            table.add_column("Module Path", style="red")
+            table.add_column("Module Path", style=AuraColor.RED.rich)
             table.add_column("Parent Modules", style="dim")
             for misplaced in build_source.misplaced_modules:
                 parents_str = ", ".join(p.as_posix() for p in misplaced.parent_modules)
@@ -656,10 +670,10 @@ class BuildV2Command(ToolkitCommand):
             border_color = max(border_color, 1)
         if non_existing_module_count:
             issue_summary_section_content.append(
-                f"[red]✗[/] [bold]{non_existing_module_count}[/] user-selected module names did not match any module directory (non existing module names)."
+                f"[{AuraColor.RED.rich}]✗[/] [bold]{non_existing_module_count}[/] user-selected module names did not match any module directory (non existing module names)."
             )
             table = ToolkitTable(title="Non-Existing Module Names")
-            table.add_column("Module Name", style="red")
+            table.add_column("Module Name", style=AuraColor.RED.rich)
             table.add_column("Closest Matches", style="dim")
             for non_existing in build_source.non_existing_module_names:
                 matches_str = ", ".join(non_existing.closest_matches) if non_existing.closest_matches else "-"
@@ -670,10 +684,10 @@ class BuildV2Command(ToolkitCommand):
 
         if invalid_variable_count:
             issue_summary_section_content.append(
-                f"[yellow]![/] [bold]{invalid_variable_count}[/] invalid variables found across modules and config YAML (invalid variables)."
+                f"[{AuraColor.AMBER.rich}]![/] [bold]{invalid_variable_count}[/] invalid variables found across modules and config YAML (invalid variables)."
             )
             table = ToolkitTable(title="Invalid Variables")
-            table.add_column("Variable Path", style="red")
+            table.add_column("Variable Path", style=AuraColor.RED.rich)
             table.add_column("Error", style="dim")
             for invalid_var in build_source.invalid_variables:
                 table.add_row(invalid_var.id.as_posix(), invalid_var.error.message)
@@ -682,10 +696,10 @@ class BuildV2Command(ToolkitCommand):
 
         if orphan_yaml_count:
             issue_summary_section_content.append(
-                f"[yellow]![/] [bold]{orphan_yaml_count}[/] YAML files found directly under the modules directory that are not part of any module (orphan YAML files)."
+                f"[{AuraColor.AMBER.rich}]![/] [bold]{orphan_yaml_count}[/] YAML files found directly under the modules directory that are not part of any module (orphan YAML files)."
             )
             table = ToolkitTable(title="Orphan YAML Files")
-            table.add_column("File Path", style="yellow")
+            table.add_column("File Path", style=AuraColor.AMBER.rich)
             for orphan_file in build_source.orphan_yaml_files:
                 table.add_row(orphan_file.as_posix())
             issue_details_section_content.append(table.as_panel_detail())
@@ -912,22 +926,22 @@ class BuildV2Command(ToolkitCommand):
             return (
                 IgnoredFile(
                     filepath=resource_file,
-                    code="MISSING-SUFFIX",
-                    reason=f"Resource file '{resource_file.stem!r}' is ignored because it does not have a suffix to indicate resource kind.",
-                    fix=f"Rename it with an appropriate kind: {resource_file.stem}.<kind>{resource_file.suffix}.",
+                    code=v09_gate("MISSING-FILE-SUFFIX", "MISSING-SUFFIX"),
+                    reason=f"Resource file {resource_file.name!r} is ignored because it does not have a suffix to indicate the resource type.",
+                    fix=f"Rename it with the resource type: {resource_file.stem}.<ResourceType>{resource_file.suffix}.",
                 ),
                 None,
                 None,
             )
-        kind = resource_file.stem.rsplit(".", maxsplit=1)[-1]
-        kind_key = kind.lower()
+        resource_type = resource_file.stem.rsplit(".", maxsplit=1)[-1]
+        kind_key = resource_type.lower()
         if kind_key not in class_by_kind:
             return (
                 None,
                 FailedReadYAMLFile(
                     source_path=resource_file,
-                    code="INVALID-KIND",
-                    error=f"Resource file '{resource_file.name!r}' has unknown resource kind '{kind}' for folder '{resource_folder}'",
+                    code=v09_gate("INVALID-FILE-SUFFIX", "INVALID-KIND"),
+                    error=f"Resource file {resource_file.name!r} has unknown resource type '{resource_type}' for folder '{resource_folder}'",
                 ),
                 None,
             )
@@ -947,7 +961,9 @@ class BuildV2Command(ToolkitCommand):
             content = crud_class.safe_read(resource_file)
         except Exception as read_error:
             return FailedReadYAMLFile(
-                source_path=resource_file, error=f"Failed to read resource file: {read_error!s}", code="READ-ERROR"
+                source_path=resource_file,
+                error=f"Failed to read resource file: {read_error!s}",
+                code=v09_gate("UNREADABLE-FILE", "READ-ERROR"),
             )
         # Ignore rules in file?
         rules_ignore = self._get_ignore_rule_codes(content)
@@ -983,9 +999,13 @@ class BuildV2Command(ToolkitCommand):
         )
 
         if isinstance(parsed_yaml, dict):
-            return self._validate_single_resource(parsed_yaml, result, crud_class, resource_file, variables)
+            return self._validate_single_resource(
+                parsed_yaml, result, crud_class, resource_file, variables, substituted_content
+            )
         elif isinstance(parsed_yaml, list):
-            return self._validate_multi_resource(parsed_yaml, result, crud_class, resource_file, variables)
+            return self._validate_multi_resource(
+                parsed_yaml, result, crud_class, resource_file, variables, substituted_content
+            )
         else:
             raise RuntimeError(
                 "Toolkit bug: parsed YAML content is neither a dict, a list or empty. Please report this issue."
@@ -998,18 +1018,18 @@ class BuildV2Command(ToolkitCommand):
         try:
             return read_yaml_content(content)
         except yaml.YAMLError as yaml_error:
-            if unresolved_variables:
+            error = f"Failed to parse YAML content.\n{yaml_error!s}"
+            if unresolved_variables and not Flags.V09.is_enabled():
+                # With the v09 flag, the unresolved variables are reported on their own.
                 quoted_variables = humanize_collection([f"{variable!r}" for variable in unresolved_variables])
                 error = (
                     f"Failed to parse YAML content. "
                     f"This is likely due to unresolved variables: {quoted_variables}.\n"
                     f"Error: {yaml_error!s}"
                 )
-            else:
-                error = f"Failed to parse YAML content.\n{yaml_error!s}"
             return FailedReadYAMLFile(
                 source_path=resource_file,
-                code="YAML-PARSE-ERROR",
+                code=v09_gate("INVALID-FILE-CONTENT", "YAML-PARSE-ERROR"),
                 error=error,
                 unresolved_variables=unresolved_variables,
             )
@@ -1021,6 +1041,7 @@ class BuildV2Command(ToolkitCommand):
         crud_class: type[BaseResourceIO],
         resource_file: Path,
         variables: list[BuildVariable],
+        content: str,
     ) -> ReadYAMLFile:
         toolkit_resource: ToolkitResource | None = None
         try:
@@ -1028,16 +1049,17 @@ class BuildV2Command(ToolkitCommand):
             identifier = toolkit_resource.as_id()
             result.syntax_warnings.extend(toolkit_resource.syntax_warnings(resource_file))
         except ValidationError as errors:
-            syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file, crud_class.yaml_cls)
-            if syntax_warning is not None:
-                result.syntax_warnings.append(syntax_warning)
+            syntax_error, syntax_warnings = self._create_syntax_insights(
+                errors, resource_file, content, crud_class.yaml_cls
+            )
+            result.syntax_warnings.extend(syntax_warnings)
             result.syntax_error = syntax_error
             try:
                 identifier = crud_class.get_id(parsed_yaml)
             except KeyError:
                 return FailedReadYAMLFile(
                     source_path=result.source_path,
-                    code="READ-ERROR",
+                    code=v09_gate("UNREADABLE-FILE", "READ-ERROR"),
                     error=f"Failed to get identifier for resource file '{resource_file.name!r}' after validation error: {errors!s}",
                 )
 
@@ -1060,14 +1082,16 @@ class BuildV2Command(ToolkitCommand):
         crud_class: type[BaseResourceIO],
         resource_file: Path,
         variables: list[BuildVariable],
+        content: str,
     ) -> ReadYAMLFile:
         toolkit_resources: list[ToolkitResource] = []
         try:
             toolkit_resources = crud_class.validate_list(parsed_yaml, extra="forbid")
         except ValidationError as errors:
-            syntax_error, syntax_warning = self._create_syntax_warning(errors, resource_file, crud_class.yaml_cls)
-            if syntax_warning is not None:
-                result.syntax_warnings.append(syntax_warning)
+            syntax_error, syntax_warnings = self._create_syntax_insights(
+                errors, resource_file, content, crud_class.yaml_cls
+            )
+            result.syntax_warnings.extend(syntax_warnings)
             result.syntax_error = syntax_error
 
         for tk_resource, raw in zip_longest(toolkit_resources, parsed_yaml, fillvalue=None):
@@ -1080,7 +1104,7 @@ class BuildV2Command(ToolkitCommand):
                 except KeyError:
                     return FailedReadYAMLFile(
                         source_path=result.source_path,
-                        code="READ-ERROR",
+                        code=v09_gate("UNREADABLE-FILE", "READ-ERROR"),
                         error=f"Failed to get identifier for resource in file '{resource_file.name!r}' after validation error.",
                     )
             else:
@@ -1135,14 +1159,53 @@ class BuildV2Command(ToolkitCommand):
             output.append(extra_file)
         return output
 
-    def _create_syntax_warning(
-        self, error: ValidationError, resource_file: AbsoluteFilePath, validation_type: Any = None
-    ) -> tuple[ModelSyntaxError | None, ModelSyntaxWarning | None]:
-        categorized_errors = humanize_validation_error_categorized(error, validation_type) or [
+    def _create_syntax_insights(
+        self, error: ValidationError, resource_file: AbsoluteFilePath, content: str, validation_type: Any = None
+    ) -> tuple[ModelSyntaxError | BuildError | None, list[ModelSyntaxWarning | BuildWarning]]:
+        if not Flags.V09.is_enabled():
+            return self._create_syntax_warning(error, resource_file, validation_type)
+        validation_messages = humanize_validation_error_categorized(error, validation_type, for_insights=True) or [
             ValidationMessage("The YAML doesn't follow the required format.", "error")
         ]
-        warning_messages = [item.message for item in categorized_errors if item.category == "warning"]
-        error_messages = [item.message for item in categorized_errors if item.category == "error"]
+        positions = yaml_positions(content)
+        warnings = [item for item in validation_messages if item.category == "warning"]
+        errors = [item for item in validation_messages if item.category == "error"]
+
+        syntax_error = None
+        if errors:
+            line, column = self._single_position(errors, positions)
+            syntax_error = BuildError(
+                code="INVALID-FIELD",
+                message="\n".join(item.message for item in errors),
+                fix="Compare the YAML with reference documentation and make sure it is valid.",
+                source_file=resource_file,
+                line=line,
+                column=column,
+            )
+
+        syntax_warnings: list[ModelSyntaxWarning | BuildWarning] = []
+        for warning in warnings:
+            line, column = self._single_position([warning], positions)
+            syntax_warnings.append(
+                BuildWarning(
+                    code=warning.code,
+                    message=warning.message,
+                    source_file=resource_file,
+                    line=line,
+                    column=column,
+                    fix="Compare the YAML with reference documentation and make sure it is valid. It will be deployed as-is, but may be ignored or rejected by CDF.",
+                )
+            )
+        return syntax_error, syntax_warnings
+
+    def _create_syntax_warning(
+        self, error: ValidationError, resource_file: AbsoluteFilePath, validation_type: Any = None
+    ) -> tuple[ModelSyntaxError | BuildError | None, list[ModelSyntaxWarning | BuildWarning]]:
+        validation_messages = humanize_validation_error_categorized(error, validation_type) or [
+            ValidationMessage("The YAML doesn't follow the required format.", "error")
+        ]
+        warning_messages = [item.message for item in validation_messages if item.category == "warning"]
+        error_messages = [item.message for item in validation_messages if item.category == "error"]
 
         syntax_error = None
         if error_messages:
@@ -1150,18 +1213,29 @@ class BuildV2Command(ToolkitCommand):
                 code="MODEL-SYNTAX-ERROR",
                 message="\n".join(error_messages),
                 fix="Compare the YAML with reference documentation and make sure it is valid.",
-                source_files=[resource_file],
+                source_file=resource_file,
             )
 
-        syntax_warning = None
+        syntax_warnings: list[ModelSyntaxWarning | BuildWarning] = []
         if warning_messages:
-            syntax_warning = ModelSyntaxWarning(
-                code="MODEL-SYNTAX-WARNING",
-                message="\n".join(warning_messages),
-                source_files=[resource_file],
-                fix="Compare the YAML with reference documentation and make sure it is valid. It will be deployed as-is, but may be ignored or rejected by CDF.",
+            syntax_warnings.append(
+                ModelSyntaxWarning(
+                    code="MODEL-SYNTAX-WARNING",
+                    message="\n".join(warning_messages),
+                    source_file=resource_file,
+                    fix="Compare the YAML with reference documentation and make sure it is valid. It will be deployed as-is, but may be ignored or rejected by CDF.",
+                )
             )
-        return syntax_error, syntax_warning
+        return syntax_error, syntax_warnings
+
+    @classmethod
+    def _single_position(
+        cls, messages: list[ValidationMessage], positions: dict[tuple[str | int, ...], YamlPosition]
+    ) -> tuple[int | None, int | None]:
+        """The position of the messages, if they refer to exactly one known location."""
+        if len(messages) != 1 or messages[0].loc is None or (position := positions.get(messages[0].loc)) is None:
+            return None, None
+        return position.line, position.column
 
     def _export_resources(
         self,
@@ -1301,7 +1375,7 @@ class BuildV2Command(ToolkitCommand):
         if unavailable_count:
             border_color = max(border_color, 1)
 
-        table = ToolkitTable(*["Validation", "Status", "Message"])
+        table = ToolkitTable(*["Validating", "Status", "Message"])
         for step in plan:
             status_style = {"ready": "green", "reduced": "yellow", "skip": "yellow", "unavailable": "red"}[
                 step.status.code
@@ -1352,7 +1426,14 @@ class BuildV2Command(ToolkitCommand):
     def _display_insights(self, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None:
         if not insights:
             return
+        if Flags.V09.is_enabled():
+            self._display_grouped_insights(insights, insight_path, console, verbose)
+        else:
+            self._display_insights_legacy(insights, insight_path, console, verbose)
 
+    def _display_insights_legacy(
+        self, insights: InsightList, insight_path: Path, console: Console, verbose: bool
+    ) -> None:
         severity_style = {
             "FileReadError": (AuraColor.RED.rich, "✗"),
             "ConsistencyError": (AuraColor.RED.rich, "✗"),
@@ -1391,7 +1472,7 @@ class BuildV2Command(ToolkitCommand):
                     )
                 insight_subsections.append(
                     ToolkitPanelSection(
-                        title=self._insight_section_title(insight),
+                        title=self._insight_section_title_legacy(insight),
                         content=content,
                     )
                 )
@@ -1449,9 +1530,9 @@ class BuildV2Command(ToolkitCommand):
         return code.replace("-", " ").replace("_", " ").capitalize()
 
     @classmethod
-    def _insight_section_title(cls, insight: Insight) -> str:
+    def _insight_section_title_legacy(cls, insight: Insight) -> str:
         title = cls._humanize_insight_code(insight.code)
-        return f"{title} in {insight.display_source_files_cwd}"
+        return f"{title} in {insight.display_source_file_cwd}"
 
     def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
         """Prioritize one insight per code, then by severity"""
@@ -1475,6 +1556,108 @@ class BuildV2Command(ToolkitCommand):
             prioritized_insights[:max_display_count], key=lambda i: (type(i).severity, i.code or ""), reverse=True
         )
 
+    def _display_grouped_insights(
+        self, insights: InsightList, insight_path: Path, console: Console, verbose: bool
+    ) -> None:
+        severity_style = {
+            "Error": (AuraColor.RED.rich, "✗"),
+            "Warning": (AuraColor.AMBER.rich, "!"),
+            "Recommendation": (AuraColor.SKY.rich, "*"),
+        }
+
+        display_groups = self._select_display_insight_groups(insights, max_display_count=30 if verbose else 5)
+        remaining_count = len(insights) - sum(len(group) for group in display_groups)
+
+        max_border_severity = 0
+        insight_sections: list[RenderableType] = []
+        for group in display_groups:
+            style, icon = severity_style.get(group[0].insight_type, ("white", "•"))
+            insight_sections.append(self._render_insight(group, style, icon))
+            max_border_severity = max(max_border_severity, type(group[0]).severity)
+
+        insight_destination = relative_to_if_possible(insight_path)
+        footer = Text(style="dim")
+        if remaining_count > 0:
+            footer.append(f"... and {remaining_count} more insights not shown.")
+            if not verbose:
+                footer.append(" Add --verbose to show more.")
+            footer.append(" ")
+        footer.append("All insights are written to ")
+        footer.append(insight_destination.as_posix(), style=f"underline {AuraColor.SKY.rich}")
+        ignore_hint = Text(
+            "To ignore a rule, add '# rules: ignore[CODE]' to the file, where [CODE] is the code found above in "
+            "brackets, or list the code under 'ignore' in the [rules] section of cdf.toml to ignore it in all files",
+            style="dim",
+        )
+        insight_sections.append(ToolkitPanelSection(content=[footer, ignore_hint]))
+
+        match max_border_severity:
+            case severity if severity < 15:
+                border_style = AuraColor.GREEN.rich
+            case severity if 15 <= severity <= 35:
+                border_style = AuraColor.AMBER.rich
+            case _:
+                border_style = AuraColor.RED.rich
+        console.print(
+            ToolkitPanel(
+                Group(*insight_sections),
+                title="Build Insights",
+                border_style=border_style,
+            )
+        )
+
+    _MAX_DISPLAY_LOCATIONS: ClassVar[int] = 3
+
+    @classmethod
+    def _render_insight(cls, group: list[Insight], style: str, icon: str) -> RenderableType:
+        """Renders insights with the same message as a heading, followed by their locations, the message and the fix."""
+        insight = group[0]
+        heading = Text.assemble((f"{icon} ", style), (insight.heading, f"bold {style}"), (f"  [{insight.code}]", "dim"))
+        if len(group) > 1:
+            heading.append(f"  ({len(group)})", style="dim")
+
+        locations = list(dict.fromkeys(member.display_location for member in group))
+        shown_locations: list[RenderableType] = [
+            hanging_indent("╰─", Text(location, style=f"underline {AuraColor.SKY.rich}"), marker_style="dim")
+            for location in locations[: cls._MAX_DISPLAY_LOCATIONS]
+        ]
+        if len(locations) > cls._MAX_DISPLAY_LOCATIONS:
+            hidden_count = len(locations) - cls._MAX_DISPLAY_LOCATIONS
+            shown_locations.append(Text(f"   + {hidden_count} more files", style="dim"))
+
+        details: list[RenderableType] = [cls._truncate_for_terminal(insight.message)]
+        if insight.fix:
+            details.append(hanging_indent("→", Text(insight.fix), marker_style=AuraColor.GREEN.rich))
+
+        # The message lines up with the path, which comes after the three characters of the '╰─ ' marker.
+        body = Group(*shown_locations, Padding(Group(*details), (0, 0, 0, 3)))
+        return Padding(Group(heading, body), (0, 0, 1, 0))
+
+    def _select_display_insight_groups(self, insights: InsightList, max_display_count: int) -> list[list[Insight]]:
+        """Groups insights with the same message, and prioritizes one group per code, then by severity."""
+        groups_by_key: dict[tuple[str, str, str, str | None], list[Insight]] = {}
+        for insight in insights:
+            groups_by_key.setdefault(insight.group_key, []).append(insight)
+
+        representatives = InsightList([group[0] for group in groups_by_key.values()])
+        selected = self._select_display_insights(representatives, max_display_count)
+        return [groups_by_key[insight.group_key] for insight in selected]
+
+    @staticmethod
+    def _summary_insight_style(insight_class: type[InsightDefinition]) -> str:
+        if Flags.V09.is_enabled():
+            if insight_class is BuildError:
+                return f"[{AuraColor.RED.rich}]✗[/]"
+            if insight_class is BuildWarning:
+                return f"[{AuraColor.AMBER.rich}]![/]"
+        if insight_class is Recommendation:
+            return f"[{AuraColor.SKY.rich}]*[/]"
+        if insight_class.severity < 15:
+            return f"[{AuraColor.GREEN.rich}]✓[/]"
+        if insight_class.severity <= 35:
+            return f"[{AuraColor.AMBER.rich}]![/]"
+        return f"[{AuraColor.RED.rich}]✗[/]"
+
     def _display_build_summary(
         self, build_folder: BuildFolder, insights: InsightList, console: Console, verbose: bool
     ) -> None:
@@ -1484,22 +1667,17 @@ class BuildV2Command(ToolkitCommand):
             {resource.type for module in build_folder.built_modules for resource in module.resources}
         )
         summary_lines = [
-            f"[green]✓[/] [bold]{module_count}[/] modules",
-            f"[green]✓[/] [bold]{resource_count}[/] resources of {resource_type_count} different types.",
+            f"[{AuraColor.GREEN.rich}]✓[/] [bold]{module_count}[/] modules",
+            f"[{AuraColor.GREEN.rich}]✓[/] [bold]{resource_count}[/] resources of {resource_type_count} different types.",
         ]
-        aggregates = Counter((insight.insight_type, type(insight).severity) for insight in insights)
+        aggregates = Counter(type(insight) for insight in insights)
         max_severity = 0
-        for (insight_type, severity), count in sorted(aggregates.items(), key=lambda i: i[1], reverse=True):
-            max_severity = max(max_severity, severity)
-            match severity:
-                case severity if severity < 15:
-                    insight_style = "[green]✓[/]"
-                case severity if 15 <= severity <= 35:
-                    insight_style = "[yellow]![/]"
-                case _:
-                    insight_style = "[red]✗[/]"
-
-            summary_lines.append(f"{insight_style} [bold]{count}[/] {insight_type}")
+        for insight_class, count in sorted(aggregates.items(), key=lambda i: (-i[0].severity, -i[1])):
+            max_severity = max(max_severity, insight_class.severity)
+            insight_style = self._summary_insight_style(insight_class)
+            insight_type = insight_class.model_fields["insight_type"].default
+            insight_label = insight_type if count == 1 else f"{insight_type}s"
+            summary_lines.append(f"{insight_style} [bold]{count}[/] {insight_label}")
 
         validation_errors = [error for result in build_folder.validation_results for error in result.errors]
         if validation_errors:
@@ -1511,15 +1689,15 @@ class BuildV2Command(ToolkitCommand):
                     if result.name not in first_error_by_validator:
                         first_error_by_validator[result.name] = result.errors[0].message
             summary_lines.append(
-                f"[red]✗[/] [bold]{len(validation_errors)}[/] validation errors "
-                f"across {len(errors_by_validator)} validator(s)"
+                f"[{AuraColor.RED.rich}]✗[/] [bold]{len(validation_errors)}[/] internal validator exceptions "
+                f"across {len(errors_by_validator)} validator(s). Run with --verbose to see details."
             )
             if verbose:
                 for validator_name, count in errors_by_validator.most_common():
-                    summary_lines.append(f"    [red]-[/] {validator_name}: [bold]{count}[/]")
+                    summary_lines.append(f"    [{AuraColor.RED.rich}]-[/] {validator_name}: [bold]{count}[/]")
                     first_error_message = first_error_by_validator.get(validator_name)
                     if first_error_message:
-                        summary_lines.append(f"      [dim]{first_error_message}[/]")
+                        summary_lines.append(f"      [dim]{escape(first_error_message)}[/]")
 
         build_dir_display = relative_to_if_possible(build_folder.build_dir).as_posix()
         if not build_dir_display.endswith("/"):
@@ -1528,16 +1706,16 @@ class BuildV2Command(ToolkitCommand):
         match max_severity:
             case severity if severity < 15:
                 border_color = AuraColor.GREEN.rich
-                recommendation = "[green]✓[/] [bold]Ready to deploy.[/bold]\nNo critical errors found. You can proceed with deployment."
+                recommendation = f"[{AuraColor.GREEN.rich}]✓[/] [bold]Ready to deploy.[/bold]\nNo critical errors found. You can proceed with deployment."
             case severity if 15 <= severity <= 35:
                 recommendation = (
-                    "[yellow]![/] [bold]Proceed with caution.[/bold]\n"
+                    f"[{AuraColor.AMBER.rich}]![/] [bold]Proceed with caution.[/bold]\n"
                     "There are warnings that should be reviewed. Deployment may potentially fail for some resources."
                 )
                 border_color = AuraColor.AMBER.rich
             case _:
                 recommendation = (
-                    "[red]✗[/] [bold]Do not proceed to deploy.[/bold]\n"
+                    f"[{AuraColor.RED.rich}]✗[/] [bold]Do not proceed to deploy.[/bold]\n"
                     "There are critical errors that must be fixed before deployment."
                 )
                 border_color = AuraColor.RED.rich

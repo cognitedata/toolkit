@@ -49,6 +49,7 @@ from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import v09_gate
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
@@ -149,7 +150,7 @@ class ExtractionPipelineIO(
         if not documentation_file.is_file():
             yield FailedReadExtra(
                 source_path=documentation_file,
-                code="MISSING",
+                code=v09_gate("MISSING-REFERENCED-FILE", "MISSING"),
                 error=f"Documentation file {documentation_file.as_posix()} not found or is not a file",
             )
             return

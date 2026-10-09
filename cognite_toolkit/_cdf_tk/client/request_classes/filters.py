@@ -21,6 +21,30 @@ else:
 class Filter(BaseModelRequest): ...
 
 
+class LabelFilter(Filter):
+    """Match resources whose labels contain any or all of the given external IDs."""
+
+    contains_any: list[str] | None = None
+    contains_all: list[str] | None = None
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        contains_any_key = "containsAny" if camel_case else "contains_any"
+        contains_all_key = "containsAll" if camel_case else "contains_all"
+        body: dict[str, Any] = {}
+        if self.contains_any is not None:
+            body[contains_any_key] = [{"externalId": external_id} for external_id in self.contains_any]
+        if self.contains_all is not None:
+            body[contains_all_key] = [{"externalId": external_id} for external_id in self.contains_all]
+        return body
+
+
+class GeoLocationFilter(Filter):
+    """Geographic relation against a GeoJSON geometry in ``shape``."""
+
+    relation: Literal["INTERSECTS", "DISJOINT", "WITHIN"]
+    shape: dict[str, JsonValue]
+
+
 class ClassicFilter(Filter):
     asset_subtree_ids: list[ExternalId | InternalId] | None = None
     data_set_ids: list[ExternalId | InternalId] | None = None
@@ -158,6 +182,26 @@ class ThreeDAssetMapping3DNodeFilter(ThreeDAssetMappingFilter):
 
 class ThreeDAssetMappingTreeIndexFilter(ThreeDAssetMappingFilter):
     tree_indexes: list[int] = Field(max_length=100)
+
+
+class ThreeDNodeNameFilter(Filter):
+    """Filter 3D nodes by exact name.
+
+    ``names`` is limited to 1000 entries.
+    """
+
+    names: list[str] = Field(min_length=1, max_length=1000)
+
+
+class ThreeDNodePropertyFilter(Filter):
+    """Filter 3D nodes by property values.
+
+    ``properties`` maps a category to property names, and each property to the values that
+    satisfy it. Values for one property are combined with OR. Properties and categories are
+    combined with AND. At most 1000 property values are allowed in total.
+    """
+
+    properties: dict[str, dict[str, list[str]]]
 
 
 class SequenceRowFilter(Filter):

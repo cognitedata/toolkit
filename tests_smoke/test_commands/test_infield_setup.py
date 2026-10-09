@@ -10,7 +10,7 @@ from pydantic import JsonValue
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigResponse,
     FeatureConfiguration,
@@ -143,11 +143,15 @@ def _mock_client(
     client.infield.apm_config.list.return_value = list(apm_configs)
     client.infield.cdm_config.list.return_value = list(cdm_configs)
 
-    def retrieve(spaces: list[str]) -> list[SimpleNamespace]:
-        selected = spaces if existing_spaces is None else [space for space in spaces if space in existing_spaces]
+    def retrieve(spaces: list[SpaceId]) -> list[SimpleNamespace]:
+        space_names = [space.space for space in spaces]
+        if existing_spaces is None:
+            selected = space_names
+        else:
+            selected = [space for space in space_names if space in existing_spaces]
         return [SimpleNamespace(space=space, nodes=4, edges=1) for space in selected]
 
-    client.data_modeling.statistics.spaces.retrieve.side_effect = retrieve
+    client.statistics.spaces.retrieve.side_effect = retrieve
     return cast(ToolkitClient, client)
 
 

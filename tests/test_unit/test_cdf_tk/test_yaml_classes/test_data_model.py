@@ -171,7 +171,7 @@ class TestDataModelYAML:
                     "version": "v1",
                     "unknown_field": "some_value",
                 },
-                ["Unknown field: 'unknown_field'"],
+                ["Unrecognized field: 'unknown_field'"],
                 id="single-unknown-field",
             ),
         ],

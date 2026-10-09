@@ -11,13 +11,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.agent import (
     ServicesAvailability,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._agents import AgentRuleSet
 
 
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 class TestAgentRuleSet:
     """Test suite for AgentRuleSet validation."""
 
@@ -98,7 +100,7 @@ class TestAgentRuleSet:
     @pytest.mark.parametrize(
         "model, with_client, expected_codes",
         [
-            pytest.param("gcp/claude-5-opus", True, ["AGENT-MODEL"], id="unknown-model"),
+            pytest.param("gcp/claude-5-opus", True, ["INVALID-VALUE"], id="unknown-model"),
             pytest.param("azure/gpt-4.1", True, [], id="known-model"),
             pytest.param(None, True, [], id="unset-model-is-allowed"),
             pytest.param("some-brand-new-model", False, [], id="no-client-allows-any-model"),
@@ -121,7 +123,7 @@ class TestAgentRuleSet:
         rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet(modules=[])
         errors = list(rule._validate_agent(resource))
         assert [error.code for error in errors] == expected_codes
-        assert all(isinstance(error, ConsistencyError) for error in errors)
+        assert all(isinstance(error, BuildError) for error in errors)
 
     def test_validate_agent_too_many_tools(self, tmp_path: Path, service_availability: ServicesAvailability) -> None:
         yaml_file = tmp_path / "agents" / "agent.yaml"
@@ -142,19 +144,19 @@ class TestAgentRuleSet:
         rule = self._create_rule_with_client(service_availability)
         errors = list(rule._validate_agent(resource))
         assert len(errors) == 1
-        assert errors[0].code == "AGENT-TOOLS-LIMIT"
+        assert errors[0].code == "EXCEEDED-LIMIT"
 
     @pytest.mark.parametrize(
         "runtime_version, extra_fields, with_client, expected_codes",
         [
             pytest.param("1.0.0", {}, True, [], id="known-runtime-version-no-gated-fields"),
-            pytest.param("9.9.9", {}, True, ["AGENT-UNKNOWN-RUNTIME"], id="unknown-runtime-version"),
+            pytest.param("9.9.9", {}, True, ["INVALID-VALUE"], id="unknown-runtime-version"),
             pytest.param("9.9.9", {}, False, [], id="no-client-allows-any-runtime-version"),
             pytest.param(
                 "1.0.0",
                 {"subagents": [{"agentExternalId": "specialist"}]},
                 True,
-                ["AGENT-RUNTIME-UNSUPPORTED-CAPABILITY"],
+                ["INVALID-FIELD"],
                 id="subagents-unsupported-runtime-version",
             ),
             pytest.param(
@@ -168,14 +170,14 @@ class TestAgentRuleSet:
                 "1.0.0",
                 {"skills": ["my_skill"]},
                 True,
-                ["AGENT-RUNTIME-UNSUPPORTED-CAPABILITY"],
+                ["INVALID-FIELD"],
                 id="skills-unsupported-runtime-version",
             ),
             pytest.param(
                 None,
                 {"subagents": [{"agentExternalId": "specialist"}]},
                 True,
-                ["AGENT-RUNTIME-UNSUPPORTED-CAPABILITY"],
+                ["INVALID-FIELD"],
                 id="unset-runtime-version-falls-back-to-unsupported-default",
             ),
             pytest.param(

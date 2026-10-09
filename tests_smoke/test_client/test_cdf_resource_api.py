@@ -40,7 +40,7 @@ from cognite_toolkit._cdf_tk.client.api.integrations import (
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.migration import ResourceViewMappingsAPI
 from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
-from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawTablesAPI
+from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawRowsAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.ruleset_versions import RuleSetVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.rulesets import RuleSetsAPI
 from cognite_toolkit._cdf_tk.client.api.sap_writeback import SAPEndpointsAPI, SAPInstancesAPI, SAPWritebackAPI
@@ -190,6 +190,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWDatabaseResponse,
+    RAWRowRequest,
     RAWTableRequest,
     RAWTableResponse,
 )
@@ -292,8 +293,10 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # Do not support delete.
         DataSetsAPI,
         # RAW tables depend on existing RAW databases, so they are tested together.
+        # RAW rows depend on an existing table and use path parameters for the database and table.
         RawDatabasesAPI,
         RawTablesAPI,
+        RawRowsAPI,
         # Job depends on source and destination, so tested together.
         HostedExtractorJobsAPI,
         # Edge depend on nodes
@@ -1452,6 +1455,64 @@ class TestCDFResourceAPI:
                 client.tool.raw.databases.delete([db.as_id()])
             except ToolkitAPIError:
                 pass
+
+    def test_raw_rows_crudl(self, toolkit_client: ToolkitClient) -> None:
+        """Insert, retrieve, list, and delete one row in a long-lived RAW table.
+
+        The database and table are created on the first run through ``ensure_parent`` and kept afterwards.
+        """
+        client = toolkit_client
+        row = RAWRowRequest(
+            db_name="smoke-persistent-raw-db",
+            table_name="smoke-persistent-raw-table",
+            key="smoke-test-row",
+            columns={"source": "smoke-test"},
+        )
+        row_id = row.as_id()
+        rows = client.tool.raw.tables.rows
+        created = False
+        try:
+            create_endpoint = rows._method_endpoint_map["create"]
+            try:
+                rows.create([row], ensure_parent=True)
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(create_endpoint.path, f"Creating raw row failed: {e!s}") from e
+            created = True
+
+            retrieve_endpoint = rows._method_endpoint_map["retrieve"]
+            try:
+                retrieved = rows.retrieve([row_id])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(retrieve_endpoint.path, f"Retrieving raw row failed: {e!s}") from e
+            if len(retrieved) != 1 or retrieved[0].key != row.key or retrieved[0].columns != row.columns:
+                raise EndpointAssertionError(
+                    retrieve_endpoint.path, "Retrieved raw row does not match the inserted row."
+                )
+            if retrieved[0].db_name != row.db_name or retrieved[0].table_name != row.table_name:
+                raise EndpointAssertionError(
+                    retrieve_endpoint.path, "Retrieved raw row database or table does not match."
+                )
+
+            list_endpoint = rows._method_endpoint_map["list"]
+            try:
+                listed = rows.list(db_name=row.db_name, table_name=row.table_name, limit=100)
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(list_endpoint.path, f"Listing raw rows failed: {e!s}") from e
+            if not any(item.key == row.key and item.columns == row.columns for item in listed):
+                raise EndpointAssertionError(list_endpoint.path, "Inserted raw row was not found when listing rows.")
+
+            delete_endpoint = rows._method_endpoint_map["delete"]
+            try:
+                rows.delete([row_id])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(delete_endpoint.path, f"Deleting raw row failed: {e!s}") from e
+            created = False
+        finally:
+            if created:
+                try:
+                    rows.delete([row_id])
+                except ToolkitAPIError:
+                    pass
 
     def test_datasets_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client

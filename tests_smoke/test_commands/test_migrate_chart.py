@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
+from cognite.client.credentials import OAuthClientCredentials
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.apps import MigrateApp
@@ -18,7 +19,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
-from cognite_toolkit._cdf_tk.client.resource_classes.session import TokenExchangeSessionRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    ClientCredentialsSessionRequest,
+    SessionCreateRequest,
+    TokenExchangeSessionRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.dataio import ChartIO
@@ -75,8 +80,8 @@ def legacy_chart(
         raise AssertionError("Chart migration failed - no monitoring jobs.")
     monitoring_job = chart.monitoring_jobs[0]
 
-    calculation.nonce = client.sessions.create([TokenExchangeSessionRequest()])[0].nonce
-    monitoring_job.nonce = client.sessions.create([TokenExchangeSessionRequest()])[0].nonce
+    calculation.nonce = _create_session_nonce(client)
+    monitoring_job.nonce = _create_session_nonce(client)
     alert_cannels = client.alerts.channels.list()
     if len(alert_cannels) == 0:
         raise AssertionError("Chart migration failed - no alert cannels available.")
@@ -188,6 +193,20 @@ class TestMigrateChart:
             del monitoring_jobs_dump[0]["channelId"]
 
         data_regression.check({"chart": dumped})
+
+
+def _create_session_nonce(client: ToolkitClient) -> str:
+    """Client-credentials projects cannot token-exchange the service principal token."""
+    credentials = client.config.credentials
+    request: SessionCreateRequest
+    if isinstance(credentials, OAuthClientCredentials):
+        request = ClientCredentialsSessionRequest(
+            client_id=credentials.client_id,
+            client_secret=credentials.client_secret,
+        )
+    else:
+        request = TokenExchangeSessionRequest()
+    return client.sessions.create([request])[0].nonce
 
 
 def create_migrate_timeseries(
