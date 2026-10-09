@@ -73,6 +73,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     ThreeDModelIdSelector,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValidationError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.ui import ToolkitPanel, ToolkitTable
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
@@ -94,6 +95,8 @@ from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 from ._helpers import print_help_if_no_subcommand
 
 DEFAULT_LOG_PATH = Path(f"migration_logs_{date.today()!s}")
+if Flags.V09.is_enabled():
+    DEFAULT_LOG_PATH = Path("logs") / DEFAULT_LOG_PATH
 
 CdfProjectOption = Annotated[
     str | None,

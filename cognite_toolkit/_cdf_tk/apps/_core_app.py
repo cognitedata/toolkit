@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.commands._base import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConfigYAML
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
@@ -317,7 +318,7 @@ class CoreApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"deploy_logs_{TODAY!s}"),
+        ] = (Path("logs") / f"deploy_logs_{TODAY!s}") if Flags.V09.is_enabled() else Path(f"deploy_logs_{TODAY!s}"),
         cdf_project: Annotated[
             str | None,
             typer.Option(
