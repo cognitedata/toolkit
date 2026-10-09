@@ -154,6 +154,8 @@ class InsightDefinition(BaseModel):
             source_files = _split_source_files(source_files, PATH_SEP_CSV)
         if not source_files:
             raise ValueError("source_files must contain at least one file")
+        # Only the first file is kept. Insights written by this code always have exactly one, and this legacy
+        # format will be removed together with the v09 flag.
         data["source_file"] = source_files[0]
         return data
 

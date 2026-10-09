@@ -102,6 +102,7 @@ class TestInsightList:
                 "column": "",
                 "message": "summary line\nnext line",
                 "fix": "do this\nthen that",
+                "alpha": "False",
             },
             {
                 "insight_type": "Recommendation",
@@ -111,5 +112,6 @@ class TestInsightList:
                 "column": "",
                 "message": 'text with "quotes" and, commas',
                 "fix": "single",
+                "alpha": "False",
             },
         ]
