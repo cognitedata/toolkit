@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     NodeRequest,
     SpaceResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import Datapoint, DatapointsRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
@@ -210,7 +211,9 @@ def file_ts_nodes(
         created_ts = client.tool.timeseries.create([classic_ts])[0]
         ts_id = created_ts.id
         ts_ms = datetime_to_ms(datetime(2020, 1, 1, 0, 0, 0))
-        client.time_series.data.insert(datapoints=[(ts_ms, 1.0)], id=ts_id)
+        client.tool.timeseries.datapoints.create(
+            [DatapointsRequest(id=ts_id, datapoints=[Datapoint(timestamp=ts_ms, value=1.0)])]
+        )
 
         client.tool.filemetadata.set_pending_ids([PendingInstanceId(pending_instance_id=file_node.as_id(), id=file_id)])
         client.tool.timeseries.set_pending_ids(
