@@ -7,10 +7,7 @@ from functools import cached_property
 from typing import Any, Generic, cast
 
 from cognite.client.data_classes import filters
-from cognite.client.data_classes.aggregations import UniqueResult
-from cognite.client.data_classes.assets import AssetProperty
 from cognite.client.data_classes.documents import SourceFileProperty
-from cognite.client.data_classes.events import EventProperty
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -23,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     RootLocationConfiguration,
     RootLocationFeatureToggles,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.classic_aggregate import ClassicAggregateUniqueBucket
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
     NodeId,
@@ -32,6 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.documents import DocumentUniqueBucket
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     INFIELD_ON_CDM_DATA_MODEL,
     DataStorage,
@@ -264,11 +263,11 @@ class SourceSystemCreator(MigrationCreator):
         all_existing = self.client.migration.created_source_system.list(limit=None)
         return {node.source: NodeId(space=node.space, external_id=node.external_id) for node in all_existing}
 
-    def _lookup_sources(self) -> Iterable[UniqueResult]:
-        yield from self.client.assets.aggregate_unique_values(AssetProperty.source, filter=self._simple_filter)
-        yield from self.client.events.aggregate_unique_values(property=EventProperty.source, filter=self._simple_filter)
-        yield from self.client.documents.aggregate_unique_values(
-            SourceFileProperty.source, filter=self._advanced_filter, limit=1000
+    def _lookup_sources(self) -> Iterable[ClassicAggregateUniqueBucket | DocumentUniqueBucket]:
+        yield from self.client.tool.assets.unique(("source",), filter=self._simple_filter)
+        yield from self.client.tool.events.unique(("source",), filter=self._simple_filter)
+        yield from self.client.tool.documents.unique(
+            ("sourceFile", "source"), filter=self._advanced_filter.dump(), limit=1000
         )
 
     @cached_property

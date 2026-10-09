@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import ConstraintOrIndexState
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
-    ConsistencyError,
+    InsightDefinition,
     InternalValidatorException,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
@@ -230,6 +230,7 @@ class TestAlphaRulesEnabled:
 
 
 @pytest.mark.usefixtures("alpha_rules_enabled")
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 class TestContainerPropertyReferences:
     def test_local_container_property_is_accepted(self, tmp_path: Path) -> None:
         container_file = _write(tmp_path, "MyContainer.container.yaml", CONTAINER_YAML)
@@ -251,9 +252,9 @@ class TestContainerPropertyReferences:
         view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
         rule = DataModelingRuleSet(modules=[_module([(view_file, ViewIO, VIEW_ID)])])
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, ConsistencyError)]
+        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "my_space:MyContainer.name" in insight.message) for insight in insights] == [
-            (DataModelingRuleSet.UNVERIFIED_PROPERTY_REFERENCE, True)
+            ("UNVERIFIED-REFERENCED-PROPERTY", True)
         ]
 
     def test_property_found_in_cdf_is_accepted(self, tmp_path: Path) -> None:
@@ -268,9 +269,9 @@ class TestContainerPropertyReferences:
         client = _client(containers=[_cdf_container({})])
         rule = DataModelingRuleSet(modules=[_module([(view_file, ViewIO, VIEW_ID)])], client=client)
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, ConsistencyError)]
+        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "my_space:MyContainer.name" in insight.message) for insight in insights] == [
-            (DataModelingRuleSet.UNKNOWN_PROPERTY_REFERENCE, True)
+            ("MISSING-REFERENCED-PROPERTY", True)
         ]
 
     def test_container_retrieve_error_is_reported(self, tmp_path: Path) -> None:
@@ -286,6 +287,7 @@ class TestContainerPropertyReferences:
 
 
 @pytest.mark.usefixtures("alpha_rules_enabled")
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 class TestReverseDirectRelations:
     def test_local_view_direct_relation_is_accepted(self, tmp_path: Path) -> None:
         container_file = _write(tmp_path, "MyContainer.container.yaml", DIRECT_CONTAINER_YAML)
@@ -321,18 +323,18 @@ class TestReverseDirectRelations:
             ]
         )
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, ConsistencyError)]
+        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "not a direct relation" in insight.message) for insight in insights] == [
-            (DataModelingRuleSet.INVALID_PROPERTY_REFERENCE, True)
+            ("INVALID-REFERENCED-PROPERTY", True)
         ]
 
     def test_missing_reverse_without_client_is_unverified(self, tmp_path: Path) -> None:
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
         rule = DataModelingRuleSet(modules=[_module([(reverse_view, ViewIO, VIEW_ID)])])
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, ConsistencyError)]
+        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "direct relation" in insight.message) for insight in insights] == [
-            (DataModelingRuleSet.UNVERIFIED_PROPERTY_REFERENCE, True)
+            ("UNVERIFIED-REFERENCED-PROPERTY", True)
         ]
 
     def test_direct_relation_found_on_cdf_view_is_accepted(self, tmp_path: Path) -> None:
@@ -347,19 +349,20 @@ class TestReverseDirectRelations:
         client = _client(views=[_cdf_view(OTHER_VIEW_ID, {"related": _view_property("related", direct=False)})])
         rule = DataModelingRuleSet(modules=[_module([(reverse_view, ViewIO, VIEW_ID)])], client=client)
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, ConsistencyError)]
-        assert [insight.code for insight in insights] == [DataModelingRuleSet.INVALID_PROPERTY_REFERENCE]
+        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        assert [insight.code for insight in insights] == ["INVALID-REFERENCED-PROPERTY"]
 
     def test_reverse_missing_in_cdf_is_unknown(self, tmp_path: Path) -> None:
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
         client = _client(views=[_cdf_view(OTHER_VIEW_ID, {})])
         rule = DataModelingRuleSet(modules=[_module([(reverse_view, ViewIO, VIEW_ID)])], client=client)
 
-        insights = [insight for insight in rule.validate() if isinstance(insight, ConsistencyError)]
-        assert [insight.code for insight in insights] == [DataModelingRuleSet.UNKNOWN_PROPERTY_REFERENCE]
+        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        assert [insight.code for insight in insights] == ["MISSING-REFERENCED-PROPERTY"]
 
 
 @pytest.mark.usefixtures("alpha_rules_enabled")
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 class TestDataModelingChangesMove:
     def test_state_changes_run_here_and_are_skipped_by_dependency_rules(self, tmp_path: Path) -> None:
         container_file = _write(tmp_path, "MyContainer.container.yaml", CONTAINER_REMOVED_PROPERTY_YAML)
@@ -375,7 +378,7 @@ class TestDataModelingChangesMove:
         data_modeling = [
             insight
             for insight in DataModelingRuleSet(modules=[module], client=client).validate()
-            if isinstance(insight, ConsistencyError)
+            if isinstance(insight, InsightDefinition)
         ]
         dependencies = list(DependencyRuleSet(modules=[module], client=client).validate())
 
@@ -383,4 +386,4 @@ class TestDataModelingChangesMove:
             [insight.code for insight in data_modeling],
             "is missing properties 'description'" in data_modeling[0].message,
             dependencies,
-        ) == ([DependencyRuleSet.INVALID_OPERATION_CODE], True, [])
+        ) == (["UNSUPPORTED-RESOURCE-REMOVAL"], True, [])
