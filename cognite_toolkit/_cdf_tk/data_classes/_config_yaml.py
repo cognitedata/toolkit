@@ -369,9 +369,9 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         else:
             raise ToolkitEnvError(f"Missing environment in {existing_config_yaml!s}")
 
+        entries: dict[tuple[str, ...], ConfigEntry] = {}
         if cls._variables in config and isinstance(config[cls._variables], dict) and config[cls._variables]:
             modules = config[cls._variables]
-            entries: dict[tuple[str, ...], ConfigEntry] = {}
             for key_path, value in flatten_dict(modules).items():
                 full_key_path = (cls._variables, *key_path)
                 if full_key_path in entries:
@@ -383,8 +383,6 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
                         current_value=value,
                         current_comment=comments.get(full_key_path),
                     )
-        else:
-            entries = {}
 
         return cls(
             environment=environment,
