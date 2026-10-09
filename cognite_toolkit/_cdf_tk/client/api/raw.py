@@ -355,7 +355,12 @@ class RawRowsAPI(CDFResourceAPI[RAWRowResponse]):
                 row.db_name = item.db_name
                 row.table_name = item.table_name
                 result.append(row)
-            elif ignore_unknown_ids and isinstance(response, FailedResponse) and 400 <= response.status_code < 500:
+            elif (
+                ignore_unknown_ids
+                and isinstance(response, FailedResponse)
+                and 400 <= response.status_code < 500
+                and response.status_code != 429
+            ):
                 continue
             else:
                 _ = response.get_success_or_raise(request)
