@@ -65,7 +65,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrationCSVFileSelector,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
+from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, LOGS_DIRECTORY
 from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO, InstanceIO
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasExternalIdSelector,
@@ -96,7 +96,7 @@ from ._helpers import print_help_if_no_subcommand
 
 DEFAULT_LOG_PATH = Path(f"migration_logs_{date.today()!s}")
 if Flags.V09.is_enabled():
-    DEFAULT_LOG_PATH = Path("logs") / DEFAULT_LOG_PATH
+    DEFAULT_LOG_PATH = LOGS_DIRECTORY / DEFAULT_LOG_PATH
 
 CdfProjectOption = Annotated[
     str | None,

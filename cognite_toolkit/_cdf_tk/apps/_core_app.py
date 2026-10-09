@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.commands import (
 from cognite_toolkit._cdf_tk.commands._base import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConfigYAML
+from cognite_toolkit._cdf_tk.constants import LOGS_DIRECTORY
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
@@ -318,7 +319,7 @@ class CoreApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = (Path("logs") / f"deploy_logs_{TODAY!s}") if Flags.V09.is_enabled() else Path(f"deploy_logs_{TODAY!s}"),
+        ] = (LOGS_DIRECTORY / f"deploy_logs_{TODAY!s}") if Flags.V09.is_enabled() else Path(f"deploy_logs_{TODAY!s}"),
         cdf_project: Annotated[
             str | None,
             typer.Option(
@@ -409,7 +410,7 @@ class CoreApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"clean_logs_{TODAY!s}"),
+        ] = (LOGS_DIRECTORY / f"clean_logs_{TODAY!s}") if Flags.V09.is_enabled() else Path(f"clean_logs_{TODAY!s}"),
         cdf_project: Annotated[
             str | None,
             typer.Option(
