@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 import pytest
+from cognite.client import CogniteClient
 from cognite.client.data_classes import EventList, EventWrite, EventWriteList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -15,7 +16,7 @@ from tests.test_integration.helpers import retry_on_deadlock
 
 
 @pytest.fixture(scope="session")
-def three_events(toolkit_client: ToolkitClient) -> EventList:
+def three_events(cognite_client: CogniteClient) -> EventList:
     events = EventWriteList(
         [
             EventWrite(
@@ -26,11 +27,11 @@ def three_events(toolkit_client: ToolkitClient) -> EventList:
             for i in range(3)
         ]
     )
-    existing = toolkit_client.events.retrieve_multiple(external_ids=events.as_external_ids(), ignore_unknown_ids=True)
+    existing = cognite_client.events.retrieve_multiple(external_ids=events.as_external_ids(), ignore_unknown_ids=True)
     if len(existing) == len(events):
         return existing
     existing_ids = existing.as_external_ids()
-    created = toolkit_client.events.create([e for e in events if e.external_id not in existing_ids])
+    created = cognite_client.events.create([e for e in events if e.external_id not in existing_ids])
     existing.extend(created)
     return existing
 

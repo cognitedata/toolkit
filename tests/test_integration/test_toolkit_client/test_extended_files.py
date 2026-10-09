@@ -1,50 +1,75 @@
-from cognite.client.data_classes import FileMetadata, FileMetadataWrite
-from cognite.client.data_classes.data_modeling import NodeApplyResultList
-from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
+import tempfile
+import time
+from pathlib import Path
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
 class TestExtendedFilesAPI:
     def test_set_pending_instance_id(self, dev_cluster_client: ToolkitClient, dev_space: str) -> None:
-        """Happy path for setting a pending instance ID on a file
+        """Happy path for setting a pending instance ID on a file.
 
         1. Create file with content.
-        3. Set pending instance ID.
-        4. Create a CogniteFile
-        5. Retrieve file content using the Node ID.
+        2. Set pending instance ID.
+        3. Create a CogniteFile.
+        4. Retrieve file content using the node ID.
         """
         client = dev_cluster_client
-        metadata = FileMetadataWrite(
-            external_id=f"ts_toolkit_integration_test_happy_path_files_{RUN_UNIQUE_ID}",
+        external_id = f"ts_toolkit_integration_test_happy_path_files_{RUN_UNIQUE_ID}"
+        metadata = FileMetadataRequest(
+            external_id=external_id,
             name="Toolkit Integration Test Happy Path Files",
             mime_type="text/plain",
         )
-        cognite_file = CogniteFileApply(
+        cognite_file = CogniteFileRequest(
             space=dev_space,
-            external_id=metadata.external_id,
+            external_id=external_id,
             name="Toolkit Integration Test Happy Path",
             mime_type="text/plain",
         )
         content = b"Hello, this is a test file's content."
-        created: FileMetadata | None = None
-        created_dm: NodeApplyResultList | None = None
+        created: FileMetadataResponse | None = None
+        created_dm = False
         try:
-            created, _ = client.files.create(metadata)
-            client.files.upload_content_bytes(content, external_id=created.external_id)
+            created_files = client.tool.filemetadata.create([metadata])
+            assert len(created_files) == 1
+            created = created_files[0]
+            assert created.upload_url is not None
+            client.tool.filemetadata.upload_file(content, created.upload_url, created.mime_type)
 
-            updated = client.files.set_pending_ids(cognite_file.as_id(), id=created.id)
-            assert updated.pending_instance_id == cognite_file.as_id()
+            node_ref = NodeId(space=dev_space, external_id=external_id)
+            updated = client.tool.filemetadata.set_pending_ids(
+                [PendingInstanceId(pending_instance_id=node_ref, id=created.id)]
+            )
+            assert len(updated) == 1
+            assert updated[0].pending_instance_id == node_ref
 
-            created_dm = client.data_modeling.instances.apply(cognite_file).nodes
+            client.tool.cognite_files.create([cognite_file], replace=True)
+            created_dm = True
 
-            downloaded_bytes = client.files.download_bytes(instance_id=cognite_file.as_id())
+            linked: FileMetadataResponse | None = None
+            for _ in range(30):
+                retrieved = client.tool.filemetadata.retrieve([cognite_file.as_instance_id()], ignore_unknown_ids=True)
+                linked = retrieved[0] if retrieved else None
+                if linked is not None:
+                    break
+                time.sleep(1)
+            assert linked is not None, "File metadata was not linked to the data model instance."
+            assert linked.id == created.id
 
-            assert downloaded_bytes == content
+            downloads = client.tool.filemetadata.get_download_url([linked.as_internal_id()])
+            assert downloads[0].download_url is not None
+            with tempfile.TemporaryDirectory() as tmp:
+                destination = Path(tmp) / "file.txt"
+                client.tool.filemetadata.download_file(downloads[0].download_url, destination)
+                assert destination.read_bytes() == content
         finally:
-            if created is not None and created_dm is None:
-                client.files.delete(external_id=metadata.external_id)
-            if created_dm is not None:
-                # This will delete the CogniteFile and the asset-centric file
-                client.data_modeling.instances.delete(cognite_file.as_id())
+            if created is not None and not created_dm:
+                client.tool.filemetadata.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
+            if created_dm:
+                client.tool.cognite_files.delete([cognite_file.as_id()])
