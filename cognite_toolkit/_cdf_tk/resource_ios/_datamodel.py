@@ -173,7 +173,7 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[SpaceRequest]) -> ScopeDefinition:
-        return AllScope()
+        return space_scoped_resource(items)
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
