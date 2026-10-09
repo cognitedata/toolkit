@@ -276,7 +276,30 @@ class KafkaSource(HostedExtractorSource):
     )
 
 
+class MQTTBroker(HostedExtractorSource):
+    type: Literal["mqtt_broker"] = Field("mqtt_broker")
+    external_id: str = Field(
+        description="The external ID provided by the client. Must be unique for the resource type.",
+        max_length=255,
+    )
+    name: str | None = Field(
+        None,
+        description="Name of the MQTT broker.",
+        max_length=50,
+    )
+    description: str | None = Field(
+        None,
+        description="Description of the MQTT broker.",
+        max_length=500,
+    )
+    metadata: dict[str, str] | None = Field(
+        None,
+        description="Metadata of the MQTT broker.",
+        max_length=16,
+    )
+
+
 HostedExtractorSourceYAML = Annotated[
-    EventHubSource | RESTSource | MQTT3Source | MQTT5Source | KafkaSource,
+    EventHubSource | RESTSource | MQTT3Source | MQTT5Source | KafkaSource | MQTTBroker,
     Field(discriminator="type"),
 ]
