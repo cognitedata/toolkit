@@ -3,7 +3,6 @@ from typing import Any
 
 import pytest
 import yaml
-from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
@@ -11,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     FeatureConfiguration,
     RootLocationConfiguration,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.classic_aggregate import ClassicAggregateUniqueBucket
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
     NodeId,
@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.documents import DocumentUniqueBucket
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import CreatedSourceSystem
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
@@ -166,13 +167,20 @@ class TestCreator:
     ) -> None:
         toolkit_client_approval.append(DataModelResponse, COGNITE_MIGRATION_MODEL)
         toolkit_client_approval.append(ViewResponse, VIEWS)
-        asset_sources = UniqueResultList([UniqueResult(100, ["aveva"]), UniqueResult(50, ["custom"])])
-        event_sources = UniqueResultList([UniqueResult(400, ["sap"]), UniqueResult(200, ["internal"])])
-        file_sources = UniqueResultList([UniqueResult(1000, ["sharepoint"])])
+        asset_sources = [
+            ClassicAggregateUniqueBucket(count=100, values=["aveva"]),
+            ClassicAggregateUniqueBucket(count=50, values=["custom"]),
+        ]
+        event_sources = [
+            ClassicAggregateUniqueBucket(count=400, values=["sap"]),
+            ClassicAggregateUniqueBucket(count=200, values=["internal"]),
+        ]
+        file_sources = [DocumentUniqueBucket(count=1000, values=["sharepoint"])]
         client = toolkit_client_approval.mock_client
-        client.assets.aggregate_unique_values.return_value = asset_sources
-        client.events.aggregate_unique_values.return_value = event_sources
-        client.documents.aggregate_unique_values.return_value = file_sources
+        client.lookup.data_sets.id.return_value = 1
+        client.tool.assets.unique.return_value = asset_sources
+        client.tool.events.unique.return_value = event_sources
+        client.tool.documents.unique.return_value = file_sources
         client.migration.created_source_system.list.return_value = [
             CreatedSourceSystem(
                 space="my_other_space",

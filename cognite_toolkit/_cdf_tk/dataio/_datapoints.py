@@ -10,7 +10,6 @@ from cognite.client._proto.data_points_pb2 import (
     StringDatapoint,
     StringDatapoints,
 )
-from cognite.client.data_classes import TimeSeriesFilter
 from cognite.client.data_classes.filters import Exists
 from cognite.client.data_classes.time_series import TimeSeriesProperty
 from pydantic import ConfigDict
@@ -205,13 +204,13 @@ class DatapointsIO(
 
     def count(self, selector: DataPointsSelector) -> int | None:
         if isinstance(selector, DataPointsDataSetSelector):
-            return self.client.time_series.aggregate_count(
-                filter=TimeSeriesFilter(
-                    data_set_ids=[{"externalId": selector.data_set_external_id}],
-                    is_string=True if selector.data_type == "string" else False,
-                ),
+            return self.client.tool.timeseries.count(
+                filter={
+                    "dataSetIds": [{"externalId": selector.data_set_external_id}],
+                    "isString": selector.data_type == "string",
+                },
                 # We only want time series that have externalID set.
-                advanced_filter=Exists(TimeSeriesProperty.external_id),
+                advanced_filter=Exists(TimeSeriesProperty.external_id).dump(),
             )
         return None
 

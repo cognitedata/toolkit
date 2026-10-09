@@ -9,7 +9,6 @@ from cognite.client.data_classes import (
     UserProfile,
     UserProfileList,
 )
-from cognite.client.data_classes.aggregations import CountValue
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics, SpaceStatisticsList
 from questionary import Choice
 
@@ -23,6 +22,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
     ContainerId,
     DataModelResponse,
+    InstanceAggregateResponse,
+    InstanceAggregateResult,
+    InstanceAggregateValue,
     NodeResponse,
     SpaceResponse,
     TextProperty,
@@ -506,7 +508,7 @@ class TestInteractiveCanvasSelect:
             MockQuestionary(InteractiveCanvasSelect.__module__, monkeypatch, answers),
         ):
             client.canvas.list.return_value = [canvas for canvas in cdf_canvases if canvas.external_id in selected_cdf]
-            client.iam.user_profiles.list.return_value = UserProfileList(
+            client.user_profiles.list.return_value = UserProfileList(
                 [
                     UserProfile(user_identifier="homer", display_name="Homer Simpson", last_updated_time=1),
                     UserProfile(user_identifier="marge", display_name="Marge Simpson", last_updated_time=1),
@@ -615,7 +617,7 @@ class TestInteractiveChartSelect:
             # Only include charts whose external_id is in selected_cdf
             client.tool.token.verify_acls.return_value = []
             client.charts.list.return_value = [chart for chart in cdf_charts if chart.external_id in selected_cdf]
-            client.iam.user_profiles.list.return_value = UserProfileList(
+            client.user_profiles.list.return_value = UserProfileList(
                 [
                     UserProfile(user_identifier="homer", display_name="Homer Simpson", last_updated_time=1),
                     UserProfile(user_identifier="marge", display_name="Marge Simpson", last_updated_time=1),
@@ -624,6 +626,17 @@ class TestInteractiveChartSelect:
             selector = InteractiveChartSelect(client)
             selected_external_ids = selector.select_external_ids()
         assert selected_external_ids == expected_selected
+
+
+def _instance_count(value: float) -> InstanceAggregateResponse:
+    return InstanceAggregateResponse(
+        items=[
+            InstanceAggregateResult(
+                instance_type="node",
+                aggregates=[InstanceAggregateValue(aggregate="count", property="externalId", value=value)],
+            )
+        ]
+    )
 
 
 class TestDataModelingInteractiveSelect:
@@ -690,7 +703,7 @@ class TestDataModelingInteractiveSelect:
             if space is None:
                 client.tool.spaces.list.return_value = spaces
             client.tool.views.list.return_value = views
-            client.data_modeling.statistics.spaces.list.return_value = space_stats
+            client.statistics.spaces.list.return_value = space_stats
 
             selector = DataModelingSelect(client, "test_operation")
             selected_view = selector.select_view(multiselect=multiselect, filter=ViewSelectFilter(schema_space=space))
@@ -734,7 +747,7 @@ class TestDataModelingInteractiveSelect:
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
             client.tool.spaces.list.return_value = [space]
-            client.data_modeling.statistics.spaces.list.return_value = space_stats
+            client.statistics.spaces.list.return_value = space_stats
             client.tool.views.list.return_value = views
             selector = DataModelingSelect(client, "test_operation")
             selected_view = selector.select_view(filter=ViewSelectFilter(mapped_container=mapped_container))
@@ -750,7 +763,7 @@ class TestDataModelingInteractiveSelect:
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
             client.tool.spaces.list.return_value = [space]
-            client.data_modeling.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
+            client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
             client.tool.views.list.return_value = []
             selector = DataModelingSelect(client, "test_operation")
             with pytest.raises(ToolkitMissingResourceError) as exc_info:
@@ -790,25 +803,25 @@ class TestDataModelingInteractiveSelect:
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
             client.tool.spaces.list.return_value = spaces
-            client.data_modeling.statistics.spaces.list.return_value = SpaceStatisticsList(stats)
+            client.statistics.spaces.list.return_value = SpaceStatisticsList(stats)
             selector = DataModelingSelect(client, "test_operation")
             selected_space = selector.select_schema_space(include_global=True)
 
         assert selected_space.space == "space2"
 
     def test_select_instance_spaces_one_space_with_instances(self, monkeypatch) -> None:
-        def mock_aggregate(view_id, count, instance_type, space):
-            if space == "space1":
-                return CountValue("externalId", 5)
-            return CountValue("externalId", 0)
+        def mock_aggregate(view_id: ViewId, **kwargs: object) -> InstanceAggregateResponse:
+            filter_ = kwargs["filter"]
+            space = filter_["equals"]["value"] if isinstance(filter_, dict) else None
+            return _instance_count(5 if space == "space1" else 0)
 
         with monkeypatch_toolkit_client() as client:
             client.tool.spaces.list.return_value = [
                 SpaceResponse(space="space1", **self.DEFAULT_SPACE_ARGS),
                 SpaceResponse(space="space2", **self.DEFAULT_SPACE_ARGS),
             ]
-            client.data_modeling.instances.aggregate.side_effect = mock_aggregate
-            client.data_modeling.statistics.project().concurrent_read_limit = 2
+            client.tool.instances.aggregate.side_effect = mock_aggregate
+            client.statistics.retrieve.return_value = MagicMock(concurrent_read_limit=2)
 
             selector = DataModelingSelect(client, "test_operation")
             selected_spaces = selector.select_instance_space(
@@ -835,8 +848,8 @@ class TestDataModelingInteractiveSelect:
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
             client.tool.spaces.list.return_value = spaces
-            client.data_modeling.instances.aggregate.return_value = CountValue("externalId", 5)
-            client.data_modeling.statistics.project().concurrent_read_limit = 6
+            client.tool.instances.aggregate.return_value = _instance_count(5)
+            client.statistics.retrieve.return_value = MagicMock(concurrent_read_limit=6)
 
             selector = DataModelingSelect(client, "test_operation")
             selected_spaces = selector.select_instance_space(
@@ -847,12 +860,12 @@ class TestDataModelingInteractiveSelect:
 
     def test_select_instance_spaces_no_instances(self, monkeypatch) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.data_modeling.spaces.list.return_value = [
+            client.tool.spaces.list.return_value = [
                 SpaceResponse(space="space1", **self.DEFAULT_SPACE_ARGS),
                 SpaceResponse(space="space2", **self.DEFAULT_SPACE_ARGS),
             ]
-            client.data_modeling.instances.aggregate.return_value = CountValue("externalId", 0)
-            client.data_modeling.statistics.project().concurrent_read_limit = 2
+            client.tool.instances.aggregate.return_value = _instance_count(0)
+            client.statistics.retrieve.return_value = MagicMock(concurrent_read_limit=2)
 
             selector = DataModelingSelect(client, "test_operation")
             with pytest.raises(ToolkitMissingResourceError) as exc_info:
@@ -896,8 +909,8 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
-            client.data_modeling.spaces.list.return_value = spaces
-            client.data_modeling.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
+            client.tool.spaces.list.return_value = spaces
+            client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
 
             selector = DataModelingSelect(client, "test_operation")
             selected_spaces = selector.select_empty_spaces()
@@ -920,8 +933,8 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, []),
         ):
-            client.data_modeling.spaces.list.return_value = spaces
-            client.data_modeling.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
+            client.tool.spaces.list.return_value = spaces
+            client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
 
             selector = DataModelingSelect(client, "test_operation")
             selected_spaces = selector.select_empty_spaces()
@@ -944,8 +957,8 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, []),
         ):
-            client.data_modeling.spaces.list.return_value = spaces
-            client.data_modeling.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
+            client.tool.spaces.list.return_value = spaces
+            client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
 
             selector = DataModelingSelect(client, "test_operation")
             with pytest.raises(ToolkitMissingResourceError) as exc_info:
@@ -977,8 +990,8 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
-            client.data_modeling.spaces.list.return_value = spaces
-            client.data_modeling.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
+            client.tool.spaces.list.return_value = spaces
+            client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
 
             selector = DataModelingSelect(client, "test_operation")
             selected_spaces = selector.select_instance_space()
@@ -1001,8 +1014,8 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, []),
         ):
-            client.data_modeling.spaces.list.return_value = spaces
-            client.data_modeling.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
+            client.tool.spaces.list.return_value = spaces
+            client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
 
             selector = DataModelingSelect(client, "test_operation")
             selected_spaces = selector.select_instance_space()
@@ -1025,8 +1038,8 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, []),
         ):
-            client.data_modeling.spaces.list.return_value = spaces
-            client.data_modeling.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
+            client.tool.spaces.list.return_value = spaces
+            client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
 
             selector = DataModelingSelect(client, "test_operation")
             with pytest.raises(ToolkitMissingResourceError) as exc_info:

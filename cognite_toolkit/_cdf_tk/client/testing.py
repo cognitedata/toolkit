@@ -113,7 +113,6 @@ from .api.timeseries import TimeSeriesAPI
 from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
 from .api.user_profiles import UserProfilesAPI
-from .api.verify import VerifyAPI
 from .api.workflow_executions import WorkflowExecutionsAPI
 from .api.workflow_triggers import WorkflowTriggersAPI
 from .api.workflow_versions import WorkflowVersionsAPI
@@ -277,10 +276,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.integrations.actions = MagicMock(spec_set=IntegrationActionsAPI)
         self.integrations.configuration = MagicMock(spec_set=IntegrationConfigurationAPI)
         self.integrations.errors = MagicMock(spec_set=IntegrationErrorsAPI)
-
-        # This is a helper API, not a real API.
         self.user_profiles = MagicMock(spec_set=UserProfilesAPI)
-        self.verify = MagicMock(spec_set=VerifyAPI)
 
 
 @contextmanager
