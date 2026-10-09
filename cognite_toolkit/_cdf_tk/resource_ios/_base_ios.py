@@ -493,6 +493,7 @@ class ResourceIO(
 
     @classmethod
     def as_filename(cls, id: T_Identifier) -> str:
+        """Converts the identifier to a filename. This is used to create the filename for the resource in the build"""
         if isinstance(id, str):
             return sanitize_filename(id)
         raise NotImplementedError(
