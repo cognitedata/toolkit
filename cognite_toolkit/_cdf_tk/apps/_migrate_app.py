@@ -93,7 +93,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
 from ._helpers import print_help_if_no_subcommand
 
-TODAY = date.today()
+DEFAULT_LOG_PATH = Path(f"migration_logs_{date.today()!s}")
 
 CdfProjectOption = Annotated[
     str | None,
@@ -415,7 +415,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -607,7 +607,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -716,7 +716,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -864,7 +864,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         skip_linking: Annotated[
             bool,
             typer.Option(
@@ -991,7 +991,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         skip_linking: Annotated[
             bool,
             typer.Option(
@@ -1117,7 +1117,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1231,7 +1231,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1300,7 +1300,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1364,7 +1364,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1445,7 +1445,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1607,7 +1607,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1702,7 +1702,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1791,7 +1791,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1914,7 +1914,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
