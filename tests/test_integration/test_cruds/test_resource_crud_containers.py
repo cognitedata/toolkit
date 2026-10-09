@@ -57,7 +57,7 @@ class TestTimeSeriesLoader:
 
             assert loader.count(ts_ids) == 0
 
-            assert loader.delete(ts_ids) == 1
+            assert loader.delete(ts_ids) == ts_ids
 
             assert not loader.retrieve(ts_ids)
         finally:
@@ -236,8 +236,8 @@ class Test3DModelLoader:
             assert len(updated) == 1
             assert updated[0].metadata["new_key"] == "new_value"
 
-            delete_count = loader.delete([NameId(name=model.name)])
-            assert delete_count == 1
+            deleted = loader.delete([NameId(name=model.name)])
+            assert deleted == [NameId(name=model.name)]
         finally:
             # Ensure that the model is deleted even if the test fails.
             if created is not None:

@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceId, InternalId
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError
 from cognite_toolkit._cdf_tk.feature_flags import Flags, v09_gate
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
@@ -173,7 +173,7 @@ class FunctionCodeBundle:
             cognitefile_request = cognitefileio.load_resource_files(list(cognite_files))
             cognitefile_response = cognitefileio.create(cognitefile_request)
             dm_fileresponse = self.client.tool.filemetadata.retrieve(
-                [node.as_instance_id() for node in cognitefile_response]
+                [InstanceId(instance_id=node.as_id()) for node in cognitefile_response]
             )
             file_id_by_external_id.update(zip(cognite_files.values(), (InternalId(id=f.id) for f in dm_fileresponse)))
         return file_id_by_external_id

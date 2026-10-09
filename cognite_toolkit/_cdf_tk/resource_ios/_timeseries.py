@@ -138,11 +138,11 @@ class TimeSeriesIO(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeries
     def update(self, items: Sequence[TimeSeriesRequest]) -> list[TimeSeriesResponse]:
         return self.client.tool.timeseries.update(items, mode="replace")
 
-    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.timeseries.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[InternalOrExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if id_list:
+            self.client.tool.timeseries.delete(id_list, ignore_unknown_ids=True)
+        return [id_ for id_ in id_list if isinstance(id_, ExternalId)]
 
     def _iterate(
         self,
@@ -267,11 +267,12 @@ class DatapointSubscriptionIO(
                 updated_list.extend(self.client.tool.datapoint_subscriptions.retrieve([item.as_id()]))
         return updated_list
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.datapoint_subscriptions.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.datapoint_subscriptions.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,

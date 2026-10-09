@@ -396,10 +396,10 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         remote = self.client.tool.groups.list(all_groups=True)
         return [g for g in remote if g.name in names]
 
-    def delete(self, ids: Sequence[NameId]) -> int:
+    def delete(self, ids: Sequence[NameId]) -> list[NameId]:
         return self._delete(self.retrieve(ids), check_own_principal=True)
 
-    def _delete(self, delete_candidates: list[GroupResponse], check_own_principal: bool = True) -> int:
+    def _delete(self, delete_candidates: list[GroupResponse], check_own_principal: bool = True) -> list[NameId]:
         if check_own_principal:
             print_fun = self.console.print if self.console else print
             try:
@@ -409,12 +409,13 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                 print_fun(
                     f"[bold red]ERROR:[/] Failed to retrieve the current service principal's groups. Aborting group deletion.\n{e}"
                 )
-                return 0
+                return []
             my_source_ids = {g.source_id for g in my_groups if g.source_id}
         else:
             my_source_ids = set()
 
         to_delete: list[int] = []
+        to_delete_groups: list[GroupResponse] = []
         counts_by_name: dict[str, int] = defaultdict(int)
         for group in delete_candidates:
             if group.source_id in my_source_ids:
@@ -424,6 +425,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                 ).print_warning(console=self.console)
             else:
                 to_delete.append(group.id)
+                to_delete_groups.append(group)
                 counts_by_name[group.name] += 1
         if duplicates := {name for name, count in counts_by_name.items() if count > 1}:
             MediumSeverityWarning(
@@ -455,7 +457,8 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                 "These must be deleted manually in the Fusion UI."
                 f"Error: {escape(error_str)}"
             ).print_warning(include_timestamp=True, console=self.console)
-        return len(to_delete) - len(failed_deletes)
+        failed = set(failed_deletes)
+        return [NameId(name=group.name) for group in to_delete_groups if group.id not in failed]
 
     def _iterate(
         self,
@@ -539,11 +542,11 @@ class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCat
         categories = self.client.tool.security_categories.list(limit=None)
         return [c for c in categories if c.name in names]
 
-    def delete(self, ids: Sequence[NameId]) -> int:
+    def delete(self, ids: Sequence[NameId]) -> list[NameId]:
         retrieved = self.retrieve(ids)
         if retrieved:
             self.client.tool.security_categories.delete([InternalUnwrappedId(id=cat.id) for cat in retrieved])
-        return len(retrieved)
+        return [NameId(name=cat.name) for cat in retrieved]
 
     def _iterate(
         self,

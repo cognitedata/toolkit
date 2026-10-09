@@ -22,7 +22,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
     SequencesAcl,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.sequence import (
+    SequenceColumnSlim,
+    SequenceRequest,
+    SequenceResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
@@ -87,11 +91,11 @@ class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse, AssetYAML]):
     def update(self, items: collections.abc.Sequence[AssetRequest]) -> list[AssetResponse]:
         return self.client.tool.assets.update(items, mode="replace")
 
-    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.assets.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[InternalOrExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if id_list:
+            self.client.tool.assets.delete(id_list, ignore_unknown_ids=True)
+        return [id_ for id_ in id_list if isinstance(id_, ExternalId)]
 
     def _iterate(
         self,
@@ -247,11 +251,11 @@ class SequenceIO(ResourceIO[ExternalId, SequenceRequest, SequenceResponse, Seque
     def update(self, items: collections.abc.Sequence[SequenceRequest]) -> list[SequenceResponse]:
         return self.client.tool.sequences.update(items, mode="replace")
 
-    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.sequences.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[InternalOrExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if id_list:
+            self.client.tool.sequences.delete(id_list, ignore_unknown_ids=True)
+        return [id_ for id_ in id_list if isinstance(id_, ExternalId)]
 
     def _iterate(
         self,
@@ -321,9 +325,46 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
-    def create(self, items: Sequence[SequenceRowsRequest]) -> Sequence[SequenceRowsRequest]:
-        self.client.tool.sequences.rows.create(list(items))
-        return items
+    def create(self, items: Sequence[SequenceRowsRequest]) -> list[SequenceRowsResponse]:
+        item_list = list(items)
+        if not item_list:
+            return []
+        self.client.tool.sequences.rows.create(item_list)
+        # This is a workaround since rows do not return the response object.
+        # We need to consider whether the sequence rows should be a ResourceIO or maybe just a DataIO instead.
+        sequences = self.client.tool.sequences.retrieve(
+            [ExternalId(external_id=item.external_id) for item in item_list],
+            ignore_unknown_ids=True,
+        )
+        sequence_by_external_id = {sequence.external_id: sequence for sequence in sequences if sequence.external_id}
+        created: list[SequenceRowsResponse] = []
+        for item in item_list:
+            sequence = sequence_by_external_id.get(item.external_id)
+            if sequence is None:
+                continue
+            column_by_external_id = {column.external_id: column for column in sequence.columns}
+            columns: list[SequenceColumnSlim] = []
+            for column_id in item.columns:
+                column = column_by_external_id.get(column_id)
+                if column is None:
+                    columns.append(SequenceColumnSlim(external_id=column_id))
+                else:
+                    columns.append(
+                        SequenceColumnSlim(
+                            external_id=column.external_id,
+                            name=column.name,
+                            value_type=column.value_type,
+                        )
+                    )
+            created.append(
+                SequenceRowsResponse(
+                    external_id=item.external_id,
+                    id=sequence.id,
+                    columns=columns,
+                    rows=list(item.rows),
+                )
+            )
+        return created
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SequenceRowsResponse]:
         results: list[SequenceRowsResponse] = []
@@ -338,17 +379,16 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
             results.extend(responses)
         return results
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        deleted: int = 0
-        for id_ in ids:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        for id_ in id_list:
             row_filter = SequenceRowFilter(external_id=id_.external_id)
             for batch in self.client.tool.sequences.rows.iterate(row_filter, limit=None):
                 if not batch or not batch[0].rows:
                     continue
                 item = batch[0]
                 self.client.tool.sequences.rows.delete([item.as_request_resource().as_id()])
-                deleted += len(item.rows)
-        return deleted
+        return id_list
 
     def _iterate(
         self,
@@ -455,11 +495,11 @@ class EventIO(ResourceIO[ExternalId, EventRequest, EventResponse, EventYAML]):
     def update(self, items: collections.abc.Sequence[EventRequest]) -> list[EventResponse]:
         return self.client.tool.events.update(items, mode="replace")
 
-    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.events.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[InternalOrExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if id_list:
+            self.client.tool.events.delete(id_list, ignore_unknown_ids=True)
+        return [id_ for id_ in id_list if isinstance(id_, ExternalId)]
 
     def _iterate(
         self,

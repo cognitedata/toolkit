@@ -67,20 +67,20 @@ class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipRes
     def update(self, items: Sequence[RelationshipRequest]) -> list[RelationshipResponse]:
         return self.client.tool.relationships.update(list(items))
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         if not ids:
-            return 0
+            return []
         try:
             self.client.tool.relationships.delete(list(ids))
         except ToolkitAPIError as e:
             if missing := {ExternalId.model_validate(item) for item in e.missing or []}:
                 if existing := (set(ids) - missing):
-                    self.client.tool.relationships.delete(list(existing))
-                    return len(existing)
-                else:
-                    return 0
+                    existing_list = list(existing)
+                    self.client.tool.relationships.delete(existing_list)
+                    return existing_list
+                return []
             raise
-        return len(ids)
+        return list(ids)
 
     def _iterate(
         self,

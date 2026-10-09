@@ -566,11 +566,12 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
             )
         return None
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.transformations.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.transformations.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _execute_in_batches(
         self,
@@ -766,11 +767,12 @@ class TransformationScheduleIO(
     def update(self, items: Sequence[TransformationScheduleRequest]) -> list[TransformationScheduleResponse]:
         return self.client.tool.transformations.schedules.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.transformations.schedules.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.transformations.schedules.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -867,14 +869,22 @@ class TransformationNotificationIO(
             if (notification.transformation_external_id, notification.destination) in targets_ids
         ]
 
-    def delete(self, ids: Sequence[TransformationNotificationId]) -> int:
+    def delete(self, ids: Sequence[TransformationNotificationId]) -> list[TransformationNotificationId]:
         # Note that it is theoretically possible that more items will be deleted than
         # input ids. This is because TransformationNotifications are identified by an internal id,
         # while the toolkit uses the transformationExternalId + destination as the id. Thus, there could
         # be multiple notifications for the same transformationExternalId + destination.
-        if existing := self.retrieve(ids):
+        existing = self.retrieve(ids)
+        if existing:
             self.client.tool.transformations.notifications.delete(InternalId.from_ids([item.id for item in existing]))
-        return len(existing)
+        return [
+            TransformationNotificationId(
+                transformation_external_id=item.transformation_external_id,
+                destination=item.destination,
+            )
+            for item in existing
+            if item.transformation_external_id is not None and item.destination is not None
+        ]
 
     def _iterate(
         self,

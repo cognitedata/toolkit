@@ -92,11 +92,12 @@ class IntegrationsIO(ResourceIO[ExternalId, IntegrationRequest, IntegrationRespo
     def update(self, items: Sequence[IntegrationRequest]) -> list[IntegrationResponse]:
         return self.client.integrations.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.integrations.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.integrations.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -226,13 +227,13 @@ class IntegrationConfigsIO(
         # The API appends a revision. Creating is how a configuration is changed.
         return self.create(items)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         """Config revisions cannot be deleted.
 
-        Deleting the parent integration removes its revisions. This counts revisions that exist so callers
-        can report how many would disappear with the integration.
+        Deleting the parent integration removes its revisions. Returns the integration ids that currently
+        have revisions, which disappear with the integration.
         """
-        count = 0
+        deleted: list[ExternalId] = []
         for id_ in ids:
             try:
                 result = self.client.integrations.configuration.list(
@@ -243,8 +244,9 @@ class IntegrationConfigsIO(
                     continue
                 raise
             else:
-                count += len(result)
-        return count
+                if result:
+                    deleted.append(id_)
+        return deleted
 
     def _iterate(
         self,

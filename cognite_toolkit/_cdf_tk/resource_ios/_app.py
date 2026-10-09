@@ -94,11 +94,12 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
     def retrieve(self, ids: Sequence[ExternalId]) -> list[AppResponse]:
         return self.client.tool.apps.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.apps.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.apps.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -336,11 +337,12 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
     def retrieve(self, ids: Sequence[AppVersionId]) -> list[AppVersionResponse]:
         return self.client.tool.apps.versions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[AppVersionId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.apps.versions.delete(ids)
-        return len(ids)
+    def delete(self, ids: Sequence[AppVersionId]) -> list[AppVersionId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.apps.versions.delete(id_list)
+        return id_list
 
     def _iterate(
         self,

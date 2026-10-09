@@ -1,4 +1,4 @@
-from collections.abc import Hashable, Iterable, Sequence, Sized
+from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal, final
 
@@ -85,20 +85,23 @@ class ResourceViewMappingIO(
             return None
         return f"{self.display_name} requires the {view_id!s} to be deployed. run `cdf migrate prepare` to deploy it."
 
-    def create(self, items: Sequence[ResourceViewMappingRequest]) -> Sized:
-        return self.client.migration.resource_view_mapping.create(items)
+    def create(self, items: Sequence[ResourceViewMappingRequest]) -> list[ResourceViewMappingResponse]:
+        created = self.client.migration.resource_view_mapping.create(items)
+        if not created:
+            return []
+        return self.retrieve([ExternalId(external_id=item.external_id) for item in created])
 
-    def update(self, items: Sequence[ResourceViewMappingRequest]) -> Sized:
-        return self.client.migration.resource_view_mapping.create(items)
+    def update(self, items: Sequence[ResourceViewMappingRequest]) -> list[ResourceViewMappingResponse]:
+        return self.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ResourceViewMappingResponse]:
         node_ids = NodeId.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
         return self.client.migration.resource_view_mapping.retrieve(node_ids)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         node_ids = NodeId.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
         result = self.client.migration.resource_view_mapping.delete(node_ids)
-        return len(result)
+        return [ExternalId(external_id=node.external_id) for node in result]
 
     def _iterate(
         self,

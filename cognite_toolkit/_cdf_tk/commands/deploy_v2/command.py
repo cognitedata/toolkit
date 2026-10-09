@@ -1149,7 +1149,8 @@ class DeployV2Command(ToolkitCommand):
         deploy_dir: Path | None = None,
         insights_by_resource: InsightsByResource | None = None,
     ) -> DeploymentResult:
-        deleted, created, updated = 0, 0, 0
+        deleted: Sequence[T_Identifier] = []
+        created, updated = 0, 0
         action: Literal["create", "delete", "update", "upsert"] | None = None
         try:
             if resources.to_delete:
@@ -1183,7 +1184,7 @@ class DeployV2Command(ToolkitCommand):
             is_dry_run=False,
             created_count=created,
             updated_count=updated,
-            deleted_count=deleted,
+            deleted_count=len(deleted),
             unchanged_count=len(unchanged_ids),
             skipped=resources.skipped,
             is_missing_write_acl=False,

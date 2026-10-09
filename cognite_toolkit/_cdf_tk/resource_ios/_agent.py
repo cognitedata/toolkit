@@ -343,7 +343,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
     def update(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
         return self.client.tool.agents.update(self.topological_sort(items))
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         # The agents service rejects deleting an agent that is still referenced as a subagent by
         # another agent, so the referencing agents must be deleted before the subagents they reference,
         # i.e. the reverse of the create/update order.
@@ -354,7 +354,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         ordered_ids.extend(id_ for id_ in ids if id_ not in retrieved_ids)
 
         self.client.tool.agents.delete(ordered_ids, ignore_unknown_ids=True)
-        return len(ids)
+        return ordered_ids
 
     def _iterate(
         self,

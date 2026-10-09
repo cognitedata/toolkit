@@ -1118,7 +1118,7 @@ class TestVerboseResourceOutcomes:
             to_delete=[deleted],
             unchanged=[unchanged],
         )
-        crud.delete.return_value = 1
+        crud.delete.return_value = [deleted]
         crud.create.return_value = [created]
         crud.update.return_value = [updated]
 

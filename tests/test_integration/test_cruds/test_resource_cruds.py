@@ -414,8 +414,8 @@ timeSeriesIds:
 class TestLabelLoader:
     def test_delete_non_existing(self, toolkit_client: ToolkitClient) -> None:
         loader = LabelIO(toolkit_client)
-        delete_count = loader.delete([ExternalId(external_id="non_existing")])
-        assert delete_count == 0
+        deleted = loader.delete([ExternalId(external_id="non_existing")])
+        assert deleted == []
 
     def test_create_delete_label(self, toolkit_client: ToolkitClient) -> None:
         label = LabelRequest(external_id=f"tmp_test_create_update_delete_label_{RUN_UNIQUE_ID}", name="Initial name")
@@ -442,8 +442,8 @@ class TestAssetLoader:
             created = loader.create([asset])
             assert len(created) == 1
 
-            delete_count = loader.delete([asset.as_id()])
-            assert delete_count == 1
+            deleted = loader.delete([asset.as_id()])
+            assert deleted == [asset.as_id()]
         finally:
             # Ensure that the asset is deleted even if the test fails.
             toolkit_client.assets.delete(external_id=asset.external_id, ignore_unknown_ids=True)
