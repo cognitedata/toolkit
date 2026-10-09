@@ -9,6 +9,7 @@ import typer
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, DataModelsAcl
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.constants import LOGS_DIRECTORY
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     InstanceFileSelector,
     InstanceSelector,
@@ -16,6 +17,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     SelectedView,
 )
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError, ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
@@ -103,7 +105,7 @@ class PurgeApp(typer.Typer):
                 "--log-dir",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"purge_logs_{TODAY!s}"),
+        ] = (LOGS_DIRECTORY / f"purge_logs_{TODAY!s}") if Flags.V09.is_enabled() else Path(f"purge_logs_{TODAY!s}"),
         auto_yes: Annotated[
             bool,
             typer.Option(
@@ -208,7 +210,7 @@ class PurgeApp(typer.Typer):
                 "--log-dir",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"purge_logs_{TODAY!s}"),
+        ] = (LOGS_DIRECTORY / f"purge_logs_{TODAY!s}") if Flags.V09.is_enabled() else Path(f"purge_logs_{TODAY!s}"),
         auto_yes: Annotated[
             bool,
             typer.Option(
@@ -337,7 +339,7 @@ class PurgeApp(typer.Typer):
                 "--log-dir",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"purge_logs_{TODAY!s}"),
+        ] = (LOGS_DIRECTORY / f"purge_logs_{TODAY!s}") if Flags.V09.is_enabled() else Path(f"purge_logs_{TODAY!s}"),
         auto_yes: Annotated[
             bool,
             typer.Option(
