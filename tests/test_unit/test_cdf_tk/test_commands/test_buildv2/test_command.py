@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, BuildParameters, RelativeDirPath
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import InsightList, ModelSyntaxWarning
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning, InsightList
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
     FailedReadYAMLFile,
@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteDirPath, AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import FileMetadataIO, SearchConfigIO, SpaceIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, ResourceType
 from cognite_toolkit._cdf_tk.resource_ios._datamodel import DataModelIO, ViewIO
@@ -160,6 +161,7 @@ class TestBuildCommand:
         assert len(lineage_file) == 1
         assert len(insights_file) == 1
 
+    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
     def test_end_to_end_invalid_space_emits_syntax_error(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
         cmd = BuildV2Command()
 
@@ -184,10 +186,10 @@ name: My Space
         } == {
             "resource_count": 1,
             "syntax_errors": 1,
-            "insight_codes": {"MODEL-SYNTAX-ERROR"},
+            "insight_codes": {"INVALID-FIELD"},
         }
 
-        syntax_insight = next(i for i in folder.all_insights if i.code == "MODEL-SYNTAX-ERROR")
+        syntax_insight = next(i for i in folder.all_insights if i.code == "INVALID-FIELD")
         assert syntax_insight.source_file == resource_file
 
         insights_csv = (build_dir / "insights.csv").read_text()
@@ -559,17 +561,18 @@ class TestDisplayInsightsOutput:
         output = StringIO()
         return Console(file=output, force_terminal=False, width=120), output
 
+    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
     def test_displays_source_file_in_panel(self, tmp_path: Path) -> None:
         console, output = self._console()
         source_file = tmp_path / "modules/my_module/data_modeling/my_space.Space.yaml"
 
         insights = InsightList(
             [
-                ModelSyntaxWarning(
-                    code="MODEL-SYNTAX-WARNING",
-                    message="Unknown field: 'Name'",
+                BuildWarning(
+                    code="UNRECOGNIZED-FIELD",
+                    message="Unrecognized field: 'Name'",
                     fix="Make sure the resource YAML content is valid and follows the expected structure.",
-                    source_files=[source_file],
+                    source_file=source_file,
                 )
             ]
         )
@@ -577,8 +580,31 @@ class TestDisplayInsightsOutput:
         BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
 
         rendered = output.getvalue()
-        assert "Model syntax warning in modules/my_module/data_modeling/my_space.Space.yaml" in rendered
-        assert "Unknown field: 'Name'" in rendered
+        assert "! Unrecognized field  [UNRECOGNIZED-FIELD]" in rendered
+        assert "╰─ modules/my_module/data_modeling/my_space.Space.yaml" in rendered
+        assert "Unrecognized field: 'Name'" in rendered
+
+    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
+    def test_groups_insights_with_same_message(self, tmp_path: Path) -> None:
+        console, output = self._console()
+        insights = InsightList(
+            [
+                BuildWarning(
+                    code="UNRECOGNIZED-FIELD",
+                    message="Unrecognized field: 'Name'",
+                    source_file=tmp_path / f"modules/my_module/my_space_{no}.Space.yaml",
+                )
+                for no in range(5)
+            ]
+        )
+
+        BuildV2Command()._display_insights(insights, tmp_path / "build" / "insights.csv", console, verbose=False)
+
+        rendered = output.getvalue()
+        assert rendered.count("[UNRECOGNIZED-FIELD]") == 1
+        assert "Unrecognized field  [UNRECOGNIZED-FIELD]  (5)" in rendered
+        assert "+ 2 more files" in rendered
+        assert "more insights not shown" not in rendered
 
     def test_displays_regex_pattern_without_rich_markup_corruption(self, tmp_path: Path) -> None:
         console, output = self._console()
@@ -586,11 +612,11 @@ class TestDisplayInsightsOutput:
         yaml_file = tmp_path / "modules/quality/data_products/Quality.DataProduct.yaml"
         insights = InsightList(
             [
-                ModelSyntaxWarning(
-                    code="MODEL-SYNTAX-WARNING",
+                BuildWarning(
+                    code="UNRECOGNIZED-VALUE",
                     message=f"In field externalId string should match pattern '{pattern}'",
                     fix="Make sure the resource YAML content is valid and follows the expected structure.",
-                    source_files=[yaml_file],
+                    source_file=yaml_file,
                 )
             ]
         )
@@ -626,18 +652,19 @@ class TestReadResourceFile:
                 "nonexistent.Space.yaml",
                 None,
                 SpaceIO,
-                "READ-ERROR",
+                "UNREADABLE-FILE",
                 id="file_read_error",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "key: [unclosed",
                 SpaceIO,
-                "YAML-PARSE-ERROR",
+                "INVALID-FILE-CONTENT",
                 id="yaml_parse_error",
             ),
         ],
     )
+    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
     def test_read_resource_file_failed(
         self,
         filename: str,

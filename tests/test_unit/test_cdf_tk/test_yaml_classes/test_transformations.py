@@ -154,7 +154,7 @@ def invalid_transformation_test_cases() -> Iterable:
                 "tokenUri": "https://api.cognitedata.com/api/v1/oauth/token",
             },
         },
-        {"Unknown field: 'authentication.read'", "Unknown field: 'authentication.write'"},
+        {"Unrecognized field: 'authentication.read'", "Unrecognized field: 'authentication.write'"},
         id="Invalid authentication - base on real use case",
     )
     yield pytest.param(

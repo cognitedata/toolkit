@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import (
     AbsoluteFilePath,
     RelativeDirPath,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._infield import _REQUIRED_PROPERTIES, InFieldCDMRuleSet
 
@@ -106,6 +107,7 @@ def create_module() -> Callable[[Path, list[BuiltResource]], BuiltModule]:
     return _create
 
 
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 class TestInFieldCDMRuleSet:
     def test_get_status_with_client(self) -> None:
         rule = InFieldCDMRuleSet(modules=[], client=MagicMock())
@@ -179,7 +181,7 @@ class TestInFieldCDMRuleSet:
         rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
-        assert errors[0].code == f"{InFieldCDMRuleSet.CODE_PREFIX}-VIEW-MISSING-PROPERTIES"
+        assert errors[0].code == "INVALID-REFERENCED-RESOURCE"
         assert "mainAsset" in errors[0].message
 
     def test_view_not_found_in_cdf_skips_property_check(
@@ -323,7 +325,7 @@ class TestInFieldCDMRuleSet:
         rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
-        assert errors[0].code == f"{InFieldCDMRuleSet.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY"
+        assert errors[0].code == "MISSING-REFERENCED-PROPERTY"
         assert "files" in errors[0].message
         assert errors[0].source_file == yaml_file
 
@@ -434,7 +436,7 @@ class TestInFieldCDMRuleSet:
         rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
-        assert errors[0].code == f"{InFieldCDMRuleSet.CODE_PREFIX}-UNKNOWN-VIEW-PROPERTY"
+        assert errors[0].code == "MISSING-REFERENCED-PROPERTY"
         assert "unknownField" in errors[0].message
         assert errors[0].source_file == yaml_file
 

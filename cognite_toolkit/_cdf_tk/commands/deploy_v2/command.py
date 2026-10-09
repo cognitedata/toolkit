@@ -55,7 +55,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitWrongResourceError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.feature_flags import Flags, v09_gate
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_IO_BY_FOLDER_NAME,
     ContainerIO,
@@ -126,7 +126,7 @@ class ReadBuildDirectory:
         for resource_dir in self.resource_directories:
             for invalid_file in resource_dir.invalid_files:
                 yield LowSeverityWarning(
-                    f"File {invalid_file.name!r} in {resource_dir.directory.name!r} does not match any known resource kind, skipping."
+                    f"File {invalid_file.name!r} in {resource_dir.directory.name!r} does not match any known resource type, skipping."
                 )
 
     def skipped_cruds(self) -> set[type[ResourceIO]]:
@@ -321,7 +321,7 @@ class DeployV2Command(ToolkitCommand):
         """Read insights.csv/json from the build directory and map them to resources via lineage.
 
         Returns None if lineage or the insights file is missing, or if the file cannot be read.
-        Insights are matched to resources by comparing the relative source_files stored in the
+        Insights are matched to resources by comparing the relative source_file stored in the
         insights file with each resource's source path in the lineage.
         """
         if build_lineage is None:
@@ -345,10 +345,8 @@ class DeployV2Command(ToolkitCommand):
 
         insights_by_resource: InsightsByResource = defaultdict(list)
         for insight in insights:
-            for source_file in insight.source_files:
-                if source_file in resources_by_source_path:
-                    for resource_type, identifier in resources_by_source_path[source_file]:
-                        insights_by_resource[(resource_type, identifier)].append(insight)
+            for resource_type, identifier in resources_by_source_path.get(insight.source_file, []):
+                insights_by_resource[(resource_type, identifier)].append(insight)
         return dict(insights_by_resource) or None
 
     @classmethod
@@ -1034,7 +1032,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code="NOT-EXISTING",
+                            code=v09_gate("NONEXISTENT-RESOURCE", "NOT-EXISTING"),
                             source_file=resource.source_files[0],
                             reason=f"Will not delete {identifier!s} does not exist in CDF",
                         )
@@ -1044,7 +1042,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code="HAS-DATA",
+                            code=v09_gate("NONEMPTY-RESOURCE", "HAS-DATA"),
                             source_file=resource.source_files[0],
                             reason=f"{identifier!s} has data and --drop-data flag is not set, skipping deletion to avoid data loss",
                         )
@@ -1054,7 +1052,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code="DELETE-NOT-SUPPORTED",
+                            code=v09_gate("UNSUPPORTED-RESOURCE-DELETION", "DELETE-NOT-SUPPORTED"),
                             source_file=resource.source_files[0],
                             reason=f"{crud.display_name.capitalize()!s} does not support deletion, skipping",
                         )
@@ -1075,7 +1073,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code="HAS-DATA",
+                            code=v09_gate("NONEMPTY-RESOURCE", "HAS-DATA"),
                             source_file=resource.source_files[0],
                             reason=(f"{identifier!s} contains data and does not support updates."),
                         )
@@ -1287,7 +1285,7 @@ class DeployV2Command(ToolkitCommand):
             lines: list[RenderableType] = [
                 f"[bold]{escape(insight.message)}[/]",
                 f"[dim]Code:[/] {escape(insight.code)}",
-                f"[dim]Source:[/] {escape(insight.display_source_files_cwd)}",
+                f"[dim]Source:[/] {escape(insight.display_source_file_cwd)}",
             ]
             if insight.fix:
                 lines.append(

@@ -247,6 +247,15 @@ def find_unique_match_position(content: str, pattern: re.Pattern[str]) -> YamlPo
     return YamlPosition(content.count("\n", 0, start) + 1, start - line_start + 1)
 
 
+def find_unique_variable_position(path: Path, variable: str) -> YamlPosition | None:
+    """Finds the position of the `{{ variable }}` placeholder in the file, if it occurs exactly once."""
+    try:
+        content = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+    return find_unique_match_position(content, re.compile(rf"\{{\{{\s*{re.escape(variable)}\s*\}}\}}"))
+
+
 def yaml_find_unique_position(content: str, text: str, *, as_key: bool = False) -> YamlPosition | None:
     """Finds the position of the scalar (mapping value or list item, or mapping key if as_key) equal to text.
 
