@@ -108,12 +108,16 @@ class DatapointsIO(
         )
         limit_per_timeseries = min(limit_per_timeseries, self.MAX_PER_REQUEST_DATAPOINTS)
         config = self.client.config
-        for timeseries in self.client.time_series(
+        pages = self.client.tool.timeseries.iterate(
             data_set_external_ids=[selector.data_set_external_id],
-            chunk_size=self.DOWNLOAD_CHUNK_SIZE,
-            is_string=True if selector.data_type.lower() == "string" else False,
-            advanced_filter=Exists(TimeSeriesProperty.external_id),
+            is_string=selector.data_type.lower() == "string",
+            advanced_filter=Exists(TimeSeriesProperty.external_id).dump(),
             limit=limit,
+        )
+        for timeseries in (
+            page[start : start + self.DOWNLOAD_CHUNK_SIZE]
+            for page in pages
+            for start in range(0, len(page), self.DOWNLOAD_CHUNK_SIZE)
         ):
             if not timeseries:
                 continue

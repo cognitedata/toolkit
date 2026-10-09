@@ -1,5 +1,6 @@
 import json
 from collections.abc import Hashable, Iterable, Sequence
+from datetime import datetime, timedelta, timezone
 from itertools import zip_longest
 from pathlib import Path
 from typing import Any, Literal, final
@@ -19,6 +20,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription impo
     DatapointSubscriptionResponse,
     DataPointSubscriptionUpdate,
     DatapointSubscriptionUpdateRequest,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import (
+    AggregateDatapointsResponse,
+    DatapointsDeleteRequest,
+    DatapointsQueryRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
@@ -155,23 +161,35 @@ class TimeSeriesIO(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeries
             yield from timeseries
 
     def count(self, ids: Sequence[ExternalId]) -> int:
-        datapoints = self.client.time_series.data.retrieve(
-            external_id=[id.external_id for id in ids],
-            start=MIN_TIMESTAMP_MS,
-            end=MAX_TIMESTAMP_MS + 1,
-            aggregates="count",
+        epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+        datapoints = self.client.tool.timeseries.datapoints.retrieve(
+            [DatapointsQueryRequest(external_id=item.external_id) for item in ids],
+            start=epoch + timedelta(milliseconds=MIN_TIMESTAMP_MS),
+            end=epoch + timedelta(milliseconds=MAX_TIMESTAMP_MS + 1),
+            aggregates=["count"],
             granularity="1000d",
             ignore_unknown_ids=True,
         )
-        return sum(sum(data.count or []) for data in datapoints)
+        return sum(
+            sum(point.count or 0 for point in series.datapoints)
+            for series in datapoints
+            if isinstance(series, AggregateDatapointsResponse)
+        )
 
     def drop_data(self, ids: Sequence[ExternalId]) -> int:
         count = self.count(ids)
         existing = self.client.tool.timeseries.retrieve(list(ids), ignore_unknown_ids=True)
-        for ts in existing:
-            self.client.time_series.data.delete_range(
-                external_id=ts.external_id, start=MIN_TIMESTAMP_MS, end=MAX_TIMESTAMP_MS + 1
+        delete_requests = [
+            DatapointsDeleteRequest(
+                external_id=ts.external_id,
+                inclusive_begin=MIN_TIMESTAMP_MS,
+                exclusive_end=MAX_TIMESTAMP_MS + 1,
             )
+            for ts in existing
+            if ts.external_id is not None
+        ]
+        if delete_requests:
+            self.client.tool.timeseries.datapoints.delete(delete_requests)
         return count
 
 
