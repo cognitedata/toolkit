@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
 from cognite_toolkit._cdf_tk.client.api.data_product_versions import DataProductVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.datapoint_subscription import DatapointSubscriptionsAPI
+from cognite_toolkit._cdf_tk.client.api.datapoints import DatapointsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
@@ -382,6 +383,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         IntegrationErrorsAPI,
         # Needs a function deployed to test against
         FunctionCallsAPI,
+        # Datapoints API requires a timeseries to exists.
+        DatapointsAPI,
     }
 )
 

@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.client.api._classic_aggregate import (
     aggregate_count,
     aggregate_unique,
 )
+from cognite_toolkit._cdf_tk.client.api.datapoints import DatapointsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
@@ -42,6 +43,7 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
             },
             api_version="alpha",
         )
+        self.datapoints = DatapointsAPI(http_client)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
