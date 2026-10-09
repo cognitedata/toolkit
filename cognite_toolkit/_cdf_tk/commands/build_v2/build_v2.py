@@ -615,7 +615,9 @@ class BuildV2Command(ToolkitCommand):
                 ToolkitPanelSection(
                     title="Selection",
                     description=self._module_selection_message(selection_source, config_file_name),
-                    content=[f"[{AuraColor.GREEN.rich}] -[/] {module.id.as_posix()}" for module in build_source.modules],
+                    content=[
+                        f"[{AuraColor.GREEN.rich}] -[/] {module.id.as_posix()}" for module in build_source.modules
+                    ],
                 )
             )
         summary_sections.append(
@@ -625,7 +627,11 @@ class BuildV2Command(ToolkitCommand):
                     f"[{AuraColor.GREEN.rich}]✓[/] [bold]{module_count}[/] modules",
                     f"[{AuraColor.GREEN.rich}]✓[/] [bold]{total_files}[/] total resource files",
                     f"[{AuraColor.GREEN.rich}]✓[/] [bold]{resource_type_count}[/] resource types",
-                    *([f"[{AuraColor.GREEN.rich}]✓[/] [bold]{read_variables}[/] read variables"] if read_variables else []),
+                    *(
+                        [f"[{AuraColor.GREEN.rich}]✓[/] [bold]{read_variables}[/] read variables"]
+                        if read_variables
+                        else []
+                    ),
                 ],
             )
         )
