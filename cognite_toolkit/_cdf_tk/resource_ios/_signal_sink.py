@@ -24,6 +24,7 @@ class SignalSinkIO(ResourceIO[SignalSinkId, SignalSinkRequest, SignalSinkRespons
     yaml_cls = SignalSinkYAML
     dependencies = frozenset()
     support_update = True
+    _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Signals/operation/createSignalSinks"
 
     @property
