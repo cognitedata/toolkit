@@ -38,7 +38,7 @@ class MQTTBrokerSourceRequest(MQTTBrokerSource, SourceRequestDefinition):
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         output = super().as_update(mode)
         if self.reset_password:
-            output["update"]["password"] = {"reset": True}
+            output.setdefault("update", {})["password"] = {"reset": True}
         return output
 
 

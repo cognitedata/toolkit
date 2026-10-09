@@ -278,10 +278,6 @@ class KafkaSource(HostedExtractorSource):
 
 class MQTTBroker(HostedExtractorSource):
     type: Literal["mqtt_broker"] = Field("mqtt_broker")
-    external_id: str = Field(
-        description="The external ID provided by the client. Must be unique for the resource type.",
-        max_length=255,
-    )
     name: str | None = Field(
         None,
         description="Name of the MQTT broker.",
