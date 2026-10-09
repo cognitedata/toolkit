@@ -49,9 +49,11 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildError,
     BuildWarning,
     Insight,
+    InsightDefinition,
     InternalValidatorException,
     ModelSyntaxError,
     ModelSyntaxWarning,
+    Recommendation,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
@@ -613,17 +615,17 @@ class BuildV2Command(ToolkitCommand):
                 ToolkitPanelSection(
                     title="Selection",
                     description=self._module_selection_message(selection_source, config_file_name),
-                    content=[f"[green] -[/] {module.id.as_posix()}" for module in build_source.modules],
+                    content=[f"[{AuraColor.GREEN.rich}] -[/] {module.id.as_posix()}" for module in build_source.modules],
                 )
             )
         summary_sections.append(
             ToolkitPanelSection(
                 title="Loaded",
                 content=[
-                    f"[green]✓[/] [bold]{module_count}[/] modules",
-                    f"[green]✓[/] [bold]{total_files}[/] total resource files",
-                    f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
-                    *([f"[green]✓[/] [bold]{read_variables}[/] read variables"] if read_variables else []),
+                    f"[{AuraColor.GREEN.rich}]✓[/] [bold]{module_count}[/] modules",
+                    f"[{AuraColor.GREEN.rich}]✓[/] [bold]{total_files}[/] total resource files",
+                    f"[{AuraColor.GREEN.rich}]✓[/] [bold]{resource_type_count}[/] resource types",
+                    *([f"[{AuraColor.GREEN.rich}]✓[/] [bold]{read_variables}[/] read variables"] if read_variables else []),
                 ],
             )
         )
@@ -635,10 +637,10 @@ class BuildV2Command(ToolkitCommand):
 
         if ambiguous_selected_count:
             issue_summary_section_content.append(
-                f"[red]✗[/] [bold]{ambiguous_selected_count}[/] user-selected modules had an ambiguous match with multiple module directories."
+                f"[{AuraColor.RED.rich}]✗[/] [bold]{ambiguous_selected_count}[/] user-selected modules had an ambiguous match with multiple module directories."
             )
             table = ToolkitTable(title="Ambiguous Module Selections")
-            table.add_column("Module Name", style="red")
+            table.add_column("Module Name", style=AuraColor.RED.rich)
             table.add_column("Matching Paths", style="dim")
             for selection in build_source.ambiguous_selection:
                 if selection.is_selected:
@@ -650,10 +652,10 @@ class BuildV2Command(ToolkitCommand):
 
         if misplaced_modules_count:
             issue_summary_section_content.append(
-                f"[yellow]![/] [bold]{misplaced_modules_count}[/] modules are located directly under another module (misplaced modules)."
+                f"[{AuraColor.AMBER.rich}]![/] [bold]{misplaced_modules_count}[/] modules are located directly under another module (misplaced modules)."
             )
             table = ToolkitTable(title="Misplaced Modules")
-            table.add_column("Module Path", style="red")
+            table.add_column("Module Path", style=AuraColor.RED.rich)
             table.add_column("Parent Modules", style="dim")
             for misplaced in build_source.misplaced_modules:
                 parents_str = ", ".join(p.as_posix() for p in misplaced.parent_modules)
@@ -662,10 +664,10 @@ class BuildV2Command(ToolkitCommand):
             border_color = max(border_color, 1)
         if non_existing_module_count:
             issue_summary_section_content.append(
-                f"[red]✗[/] [bold]{non_existing_module_count}[/] user-selected module names did not match any module directory (non existing module names)."
+                f"[{AuraColor.RED.rich}]✗[/] [bold]{non_existing_module_count}[/] user-selected module names did not match any module directory (non existing module names)."
             )
             table = ToolkitTable(title="Non-Existing Module Names")
-            table.add_column("Module Name", style="red")
+            table.add_column("Module Name", style=AuraColor.RED.rich)
             table.add_column("Closest Matches", style="dim")
             for non_existing in build_source.non_existing_module_names:
                 matches_str = ", ".join(non_existing.closest_matches) if non_existing.closest_matches else "-"
@@ -676,10 +678,10 @@ class BuildV2Command(ToolkitCommand):
 
         if invalid_variable_count:
             issue_summary_section_content.append(
-                f"[yellow]![/] [bold]{invalid_variable_count}[/] invalid variables found across modules and config YAML (invalid variables)."
+                f"[{AuraColor.AMBER.rich}]![/] [bold]{invalid_variable_count}[/] invalid variables found across modules and config YAML (invalid variables)."
             )
             table = ToolkitTable(title="Invalid Variables")
-            table.add_column("Variable Path", style="red")
+            table.add_column("Variable Path", style=AuraColor.RED.rich)
             table.add_column("Error", style="dim")
             for invalid_var in build_source.invalid_variables:
                 table.add_row(invalid_var.id.as_posix(), invalid_var.error.message)
@@ -688,10 +690,10 @@ class BuildV2Command(ToolkitCommand):
 
         if orphan_yaml_count:
             issue_summary_section_content.append(
-                f"[yellow]![/] [bold]{orphan_yaml_count}[/] YAML files found directly under the modules directory that are not part of any module (orphan YAML files)."
+                f"[{AuraColor.AMBER.rich}]![/] [bold]{orphan_yaml_count}[/] YAML files found directly under the modules directory that are not part of any module (orphan YAML files)."
             )
             table = ToolkitTable(title="Orphan YAML Files")
-            table.add_column("File Path", style="yellow")
+            table.add_column("File Path", style=AuraColor.AMBER.rich)
             for orphan_file in build_source.orphan_yaml_files:
                 table.add_row(orphan_file.as_posix())
             issue_details_section_content.append(table.as_panel_detail())
@@ -1635,6 +1637,21 @@ class BuildV2Command(ToolkitCommand):
         selected = self._select_display_insights(representatives, max_display_count)
         return [groups_by_key[insight.group_key] for insight in selected]
 
+    @staticmethod
+    def _summary_insight_style(insight_class: type[InsightDefinition]) -> str:
+        if Flags.V09.is_enabled():
+            if insight_class is BuildError:
+                return f"[{AuraColor.RED.rich}]✗[/]"
+            if insight_class is BuildWarning:
+                return f"[{AuraColor.AMBER.rich}]![/]"
+        if insight_class is Recommendation:
+            return f"[{AuraColor.SKY.rich}]*[/]"
+        if insight_class.severity < 15:
+            return f"[{AuraColor.GREEN.rich}]✓[/]"
+        if insight_class.severity <= 35:
+            return f"[{AuraColor.AMBER.rich}]![/]"
+        return f"[{AuraColor.RED.rich}]✗[/]"
+
     def _display_build_summary(
         self, build_folder: BuildFolder, insights: InsightList, console: Console, verbose: bool
     ) -> None:
@@ -1644,22 +1661,17 @@ class BuildV2Command(ToolkitCommand):
             {resource.type for module in build_folder.built_modules for resource in module.resources}
         )
         summary_lines = [
-            f"[green]✓[/] [bold]{module_count}[/] modules",
-            f"[green]✓[/] [bold]{resource_count}[/] resources of {resource_type_count} different types.",
+            f"[{AuraColor.GREEN.rich}]✓[/] [bold]{module_count}[/] modules",
+            f"[{AuraColor.GREEN.rich}]✓[/] [bold]{resource_count}[/] resources of {resource_type_count} different types.",
         ]
-        aggregates = Counter((insight.insight_type, type(insight).severity) for insight in insights)
+        aggregates = Counter(type(insight) for insight in insights)
         max_severity = 0
-        for (insight_type, severity), count in sorted(aggregates.items(), key=lambda i: i[1], reverse=True):
-            max_severity = max(max_severity, severity)
-            match severity:
-                case severity if severity < 15:
-                    insight_style = "[green]✓[/]"
-                case severity if 15 <= severity <= 35:
-                    insight_style = "[yellow]![/]"
-                case _:
-                    insight_style = "[red]✗[/]"
-
-            summary_lines.append(f"{insight_style} [bold]{count}[/] {insight_type}")
+        for insight_class, count in sorted(aggregates.items(), key=lambda i: (-i[0].severity, -i[1])):
+            max_severity = max(max_severity, insight_class.severity)
+            insight_style = self._summary_insight_style(insight_class)
+            insight_type = insight_class.model_fields["insight_type"].default
+            insight_label = insight_type if count == 1 else f"{insight_type}s"
+            summary_lines.append(f"{insight_style} [bold]{count}[/] {insight_label}")
 
         validation_errors = [error for result in build_folder.validation_results for error in result.errors]
         if validation_errors:
@@ -1671,12 +1683,12 @@ class BuildV2Command(ToolkitCommand):
                     if result.name not in first_error_by_validator:
                         first_error_by_validator[result.name] = result.errors[0].message
             summary_lines.append(
-                f"[red]✗[/] [bold]{len(validation_errors)}[/] internal validator exceptions "
+                f"[{AuraColor.RED.rich}]✗[/] [bold]{len(validation_errors)}[/] internal validator exceptions "
                 f"across {len(errors_by_validator)} validator(s). Run with --verbose to see details."
             )
             if verbose:
                 for validator_name, count in errors_by_validator.most_common():
-                    summary_lines.append(f"    [red]-[/] {validator_name}: [bold]{count}[/]")
+                    summary_lines.append(f"    [{AuraColor.RED.rich}]-[/] {validator_name}: [bold]{count}[/]")
                     first_error_message = first_error_by_validator.get(validator_name)
                     if first_error_message:
                         summary_lines.append(f"      [dim]{escape(first_error_message)}[/]")
@@ -1688,16 +1700,16 @@ class BuildV2Command(ToolkitCommand):
         match max_severity:
             case severity if severity < 15:
                 border_color = AuraColor.GREEN.rich
-                recommendation = "[green]✓[/] [bold]Ready to deploy.[/bold]\nNo critical errors found. You can proceed with deployment."
+                recommendation = f"[{AuraColor.GREEN.rich}]✓[/] [bold]Ready to deploy.[/bold]\nNo critical errors found. You can proceed with deployment."
             case severity if 15 <= severity <= 35:
                 recommendation = (
-                    "[yellow]![/] [bold]Proceed with caution.[/bold]\n"
+                    f"[{AuraColor.AMBER.rich}]![/] [bold]Proceed with caution.[/bold]\n"
                     "There are warnings that should be reviewed. Deployment may potentially fail for some resources."
                 )
                 border_color = AuraColor.AMBER.rich
             case _:
                 recommendation = (
-                    "[red]✗[/] [bold]Do not proceed to deploy.[/bold]\n"
+                    f"[{AuraColor.RED.rich}]✗[/] [bold]Do not proceed to deploy.[/bold]\n"
                     "There are critical errors that must be fixed before deployment."
                 )
                 border_color = AuraColor.RED.rich
