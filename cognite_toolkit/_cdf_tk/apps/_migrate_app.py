@@ -65,7 +65,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrationCSVFileSelector,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
+from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, LOGS_DIRECTORY
 from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO, InstanceIO
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     CanvasExternalIdSelector,
@@ -73,6 +73,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     ThreeDModelIdSelector,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValidationError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.ui import ToolkitPanel, ToolkitTable
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
@@ -93,7 +94,9 @@ from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
 from ._helpers import print_help_if_no_subcommand
 
-TODAY = date.today()
+DEFAULT_LOG_PATH = Path(f"migration_logs_{date.today()!s}")
+if Flags.V09.is_enabled():
+    DEFAULT_LOG_PATH = LOGS_DIRECTORY / DEFAULT_LOG_PATH
 
 CdfProjectOption = Annotated[
     str | None,
@@ -415,7 +418,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -607,7 +610,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -716,7 +719,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -864,7 +867,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         skip_linking: Annotated[
             bool,
             typer.Option(
@@ -991,7 +994,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         skip_linking: Annotated[
             bool,
             typer.Option(
@@ -1117,7 +1120,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"migration_logs_{TODAY!s}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1231,7 +1234,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1300,7 +1303,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1364,7 +1367,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1445,7 +1448,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1607,7 +1610,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1702,7 +1705,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1791,7 +1794,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -1914,7 +1917,7 @@ class MigrateApp(typer.Typer):
                 "-l",
                 help="Path to the directory where migration logs will be stored.",
             ),
-        ] = Path(f"migration_logs_{TODAY}"),
+        ] = DEFAULT_LOG_PATH,
         dry_run: Annotated[
             bool,
             typer.Option(
