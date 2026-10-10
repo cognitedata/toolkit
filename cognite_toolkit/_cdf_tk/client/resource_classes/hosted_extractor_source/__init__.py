@@ -20,6 +20,7 @@ from ._certificate import AuthCertificateRequest, CACertificateRequest, Certific
 from ._eventhub import EventHubSourceRequest, EventHubSourceResponse
 from ._kafka import KafkaBroker, KafkaSourceRequest, KafkaSourceResponse
 from ._mqtt import MQTTSourceRequest, MQTTSourceResponse
+from ._mqtt_broker import MQTTBrokerSourceRequest, MQTTBrokerSourceResponse
 from ._rest import RESTSourceRequest, RESTSourceResponse
 
 
@@ -54,7 +55,12 @@ _SOURCE_RESPONSE_BY_TYPE = registry_from_subclasses_with_type_field(
 
 
 HostedExtractorSourceRequestUnion = Annotated[
-    KafkaSourceRequest | EventHubSourceRequest | MQTTSourceRequest | RESTSourceRequest | UnknownSourceRequest,
+    KafkaSourceRequest
+    | EventHubSourceRequest
+    | MQTTSourceRequest
+    | RESTSourceRequest
+    | MQTTBrokerSourceRequest
+    | UnknownSourceRequest,
     BeforeValidator(_handle_source_request_union),
 ]
 
@@ -63,7 +69,12 @@ HostedExtractorSourceRequest: TypeAdapter[HostedExtractorSourceRequestUnion] = T
 )
 
 HostedExtractorSourceResponseUnion = Annotated[
-    KafkaSourceResponse | EventHubSourceResponse | MQTTSourceResponse | RESTSourceResponse | UnknownSourceResponse,
+    KafkaSourceResponse
+    | EventHubSourceResponse
+    | MQTTSourceResponse
+    | RESTSourceResponse
+    | MQTTBrokerSourceResponse
+    | UnknownSourceResponse,
     BeforeValidator(_handle_source_response_union),
 ]
 
@@ -89,6 +100,8 @@ __all__ = [
     "KafkaBroker",
     "KafkaSourceRequest",
     "KafkaSourceResponse",
+    "MQTTBrokerSourceRequest",
+    "MQTTBrokerSourceResponse",
     "MQTTSourceRequest",
     "MQTTSourceResponse",
     "RESTSourceRequest",

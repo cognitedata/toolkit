@@ -101,6 +101,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping im
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
     KafkaSourceRequest,
     KafkaSourceResponse,
+    MQTTBrokerSourceRequest,
+    MQTTBrokerSourceResponse,
     MQTTSourceRequest,
     MQTTSourceResponse,
     RESTSourceRequest,
@@ -470,6 +472,15 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "type": "mqtt5",
             "externalId": "mqtt_source_001",
             "host": "localhost",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        MQTTBrokerSourceResponse: {
+            "type": "mqtt_broker",
+            "externalId": "mqtt_broker_001",
+            "host": "broker.cognitedata.com",
+            "port": 8883,
+            "authentication": {"type": "basic", "username": "generated-user"},
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
@@ -1098,6 +1109,15 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             api_class=HostedExtractorSourcesAPI,
         ),
         id="HostedExtractorMQTTSource",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=MQTTBrokerSourceResponse,
+            request_cls=MQTTBrokerSourceRequest,
+            example_data=get_example_minimum_responses(MQTTBrokerSourceResponse),
+            api_class=HostedExtractorSourcesAPI,
+        ),
+        id="HostedExtractorMQTTBrokerSource",
     )
     yield pytest.param(
         CDFResource(
