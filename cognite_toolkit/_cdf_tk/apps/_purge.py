@@ -276,7 +276,9 @@ class PurgeApp(typer.Typer):
                 help="Purge instances with properties in the specified view. Expected format is "
                 "'space:externalId/version'. For example 'cdf_cdm:CogniteTimeSeries/v1' will purge all nodes"
                 "that have properties in the CogniteTimeSeries view. If not provided and no "
-                "instance list is provided, interactive mode will be used.",
+                "instance list is provided, interactive mode will be used. In interactive mode, "
+                "all other options will be ignored and instead you will be asked to provide all other"
+                "arguments interactively.",
             ),
         ] = None,
         instance_space: Annotated[
@@ -375,6 +377,10 @@ class PurgeApp(typer.Typer):
         is_interactive = view is None and instance_list is None
         selector: InstanceSelector
         if is_interactive:
+            if instance_space is not None:
+                raise ToolkitValueError(
+                    "Cannot specify --instance-space when running in interactive mode. Please omit the --instance-space option."
+                )
             interactive = DataModelingSelect(client, operation="purge")
             select_view = interactive.select_view(filter=ViewSelectFilter(include_global=True))
             selected_instance_type = interactive.select_instance_type(select_view.used_for)
