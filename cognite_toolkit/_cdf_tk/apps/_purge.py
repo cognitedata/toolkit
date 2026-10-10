@@ -29,6 +29,17 @@ from ._helpers import print_help_if_no_subcommand
 TODAY = date.today()
 
 
+def _reject_ignored_interactive_options(flags: list[str]) -> None:
+    if not flags:
+        return
+    listed = ", ".join(flags)
+    if len(flags) == 1:
+        instruction = f"Please omit the {flags[0]} option."
+    else:
+        instruction = "Please omit these options."
+    raise ToolkitValueError(f"Cannot specify {listed} when running in interactive mode. {instruction}")
+
+
 class InstanceTypeEnum(str, Enum):
     node = "node"
     edge = "edge"
@@ -52,7 +63,9 @@ class PurgeApp(typer.Typer):
         external_id: Annotated[
             str | None,
             typer.Argument(
-                help="External id of the dataset to purge. If not provided, interactive mode will be used.",
+                help="External id of the dataset to purge. If not provided, interactive mode will be used. "
+                "In interactive mode, --archive-dataset, --skip-data, --include-configurations, "
+                "--asset-recursive, --dry-run, and --verbose are ignored and you will be asked for them instead.",
             ),
         ] = None,
         archive_dataset: Annotated[
@@ -125,8 +138,28 @@ class PurgeApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = PurgeCommand(client=client)
 
+        if auto_yes:
+            ToolkitDeprecationWarning(
+                feature="--yes / -y flag in cdf data purge dataset",
+                alternative="manual confirmation — purging data is an operation that must now always be performed manually",
+            ).print_warning()
+
         if external_id is None:
             # Is Interactive
+            _reject_ignored_interactive_options(
+                [
+                    flag
+                    for flag, enabled in (
+                        ("--archive-dataset", archive_dataset),
+                        ("--skip-data", skip_data),
+                        ("--include-configurations", include_configurations),
+                        ("--asset-recursive", asset_recursive),
+                        ("--dry-run", dry_run),
+                        ("--verbose", verbose),
+                    )
+                    if enabled
+                ]
+            )
             interactive = AssetInteractiveSelect(client, operation="purge")
             external_id = interactive.select_data_set(allow_empty=False)
             skip_data = not questionary.confirm(
@@ -158,8 +191,8 @@ class PurgeApp(typer.Typer):
                 include_configurations,
                 asset_recursive,
                 dry_run,
-                auto_yes,
-                verbose,
+                auto_yes=False,
+                verbose=verbose,
             )
         )
 
@@ -169,7 +202,8 @@ class PurgeApp(typer.Typer):
         space: Annotated[
             str | None,
             typer.Argument(
-                help="Space to purge. If not provided, interactive mode will be used.",
+                help="Space to purge. If not provided, interactive mode will be used. In interactive mode, "
+                "--include-space and --dry-run are ignored and you will be asked for them instead.",
             ),
         ] = None,
         include_space: Annotated[
@@ -235,10 +269,19 @@ class PurgeApp(typer.Typer):
                 feature="--yes / -y flag in cdf data purge space",
                 alternative="manual confirmation — purging data is an operation that must now always be performed manually",
             ).print_warning()
-            auto_yes = False
 
         if space is None:
             # Is Interactive
+            _reject_ignored_interactive_options(
+                [
+                    flag
+                    for flag, enabled in (
+                        ("--include-space", include_space),
+                        ("--dry-run", dry_run),
+                    )
+                    if enabled
+                ]
+            )
             interactive = DataModelingSelect(client, operation="purge")
             space_type = interactive.select_space_type()
             if space_type == "empty":
@@ -277,7 +320,7 @@ class PurgeApp(typer.Typer):
                 "'space:externalId/version'. For example 'cdf_cdm:CogniteTimeSeries/v1' will purge all nodes"
                 "that have properties in the CogniteTimeSeries view. If not provided and no "
                 "instance list is provided, interactive mode will be used. In interactive mode, "
-                "all other options will be ignored and instead you will be asked to provide all other"
+                "all other options will be ignored and instead you will be asked to provide all other "
                 "arguments interactively.",
             ),
         ] = None,
@@ -378,9 +421,7 @@ class PurgeApp(typer.Typer):
         selector: InstanceSelector
         if is_interactive:
             if instance_space is not None:
-                raise ToolkitValueError(
-                    "Cannot specify --instance-space when running in interactive mode. Please omit the --instance-space option."
-                )
+                _reject_ignored_interactive_options(["--instance-space"])
             interactive = DataModelingSelect(client, operation="purge")
             select_view = interactive.select_view(filter=ViewSelectFilter(include_global=True))
             selected_instance_type = interactive.select_instance_type(select_view.used_for)
