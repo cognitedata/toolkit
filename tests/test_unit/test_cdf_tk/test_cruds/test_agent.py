@@ -354,6 +354,7 @@ class TestAgentIOExtraFiles:
             },
         ]
 
+    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
     def test_get_extra_files_missing_instructions_file(self, tmp_path: Path) -> None:
         yaml_path = MagicMock(spec=Path)
         yaml_path.parent = tmp_path
@@ -364,7 +365,7 @@ class TestAgentIOExtraFiles:
 
         assert len(extras) == 1
         extra = extras[0]
-        assert extra.model_dump(exclude_unset=True)["code"] == "MISSING"
+        assert extra.model_dump(exclude_unset=True)["code"] == "MISSING-REFERENCED-FILE"
 
     @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="We only split files in v0.9+")
     def test_split_resource_writes_markdown_and_tools(

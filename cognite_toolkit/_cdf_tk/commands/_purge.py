@@ -8,9 +8,7 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 import questionary
-from cognite.client.data_classes import DataSetUpdate
 from cognite.client.data_classes.data_modeling import Edge
-from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from pydantic import JsonValue
 from rich import print
 from rich.console import Console
@@ -24,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsFailedResponse,
     ItemsRequest,
     ItemsSuccessResponse,
+    RequestMessage,
     ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import (
@@ -56,6 +55,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     TransformationsAcl,
     WorkflowOrchestrationAcl,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.statistics import SpaceStatisticsResponse
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
@@ -337,9 +337,10 @@ class PurgeCommand(ToolkitCommand):
         dry_run: bool = False,
         verbose: bool = False,
     ) -> DeployResults:
-        stats = client.data_modeling.statistics.spaces.retrieve(selected_space)
-        if stats is None:
+        retrieved_stats = client.statistics.spaces.retrieve([SpaceId(space=selected_space)])
+        if not retrieved_stats:
             raise ToolkitMissingResourceError(f"Space {selected_space!r} does not exist")
+        stats = retrieved_stats[0]
 
         instance_count = stats.nodes + stats.edges
 
@@ -368,7 +369,7 @@ class PurgeCommand(ToolkitCommand):
 
         if not dry_run:
             if instance_count > 0:
-                project_instance_statistics = client.data_modeling.statistics.project().instances
+                project_instance_statistics = client.statistics.retrieve().instances
                 validate_soft_delete_capacity(
                     project_instance_statistics.soft_deleted_instances,
                     project_instance_statistics.soft_deleted_instances_limit,
@@ -424,7 +425,7 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _create_to_delete_list_purge_space(
-        client: ToolkitClient, delete_datapoints: bool, delete_file_content: bool, stats: SpaceStatistics
+        client: ToolkitClient, delete_datapoints: bool, delete_file_content: bool, stats: SpaceStatisticsResponse
     ) -> list[ToDelete]:
         config = client.config
         to_delete = [
@@ -677,13 +678,26 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _archive_dataset(client: ToolkitClient, data_set: str) -> None:
-        archived = (
-            DataSetUpdate(external_id=data_set)
-            .external_id.set(str(uuid.uuid4()))
-            .metadata.add({"archived": "true"})
-            .write_protected.set(True)
+        # The Toolkit client does not have a way to update a dataset externalId, so
+        # we use a direct HTTP request to do the update
+        request = RequestMessage(
+            endpoint_url=client.config.create_api_url("/datasets/update"),
+            method="POST",
+            body_content={
+                "items": [
+                    {
+                        "externalId": data_set,
+                        "update": {
+                            "externalId": {"set": str(uuid.uuid4())},
+                            "metadata": {"add": {"archived": "true"}},
+                            "writeProtected": {"set": True},
+                        },
+                    }
+                ]
+            },
         )
-        client.data_sets.update(archived)
+        result = client.http_client.request_single_retries(request)
+        _ = result.get_success_or_raise(request)
         print(f"DataSet {data_set} archived")
 
     @staticmethod
@@ -807,7 +821,7 @@ class PurgeCommand(ToolkitCommand):
             print("No instances found.")
             return DeleteResults()
         if not dry_run:
-            project_instance_statistics = client.data_modeling.statistics.project().instances
+            project_instance_statistics = client.statistics.retrieve().instances
             validate_soft_delete_capacity(
                 project_instance_statistics.soft_deleted_instances,
                 project_instance_statistics.soft_deleted_instances_limit,
@@ -897,7 +911,7 @@ class PurgeCommand(ToolkitCommand):
         for scope in available_scopes:
             if isinstance(scope, AllScope):
                 # Full access
-                return None
+                return
             elif isinstance(scope, SpaceIDScope):
                 space_ids.update(scope.space_ids)
             else:
@@ -918,7 +932,7 @@ class PurgeCommand(ToolkitCommand):
                 [DataModelInstancesAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=sorted(missing_ids)))],
                 action="purging instances",
             )
-        return None
+        return
 
     def validate_model_access(self, client: ToolkitClient, view: list[str] | None) -> None:
         space = view[0] if isinstance(view, list) and view and isinstance(view[0], str) else None
@@ -926,7 +940,7 @@ class PurgeCommand(ToolkitCommand):
         space_ids: set[str] = set()
         for scope in available_scopes:
             if isinstance(scope, AllScope):
-                return None
+                return
             elif isinstance(scope, SpaceIDScope):
                 space_ids.update(scope.space_ids)
             else:
@@ -947,7 +961,7 @@ class PurgeCommand(ToolkitCommand):
                 [DataModelsAcl(actions=["READ"], scope=AllScope())],
                 action="reading data models",
             )
-        return None
+        return
 
     def validate_timeseries_access(self, client: ToolkitClient) -> None:
         available_scopes = client.tool.token.check_available_scopes(TimeSeriesAcl, ["READ", "WRITE"])
@@ -957,11 +971,11 @@ class PurgeCommand(ToolkitCommand):
                 action="unlinking time series",
             )
             self.warn(HighSeverityWarning(f"You cannot unlink time series. You need read and write access: {error!s}"))
-            return None
+            return
         ids_by_scope: dict[str, list[str]] = {}
         for scope in available_scopes:
             if isinstance(scope, AllScope):
-                return None
+                return
             elif isinstance(scope, DataSetScope):
                 ids_by_scope.setdefault("dataset", []).extend(client.lookup.data_sets.external_id(scope.ids))
             elif isinstance(scope, AssetRootIDScope):
@@ -975,7 +989,7 @@ class PurgeCommand(ToolkitCommand):
             bind_word="and",
         )
         self.warn(LimitedAccessWarning(f"You can only unlink time series in the following scopes: {scope_str}."))
-        return None
+        return
 
     def validate_file_access(self, client: ToolkitClient) -> None:
         available_scopes = client.tool.token.check_available_scopes(FilesAcl, ["READ", "WRITE"])
@@ -985,11 +999,11 @@ class PurgeCommand(ToolkitCommand):
                 action="unlinking files",
             )
             self.warn(HighSeverityWarning(f"You cannot unlink files. You need read and write access: {error!s}"))
-            return None
+            return
         ids_by_scope: dict[str, list[str]] = {}
         for scope in available_scopes:
             if isinstance(scope, AllScope):
-                return None
+                return
             elif isinstance(scope, DataSetScope):
                 ids_by_scope.setdefault("dataset", []).extend(client.lookup.data_sets.external_id(scope.ids))
             else:
@@ -999,7 +1013,7 @@ class PurgeCommand(ToolkitCommand):
             bind_word="and",
         )
         self.warn(LimitedAccessWarning(f"You can only unlink files in the following scopes: {scope_str}."))
-        return None
+        return
 
     @staticmethod
     def _no_op(instance_ids: Page[InstanceDefinitionId]) -> Page[InstanceDefinitionId]:
@@ -1091,7 +1105,6 @@ class PurgeCommand(ToolkitCommand):
                             message=f"Ready to unlink TimeSeries with internal ID {internal_id!s} from Node {data_item.item!r}",
                         )
                     )
-        return None
 
     @staticmethod
     def _unlink_files(
@@ -1131,4 +1144,3 @@ class PurgeCommand(ToolkitCommand):
                             message=f"Ready to unlink File with internal ID {internal_id!s} from Node {data_item.item!r}",
                         )
                     )
-        return None

@@ -2,9 +2,6 @@ from collections.abc import Iterable, Mapping
 from types import MappingProxyType
 from typing import Any, ClassVar, Literal, cast
 
-from cognite.client import data_modeling as sdk_dm
-from cognite.client.data_classes.aggregations import Count
-
 from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import (
@@ -16,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes import data_modeling as dm
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    CountAggregate,
     NodeOrEdgeRequest,
     NodeOrEdgeResponse,
     QueryEdgeExpression,
@@ -165,6 +163,16 @@ class InstanceIO(
             return leaf_filters[0]
         return {"and": leaf_filters}
 
+    @staticmethod
+    def _space_aggregate_filter(
+        instance_type: Literal["node", "edge"], spaces: list[str] | None
+    ) -> dict[str, Any] | None:
+        if not spaces:
+            return None
+        if len(spaces) == 1:
+            return {"equals": {"property": [instance_type, "space"], "value": spaces[0]}}
+        return {"in": {"property": [instance_type, "space"], "values": spaces}}
+
     def _filter_readonly_properties(self, instance: NodeOrEdgeRequest) -> None:
         """Filter out read-only properties from the instance.
 
@@ -242,9 +250,7 @@ class InstanceIO(
         return instance_columns + property_columns
 
     def _get_instance_type_and_view_id(self, selector: InstanceSelector) -> tuple[str, SelectedView | None]:
-        if isinstance(selector, InstanceViewSelector):
-            return selector.instance_type, selector.view
-        elif isinstance(selector, InstanceSpaceSelector):
+        if isinstance(selector, InstanceViewSelector) or isinstance(selector, InstanceSpaceSelector):
             return selector.instance_type, selector.view
         else:
             raise NotImplementedError(f"{type(selector).__name__} does not support downloading to table-format.")
@@ -490,18 +496,29 @@ class InstanceIO(
             isinstance(selector, InstanceSpaceSelector) and selector.view
         ):
             view_id = cast(SelectedView, selector.view)
-            aggregate_kwargs: dict[str, Any] = {
-                "view": sdk_dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
-                "aggregates": Count("externalId"),
-                "instance_type": selector.instance_type,
-                "space": selector.get_instance_spaces(),
-            }
+            aggregate_filter = self._space_aggregate_filter(selector.instance_type, selector.get_instance_spaces())
             if isinstance(selector, InstanceViewSelector) and selector.additional_filter is not None:
-                aggregate_kwargs["filter"] = selector.additional_filter
-            result = self.client.data_modeling.instances.aggregate(**aggregate_kwargs)
-            return int(result.value or 0)
+                aggregate_filter = (
+                    {"and": [selector.additional_filter, aggregate_filter]}
+                    if aggregate_filter is not None
+                    else selector.additional_filter
+                )
+            result = self.client.tool.instances.aggregate(
+                ViewId(
+                    space=view_id.space,
+                    external_id=view_id.external_id,
+                    version=view_id.version or "",
+                ),
+                aggregates=[CountAggregate(property="externalId")],
+                instance_type=selector.instance_type,
+                filter=aggregate_filter,
+            )
+            if not result.items or not result.items[0].aggregates:
+                return 0
+            return int(result.items[0].aggregates[0].value or 0)
         elif isinstance(selector, InstanceSpaceSelector):
-            statistics = self.client.data_modeling.statistics.spaces.retrieve(space=selector.instance_space)
+            statistics_list = self.client.statistics.spaces.retrieve([SpaceId(space=selector.instance_space)])
+            statistics = statistics_list[0] if statistics_list else None
             if statistics is None:
                 return None
             if selector.instance_type == "node":
