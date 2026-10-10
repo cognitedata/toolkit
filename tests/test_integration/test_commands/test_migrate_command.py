@@ -73,13 +73,17 @@ def three_assets(toolkit_client: ToolkitClient, toolkit_space: Space) -> Iterato
         try:
             client.assets.delete(external_id=output.as_external_ids(), ignore_unknown_ids=True)
         except CogniteAPIError:
-            client.data_modeling.instances.delete([dm.NodeId(space, ts.external_id) for ts in output])
+            client.data_modeling.instances.delete(
+                [dm.NodeId(space, external_id) for external_id in output.as_external_ids()]
+            )
     created = client.assets.create(assets)
 
     yield created
 
     # Cleanup after test
-    _ = client.data_modeling.instances.delete([dm.NodeId(space, ts.external_id) for ts in created])
+    _ = client.data_modeling.instances.delete(
+        [dm.NodeId(space, external_id) for external_id in created.as_external_ids()]
+    )
     client.assets.delete(external_id=created.as_external_ids(), ignore_unknown_ids=True, recursive=True)
 
 
@@ -113,8 +117,8 @@ class TestMigrateAssetsCommand:
             dry_run=False,
             verbose=False,
         )
-        node_ids = [dm.NodeId(space, a.external_id) for a in three_assets]
-        migrated_assets = client.data_modeling.instances.retrieve_nodes(node_ids, CogniteAsset)
+        node_ids = [dm.NodeId(space, external_id) for external_id in three_assets.as_external_ids()]
+        migrated_assets = client.data_modeling.instances.retrieve_nodes(node_ids, node_cls=CogniteAsset)
         assert len(migrated_assets) == len(three_assets), "Not all assets were migrated successfully."
 
     def test_migrate_assets_by_dataset_dry_run(
@@ -125,7 +129,7 @@ class TestMigrateAssetsCommand:
         cmd = MigrationCommand(skip_tracking=True, silent=True)
         selector = MigrateDataSetSelector(
             kind="Assets",
-            data_set_external_id=hierarchy.dataset.external_id,
+            data_set_external_id=hierarchy.data_set_external_id,
             ingestion_mapping=ASSET_ID,
             preferred_consumer_view=ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
         )
@@ -156,7 +160,7 @@ class TestMigrateEventsCommand:
         cmd = MigrationCommand(skip_tracking=True, silent=True)
         selector = MigrateDataSetSelector(
             kind="Events",
-            data_set_external_id=hierarchy.dataset.external_id,
+            data_set_external_id=hierarchy.data_set_external_id,
             ingestion_mapping=EVENT_ID,
             preferred_consumer_view=ViewId(space="cdf_cdm", external_id="CogniteActivity", version="v1"),
         )
@@ -187,7 +191,7 @@ class TestMigrateTimeSeriesCommand:
         cmd = MigrationCommand(skip_tracking=True, silent=True)
         selector = MigrateDataSetSelector(
             kind="TimeSeries",
-            data_set_external_id=hierarchy.dataset.external_id,
+            data_set_external_id=hierarchy.data_set_external_id,
             ingestion_mapping=TIME_SERIES_ID,
             preferred_consumer_view=ViewId(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"),
         )
@@ -218,7 +222,7 @@ class TestMigrateFileMetadataCommand:
         cmd = MigrationCommand(skip_tracking=True, silent=True)
         selector = MigrateDataSetSelector(
             kind="FileMetadata",
-            data_set_external_id=hierarchy.dataset.external_id,
+            data_set_external_id=hierarchy.data_set_external_id,
             ingestion_mapping=FILE_METADATA_ID,
             preferred_consumer_view=ViewId(space="cdf_cdm", external_id="CogniteFile", version="v1"),
         )
@@ -249,7 +253,7 @@ class TestMigrateAnnotations:
         cmd = MigrationCommand(skip_tracking=True, silent=True)
         selector = MigrateDataSetSelector(
             kind="Annotations",
-            data_set_external_id=hierarchy.dataset.external_id,
+            data_set_external_id=hierarchy.data_set_external_id,
         )
         result = cmd.migrate(
             selectors=[selector],
@@ -290,14 +294,16 @@ def cdm_file(
     _ = client.tool.cognite_files.create([node])
 
     file = client.tool.filemetadata.get_upload_url([node.as_instance_id()])[0]
-    _ = client.tool.filemetadata.upload_file("This is the CDM file content", file.upload_url, mime_type="text/plain")
+    upload_url = file.upload_url
+    assert upload_url is not None
+    _ = client.tool.filemetadata.upload_file("This is the CDM file content", upload_url, mime_type="text/plain")
     request = RequestMessage(
         endpoint_url=client.config.create_api_url("/files/update"),
         method="POST",
         body_content={"items": [{**instance_id.dump(), "update": {"externalId": {"set": node.external_id}}}]},
     )
     response = client.http_client.request_single_retries(request).get_success_or_raise(request)
-    return ResponseItems[FileMetadataResponse].model_valide_json(response.body).items[0]
+    return ResponseItems[FileMetadataResponse].model_validate_json(response.body).items[0]
 
 
 @pytest.fixture
@@ -386,7 +392,7 @@ class TestMigrateEventsToRecordsCommand:
         cmd = MigrationCommand(skip_tracking=True, silent=True)
         selector = MigrateDataSetSelector(
             kind="Events",
-            data_set_external_id=hierarchy.dataset.external_id,
+            data_set_external_id=hierarchy.data_set_external_id,
         )
         result = cmd.migrate(
             selectors=[selector],

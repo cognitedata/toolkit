@@ -41,6 +41,10 @@ class TestUploadCommand:
         self, toolkit_client: ToolkitClient, two_timeseries: tuple[TimeSeries, TimeSeries], tmp_path: Path
     ) -> None:
         ts1, ts2 = two_timeseries
+        ts1_external_id = ts1.external_id
+        ts2_external_id = ts2.external_id
+        assert ts1_external_id is not None
+        assert ts2_external_id is not None
         assert ts1.is_string is False
         assert ts2.is_string is True
         selector = DataPointsFileSelector(
@@ -48,7 +52,7 @@ class TestUploadCommand:
             columns=(
                 ExternalIdColumn(
                     column="value",
-                    external_id=ts1.external_id,
+                    external_id=ts1_external_id,
                     dtype="numeric",
                 ),
                 InternalIdColumn(
@@ -76,16 +80,18 @@ class TestUploadCommand:
         )
 
         datapoints = toolkit_client.time_series.data.retrieve_arrays(
-            external_id=ts1.external_id,
+            external_id=ts1_external_id,
             start=datetime.fromisoformat("2024-01-01T00:00:00Z"),
             end=datetime.fromisoformat("2024-01-01T00:00:10Z"),
         )
+        assert datapoints is not None
         assert len(datapoints) == 10, f"Expected 10 datapoints, got {len(datapoints)}"
         datapoints2 = toolkit_client.time_series.data.retrieve_arrays(
-            external_id=ts2.external_id,
+            external_id=ts2_external_id,
             start=datetime.fromisoformat("2024-01-01T00:00:00Z"),
             end=datetime.fromisoformat("2024-01-01T00:00:10Z"),
         )
+        assert datapoints2 is not None
         assert len(datapoints2) == 10, f"Expected 10 datapoints, got {len(datapoints2)}"
 
     def test_upload_download_datapoints(
@@ -93,12 +99,18 @@ class TestUploadCommand:
     ) -> None:
         ts1, _ = two_timeseries
         client = toolkit_client
+        ts1_external_id = ts1.external_id
+        data_set_id = ts1.data_set_id
+        assert ts1_external_id is not None
+        assert data_set_id is not None
         assert ts1.is_string is False
+        data_set_external_id = client.lookup.data_sets.external_id(data_set_id)
+        assert data_set_external_id is not None
 
         upload_dir = tmp_path / "upload"
         upload_dir.mkdir(parents=True, exist_ok=True)
         selector = DataPointsDataSetSelector(
-            data_set_external_id=client.lookup.data_sets.external_id(ts1.data_set_id),
+            data_set_external_id=data_set_external_id,
             start=int(datetime.fromisoformat("1989-01-01T00:00:00Z").timestamp() * 1000),
             end=int(datetime.fromisoformat("1989-01-02T00:00:00Z").timestamp() * 1000),
             download_dir_name="datapoints",
@@ -109,7 +121,7 @@ class TestUploadCommand:
         rows: list[str] = []
         for i in range(10):
             timestamp_ms = int(datetime.fromisoformat(f"1989-01-01T00:00:{i:02d}Z").timestamp() * 1000)
-            rows.append(f"{ts1.external_id},{timestamp_ms},{i * 5}.0")
+            rows.append(f"{ts1_external_id},{timestamp_ms},{i * 5}.0")
         csv_content += "\n" + "\n".join(rows)
         csv_file.write_text(csv_content)
         upload_cmd = UploadCommand(silent=True, skip_tracking=True)
@@ -122,12 +134,14 @@ class TestUploadCommand:
         )
 
         aggregate_result = client.time_series.data.retrieve(
-            external_id=ts1.external_id,
+            external_id=ts1_external_id,
             start=datetime.fromisoformat("1989-01-01T00:00:00Z"),
             end=datetime.fromisoformat("1989-01-02T00:00:00Z"),
             aggregates="count",
             granularity="1d",
         )
+        assert aggregate_result is not None
+        assert aggregate_result.count is not None
         assert aggregate_result.count[0] == 10, f"Expected 10 datapoints, got {aggregate_result.count[0]}"
 
         io = DatapointsIO(client)
