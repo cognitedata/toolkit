@@ -61,7 +61,7 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
         return {"view": id.dump()}
 
     @classmethod
-    def as_str(cls, id: ViewNoVersionId) -> str:
+    def as_filename(cls, id: ViewNoVersionId) -> str:
         return sanitize_filename(f"{id.external_id}_{id.space}")
 
     @classmethod

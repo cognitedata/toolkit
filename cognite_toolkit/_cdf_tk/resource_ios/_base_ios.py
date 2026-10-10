@@ -492,11 +492,12 @@ class ResourceIO(
         return [cls.get_id(item) for item in items]
 
     @classmethod
-    def as_str(cls, id: T_Identifier) -> str:
+    def as_filename(cls, id: T_Identifier) -> str:
+        """Converts the identifier to a filename. This is used to create the filename for the resource in the build"""
         if isinstance(id, str):
             return sanitize_filename(id)
         raise NotImplementedError(
-            f"Bug in CogniteToolkit 'as_str' is not implemented for {cls.__name__.removesuffix('Loader')}."
+            f"Bug in CogniteToolkit 'as_filename' is not implemented for {cls.__name__.removesuffix('Loader')}."
         )
 
     def load_resource_files(
