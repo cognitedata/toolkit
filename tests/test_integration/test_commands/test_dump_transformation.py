@@ -53,7 +53,9 @@ def deployed_transformation(toolkit_client: ToolkitClient, cognite_client: Cogni
 
 
 @pytest.fixture(scope="session")
-def deployed_transformation_schedule(cognite_client: CogniteClient, deployed_transformation: Transformation) -> None:
+def deployed_transformation_schedule(
+    cognite_client: CogniteClient, deployed_transformation: Transformation
+) -> TransformationSchedule:
     schedule = TransformationScheduleWrite(
         interval="0 12 * * 1",
         external_id=deployed_transformation.external_id,
