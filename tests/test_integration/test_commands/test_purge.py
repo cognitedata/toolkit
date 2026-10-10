@@ -206,3 +206,31 @@ class TestPurge:
             log_dir=tmp_path,
         )
         assert results.dry_run == 1
+
+        # Data not deleted
+        assert populated.asset.external_id is not None
+        assert client.assets.retrieve(external_id=populated.asset.external_id) is not None
+        assert populated.event.external_id is not None
+        assert client.events.retrieve(external_id=populated.event.external_id) is not None
+        assert populated.sequence.external_id is not None
+        assert client.sequences.retrieve(external_id=populated.sequence.external_id) is not None
+        assert populated.timeseries.external_id is not None
+        assert client.time_series.retrieve(external_id=populated.timeseries.external_id) is not None
+        assert populated.file.external_id is not None
+        assert client.files.retrieve(external_id=populated.file.external_id) is not None
+        # Labels are not deleted, they are still available on direct look-up.
+        # However, they should not be listed under the dataset anymore.
+        assert populated.dataset.external_id is not None
+        assert len(client.labels.list(data_set_external_ids=populated.dataset.external_id)) >= 1
+        relationships = client.relationships.list(source_external_ids=[populated.asset.external_id])
+        assert len(relationships) == 1
+        assert client.three_d.models.retrieve(id=populated.three_d.id) is not None
+        # Configurations not deleted
+        assert populated.workflow.external_id is not None
+        assert (
+            client.workflows.retrieve(external_id=populated.workflow.external_id, ignore_unknown_ids=True) is not None
+        )
+        assert populated.transformation.external_id is not None
+        assert client.transformations.retrieve(external_id=populated.transformation.external_id) is not None
+        assert populated.extraction_pipeline.external_id is not None
+        assert client.extraction_pipelines.retrieve(external_id=populated.extraction_pipeline.external_id) is not None
