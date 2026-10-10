@@ -117,7 +117,7 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
         """
         return self.client.tool.search_configurations.update(items)
 
-    def delete(self, ids: Sequence[ViewNoVersionId]) -> int:
+    def delete(self, ids: Sequence[ViewNoVersionId]) -> list[ViewNoVersionId]:
         """
         Delete is not implemented in the API client
         """

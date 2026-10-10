@@ -27,7 +27,6 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
     FILEPATH,
     FileMetadataRequest,
@@ -224,11 +223,11 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
                     self._try_upload_file_content(responses_with_url[0])
         return responses
 
-    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.filemetadata.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[InternalOrExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if id_list:
+            self.client.tool.filemetadata.delete(id_list, ignore_unknown_ids=True)
+        return [id_ for id_ in id_list if isinstance(id_, ExternalId)]
 
     def _iterate(
         self,
@@ -251,7 +250,7 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
         # without the source set to delete the file.
         deleted_files = self.delete([meta.as_id() for meta in existing])
         self.create([meta.as_request_resource() for meta in existing])
-        return deleted_files
+        return len(deleted_files)
 
 
 def _resolve_source_file(
@@ -456,12 +455,14 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
-    def create(self, items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
-        responses = self.client.tool.cognite_files.create(items)
+    def create(self, items: Sequence[CogniteFileRequest]) -> list[CogniteFileResponse]:
+        created = self.client.tool.cognite_files.create(items)
         if self.support_upload:
             for item in items:
                 self._try_upload_file_content(item)
-        return responses
+        if not created:
+            return []
+        return self.retrieve([NodeId(space=item.space, external_id=item.external_id) for item in created])
 
     def _try_upload_file_content(self, item: CogniteFileRequest) -> None:
         if item.filepath:
@@ -472,15 +473,11 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
     def retrieve(self, ids: Sequence[NodeId]) -> list[CogniteFileResponse]:
         return self.client.tool.cognite_files.retrieve(ids)
 
-    def update(self, items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
-        responses = self.client.tool.cognite_files.create(items)
+    def update(self, items: Sequence[CogniteFileRequest]) -> list[CogniteFileResponse]:
+        created = self.client.tool.cognite_files.create(items)
+        retrieved = self.retrieve([NodeId(space=item.space, external_id=item.external_id) for item in created])
         if self.support_upload:
-            items_by_id = {
-                response.as_id(): response
-                for response in self.client.tool.cognite_files.retrieve(
-                    [NodeId(space=item.space, external_id=item.external_id) for item in responses]
-                )
-            }
+            items_by_id = {response.as_id(): response for response in retrieved}
             for item in items:
                 if not item.filepath:
                     continue
@@ -491,10 +488,10 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
                     continue
                 # Need to upload the file content
                 self._try_upload_file_content(item)
-        return responses
+        return retrieved
 
-    def delete(self, ids: Sequence[NodeId]) -> int:
-        return len(self.client.tool.cognite_files.delete(ids))
+    def delete(self, ids: Sequence[NodeId]) -> list[NodeId]:
+        return self.client.tool.cognite_files.delete(list(ids))
 
     def _iterate(
         self,

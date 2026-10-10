@@ -158,11 +158,12 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
     def update(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
         return self.client.tool.workflows.update(items)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.workflows.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.workflows.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -445,11 +446,12 @@ class WorkflowVersionIO(
     def update(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
         return self._upsert(items)
 
-    def delete(self, ids: Sequence[WorkflowVersionId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.workflows.versions.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[WorkflowVersionId]) -> list[WorkflowVersionId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.workflows.versions.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -601,11 +603,12 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
     def update(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
         return self._upsert(items)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.workflows.triggers.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.workflows.triggers.delete(id_list)
+        return id_list
 
     def _iterate(
         self,

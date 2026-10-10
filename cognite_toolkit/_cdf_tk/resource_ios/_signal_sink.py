@@ -63,9 +63,10 @@ class SignalSinkIO(ResourceIO[SignalSinkId, SignalSinkRequest, SignalSinkRespons
     def update(self, items: Sequence[SignalSinkRequest]) -> list[SignalSinkResponse]:
         return self.client.tool.signal_sinks.update(list(items))
 
-    def delete(self, ids: Sequence[SignalSinkId]) -> int:
-        self.client.tool.signal_sinks.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[SignalSinkId]) -> list[SignalSinkId]:
+        id_list = list(ids)
+        self.client.tool.signal_sinks.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,

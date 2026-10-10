@@ -133,7 +133,7 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSet
     def update(self, items: Sequence[DataSetRequest]) -> list[DataSetResponse]:
         return self.client.tool.datasets.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
     def _iterate(
@@ -188,20 +188,20 @@ class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse, LabelsYAML]):
     def retrieve(self, ids: Sequence[ExternalId]) -> list[LabelResponse]:
         return self.client.tool.labels.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         if not ids:
-            return 0
+            return []
         try:
             self.client.tool.labels.delete(list(ids))
         except ToolkitAPIError as e:
             if missing := {ExternalId.model_validate(item) for item in e.missing or []}:
                 if existing := (set(ids) - missing):
-                    self.client.tool.labels.delete(list(existing))
-                    return len(existing)
-                else:
-                    return 0
+                    existing_list = list(existing)
+                    self.client.tool.labels.delete(existing_list)
+                    return existing_list
+                return []
             raise
-        return len(ids)
+        return list(ids)
 
     def _iterate(
         self,

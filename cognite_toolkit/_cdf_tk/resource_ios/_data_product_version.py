@@ -102,11 +102,12 @@ class DataProductVersionIO(
             return []
         return self.client.tool.data_products.versions.update(list(items))
 
-    def delete(self, ids: Sequence[DataProductVersionId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.data_products.versions.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[DataProductVersionId]) -> list[DataProductVersionId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.data_products.versions.delete(id_list)
+        return id_list
 
     def _iterate(
         self,

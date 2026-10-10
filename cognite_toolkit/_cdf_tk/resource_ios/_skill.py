@@ -229,9 +229,10 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
     def update(self, items: Sequence[SkillRequest]) -> list[SkillResponse]:
         return self.client.tool.skills.update(items)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        self.client.tool.skills.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        self.client.tool.skills.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,

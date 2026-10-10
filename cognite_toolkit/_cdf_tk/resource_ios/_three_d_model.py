@@ -95,11 +95,11 @@ class ThreeDModelIO(
     def update(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelClassicResponse]:
         return self.client.tool.three_d.models_classic.update(items)
 
-    def delete(self, ids: Sequence[NameId]) -> int:
+    def delete(self, ids: Sequence[NameId]) -> list[NameId]:
         models = self.retrieve(ids)
         internal_ids = [InternalId(id=model.id) for model in models]
         self.client.tool.three_d.models_classic.delete(internal_ids)
-        return len(models)
+        return [NameId(name=model.name) for model in models]
 
     def _iterate(
         self,

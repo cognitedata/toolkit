@@ -104,9 +104,10 @@ class SignalSubscriptionIO(
     def update(self, items: Sequence[SignalSubscriptionRequest]) -> list[SignalSubscriptionResponse]:
         return self.client.tool.signal_subscriptions.update(list(items))
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        self.client.tool.signal_subscriptions.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        self.client.tool.signal_subscriptions.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,

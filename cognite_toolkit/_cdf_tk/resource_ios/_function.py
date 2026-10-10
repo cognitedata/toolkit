@@ -463,7 +463,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
             return []
         return self.client.tool.functions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         functions = self.retrieve(ids)
 
         self.client.tool.functions.delete(list(ids), ignore_unknown_ids=True)
@@ -484,7 +484,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
             )
         if dm_file_nodes:
             self.client.tool.instances.delete(list(dm_file_nodes))
-        return len(ids)
+        return list(ids)
 
     def _iterate(
         self,
@@ -683,11 +683,11 @@ class FunctionScheduleIO(
             f"Could not find function{plural_fun} {humanize_collection(missing_functions)!r}"
         )
 
-    def delete(self, ids: Sequence[FunctionScheduleId]) -> int:
+    def delete(self, ids: Sequence[FunctionScheduleId]) -> list[FunctionScheduleId]:
         schedules = self.retrieve(ids)
         internal_ids = [InternalId(id=schedule.id) for schedule in schedules if schedule.id]
         self.client.tool.functions.schedules.delete(internal_ids)
-        return len(ids)
+        return list(ids)
 
     def _iterate(
         self,

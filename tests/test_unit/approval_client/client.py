@@ -61,7 +61,7 @@ from requests import Response
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceId, InternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceDefinition,
     InstanceRequest,
@@ -992,6 +992,28 @@ class ApprovalToolkitClient:
         def retrieve(ids: Sequence, *_, **__) -> list:
             return existing_resources[resource_cls.__name__]
 
+        def retrieve_cognite_file(ids: Sequence[NodeId], *_, **__) -> list[CogniteFileResponse]:
+            # CogniteFileIO.create/update write slim instances, then retrieve the full file.
+            # Created files live in created_resources, so a retrieve of only existing_resources is empty.
+            created_resources = self.created_resources
+            by_id: dict[tuple[str, str], CogniteFileRequest | CogniteFileResponse] = {}
+            for item in [*existing_resources[resource_cls.__name__], *created_resources[resource_cls.__name__]]:
+                if isinstance(item, CogniteFileRequest | CogniteFileResponse):
+                    by_id[(item.space, item.external_id)] = item
+
+            retrieved: list[CogniteFileResponse] = []
+            for node_id in ids:
+                item = by_id.get((node_id.space, node_id.external_id))
+                if item is None:
+                    continue
+                if isinstance(item, CogniteFileResponse):
+                    retrieved.append(item)
+                    continue
+                payload = item.model_dump(exclude_unset=True, exclude={"existing_version"})
+                payload.update(version=1, created_time=1, last_updated_time=2, is_uploaded=bool(item.filepath))
+                retrieved.append(CogniteFileResponse.model_validate(payload))
+            return retrieved
+
         def retrieve_hosted_extractor_source(items: Sequence, *_, **__) -> list:
             return existing_resources[SourceRequestDefinition.__name__]
 
@@ -1052,6 +1074,7 @@ class ApprovalToolkitClient:
                 iterate_values,
                 return_data_models,
                 retrieve,
+                retrieve_cognite_file,
                 retrieve_hosted_extractor_source,
                 list_raw_db,
                 list_raw_table,

@@ -99,7 +99,7 @@ class RawDatabaseIO(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDa
         target_dbs = {db.name for db in ids}
         return [db for db in database_list if db.name in target_dbs]
 
-    def delete(self, ids: Sequence[RawDatabaseId]) -> int:
+    def delete(self, ids: Sequence[RawDatabaseId]) -> list[RawDatabaseId]:
         ids_list = list(ids)
         try:
             self.client.tool.raw.databases.delete(ids_list)
@@ -107,11 +107,11 @@ class RawDatabaseIO(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDa
             # Bug in API, missing is returned as failed
             if e.missing and (remaining := [db for db in ids_list if db.name not in e.missing]):
                 self.client.tool.raw.databases.delete(remaining)
-            elif e.code == 404 and "not found" in e.message and "database" in e.message:
-                return 0
-            else:
-                raise e
-        return len(ids_list)
+                return remaining
+            if e.code == 404 and "not found" in e.message and "database" in e.message:
+                return []
+            raise e
+        return ids_list
 
     def _iterate(
         self,
@@ -229,28 +229,28 @@ class RawTableIO(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableRespon
             retrieved.extend(table for table in tables if table.name in expected_tables)
         return retrieved
 
-    def delete(self, ids: Sequence[RawTableId]) -> int:
-        count = 0
+    def delete(self, ids: Sequence[RawTableId]) -> list[RawTableId]:
+        deleted: list[RawTableId] = []
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             tables_to_delete = [table for table in raw_tables if table.name]
-            if tables_to_delete:
-                try:
-                    self.client.tool.raw.tables.delete(tables_to_delete)
-                except ToolkitAPIError as e:
-                    if e.code != 404:
-                        raise e
-                    missing = {item.get("name") for item in (e.missing or [])}
-                    if "not found" in e.message and "database" in e.message:
-                        continue
-                    elif remaining := [t for t in tables_to_delete if t.name not in missing]:
-                        self.client.tool.raw.tables.delete(remaining)
-                    elif not remaining:
-                        # Table does not exist.
-                        continue
-                    else:
-                        raise e
-                count += len(tables_to_delete)
-        return count
+            if not tables_to_delete:
+                continue
+            try:
+                self.client.tool.raw.tables.delete(tables_to_delete)
+            except ToolkitAPIError as e:
+                if e.code != 404:
+                    raise e
+                missing = {item.get("name") for item in (e.missing or [])}
+                if "not found" in e.message and "database" in e.message:
+                    continue
+                if remaining := [t for t in tables_to_delete if t.name not in missing]:
+                    self.client.tool.raw.tables.delete(remaining)
+                    tables_to_delete = remaining
+                else:
+                    # Table does not exist.
+                    continue
+            deleted.extend(tables_to_delete)
+        return deleted
 
     def _iterate(
         self,

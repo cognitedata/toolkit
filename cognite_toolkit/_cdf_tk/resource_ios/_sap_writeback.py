@@ -83,11 +83,12 @@ class SchemaMappingIO(ResourceIO[ExternalId, SchemaMappingRequest, SchemaMapping
             return []
         return self.client.sap_writeback.mappings.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.sap_writeback.mappings.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.sap_writeback.mappings.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -156,11 +157,12 @@ class SAPInstanceIO(ResourceIO[ExternalId, SAPInstanceRequest, SAPInstanceRespon
             return []
         return self.client.sap_writeback.instances.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.sap_writeback.instances.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.sap_writeback.instances.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -228,11 +230,12 @@ class SAPEndpointIO(ResourceIO[ExternalId, SAPEndpointRequest, SAPEndpointRespon
             return []
         return self.client.sap_writeback.endpoints.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.sap_writeback.endpoints.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.sap_writeback.endpoints.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
