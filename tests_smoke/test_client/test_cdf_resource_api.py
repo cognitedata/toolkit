@@ -1784,16 +1784,13 @@ class TestCDFResourceAPI:
                 method_map["list"].path, "Expected at 1 listed extraction pipeline config, got 0"
             )
 
-    @pytest.mark.skip(
-        reason="The endpoint /integrations/checkin returns 422: errors[0].general.externalId: Field required. Which is inconsistent with the docs."
-    )
     def test_integration_tasks_actions_configuration_and_errors(self, toolkit_client: ToolkitClient) -> None:
         external_id = f"smoke-test-integration-{uuid4().hex[:8]}"
         action_external_id = f"{external_id}-action"
-        client = toolkit_client.integrations
+        client = toolkit_client
         integration_id = None
         try:
-            created = client.create(
+            created = client.integrations.create(
                 [
                     IntegrationRequest(
                         external_id=external_id,
@@ -1805,19 +1802,19 @@ class TestCDFResourceAPI:
                 raise EndpointAssertionError("/integrations", f"Expected 1 created integration, got {len(created)}")
             integration_id = created[0].as_id()
 
-            config = client.configuration.create(
+            config = client.integrations.configuration.create(
                 [IntegrationConfigRequest(external_id=external_id, config="smoke: true")]
             )
             if len(config) != 1 or config[0].config != "smoke: true":
                 raise EndpointAssertionError("/integrations/config", "Creating a config revision failed")
-            retrieved_config = client.configuration.retrieve([config[0].as_id()])
+            retrieved_config = client.integrations.configuration.retrieve([config[0].as_id()])
             if len(retrieved_config) != 1 or retrieved_config[0].revision != config[0].revision:
                 raise EndpointAssertionError("/integrations/config", "Retrieving the config revision failed")
-            listed_configs = client.configuration.list(integration_external_id=external_id, limit=10)
+            listed_configs = client.integrations.configuration.list(integration_external_id=external_id, limit=10)
             if not any(item.revision == config[0].revision for item in listed_configs):
                 raise EndpointAssertionError("/integrations/config/revisions", "Created revision was not listed")
 
-            started = client.startup(
+            started = client.integrations.startup(
                 IntegrationStartupRequest(
                     external_id=external_id,
                     extractor=IntegrationExtractor(external_id="toolkit-smoke", version="1.0.0"),
@@ -1829,7 +1826,7 @@ class TestCDFResourceAPI:
                 raise EndpointAssertionError("/integrations/startup", "Startup response external ID did not match")
 
             now = int(time.time() * 1000)
-            checked_in = client.checkin(
+            checked_in = client.integrations.checkin(
                 IntegrationCheckinRequest(
                     external_id=external_id,
                     task_events=[IntegrationTaskEvent(type="started", name="smoke-task", timestamp=now)],
@@ -1849,18 +1846,22 @@ class TestCDFResourceAPI:
             history = self.wait_until_has_value(
                 lambda: [
                     item
-                    for item in client.tasks.list(integration_external_id=external_id, task_name="smoke-task", limit=10)
+                    for item in client.integrations.tasks.list(
+                        integration_external_id=external_id, task_name="smoke-task", limit=10
+                    )
                     if item.task_name == "smoke-task"
                 ]
             )
             if len(history) != 1:
                 raise EndpointAssertionError("/integrations/history", "Expected the started task in history")
 
-            synced = client.tasks.sync(external_id, include_errors=True, include_task_updates=True, limit=10)
+            synced = client.integrations.tasks.sync(
+                external_id, include_errors=True, include_task_updates=True, limit=10
+            )
             if not synced.next_cursor:
                 raise EndpointAssertionError("/integrations/sync", "Sync did not return a cursor")
 
-            actions = client.actions.create(
+            actions = client.integrations.actions.create(
                 [
                     IntegrationActionRequest(
                         external_id=action_external_id,
@@ -1871,20 +1872,22 @@ class TestCDFResourceAPI:
             )
             if len(actions) != 1:
                 raise EndpointAssertionError("/integrations/actions", f"Expected 1 created action, got {len(actions)}")
-            retrieved_actions = client.actions.retrieve([actions[0].as_id()])
+            retrieved_actions = client.integrations.actions.retrieve([actions[0].as_id()])
             if len(retrieved_actions) != 1 or retrieved_actions[0].external_id != action_external_id:
                 raise EndpointAssertionError("/integrations/actions/byids", "Retrieving the action failed")
-            listed_actions = client.actions.list(integration_external_id=external_id, limit=10)
+            listed_actions = client.integrations.actions.list(integration_external_id=external_id, limit=10)
             if not any(item.external_id == action_external_id for item in listed_actions):
                 raise EndpointAssertionError("/integrations/actions", "Created action was not listed")
-            cancelled = client.actions.cancel([actions[0].as_id()])
+            cancelled = client.integrations.actions.cancel([actions[0].as_id()])
             if len(cancelled) != 1 or cancelled[0].status not in {"cancel_pending", "canceled"}:
                 raise EndpointAssertionError("/integrations/actions/cancel", "Cancelling the action failed")
 
             errors = self.wait_until_has_value(
                 lambda: [
                     item
-                    for item in client.errors.list(integration_external_id=external_id, task="smoke-task", limit=10)
+                    for item in client.integrations.errors.list(
+                        integration_external_id=external_id, task="smoke-task", limit=10
+                    )
                     if item.description == "smoke test"
                 ]
             )
@@ -1895,7 +1898,7 @@ class TestCDFResourceAPI:
         finally:
             if integration_id is not None:
                 try:
-                    client.delete([integration_id])
+                    client.integrations.delete([integration_id])
                 except ToolkitAPIError:
                     pass
 
