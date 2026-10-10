@@ -771,22 +771,31 @@ class TestDataModelingInteractiveSelect:
             assert str(exc_info.value) == "No spaces with schema (containers, views, or data models) found."
 
     @pytest.mark.parametrize(
-        "answer, input",
+        "answer, view_used_for, expected_choice_count",
         [
-            pytest.param("node", "all", id="View Used for all selecting node"),
-            pytest.param("edge", None, id="Selecting instance type without view"),
+            pytest.param("node", "all", 2, id="View used for all selecting node"),
+            pytest.param("edge", None, 2, id="Selecting instance type without view"),
+            pytest.param("node", "node", 1, id="Node-only view still prompts"),
+            pytest.param("edge", "edge", 1, id="Edge-only view still prompts"),
         ],
     )
     def test_select_instance_type(
-        self, answer: str, input: Literal["node", "edge", "all"] | None, monkeypatch: pytest.MonkeyPatch
+        self,
+        answer: str,
+        view_used_for: Literal["node", "edge", "all"] | None,
+        expected_choice_count: int,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        answers = [answer]  # Direct string answer
+        def select_type(choices: list[Choice]) -> str:
+            assert len(choices) == expected_choice_count
+            return answer
+
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
+            MockQuestionary(DataModelingSelect.__module__, monkeypatch, [select_type]),
         ):
             selector = DataModelingSelect(client, "test_operation")
-            instance_type = selector.select_instance_type(input)
+            instance_type = selector.select_instance_type(view_used_for)
 
         assert instance_type == answer
 
@@ -815,7 +824,14 @@ class TestDataModelingInteractiveSelect:
             space = filter_["equals"]["value"] if isinstance(filter_, dict) else None
             return _instance_count(5 if space == "space1" else 0)
 
-        with monkeypatch_toolkit_client() as client:
+        def select_space(choices: list[Choice]) -> list[str]:
+            assert len(choices) == 1
+            return [choices[0].value]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DataModelingSelect.__module__, monkeypatch, [select_space]),
+        ):
             client.tool.spaces.list.return_value = [
                 SpaceResponse(space="space1", **self.DEFAULT_SPACE_ARGS),
                 SpaceResponse(space="space2", **self.DEFAULT_SPACE_ARGS),
@@ -929,9 +945,13 @@ class TestDataModelingInteractiveSelect:
             SpaceStatistics("space2", 5, 2, 1, 0, 0, 0, 0),  # Non-empty space
         ]
 
+        def select_space(choices: list[Choice]) -> list[str]:
+            assert len(choices) == 1
+            return [choices[0].value]
+
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary(DataModelingSelect.__module__, monkeypatch, []),
+            MockQuestionary(DataModelingSelect.__module__, monkeypatch, [select_space]),
         ):
             client.tool.spaces.list.return_value = spaces
             client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
@@ -1010,9 +1030,13 @@ class TestDataModelingInteractiveSelect:
             SpaceStatistics("space2", 0, 0, 0, 0, 0, 0, 0),  # No instances
         ]
 
+        def select_space(choices: list[Choice]) -> list[str]:
+            assert len(choices) == 1
+            return [choices[0].value]
+
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary(DataModelingSelect.__module__, monkeypatch, []),
+            MockQuestionary(DataModelingSelect.__module__, monkeypatch, [select_space]),
         ):
             client.tool.spaces.list.return_value = spaces
             client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
@@ -1375,7 +1399,11 @@ class TestDocumentsInteractiveSelect:
             mime_choice = next(c for c in choices if c.value == ("mimeType",))
             return mime_choice.value
 
-        answers = ["filter-document-properties", pick_mime_type, "finished"]
+        def pick_value(choices: list[Choice]) -> list[str]:
+            assert len(choices) == 1
+            return [choices[0].value]
+
+        answers = ["filter-document-properties", pick_mime_type, pick_value, "finished"]
 
         def unique_side_effect(
             property: tuple[str, ...] | tuple[str, str] | tuple[str, str, str],
@@ -1399,7 +1427,7 @@ class TestDocumentsInteractiveSelect:
             result = selector.select_documents()
 
         expected_filter = {
-            "and": [{"equals": {"property": ["mimeType"], "value": "application/pdf"}}],
+            "and": [{"in": {"property": ["mimeType"], "values": ["application/pdf"]}}],
         }
         client.tool.documents.list.assert_called_once_with(filter=expected_filter, limit=100)
         assert isinstance(result, SelectedDocuments)
