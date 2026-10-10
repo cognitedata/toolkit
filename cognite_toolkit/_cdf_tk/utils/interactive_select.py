@@ -825,10 +825,6 @@ class DataModelingSelect:
             raise ToolkitMissingResourceError(
                 f"No instances found in any space for the view {selected_view!r} with instance type {instance_type!r}."
             )
-        if len(count_by_space) == 1:
-            selected_spaces = next(iter(count_by_space.keys()))
-            self.console.print(f"Only one space with instances found: {selected_spaces!r}. Using this space.")
-            return [selected_spaces] if multiselect else selected_spaces
 
         if not message:
             message = f"In which Space{'(s)' if multiselect else ''} do you want to {self.operation} instances?"
