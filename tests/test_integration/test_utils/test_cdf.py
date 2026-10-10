@@ -13,6 +13,7 @@ from cognite.client.data_classes import (
     DataSetList,
     DataSetWrite,
     DataSetWriteList,
+    Label,
     LabelDefinitionList,
     LabelDefinitionWrite,
     RelationshipList,
@@ -93,8 +94,8 @@ def two_labels(toolkit_client: ToolkitClient, two_datasets: DataSetList) -> Labe
 def two_hierarchies(
     toolkit_client: ToolkitClient, two_datasets: DataSetList, two_labels: LabelDefinitionList
 ) -> tuple[AssetList, AssetList]:
-    all_labels = [label.external_id for label in two_labels]
-    single_label = [two_labels[0].external_id]
+    all_labels: list[Label | str | LabelDefinitionWrite | dict] = [label.external_id for label in two_labels]
+    single_label: list[Label | str | LabelDefinitionWrite | dict] = [two_labels[0].external_id]
     hierarchies = [
         AssetWriteList(
             [
@@ -237,7 +238,7 @@ class TestMetadataKeyCounts:
                 if (hierarchy_ids is None or asset.root_id in hierarchy_ids) and (
                     dataset_ids is None or asset.data_set_id in dataset_ids
                 ):
-                    expected_keys.update(asset.metadata.keys())
+                    expected_keys.update((asset.metadata or {}).keys())
 
         assert {key: count for key, count in metadata_keys} == dict(expected_keys.items())
 

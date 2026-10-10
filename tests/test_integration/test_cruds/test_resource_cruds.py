@@ -1,10 +1,10 @@
 import contextlib
 import os
-from asyncio import sleep
 from collections.abc import Iterable
 from contextlib import suppress
 from copy import deepcopy
 from pathlib import Path
+from time import sleep
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -17,9 +17,7 @@ from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     DataSet,
     Function,
-    FunctionSchedulesList,
     FunctionScheduleWrite,
-    FunctionScheduleWriteList,
     TimeSeriesList,
     TimeSeriesWrite,
     TimeSeriesWriteList,
@@ -30,7 +28,7 @@ from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -45,7 +43,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import DatapointSubscriptionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
+    FunctionScheduleRequest,
+    FunctionScheduleResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupCapability,
     GroupRequest,
@@ -127,7 +128,7 @@ class TestFunctionScheduleLoader:
     def test_creating_schedule_then_print_ids(
         self, toolkit_client: ToolkitClient, toolkit_client_config: ToolkitClientConfig, dummy_function: Function
     ) -> None:
-        local = FunctionScheduleWrite(
+        local = FunctionScheduleRequest(
             name="test_creating_schedule_then_print_ids",
             cron_expression="0 7 * * TUE",
             function_external_id=dummy_function.external_id,
@@ -140,9 +141,9 @@ class TestFunctionScheduleLoader:
             client_secret=toolkit_client_config.credentials.client_secret,
         )
 
-        created: FunctionSchedulesList | None = None
+        created: list[FunctionScheduleResponse] | None = None
         try:
-            created = loader.create(FunctionScheduleWriteList([local]))
+            created = loader.create([local])
             loader.get_ids(created)
         finally:
             if created:
@@ -161,8 +162,10 @@ class TestFunctionScheduleLoader:
         if not existing:
             _ = client.functions.schedules.create(schedule)
         crud = FunctionScheduleIO(client)
+        function_external_id = dummy_function.external_id
+        assert function_external_id is not None
 
-        schedules = list(crud.iterate(parent_ids=[ExternalId(external_id=dummy_function.external_id)]))
+        schedules = list(crud.iterate(parent_ids=[ExternalId(external_id=function_external_id)]))
         assert len(schedules) >= 1
         assert any(s.name == schedule.name for s in schedules)
 
@@ -515,20 +518,20 @@ class TestDataModelLoader:
         loader = DataModelIO(toolkit_client)
         view_list = two_views_ephemeral.as_ids()
         assert len(view_list) == 2, "Expected 2 views in the test data model"
+        views = [
+            ViewId(space=view.space, external_id=view.external_id, version=view.version) for view in two_views_ephemeral
+        ]
         my_model = DataModelRequest(
             name="My model",
             description="Original description",
-            views=[
-                ViewId(space=view.space, external_id=view.external_id, version=view.version)
-                for view in two_views_ephemeral
-            ],
+            views=views,
             space=toolkit_space.space,
             external_id=f"tmp_test_create_update_delete_data_model_{RUN_UNIQUE_ID}",
             version="1",
         )
         update = my_model.model_copy(
             update={
-                "views": [my_model.views[0]],  # Keep only the first view in the update to test that the update works
+                "views": [views[0]],  # Keep only the first view in the update to test that the update works
             }
         )
 
@@ -543,7 +546,7 @@ class TestDataModelLoader:
 
             updated = loader.update([update])
             assert len(updated) == 1
-            assert updated[0].views == [my_model.views[0]]
+            assert updated[0].views == [views[0]]
         finally:
             loader.delete([my_model.as_id(), update.as_id()])
 
@@ -556,8 +559,8 @@ def custom_file_container(toolkit_client: ToolkitClient, toolkit_space: dm.Space
             space=toolkit_space.space,
             external_id="container_test_resource_loaders",
             properties={
-                "status": dm.ContainerProperty(type=dm.Text()),
-                "fileCategory": dm.ContainerProperty(type=dm.Text()),
+                "status": dm.ContainerPropertyApply(type=dm.Text()),
+                "fileCategory": dm.ContainerPropertyApply(type=dm.Text()),
             },
         )
     )
@@ -632,7 +635,7 @@ class TestGroupLoader:
             is_step=False,
             is_string=False,
         )
-        group_id: int | None = None
+        group_id: InternalId | None = None
         try:
             created_ts = toolkit_client.tool.timeseries.create([to_delete])[0]
             group = GroupRequest(
@@ -839,7 +842,7 @@ authentication:
             created_list = loader.create(transformations)
             assert len(created_list) == N
         finally:
-            loader.delete([transformation.external_id for transformation in transformations])
+            loader.delete([transformation.as_id() for transformation in transformations])
 
     @pytest.mark.parametrize(
         "transformation_yaml",
@@ -912,7 +915,9 @@ class TestNodeLoader:
             )
             assert len(retrieved) == 1
             node = retrieved[0]
-            assert node.properties[view_id] == {
+            properties = node.properties
+            assert properties is not None
+            assert properties[view_id] == {
                 "name": "updated name",  # Overwrite
                 "description": "Existing description",  # Keep existing description
                 "aliases": ["alias1", "alias2"],  # Add new aliases
