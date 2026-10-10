@@ -2,6 +2,7 @@ from contextlib import suppress
 from uuid import uuid4
 
 import pytest
+from cognite.client import CogniteClient
 from cognite.client.data_classes import TimeSeries, TimeSeriesWrite, UserProfile
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -17,7 +18,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
 
 
 @pytest.fixture(scope="session")
-def timeseries(toolkit_client: ToolkitClient) -> TimeSeries:
+def timeseries(cognite_client: CogniteClient) -> TimeSeries:
     """Fixture to create a test TimeSeries."""
     ts = TimeSeriesWrite(
         external_id="toolkit_test_chart_ts",
@@ -25,15 +26,15 @@ def timeseries(toolkit_client: ToolkitClient) -> TimeSeries:
         is_step=False,
         is_string=False,
     )
-    res = toolkit_client.time_series.retrieve(external_id=ts.external_id)
+    res = cognite_client.time_series.retrieve(external_id=ts.external_id)
     if res:
         return res
-    return toolkit_client.time_series.create(ts)
+    return cognite_client.time_series.create(ts)
 
 
 class TestChartsAPI:
     def test_create_retrieve_list_delete(self, toolkit_client: ToolkitClient, timeseries: TimeSeries) -> None:
-        me = toolkit_client.iam.user_profiles.me()
+        me = toolkit_client.user_profiles.me()
         chart_id = str(uuid4())
         chart = self.create_chart(chart_id, me, timeseries)
 

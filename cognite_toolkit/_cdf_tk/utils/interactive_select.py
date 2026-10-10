@@ -7,9 +7,6 @@ from functools import cached_property, lru_cache, partial
 from typing import Any, ClassVar, Literal, TypeVar, get_args, overload
 
 import questionary
-from cognite.client.data_classes import (
-    Asset,
-)
 from cognite.client.utils import ms_to_datetime
 from questionary import Choice
 from rich.console import Console
@@ -23,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     ViewFilter,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import IndustrialCanvasResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse, Visibility
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -64,7 +62,7 @@ from .aggregators import (
 )
 from .useful_types import AssetCentricDestinationType
 
-T_Type = TypeVar("T_Type", bound=Asset | DataSetResponse)
+T_Type = TypeVar("T_Type", bound=AssetResponse | DataSetResponse)
 
 
 class AssetCentricInteractiveSelect(ABC):
@@ -93,21 +91,20 @@ class AssetCentricInteractiveSelect(ABC):
             return self.client.tool.datasets.list(limit=None)
 
     @lru_cache
-    def _get_available_hierarchies(self, data_set: str | None = None) -> list[Asset]:
+    def _get_available_hierarchies(self, data_set: str | None = None) -> list[AssetResponse]:
         data_set_external_ids = [data_set] if data_set else None
-        roots = self.client.assets.list(root=True, limit=-1, data_set_external_ids=data_set_external_ids)
-        return [asset for asset in roots if isinstance(asset, Asset)]
+        return self.client.tool.assets.list(root=True, limit=None, data_set_external_ids=data_set_external_ids)
 
-    def _create_choice(self, item: Asset | DataSetResponse) -> tuple[questionary.Choice, int]:
+    def _create_choice(self, item: AssetResponse | DataSetResponse) -> tuple[questionary.Choice, int]:
         """Create a questionary choice for the given item."""
         if item.external_id is None:
             item_count = -1  # No count available for DataSet/Assets without external_id
         elif isinstance(item, DataSetResponse):
             item_count = self.aggregate_count(tuple(), (item.external_id,))
-        elif isinstance(item, Asset):
+        elif isinstance(item, AssetResponse):
             item_count = self.aggregate_count((item.external_id,), tuple())
         else:
-            raise ToolkitValueError(f"Unexpected item type: {type(item)}. Expected Asset or DataSet.")
+            raise ToolkitValueError(f"Unexpected item type: {type(item)}. Expected AssetResponse or DataSetResponse.")
 
         return questionary.Choice(
             title=f"{item.name} ({item.external_id}) [{item_count:,}]"
@@ -211,7 +208,7 @@ class AssetCentricInteractiveSelect(ABC):
     def _select(
         self,
         what: str,
-        options: Sequence[Asset | DataSetResponse],
+        options: Sequence[AssetResponse | DataSetResponse],
         allow_empty: Literal[True, False],
         plurality: Literal["single", "multiple"],
     ) -> str | list[str] | None:

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     Transformation,
     TransformationDestination,
@@ -27,7 +28,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 
 
 @pytest.fixture(scope="session")
-def deployed_transformation(toolkit_client: ToolkitClient) -> Transformation:
+def deployed_transformation(toolkit_client: ToolkitClient, cognite_client: CogniteClient) -> Transformation:
     transformation = TransformationWrite(
         external_id="toolkit_test_transformation",
         name="Toolkit Test Transformation",
@@ -37,7 +38,7 @@ def deployed_transformation(toolkit_client: ToolkitClient) -> Transformation:
         conflict_mode="abort",
         is_public=True,
     )
-    existing = toolkit_client.transformations.retrieve(external_id=transformation.external_id)
+    existing = cognite_client.transformations.retrieve(external_id=transformation.external_id)
     if existing:
         return existing
     destination_session = toolkit_client.sessions.create_single(TokenExchangeSessionRequest())
@@ -48,20 +49,22 @@ def deployed_transformation(toolkit_client: ToolkitClient) -> Transformation:
     transformation.source_nonce = NonceCredentials(
         source_session.id, source_session.nonce, toolkit_client.config.project
     )
-    return toolkit_client.transformations.create(transformation)
+    return cognite_client.transformations.create(transformation)
 
 
 @pytest.fixture(scope="session")
-def deployed_transformation_schedule(toolkit_client: ToolkitClient, deployed_transformation: Transformation) -> None:
+def deployed_transformation_schedule(
+    cognite_client: CogniteClient, deployed_transformation: Transformation
+) -> TransformationSchedule:
     schedule = TransformationScheduleWrite(
         interval="0 12 * * 1",
         external_id=deployed_transformation.external_id,
         is_paused=True,
     )
-    existing = toolkit_client.transformations.schedules.retrieve(external_id=schedule.external_id)
+    existing = cognite_client.transformations.schedules.retrieve(external_id=schedule.external_id)
     if existing:
         return existing
-    return toolkit_client.transformations.schedules.create(schedule)
+    return cognite_client.transformations.schedules.create(schedule)
 
 
 @pytest.fixture(scope="session")

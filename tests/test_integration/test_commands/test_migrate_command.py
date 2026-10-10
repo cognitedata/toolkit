@@ -2,6 +2,7 @@ from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 import pytest
+from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     AssetList,
@@ -57,8 +58,8 @@ def _migration_status_totals(results: Sequence[ItemsResult]) -> dict[str, int]:
 
 
 @pytest.fixture()
-def three_assets(toolkit_client: ToolkitClient, toolkit_space: Space) -> Iterator[AssetList]:
-    client = toolkit_client
+def three_assets(cognite_client: CogniteClient, toolkit_space: Space) -> Iterator[AssetList]:
+    client = cognite_client
     space = toolkit_space.space
     assets = AssetWriteList([])
     for i in range(3):
@@ -87,6 +88,7 @@ class TestMigrateAssetsCommand:
     def test_migrate_assets(
         self,
         toolkit_client: ToolkitClient,
+        cognite_client: CogniteClient,
         three_assets: AssetList,
         toolkit_space: Space,
         tmp_path: Path,
@@ -114,7 +116,7 @@ class TestMigrateAssetsCommand:
             verbose=False,
         )
         node_ids = [dm.NodeId(space, a.external_id) for a in three_assets]
-        migrated_assets = client.data_modeling.instances.retrieve_nodes(node_ids, CogniteAsset)
+        migrated_assets = cognite_client.data_modeling.instances.retrieve_nodes(node_ids, CogniteAsset)
         assert len(migrated_assets) == len(three_assets), "Not all assets were migrated successfully."
 
     def test_migrate_assets_by_dataset_dry_run(

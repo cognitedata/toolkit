@@ -145,7 +145,10 @@ class Transformation(BaseModelObject):
 
 class TransformationRequest(Transformation, UpdatableRequestResource):
     container_fields: ClassVar[frozenset[str]] = frozenset({"tags"})
-    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"is_public", "query", "destination", "conflict_mode"})
+    # data_domain_external_id is optional, but the update API rejects {"setNull": true}.
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset(
+        {"is_public", "query", "destination", "conflict_mode", "data_domain_external_id"}
+    )
     query: str | None = None
     conflict_mode: str | None = None
     destination: Destination | None = None
