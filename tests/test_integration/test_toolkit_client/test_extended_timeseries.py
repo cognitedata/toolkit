@@ -104,6 +104,7 @@ class TestExtendedTimeSeriesAPI:
         node_ref = NodeId(space=space, external_id=external_id)
         try:
             created = client.time_series.create(ts)
+            assert created is not None
             updated_list = client.tool.timeseries.set_pending_ids(
                 [PendingInstanceId(pending_instance_id=node_ref, external_id=external_id)]
             )

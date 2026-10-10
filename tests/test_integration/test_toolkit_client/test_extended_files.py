@@ -36,6 +36,7 @@ class TestExtendedFilesAPI:
         node_ref = NodeId(space=dev_space, external_id=external_id)
         try:
             created, _ = client.files.create(metadata)
+            assert created is not None
             client.files.upload_content_bytes(content, external_id=created.external_id)
 
             updated_list = client.tool.filemetadata.set_pending_ids(
