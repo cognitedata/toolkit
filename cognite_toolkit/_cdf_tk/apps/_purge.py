@@ -311,7 +311,7 @@ class PurgeApp(typer.Typer):
             dry_run = questionary.confirm("Dry run?", default=True).unsafe_ask()
             if space_type == "empty":
                 include_space = questionary.confirm(
-                    "Then space is empty, delete the space itself?",
+                    "The space is empty, delete the space itself?",
                     default=False,
                 ).unsafe_ask()
                 if not include_space:
