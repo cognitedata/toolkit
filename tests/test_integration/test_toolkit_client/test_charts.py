@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 from cognite.client import CogniteClient
-from cognite.client.data_classes import TimeSeries, TimeSeriesWrite, UserProfile
+from cognite.client.data_classes import TimeSeries, TimeSeriesWrite
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartTimeseriesUIElement,
     UserInfo,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.user_profile import UserProfile
 
 
 @pytest.fixture(scope="session")
