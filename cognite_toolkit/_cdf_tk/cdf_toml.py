@@ -4,9 +4,11 @@ import urllib.parse
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Self
 
+import tomllib
 from rich import print
+from tomllib import TOMLDecodeError
 
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.constants import RESOURCES_PATH, EnvType, clean_name
@@ -17,16 +19,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitVersionError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-
-    import tomllib
-    from tomllib import TOMLDecodeError
-else:
-    import tomli as tomllib  # ty: ignore[unresolved-import]
-    from tomli import TOMLDecodeError  # ty: ignore[unresolved-import]
-    from typing_extensions import Self
 
 
 @dataclass

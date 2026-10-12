@@ -1,15 +1,10 @@
-import sys
 from collections.abc import Mapping
 from graphlib import CycleError
 from pathlib import Path
 
 from rich.markup import escape
+from tomllib import TOMLDecodeError
 from yaml import YAMLError
-
-if sys.version_info >= (3, 11):
-    from tomllib import TOMLDecodeError
-else:
-    from tomli import TOMLDecodeError  # ty: ignore[unresolved-import]
 
 
 class ToolkitError(Exception):

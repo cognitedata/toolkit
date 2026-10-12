@@ -1,15 +1,15 @@
 import logging
 import random
-import sys
 import time
 from collections import deque
 from collections.abc import Iterable, MutableMapping, Sequence, Set
-from typing import Literal, TypeVar
+from typing import Literal, Self, TypeVar
 
 import httpx2
 from cognite.client import global_config
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client._data_classes import (
     BaseRequestMessage,
     ErrorDetails,
@@ -29,13 +29,6 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
-from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 
 log = logging.getLogger(__name__)
 

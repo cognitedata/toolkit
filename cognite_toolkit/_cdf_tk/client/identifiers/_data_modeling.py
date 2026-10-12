@@ -1,17 +1,11 @@
-import sys
 from abc import ABC
 from collections.abc import Iterable
-from typing import Annotated, Any, Literal, TypeVar
+from typing import Annotated, Any, Literal, Self, TypeVar
 
 from pydantic import PlainSerializer, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers._identifiers import ExternalId
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 
 class SpaceId(Identifier):

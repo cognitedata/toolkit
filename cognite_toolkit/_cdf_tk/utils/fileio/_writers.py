@@ -1,7 +1,6 @@
 import csv
 import importlib.util
 import json
-import sys
 import threading
 from abc import ABC, abstractmethod
 from collections import Counter
@@ -11,7 +10,7 @@ from functools import lru_cache
 from io import IOBase, TextIOWrapper
 from pathlib import Path
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Generic
+from typing import TYPE_CHECKING, Any, Generic, Self
 
 import yaml
 
@@ -23,12 +22,6 @@ from cognite_toolkit._cdf_tk.utils.useful_types import DataType
 
 from ._base import T_IO, CellValue, Chunk, FileIO, PrimaryCellValue, SchemaColumn
 from ._compression import Compression, Uncompressed
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
 
 if TYPE_CHECKING:
     import pyarrow as pa

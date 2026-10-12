@@ -1,5 +1,4 @@
-import sys
-from typing import Annotated, Any, Literal, TypeAlias
+from typing import Annotated, Any, Literal, Self, TypeAlias
 
 from pydantic import BeforeValidator, Field, JsonValue, PlainSerializer
 
@@ -10,11 +9,6 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawRowId, RawTableId
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 
 class RAWDatabaseRequest(RequestResource):

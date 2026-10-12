@@ -1,24 +1,15 @@
-import sys
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import Self, cast
+
+import toml
 
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ModuleDirectory
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.tk_warnings.base import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.tk_warnings.other import LowSeverityWarning
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-
-    import toml
-else:
-    import tomli as toml
-    from typing_extensions import Self
-if TYPE_CHECKING:
-    pass
 
 
 @dataclass
