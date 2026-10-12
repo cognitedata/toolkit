@@ -1,4 +1,5 @@
 import pytest
+from cognite.client import CogniteClient
 from cognite.client.data_classes.data_modeling import ContainerApply, Space, SpaceApply, ViewApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -42,8 +43,8 @@ class TestInfieldConfig:
 
 
 @pytest.fixture
-def deploy_infield_cdm_location_config(toolkit_client: ToolkitClient) -> None:
-    client = toolkit_client
+def deploy_infield_cdm_location_config(cognite_client: CogniteClient) -> None:
+    client = cognite_client
     view = ViewApply.load(INFIELD_CDM_LOCATION_CONFIG_VIEW_YAML.read_text(encoding="utf-8"))
     if client.data_modeling.views.retrieve(view.as_id()):
         # View already exists
@@ -58,7 +59,9 @@ def deploy_infield_cdm_location_config(toolkit_client: ToolkitClient) -> None:
 
 class TestInFieldCDMConfig:
     @pytest.mark.usefixtures("deploy_infield_cdm_location_config")
-    def test_create_retrieve_delete(self, toolkit_client: ToolkitClient, toolkit_space: Space) -> None:
+    def test_create_retrieve_delete(
+        self, toolkit_client: ToolkitClient, cognite_client: CogniteClient, toolkit_space: Space
+    ) -> None:
         config = InFieldCDMLocationConfigRequest.model_validate(
             {
                 "space": toolkit_space.space,
@@ -84,4 +87,4 @@ class TestInFieldCDMConfig:
             retrieved_configs = toolkit_client.infield.cdm_config.retrieve([config.as_id()])
             assert len(retrieved_configs) == 0
         finally:
-            toolkit_client.data_modeling.instances.delete([(config.space, config.external_id)])
+            cognite_client.data_modeling.instances.delete([(config.space, config.external_id)])

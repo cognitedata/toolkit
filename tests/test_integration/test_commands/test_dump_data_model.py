@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes.data_modeling import SpaceApply
 
@@ -16,14 +17,14 @@ from tests.data import NAUGHTY_PROJECT
 
 
 @pytest.fixture()
-def deployed_misbehaving_grandparent(toolkit_client: ToolkitClient) -> dm.DataModelId:
+def deployed_misbehaving_grandparent(toolkit_client: ToolkitClient, cognite_client: CogniteClient) -> dm.DataModelId:
     loader = GraphQLIO.create_io(toolkit_client)
     filepaths = loader.find_files(NAUGHTY_PROJECT / MODULES / "difficult_graphql")
     assert len(filepaths) == 1
     model_list = loader.load_resource_file(filepaths[0])
     assert len(model_list) == 1
     model = loader.load_resource(model_list[0])
-    toolkit_client.data_modeling.spaces.apply(SpaceApply(space=model.space))
+    cognite_client.data_modeling.spaces.apply(SpaceApply(space=model.space))
 
     retrieved = loader.retrieve([loader.get_id(model)])
     if not retrieved:

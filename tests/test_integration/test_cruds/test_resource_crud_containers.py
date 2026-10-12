@@ -33,7 +33,9 @@ def integration_space(cognite_client: CogniteClient) -> dm.Space:
 
 
 class TestTimeSeriesLoader:
-    def test_create_populate_count_drop_data(self, toolkit_client: CogniteClient) -> None:
+    def test_create_populate_count_drop_data(
+        self, toolkit_client: ToolkitClient, cognite_client: CogniteClient
+    ) -> None:
         timeseries = TimeSeriesRequest(
             external_id=f"test_create_populate_count_drop_data{RUN_UNIQUE_ID}", is_string=False
         )
@@ -49,7 +51,7 @@ class TestTimeSeriesLoader:
             assert len(created) == 1
 
             assert loader.count(ts_ids) == 0
-            toolkit_client.time_series.data.insert_dataframe(datapoints)
+            cognite_client.time_series.data.insert_dataframe(datapoints)
 
             assert loader.count(ts_ids) == 2
 
@@ -61,7 +63,7 @@ class TestTimeSeriesLoader:
 
             assert not loader.retrieve(ts_ids)
         finally:
-            toolkit_client.time_series.delete(external_id=timeseries.external_id, ignore_unknown_ids=True)
+            cognite_client.time_series.delete(external_id=timeseries.external_id, ignore_unknown_ids=True)
 
 
 @pytest.fixture(scope="function")
@@ -94,7 +96,7 @@ class TestContainerIO:
     # The DMS service is fairly unstable, so we need to rerun the tests if they fail.
     @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError", "ToolkitAPIError"])
     def test_populate_count_drop_data_node_container(
-        self, node_container: dm.Container, toolkit_client: ToolkitClient
+        self, node_container: dm.Container, toolkit_client: ToolkitClient, cognite_client: CogniteClient
     ) -> None:
         node = dm.NodeApply(
             space=node_container.space,
@@ -108,7 +110,7 @@ class TestContainerIO:
         try:
             assert loader.count(container_id) == 0
 
-            toolkit_client.data_modeling.instances.apply(nodes=[node])
+            cognite_client.data_modeling.instances.apply(nodes=[node])
 
             assert loader.count(container_id) == 1
 
@@ -131,7 +133,7 @@ class TestContainerIO:
     # The DMS service is fairly unstable, so we need to rerun the tests if they fail.
     @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError", "ToolkitAPIError"])
     def test_populate_count_drop_data_edge_container(
-        self, edge_container: dm.Container, toolkit_client: ToolkitClient
+        self, edge_container: dm.Container, toolkit_client: ToolkitClient, cognite_client: CogniteClient
     ) -> None:
         space = edge_container.space
         nodes = dm.NodeApplyList(
@@ -163,7 +165,7 @@ class TestContainerIO:
         try:
             assert loader.count(container_id) == 0
 
-            toolkit_client.data_modeling.instances.apply(edges=[edge], nodes=nodes)
+            cognite_client.data_modeling.instances.apply(edges=[edge], nodes=nodes)
 
             assert loader.count(container_id) == 1
 
@@ -181,7 +183,7 @@ class TestContainerIO:
                 updated = loader.retrieve([write_container.as_id()])
             assert updated[0].description == write_container.description
         finally:
-            toolkit_client.data_modeling.instances.delete(nodes=nodes.as_ids(), edges=edge.as_id())
+            cognite_client.data_modeling.instances.delete(nodes=nodes.as_ids(), edges=edge.as_id())
 
     def test_unchanged_container_not_redeployed(
         self, integration_space: dm.Space, toolkit_client: ToolkitClient

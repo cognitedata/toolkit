@@ -148,7 +148,7 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: RuleSetVersionId) -> str:
+    def as_filename(cls, id: RuleSetVersionId) -> str:
         return sanitize_filename(f"{id.rule_set_external_id}_v{id.version}")
 
     @classmethod

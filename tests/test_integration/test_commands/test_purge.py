@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     Asset,
     AssetWrite,
@@ -55,16 +56,15 @@ class PopulatedDataSet:
 
 
 @pytest.fixture()
-def populated_datasets_3(toolkit_client: ToolkitClient) -> Iterable[PopulatedDataSet]:
+def populated_datasets_3(cognite_client: CogniteClient) -> Iterable[PopulatedDataSet]:
     populated3 = create_populated_dataset(
-        toolkit_client, name="toolkit_test_purge_dataset_3", external_id="toolkit_test_purge_dataset_3", no=3
+        cognite_client, name="toolkit_test_purge_dataset_3", external_id="toolkit_test_purge_dataset_3", no=3
     )
     yield populated3
-    cleanup_populated_dataset(toolkit_client, populated3)
+    cleanup_populated_dataset(cognite_client, populated3)
 
 
-def create_populated_dataset(toolkit_client: ToolkitClient, name: str, external_id: str, no: int) -> PopulatedDataSet:
-    client = toolkit_client
+def create_populated_dataset(client: CogniteClient, name: str, external_id: str, no: int) -> PopulatedDataSet:
     dataset = DataSetWrite(name=name, external_id=external_id)
     created = client.data_sets.retrieve(external_id=dataset.external_id)
     if not created:
@@ -165,7 +165,7 @@ def create_populated_dataset(toolkit_client: ToolkitClient, name: str, external_
     )
 
 
-def cleanup_populated_dataset(client: ToolkitClient, populated: PopulatedDataSet) -> None:
+def cleanup_populated_dataset(client: CogniteClient, populated: PopulatedDataSet) -> None:
     # Cleanup
     client.assets.delete(id=populated.asset.id, ignore_unknown_ids=True)
     client.events.delete(id=populated.event.id, ignore_unknown_ids=True)
@@ -184,14 +184,17 @@ def cleanup_populated_dataset(client: ToolkitClient, populated: PopulatedDataSet
 
 class TestPurge:
     def test_purge_dataset_dry_run(
-        self, toolkit_client: ToolkitClient, populated_datasets_3: PopulatedDataSet, tmp_path: Path
+        self,
+        toolkit_client: ToolkitClient,
+        cognite_client: CogniteClient,
+        populated_datasets_3: PopulatedDataSet,
+        tmp_path: Path,
     ) -> None:
-        client = toolkit_client
         populated = populated_datasets_3
         purge = PurgeCommand(silent=True)
 
         results = purge.dataset(
-            client,
+            toolkit_client,
             selected_data_set_external_id=populated.dataset.external_id,
             archive_dataset=False,
             include_data=True,
@@ -204,20 +207,24 @@ class TestPurge:
         assert results.dry_run == 1
 
         # Data not deleted
-        assert client.assets.retrieve(external_id=populated.asset.external_id) is not None
-        assert client.events.retrieve(external_id=populated.event.external_id) is not None
-        assert client.sequences.retrieve(external_id=populated.sequence.external_id) is not None
-        assert client.time_series.retrieve(external_id=populated.timeseries.external_id) is not None
-        assert client.files.retrieve(external_id=populated.file.external_id) is not None
+        assert cognite_client.assets.retrieve(external_id=populated.asset.external_id) is not None
+        assert cognite_client.events.retrieve(external_id=populated.event.external_id) is not None
+        assert cognite_client.sequences.retrieve(external_id=populated.sequence.external_id) is not None
+        assert cognite_client.time_series.retrieve(external_id=populated.timeseries.external_id) is not None
+        assert cognite_client.files.retrieve(external_id=populated.file.external_id) is not None
         # Labels are not deleted, they are still available on direct look-up.
         # However, they should not be listed under the dataset anymore.
-        assert len(client.labels.list(data_set_external_ids=populated.dataset.external_id)) >= 1
-        relationships = client.relationships.list(source_external_ids=[populated.asset.external_id])
+        assert len(cognite_client.labels.list(data_set_external_ids=populated.dataset.external_id)) >= 1
+        relationships = cognite_client.relationships.list(source_external_ids=[populated.asset.external_id])
         assert len(relationships) == 1
-        assert client.three_d.models.retrieve(id=populated.three_d.id) is not None
+        assert cognite_client.three_d.models.retrieve(id=populated.three_d.id) is not None
         # Configurations not deleted
         assert (
-            client.workflows.retrieve(external_id=populated.workflow.external_id, ignore_unknown_ids=True) is not None
+            cognite_client.workflows.retrieve(external_id=populated.workflow.external_id, ignore_unknown_ids=True)
+            is not None
         )
-        assert client.transformations.retrieve(external_id=populated.transformation.external_id) is not None
-        assert client.extraction_pipelines.retrieve(external_id=populated.extraction_pipeline.external_id) is not None
+        assert cognite_client.transformations.retrieve(external_id=populated.transformation.external_id) is not None
+        assert (
+            cognite_client.extraction_pipelines.retrieve(external_id=populated.extraction_pipeline.external_id)
+            is not None
+        )
