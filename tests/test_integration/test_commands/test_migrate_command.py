@@ -119,8 +119,12 @@ class TestMigrateAssetsCommand:
             dry_run=False,
             verbose=False,
         )
-        node_ids = [dm.NodeId(space, a.external_id) for a in three_assets]
-        migrated_assets = cognite_client.data_modeling.instances.retrieve_nodes(node_ids, CogniteAsset)
+        node_ids: list[dm.NodeId] = []
+        for asset in three_assets:
+            external_id = asset.external_id
+            assert external_id is not None
+            node_ids.append(dm.NodeId(space, external_id))
+        migrated_assets = cognite_client.data_modeling.instances.retrieve_nodes(node_ids, node_cls=CogniteAsset)
         assert len(migrated_assets) == len(three_assets), "Not all assets were migrated successfully."
 
     def test_migrate_assets_by_dataset_dry_run(

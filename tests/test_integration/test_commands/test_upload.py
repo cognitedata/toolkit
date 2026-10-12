@@ -85,14 +85,14 @@ class TestUploadCommand:
         )
 
         datapoints = cognite_client.time_series.data.retrieve_arrays(
-            external_id=ts1.external_id,
+            external_id=ts1_external_id,
             start=datetime.fromisoformat("2024-01-01T00:00:00Z"),
             end=datetime.fromisoformat("2024-01-01T00:00:10Z"),
         )
         assert datapoints is not None
         assert len(datapoints) == 10, f"Expected 10 datapoints, got {len(datapoints)}"
         datapoints2 = cognite_client.time_series.data.retrieve_arrays(
-            external_id=ts2.external_id,
+            external_id=ts2_external_id,
             start=datetime.fromisoformat("2024-01-01T00:00:00Z"),
             end=datetime.fromisoformat("2024-01-01T00:00:10Z"),
         )
@@ -142,7 +142,7 @@ class TestUploadCommand:
             verbose=True,
         )
 
-        aggregate_result = client.time_series.data.retrieve(
+        aggregate_result = cognite_client.time_series.data.retrieve(
             external_id=ts1_external_id,
             start=datetime.fromisoformat("1989-01-01T00:00:00Z"),
             end=datetime.fromisoformat("1989-01-02T00:00:00Z"),
