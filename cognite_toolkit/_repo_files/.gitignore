@@ -280,3 +280,6 @@ function_local_venvs/
 data/
 migration_logs*/
 deploy_logs*/
+purge_logs*/
+clean_logs*/
+logs/
