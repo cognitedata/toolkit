@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import (
     AggregateDatapointsResponse,
     Datapoint,
+    DatapointAggregate,
     DatapointsDeleteRequest,
     DatapointsQueryRequest,
     DatapointsRequest,
@@ -190,6 +191,150 @@ class TestDatapointsAPI:
             },
             "next_cursor": "cursor-2",
         }
+
+    @pytest.mark.parametrize(
+        ("limit", "aggregates", "granularity", "chunk_sizes"),
+        [
+            (1_001, None, None, [99, 1]),
+            (101, ["average"], "1h", [99, 1]),
+        ],
+    )
+    def test_retrieve_splits_when_limit_times_series_exceeds_cap(
+        self,
+        toolkit_config: ToolkitClientConfig,
+        respx_mock: respx.MockRouter,
+        disable_gzip: None,
+        limit: int,
+        aggregates: list[DatapointAggregate] | None,
+        granularity: str | None,
+        chunk_sizes: list[int],
+    ) -> None:
+        api = DatapointsAPI(HTTPClient(toolkit_config))
+        respx_mock.post(api._make_url("/timeseries/data/list")).mock(
+            return_value=httpx2.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {"id": 1, "isString": False, "type": "numeric", "datapoints": [{"timestamp": 1, "value": 1}]}
+                    ]
+                },
+            )
+        )
+        api.retrieve(
+            [DatapointsQueryRequest(external_id=f"ts_{index}") for index in range(100)],
+            limit=limit,
+            aggregates=aggregates,
+            granularity=granularity,
+        )
+
+        bodies = [json.loads(call.request.content) for call in respx_mock.calls]
+        assert {
+            "chunks": [len(body["items"]) for body in bodies],
+            "limits": [body["limit"] for body in bodies],
+        } == {
+            "chunks": chunk_sizes,
+            "limits": [limit, limit],
+        }
+
+    @pytest.mark.parametrize(
+        ("limit", "aggregates", "granularity"),
+        [
+            (1_000, None, None),
+            (None, ["average"], "1h"),
+        ],
+    )
+    def test_retrieve_keeps_one_request_at_the_datapoint_cap(
+        self,
+        toolkit_config: ToolkitClientConfig,
+        respx_mock: respx.MockRouter,
+        disable_gzip: None,
+        limit: int | None,
+        aggregates: list[DatapointAggregate] | None,
+        granularity: str | None,
+    ) -> None:
+        api = DatapointsAPI(HTTPClient(toolkit_config))
+        respx_mock.post(api._make_url("/timeseries/data/list")).mock(
+            return_value=httpx2.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {"id": 1, "isString": False, "type": "numeric", "datapoints": [{"timestamp": 1, "value": 1}]}
+                    ]
+                },
+            )
+        )
+        api.retrieve(
+            [DatapointsQueryRequest(external_id=f"ts_{index}") for index in range(100)],
+            limit=limit,
+            aggregates=aggregates,
+            granularity=granularity,
+        )
+
+        body = json.loads(respx_mock.calls[0].request.content)
+        assert {"calls": len(respx_mock.calls), "items": len(body["items"]), "limit": body.get("limit")} == {
+            "calls": 1,
+            "items": 100,
+            "limit": limit,
+        }
+
+    def test_retrieve_counts_item_limits_against_separate_budgets(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter, disable_gzip: None
+    ) -> None:
+        api = DatapointsAPI(HTTPClient(toolkit_config))
+        respx_mock.post(api._make_url("/timeseries/data/list")).mock(
+            return_value=httpx2.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {"id": 1, "isString": False, "type": "numeric", "datapoints": [{"timestamp": 1, "value": 1}]}
+                    ]
+                },
+            )
+        )
+        api.retrieve(
+            [
+                DatapointsQueryRequest(external_id="raw", limit=100_000),
+                DatapointsQueryRequest(external_id="agg", limit=10_000, aggregates=["average"], granularity="1h"),
+                DatapointsQueryRequest(external_id="raw-extra", limit=1),
+            ]
+        )
+
+        assert [json.loads(call.request.content)["items"] for call in respx_mock.calls] == [
+            [
+                {"externalId": "raw", "limit": 100_000},
+                {
+                    "externalId": "agg",
+                    "limit": 10_000,
+                    "aggregates": ["average"],
+                    "granularity": "1h",
+                },
+            ],
+            [{"externalId": "raw-extra", "limit": 1}],
+        ]
+
+    @pytest.mark.parametrize(
+        ("limit", "aggregates", "granularity", "message"),
+        [
+            (100_001, None, None, "100000 non-aggregated"),
+            (10_001, ["average"], "1h", "10000 aggregated"),
+        ],
+    )
+    def test_retrieve_rejects_limit_above_the_datapoint_cap(
+        self,
+        toolkit_config: ToolkitClientConfig,
+        limit: int,
+        aggregates: list[DatapointAggregate] | None,
+        granularity: str | None,
+        message: str,
+    ) -> None:
+        api = DatapointsAPI(HTTPClient(toolkit_config))
+        with pytest.raises(ValueError, match=message):
+            api.retrieve(
+                [DatapointsQueryRequest(external_id="ts_001")],
+                limit=limit,
+                aggregates=aggregates,
+                granularity=granularity,
+            )
 
     def test_latest_posts_json_query(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter, disable_gzip: None

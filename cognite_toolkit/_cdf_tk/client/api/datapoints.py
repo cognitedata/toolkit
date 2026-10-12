@@ -21,6 +21,11 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 # A single insert request accepts at most this many data points across all time series.
 _INSERT_DATAPOINT_LIMIT = 100_000
+# Retrieve totals are limit times the number of series of that kind in one request.
+# An omitted limit counts as the service default.
+_RETRIEVE_RAW_DATAPOINT_LIMIT = 100_000
+_RETRIEVE_AGGREGATE_DATAPOINT_LIMIT = 10_000
+_DEFAULT_RETRIEVE_LIMIT = 100
 
 
 class DatapointsAPI(CDFResourceAPI[DatapointsSeriesResponse]):
@@ -104,6 +109,10 @@ class DatapointsAPI(CDFResourceAPI[DatapointsSeriesResponse]):
         set, each series is an ``AggregateDatapointsResponse``. A series includes ``next_cursor`` when
         more points are available; pass that value as ``cursor`` on the next query for that series.
 
+        Requests that exceed the per-request limits are split automatically. Each request contains
+        at most 100 series. The sum of limits is at most 100,000 for raw series and 10,000 for
+        aggregated series. When ``limit`` is omitted, each series counts as 100.
+
         ``start`` defaults to epoch 0 on the service when omitted, which excludes points before 1970.
         Pass a negative timestamp to include those points.
 
@@ -134,7 +143,19 @@ class DatapointsAPI(CDFResourceAPI[DatapointsSeriesResponse]):
             time_zone=time_zone,
             ignore_unknown_ids=ignore_unknown_ids,
         )
-        return self._request_item_response(items, "retrieve", extra_body=extra_body)
+        # Build every chunk before sending so an invalid limit fails before any request.
+        chunks = list(
+            _chunk_datapoint_queries(
+                items,
+                item_limit=self._method_endpoint_map["retrieve"].item_limit,
+                limit=limit,
+                aggregates=aggregates,
+            )
+        )
+        responses: list[DatapointsSeriesResponse] = []
+        for chunk in chunks:
+            responses.extend(self._request_item_response(chunk, "retrieve", extra_body=extra_body))
+        return responses
 
     def latest(
         self, items: Sequence[LatestDatapointRequest], ignore_unknown_ids: bool = False
@@ -203,6 +224,57 @@ def _chunk_datapoint_inserts(
             offset += room
     if chunk:
         yield chunk
+
+
+def _chunk_datapoint_queries(
+    items: Sequence[DatapointsQueryRequest],
+    *,
+    item_limit: int,
+    limit: int | None,
+    aggregates: list[DatapointAggregate] | None,
+) -> Iterable[list[DatapointsQueryRequest]]:
+    """Split queries so each request stays within the series and data point limits.
+
+    Raw and aggregated series count against separate data point totals. A series uses its own
+    limit when set, otherwise the request limit, otherwise the service default.
+    """
+    chunk: list[DatapointsQueryRequest] = []
+    raw_points = 0
+    aggregate_points = 0
+    for item in items:
+        point_limit = _effective_query_limit(item, limit)
+        is_aggregate = _query_is_aggregate(item, aggregates)
+        cap = _RETRIEVE_AGGREGATE_DATAPOINT_LIMIT if is_aggregate else _RETRIEVE_RAW_DATAPOINT_LIMIT
+        if point_limit > cap:
+            kind = "aggregated" if is_aggregate else "non-aggregated"
+            raise ValueError(f"limit must be at most {cap} {kind} data points per series, got {point_limit}.")
+        used = aggregate_points if is_aggregate else raw_points
+        if chunk and (len(chunk) >= item_limit or used + point_limit > cap):
+            yield chunk
+            chunk = []
+            raw_points = 0
+            aggregate_points = 0
+        chunk.append(item)
+        if is_aggregate:
+            aggregate_points += point_limit
+        else:
+            raw_points += point_limit
+    if chunk:
+        yield chunk
+
+
+def _effective_query_limit(item: DatapointsQueryRequest, limit: int | None) -> int:
+    if item.limit is not None:
+        return item.limit
+    if limit is not None:
+        return limit
+    return _DEFAULT_RETRIEVE_LIMIT
+
+
+def _query_is_aggregate(item: DatapointsQueryRequest, aggregates: list[DatapointAggregate] | None) -> bool:
+    if item.aggregates is not None:
+        return True
+    return aggregates is not None
 
 
 def _require_granularity(
