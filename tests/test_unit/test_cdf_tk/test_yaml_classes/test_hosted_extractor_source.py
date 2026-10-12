@@ -34,8 +34,8 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
             "keyValue": "secret",
         },
         {
-            "Input tag 'invalid' found using 'type' does not match any of the expected tags: "
-            "'eventhub', 'rest', 'mqtt3', 'mqtt5', 'kafka'",
+            "Input tag 'invalid' found using 'type' does not match any of the expected "
+            "tags: 'eventhub', 'rest', 'mqtt3', 'mqtt5', 'kafka', 'mqtt_broker'"
         },
         id="Invalid source type",
     )
