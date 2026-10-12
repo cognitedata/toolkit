@@ -42,6 +42,10 @@ class BuildParameters(BaseModel):
         None,
         description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory).",
     )
+    config_yamls: list[Path] = Field(
+        default_factory=list,
+        description="List of configuration YAML files (typically config.<env>.yaml under the organization directory).",
+    )
     user_selected_modules: list[str] | None = Field(
         None,
         description="List of module names or paths to build. If not provided, Toolkit will first attempt to find a config YAML "
