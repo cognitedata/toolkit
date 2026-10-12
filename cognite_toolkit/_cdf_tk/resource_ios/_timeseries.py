@@ -134,14 +134,14 @@ class TimeSeriesIO(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeries
                     dumped.pop(key, None)
         return dumped
 
-    def create(self, items: Sequence[TimeSeriesRequest]) -> list[TimeSeriesResponse]:
-        return self.client.tool.timeseries.create(items)
+    def create(self, items: Sequence[TimeSeriesRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.timeseries.create(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[TimeSeriesResponse]:
         return self.client.tool.timeseries.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[TimeSeriesRequest]) -> list[TimeSeriesResponse]:
-        return self.client.tool.timeseries.update(items, mode="replace")
+    def update(self, items: Sequence[TimeSeriesRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.timeseries.update(items, mode="replace"))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
@@ -249,7 +249,7 @@ class DatapointSubscriptionIO(
         if isinstance(scope, AllScope | DataSetScope):
             yield TimeSeriesSubscriptionsAcl(actions=sorted(actions), scope=scope)
 
-    def create(self, items: Sequence[DatapointSubscriptionRequest]) -> list[DatapointSubscriptionResponse]:
+    def create(self, items: Sequence[DatapointSubscriptionRequest]) -> list[ExternalId]:
         created_list = []
         for item in items:
             to_create, update_batches = self.create_split_timeseries_ids(item)
@@ -259,13 +259,13 @@ class DatapointSubscriptionIO(
             if created:
                 # The last batch contains all the time series IDs, so it represents the fully created subscription.
                 created_list.append(created[-1])
-        return created_list
+        return self.get_ids(created_list)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[DatapointSubscriptionResponse]:
         return self.client.tool.datapoint_subscriptions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[DatapointSubscriptionRequest]) -> list[DatapointSubscriptionResponse]:
-        updated_list = []
+    def update(self, items: Sequence[DatapointSubscriptionRequest]) -> list[ExternalId]:
+        updated_list: list[ExternalId] = []
         for item in items:
             current = self.client.tool.datapoint_subscriptions.list_members(item.external_id, limit=None)
             to_update, update_batches = self.update_split_timeseries_ids(item, current)
@@ -279,9 +279,9 @@ class DatapointSubscriptionIO(
                 updated = self.client.tool.datapoint_subscriptions.update(update_batches)
             # The last batch contains all the time series IDs, so it represents the fully updated subscription.
             if updated:
-                updated_list.append(updated[-1])
+                updated_list.append(self.get_id(updated[-1]))
             else:
-                updated_list.extend(self.client.tool.datapoint_subscriptions.retrieve([item.as_id()]))
+                updated_list.append(self.get_id(item))
         return updated_list
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:

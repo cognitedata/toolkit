@@ -321,10 +321,10 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
             self.client.tool.functions.activate()
         return False
 
-    def create(self, items: Sequence[FunctionRequest]) -> list[FunctionResponse]:
+    def create(self, items: Sequence[FunctionRequest]) -> list[ExternalId]:
         if not self._is_activated("create"):
             return []
-        return self._create_with_fileio(items)
+        return self.get_ids(self._create_with_fileio(items))
 
     def _create_with_fileio(self, items: Sequence[FunctionRequest]) -> list[FunctionResponse]:
         cognite_files, filemetadata_files = self._as_file_by_external_id(items)
@@ -627,7 +627,7 @@ class FunctionScheduleIO(
                         schedules.append(schedule)
         return schedules
 
-    def create(self, items: Sequence[FunctionScheduleRequest]) -> list[FunctionScheduleResponse]:
+    def create(self, items: Sequence[FunctionScheduleRequest]) -> list[FunctionScheduleId]:
         created_list: list[FunctionScheduleResponse] = []
         function_id_by_external_id = self._get_function_ids_by_external_id(items)
 
@@ -659,7 +659,7 @@ class FunctionScheduleIO(
                 # Data is not returned in the create call. Thus, we need to set it manually from the request.
                 created.data = item.data
                 created_list.append(created)
-        return created_list
+        return self.get_ids(created_list)
 
     def _get_function_ids_by_external_id(self, items: Sequence[FunctionScheduleRequest]) -> dict[str, int]:
         functions_to_lookup = list({item.function_external_id for item in items if item.function_external_id})

@@ -17,7 +17,6 @@ from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     DataSet,
     Function,
-    FunctionSchedulesList,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
     TimeSeriesList,
@@ -44,7 +43,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import DatapointSubscriptionRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupCapability,
@@ -127,7 +126,6 @@ class TestFunctionScheduleLoader:
     def test_creating_schedule_then_print_ids(
         self,
         toolkit_client: ToolkitClient,
-        cognite_client: CogniteClient,
         toolkit_client_config: ToolkitClientConfig,
         dummy_function: Function,
     ) -> None:
@@ -144,13 +142,12 @@ class TestFunctionScheduleLoader:
             client_secret=toolkit_client_config.credentials.client_secret,
         )
 
-        created: FunctionSchedulesList | None = None
+        created_ids = loader.create(FunctionScheduleWriteList([local]))
         try:
-            created = loader.create(FunctionScheduleWriteList([local]))
-            loader.get_ids(created)
+            assert created_ids == [loader.get_id(local)]
         finally:
-            if created:
-                cognite_client.functions.schedules.delete(created[0].id)
+            if created_ids:
+                loader.delete(created_ids)
 
     def test_iterating_over_schedules(
         self, toolkit_client: ToolkitClient, cognite_client: CogniteClient, dummy_function: Function
@@ -327,8 +324,9 @@ class TestDatapointSubscriptionLoader:
             created = loader.create([sub])
             assert len(created) == 1
 
-            updated = loader.update([update])
-            assert len(updated) == 1
+            updated_ids = loader.update([update])
+            assert len(updated_ids) == 1
+            updated = loader.retrieve(updated_ids)
             assert updated[0].name == "Updated name"
         finally:
             loader.delete([sub.as_id()])
@@ -367,16 +365,18 @@ timeSeriesIds:
         loader = DatapointSubscriptionIO(toolkit_client)
         sub = self._load_subscription_from_yaml(self._create_mock_file(sub_yaml), loader)
         try:
-            created = loader.create([sub])
-            assert len(created) == 1
+            created_ids = loader.create([sub])
+            assert len(created_ids) == 1
+            created = loader.retrieve(created_ids)
             initial_description = created[0].description
             assert created[0].time_series_count == len(one_hundred_and_one_timeseries) + len(
                 three_hundred_and_three_cognite_timeseries
             ), "The subscription should have the correct number of time series"
 
             update = self._load_subscription_from_yaml(self._create_mock_file(update_yaml), loader)
-            updated = loader.update([update])
-            assert len(updated) == 1
+            updated_ids = loader.update([update])
+            assert len(updated_ids) == 1
+            updated = loader.retrieve(updated_ids)
             updated_description = updated[0].description
             assert updated_description != initial_description, (
                 "The description should have changed after the update with a hash fo the timeseries IDs"
@@ -546,8 +546,9 @@ class TestDataModelLoader:
             # You need to update the version to update the model
             update.version = "2"
 
-            updated = loader.update([update])
-            assert len(updated) == 1
+            updated_ids = loader.update([update])
+            assert len(updated_ids) == 1
+            updated = loader.retrieve(updated_ids)
             assert updated[0].views == [my_model.views[0]]
         finally:
             loader.delete([my_model.as_id(), update.as_id()])
@@ -1029,15 +1030,15 @@ class TestFunctionLoader:
 
         resource = crud.load_resource(resource_dict[0])
         assert isinstance(resource, FunctionRequest)
-        created: FunctionResponse | None = None
+        created = False
         try:
             created_list = crud.create([resource])
             assert len(created_list) == 1
-            created = created_list[0]
+            created = True
 
             crud.delete([ExternalId(external_id=external_id)])
         finally:
-            if created is not None:
+            if created:
                 with contextlib.suppress(ToolkitAPIError):
                     client.tool.functions.delete([ExternalId(external_id=external_id)])
 

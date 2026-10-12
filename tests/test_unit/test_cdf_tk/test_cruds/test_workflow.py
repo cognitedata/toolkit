@@ -181,7 +181,7 @@ authentication:
         assert method.call_count == 1
         method.assert_called_with([trigger.as_id()])
         getattr(client.tool.workflows.triggers, other).assert_not_called()
-        assert created[0].is_paused == is_paused
+        assert created == [trigger.as_id()]
 
     @pytest.mark.skipif(not FeatureFlag.is_enabled(Flags.V09), reason="V09 feature flag is not enabled")
     def test_dump_resource_keeps_is_paused(self, toolkit_client_cheap: ToolkitClient) -> None:

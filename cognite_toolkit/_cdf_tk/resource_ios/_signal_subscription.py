@@ -84,8 +84,8 @@ class SignalSubscriptionIO(
         if isinstance(scope, AllScope | CurrentUserScope):
             yield SubscribeSignalsAcl(actions=sorted(actions), scope=scope)
 
-    def create(self, items: Sequence[SignalSubscriptionRequest]) -> list[SignalSubscriptionResponse]:
-        return self.client.tool.signal_subscriptions.create(list(items))
+    def create(self, items: Sequence[SignalSubscriptionRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.signal_subscriptions.create(list(items)))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SignalSubscriptionResponse]:
         if not ids:
@@ -101,8 +101,8 @@ class SignalSubscriptionIO(
                 break
         return found
 
-    def update(self, items: Sequence[SignalSubscriptionRequest]) -> list[SignalSubscriptionResponse]:
-        return self.client.tool.signal_subscriptions.update(list(items))
+    def update(self, items: Sequence[SignalSubscriptionRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.signal_subscriptions.update(list(items)))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)

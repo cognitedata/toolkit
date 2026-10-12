@@ -54,14 +54,14 @@ class SignalSinkIO(ResourceIO[SignalSinkId, SignalSinkRequest, SignalSinkRespons
     def get_dependencies(cls, resource: SignalSinkYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
         return []
 
-    def create(self, items: Sequence[SignalSinkRequest]) -> list[SignalSinkResponse]:
-        return self.client.tool.signal_sinks.create(list(items))
+    def create(self, items: Sequence[SignalSinkRequest]) -> list[SignalSinkId]:
+        return self.get_ids(self.client.tool.signal_sinks.create(list(items)))
 
     def retrieve(self, ids: Sequence[SignalSinkId]) -> list[SignalSinkResponse]:
         return self.client.tool.signal_sinks.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[SignalSinkRequest]) -> list[SignalSinkResponse]:
-        return self.client.tool.signal_sinks.update(list(items))
+    def update(self, items: Sequence[SignalSinkRequest]) -> list[SignalSinkId]:
+        return self.get_ids(self.client.tool.signal_sinks.update(list(items)))
 
     def delete(self, ids: Sequence[SignalSinkId]) -> list[SignalSinkId]:
         id_list = list(ids)

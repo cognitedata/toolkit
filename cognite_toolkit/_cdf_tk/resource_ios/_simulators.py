@@ -98,14 +98,14 @@ class SimulatorModelIO(ResourceIO[ExternalId, SimulatorModelRequest, SimulatorMo
                 acl_actions.extend(["WRITE", "DELETE", "MANAGE"])
             yield SimulatorsAcl(actions=acl_actions, scope=scope)
 
-    def create(self, items: Sequence[SimulatorModelRequest]) -> list[SimulatorModelResponse]:
-        return self.client.tool.simulators.models.create(items)
+    def create(self, items: Sequence[SimulatorModelRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.simulators.models.create(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorModelResponse]:
         return self.client.tool.simulators.models.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[SimulatorModelRequest]) -> list[SimulatorModelResponse]:
-        return self.client.tool.simulators.models.update(items, mode="replace")
+    def update(self, items: Sequence[SimulatorModelRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.simulators.models.update(items, mode="replace"))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
@@ -216,7 +216,7 @@ class SimulatorModelRevisionIO(
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
-    def create(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[SimulatorModelRevisionResponse]:
+    def create(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[ExternalId]:
         file_ids = {InternalId(id=item.file_id): item for item in items}
         failed_upload, elapsed_time = self.client.tool.filemetadata.await_file_uploaded(
             list(file_ids), timeout_seconds=self._file_upload_timeout_seconds
@@ -231,12 +231,12 @@ class SimulatorModelRevisionIO(
                 f"the CDF TOML configuration file. Current value: {self._file_upload_timeout_seconds} seconds."
             )
 
-        return self.client.tool.simulators.model_revisions.create(items)
+        return self.get_ids(self.client.tool.simulators.model_revisions.create(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorModelRevisionResponse]:
         return self.client.tool.simulators.model_revisions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[SimulatorModelRevisionResponse]:
+    def update(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[ExternalId]:
         # Simulator model revisions API does not support update
         raise ToolkitNotSupported(
             "You cannot update simulator model revisions. They are immutable."
@@ -330,8 +330,8 @@ class SimulatorRoutineIO(
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
-    def create(self, items: Sequence[SimulatorRoutineRequest]) -> list[SimulatorRoutineResponse]:
-        return self.client.tool.simulators.routines.create(items)
+    def create(self, items: Sequence[SimulatorRoutineRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.simulators.routines.create(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorRoutineResponse]:
         # Simulator routines do not have a retrieve endpoint, we need to list and filter
@@ -424,13 +424,13 @@ class SimulatorRoutineRevisionIO(
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
-    def create(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> list[SimulatorRoutineRevisionResponse]:
-        return self.client.tool.simulators.routine_revisions.create(items)
+    def create(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.simulators.routine_revisions.create(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorRoutineRevisionResponse]:
         return self.client.tool.simulators.routine_revisions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> list[SimulatorRoutineRevisionResponse]:
+    def update(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> list[ExternalId]:
         # Simulator routine revisions API does not support update
         raise ToolkitNotSupported(
             "You cannot update simulator routine revisions. They are immutable."

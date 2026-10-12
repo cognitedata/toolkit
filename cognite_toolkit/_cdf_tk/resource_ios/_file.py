@@ -183,12 +183,12 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
             dumped["assetExternalIds"] = self.client.lookup.assets.external_id(asset_ids)
         return dumped
 
-    def create(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
+    def create(self, items: Sequence[FileMetadataRequest]) -> list[ExternalId]:
         responses = self.client.tool.filemetadata.create(items, overwrite=True)
         if self.support_upload:
             for response in responses:
                 self._try_upload_file_content(response)
-        return responses
+        return self.get_ids(responses)
 
     def _try_upload_file_content(self, response: FileMetadataResponse) -> None:
         if response.filepath and response.upload_url:
@@ -197,7 +197,7 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
     def retrieve(self, ids: Sequence[ExternalId]) -> list[FileMetadataResponse]:
         return self.client.tool.filemetadata.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
+    def update(self, items: Sequence[FileMetadataRequest]) -> list[ExternalId]:
         pre_update_hash_by_id: dict[str, str | None] = {}
         if self.support_upload:
             # Read hashes before updating — the update payload overwrites them, making
@@ -220,7 +220,7 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
                             f"Expected to get one upload url for file with external id {item.external_id}, but got {len(responses_with_url)}"
                         )
                     self._try_upload_file_content(responses_with_url[0])
-        return responses
+        return self.get_ids(responses)
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
@@ -454,14 +454,14 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
-    def create(self, items: Sequence[CogniteFileRequest]) -> list[CogniteFileResponse]:
+    def create(self, items: Sequence[CogniteFileRequest]) -> list[NodeId]:
         created = self.client.tool.cognite_files.create(items)
         if self.support_upload:
             for item in items:
                 self._try_upload_file_content(item)
-        if not created:
-            return []
-        return self.retrieve([NodeId(space=item.space, external_id=item.external_id) for item in created])
+        return [
+            NodeId(space=item.space, external_id=item.external_id) for item in created if item.instance_type == "node"
+        ]
 
     def _try_upload_file_content(self, item: CogniteFileRequest) -> None:
         if item.filepath:
@@ -472,22 +472,25 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
     def retrieve(self, ids: Sequence[NodeId]) -> list[CogniteFileResponse]:
         return self.client.tool.cognite_files.retrieve(ids)
 
-    def update(self, items: Sequence[CogniteFileRequest]) -> list[CogniteFileResponse]:
+    def update(self, items: Sequence[CogniteFileRequest]) -> list[NodeId]:
         created = self.client.tool.cognite_files.create(items)
-        retrieved = self.retrieve([NodeId(space=item.space, external_id=item.external_id) for item in created])
-        if self.support_upload:
-            items_by_id = {response.as_id(): response for response in retrieved}
-            for item in items:
-                if not item.filepath:
-                    continue
-                existing_file = items_by_id.get(item.as_id())
-                # Check if content hash has changed
-                if existing_file and existing_file.source_context == item.source_context:
-                    # Content hasn't changed, skip upload
-                    continue
-                # Need to upload the file content
-                self._try_upload_file_content(item)
-        return retrieved
+        ids = [
+            NodeId(space=item.space, external_id=item.external_id) for item in created if item.instance_type == "node"
+        ]
+        if not self.support_upload:
+            return ids
+        items_by_id = {response.as_id(): response for response in self.retrieve(ids)}
+        for item in items:
+            if not item.filepath:
+                continue
+            existing_file = items_by_id.get(item.as_id())
+            # Check if content hash has changed
+            if existing_file and existing_file.source_context == item.source_context:
+                # Content hasn't changed, skip upload
+                continue
+            # Need to upload the file content
+            self._try_upload_file_content(item)
+        return ids
 
     def delete(self, ids: Sequence[NodeId]) -> list[NodeId]:
         return self.client.tool.cognite_files.delete(list(ids))

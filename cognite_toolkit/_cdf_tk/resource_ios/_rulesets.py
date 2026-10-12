@@ -83,13 +83,13 @@ class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse, RuleSetY
     def get_dependencies(cls, resource: RuleSetYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
         return []
 
-    def create(self, items: Sequence[RuleSetRequest]) -> list[RuleSetResponse]:
-        return self.client.tool.rulesets.create(list(items))
+    def create(self, items: Sequence[RuleSetRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.rulesets.create(list(items)))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[RuleSetResponse]:
         return self.client.tool.rulesets.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[RuleSetRequest]) -> list[RuleSetResponse]:
+    def update(self, items: Sequence[RuleSetRequest]) -> list[ExternalId]:
         raise NotImplementedError("Rule sets do not support updates.")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
@@ -268,17 +268,17 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
                 yield ttl_path, "\n\n".join(rules)
         yield base_filepath, resource
 
-    def create(self, items: Sequence[RuleSetVersionRequest]) -> list[RuleSetVersionResponse]:
+    def create(self, items: Sequence[RuleSetVersionRequest]) -> list[RuleSetVersionId]:
         if not items:
             return []
-        return self.client.tool.rulesets.versions.create(list(items))
+        return self.get_ids(self.client.tool.rulesets.versions.create(list(items)))
 
     def retrieve(self, ids: Sequence[RuleSetVersionId]) -> list[RuleSetVersionResponse]:
         if not ids:
             return []
         return self.client.tool.rulesets.versions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[RuleSetVersionRequest]) -> list[RuleSetVersionResponse]:
+    def update(self, items: Sequence[RuleSetVersionRequest]) -> list[RuleSetVersionId]:
         raise NotImplementedError("Rule set versions are immutable and do not support updates.")
 
     def delete(self, ids: Sequence[RuleSetVersionId]) -> list[RuleSetVersionId]:

@@ -256,7 +256,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         result = self.client.http_client.request_single_retries(request)
         result.get_success_or_raise(request)
 
-    def create(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
+    def create(self, items: Sequence[StreamlitRequest]) -> list[ExternalId]:
         fileio = FileMetadataIO(self.client)
         try:
             filepaths = [self.filemetadata_by_external_id[item.external_id] for item in items]
@@ -265,13 +265,12 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
                 f"Missing file metadata for Streamlit app with external_id {e.args[0]!r}. Cannot create Streamlit app without the file metadata."
             ) from e
         file_requests = fileio.load_resource_files(filepaths)
-        file_responses = fileio.create(file_requests)
-        return [StreamlitResponse.model_validate(file.dump()) for file in file_responses]
+        return fileio.create(file_requests)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[StreamlitResponse]:
         return self.client.tool.streamlit.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
+    def update(self, items: Sequence[StreamlitRequest]) -> list[ExternalId]:
         fileio = FileMetadataIO(self.client)
         try:
             filepaths = [self.filemetadata_by_external_id[item.external_id] for item in items]
@@ -291,12 +290,10 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
             for r in current_cdf
             if r.external_id is not None
         }
-        file_responses = fileio.update(list(file_request_by_external_id.values()))
-        response_by_external_id = {
-            response.external_id: StreamlitResponse.model_validate(response.dump()) for response in file_responses
-        }
+        updated_ids = fileio.update(list(file_request_by_external_id.values()))
+        updated_external_ids = {identifier.external_id for identifier in updated_ids}
         for item in items:
-            if item.external_id not in response_by_external_id or item.external_id not in file_request_by_external_id:
+            if item.external_id not in updated_external_ids or item.external_id not in file_request_by_external_id:
                 continue
             request = file_request_by_external_id[item.external_id]
             if item.cognite_toolkit_app_hash == pre_update_hash_by_id.get(item.external_id):
@@ -316,7 +313,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
                 )
             self.client.tool.filemetadata.upload_file(request.filepath, upload_url=response_with_url.upload_url)
 
-        return list(response_by_external_id.values())
+        return updated_ids
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)

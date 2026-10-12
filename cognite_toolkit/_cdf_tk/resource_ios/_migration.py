@@ -81,13 +81,11 @@ class ResourceViewMappingIO(
             return None
         return f"{self.display_name} requires the {view_id!s} to be deployed. run `cdf migrate prepare` to deploy it."
 
-    def create(self, items: Sequence[ResourceViewMappingRequest]) -> list[ResourceViewMappingResponse]:
+    def create(self, items: Sequence[ResourceViewMappingRequest]) -> list[ExternalId]:
         created = self.client.migration.resource_view_mapping.create(items)
-        if not created:
-            return []
-        return self.retrieve([ExternalId(external_id=item.external_id) for item in created])
+        return [ExternalId(external_id=item.external_id) for item in created]
 
-    def update(self, items: Sequence[ResourceViewMappingRequest]) -> list[ResourceViewMappingResponse]:
+    def update(self, items: Sequence[ResourceViewMappingRequest]) -> list[ExternalId]:
         return self.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ResourceViewMappingResponse]:

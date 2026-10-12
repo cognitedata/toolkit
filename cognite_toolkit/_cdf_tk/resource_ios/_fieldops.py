@@ -99,16 +99,14 @@ class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse, In
             f"Install the infield options with cdf modules init/add to deploy it."
         )
 
-    def create(self, items: Sequence[APMConfigRequest]) -> list[APMConfigResponse]:
+    def create(self, items: Sequence[APMConfigRequest]) -> list[ExternalId]:
         created = self.client.infield.apm_config.create(items)
-        if not created:
-            return []
-        return self.retrieve([ExternalId(external_id=item.external_id) for item in created])
+        return [ExternalId(external_id=item.external_id) for item in created]
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[APMConfigResponse]:
         return self.client.infield.apm_config.retrieve(NodeId.from_external_ids(ids, space=APM_CONFIG_SPACE))
 
-    def update(self, items: Sequence[APMConfigRequest]) -> list[APMConfigResponse]:
+    def update(self, items: Sequence[APMConfigRequest]) -> list[ExternalId]:
         return self.create(items)
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
@@ -312,20 +310,16 @@ class InFieldLocationConfigIO(
 
         return dumped
 
-    def create(self, items: Sequence[InFieldLocationConfigRequest]) -> list[InFieldLocationConfigResponse]:
+    def create(self, items: Sequence[InFieldLocationConfigRequest]) -> list[NodeId]:
         created = self.client.infield.config.create(items)
-        if not created:
-            return []
-        return self.retrieve([NodeId(space=item.space, external_id=item.external_id) for item in created])
+        return [NodeId(space=item.space, external_id=item.external_id) for item in created]
 
     def retrieve(self, ids: Sequence[NodeId]) -> list[InFieldLocationConfigResponse]:
         return self.client.infield.config.retrieve(list(ids))
 
-    def update(self, items: Sequence[InFieldLocationConfigRequest]) -> list[InFieldLocationConfigResponse]:
+    def update(self, items: Sequence[InFieldLocationConfigRequest]) -> list[NodeId]:
         updated = self.client.infield.config.update(items)
-        if not updated:
-            return []
-        return self.retrieve([NodeId(space=item.space, external_id=item.external_id) for item in updated])
+        return [NodeId(space=item.space, external_id=item.external_id) for item in updated]
 
     def delete(self, ids: Sequence[NodeId]) -> list[NodeId]:
         return self.client.infield.config.delete(list(ids))
@@ -467,7 +461,7 @@ class InFieldCDMLocationConfigIO(
         dumped.pop("instanceType", None)
         return dumped
 
-    def create(self, items: Sequence[InFieldCDMLocationConfigRequest]) -> list[InFieldCDMLocationConfigResponse]:
+    def create(self, items: Sequence[InFieldCDMLocationConfigRequest]) -> list[NodeId]:
         legacy_instance_spaces = self._legacy_instance_spaces
         to_create: list[InFieldCDMLocationConfigRequest] = []
         for item in items:
@@ -481,15 +475,15 @@ class InFieldCDMLocationConfigIO(
             else:
                 to_create.append(item)
 
-        created = self.client.infield.cdm_config.create(to_create)
-        if not created:
+        if not to_create:
             return []
-        return self.retrieve([NodeId(space=item.space, external_id=item.external_id) for item in created])
+        created = self.client.infield.cdm_config.create(to_create)
+        return [NodeId(space=item.space, external_id=item.external_id) for item in created]
 
     def retrieve(self, ids: Sequence[NodeId]) -> list[InFieldCDMLocationConfigResponse]:
         return self.client.infield.cdm_config.retrieve(list(ids))
 
-    def update(self, items: Sequence[InFieldCDMLocationConfigRequest]) -> list[InFieldCDMLocationConfigResponse]:
+    def update(self, items: Sequence[InFieldCDMLocationConfigRequest]) -> list[NodeId]:
         return self.create(items)
 
     def delete(self, ids: Sequence[NodeId]) -> list[NodeId]:

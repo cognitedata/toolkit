@@ -16,7 +16,7 @@ from cognite.client.data_classes.capabilities import FilesAcl, FunctionsAcl
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
@@ -305,9 +305,16 @@ secrets:
 
             loader.filemetadata_path_by_external_id[function_id] = filemetadata
 
-            client.tool.filemetadata.create.return_value = [
-                FileMetadataResponse(id=42, created_time=0, last_updated_time=1, uploaded=True, name=function_id)
-            ]
+            file_response = FileMetadataResponse(
+                id=42,
+                external_id=function_id,
+                created_time=0,
+                last_updated_time=1,
+                uploaded=True,
+                name=function_id,
+            )
+            client.tool.filemetadata.create.return_value = [file_response]
+            client.tool.filemetadata.retrieve.return_value = [file_response]
             yield loader
 
     def test_replacing_file_mapping_updates_code_bundle(
@@ -330,7 +337,7 @@ secrets:
         with patch.object(function_io, "_is_activated", return_value=True):
             result = function_io.create([FunctionRequest(name="my_func", external_id="my_func", file_id=-1)])
 
-        assert result == [created_response]
+        assert result == [ExternalId(external_id="my_func")]
 
     def test_create_raises_timeout_when_file_not_uploaded(self, function_io_with_file: FunctionIO) -> None:
         function_io = function_io_with_file

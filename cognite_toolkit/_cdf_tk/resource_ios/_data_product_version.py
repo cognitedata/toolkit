@@ -87,20 +87,20 @@ class DataProductVersionIO(
                 dumped.pop(key, None)
         return dumped
 
-    def create(self, items: Sequence[DataProductVersionRequest]) -> list[DataProductVersionResponse]:
+    def create(self, items: Sequence[DataProductVersionRequest]) -> list[DataProductVersionId]:
         if not items:
             return []
-        return self.client.tool.data_products.versions.create(list(items))
+        return self.get_ids(self.client.tool.data_products.versions.create(list(items)))
 
     def retrieve(self, ids: Sequence[DataProductVersionId]) -> list[DataProductVersionResponse]:
         if not ids:
             return []
         return self.client.tool.data_products.versions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[DataProductVersionRequest]) -> list[DataProductVersionResponse]:
+    def update(self, items: Sequence[DataProductVersionRequest]) -> list[DataProductVersionId]:
         if not items:
             return []
-        return self.client.tool.data_products.versions.update(list(items))
+        return self.get_ids(self.client.tool.data_products.versions.update(list(items)))
 
     def delete(self, ids: Sequence[DataProductVersionId]) -> list[DataProductVersionId]:
         id_list = list(ids)

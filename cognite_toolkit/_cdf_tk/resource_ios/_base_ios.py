@@ -303,10 +303,10 @@ class ResourceIO(
         raise NotImplementedError
 
     @abstractmethod
-    def retrieve(self, ids: Sequence[T_Identifier]) -> Sequence[T_Identifier]:
+    def retrieve(self, ids: Sequence[T_Identifier]) -> Sequence[T_ResponseResource]:
         raise NotImplementedError
 
-    def update(self, items: Sequence[T_RequestResource]) -> Sequence[T_ResponseResource]:
+    def update(self, items: Sequence[T_RequestResource]) -> Sequence[T_Identifier]:
         raise NotImplementedError(f"Update is not supported for {type(self).__name__}.")
 
     @abstractmethod

@@ -81,16 +81,16 @@ class IntegrationsIO(ResourceIO[ExternalId, IntegrationRequest, IntegrationRespo
     def get_dependencies(cls, resource: IntegrationYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         return []
 
-    def create(self, items: Sequence[IntegrationRequest]) -> list[IntegrationResponse]:
-        return self.client.integrations.create(list(items))
+    def create(self, items: Sequence[IntegrationRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.integrations.create(list(items)))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[IntegrationResponse]:
         if not ids:
             return []
         return self.client.integrations.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[IntegrationRequest]) -> list[IntegrationResponse]:
-        return self.client.integrations.update(list(items), mode="replace")
+    def update(self, items: Sequence[IntegrationRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.integrations.update(list(items), mode="replace"))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
@@ -212,8 +212,8 @@ class IntegrationConfigsIO(
                 dumped["config"] = read_yaml_content(dumped["config"])
         return dumped
 
-    def create(self, items: Sequence[IntegrationConfigRequest]) -> list[IntegrationConfigResponse]:
-        return self.client.integrations.configuration.create(list(items))
+    def create(self, items: Sequence[IntegrationConfigRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.integrations.configuration.create(list(items)))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[IntegrationConfigResponse]:
         if not ids:
@@ -223,7 +223,7 @@ class IntegrationConfigsIO(
             ignore_unknown_ids=True,
         )
 
-    def update(self, items: Sequence[IntegrationConfigRequest]) -> list[IntegrationConfigResponse]:
+    def update(self, items: Sequence[IntegrationConfigRequest]) -> list[ExternalId]:
         # The API appends a revision. Creating is how a configuration is changed.
         return self.create(items)
 

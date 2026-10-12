@@ -78,8 +78,8 @@ class StreamIO(ResourceContainerIO[ExternalId, StreamRequest, StreamResponse, St
     def get_dependencies(cls, resource: StreamYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
         return []
 
-    def create(self, items: Sequence[StreamRequest]) -> list[StreamResponse]:
-        return self.client.streams.create(items)
+    def create(self, items: Sequence[StreamRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.streams.create(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[StreamResponse]:
         return self.client.streams.retrieve(list(ids), ignore_unknown_ids=True)

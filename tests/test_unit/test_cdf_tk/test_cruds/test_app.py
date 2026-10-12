@@ -145,13 +145,7 @@ class TestAppVersionIODeploy:
 
         results = loader.create([item])
 
-        assert len(results) == 1
-        response = results[0]
-        assert isinstance(response, AppVersionResponse)
-        assert response.app_external_id == "my-app"
-        assert response.version == "1.0.0"
-        assert response.lifecycle_state == "PUBLISHED"
-        assert response.alias == "ACTIVE"
+        assert results == [item.as_id()]
 
 
 class TestAppVersionIOLoadResourceFile:

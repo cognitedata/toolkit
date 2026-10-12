@@ -214,14 +214,14 @@ class ExtractionPipelineIO(
             return diff_list_force_hashable(local, cdf)
         return super().diff_list(local, cdf, json_path)
 
-    def create(self, items: Sequence[ExtractionPipelineRequest]) -> list[ExtractionPipelineResponse]:
-        return self.client.tool.extraction_pipelines.create(list(items))
+    def create(self, items: Sequence[ExtractionPipelineRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.extraction_pipelines.create(list(items)))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ExtractionPipelineResponse]:
         return self.client.tool.extraction_pipelines.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[ExtractionPipelineRequest]) -> list[ExtractionPipelineResponse]:
-        return self.client.tool.extraction_pipelines.update(list(items), mode="replace")
+    def update(self, items: Sequence[ExtractionPipelineRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.extraction_pipelines.update(list(items), mode="replace"))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
@@ -386,8 +386,8 @@ class ExtractionPipelineConfigIO(
     def _upsert(self, items: Sequence[ExtractionPipelineConfigRequest]) -> list[ExtractionPipelineConfigResponse]:
         return self.client.tool.extraction_pipelines.configs.create(list(items))
 
-    def create(self, items: Sequence[ExtractionPipelineConfigRequest]) -> list[ExtractionPipelineConfigResponse]:
-        return self._upsert(items)
+    def create(self, items: Sequence[ExtractionPipelineConfigRequest]) -> list[ExternalId]:
+        return self.get_ids(self._upsert(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ExtractionPipelineConfigResponse]:
         return self.client.tool.extraction_pipelines.configs.retrieve(

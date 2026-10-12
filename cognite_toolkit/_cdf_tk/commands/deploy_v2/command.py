@@ -1164,8 +1164,8 @@ class DeployV2Command(ToolkitCommand):
                 action = "upsert"
                 to_create_ids = {crud.get_id(item) for item in resources.to_create}  # type: ignore[arg-type]
                 to_upsert = [*resources.to_create, *resources.to_update]
-                upserted = cast(Sequence[Any], crud.create(to_upsert))  # type: ignore[arg-type]
-                created = sum(1 for view in upserted if crud.get_id(view) in to_create_ids)
+                upserted = crud.create(to_upsert)  # type: ignore[arg-type]
+                created = sum(1 for item_id in upserted if item_id in to_create_ids)
                 updated = len(upserted) - created
             else:
                 if resources.to_create:

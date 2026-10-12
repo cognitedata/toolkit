@@ -186,7 +186,7 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
                 *e.args[1:],
             ) from None
 
-    def create(self, items: Sequence[LocationFilterRequest]) -> list[LocationFilterResponse]:
+    def create(self, items: Sequence[LocationFilterRequest]) -> list[ExternalId]:
         created: list[LocationFilterResponse] = []
         # Note: the Location API does not support batch creation, so we need to do this one by one.
         # Furthermore, we could not do the parentExternalId->parentId lookup before the parent was created,
@@ -197,7 +197,7 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
             if item.parent_external_id and item.parent_id == -1:
                 item.parent_id = self.client.lookup.location_filters.id(item.parent_external_id)
             created.extend(self.client.tool.location_filters.create([item]))
-        return created
+        return self.get_ids(created)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[LocationFilterResponse]:
         # Use flat=True to get all locations in a flat list
@@ -205,13 +205,13 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
         external_id_set = {ext_id.external_id for ext_id in ids}
         return [loc for loc in all_locations if loc.external_id in external_id_set]
 
-    def update(self, items: Sequence[LocationFilterRequest]) -> list[LocationFilterResponse]:
+    def update(self, items: Sequence[LocationFilterRequest]) -> list[ExternalId]:
         all_locations = self.client.tool.location_filters.list(flat=True)
         ids = {loc.external_id: loc.id for loc in all_locations}
         # Set the id on each item before updating
         for item in items:
             item.id = ids[item.external_id]
-        return self.client.tool.location_filters.update(items)
+        return self.get_ids(self.client.tool.location_filters.update(items))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         locations = self.retrieve(ids)

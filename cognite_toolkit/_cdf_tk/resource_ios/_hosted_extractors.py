@@ -101,14 +101,14 @@ class HostedExtractorSourceIO(
     def get_dependencies(cls, resource: HostedExtractorSourceYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
         return []
 
-    def create(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
-        return self.client.tool.hosted_extractors.sources.create(list(items))
+    def create(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.hosted_extractors.sources.create(list(items)))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorSourceResponseUnion]:
         return self.client.tool.hosted_extractors.sources.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
-        return self.client.tool.hosted_extractors.sources.update(list(items), mode="replace")
+    def update(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.hosted_extractors.sources.update(list(items), mode="replace"))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
@@ -235,14 +235,14 @@ class HostedExtractorDestinationIO(
         if isinstance(scope, AllScope):
             yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
 
-    def create(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[HostedExtractorDestinationResponse]:
-        return self.client.tool.hosted_extractors.destinations.create(list(items))
+    def create(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.hosted_extractors.destinations.create(list(items)))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorDestinationResponse]:
         return self.client.tool.hosted_extractors.destinations.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[HostedExtractorDestinationResponse]:
-        return self.client.tool.hosted_extractors.destinations.update(list(items), mode="replace")
+    def update(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.hosted_extractors.destinations.update(list(items), mode="replace"))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
@@ -359,14 +359,14 @@ class HostedExtractorJobIO(
             dumped.pop("config", None)
         return dumped
 
-    def create(self, items: Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
-        return self.client.tool.hosted_extractors.jobs.create(list(items))
+    def create(self, items: Sequence[HostedExtractorJobRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.hosted_extractors.jobs.create(list(items)))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorJobResponse]:
         return self.client.tool.hosted_extractors.jobs.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
-        return self.client.tool.hosted_extractors.jobs.update(list(items), mode="replace")
+    def update(self, items: Sequence[HostedExtractorJobRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.hosted_extractors.jobs.update(list(items), mode="replace"))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
@@ -442,14 +442,14 @@ class HostedExtractorMappingIO(
     def get_dependencies(cls, resource: HostedExtractorMappingYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
         return []
 
-    def create(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:
-        return self.client.tool.hosted_extractors.mappings.create(list(items))
+    def create(self, items: Sequence[HostedExtractorMappingRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.hosted_extractors.mappings.create(list(items)))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorMappingResponse]:
         return self.client.tool.hosted_extractors.mappings.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:
-        return self.client.tool.hosted_extractors.mappings.update(list(items), mode="replace")
+    def update(self, items: Sequence[HostedExtractorMappingRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.hosted_extractors.mappings.update(list(items), mode="replace"))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)

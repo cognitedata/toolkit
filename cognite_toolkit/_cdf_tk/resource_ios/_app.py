@@ -88,8 +88,8 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
                 dumped[immutable_key] = local[immutable_key]
         return dumped
 
-    def create(self, items: Sequence[AppRequest]) -> list[AppResponse]:
-        return self.client.tool.apps.create(list(items))
+    def create(self, items: Sequence[AppRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.apps.create(list(items)))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[AppResponse]:
         return self.client.tool.apps.retrieve(list(ids), ignore_unknown_ids=True)
@@ -328,11 +328,11 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
             entrypoint=item.entrypoint,
         )
 
-    def create(self, items: Sequence[AppVersionRequest]) -> list[AppVersionResponse]:
-        return [self._deploy(item) for item in items]
+    def create(self, items: Sequence[AppVersionRequest]) -> list[AppVersionId]:
+        return self.get_ids([self._deploy(item) for item in items])
 
-    def update(self, items: Sequence[AppVersionRequest]) -> list[AppVersionResponse]:
-        return [self._deploy(item) for item in items]
+    def update(self, items: Sequence[AppVersionRequest]) -> list[AppVersionId]:
+        return self.get_ids([self._deploy(item) for item in items])
 
     def retrieve(self, ids: Sequence[AppVersionId]) -> list[AppVersionResponse]:
         return self.client.tool.apps.versions.retrieve(list(ids), ignore_unknown_ids=True)

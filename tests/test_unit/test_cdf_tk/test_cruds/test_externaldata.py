@@ -205,7 +205,7 @@ class TestExternalDataSourceIO:
             api.create.return_value = [response]
             api.list.return_value = [response]
 
-            assert loader.create([item]) == [response]
+            assert loader.create([item]) == [ExternalId(external_id="fabric-lakehouse-prod")]
             assert loader.retrieve([ExternalId(external_id="fabric-lakehouse-prod")]) == [response]
             assert loader.retrieve([]) == []
             assert loader.delete([ExternalId(external_id="fabric-lakehouse-prod")]) == [

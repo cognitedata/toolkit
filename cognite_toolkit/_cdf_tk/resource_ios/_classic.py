@@ -23,7 +23,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     SequencesAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import (
-    SequenceColumnSlim,
     SequenceRequest,
     SequenceResponse,
 )
@@ -82,14 +81,14 @@ class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse, AssetYAML]):
         if isinstance(scope, AllScope | DataSetScope):
             yield AssetsAcl(actions=sorted(actions), scope=scope)
 
-    def create(self, items: collections.abc.Sequence[AssetRequest]) -> list[AssetResponse]:
-        return self.client.tool.assets.create(items)
+    def create(self, items: collections.abc.Sequence[AssetRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.assets.create(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[AssetResponse]:
         return self.client.tool.assets.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: collections.abc.Sequence[AssetRequest]) -> list[AssetResponse]:
-        return self.client.tool.assets.update(items, mode="replace")
+    def update(self, items: collections.abc.Sequence[AssetRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.assets.update(items, mode="replace"))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
@@ -242,14 +241,14 @@ class SequenceIO(ResourceIO[ExternalId, SequenceRequest, SequenceResponse, Seque
             return super().diff_list(local, cdf, json_path)
         return diff_list_identifiable(local, cdf, get_identifier=lambda col: col["externalId"])
 
-    def create(self, items: collections.abc.Sequence[SequenceRequest]) -> list[SequenceResponse]:
-        return self.client.tool.sequences.create(items)
+    def create(self, items: collections.abc.Sequence[SequenceRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.sequences.create(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SequenceResponse]:
         return self.client.tool.sequences.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: collections.abc.Sequence[SequenceRequest]) -> list[SequenceResponse]:
-        return self.client.tool.sequences.update(items, mode="replace")
+    def update(self, items: collections.abc.Sequence[SequenceRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.sequences.update(items, mode="replace"))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
@@ -325,46 +324,13 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
-    def create(self, items: Sequence[SequenceRowsRequest]) -> list[SequenceRowsResponse]:
+    def create(self, items: Sequence[SequenceRowsRequest]) -> list[ExternalId]:
         item_list = list(items)
         if not item_list:
             return []
+        # The rows API does not return the written rows. The sequence external id is the identifier.
         self.client.tool.sequences.rows.create(item_list)
-        # This is a workaround since rows do not return the response object.
-        # We need to consider whether the sequence rows should be a ResourceIO or maybe just a DataIO instead.
-        sequences = self.client.tool.sequences.retrieve(
-            [ExternalId(external_id=item.external_id) for item in item_list],
-            ignore_unknown_ids=True,
-        )
-        sequence_by_external_id = {sequence.external_id: sequence for sequence in sequences if sequence.external_id}
-        created: list[SequenceRowsResponse] = []
-        for item in item_list:
-            sequence = sequence_by_external_id.get(item.external_id)
-            if sequence is None:
-                continue
-            column_by_external_id = {column.external_id: column for column in sequence.columns}
-            columns: list[SequenceColumnSlim] = []
-            for column_id in item.columns:
-                column = column_by_external_id.get(column_id)
-                if column is None:
-                    columns.append(SequenceColumnSlim(external_id=column_id))
-                else:
-                    columns.append(
-                        SequenceColumnSlim(
-                            external_id=column.external_id,
-                            name=column.name,
-                            value_type=column.value_type,
-                        )
-                    )
-            created.append(
-                SequenceRowsResponse(
-                    external_id=item.external_id,
-                    id=sequence.id,
-                    columns=columns,
-                    rows=list(item.rows),
-                )
-            )
-        return created
+        return self.get_ids(item_list)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SequenceRowsResponse]:
         results: list[SequenceRowsResponse] = []
@@ -486,14 +452,14 @@ class EventIO(ResourceIO[ExternalId, EventRequest, EventResponse, EventYAML]):
         if isinstance(scope, AllScope | DataSetScope):
             yield EventsAcl(actions=sorted(actions), scope=scope)
 
-    def create(self, items: collections.abc.Sequence[EventRequest]) -> list[EventResponse]:
-        return self.client.tool.events.create(items)
+    def create(self, items: collections.abc.Sequence[EventRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.events.create(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[EventResponse]:
         return self.client.tool.events.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: collections.abc.Sequence[EventRequest]) -> list[EventResponse]:
-        return self.client.tool.events.update(items, mode="replace")
+    def update(self, items: collections.abc.Sequence[EventRequest]) -> list[ExternalId]:
+        return self.get_ids(self.client.tool.events.update(items, mode="replace"))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)

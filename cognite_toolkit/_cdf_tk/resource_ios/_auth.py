@@ -355,12 +355,12 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         # When you dump a CDF Group, all the referenced resources should be available in CDF.
         return self._substitute_scope_ids(dumped, is_dry_run=False, reverse=True)
 
-    def create(self, items: Sequence[GroupRequest]) -> list[GroupResponse]:
+    def create(self, items: Sequence[GroupRequest]) -> list[NameId]:
         if len(items) == 0:
             return []
-        return self._create_with_fallback(items, action="create")
+        return self.get_ids(self._create_with_fallback(items, action="create"))
 
-    def update(self, items: Sequence[GroupRequest]) -> list[GroupResponse]:
+    def update(self, items: Sequence[GroupRequest]) -> list[NameId]:
         # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
         old_groups = self.client.tool.groups.list(all_groups=True)
         created = self._create_with_fallback(items, action="update")
@@ -368,7 +368,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         to_delete = [group for group in old_groups if group.name in created_names]
         if to_delete:
             self._delete(to_delete, check_own_principal=False)
-        return created
+        return self.get_ids(created)
 
     def _create_with_fallback(
         self, items: Sequence[GroupRequest], action: Literal["create", "update"]
@@ -534,8 +534,8 @@ class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCat
     def get_dependencies(cls, resource: SecurityCategoriesYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
         return []
 
-    def create(self, items: Sequence[SecurityCategoryRequest]) -> list[SecurityCategoryResponse]:
-        return self.client.tool.security_categories.create(items)
+    def create(self, items: Sequence[SecurityCategoryRequest]) -> list[NameId]:
+        return self.get_ids(self.client.tool.security_categories.create(items))
 
     def retrieve(self, ids: Sequence[NameId]) -> list[SecurityCategoryResponse]:
         names = {id.name for id in ids}

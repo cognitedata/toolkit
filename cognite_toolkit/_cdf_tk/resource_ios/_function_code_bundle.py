@@ -166,14 +166,22 @@ class FunctionCodeBundle:
         if filemetadata_files:
             fileio = FileMetadataIO(self.client)
             file_request = fileio.load_resource_files(list(filemetadata_files))
-            fileresponse = fileio.create(file_request)
-            file_id_by_external_id.update(zip(filemetadata_files.values(), (InternalId(id=f.id) for f in fileresponse)))
+            created_ids = fileio.create(file_request)
+            # Create only returns identifiers. The function API needs the file's internal id.
+            retrieved = fileio.retrieve(created_ids)
+            by_external_id = {response.external_id: response for response in retrieved if response.external_id}
+            file_id_by_external_id.update(
+                {
+                    external_id: InternalId(id=by_external_id[external_id].id)
+                    for external_id in filemetadata_files.values()
+                }
+            )
         if cognite_files:
             cognitefileio = CogniteFileIO(self.client)
             cognitefile_request = cognitefileio.load_resource_files(list(cognite_files))
-            cognitefile_response = cognitefileio.create(cognitefile_request)
+            created_node_ids = cognitefileio.create(cognitefile_request)
             dm_fileresponse = self.client.tool.filemetadata.retrieve(
-                [InstanceId(instance_id=node.as_id()) for node in cognitefile_response]
+                [InstanceId(instance_id=node_id) for node_id in created_node_ids]
             )
             file_id_by_external_id.update(zip(cognite_files.values(), (InternalId(id=f.id) for f in dm_fileresponse)))
         return file_id_by_external_id
