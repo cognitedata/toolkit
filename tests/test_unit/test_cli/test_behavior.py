@@ -56,7 +56,7 @@ from cognite_toolkit._cdf_tk.commands import (
     PullV2Command,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConsistencyError
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildError, BuildParameters
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
@@ -1084,6 +1084,7 @@ runtimeVersion: "1.3.0"
     assert [agent.external_id for agent in agents] == ["weather-specialist", "supervisor"]
 
 
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 def test_warning_missing_dependency(
     default_config_dev_yaml: str,
     env_vars_with_client: EnvironmentVariables,
@@ -1118,14 +1119,53 @@ capabilities:
             config_yaml=my_org / "config.dev.yaml",
         ),
     )
-    insights = [insight for insight in folder.all_insights if insight.code == "UNKNOWN-REFERENCE"]
+    insights = [insight for insight in folder.all_insights if insight.code == "MISSING-REFERENCED-RESOURCE"]
     assert len(insights) == 1
     insight = insights[0]
-    assert isinstance(insight, ConsistencyError)
-    assert insight.message == "Unknown reference to space with id 'my_non_existent_space'"
+    assert isinstance(insight, BuildError)
+    assert insight.message.startswith("The space 'my_non_existent_space' does not exist locally or in CDF.")
     assert insight.source_file == yaml_filepath
+    assert (insight.line, insight.column) == (12, 11)
 
 
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
+def test_unresolved_variable_does_not_cause_unknown_reference(
+    default_config_dev_yaml: str,
+    env_vars_with_client: EnvironmentVariables,
+    tmp_path: Path,
+) -> None:
+    group_yaml = """name: scoped_group
+sourceId: '1234567890123456789'
+capabilities:
+- dataModelsAcl:
+    actions:
+    - READ
+    scope:
+      spaceIdScope:
+        spaceIds:
+        - '{{ my_unresolved_space }}'
+"""
+
+    my_org = tmp_path / "my_org"
+    yaml_filepath = my_org / "modules" / "my_module" / "auth" / "scoped_group.Group.yaml"
+    yaml_filepath.parent.mkdir(parents=True, exist_ok=True)
+    yaml_filepath.write_text(group_yaml, encoding="utf-8")
+    (my_org / "config.dev.yaml").write_text(default_config_dev_yaml, encoding="utf-8")
+
+    folder = BuildV2Command(silent=True, skip_tracking=True).build(
+        client=env_vars_with_client.get_client(),
+        parameters=BuildParameters(
+            organization_dir=my_org,
+            build_dir=tmp_path / "build",
+            config_yaml=my_org / "config.dev.yaml",
+        ),
+    )
+    codes = {insight.code for insight in folder.all_insights}
+    assert "UNRESOLVED-VARIABLE" in codes
+    assert "MISSING-REFERENCED-RESOURCE" not in codes
+
+
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 def test_warning_missing_dependency_with_unknown_capability(
     default_config_dev_yaml: str,
     env_vars_with_client: EnvironmentVariables,
@@ -1137,7 +1177,7 @@ def test_warning_missing_dependency_with_unknown_capability(
     that model validation still succeeds (``validated`` is set).  ``get_dependencies`` skips
     ``UnknownCapability`` instances, but the valid siblings (e.g. ``dataModelsAcl`` with a
     ``spaceIdScope``) are still processed — so a missing space is caught and an
-    UNKNOWN-REFERENCE insight is emitted.  A MODEL-SYNTAX-WARNING is also produced via
+    MISSING-REFERENCED-RESOURCE insight is emitted.  An UNRECOGNIZED-VALUE is also produced via
     ``get_build_warnings()`` to tell the user about the unrecognised capability.
     """
     group_yaml = """name: scoped_group_unknown_cap
@@ -1176,14 +1216,14 @@ capabilities:
             config_yaml=my_org / "config.dev.yaml",
         ),
     )
-    # The unknown capability should produce a MODEL-SYNTAX-WARNING (not an error — the YAML
+    # The unknown capability should produce an UNRECOGNIZED-VALUE (not an error — the YAML
     # is still valid from the build perspective; CDF may or may not accept it at deploy time).
-    syntax_warnings = [i for i in folder.all_insights if i.code == "MODEL-SYNTAX-WARNING"]
-    assert len(syntax_warnings) >= 1, "Expected a MODEL-SYNTAX-WARNING for the unknown capability"
+    syntax_warnings = [i for i in folder.all_insights if i.code == "UNRECOGNIZED-VALUE"]
+    assert len(syntax_warnings) >= 1, "Expected an UNRECOGNIZED-VALUE for the unknown capability"
 
     # The space reference in the VALID sibling capability must still be checked against CDF.
-    unknown_refs = [i for i in folder.all_insights if i.code == "UNKNOWN-REFERENCE"]
+    unknown_refs = [i for i in folder.all_insights if i.code == "MISSING-REFERENCED-RESOURCE"]
     assert len(unknown_refs) == 1, (
-        "Expected UNKNOWN-REFERENCE for 'my_non_existent_space' even when group has an unknown capability"
+        "Expected MISSING-REFERENCED-RESOURCE for 'my_non_existent_space' even when group has an unknown capability"
     )
     assert "my_non_existent_space" in unknown_refs[0].message

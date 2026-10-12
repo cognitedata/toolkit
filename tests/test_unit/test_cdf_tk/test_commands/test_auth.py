@@ -99,7 +99,7 @@ def _setup_verify_mocks(
 
     func_status = MagicMock()
     func_status.status = "activated"
-    client.functions.status.return_value = func_status
+    client.tool.functions.status.return_value = func_status
 
 
 class TestAuthCommand:

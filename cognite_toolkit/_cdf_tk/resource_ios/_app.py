@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.feature_flags import v09_gate
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.utils.file import create_zip_in_memory
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash
@@ -171,7 +172,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
 
         if not app_root.is_dir():
             yield FailedReadExtra(
-                code="MISSING",
+                code=v09_gate("MISSING-REFERENCED-DIRECTORY", "MISSING"),
                 error=(
                     f"App directory not found for appExternalId {app_external_id!r}. "
                     f"Expected {app_root.as_posix()} to exist."
@@ -186,7 +187,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
             source_dir = dist_dir
         elif (app_root / "src").is_dir() and (app_root / "package.json").is_file():
             yield FailedReadExtra(
-                code="MISSING",
+                code=v09_gate("MISSING-REFERENCED-DIRECTORY", "MISSING"),
                 error=(
                     f"App {app_external_id!r} looks like an unbuilt web project: "
                     f"Run `npm run build` (or your project's build command) in {app_root.as_posix()} "
@@ -199,7 +200,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
             source_dir = app_root
         else:
             yield FailedReadExtra(
-                code="MISSING",
+                code=v09_gate("MISSING-REFERENCED-FILE", "MISSING"),
                 error=(
                     f"Could not locate entrypoint {entrypoint!r} for app {app_external_id!r}. "
                     f"Expected {(dist_dir / entrypoint).as_posix()} or "
@@ -212,7 +213,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
         package_json = app_root / "package.json"
         if not package_json.is_file():
             yield FailedReadExtra(
-                code="MISSING",
+                code=v09_gate("MISSING-REFERENCED-FILE", "MISSING"),
                 error=(
                     f"App {app_external_id!r} is missing package.json at {app_root.as_posix()}. "
                     f"This file is required to deploy to the App Hosting service."
@@ -224,7 +225,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
         package_lock = app_root / "package-lock.json"
         if not package_lock.is_file():
             yield FailedReadExtra(
-                code="MISSING",
+                code=v09_gate("MISSING-REFERENCED-FILE", "MISSING"),
                 error=(
                     f"App {app_external_id!r} is missing package-lock.json at {app_root.as_posix()}. "
                     f"This file is required to deploy to the App Hosting service."
@@ -239,7 +240,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
                 json.loads(manifest_json.read_text(encoding="utf-8"))
             except json.JSONDecodeError as error:
                 yield FailedReadExtra(
-                    code="SYNTAX-ERROR",
+                    code=v09_gate("INVALID-FILE-CONTENT", "SYNTAX-ERROR"),
                     error=f"App {app_external_id!r} has an invalid manifest.json at {manifest_json.as_posix()}: {error}",
                     source_path=manifest_json,
                 )

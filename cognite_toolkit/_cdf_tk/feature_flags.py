@@ -1,9 +1,12 @@
 from dataclasses import dataclass
 from enum import Enum
 from functools import lru_cache
+from typing import TypeVar
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import clean_name
+
+T_Value = TypeVar("T_Value")
 
 
 @dataclass(frozen=True)
@@ -136,3 +139,8 @@ class FeatureFlag:
     @staticmethod
     def flush() -> None:
         FeatureFlag.is_enabled.cache_clear()
+
+
+def v09_gate(new: T_Value, legacy: T_Value) -> T_Value:
+    """Returns the new behavior with the v09 flag enabled, otherwise the legacy behavior."""
+    return new if Flags.V09.is_enabled() else legacy

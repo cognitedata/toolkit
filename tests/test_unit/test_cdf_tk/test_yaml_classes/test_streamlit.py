@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes.streamlit_ import StreamlitYAML
@@ -12,19 +13,27 @@ from tests.test_unit.utils import find_resources
 def invalid_streamlit_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "MyApp", "name": "MyApp"},
-        {"Missing required field: 'creator'"},
+        {"Missing required field: 'creator'", "Missing required field: 'entrypoint'"},
         id="Missing required field: creator",
     )
     yield pytest.param(
-        {"externalId": "MyApp", "creator": "doctrino", "name": "MyApp", "published": "yes", "draft": "no"},
+        {
+            "externalId": "MyApp",
+            "creator": "doctrino",
+            "name": "MyApp",
+            "entrypoint": "main.py",
+            "published": "yes",
+            "draft": "no",
+        },
         {
             "Invalid value for published: Input should be a valid boolean. Got 'yes' of type str.",
-            "Unknown field: 'draft'",
+            "Unrecognized field: 'draft'",
         },
         id="Invalid boolean and unknown field",
     )
 
 
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 class TestStreamlitYAML:
     @pytest.mark.parametrize("data", list(find_resources("Streamlit")))
     def test_load_valid_space(self, data: dict[str, object]) -> None:

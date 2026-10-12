@@ -53,7 +53,6 @@ from cognite.client.data_classes.data_modeling import (
     View,
 )
 from cognite.client.data_classes.data_modeling.ids import DataModelIdentifier
-from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.data_classes.iam import GroupWrite, ProjectSpec, TokenInspection
 from cognite.client.utils._text import to_camel_case
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -70,6 +69,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionsActivation
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source._base import SourceRequestDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.project import ProjectStatus, ProjectStatusList
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
@@ -202,15 +202,36 @@ class ApprovalToolkitClient:
         ]
         # Set the token verify to never be missing ACLs.
         self.mock_client.tool.token.verify_acls.return_value = []
-        # Set functions to be activated
-        self.mock_client.functions.status.return_value = FunctionsStatus(status="activated")
+        # Set functions to be activated. MagicMock equality is false, so an unconfigured
+        # status() would make FunctionIO treat the service as inactive.
+        self.mock_client.tool.functions.status.return_value = FunctionsActivation(status="activated")
 
         # All files are uploaded successfully
         self.mock_client.tool.filemetadata.await_file_uploaded.return_value = set(), 0.0
-        # Return a single (no-op) upload URL response so the update-upload path doesn't raise
-        self.mock_client.tool.filemetadata.get_upload_url.return_value = [
-            FileMetadataResponse(id=1, uploaded=False, created_time=0, last_updated_time=0, name="file")
-        ]
+
+        def get_upload_url(items: Sequence, ignore_unknown_ids: bool = False) -> list[FileMetadataResponse]:
+            responses: list[FileMetadataResponse] = []
+            for item in items:
+                if isinstance(item, ExternalId):
+                    external_id = item.external_id or "unknown"
+                elif isinstance(item, InstanceId):
+                    external_id = item.instance_id.external_id
+                else:
+                    external_id = "unknown"
+                responses.append(
+                    FileMetadataResponse(
+                        id=LookUpAPIMock.create_id(external_id),
+                        uploaded=False,
+                        created_time=0,
+                        last_updated_time=0,
+                        name="file",
+                        external_id=external_id,
+                        upload_url="https://upload.example.test/file",
+                    )
+                )
+            return responses
+
+        self.mock_client.tool.filemetadata.get_upload_url.side_effect = get_upload_url
 
         # Use Hybrid project
         return_list = ProjectStatusList([ProjectStatus(url_name=project, data_modeling_status="HYBRID")])
@@ -229,7 +250,6 @@ class ApprovalToolkitClient:
             mock_lookup = LookUpAPIMock(allow_reverse_lookup)
             lookup_api.id.side_effect = mock_lookup.id
             lookup_api.external_id.side_effect = mock_lookup.external_id
-        self.mock_client.verify.authorization.return_value = []
 
         # Setup all mock methods
         for resource in API_RESOURCES:
@@ -814,6 +834,7 @@ class ApprovalToolkitClient:
                     last_updated_time=2,
                     id=LookUpAPIMock.create_id(item.external_id or "unknown"),
                     uploaded=True,
+                    upload_url="https://upload.example.test/file",
                 )
                 for item in items
             ]

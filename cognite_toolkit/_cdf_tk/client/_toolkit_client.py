@@ -1,6 +1,3 @@
-from typing import cast
-
-from cognite.client import CogniteClient
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.api.charts import ChartsAPI
@@ -57,7 +54,6 @@ from .api.timeseries import TimeSeriesAPI
 from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
 from .api.user_profiles import UserProfilesAPI
-from .api.verify import VerifyAPI
 from .api.views import ViewsAPI
 from .api.workflows import WorkflowsAPI
 from .config import ToolkitClientConfig
@@ -109,19 +105,18 @@ class ToolAPI:
         self.streamlit = StreamlitAPI(http_client)
 
 
-class ToolkitClient(CogniteClient):
+class ToolkitClient:
     def __init__(
         self,
         config: ToolkitClientConfig,
         console: Console | None = None,
     ) -> None:
-        super().__init__(config=config)
+        self.config = config
         http_client = HTTPClient(config, console=console)
         self.http_client = http_client
         self.console: Console = console or Console(markup=True)
         self.tool = ToolAPI(http_client, self.console)
 
-        self.verify = VerifyAPI(self)
         self.lookup = LookUpGroup(self)
         self.canvas = IndustrialCanvasAPI(http_client)
         self.migration = MigrationAPI(self.tool.instances, http_client)
@@ -137,13 +132,3 @@ class ToolkitClient(CogniteClient):
         self.alerts = AlertsAPI(http_client)
         self.sap_writeback = SAPWritebackAPI(http_client)
         self.integrations = IntegrationsAPI(http_client)
-
-    @property
-    def config(self) -> ToolkitClientConfig:
-        """Returns a config object containing the configuration for the current client.
-
-        Returns:
-            ToolkitClientConfig: The configuration object.
-        """
-
-        return cast(ToolkitClientConfig, super().config)
