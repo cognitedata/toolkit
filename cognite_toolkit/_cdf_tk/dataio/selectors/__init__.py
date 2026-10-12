@@ -80,7 +80,6 @@ Selector = Annotated[
     Field(discriminator="type"),
 ]
 
-ALPHA_SELECTORS = {RecordContainerSelector}
 INTERNAL = {ThreeDModelIdSelector, ThreeDModelFilteredSelector}
 DEPRECATED = {FileMetadataTemplateSelector, FileDataModelingTemplateSelector}
 SelectorAdapter: TypeAdapter[Selector] = TypeAdapter(Selector)
