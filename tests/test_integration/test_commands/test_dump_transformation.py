@@ -52,7 +52,9 @@ def deployed_transformation(toolkit_client: ToolkitClient) -> Transformation:
 
 
 @pytest.fixture(scope="session")
-def deployed_transformation_schedule(toolkit_client: ToolkitClient, deployed_transformation: Transformation) -> None:
+def deployed_transformation_schedule(
+    toolkit_client: ToolkitClient, deployed_transformation: Transformation
+) -> TransformationSchedule:
     schedule = TransformationScheduleWrite(
         interval="0 12 * * 1",
         external_id=deployed_transformation.external_id,

@@ -134,7 +134,6 @@ include = ["cognite_toolkit", "tests_smoke", "tests"]
 exclude = [
     "tests/data/",
     "tests/test_unit/",
-    "tests/test_integration/test_commands/", # 35
     "tests/test_integration/test_toolkit_client/", # 22
 ]
 [tool.ty.environment]

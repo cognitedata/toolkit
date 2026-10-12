@@ -677,6 +677,13 @@ class HierarchyMinimal:
     file_annotation: Annotation
     asset_annotation: Annotation
 
+    @property
+    def data_set_external_id(self) -> str:
+        external_id = self.dataset.external_id
+        if external_id is None:
+            raise ValueError("Migration test dataset is missing an external_id")
+        return external_id
+
 
 @pytest.fixture(scope="session")
 def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinimal:
