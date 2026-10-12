@@ -1,10 +1,13 @@
 from collections.abc import Iterable
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
-from cognite_toolkit._cdf_tk.rules._base import ToolkitLocalRule
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    BuildError,
+    ConsistencyError,
+    Insight,
+)
+from cognite_toolkit._cdf_tk.feature_flags import v09_gate
+from cognite_toolkit._cdf_tk.rules._base import ToolkitLocalRule, with_position
 from cognite_toolkit._cdf_tk.yaml_classes import ContainerYAML
-
-BASE_CODE = "DMS-CONTAINER"
 
 
 class DeployableContainer(ToolkitLocalRule):
@@ -53,10 +56,11 @@ class DeployableContainer(ToolkitLocalRule):
     ```
     """
 
-    CODE = f"{BASE_CODE}-001"
+    CODE = "INVALID-DIRECT-RELATION"
+    LEGACY_CODE = "DMS-CONTAINER-001"  # Used when the v09 flag is not enabled
     insight_type = ConsistencyError
 
-    def validate(self) -> Iterable[ConsistencyError]:
+    def validate(self) -> Iterable[Insight]:
         for resource, source_file in self._get_validated_resources_with_file():
             if not isinstance(resource, ContainerYAML):
                 continue
@@ -70,10 +74,13 @@ class DeployableContainer(ToolkitLocalRule):
                     f"Make the following properties nullable: {', '.join(invalid_direct_relations)}. "
                     "Direct relations must be nullable."
                 )
-                yield ConsistencyError(
-                    message=message,
-                    code=self.CODE,
-                    fix=fix,
-                    source_files=[source_file.source_path],
-                    alpha=True,
+                yield with_position(
+                    v09_gate(BuildError, ConsistencyError)(
+                        message=message,
+                        code=v09_gate(self.CODE, self.LEGACY_CODE),
+                        fix=fix,
+                        source_file=source_file.source_path,
+                        alpha=True,
+                    ),
+                    keys=invalid_direct_relations if len(invalid_direct_relations) == 1 else (),
                 )

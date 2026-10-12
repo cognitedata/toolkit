@@ -106,7 +106,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags, v09_gate
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     FailedReadExtra,
     ReadExtra,
@@ -173,7 +173,7 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[SpaceRequest]) -> ScopeDefinition:
-        return AllScope()
+        return space_scoped_resource(items)
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
@@ -191,7 +191,7 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: SpaceId) -> str:
+    def as_filename(cls, id: SpaceId) -> str:
         return sanitize_filename(id.space)
 
     @classmethod
@@ -543,10 +543,11 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             is_container = filters.HasData(
                 containers=[dm.ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
             )
-            for instances in self.client.data_modeling.instances(
-                chunk_size=1000, instance_type="node", filter=is_container, limit=-1
+            for instances in self.client.tool.instances.iterate(
+                filter=InstanceFilter(instance_type="node", filter=is_container.dump()),
+                limit=None,
             ):
-                yield [NodeId(space=nid.space, external_id=nid.external_id) for nid in instances.as_ids()]
+                yield [NodeId(space=instance.space, external_id=instance.external_id) for instance in instances]
 
     def _iterate_over_edges(self, containers: list[ContainerResponse]) -> Iterable[list[EdgeId]]:
         container_ids = [container.as_id() for container in containers if container.used_for in ["edge", "all"]]
@@ -557,10 +558,11 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             is_container = filters.HasData(
                 containers=[dm.ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
             )
-            for instances in self.client.data_modeling.instances(
-                chunk_size=1000, instance_type="edge", limit=-1, filter=is_container
+            for instances in self.client.tool.instances.iterate(
+                filter=InstanceFilter(instance_type="edge", filter=is_container.dump()),
+                limit=None,
             ):
-                yield [EdgeId(space=eid.space, external_id=eid.external_id) for eid in instances.as_ids()]
+                yield [EdgeId(space=instance.space, external_id=instance.external_id) for instance in instances]
 
     def _lookup_containers(self, container_ids: Sequence[ContainerId]) -> dict[ContainerId, ContainerResponse]:
         ids_to_lookup = [container_id for container_id in container_ids if container_id not in self._container_by_id]
@@ -638,7 +640,7 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
         return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
     @classmethod
-    def as_str(cls, id: ContainerId) -> str:
+    def as_filename(cls, id: ContainerId) -> str:
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
@@ -902,7 +904,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
             yield from batch
 
     @classmethod
-    def as_str(cls, id: ViewId) -> str:
+    def as_filename(cls, id: ViewId) -> str:
         return sanitize_filename(id.external_id)
 
     def _lookup_views(self, view_ids: list[ViewId]) -> dict[ViewId, ViewResponse]:
@@ -1168,7 +1170,7 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
             yield from batch
 
     @classmethod
-    def as_str(cls, id: DataModelId) -> str:
+    def as_filename(cls, id: DataModelId) -> str:
         return sanitize_filename(id.external_id)
 
 
@@ -1419,7 +1421,7 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
         return 0
 
     @classmethod
-    def as_str(cls, id: NodeId) -> str:
+    def as_filename(cls, id: NodeId) -> str:
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
@@ -1487,7 +1489,7 @@ class GraphQLIO(
 
         if not graphql_file.is_file():
             yield FailedReadExtra(
-                code="MISSING",
+                code=v09_gate("MISSING-REFERENCED-FILE", "MISSING"),
                 error=f"Cannot find GraphQL file for data model {identifier}. Expected {graphql_file.name} adjacent to {filepath.as_posix()}.",
                 source_path=graphql_file,
             )
@@ -1722,7 +1724,7 @@ class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: EdgeId) -> str:
+    def as_filename(cls, id: EdgeId) -> str:
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
     @classmethod

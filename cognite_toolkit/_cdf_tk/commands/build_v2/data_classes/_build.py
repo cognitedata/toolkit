@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_Identifier, T_RequestResource
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.feature_flags import Flags, v09_gate
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     FailedReadExtra,
     ResourceIO,
@@ -15,8 +16,11 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     SuccessExtra,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.file import find_unique_variable_position
 
 from ._insights import (
+    BuildError,
+    BuildWarning,
     ConsistencyError,
     FileReadError,
     IgnoredFileWarning,
@@ -30,6 +34,10 @@ from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
 UNRESOLVED_VARIABLE_PATTERN = re.compile(r"\{\{.*?\}\}")
+
+
+def contains_unresolved_variable(value: object) -> bool:
+    return UNRESOLVED_VARIABLE_PATTERN.search(str(value)) is not None
 
 
 class BuildParameters(BaseModel):
@@ -151,8 +159,8 @@ class BuiltModule(BaseModel):
     module_id: ModuleId
     resources: list[BuiltResource] = Field(default_factory=list)
     insights: list[Insight] = Field(default_factory=list)
-    syntax_errors_by_source: dict[Path, ModelSyntaxError] = Field(default_factory=dict)
-    syntax_warnings_by_source: dict[Path, list[ModelSyntaxWarning]] = Field(default_factory=dict)
+    syntax_errors_by_source: dict[Path, ModelSyntaxError | BuildError] = Field(default_factory=dict)
+    syntax_warnings_by_source: dict[Path, list[ModelSyntaxWarning | BuildWarning]] = Field(default_factory=dict)
     unresolved_variables_by_source: dict[Path, list[str]] = Field(default_factory=dict)
     failed_files: list[FailedReadYAMLFile] = Field(default_factory=list)
     ignored_files: list[IgnoredFile] = Field(default_factory=list)
@@ -203,10 +211,12 @@ class BuiltModule(BaseModel):
         for resource in self.resources:
             for failed_extra in resource.failed_extra:
                 insights.append(
-                    FileReadError(
-                        message=f"In {failed_extra.source_path.as_posix()!r}: {failed_extra.error}",
+                    v09_gate(BuildError, FileReadError)(
+                        message=v09_gate(
+                            failed_extra.error, f"In {failed_extra.source_path.as_posix()!r}: {failed_extra.error}"
+                        ),
                         code=failed_extra.code,
-                        source_files=[resource.source_path],
+                        source_file=resource.source_path,
                     )
                 )
         for path, error in self.syntax_errors_by_source.items():
@@ -214,34 +224,62 @@ class BuiltModule(BaseModel):
         for path, warnings in self.syntax_warnings_by_source.items():
             insights.extend(warnings)
         for path, variables in self.unresolved_variables_by_source.items():
-            quoted_variables = humanize_collection([f"{variable!r}" for variable in variables])
-            insights.append(
-                ConsistencyError(
-                    code="UNRESOLVED-VARIABLES",
-                    message=f"Unresolved variable{'s' if len(variables) > 1 else ''} {quoted_variables}",
-                    fix="Make sure to define the variables in the 'config.<env>.yaml' file and that they are "
-                    "correctly placed in the variables section matching the file path",
-                    source_files=[path],
+            if Flags.V09.is_enabled():
+                insights.extend(self._unresolved_variable_insights(path, variables))
+            else:
+                quoted_variables = humanize_collection([f"{variable!r}" for variable in variables])
+                insights.append(
+                    ConsistencyError(
+                        code="UNRESOLVED-VARIABLES",
+                        message=f"Unresolved variable{'s' if len(variables) > 1 else ''} {quoted_variables}",
+                        fix="Make sure to define the variables in the 'config.<env>.yaml' file and that they are "
+                        "correctly placed in the variables section matching the file path",
+                        source_file=path,
+                    )
                 )
-            )
         for failed_file in self.failed_files:
+            if failed_file.code == "INVALID-FILE-CONTENT" and failed_file.unresolved_variables:
+                # An unresolved placeholder such as `key: {{ variable }}` is not valid YAML. The unresolved
+                # variables are the root cause and are already reported as their own insight.
+                continue
             insights.append(
-                FileReadError(
+                v09_gate(BuildError, FileReadError)(
                     code=failed_file.code,
-                    message=f"In {failed_file.source_path.as_posix()!r}: {failed_file.error}",
-                    source_files=[failed_file.source_path],
+                    message=v09_gate(
+                        failed_file.error, f"In {failed_file.source_path.as_posix()!r}: {failed_file.error}"
+                    ),
+                    source_file=failed_file.source_path,
                 )
             )
         for ignored_file in self.ignored_files:
             insights.append(
-                IgnoredFileWarning(
+                v09_gate(BuildWarning, IgnoredFileWarning)(
                     code=ignored_file.code,
                     message=ignored_file.reason,
                     fix=ignored_file.fix,
-                    source_files=[ignored_file.filepath],
+                    source_file=ignored_file.filepath,
                 )
             )
 
+        return insights
+
+    @classmethod
+    def _unresolved_variable_insights(cls, path: Path, variables: list[str]) -> list[Insight]:
+        """One insight per variable, such that all files missing the same variable are grouped when displayed."""
+        insights: list[Insight] = []
+        for variable in variables:
+            position = find_unique_variable_position(path, variable)
+            insights.append(
+                BuildError(
+                    code="UNRESOLVED-VARIABLE",
+                    message=f"Unresolved variable {{{{ {variable} }}}}",
+                    fix="Make sure to define the variable in the 'config.<env>.yaml' file and that it is "
+                    "correctly placed in the variables section matching the file path",
+                    source_file=path,
+                    line=position.line if position else None,
+                    column=position.column if position else None,
+                )
+            )
         return insights
 
     def __hash__(self) -> int:

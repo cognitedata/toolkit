@@ -1815,7 +1815,7 @@ class MigrateApp(typer.Typer):
             verify_threed_dm_migration_enabled(client)
         cmd = MigrationCommand(client=client)
 
-        legacy_site_count = client.events.aggregate_cardinality_values(property=["metadata", "site_id"])
+        legacy_site_count = client.tool.events.cardinality(("metadata", "site_id"))
         if legacy_site_count:
             client.console.print(
                 Panel(

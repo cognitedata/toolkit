@@ -274,7 +274,6 @@ class MigrationCommand(ToolkitCommand):
         table.add_section()
         table.add_row("Total", f"{total_completed:,}", f"{total_count:,}")
         console.print(table)
-        return None
 
     def _print_txt(self, results: list[ItemsResult], log_dir: Path, filestem: str, console: Console) -> None:
         summary_file = log_dir / f"{filestem}_migration_summary.txt"
@@ -318,9 +317,9 @@ class MigrationCommand(ToolkitCommand):
         def upload_items(page: Page[T_DataRequest]) -> None:
             nonlocal migrate_count
             if not page:
-                return None
+                return
             if dry_run:
-                return None
+                return
 
             responses: ItemsResultList = ItemsResultList()
             for chunk in chunker_sequence(page.items, target.CHUNK_SIZE):
@@ -371,7 +370,7 @@ class MigrationCommand(ToolkitCommand):
                 total=total_item_count,
                 completed_count=migrate_count,
             ).dump_to_file(log_dir, filestem=str(selected))
-            return None
+            return
 
         return upload_items
 
@@ -435,7 +434,7 @@ class MigrationCommand(ToolkitCommand):
     def validate_available_capacity(self, client: ToolkitClient, instance_count: int) -> None:
         """Validate that the project has enough capacity to accommodate the migration."""
 
-        stats = client.data_modeling.statistics.project()
+        stats = client.statistics.retrieve()
 
         available_capacity = stats.instances.instances_limit - stats.instances.instances
         available_capacity_after = available_capacity - max(instance_count, 0)

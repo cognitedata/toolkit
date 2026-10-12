@@ -69,6 +69,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import (
+    DatapointsRequest,
+    NumericDatapointsResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
@@ -121,6 +125,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWDatabaseResponse,
+    RAWRowRequest,
+    RAWRowResponse,
     RAWTableRequest,
     RAWTableResponse,
 )
@@ -282,6 +288,13 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "dbName": "example_db",
             "name": "example_table",
             "createdTime": 1622547800000,
+        },
+        RAWRowResponse: {
+            "dbName": "example_db",
+            "tableName": "example_table",
+            "key": "row_001",
+            "columns": {"col": "value"},
+            "lastUpdatedTime": 1622547800000,
         },
         SimulatorModelResponse: {
             "id": 111,
@@ -608,6 +621,14 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
                 {"rowNumber": 0, "values": ["value1", 123]},
                 {"rowNumber": 1, "values": ["value2", 456]},
             ],
+        },
+        NumericDatapointsResponse: {
+            "id": 456,
+            "externalId": "ts_001",
+            "isString": False,
+            "type": "numeric",
+            "isStep": False,
+            "datapoints": [{"timestamp": 1622547800000, "value": 1.5}],
         },
         SearchConfigResponse: {
             "id": 789,
@@ -942,6 +963,16 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     )
     yield pytest.param(
         CDFResource(
+            response_cls=RAWRowResponse,
+            request_cls=RAWRowRequest,
+            example_data=get_example_minimum_responses(RAWRowResponse),
+            is_dump_equal_to_example=False,
+            # Database and table name are path parameters and are excluded from the response dump.
+        ),
+        id="RAWRow",
+    )
+    yield pytest.param(
+        CDFResource(
             response_cls=SimulatorModelResponse,
             request_cls=SimulatorModelRequest,
             example_data=get_example_minimum_responses(SimulatorModelResponse),
@@ -1212,6 +1243,14 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(SequenceRowsResponse),
         ),
         id="SequenceRows",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=NumericDatapointsResponse,
+            request_cls=DatapointsRequest,
+            example_data=get_example_minimum_responses(NumericDatapointsResponse),
+        ),
+        id="Datapoints",
     )
     yield pytest.param(
         CDFResource(

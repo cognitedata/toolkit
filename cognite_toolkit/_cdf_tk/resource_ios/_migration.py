@@ -2,8 +2,6 @@ from collections.abc import Hashable, Iterable, Sequence, Sized
 from pathlib import Path
 from typing import Any, Literal, final
 
-from cognite.client import data_modeling as dm
-
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
@@ -55,7 +53,7 @@ class ResourceViewMappingIO(
         return {"externalId": id.external_id}
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -78,9 +76,7 @@ class ResourceViewMappingIO(
 
     def prerequisite_warning(self) -> str | None:
         view_id = RESOURCE_MAPPING_VIEW_ID
-        views = self.client.data_modeling.views.retrieve(
-            dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version)
-        )
+        views = self.client.tool.views.retrieve([view_id])
         if len(views) > 0:
             return None
         return f"{self.display_name} requires the {view_id!s} to be deployed. run `cdf migrate prepare` to deploy it."

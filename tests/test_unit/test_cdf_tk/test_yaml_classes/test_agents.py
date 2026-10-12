@@ -148,7 +148,7 @@ def invalid_test_cases() -> Iterable:
             "Hint: Use double quotes to force string.",
             "Invalid value for tools: Input should be a valid list. Got 'not_a_list'.",
             "Missing required field: 'externalId'",
-            "Unknown field: 'external_id'",
+            "Unrecognized field: 'external_id'",
         },
         id="type-validation-errors",
     )

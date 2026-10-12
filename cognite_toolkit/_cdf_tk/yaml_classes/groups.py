@@ -6,12 +6,13 @@ from pydantic.functional_validators import BeforeValidator
 
 from cognite_toolkit._cdf_tk.client.identifiers import NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupAttributes
+from cognite_toolkit._cdf_tk.feature_flags import v09_gate
 
 from .base import ToolkitResource
 from .capabilities import CapabilityType, UnknownCapability
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ModelSyntaxWarning
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning, ModelSyntaxWarning
 
 
 class BaseGroupYAML(ToolkitResource):
@@ -26,16 +27,21 @@ class BaseGroupYAML(ToolkitResource):
     def as_id(self) -> NameId:
         return NameId(name=self.name)
 
-    def syntax_warnings(self, source_file: Path) -> "list[ModelSyntaxWarning]":
+    def syntax_warnings(self, source_file: Path) -> "list[ModelSyntaxWarning | BuildWarning]":
         # Lazy import to avoid circular dependency (yaml_classes → commands.build_v2 → resource_ios → yaml_classes).
-        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import ModelSyntaxWarning
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+            BuildWarning,
+            ModelSyntaxWarning,
+        )
 
         return [
-            ModelSyntaxWarning(
-                code="MODEL-SYNTAX-WARNING",
-                message=f"Unknown capability name '{cap.original_name}'. "
-                "It will be deployed as-is, but may be rejected by CDF.",
-                source_files=[source_file],
+            v09_gate(BuildWarning, ModelSyntaxWarning)(
+                code=v09_gate("UNRECOGNIZED-VALUE", "MODEL-SYNTAX-WARNING"),
+                message=(
+                    f"'{cap.original_name}' is not a known capability name. "
+                    "It will be deployed as-is, but may be rejected by CDF."
+                ),
+                source_file=source_file,
                 fix="Compare the YAML with reference documentation. The resource will still be deployed.",
             )
             for cap in (self.capabilities or [])
