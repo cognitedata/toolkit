@@ -1,12 +1,13 @@
 import pytest
+from cognite.client import CogniteClient
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
 
 
 @pytest.fixture()
-def two_3d_models(toolkit_client: ToolkitClient) -> None:
-    client = toolkit_client
+def two_3d_models(cognite_client: CogniteClient) -> None:
+    client = cognite_client
     models = client.three_d.models.list(limit=2)
     if len(models) == 0:
         client.three_d.models.create(
