@@ -42,9 +42,6 @@ class FailedReadExtra(ReadExtra):
         "MISSING-REFERENCED-FILE",
         "MISSING-REFERENCED-DIRECTORY",
         "INVALID-FILE-CONTENT",
-        # Legacy codes, used when the v09 flag is not enabled
-        "MISSING",
-        "SYNTAX-ERROR",
     ]
     error: str
 
