@@ -140,7 +140,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -547,7 +547,7 @@ class FunctionScheduleIO(
         return FunctionScheduleId(function_external_id=item.function_external_id, name=item.name)
 
     @classmethod
-    def as_str(cls, id: FunctionScheduleId) -> str:
+    def as_filename(cls, id: FunctionScheduleId) -> str:
         return sanitize_filename(f"{id.function_external_id}-{id.name}")
 
     @classmethod

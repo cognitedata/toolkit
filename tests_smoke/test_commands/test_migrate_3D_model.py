@@ -151,11 +151,10 @@ def tmp_3D_model_with_asset_mapping(
     if not retrieved_model:
         list_path = client.tool.three_d.models_classic._method_endpoint_map["list"].path
         raise EndpointAssertionError(list_path, "Failed to retrieve created 3D model for migration test.")
-    if retrieved_model.last_revision_info is None or retrieved_model.last_revision_info.revision_id is None:
+    revision_info = retrieved_model.last_revision_info
+    if revision_info is None or revision_info.revision_id is None:
         raise AssertionError("Retrieved 3D model has incorrect revision info.")
-    three_d_nodes = client.three_d.revisions.list_nodes(
-        retrieved_model.id, revision_id=retrieved_model.last_revision_info.revision_id, limit=1
-    )
+    three_d_nodes = client.tool.three_d.nodes.list(retrieved_model.id, revision_info.revision_id, limit=1)
     if not three_d_nodes:
         raise EndpointAssertionError(
             "three_d.revisions",

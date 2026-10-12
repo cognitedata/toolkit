@@ -216,7 +216,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -741,7 +741,7 @@ class TransformationScheduleIO(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -854,7 +854,7 @@ class TransformationNotificationIO(
         return dumped
 
     @classmethod
-    def as_str(cls, id: TransformationNotificationId) -> str:
+    def as_filename(cls, id: TransformationNotificationId) -> str:
         return sanitize_filename(f"{id.transformation_external_id}_{id.destination}")
 
     def create(self, items: Sequence[TransformationNotificationRequest]) -> list[TransformationNotificationResponse]:

@@ -85,7 +85,7 @@ class HostedExtractorSourceIO(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -223,7 +223,7 @@ class HostedExtractorDestinationIO(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -338,7 +338,7 @@ class HostedExtractorJobIO(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -426,7 +426,7 @@ class HostedExtractorMappingIO(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod

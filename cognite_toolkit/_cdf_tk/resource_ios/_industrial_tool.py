@@ -94,7 +94,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return id.external_id
 
     @classmethod

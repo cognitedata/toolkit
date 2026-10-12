@@ -45,15 +45,14 @@ class RawIO(
         limit: int | None = None,
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page]:
-        for chunk in self.client.raw.rows(
+        for page in self.client.tool.raw.tables.rows.iterate(
             db_name=selector.table.db_name,
             table_name=selector.table.table_name,
             limit=limit,
-            # We cannot use partitions here as it is not thread safe. This spawn multiple threads
-            # that are not shut down until all data is downloaded. We need to be able to abort.
-            partitions=None,
-            chunk_size=self.CHUNK_SIZE,
         ):
+            chunk = [Row(key=item.key, columns=item.columns, last_updated_time=item.last_updated_time) for item in page]
+            if not chunk:
+                continue
             yield self.emit_registered_page(
                 Page(
                     worker_id="main",

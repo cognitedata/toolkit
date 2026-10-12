@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataMo
 from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
-from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI
+from cognite_toolkit._cdf_tk.client.api.raw import RawRowsAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.records import RecordsAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.sessions import SessionAPI
@@ -43,6 +43,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     InternalId,
     PrincipalId,
+    RawRowId,
     ViewId,
     WorkflowVersionId,
 )
@@ -88,7 +89,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
     ServiceAccountPrincipal,
     UserPrincipal,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWRowRequest, RAWRowResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordResponse, RecordSyncResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.session import (
@@ -310,6 +311,65 @@ class TestCDFResourceAPI:
         page = api.paginate(db_name=instance.db_name, limit=10)
         assert len(page.items) == 1
         assert page.items[0] == instance
+
+    def test_raw_rows_api(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        config = toolkit_config
+        api = RawRowsAPI(HTTPClient(config))
+        row = {
+            "key": "row/1",
+            "columns": {"col": "value", "count": 2},
+            "lastUpdatedTime": 1622547800000,
+        }
+        db_name = "example_db"
+        table_name = "example_table"
+        request = RAWRowRequest(
+            db_name=db_name, table_name=table_name, key="row/1", columns={"col": "value", "count": 2}
+        )
+        collection = config.create_api_url(f"/raw/dbs/{db_name}/tables/{table_name}/rows")
+
+        respx_mock.post(collection).mock(return_value=httpx2.Response(status_code=200))
+        api.create([request], ensure_parent=True)
+        assert _request_json(respx_mock.calls[-1].request) == {
+            "items": [{"key": "row/1", "columns": {"col": "value", "count": 2}}]
+        }
+        assert dict(respx_mock.calls[-1].request.url.params) == {"ensureParent": "true"}
+
+        respx_mock.post(f"{collection}/delete").mock(return_value=httpx2.Response(status_code=200))
+        api.delete([request.as_id()])
+        assert _request_json(respx_mock.calls[-1].request) == {"items": [{"key": "row/1"}]}
+
+        encoded_key = "row%2F1"
+        respx_mock.get(f"{collection}/{encoded_key}").mock(return_value=httpx2.Response(status_code=200, json=row))
+        retrieved = api.retrieve([RawRowId(key="row/1", db_name=db_name, table_name=table_name)])
+        assert retrieved == [
+            RAWRowResponse(
+                db_name=db_name,
+                table_name=table_name,
+                key="row/1",
+                columns={"col": "value", "count": 2},
+                last_updated_time=1622547800000,
+            )
+        ]
+
+        respx_mock.get(collection).mock(return_value=httpx2.Response(status_code=200, json={"items": [row]}))
+        listed = api.list(
+            db_name,
+            table_name,
+            limit=10,
+            columns=["col", "count"],
+            min_last_updated_time=1,
+            max_last_updated_time=2,
+        )
+        assert listed == retrieved
+        assert dict(respx_mock.calls[-1].request.url.params) == {
+            "columns": "col,count",
+            "minLastUpdatedTime": "1",
+            "maxLastUpdatedTime": "2",
+            "limit": "10",
+        }
+
+        with pytest.raises(ValueError, match="db_name and table_name"):
+            api.create([RAWRowRequest(db_name="", table_name=table_name, key="k", columns={})])
 
     def test_metadataapi_crud_iterate(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         resource = get_example_minimum_responses(FileMetadataResponse)

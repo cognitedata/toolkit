@@ -2,6 +2,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
+from cognite.client import CogniteClient
 from cognite.client.data_classes import DataSet, TimeSeries, TimeSeriesWrite
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -12,7 +13,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors._datapoints import ExternalIdColum
 
 
 @pytest.fixture(scope="session")
-def two_timeseries(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> tuple[TimeSeries, TimeSeries]:
+def two_timeseries(cognite_client: CogniteClient, toolkit_dataset: DataSet) -> tuple[TimeSeries, TimeSeries]:
     ts = TimeSeriesWrite(
         name="Test TimeSeries for Datapoints IO",
         external_id="test_timeseries_datapoints_io",
@@ -27,18 +28,22 @@ def two_timeseries(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> t
         is_string=True,
         data_set_id=toolkit_dataset.id,
     )
-    retrieved1 = toolkit_client.time_series.retrieve(external_id=ts.external_id)
-    retrieved2 = toolkit_client.time_series.retrieve(external_id=ts2.external_id)
+    retrieved1 = cognite_client.time_series.retrieve(external_id=ts.external_id)
+    retrieved2 = cognite_client.time_series.retrieve(external_id=ts2.external_id)
     if retrieved1 is None:
-        retrieved1 = toolkit_client.time_series.create(ts)
+        retrieved1 = cognite_client.time_series.create(ts)
     if retrieved2 is None:
-        retrieved2 = toolkit_client.time_series.create(ts2)
+        retrieved2 = cognite_client.time_series.create(ts2)
     return retrieved1, retrieved2
 
 
 class TestUploadCommand:
     def test_upload_datapoints(
-        self, toolkit_client: ToolkitClient, two_timeseries: tuple[TimeSeries, TimeSeries], tmp_path: Path
+        self,
+        toolkit_client: ToolkitClient,
+        cognite_client: CogniteClient,
+        two_timeseries: tuple[TimeSeries, TimeSeries],
+        tmp_path: Path,
     ) -> None:
         ts1, ts2 = two_timeseries
         assert ts1.is_string is False
@@ -75,13 +80,13 @@ class TestUploadCommand:
             verbose=True,
         )
 
-        datapoints = toolkit_client.time_series.data.retrieve_arrays(
+        datapoints = cognite_client.time_series.data.retrieve_arrays(
             external_id=ts1.external_id,
             start=datetime.fromisoformat("2024-01-01T00:00:00Z"),
             end=datetime.fromisoformat("2024-01-01T00:00:10Z"),
         )
         assert len(datapoints) == 10, f"Expected 10 datapoints, got {len(datapoints)}"
-        datapoints2 = toolkit_client.time_series.data.retrieve_arrays(
+        datapoints2 = cognite_client.time_series.data.retrieve_arrays(
             external_id=ts2.external_id,
             start=datetime.fromisoformat("2024-01-01T00:00:00Z"),
             end=datetime.fromisoformat("2024-01-01T00:00:10Z"),
@@ -89,7 +94,11 @@ class TestUploadCommand:
         assert len(datapoints2) == 10, f"Expected 10 datapoints, got {len(datapoints2)}"
 
     def test_upload_download_datapoints(
-        self, toolkit_client: ToolkitClient, two_timeseries: tuple[TimeSeries, TimeSeries], tmp_path: Path
+        self,
+        toolkit_client: ToolkitClient,
+        cognite_client: CogniteClient,
+        two_timeseries: tuple[TimeSeries, TimeSeries],
+        tmp_path: Path,
     ) -> None:
         ts1, _ = two_timeseries
         client = toolkit_client
@@ -121,7 +130,7 @@ class TestUploadCommand:
             verbose=True,
         )
 
-        aggregate_result = client.time_series.data.retrieve(
+        aggregate_result = cognite_client.time_series.data.retrieve(
             external_id=ts1.external_id,
             start=datetime.fromisoformat("1989-01-01T00:00:00Z"),
             end=datetime.fromisoformat("1989-01-02T00:00:00Z"),
