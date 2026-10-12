@@ -397,18 +397,17 @@ class PurgeApp(typer.Typer):
                 help="Whether to do a dry-run, do dry-run if present.",
             ),
         ] = False,
-        unlink: Annotated[
+        skip_unlink: Annotated[
             bool,
             typer.Option(
                 "--skip-unlink",
                 "-u",
-                callback=_skip_unlink_callback,
                 help="This only applies to CogniteTimeSeries and CogniteFile nodes. By default, the purge command will unlink the "
                 "node from the datapoints/file content before deleting the node. If you want to delete the nodes with their datapoints/file content, "
                 "you can skip the unlinking. Note that this will delete the datapoints/file content "
                 "themselves, not the links to their parent nodes.",
             ),
-        ] = True,
+        ] = False,
         log_dir: Annotated[
             Path,
             typer.Option(
@@ -459,7 +458,7 @@ class PurgeApp(typer.Typer):
                     for flag, enabled in (
                         ("--instance-space", instance_space is not None),
                         ("--dry-run", dry_run),
-                        ("--skip-unlink", not unlink),
+                        ("--skip-unlink", skip_unlink),
                         ("--verbose", verbose),
                     )
                     if enabled
@@ -477,8 +476,8 @@ class PurgeApp(typer.Typer):
                 instance_spaces=tuple(instance_space) if instance_space else None,
             )
             dry_run = questionary.confirm("Dry run?", default=True).unsafe_ask()
-            unlink = questionary.confirm(
-                "Unlink instances connected to timeseries or files?", default=True
+            skip_unlink = questionary.confirm(
+                "Skip unlinking instances connected to timeseries or files?", default=False
             ).unsafe_ask()
             verbose = questionary.confirm("Verbose?", default=True).unsafe_ask()
         elif instance_list is not None:
@@ -496,7 +495,7 @@ class PurgeApp(typer.Typer):
             lambda: cmd.instances(
                 client=client,
                 selector=selector,
-                unlink=unlink,
+                unlink=not skip_unlink,
                 dry_run=dry_run,
                 log_dir=log_dir,
                 verbose=verbose,
