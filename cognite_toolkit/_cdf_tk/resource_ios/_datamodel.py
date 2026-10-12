@@ -191,7 +191,7 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: SpaceId) -> str:
+    def as_filename(cls, id: SpaceId) -> str:
         return sanitize_filename(id.space)
 
     @classmethod
@@ -640,7 +640,7 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
         return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
     @classmethod
-    def as_str(cls, id: ContainerId) -> str:
+    def as_filename(cls, id: ContainerId) -> str:
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
@@ -904,7 +904,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
             yield from batch
 
     @classmethod
-    def as_str(cls, id: ViewId) -> str:
+    def as_filename(cls, id: ViewId) -> str:
         return sanitize_filename(id.external_id)
 
     def _lookup_views(self, view_ids: list[ViewId]) -> dict[ViewId, ViewResponse]:
@@ -1170,7 +1170,7 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
             yield from batch
 
     @classmethod
-    def as_str(cls, id: DataModelId) -> str:
+    def as_filename(cls, id: DataModelId) -> str:
         return sanitize_filename(id.external_id)
 
 
@@ -1421,7 +1421,7 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
         return 0
 
     @classmethod
-    def as_str(cls, id: NodeId) -> str:
+    def as_filename(cls, id: NodeId) -> str:
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
@@ -1724,7 +1724,7 @@ class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: EdgeId) -> str:
+    def as_filename(cls, id: EdgeId) -> str:
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
     @classmethod
