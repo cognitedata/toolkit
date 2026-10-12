@@ -51,8 +51,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
     InsightDefinition,
     InternalValidatorException,
-    ModelSyntaxError,
-    ModelSyntaxWarning,
     Recommendation,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
@@ -1148,7 +1146,7 @@ class BuildV2Command(ToolkitCommand):
 
     def _create_syntax_insights(
         self, error: ValidationError, resource_file: AbsoluteFilePath, content: str, validation_type: Any = None
-    ) -> tuple[ModelSyntaxError | BuildError | None, list[ModelSyntaxWarning | BuildWarning]]:
+    ) -> tuple[BuildError | None, list[BuildWarning]]:
         validation_messages = humanize_validation_error_categorized(error, validation_type, for_insights=True) or [
             ValidationMessage("The YAML doesn't follow the required format.", "error")
         ]
@@ -1168,7 +1166,7 @@ class BuildV2Command(ToolkitCommand):
                 column=column,
             )
 
-        syntax_warnings: list[ModelSyntaxWarning | BuildWarning] = []
+        syntax_warnings: list[BuildWarning] = []
         for warning in warnings:
             line, column = self._single_position([warning], positions)
             syntax_warnings.append(
