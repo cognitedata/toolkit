@@ -327,3 +327,16 @@ authentication:
             dumped = loader.dump_resource(cdf_transformation, local_dumped)
 
         assert dumped["destination"]["autoCreate"] == {"directRelations": False}
+
+    def test_replace_update_omits_unset_data_domain(self) -> None:
+        request = TransformationRequest(
+            external_id="tr_first_transformation",
+            name="example:first:transformation",
+            ignore_null_fields=True,
+            query="select 1",
+            destination={"type": "assets"},
+            conflict_mode="upsert",
+            is_public=True,
+        )
+
+        assert "dataDomainExternalId" not in request.as_update("replace")["update"]

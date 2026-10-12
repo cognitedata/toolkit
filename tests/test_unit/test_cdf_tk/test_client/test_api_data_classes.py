@@ -28,6 +28,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping im
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
     HostedExtractorSourceRequest,
     HostedExtractorSourceResponse,
+    MQTTBrokerSourceRequest,
+    MQTTBrokerSourceResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source._kafka import (
     KafkaSourceRequest,
@@ -789,6 +791,75 @@ class TestUnknownHostedExtractorSourceUnions:
             "health": "nominal",
         }
         assert HostedExtractorSourceResponse.validate_python(data).dump() == data
+
+
+class TestMQTTBrokerSource:
+    def test_create_request_roundtrip(self) -> None:
+        data = {
+            "type": "mqtt_broker",
+            "externalId": "my-mqtt-broker-source",
+            "name": "Plant broker",
+            "description": "Inbound MQTT",
+            "metadata": {"plant": "oslo"},
+        }
+        loaded = HostedExtractorSourceRequest.validate_python(data)
+        assert isinstance(loaded, MQTTBrokerSourceRequest) and loaded.dump() == data
+
+    def test_response_includes_password_only_when_returned(self) -> None:
+        data = {
+            "type": "mqtt_broker",
+            "externalId": "my-mqtt-broker-source",
+            "host": "broker.cognitedata.com",
+            "port": 8883,
+            "authentication": {
+                "type": "basic",
+                "username": "generated-user",
+                "password": "generated-password",
+            },
+            "createdTime": 1730204346000,
+            "lastUpdatedTime": 1730204346000,
+        }
+        loaded = HostedExtractorSourceResponse.validate_python(data)
+        assert isinstance(loaded, MQTTBrokerSourceResponse) and loaded.dump() == data
+
+    def test_as_request_drops_generated_connection_details(self) -> None:
+        loaded = MQTTBrokerSourceResponse(
+            external_id="my-mqtt-broker-source",
+            host="broker.cognitedata.com",
+            port=8883,
+            authentication={"type": "basic", "username": "generated-user", "password": "generated-password"},
+            created_time=1730204346000,
+            last_updated_time=1730204346000,
+        )
+        assert loaded.as_request_resource().dump() == {
+            "type": "mqtt_broker",
+            "externalId": "my-mqtt-broker-source",
+        }
+
+    def test_as_update_replace_resets_password(self) -> None:
+        request = MQTTBrokerSourceRequest(
+            external_id="my-mqtt-broker-source",
+            name="Plant broker",
+            reset_password=True,
+        )
+        assert request.as_update("replace") == {
+            "externalId": "my-mqtt-broker-source",
+            "type": "mqtt_broker",
+            "update": {
+                "name": {"set": "Plant broker"},
+                "description": {"setNull": True},
+                "metadata": {"set": {}},
+                "password": {"reset": True},
+            },
+        }
+
+    def test_as_update_patch_only_includes_set_fields(self) -> None:
+        request = MQTTBrokerSourceRequest(external_id="my-mqtt-broker-source", description="Inbound MQTT")
+        assert request.as_update("patch") == {
+            "externalId": "my-mqtt-broker-source",
+            "type": "mqtt_broker",
+            "update": {"description": {"set": "Inbound MQTT"}},
+        }
 
 
 class TestUnknownHostedExtractorAuthenticationUnion:

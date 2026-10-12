@@ -24,11 +24,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    AllScope,
     DataModelsAcl,
     DataSetsAcl,
     DataSetScope,
     IDScope,
+    SpaceIDScope,
     TimeSeriesAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
@@ -881,7 +881,7 @@ class TestDeployAccessControlErrors:
         with pytest.raises(AuthorizationError) as exc_info:
             DeployV2Command.apply_plan(client, [DeploymentStep(SpaceIO, [yaml_file])], DeployOptions(dry_run=False))
 
-        required = DataModelsAcl(actions=["READ", "WRITE"], scope=AllScope())
+        required = DataModelsAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=["my_space"]))
         assert str(exc_info.value) == (
             f"Failed to validate {required!r}. \n"
             f"Missing project '{toolkit_config.project}' in inspect response. "

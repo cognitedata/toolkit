@@ -36,6 +36,7 @@ from .api.charts_monitoring_job import ChartMonitoringJobsAPI
 from .api.data_product_versions import DataProductVersionsAPI
 from .api.data_products import DataProductsAPI
 from .api.datapoint_subscription import DatapointSubscriptionsAPI
+from .api.datapoints import DatapointsAPI
 from .api.datasets import DataSetsAPI
 from .api.documents import DocumentsAPI
 from .api.events import EventsAPI
@@ -210,7 +211,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.three_d.asset_mappings_dm = MagicMock(spec_set=ThreeDDMAssetMappingAPI)
         self.tool.assets = MagicMock(spec_set=AssetsAPI)
         self.tool.cognite_files = MagicMock(spec_set=CogniteFilesAPI)
-        self.tool.timeseries = MagicMock(spec_set=TimeSeriesAPI)
+        self.tool.timeseries = MagicMock(spec=TimeSeriesAPI)
+        self.tool.timeseries.datapoints = MagicMock(spec_set=DatapointsAPI)
         self.tool.filemetadata = MagicMock(spec_set=FileMetadataAPI)
         self.tool.instances = MagicMock(spec=InstancesAPI)
         self.tool.spaces = MagicMock(spec=SpacesAPI)
