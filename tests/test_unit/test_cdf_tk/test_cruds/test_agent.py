@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse, SubagentConfig
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
-from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, FunctionIO, SkillIO
+from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, FunctionIO
 from cognite_toolkit._cdf_tk.resource_ios._agent import AgentIO
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump

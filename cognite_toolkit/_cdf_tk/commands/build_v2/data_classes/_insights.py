@@ -12,7 +12,6 @@ from pydantic import (
     TypeAdapter,
     field_serializer,
     field_validator,
-    model_validator,
 )
 from pydantic_core.core_schema import ValidationInfo
 
@@ -20,7 +19,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import Absolu
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_modules
-
 
 T_Insight = TypeVar("T_Insight", bound="InsightDefinition")
 PATH_SEP_CSV = " | "  # Separator for multiple source files in CSV output
