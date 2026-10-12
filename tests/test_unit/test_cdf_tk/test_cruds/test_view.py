@@ -23,7 +23,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     ContainerIO,
     SpaceIO,
@@ -34,16 +33,6 @@ from cognite_toolkit._cdf_tk.yaml_classes.containers import ContainerYAML
 from cognite_toolkit._cdf_tk.yaml_classes.views import ViewYAML
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.utils import to_deploy_status
-
-
-@pytest.fixture
-def enable_record_views(monkeypatch: pytest.MonkeyPatch) -> None:
-    original = FeatureFlag.is_enabled
-
-    def is_enabled(flag: Flags) -> bool:
-        return flag is Flags.RECORD_VIEWS or original(flag)
-
-    monkeypatch.setattr(FeatureFlag, "is_enabled", is_enabled)
 
 
 def _record_view_response() -> ViewResponse:
@@ -340,30 +329,18 @@ class TestViewLoader:
 
 
 class TestRecordViewSupport:
-    def test_record_view_response_round_trip(self, enable_record_views: None) -> None:
+    def test_record_view_response_round_trip(self) -> None:
         view = _record_view_response()
         request = view.as_request_resource()
         assert request.stream_id == ["my_stream"]
         assert request.dump()["streamId"] == ["my_stream"]
 
-    def test_dump_resource_preserves_stream_id(
-        self, toolkit_client_cheap: ToolkitClient, enable_record_views: None
-    ) -> None:
+    def test_dump_resource_preserves_stream_id(self, toolkit_client_cheap: ToolkitClient) -> None:
         loader = ViewIO.create_io(toolkit_client_cheap)
         dumped = loader.dump_resource(_record_view_response())
         assert dumped["streamId"] == ["my_stream"]
 
-    def test_dump_resource_strips_stream_id_without_alpha_flag(
-        self, toolkit_client_cheap: ToolkitClient, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda _flag: False)
-        loader = ViewIO.create_io(toolkit_client_cheap)
-        dumped = loader.dump_resource(_record_view_response())
-        assert "streamId" not in dumped
-
-    def test_views_api_sends_alpha_cdf_version_when_record_views_enabled(
-        self, toolkit_config, enable_record_views: None, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_views_api_sends_alpha_cdf_version(self, toolkit_config, respx_mock: respx.MockRouter) -> None:
         api = ViewsAPI(HTTPClient(toolkit_config))
         request = ViewRequest(
             space="my_space",
@@ -400,9 +377,7 @@ class TestRecordViewSupport:
 
         assert respx_mock.calls[-1].request.headers["cdf-version"] == "alpha"
 
-    def test_data_models_api_sends_alpha_cdf_version_when_record_views_enabled(
-        self, toolkit_config, enable_record_views: None, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_data_models_api_sends_alpha_cdf_version(self, toolkit_config, respx_mock: respx.MockRouter) -> None:
         api = DataModelsAPI(HTTPClient(toolkit_config))
         request = DataModelRequest(
             space="my_space",
@@ -625,7 +600,7 @@ class TestViewCRUDGetDependencies:
         assert (ViewIO, ViewId(space="source_space", external_id="source_view", version="1")) in deps
         assert (ViewIO, ViewId(space="through_space", external_id="through_view", version="1")) in deps
 
-    def test_view_with_stream_id(self, enable_record_views: None) -> None:
+    def test_view_with_stream_id(self) -> None:
         """Test View with stream dependency for record-backed views."""
         view = ViewYAML.model_validate(
             {
@@ -640,15 +615,3 @@ class TestViewCRUDGetDependencies:
         assert len(deps) == 2
         assert (SpaceIO, SpaceId(space="my_space")) in deps
         assert (StreamIO, ExternalId(external_id="my_stream")) in deps
-
-    def test_view_with_stream_id_requires_alpha_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda _flag: False)
-        with pytest.raises(ValueError, match="record_views alpha flag"):
-            ViewYAML.model_validate(
-                {
-                    "space": "my_space",
-                    "externalId": "my_record_view",
-                    "version": "1",
-                    "streamId": ["my_stream"],
-                }
-            )
