@@ -108,6 +108,48 @@ class TestPurgeInteractiveOptions:
             "verbose": True,
         }
 
+    def test_interactive_empty_space_skips_content_prompts(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        captured: dict[str, Any] = {}
+
+        def capture_space(self: PurgeCommand, **kwargs: Any) -> None:
+            captured.update(kwargs)
+
+        class _Select:
+            def __init__(self, *_: Any, **__: Any) -> None:
+                return None
+
+            def select_space_type(self) -> str:
+                return "empty"
+
+            def select_empty_spaces(self, multiselect: bool = False) -> str:
+                return "EMPTY_SPACE"
+
+        _mock_environment(monkeypatch)
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.apps._purge.DataModelingSelect", _Select)
+        monkeypatch.setattr(PurgeCommand, "space", capture_space)
+        with MockQuestionary(
+            "cognite_toolkit._cdf_tk.apps._purge",
+            monkeypatch,
+            [True, True, False],
+        ):
+            PurgeApp.purge_space(MagicMock(), space=None)
+
+        assert {
+            "selected_space": captured["selected_space"],
+            "dry_run": captured["dry_run"],
+            "include_space": captured["include_space"],
+            "delete_datapoints": captured["delete_datapoints"],
+            "delete_file_content": captured["delete_file_content"],
+            "verbose": captured["verbose"],
+        } == {
+            "selected_space": "EMPTY_SPACE",
+            "dry_run": True,
+            "include_space": True,
+            "delete_datapoints": False,
+            "delete_file_content": False,
+            "verbose": False,
+        }
+
     def test_interactive_instances_prompts_for_flags(self, monkeypatch: pytest.MonkeyPatch) -> None:
         captured: dict[str, Any] = {}
 

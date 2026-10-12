@@ -153,7 +153,9 @@ class PurgeApp(typer.Typer):
         if auto_yes:
             ToolkitDeprecationWarning(
                 feature="--yes / -y flag in cdf data purge dataset",
-                alternative="manual confirmation — purging data is an operation that must now always be performed manually",
+                alternative=(
+                    "manual confirmation — purging data is an operation that must now always be performed manually"
+                ),
             ).print_warning()
 
         if external_id is None:
@@ -318,14 +320,14 @@ class PurgeApp(typer.Typer):
                     return
             else:
                 include_space = questionary.confirm("Delete the space itself?", default=False).unsafe_ask()
-            delete_datapoints = questionary.confirm(
-                "Delete datapoints linked to CogniteTimeSeries nodes in the space?",
-                default=False,
-            ).unsafe_ask()
-            delete_file_content = questionary.confirm(
-                "Delete file content linked to CogniteFile nodes in the space?",
-                default=False,
-            ).unsafe_ask()
+                delete_datapoints = questionary.confirm(
+                    "Delete datapoints linked to CogniteTimeSeries nodes in the space?",
+                    default=False,
+                ).unsafe_ask()
+                delete_file_content = questionary.confirm(
+                    "Delete file content linked to CogniteFile nodes in the space?",
+                    default=False,
+                ).unsafe_ask()
             verbose = questionary.confirm("Verbose?", default=True).unsafe_ask()
 
         cmd.run(
