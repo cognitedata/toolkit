@@ -170,7 +170,7 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId | tuple[DataModelId, .
             return f"{model.name} ({identifier})"
         return identifier
 
-    def _interactive_select(self) -> DataModelId | tuple[DataModelId, ...]:
+    def _interactive_select(self) -> tuple[DataModelId, ...]:
         return self._interactive_select_many()
 
     def _interactive_select_many(self) -> tuple[DataModelId, ...]:

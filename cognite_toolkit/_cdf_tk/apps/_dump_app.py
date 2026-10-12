@@ -74,23 +74,23 @@ class DumpConfigApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.dump_config_main)
 
-        self.command("datamodel")(self.dump_datamodel_cmd)
-        self.command("workflow")(self.dump_workflow)
-        self.command("transformation")(self.dump_transformation)
-        self.command("group")(self.dump_group)
-        self.command("node")(self.dump_node)
+        self.command("datamodels")(self.dump_datamodel_cmd)
+        self.command("workflows")(self.dump_workflow)
+        self.command("transformations")(self.dump_transformation)
+        self.command("groups")(self.dump_group)
+        self.command("nodes")(self.dump_node)
         self.command("spaces")(self.dump_spaces)
         self.command("location-filters")(self.dump_location_filters)
-        self.command("extraction-pipeline")(self.dump_extraction_pipeline)
-        self.command("hosted-extractor")(self.dump_hosted_extractor)
+        self.command("extraction-pipelines")(self.dump_extraction_pipeline)
+        self.command("hosted-extractors")(self.dump_hosted_extractor)
         self.command("datasets")(DumpConfigApp.dump_datasets)
         self.command("functions")(self.dump_functions)
         self.command("streamlit")(DumpConfigApp.dump_streamlit)
         self.command("agents")(self.dump_agents)
-        self.command("search-config")(self.dump_search_config)
-        self.command("sap-writeback")(self.dump_sap_writeback)
+        self.command("search-configs")(self.dump_search_config)
+        self.command("sap-writebacks")(self.dump_sap_writeback)
         if Flags.MIGRATE.is_enabled():
-            self.command("resource-view-mapping")(self.dump_resource_view_mapping)
+            self.command("resource-view-mappings")(self.dump_resource_view_mapping)
 
     @staticmethod
     def dump_config_main(ctx: typer.Context) -> None:
