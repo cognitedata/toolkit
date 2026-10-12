@@ -69,7 +69,7 @@ class TestExtendedTimeSeriesAPI:
             sdk.time_series.data.insert(more_datapoints, instance_id=cognite_ts.as_id())
 
             retrieve_datapoints2 = sdk.time_series.data.retrieve(external_id=ts.external_id)
-            assert retrieve_datapoints2 is not
+            assert retrieve_datapoints2 is not None
             assert len(retrieve_datapoints2) == len(datapoints) + len(more_datapoints)
             assert retrieve_datapoints2.dump()["datapoints"] == datapoints + more_datapoints
 

@@ -2,6 +2,7 @@ from pathlib import Path
 
 import click
 import pytest
+import typer
 from cognite.client import CogniteClient
 from cognite.client.data_classes.data_modeling import SpaceApply
 

@@ -36,7 +36,6 @@ class TestTimeSeriesLoader:
     def test_create_populate_count_drop_data(
         self, toolkit_client: ToolkitClient, cognite_client: CogniteClient
     ) -> None:
-    def test_create_populate_count_drop_data(self, toolkit_client: ToolkitClient) -> None:
         timeseries = TimeSeriesRequest(
             external_id=f"test_create_populate_count_drop_data{RUN_UNIQUE_ID}", is_string=False
         )
