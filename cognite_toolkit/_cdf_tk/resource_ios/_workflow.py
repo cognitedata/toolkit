@@ -568,11 +568,11 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
                     to_pause.append(external_id)
                 elif item.is_paused is False and created_item.is_paused:
                     to_resume.append(external_id)
-        if to_pause and Flags.V09.is_enabled():
+        if to_pause:
             self.client.tool.workflows.triggers.pause(to_pause)
             for external_id in to_pause:
                 created[external_id].is_paused = True
-        if to_resume and Flags.V09.is_enabled():
+        if to_resume:
             self.client.tool.workflows.triggers.resume(to_resume)
             for external_id in to_resume:
                 created[external_id].is_paused = False
@@ -672,10 +672,8 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         # Remove response-only fields
         dumped.pop("createdTime", None)
         dumped.pop("lastUpdatedTime", None)
-        if Flags.V09.is_enabled() and local and "isPaused" not in local and resource.is_paused is False:
+        if local and "isPaused" not in local and resource.is_paused is False:
             # Remove isPaused as it is set to the default value from the serves.
-            dumped.pop("isPaused", None)
-        elif not Flags.V09.is_enabled():
             dumped.pop("isPaused", None)
 
         # Remove input if None to match local format

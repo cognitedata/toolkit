@@ -336,11 +336,6 @@ class FailedReadYAMLFile(ReadYAMLFile):
         "UNREADABLE-FILE",
         "INVALID-FILE-CONTENT",
         "EMPTY-FILE",
-        # Legacy codes, used when the v09 flag is not enabled
-        "MISSING-SUFFIX",
-        "INVALID-KIND",
-        "READ-ERROR",
-        "YAML-PARSE-ERROR",
     ]
     error: str
 
