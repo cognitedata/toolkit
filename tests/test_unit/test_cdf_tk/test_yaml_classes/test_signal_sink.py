@@ -27,7 +27,7 @@ def invalid_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"type": "email", "externalId": "my-sink", "emailAddress": "a@b.com", "unknownField": "x"},
-        {"Unknown field: 'unknownField'"},
+        {"Unrecognized field: 'unknownField'"},
         id="unknown-field",
     )
     yield pytest.param(
@@ -37,7 +37,7 @@ def invalid_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"type": "user", "externalId": "my-sink", "emailAddress": "a@b.com"},
-        {"Unknown field: 'emailAddress'"},
+        {"Unrecognized field: 'emailAddress'"},
         id="user-type-rejects-email-address",
     )
 

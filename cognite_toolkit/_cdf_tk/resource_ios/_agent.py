@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags, v09_gate
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.resource_ios._datamodel import DataModelIO
 from cognite_toolkit._cdf_tk.resource_ios._function import FunctionIO
@@ -123,7 +123,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         if not instructions_file.is_file():
             yield FailedReadExtra(
                 source_path=instructions_file,
-                code="MISSING",
+                code=v09_gate("MISSING-REFERENCED-FILE", "MISSING"),
                 error=f"Instructions file {instructions_file.as_posix()} not found or is not a file",
             )
             return
@@ -152,7 +152,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             if not tools_file.is_file():
                 yield FailedReadExtra(
                     source_path=tools_file,
-                    code="MISSING",
+                    code=v09_gate("MISSING-REFERENCED-FILE", "MISSING"),
                     error=f"Tools file {tools_file.as_posix()} not found or is not a file",
                 )
                 continue
@@ -162,7 +162,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             if parsed_content is None:
                 yield FailedReadExtra(
                     source_path=tools_file,
-                    code="SYNTAX-ERROR",
+                    code=v09_gate("INVALID-FILE-CONTENT", "SYNTAX-ERROR"),
                     error=f"Tools file {tools_file.as_posix()} is not valid YAML",
                 )
                 continue
@@ -220,7 +220,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         if not code_file.is_file():
             return FailedReadExtra(
                 source_path=code_file,
-                code="MISSING",
+                code=v09_gate("MISSING-REFERENCED-FILE", "MISSING"),
                 error=f"Python code file {code_file.as_posix()} not found or is not a file",
             )
         content = safe_read(code_file, encoding=BUILD_FOLDER_ENCODING)

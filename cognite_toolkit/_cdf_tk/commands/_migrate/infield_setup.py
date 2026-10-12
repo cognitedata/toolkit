@@ -6,14 +6,14 @@ from typing import Literal
 
 import questionary
 import typer
-from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeOrEdgeRequest, NodeOrEdgeResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeOrEdgeRequest, NodeOrEdgeResponse, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.statistics import SpaceStatisticsResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import (
     ENTITY_BY_SOURCE_VIEW_EXTERNAL_ID,
@@ -256,8 +256,11 @@ class InFieldUserInput:
                 if (space := get_first_instance_space(config.data_filters, type_key)) is not None
             }
 
-    def _get_space_stats(self, spaces: set[str]) -> dict[str, SpaceStatistics]:
-        return {stat.space: stat for stat in self.client.data_modeling.statistics.spaces.retrieve(list(spaces))}
+    def _get_space_stats(self, spaces: set[str]) -> dict[str, SpaceStatisticsResponse]:
+        if not spaces:
+            return {}
+        retrieved = self.client.statistics.spaces.retrieve([SpaceId(space=space) for space in spaces])
+        return {stat.space: stat for stat in retrieved}
 
 
 class InFieldSetup:

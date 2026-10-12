@@ -2,6 +2,7 @@ import time
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FILEPATH
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.dataio import FileMetadataContentIO
@@ -51,7 +52,10 @@ class TestFileContentV2:
             self._wait_for_file_uploaded(toolkit_client, external_id)
 
             # Get the file id for download
-            file_metadata = toolkit_client.files.retrieve(external_id=external_id)
+            retrieved = toolkit_client.tool.filemetadata.retrieve(
+                [ExternalId(external_id=external_id)], ignore_unknown_ids=True
+            )
+            file_metadata = retrieved[0] if retrieved else None
             assert file_metadata is not None, f"File {external_id} not found after upload"
             assert file_metadata.id is not None
 
@@ -90,12 +94,15 @@ class TestFileContentV2:
 
         finally:
             # Cleanup
-            toolkit_client.files.delete(external_id=external_id, ignore_unknown_ids=True)
+            toolkit_client.tool.filemetadata.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
 
     def _wait_for_file_uploaded(self, toolkit_client: ToolkitClient, external_id: str, timeout: float = 30.0) -> None:
         t0 = time.perf_counter()
         while True:
-            uploaded_file = toolkit_client.files.retrieve(external_id=external_id)
+            retrieved = toolkit_client.tool.filemetadata.retrieve(
+                [ExternalId(external_id=external_id)], ignore_unknown_ids=True
+            )
+            uploaded_file = retrieved[0] if retrieved else None
             if uploaded_file is not None and uploaded_file.uploaded is True:
                 return
             if time.perf_counter() - t0 > timeout:

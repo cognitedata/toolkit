@@ -12,13 +12,13 @@ from tests.test_unit.utils import find_resources
 def invalid_3D_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "MyModel"},
-        {"Missing required field: 'name'", "Unknown field: 'externalId'"},
+        {"Missing required field: 'name'", "Unrecognized field: 'externalId'"},
         id="Missing required field: externalId",
     )
     yield pytest.param(
         {"name": "MyModel", "dataSetId": 123},
-        {"Unknown field: 'dataSetId'"},
-        id="Unknown field: dataSetId",
+        {"Unrecognized field: 'dataSetId'"},
+        id="Unrecognized field: dataSetId",
     )
     yield pytest.param(
         {"name": "MyModel", "metadata": {f"key{i}": f"value{i}" for i in range(17)}},

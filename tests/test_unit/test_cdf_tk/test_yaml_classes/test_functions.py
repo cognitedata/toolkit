@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes import FunctionsYAML
@@ -26,8 +27,14 @@ def invalid_function_test_cases() -> Iterable:
         },
         id="Too many secrets",
     )
+    yield pytest.param(
+        {"externalId": "my_function", "name": "my_function"},
+        {"Either dataSetExternalId or space must be set, to store the function code."},
+        id="Missing dataSetExternalId and space",
+    )
 
 
+@pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
 class TestFunctionsYAML:
     @pytest.mark.parametrize("data", list(find_resources("function")))
     def test_load_valid_function(self, data: dict[str, object]) -> None:

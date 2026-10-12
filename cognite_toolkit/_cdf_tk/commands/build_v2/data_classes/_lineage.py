@@ -142,6 +142,7 @@ class ModuleLineageItem(_BaseLineageModel):
         return (
             self.insights_summary.get(ModelSyntaxError.__name__, 0) == 0
             and self.insights_summary.get(ConsistencyError.__name__, 0) == 0
+            and self.insights_summary.get("Error", 0) == 0
             and bool(self.resource_lineage)
         )
 
@@ -155,6 +156,8 @@ class ModuleLineageItem(_BaseLineageModel):
             return "FAILED: ModelSyntaxError"
         elif self.insights_summary.get(ConsistencyError.__name__, 0) > 0:
             return "FAILED: ConsistencyError"
+        elif self.insights_summary.get("Error", 0) > 0:
+            return "FAILED: Error"
         else:
             return "FAILED: Unknown reason"
 

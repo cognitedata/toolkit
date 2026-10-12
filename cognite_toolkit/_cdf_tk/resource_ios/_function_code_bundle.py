@@ -5,6 +5,7 @@ from typing import Any
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError
+from cognite_toolkit._cdf_tk.feature_flags import Flags, v09_gate
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_hash, humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import create_zip_in_memory, sanitize_filename, yaml_safe_dump
@@ -65,7 +66,7 @@ class FunctionCodeBundle:
         function_rootdir = cls.get_code_implicitly(filepath, external_id)
         if not function_rootdir.is_dir():
             yield FailedReadExtra(
-                code="MISSING",
+                code=v09_gate("MISSING-REFERENCED-DIRECTORY", "MISSING"),
                 error=f"Cannot find function code for function {external_id!r} in {filepath.as_posix()}. Expected function code directory {function_rootdir.as_posix()} to exist. ",
                 source_path=function_rootdir,
             )
@@ -88,11 +89,14 @@ class FunctionCodeBundle:
         )
         name = item.get("name")
         if not isinstance(name, str):
-            yield FailedReadExtra(
-                source_path=function_rootdir,
-                code="MISSING",
-                error=f"Cannot find function name for function {external_id!r} in {filepath.as_posix()}. This is required and is necessary for creating the function code.",
-            )
+            # 'name' is required by the function schema, so a missing name is already
+            # reported as a syntax error. From v09 and on, we drop this extraneous error.
+            if not Flags.V09.is_enabled():
+                yield FailedReadExtra(
+                    source_path=function_rootdir,
+                    code="MISSING",
+                    error=f"Cannot find function name for function {external_id!r} in {filepath.as_posix()}. This is required and is necessary for creating the function code.",
+                )
             return
         filename = sanitize_filename(name)
         if data_set_external_id := item.get("dataSetExternalId"):
@@ -129,7 +133,9 @@ class FunctionCodeBundle:
                 resource_field=None,
                 write_to_build=True,
             )
-        else:
+        elif not Flags.V09.is_enabled():
+            # With the v09 flag, the function schema now reports a syntax error if the function
+            # does not have a dataSetExternalId or a space specified, so we drop this extraneous error.
             yield FailedReadExtra(
                 source_path=function_rootdir,
                 code="MISSING",
