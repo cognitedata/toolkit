@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any, cast
 from unittest.mock import MagicMock
@@ -283,7 +283,7 @@ class ToolkitClientMock(CogniteClientMock):
 
 
 @contextmanager
-def monkeypatch_toolkit_client() -> Iterator[ToolkitClientMock]:
+def monkeypatch_toolkit_client() -> Generator[ToolkitClientMock, None, None]:
     toolkit_client_mock = ToolkitClientMock()
     try:
         ToolkitClient.__new__ = cast(Any, lambda *args, **kwargs: toolkit_client_mock)  # type: ignore[method-assign]

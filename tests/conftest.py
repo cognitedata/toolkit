@@ -10,7 +10,7 @@ import hashlib
 import os
 import shutil
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -44,7 +44,7 @@ def get_worker_id() -> str:
 
 
 @contextmanager
-def external_library_cache_context(cache_root: Path) -> Iterator[Path]:
+def external_library_cache_context(cache_root: Path) -> Generator[Path, None, None]:
     """Context manager for accessing the external library cache with file locking."""
     worker_id = get_worker_id()
     cache_dir = cache_root / f"modules-{worker_id}"

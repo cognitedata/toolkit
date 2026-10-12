@@ -3,7 +3,7 @@ import itertools
 import warnings
 from abc import ABC, abstractmethod
 from collections import UserList
-from collections.abc import Collection, Iterator
+from collections.abc import Collection, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -114,7 +114,9 @@ class GeneralWarning(ToolkitWarning, ABC):
 
 
 @contextmanager
-def catch_warnings(warning_type: type[ToolkitWarning] | None = None) -> Iterator[WarningList[ToolkitWarning]]:
+def catch_warnings(
+    warning_type: type[ToolkitWarning] | None = None,
+) -> Generator[WarningList[ToolkitWarning], None, None]:
     """Catch warnings and append them to the warning list."""
     warning_list = WarningList[ToolkitWarning]()
     with warnings.catch_warnings(record=True) as warning_logger:
