@@ -29,18 +29,6 @@ from ._helpers import print_help_if_no_subcommand
 TODAY = date.today()
 
 
-def _skip_unlink_callback(ctx: typer.Context, param: typer.CallbackParam, value: bool) -> bool:
-    """Turn ``--skip-unlink`` into ``unlink=False``.
-
-    The option defaults to ``True``. Click stores ``True`` when the flag is passed as well,
-    so the flag would otherwise leave unlinking enabled.
-    """
-    source = ctx.get_parameter_source(param.name) if param.name is not None else None
-    if source is not None and source.name == "COMMANDLINE":
-        return False
-    return value
-
-
 def _reject_ignored_interactive_options(flags: list[str]) -> None:
     if not flags:
         return

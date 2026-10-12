@@ -29,7 +29,7 @@ class TestPurgeInteractiveOptions:
                 view=None,
                 instance_space=["SPACE_X"],
                 dry_run=True,
-                unlink=False,
+                skip_unlink=True,
                 verbose=True,
             )
 
@@ -190,13 +190,13 @@ class TestPurgeInteractiveOptions:
 
         assert {
             "dry_run": captured["dry_run"],
-            "unlink": captured["unlink"],
+            "skip_unlink": not captured["unlink"],
             "verbose": captured["verbose"],
             "instance_spaces": captured["selector"].instance_spaces,
             "instance_type": captured["selector"].instance_type,
         } == {
             "dry_run": False,
-            "unlink": False,
+            "skip_unlink": False,
             "verbose": True,
             "instance_spaces": ("SPACE_X",),
             "instance_type": "edge",
