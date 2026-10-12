@@ -180,9 +180,9 @@ class TestSpaceSourceAPI:
         assert retrieved.dump() == space_source.dump(), "Failed to retrieve space source by data set ID"
 
     def test_retrieve_data_set_external_id(self, space_source: SpaceSource, toolkit_client: ToolkitClient) -> None:
-        retrieved = toolkit_client.migration.space_source.retrieve(
-            data_set_external_id=space_source.data_set_external_id
-        )
+        data_set_external_id = space_source.data_set_external_id
+        assert data_set_external_id is not None
+        retrieved = toolkit_client.migration.space_source.retrieve(data_set_external_id=data_set_external_id)
 
         assert retrieved is not None
         assert retrieved.dump() == space_source.dump(), "Failed to retrieve space source by classic external ID"

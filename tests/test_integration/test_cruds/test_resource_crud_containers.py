@@ -232,11 +232,15 @@ class Test3DModelLoader:
 
             # Serialize and deserialize the model to get a copy
             update = created[0].as_request_resource().model_copy(deep=True)
-            update.metadata["new_key"] = "new_value"
+            metadata = update.metadata
+            assert metadata is not None
+            metadata["new_key"] = "new_value"
 
             updated = loader.update([update])
             assert len(updated) == 1
-            assert updated[0].metadata["new_key"] == "new_value"
+            updated_metadata = updated[0].metadata
+            assert updated_metadata is not None
+            assert updated_metadata["new_key"] == "new_value"
 
             delete_count = loader.delete([NameId(name=model.name)])
             assert delete_count == 1

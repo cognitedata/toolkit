@@ -31,7 +31,7 @@ dependencies = [
     "questionary >=2.0.1",
     "tomli >=2.0.1, <3.0.0; python_version < '3.11'",
     "packaging >=25",
-    "typing-extensions >=4.0.0",
+    "typing-extensions >=4.13.0",
     "toml >=0.10.2",
     "sentry-sdk >=2.1.0",
     "mixpanel >=4.10.1",
@@ -135,11 +135,6 @@ include = ["cognite_toolkit", "tests_smoke", "tests"]
 exclude = [
     "tests/data/",
     "tests/test_unit/",
-    "tests/test_integration/test_commands/",
-    "tests/test_integration/test_cruds/",
-    "tests/test_integration/test_storeageio/",
-    "tests/test_integration/test_toolkit_client/",
-    "tests/test_integration/test_utils/",
 ]
 [tool.ty.environment]
 python-version = "3.14"

@@ -30,6 +30,6 @@ class TestGroupsAPI:
         if existing := next((group for group in existing_groups if group.name == group_request.name), None):
             created_group = existing
         else:
-            created_group = toolkit_client.tool.groups.create([group_request])
+            created_group = toolkit_client.tool.groups.create([group_request])[0]
 
         assert created_group.as_request_resource().dump() == group_request.dump()

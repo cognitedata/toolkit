@@ -4,7 +4,7 @@ from collections.abc import Hashable, Iterable, Sequence, Sized
 from functools import cache
 from pathlib import Path
 from types import GenericAlias
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from typing_extensions import TypeForm
@@ -230,8 +230,8 @@ class ResourceIO(
     All resources supported by the cognite_toolkit should implement a CRUD.
 
     Class attributes:
-        resource_write_cls: The API write data class for the resource.
-        resource_cls: The API read data class for the resource.
+        resource_write_cls: The API write data class for the resource. Annotated unions are allowed.
+        resource_cls: The API read data class for the resource. Annotated unions are allowed.
         yaml_cls: The File format for this resource. This is used to validate the user input.
         folder_name: The name of the folder in the build directory where the files are located. This should be set in all subclasses.
         kind: The stem of the resource type
@@ -246,9 +246,9 @@ class ResourceIO(
             to determine if the iterate method should return any resources when filtering by parent ids.
     """
 
-    # Must be set in the subclass
-    resource_write_cls: type[T_RequestResource]
-    resource_cls: type[T_ResponseResource]
+    # Must be set in the subclass. TypeForm allows Annotated unions, which hosted extractor sources use.
+    resource_write_cls: TypeForm[T_RequestResource]
+    resource_cls: TypeForm[T_ResponseResource]
 
     # Optional to set in the subclass
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
@@ -370,7 +370,9 @@ class ResourceIO(
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> T_RequestResource:
         """Loads the resource from a dictionary. Can be overwritten in subclasses."""
-        return self.resource_write_cls._load(resource)
+        # Subclasses that store an Annotated union override this and load through a TypeAdapter.
+        write_cls = cast(type[T_RequestResource], self.resource_write_cls)
+        return write_cls._load(resource)
 
     def dump_resource(self, resource: T_ResponseResource, local: dict[str, Any] | None = None) -> dict[str, Any]:
         """Dumps the resource to a dictionary that matches the write format.
