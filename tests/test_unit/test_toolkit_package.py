@@ -104,8 +104,11 @@ def test_no_cognite_sdk_imports() -> None:
     """
 
     def check(imp: ImportInfo) -> Violation | None:
-        if (imp.module == "cognite.client" or imp.module.startswith("cognite.client.")) and not imp.module.startswith(
-            "cognite.client.credentials"
+        if (
+            (imp.module == "cognite.client" or imp.module.startswith("cognite.client."))
+            and not imp.module.startswith(
+                "cognite.client.credentials"  # We allow credential imports as we use the auth from the Cognite SDK in Toolkit.
+            )
         ):
             return imp.lineno, imp.format()
         return None
