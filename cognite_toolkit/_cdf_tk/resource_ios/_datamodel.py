@@ -106,7 +106,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags, v09_gate
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     FailedReadExtra,
     ReadExtra,
@@ -695,10 +694,8 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
         from ._streams import StreamIO  # local import avoids circular import with _streams.py
 
         yield SpaceIO, SpaceId(space=resource.space)
-
-        if FeatureFlag.is_enabled(Flags.RECORD_VIEWS) or FeatureFlag.is_enabled(Flags.V09):
-            for stream_id in resource.stream_id or []:
-                yield StreamIO, ExternalId(external_id=stream_id)
+        for stream_id in resource.stream_id or []:
+            yield StreamIO, ExternalId(external_id=stream_id)
 
         for implement in resource.implements or []:
             yield ViewIO, implement.as_id()
@@ -735,8 +732,6 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
     def dump_resource(self, resource: ViewResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
         local = local or {}
-        if not (FeatureFlag.is_enabled(Flags.RECORD_VIEWS) or FeatureFlag.is_enabled(Flags.V09)):
-            dumped.pop("streamId", None)
         if not dumped.get("properties") and not local.get("properties"):
             if "properties" in local:
                 # In case the properties is an empty dict, we still want to keep it in the dump.
@@ -1489,7 +1484,7 @@ class GraphQLIO(
 
         if not graphql_file.is_file():
             yield FailedReadExtra(
-                code=v09_gate("MISSING-REFERENCED-FILE", "MISSING"),
+                code="MISSING-REFERENCED-FILE",
                 error=f"Cannot find GraphQL file for data model {identifier}. Expected {graphql_file.name} adjacent to {filepath.as_posix()}.",
                 source_path=graphql_file,
             )

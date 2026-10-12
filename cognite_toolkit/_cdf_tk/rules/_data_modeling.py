@@ -2,7 +2,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
 from types import SimpleNamespace
-from typing import ClassVar, Literal, TypeVar, cast
+from typing import Literal, TypeVar, cast
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -24,13 +24,10 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltR
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildError,
     BuildWarning,
-    ConsistencyError,
     Insight,
-    InsightCode,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags, v09_gate
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, ViewIO
-from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 
 from ._base import (
     InternalValidatorException,
@@ -84,10 +81,6 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
 
     CODE_PREFIX = "DATA-MODELING"
     DISPLAY_NAME = "Data modeling"
-    # Codes used when the v09 flag is not enabled
-    UNKNOWN_PROPERTY_REFERENCE: ClassVar[InsightCode] = "UNKNOWN-REFERENCE"
-    UNVERIFIED_PROPERTY_REFERENCE: ClassVar[InsightCode] = "UNVERIFIED-PROPERTY-REFERENCE"
-    INVALID_PROPERTY_REFERENCE: ClassVar[InsightCode] = "INVALID-PROPERTY-REFERENCE"
 
     def get_status(self) -> RuleSetStatus:
         if not Flags.ALPHA_RULES.is_enabled():
@@ -164,7 +157,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     ) -> Iterable[Insight | InternalValidatorException]:
         missing_container_properties: list[_ContainerPropertyReference] = []
         for property_ref in references.container_properties:
-            if Flags.V09.is_enabled() and contains_unresolved_variable(property_ref.label):
+            if contains_unresolved_variable(property_ref.label):
                 continue
             if (
                 self._container_property(
@@ -177,7 +170,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         invalid_reverses: list[_ReverseDirectRelationReference] = []
         missing_reverses: list[_ReverseDirectRelationReference] = []
         for relation_ref in references.reverse_direct_relations:
-            if Flags.V09.is_enabled() and contains_unresolved_variable(relation_ref.through):
+            if contains_unresolved_variable(relation_ref.through):
                 continue
             status = self._reverse_status(relation_ref.through, local_views, local_containers, {}, {})
             if status == "not_direct":
@@ -409,8 +402,8 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         for ref in missing_properties:
             for resource in ref.resources:
                 yield with_position(
-                    v09_gate(BuildWarning, ConsistencyError)(
-                        code=v09_gate("UNVERIFIED-REFERENCED-PROPERTY", self.UNVERIFIED_PROPERTY_REFERENCE),
+                    BuildWarning(
+                        code="UNVERIFIED-REFERENCED-PROPERTY",
                         message=(
                             f"Missing container property '{ref.label}'. "
                             f"It is referenced by {self._referenced_by(resource)}."
@@ -429,8 +422,8 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         for ref in missing_reverses:
             for resource in ref.resources:
                 yield with_position(
-                    v09_gate(BuildWarning, ConsistencyError)(
-                        code=v09_gate("UNVERIFIED-REFERENCED-PROPERTY", self.UNVERIFIED_PROPERTY_REFERENCE),
+                    BuildWarning(
+                        code="UNVERIFIED-REFERENCED-PROPERTY",
                         message=(
                             f"Missing direct relation '{ref.through}'. "
                             f"It is referenced by {self._referenced_by(resource)}."
@@ -448,13 +441,10 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     def _unknown_property_errors(self, ref: _ContainerPropertyReference) -> Iterable[Insight]:
         for resource in ref.resources:
             yield with_position(
-                v09_gate(BuildError, ConsistencyError)(
-                    code=v09_gate("MISSING-REFERENCED-PROPERTY", self.UNKNOWN_PROPERTY_REFERENCE),
-                    message=v09_gate(
-                        f"Container property '{ref.label}' does not exist locally or in CDF. "
-                        f"It is referenced by {quote_identifier(resource.identifier)}.",
-                        f"Unknown reference to container property '{ref.label}'",
-                    ),
+                BuildError(
+                    code="MISSING-REFERENCED-PROPERTY",
+                    message=f"Container property '{ref.label}' does not exist locally or in CDF. "
+                    f"It is referenced by {quote_identifier(resource.identifier)}.",
                     fix="Ensure that the container property exists or remove the reference to it.",
                     source_file=resource.source_path,
                 ),
@@ -465,13 +455,10 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     def _unknown_reverse_errors(self, ref: _ReverseDirectRelationReference) -> Iterable[Insight]:
         for resource in ref.resources:
             yield with_position(
-                v09_gate(BuildError, ConsistencyError)(
-                    code=v09_gate("MISSING-REFERENCED-PROPERTY", self.UNKNOWN_PROPERTY_REFERENCE),
-                    message=v09_gate(
-                        f"Direct relation '{ref.through}' does not exist locally or in CDF. "
-                        f"It is referenced by {quote_identifier(resource.identifier)}.",
-                        f"Unknown reference to direct relation '{ref.through}'",
-                    ),
+                BuildError(
+                    code="MISSING-REFERENCED-PROPERTY",
+                    message=f"Direct relation '{ref.through}' does not exist locally or in CDF. "
+                    f"It is referenced by {quote_identifier(resource.identifier)}.",
                     fix="Ensure that the direct relation exists or remove the reference to it.",
                     source_file=resource.source_path,
                 ),
@@ -482,8 +469,8 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     def _not_direct_errors(self, ref: _ReverseDirectRelationReference) -> Iterable[Insight]:
         for resource in ref.resources:
             yield with_position(
-                v09_gate(BuildError, ConsistencyError)(
-                    code=v09_gate("INVALID-REFERENCED-PROPERTY", self.INVALID_PROPERTY_REFERENCE),
+                BuildError(
+                    code="INVALID-REFERENCED-PROPERTY",
                     message=(
                         f"Reverse direct relation through '{ref.through}' points at '{ref.through.identifier}', "
                         "which is not a direct relation."
@@ -497,10 +484,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
 
     @staticmethod
     def _referenced_by(resource: BuiltResource) -> str:
-        return v09_gate(
-            quote_identifier(resource.identifier),
-            f"{resource.identifier!s} in {relative_to_if_possible(resource.source_path).as_posix()!r}",
-        )
+        return quote_identifier(resource.identifier)
 
     @staticmethod
     def _append(bucket: dict[_KeyT, list[BuiltResource]], key: _KeyT, resource: BuiltResource) -> None:
