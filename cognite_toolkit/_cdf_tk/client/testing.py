@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
 from cognite_toolkit._cdf_tk.client.api.data_models import DataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractors import HostedExtractorsAPI
-from cognite_toolkit._cdf_tk.client.api.raw import RawAPI, RawDatabasesAPI, RawTablesAPI
+from cognite_toolkit._cdf_tk.client.api.raw import RawAPI, RawDatabasesAPI, RawRowsAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.signal_sinks import SignalSinksAPI
 from cognite_toolkit._cdf_tk.client.api.signal_subscriptions import SignalSubscriptionsAPI
@@ -36,6 +36,7 @@ from .api.charts_monitoring_job import ChartMonitoringJobsAPI
 from .api.data_product_versions import DataProductVersionsAPI
 from .api.data_products import DataProductsAPI
 from .api.datapoint_subscription import DatapointSubscriptionsAPI
+from .api.datapoints import DatapointsAPI
 from .api.datasets import DataSetsAPI
 from .api.documents import DocumentsAPI
 from .api.events import EventsAPI
@@ -108,6 +109,7 @@ from .api.three_d import (
     ThreeDClassicModelsAPI,
     ThreeDClassicRevisionsAPI,
     ThreeDDMAssetMappingAPI,
+    ThreeDNodesAPI,
 )
 from .api.timeseries import TimeSeriesAPI
 from .api.token import ToolkitTokenAPI
@@ -204,11 +206,13 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.three_d = MagicMock(spec=ThreeDAPI)
         self.tool.three_d.models_classic = MagicMock(spec_set=ThreeDClassicModelsAPI)
         self.tool.three_d.revisions_classic = MagicMock(spec_set=ThreeDClassicRevisionsAPI)
+        self.tool.three_d.nodes = MagicMock(spec_set=ThreeDNodesAPI)
         self.tool.three_d.asset_mappings_classic = MagicMock(spec_set=ThreeDClassicAssetMappingAPI)
         self.tool.three_d.asset_mappings_dm = MagicMock(spec_set=ThreeDDMAssetMappingAPI)
         self.tool.assets = MagicMock(spec_set=AssetsAPI)
         self.tool.cognite_files = MagicMock(spec_set=CogniteFilesAPI)
-        self.tool.timeseries = MagicMock(spec_set=TimeSeriesAPI)
+        self.tool.timeseries = MagicMock(spec=TimeSeriesAPI)
+        self.tool.timeseries.datapoints = MagicMock(spec_set=DatapointsAPI)
         self.tool.filemetadata = MagicMock(spec_set=FileMetadataAPI)
         self.tool.instances = MagicMock(spec=InstancesAPI)
         self.tool.spaces = MagicMock(spec=SpacesAPI)
@@ -242,7 +246,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.labels = MagicMock(spec_set=LabelsAPI)
         self.tool.raw = MagicMock(spec=RawAPI)
         self.tool.raw.databases = MagicMock(spec_set=RawDatabasesAPI)
-        self.tool.raw.tables = MagicMock(spec_set=RawTablesAPI)
+        self.tool.raw.tables = MagicMock(spec=RawTablesAPI)
+        self.tool.raw.tables.rows = MagicMock(spec_set=RawRowsAPI)
         self.tool.relationships = MagicMock(spec_set=RelationshipsAPI)
         self.tool.security_categories = MagicMock(spec_set=SecurityCategoriesAPI)
         self.tool.sequences = MagicMock(spec=SequencesAPI)

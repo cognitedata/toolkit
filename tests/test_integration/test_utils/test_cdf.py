@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     AssetList,
     AssetWrite,
@@ -39,7 +40,7 @@ from cognite_toolkit._cdf_tk.utils.cdf import (
 
 
 @pytest.fixture(scope="session")
-def two_datasets(toolkit_client: ToolkitClient) -> DataSetList:
+def two_datasets(cognite_client: CogniteClient) -> DataSetList:
     datasets = DataSetWriteList(
         [
             DataSetWrite(
@@ -54,17 +55,17 @@ def two_datasets(toolkit_client: ToolkitClient) -> DataSetList:
             ),
         ]
     )
-    existing = toolkit_client.data_sets.retrieve_multiple(
+    existing = cognite_client.data_sets.retrieve_multiple(
         external_ids=datasets.as_external_ids(), ignore_unknown_ids=True
     )
     if missing := [dataset for dataset in datasets if dataset.external_id not in set(existing.as_external_ids())]:
-        created = toolkit_client.data_sets.create(missing)
+        created = cognite_client.data_sets.create(missing)
         existing.extend(created)
     return existing
 
 
 @pytest.fixture(scope="session")
-def two_labels(toolkit_client: ToolkitClient, two_datasets: DataSetList) -> LabelDefinitionList:
+def two_labels(cognite_client: CogniteClient, two_datasets: DataSetList) -> LabelDefinitionList:
     data_set_id = two_datasets[0].id  # Using the first dataset for labels
     labels = LabelDefinitionWriteList(
         [
@@ -82,16 +83,16 @@ def two_labels(toolkit_client: ToolkitClient, two_datasets: DataSetList) -> Labe
             ),
         ]
     )
-    existing = toolkit_client.labels.retrieve(external_id=labels.as_external_ids(), ignore_unknown_ids=True)
+    existing = cognite_client.labels.retrieve(external_id=labels.as_external_ids(), ignore_unknown_ids=True)
     if missing := [label for label in labels if label.external_id not in set(existing.as_external_ids())]:
-        created = toolkit_client.labels.create(missing)
+        created = cognite_client.labels.create(missing)
         existing.extend(created)
     return existing
 
 
 @pytest.fixture(scope="session")
 def two_hierarchies(
-    toolkit_client: ToolkitClient, two_datasets: DataSetList, two_labels: LabelDefinitionList
+    cognite_client: CogniteClient, two_datasets: DataSetList, two_labels: LabelDefinitionList
 ) -> tuple[AssetList, AssetList]:
     all_labels = [label.external_id for label in two_labels]
     single_label = [two_labels[0].external_id]
@@ -131,11 +132,11 @@ def two_hierarchies(
     ]
     retrieved_hierarchies: list[AssetList] = []
     for hierarchy in hierarchies:
-        existing = toolkit_client.assets.retrieve_multiple(
+        existing = cognite_client.assets.retrieve_multiple(
             external_ids=hierarchy.as_external_ids(), ignore_unknown_ids=True
         )
         if missing := [asset for asset in hierarchy if asset.external_id not in set(existing.as_external_ids())]:
-            created = toolkit_client.assets.create(missing)
+            created = cognite_client.assets.create(missing)
             existing.extend(created)
         retrieved_hierarchies.append(existing)
     return retrieved_hierarchies[0], retrieved_hierarchies[1]
@@ -143,7 +144,7 @@ def two_hierarchies(
 
 @pytest.fixture(scope="session")
 def asset_relationships(
-    toolkit_client: ToolkitClient, two_hierarchies: tuple[AssetList, AssetList], two_datasets: DataSetList
+    cognite_client: CogniteClient, two_hierarchies: tuple[AssetList, AssetList], two_datasets: DataSetList
 ) -> RelationshipList:
     dataset_id = two_datasets[0].id  # Using the first dataset for relationships
     hierarchy, _ = two_hierarchies  # Using the first hierarchy for relationships
@@ -166,11 +167,11 @@ def asset_relationships(
             for child in children
         ]
     )
-    existing = toolkit_client.relationships.retrieve_multiple(
+    existing = cognite_client.relationships.retrieve_multiple(
         external_ids=relationships.as_external_ids(), ignore_unknown_ids=True
     )
     if missing := [rel for rel in relationships if rel.external_id not in set(existing.as_external_ids())]:
-        created = toolkit_client.relationships.create(missing)
+        created = cognite_client.relationships.create(missing)
         existing.extend(created)
     return existing
 
@@ -378,6 +379,7 @@ class TestRawTableRowCount:
         sleep_time = 0.1
         project = "test_raw_table_row_count_raises_throttle_error_project"
         client = MagicMock(spec=ToolkitClient)
+        client.config = MagicMock()
         client.config.project = project
         filepath = ThrottlerState._filepath(project)
         filepath.write_text(str(time.time()), encoding="utf-8")

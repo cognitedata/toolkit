@@ -7,6 +7,7 @@ from cognite.client.data_classes.raw import Row, RowList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWRowResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.dataio import Page, RawIO
@@ -46,7 +47,17 @@ class TestRawStorageIO:
         ).respond(status_code=200)
         selector = RawTableSelector(table=SelectedTable(db_name="test_db", table_name="test_table"))
         with monkeypatch_toolkit_client() as client:
-            client.raw.rows.return_value = chunker(some_raw_tables, 10)
+            client.tool.raw.tables.rows.iterate.return_value = [
+                [
+                    RAWRowResponse(
+                        key=row.key,
+                        columns=row.columns,
+                        last_updated_time=row.last_updated_time or 0,
+                    )
+                    for row in page
+                ]
+                for page in chunker(some_raw_tables, 10)
+            ]
             io = RawIO(client)
 
             assert io.count(selector) is None
