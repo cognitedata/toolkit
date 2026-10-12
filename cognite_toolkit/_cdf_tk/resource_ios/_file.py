@@ -20,7 +20,6 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
-    InternalOrExternalId,
     NameId,
     NodeId,
     SpaceId,
@@ -223,11 +222,11 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
                     self._try_upload_file_content(responses_with_url[0])
         return responses
 
-    def delete(self, ids: Sequence[InternalOrExternalId]) -> list[ExternalId]:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if id_list:
             self.client.tool.filemetadata.delete(id_list, ignore_unknown_ids=True)
-        return [id_ for id_ in id_list if isinstance(id_, ExternalId)]
+        return id_list
 
     def _iterate(
         self,

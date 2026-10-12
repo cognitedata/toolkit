@@ -3,7 +3,7 @@ from typing import Any, Literal, final
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     SimulatorModelRevisionFilter,
     SimulatorModelRoutineFilter,
@@ -107,11 +107,11 @@ class SimulatorModelIO(ResourceIO[ExternalId, SimulatorModelRequest, SimulatorMo
     def update(self, items: Sequence[SimulatorModelRequest]) -> list[SimulatorModelResponse]:
         return self.client.tool.simulators.models.update(items, mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId | InternalOrExternalId]) -> list[ExternalId]:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if id_list:
             self.client.tool.simulators.models.delete(id_list)
-        return [id_ for id_ in id_list if isinstance(id_, ExternalId)]
+        return id_list
 
     def _iterate(
         self,
@@ -243,7 +243,7 @@ class SimulatorModelRevisionIO(
             "You can change the external ID and create a new revision."
         )
 
-    def delete(self, ids: Sequence[ExternalId | InternalOrExternalId]) -> list[ExternalId]:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         # Simulator model revisions API does not support delete
         raise ToolkitNotSupported(
             "You cannot delete simulator model revisions. They are immutable."
@@ -343,11 +343,11 @@ class SimulatorRoutineIO(
                     all_items.append(item)
         return all_items
 
-    def delete(self, ids: Sequence[ExternalId | InternalOrExternalId]) -> list[ExternalId]:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if id_list:
             self.client.tool.simulators.routines.delete(id_list)
-        return [id_ for id_ in id_list if isinstance(id_, ExternalId)]
+        return id_list
 
     def _iterate(
         self,
@@ -437,7 +437,7 @@ class SimulatorRoutineRevisionIO(
             "You can change the external ID and create a new revision."
         )
 
-    def delete(self, ids: Sequence[ExternalId | InternalOrExternalId]) -> list[ExternalId]:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         # Simulator routine revisions API does not support delete
         raise ToolkitNotSupported(
             "You cannot delete simulator routine revisions. They are immutable."

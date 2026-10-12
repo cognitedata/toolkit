@@ -9,7 +9,6 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import (
     DatapointSubscriptionTimeSeriesId,
     ExternalId,
-    InternalOrExternalId,
     NameId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
@@ -144,11 +143,11 @@ class TimeSeriesIO(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeries
     def update(self, items: Sequence[TimeSeriesRequest]) -> list[TimeSeriesResponse]:
         return self.client.tool.timeseries.update(items, mode="replace")
 
-    def delete(self, ids: Sequence[InternalOrExternalId]) -> list[ExternalId]:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if id_list:
             self.client.tool.timeseries.delete(id_list, ignore_unknown_ids=True)
-        return [id_ for id_ in id_list if isinstance(id_, ExternalId)]
+        return id_list
 
     def _iterate(
         self,

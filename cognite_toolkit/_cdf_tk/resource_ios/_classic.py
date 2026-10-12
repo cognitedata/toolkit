@@ -5,7 +5,7 @@ from typing import Any, Literal, final
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter, SequenceRowFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import (
     AssetAggregateItem,
@@ -91,11 +91,11 @@ class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse, AssetYAML]):
     def update(self, items: collections.abc.Sequence[AssetRequest]) -> list[AssetResponse]:
         return self.client.tool.assets.update(items, mode="replace")
 
-    def delete(self, ids: Sequence[InternalOrExternalId]) -> list[ExternalId]:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if id_list:
             self.client.tool.assets.delete(id_list, ignore_unknown_ids=True)
-        return [id_ for id_ in id_list if isinstance(id_, ExternalId)]
+        return id_list
 
     def _iterate(
         self,
@@ -251,11 +251,11 @@ class SequenceIO(ResourceIO[ExternalId, SequenceRequest, SequenceResponse, Seque
     def update(self, items: collections.abc.Sequence[SequenceRequest]) -> list[SequenceResponse]:
         return self.client.tool.sequences.update(items, mode="replace")
 
-    def delete(self, ids: Sequence[InternalOrExternalId]) -> list[ExternalId]:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if id_list:
             self.client.tool.sequences.delete(id_list, ignore_unknown_ids=True)
-        return [id_ for id_ in id_list if isinstance(id_, ExternalId)]
+        return id_list
 
     def _iterate(
         self,
@@ -495,11 +495,11 @@ class EventIO(ResourceIO[ExternalId, EventRequest, EventResponse, EventYAML]):
     def update(self, items: collections.abc.Sequence[EventRequest]) -> list[EventResponse]:
         return self.client.tool.events.update(items, mode="replace")
 
-    def delete(self, ids: Sequence[InternalOrExternalId]) -> list[ExternalId]:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if id_list:
             self.client.tool.events.delete(id_list, ignore_unknown_ids=True)
-        return [id_ for id_ in id_list if isinstance(id_, ExternalId)]
+        return id_list
 
     def _iterate(
         self,

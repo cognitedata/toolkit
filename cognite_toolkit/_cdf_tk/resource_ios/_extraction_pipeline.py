@@ -24,7 +24,6 @@ from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     ExtractionPipelineConfigId,
-    InternalOrExternalId,
     RawDatabaseId,
     RawTableId,
 )
@@ -224,11 +223,11 @@ class ExtractionPipelineIO(
     def update(self, items: Sequence[ExtractionPipelineRequest]) -> list[ExtractionPipelineResponse]:
         return self.client.tool.extraction_pipelines.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[InternalOrExternalId]) -> list[ExternalId]:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if id_list:
             self.client.tool.extraction_pipelines.delete(id_list, ignore_unknown_ids=True)
-        return [id_ for id_ in id_list if isinstance(id_, ExternalId)]
+        return id_list
 
     def _iterate(
         self,
