@@ -169,7 +169,7 @@ class TestExternalDataSourceIO:
         assert ExternalDataSourceIO.dump_id(ExternalId(external_id="fabric-prod")) == {"externalId": "fabric-prod"}
 
     def test_as_str(self) -> None:
-        assert ExternalDataSourceIO.as_str(ExternalId(external_id="fabric/prod")) == "fabric_prod"
+        assert ExternalDataSourceIO.as_filename(ExternalId(external_id="fabric/prod")) == "fabric_prod"
 
     def test_get_minimum_scope(self) -> None:
         scope = ExternalDataSourceIO.get_minimum_scope([_make_request(data_set_id=123)])

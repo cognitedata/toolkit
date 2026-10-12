@@ -94,7 +94,7 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
         return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return id.external_id
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LocationFilterRequest:

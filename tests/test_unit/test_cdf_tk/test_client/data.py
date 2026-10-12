@@ -69,6 +69,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import (
+    DatapointsRequest,
+    NumericDatapointsResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
@@ -101,6 +105,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping im
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
     KafkaSourceRequest,
     KafkaSourceResponse,
+    MQTTBrokerSourceRequest,
+    MQTTBrokerSourceResponse,
     MQTTSourceRequest,
     MQTTSourceResponse,
     RESTSourceRequest,
@@ -473,6 +479,15 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
+        MQTTBrokerSourceResponse: {
+            "type": "mqtt_broker",
+            "externalId": "mqtt_broker_001",
+            "host": "broker.cognitedata.com",
+            "port": 8883,
+            "authentication": {"type": "basic", "username": "generated-user"},
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
         RESTSourceResponse: {
             "type": "rest",
             "externalId": "rest_source_001",
@@ -606,6 +621,14 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
                 {"rowNumber": 0, "values": ["value1", 123]},
                 {"rowNumber": 1, "values": ["value2", 456]},
             ],
+        },
+        NumericDatapointsResponse: {
+            "id": 456,
+            "externalId": "ts_001",
+            "isString": False,
+            "type": "numeric",
+            "isStep": False,
+            "datapoints": [{"timestamp": 1622547800000, "value": 1.5}],
         },
         SearchConfigResponse: {
             "id": 789,
@@ -1101,6 +1124,15 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     )
     yield pytest.param(
         CDFResource(
+            response_cls=MQTTBrokerSourceResponse,
+            request_cls=MQTTBrokerSourceRequest,
+            example_data=get_example_minimum_responses(MQTTBrokerSourceResponse),
+            api_class=HostedExtractorSourcesAPI,
+        ),
+        id="HostedExtractorMQTTBrokerSource",
+    )
+    yield pytest.param(
+        CDFResource(
             response_cls=RESTSourceResponse,
             request_cls=RESTSourceRequest,
             example_data=get_example_minimum_responses(RESTSourceResponse),
@@ -1211,6 +1243,14 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(SequenceRowsResponse),
         ),
         id="SequenceRows",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=NumericDatapointsResponse,
+            request_cls=DatapointsRequest,
+            example_data=get_example_minimum_responses(NumericDatapointsResponse),
+        ),
+        id="Datapoints",
     )
     yield pytest.param(
         CDFResource(

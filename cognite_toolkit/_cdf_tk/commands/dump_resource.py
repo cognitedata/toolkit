@@ -1154,7 +1154,7 @@ class DumpResourceCommand(ToolkitCommand):
             resource_folder.mkdir(exist_ok=True, parents=True)
             for resource in resources:
                 resource_id = loader.get_id(resource)
-                name = loader.as_str(resource_id)
+                name = loader.as_filename(resource_id)
                 base_filepath = resource_folder / f"{name}.{loader.kind}.yaml"
                 if base_filepath.exists():
                     self.warn(FileExistsWarning(base_filepath, "Skipping... Use --clean to remove existing files."))
