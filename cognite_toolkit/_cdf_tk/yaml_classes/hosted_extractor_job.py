@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Annotated, Literal
 
-from pydantic import Field, JsonValue
+from pydantic import Discriminator, Field, JsonValue, Tag
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
@@ -154,6 +154,17 @@ class RestConfig(BaseModelResource):
     )
 
 
+def _determine_config_type(config: dict) -> str:
+    if "topic_filter" in config:
+        return "mqtt"
+    elif "topic" in config:
+        return "kafka"
+    elif "path" in config:
+        return "rest"
+    else:
+        raise ValueError("Unknown config type")
+
+
 class HostedExtractorJobYAML(ToolkitResource):
     external_id: str = Field(
         description="The external ID provided by the client. Must be unique for the resource type.",
@@ -186,9 +197,15 @@ class HostedExtractorJobYAML(ToolkitResource):
     format: JobFormatType = Field(
         description="The format of the messages from the source. This is used to convert messages coming from the source system to a format that can be inserted into CDF.",
     )
-    config: MQTTConfig | KafkaConfig | RestConfig | None = Field(
+    config: (
+        Annotated[MQTTConfig, Tag("mqtt")]
+        | Annotated[KafkaConfig, Tag("kafka")]
+        | Annotated[RestConfig, Tag("rest")]
+        | None
+    ) = Field(
         None,
         description="Source specific job configuration. The type depends on the type of source, and is required for some sources.",
+        discriminator=Discriminator(_determine_config_type),
     )
 
     def as_id(self) -> ExternalId:
