@@ -193,6 +193,10 @@ class EventHubSource(HostedExtractorSource):
         description="The event hub consumer group to use. Microsoft recommends having a distinct consumer group for each application consuming data from event hub. If left out, this uses the default consumer group.",
         max_length=200,
     )
+    authentication: BasicAuthentication | ClientCredentials | None = Field(
+        None,
+        description="Authentication details for source",
+    )
 
     @field_serializer("key_value", when_used="json")
     def dump_secret(self, v: SecretStr | None) -> str | None:
