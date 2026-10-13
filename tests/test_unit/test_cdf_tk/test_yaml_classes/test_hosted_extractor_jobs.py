@@ -219,14 +219,9 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             },
         },
         {
-            "Missing required field in config.KafkaConfig: 'topic'",
-            "Unrecognized fields in config.KafkaConfig: 'incrementalLoad', 'interval', 'method', "
-            "'pagination' and 'path'. ",
-            "Missing required field in config.MQTTConfig: 'topicFilter'",
-            "Unrecognized fields in config.MQTTConfig: 'incrementalLoad', 'interval', 'method', "
-            "'pagination' and 'path'. ",
-            "Invalid value at config.RestConfig.incrementalLoad: Input tag 'nextUrl' found using 'type' "
-            "does not match any of the expected tags: 'body', 'headerValue', 'queryParam'",
+            "Invalid value at config.incrementalLoad: Input tag 'nextUrl' found using "
+            "'type' does not match any of the expected tags: 'body', 'headerValue', "
+            "'queryParam'"
         },
         id="Invalid IncrementalLoad and Pagination type",
     )

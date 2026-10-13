@@ -154,8 +154,10 @@ class RestConfig(BaseModelResource):
     )
 
 
-def _determine_config_type(config: dict) -> str:
-    if "topic_filter" in config:
+def _determine_config_type(config: dict | None) -> str:
+    if config is None:
+        return "none"
+    if "topicFilter" in config:
         return "mqtt"
     elif "topic" in config:
         return "kafka"
@@ -201,7 +203,7 @@ class HostedExtractorJobYAML(ToolkitResource):
         Annotated[MQTTConfig, Tag("mqtt")]
         | Annotated[KafkaConfig, Tag("kafka")]
         | Annotated[RestConfig, Tag("rest")]
-        | None
+        | Annotated[None, Tag("none")]
     ) = Field(
         None,
         description="Source specific job configuration. The type depends on the type of source, and is required for some sources.",
