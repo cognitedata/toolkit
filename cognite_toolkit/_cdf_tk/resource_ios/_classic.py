@@ -81,14 +81,14 @@ class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse, AssetYAML]):
         if isinstance(scope, AllScope | DataSetScope):
             yield AssetsAcl(actions=sorted(actions), scope=scope)
 
-    def create(self, items: collections.abc.Sequence[AssetRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.assets.create(items))
+    def create(self, items: collections.abc.Sequence[AssetRequest]) -> list[AssetResponse]:
+        return self.client.tool.assets.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[AssetResponse]:
         return self.client.tool.assets.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: collections.abc.Sequence[AssetRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.assets.update(items, mode="replace"))
+    def update(self, items: collections.abc.Sequence[AssetRequest]) -> list[AssetResponse]:
+        return self.client.tool.assets.update(items, mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
@@ -241,14 +241,14 @@ class SequenceIO(ResourceIO[ExternalId, SequenceRequest, SequenceResponse, Seque
             return super().diff_list(local, cdf, json_path)
         return diff_list_identifiable(local, cdf, get_identifier=lambda col: col["externalId"])
 
-    def create(self, items: collections.abc.Sequence[SequenceRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.sequences.create(items))
+    def create(self, items: collections.abc.Sequence[SequenceRequest]) -> list[SequenceResponse]:
+        return self.client.tool.sequences.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SequenceResponse]:
         return self.client.tool.sequences.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: collections.abc.Sequence[SequenceRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.sequences.update(items, mode="replace"))
+    def update(self, items: collections.abc.Sequence[SequenceRequest]) -> list[SequenceResponse]:
+        return self.client.tool.sequences.update(items, mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
@@ -452,14 +452,14 @@ class EventIO(ResourceIO[ExternalId, EventRequest, EventResponse, EventYAML]):
         if isinstance(scope, AllScope | DataSetScope):
             yield EventsAcl(actions=sorted(actions), scope=scope)
 
-    def create(self, items: collections.abc.Sequence[EventRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.events.create(items))
+    def create(self, items: collections.abc.Sequence[EventRequest]) -> list[EventResponse]:
+        return self.client.tool.events.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[EventResponse]:
         return self.client.tool.events.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: collections.abc.Sequence[EventRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.events.update(items, mode="replace"))
+    def update(self, items: collections.abc.Sequence[EventRequest]) -> list[EventResponse]:
+        return self.client.tool.events.update(items, mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)

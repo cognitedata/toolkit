@@ -224,7 +224,7 @@ authentication:
             crud = TransformationIO(client)
             created = crud.create(transformations)
 
-            assert created == [crud.get_id(t) for t in transformations]
+            assert [crud.get_id(item) for item in created] == [crud.get_id(t) for t in transformations]
 
     def test_load_resource_with_auto_create(self) -> None:
         resource = {

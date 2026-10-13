@@ -748,9 +748,9 @@ class TransformationScheduleIO(
     def get_dependencies(cls, resource: TransformationScheduleYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield TransformationIO, ExternalId(external_id=resource.external_id)
 
-    def create(self, items: Sequence[TransformationScheduleRequest]) -> list[ExternalId]:
+    def create(self, items: Sequence[TransformationScheduleRequest]) -> list[TransformationScheduleResponse]:
         try:
-            return self.get_ids(self.client.tool.transformations.schedules.create(list(items)))
+            return self.client.tool.transformations.schedules.create(list(items))
         except ToolkitAPIError as e:
             if not e.duplicated:
                 raise
@@ -759,13 +759,13 @@ class TransformationScheduleIO(
                 f"  [bold yellow]WARNING:[/] {len(e.duplicated)} transformation schedules already exist(s): {existing}"
             )
             new_items = [item for item in items if item.external_id not in existing]
-            return self.get_ids(self.client.tool.transformations.schedules.create(new_items))
+            return self.client.tool.transformations.schedules.create(new_items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[TransformationScheduleResponse]:
         return self.client.tool.transformations.schedules.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[TransformationScheduleRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.transformations.schedules.update(list(items), mode="replace"))
+    def update(self, items: Sequence[TransformationScheduleRequest]) -> list[TransformationScheduleResponse]:
+        return self.client.tool.transformations.schedules.update(list(items), mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
@@ -857,8 +857,8 @@ class TransformationNotificationIO(
     def as_filename(cls, id: TransformationNotificationId) -> str:
         return sanitize_filename(f"{id.transformation_external_id}_{id.destination}")
 
-    def create(self, items: Sequence[TransformationNotificationRequest]) -> list[TransformationNotificationId]:
-        return self.get_ids(self.client.tool.transformations.notifications.create(list(items)))
+    def create(self, items: Sequence[TransformationNotificationRequest]) -> list[TransformationNotificationResponse]:
+        return self.client.tool.transformations.notifications.create(list(items))
 
     def retrieve(self, ids: Sequence[TransformationNotificationId]) -> list[TransformationNotificationResponse]:
         unique_ids: set[ExternalId] = {ExternalId(external_id=id_.transformation_external_id) for id_ in ids}

@@ -334,14 +334,14 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
                 *e.args[1:],
             ) from None
 
-    def create(self, items: Sequence[AgentRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.agents.create(self.topological_sort(items)))
+    def create(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
+        return self.client.tool.agents.create(self.topological_sort(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[AgentResponse]:
         return self.client.tool.agents.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[AgentRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.agents.update(self.topological_sort(items)))
+    def update(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
+        return self.client.tool.agents.update(self.topological_sort(items))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         # The agents service rejects deleting an agent that is still referenced as a subagent by

@@ -79,14 +79,14 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
                 dumped.pop(key, None)
         return dumped
 
-    def create(self, items: Sequence[DataProductRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.data_products.create(list(items)))
+    def create(self, items: Sequence[DataProductRequest]) -> list[DataProductResponse]:
+        return self.client.tool.data_products.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[DataProductResponse]:
         return self.client.tool.data_products.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[DataProductRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.data_products.update(list(items)))
+    def update(self, items: Sequence[DataProductRequest]) -> list[DataProductResponse]:
+        return self.client.tool.data_products.update(list(items))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)

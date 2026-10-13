@@ -144,12 +144,12 @@ class TestFunctionScheduleLoader:
             client_secret=toolkit_client_config.credentials.client_secret,
         )
 
-        created_ids = loader.create([local])
+        created = loader.create([local])
         try:
-            assert created_ids == [loader.get_id(local)]
+            assert loader.get_ids(created) == [loader.get_id(local)]
         finally:
-            if created_ids:
-                loader.delete(created_ids)
+            if created:
+                loader.delete(loader.get_ids(created))
 
     def test_iterating_over_schedules(
         self, toolkit_client: ToolkitClient, cognite_client: CogniteClient, dummy_function: Function
@@ -328,9 +328,9 @@ class TestDatapointSubscriptionLoader:
             created = loader.create([sub])
             assert len(created) == 1
 
-            updated_ids = loader.update([update])
-            assert len(updated_ids) == 1
-            updated = loader.retrieve(updated_ids)
+            updated_items = loader.update([update])
+            assert len(updated_items) == 1
+            updated = loader.retrieve(loader.get_ids(updated_items))
             assert updated[0].name == "Updated name"
         finally:
             loader.delete([sub.as_id()])
@@ -369,18 +369,18 @@ timeSeriesIds:
         loader = DatapointSubscriptionIO(toolkit_client)
         sub = self._load_subscription_from_yaml(self._create_mock_file(sub_yaml), loader)
         try:
-            created_ids = loader.create([sub])
-            assert len(created_ids) == 1
-            created = loader.retrieve(created_ids)
+            created_items = loader.create([sub])
+            assert len(created_items) == 1
+            created = loader.retrieve(loader.get_ids(created_items))
             initial_description = created[0].description
             assert created[0].time_series_count == len(one_hundred_and_one_timeseries) + len(
                 three_hundred_and_three_cognite_timeseries
             ), "The subscription should have the correct number of time series"
 
             update = self._load_subscription_from_yaml(self._create_mock_file(update_yaml), loader)
-            updated_ids = loader.update([update])
-            assert len(updated_ids) == 1
-            updated = loader.retrieve(updated_ids)
+            updated_items = loader.update([update])
+            assert len(updated_items) == 1
+            updated = loader.retrieve(loader.get_ids(updated_items))
             updated_description = updated[0].description
             assert updated_description != initial_description, (
                 "The description should have changed after the update with a hash fo the timeseries IDs"
@@ -550,9 +550,9 @@ class TestDataModelLoader:
             # You need to update the version to update the model
             update.version = "2"
 
-            updated_ids = loader.update([update])
-            assert len(updated_ids) == 1
-            updated = loader.retrieve(updated_ids)
+            updated_items = loader.update([update])
+            assert len(updated_items) == 1
+            updated = loader.retrieve(loader.get_ids(updated_items))
             assert my_model.views is not None
             assert updated[0].views == [my_model.views[0]]
         finally:

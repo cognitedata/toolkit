@@ -109,8 +109,8 @@ class ExternalDataSourceIO(
         if item.settings and item.settings.credentials:
             yield item.settings.credentials.client_secret
 
-    def create(self, items: Sequence[ExternalDataSourceRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.transformations.external_data_sources.create(list(items)))
+    def create(self, items: Sequence[ExternalDataSourceRequest]) -> list[ExternalDataSourceResponse]:
+        return self.client.tool.transformations.external_data_sources.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ExternalDataSourceResponse]:
         if not ids:

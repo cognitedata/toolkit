@@ -208,19 +208,19 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
                 dumped.pop(key, None)
         return dumped
 
-    def create(self, items: Sequence[SpaceRequest]) -> list[SpaceId]:
+    def create(self, items: Sequence[SpaceRequest]) -> list[SpaceResponse]:
         for item in items:
             item_id = self.get_id(item)
             if item_id in self._deleted_time_by_id:
                 elapsed_since_delete = time.perf_counter() - self._deleted_time_by_id[item_id]
                 if elapsed_since_delete < self.delete_recreate_limit_seconds:
                     time.sleep(self.delete_recreate_limit_seconds - elapsed_since_delete)
-        return self.get_ids(self.client.tool.spaces.create(items))
+        return self.client.tool.spaces.create(items)
 
     def retrieve(self, ids: Sequence[SpaceId]) -> list[SpaceResponse]:
         return self.client.tool.spaces.retrieve(list(ids))
 
-    def update(self, items: Sequence[SpaceRequest]) -> list[SpaceId]:
+    def update(self, items: Sequence[SpaceRequest]) -> list[SpaceResponse]:
         return self.create(items)
 
     def delete(self, ids: Sequence[SpaceId]) -> list[SpaceId]:
@@ -403,8 +403,8 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
                 dumped.pop("usedFor", None)
         return dumped
 
-    def create(self, items: Sequence[ContainerRequest]) -> list[ContainerId]:
-        return self.get_ids(self._upsert(items))
+    def create(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
+        return self._upsert(items)
 
     def _upsert(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
         created: list[ContainerResponse] = []
@@ -443,7 +443,7 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
     def retrieve(self, ids: Sequence[ContainerId]) -> list[ContainerResponse]:
         return self.client.tool.containers.retrieve(list(ids))
 
-    def update(self, items: Sequence[ContainerRequest]) -> list[ContainerId]:
+    def update(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
         updated = self._upsert(items)
         # The API might silently fail to apply some changes.
         updated_by_id = {item.as_id(): item for item in updated}
@@ -458,7 +458,7 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             cdf_dict = self.dump_resource(updated_by_id[item_id], local_dict)
             if cdf_dict != local_dict:
                 self._print_container_diff_warning(item_id, local_dict, cdf_dict)
-        return self.get_ids(updated)
+        return updated
 
     def _print_container_diff_warning(
         self,
@@ -828,12 +828,12 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
-    def create(self, items: Sequence[ViewRequest]) -> list[ViewId]:
+    def create(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
         creation_order = self._compute_deploy_batches(items)
         created: list[ViewResponse] = []
         for batch in creation_order:
             created.extend(self.client.tool.views.create(batch))
-        return self.get_ids(created)
+        return created
 
     def _compute_deploy_batches(self, items: Sequence[ViewRequest]) -> list[list[ViewRequest]]:
         """Sorts views into batches based on their dependency graph (implements, reverse direct relations,
@@ -876,7 +876,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
     def retrieve(self, ids: Sequence[ViewId | ViewNoVersionId]) -> list[ViewResponse]:
         return self.client.tool.views.retrieve(list(ids), include_inherited_properties=False)
 
-    def update(self, items: Sequence[ViewRequest]) -> list[ViewId]:
+    def update(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
         return self.create(items)
 
     def delete(self, ids: Sequence[ViewId]) -> list[ViewId]:
@@ -1124,13 +1124,13 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
-    def create(self, items: Sequence[DataModelRequest]) -> list[DataModelId]:
-        return self.get_ids(self.client.tool.data_models.create(items))
+    def create(self, items: Sequence[DataModelRequest]) -> list[DataModelResponse]:
+        return self.client.tool.data_models.create(items)
 
     def retrieve(self, ids: Sequence[DataModelId]) -> list[DataModelResponse]:
         return self.client.tool.data_models.retrieve(list(ids))
 
-    def update(self, items: Sequence[DataModelRequest]) -> list[DataModelId]:
+    def update(self, items: Sequence[DataModelRequest]) -> list[DataModelResponse]:
         updated = self.client.tool.data_models.create(items)
         # There is a bug in the API not raising an exception if view is removed from a data model.
         # So we check here that the update was fixed.
@@ -1155,7 +1155,7 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
                     code=500,
                 )
 
-        return self.get_ids(updated)
+        return updated
 
     def delete(self, ids: Sequence[DataModelId]) -> list[DataModelId]:
         id_list = list(ids)
@@ -1615,7 +1615,7 @@ class GraphQLIO(
                 dumped["graphQlDml"] = local["graphQlDml"]
         return dumped
 
-    def create(self, items: Sequence[GraphQLDataModelRequest]) -> list[DataModelId]:
+    def create(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
         creation_order = self._topological_sort(items)
 
         created_list: list[GraphQLDataModelResponse] = []
@@ -1631,7 +1631,7 @@ class GraphQLIO(
                 item_with_dml = item
             created = self.client.tool.graphql_data_models.create([item_with_dml])
             created_list.extend(created)
-        return self.get_ids(created_list)
+        return created_list
 
     def _get_graphql_content(self, data_model_id: DataModelId) -> str:
         filepath = self._graphql_filepath_cache.get(data_model_id)
@@ -1642,7 +1642,7 @@ class GraphQLIO(
     def retrieve(self, ids: Sequence[DataModelId]) -> list[GraphQLDataModelResponse]:
         return self.client.tool.graphql_data_models.retrieve(list(ids), inline_views=False)
 
-    def update(self, items: Sequence[GraphQLDataModelRequest]) -> list[DataModelId]:
+    def update(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
         return self.create(items)
 
     def delete(self, ids: Sequence[DataModelId]) -> list[DataModelId]:

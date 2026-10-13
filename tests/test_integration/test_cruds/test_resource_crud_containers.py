@@ -116,8 +116,9 @@ class TestContainerIO:
 
             write_container = ContainerRequest.model_validate(node_container.as_write().dump())
             write_container.description = "Updated description"
-            updated_ids = loader.update([write_container])
-            assert len(updated_ids) == 1
+            updated_items = loader.update([write_container])
+            assert len(updated_items) == 1
+            updated_ids = loader.get_ids(updated_items)
             updated = loader.retrieve(updated_ids)
             if updated[0].description != write_container.description:
                 # The API is not always consistent in returning the updated description,
@@ -172,8 +173,9 @@ class TestContainerIO:
 
             write_container = ContainerRequest.model_validate(edge_container.as_write().dump())
             write_container.description = "Updated description"
-            updated_ids = loader.update([write_container])
-            assert len(updated_ids) == 1
+            updated_items = loader.update([write_container])
+            assert len(updated_items) == 1
+            updated_ids = loader.get_ids(updated_items)
             updated = loader.retrieve(updated_ids)
             if updated[0].description != write_container.description:
                 # The API is not always consistent in returning the updated description,
@@ -207,9 +209,9 @@ class TestContainerIO:
         container = io.load_resource(raw_data)
         retrieved = io.retrieve([container.as_id()])
         if len(retrieved) == 0:
-            created_ids = io.create([container])
-            assert len(created_ids) == 1
-            retrieved = io.retrieve(created_ids)
+            created_items = io.create([container])
+            assert len(created_items) == 1
+            retrieved = io.retrieve(io.get_ids(created_items))
         assert raw_data == io.dump_resource(retrieved[0], raw_data)
 
 
@@ -226,9 +228,9 @@ class Test3DModelLoader:
 
         created_internal_ids: list[InternalId] = []
         try:
-            created_ids = io.create([model])
-            assert len(created_ids) == 1
-            created = io.retrieve(created_ids)
+            created_items = io.create([model])
+            assert len(created_items) == 1
+            created = io.retrieve(io.get_ids(created_items))
             assert len(created) == 1
             created_internal_ids.append(InternalId(id=created[0].id))
 
@@ -238,9 +240,9 @@ class Test3DModelLoader:
             assert metadata is not None
             metadata["new_key"] = "new_value"
 
-            updated_ids = io.update([update])
-            assert len(updated_ids) == 1
-            updated = io.retrieve(updated_ids)
+            updated_items = io.update([update])
+            assert len(updated_items) == 1
+            updated = io.retrieve(io.get_ids(updated_items))
             assert len(updated) == 1
             updated_metadata = updated[0].metadata
             assert updated_metadata is not None

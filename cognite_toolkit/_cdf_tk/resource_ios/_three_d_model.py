@@ -77,8 +77,8 @@ class ThreeDModelIO(
         if isinstance(scope, AllScope | DataSetScope):
             yield ThreeDAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
 
-    def create(self, items: Sequence[ThreeDModelClassicRequest]) -> list[NameId]:
-        return self.get_ids(self.client.tool.three_d.models_classic.create(items))
+    def create(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelClassicResponse]:
+        return self.client.tool.three_d.models_classic.create(items)
 
     def retrieve(self, ids: Sequence[NameId]) -> list[ThreeDModelClassicResponse]:
         selected_names = {id_.name for id_ in ids}
@@ -92,8 +92,8 @@ class ThreeDModelIO(
                 break
         return output
 
-    def update(self, items: Sequence[ThreeDModelClassicRequest]) -> list[NameId]:
-        return self.get_ids(self.client.tool.three_d.models_classic.update(items))
+    def update(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelClassicResponse]:
+        return self.client.tool.three_d.models_classic.update(items)
 
     def delete(self, ids: Sequence[NameId]) -> list[NameId]:
         models = self.retrieve(ids)

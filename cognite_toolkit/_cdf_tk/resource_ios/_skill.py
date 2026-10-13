@@ -220,14 +220,14 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
             yield sidecar_path, content
         yield base_filepath, resource
 
-    def create(self, items: Sequence[SkillRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.skills.create(items))
+    def create(self, items: Sequence[SkillRequest]) -> list[SkillResponse]:
+        return self.client.tool.skills.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SkillResponse]:
         return self.client.tool.skills.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[SkillRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.skills.update(items))
+    def update(self, items: Sequence[SkillRequest]) -> list[SkillResponse]:
+        return self.client.tool.skills.update(items)
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)

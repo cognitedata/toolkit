@@ -16,7 +16,7 @@ from cognite.client.data_classes.capabilities import FilesAcl, FunctionsAcl
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
@@ -337,7 +337,7 @@ secrets:
         with patch.object(function_io, "_is_activated", return_value=True):
             result = function_io.create([FunctionRequest(name="my_func", external_id="my_func", file_id=-1)])
 
-        assert result == [ExternalId(external_id="my_func")]
+        assert result == [created_response]
 
     def test_create_raises_timeout_when_file_not_uploaded(self, function_io_with_file: FunctionIO) -> None:
         function_io = function_io_with_file

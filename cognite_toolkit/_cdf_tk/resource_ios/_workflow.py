@@ -152,11 +152,11 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
     def retrieve(self, ids: Sequence[ExternalId]) -> list[WorkflowResponse]:
         return self.client.tool.workflows.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def create(self, items: Sequence[WorkflowRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.workflows.create(items))
+    def create(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
+        return self.client.tool.workflows.create(items)
 
-    def update(self, items: Sequence[WorkflowRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.workflows.update(items))
+    def update(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
+        return self.client.tool.workflows.update(items)
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
@@ -437,14 +437,14 @@ class WorkflowVersionIO(
     def _upsert(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
         return self.client.tool.workflows.versions.create(items)
 
-    def create(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionId]:
+    def create(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
         upserted: list[WorkflowVersionResponse] = []
         for item in self.topological_sort(items):
             upserted.extend(self.client.tool.workflows.versions.create([item]))
-        return self.get_ids(upserted)
+        return upserted
 
-    def update(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionId]:
-        return self.get_ids(self._upsert(items))
+    def update(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
+        return self._upsert(items)
 
     def delete(self, ids: Sequence[WorkflowVersionId]) -> list[WorkflowVersionId]:
         id_list = list(ids)
@@ -554,8 +554,8 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
-    def create(self, items: Sequence[WorkflowTriggerRequest]) -> list[ExternalId]:
-        return self.get_ids(self._upsert(items))
+    def create(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
+        return self._upsert(items)
 
     def _upsert(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
         created: dict[ExternalId, WorkflowTriggerResponse] = {}
@@ -600,8 +600,8 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         lookup = {id_.external_id for id_ in ids}
         return [trigger for trigger in all_triggers if trigger.external_id in lookup]
 
-    def update(self, items: Sequence[WorkflowTriggerRequest]) -> list[ExternalId]:
-        return self.get_ids(self._upsert(items))
+    def update(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
+        return self._upsert(items)
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)

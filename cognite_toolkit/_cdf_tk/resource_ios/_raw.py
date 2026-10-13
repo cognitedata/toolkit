@@ -91,8 +91,8 @@ class RawDatabaseIO(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDa
     def dump_resource(self, resource: RAWDatabaseResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         return {"dbName": resource.name}
 
-    def create(self, items: Sequence[RAWDatabaseRequest]) -> list[RawDatabaseId]:
-        return self.get_ids(self.client.tool.raw.databases.create(items))
+    def create(self, items: Sequence[RAWDatabaseRequest]) -> list[RAWDatabaseResponse]:
+        return self.client.tool.raw.databases.create(items)
 
     def retrieve(self, ids: Sequence[RawDatabaseId]) -> list[RAWDatabaseResponse]:
         database_list = self.client.tool.raw.databases.list(limit=None)
@@ -213,8 +213,8 @@ class RawTableIO(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableRespon
     def dump_resource(self, resource: RAWTableResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         return {"dbName": resource.db_name, "tableName": resource.name}
 
-    def create(self, items: Sequence[RAWTableRequest]) -> list[RawTableId]:
-        return self.get_ids(self.client.tool.raw.tables.create(items))
+    def create(self, items: Sequence[RAWTableRequest]) -> list[RAWTableResponse]:
+        return self.client.tool.raw.tables.create(items)
 
     def retrieve(self, ids: Sequence[RawTableId]) -> list[RAWTableResponse]:
         retrieved: list[RAWTableResponse] = []

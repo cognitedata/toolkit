@@ -29,7 +29,7 @@ def deployed_misbehaving_grandparent(toolkit_client: ToolkitClient, cognite_clie
 
     retrieved = loader.retrieve([loader.get_id(model)])
     if not retrieved:
-        return loader.create([model])[0]
+        return loader.get_id(loader.create([model])[0])
     return retrieved[0].as_id()
 
 

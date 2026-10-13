@@ -166,10 +166,8 @@ class FunctionCodeBundle:
         if filemetadata_files:
             fileio = FileMetadataIO(self.client)
             file_request = fileio.load_resource_files(list(filemetadata_files))
-            created_ids = fileio.create(file_request)
-            # Create only returns identifiers. The function API needs the file's internal id.
-            retrieved = fileio.retrieve(created_ids)
-            by_external_id = {response.external_id: response for response in retrieved if response.external_id}
+            created = fileio.create(file_request)
+            by_external_id = {response.external_id: response for response in created if response.external_id}
             file_id_by_external_id.update(
                 {
                     external_id: InternalId(id=by_external_id[external_id].id)

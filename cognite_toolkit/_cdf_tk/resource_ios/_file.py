@@ -183,12 +183,12 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
             dumped["assetExternalIds"] = self.client.lookup.assets.external_id(asset_ids)
         return dumped
 
-    def create(self, items: Sequence[FileMetadataRequest]) -> list[ExternalId]:
+    def create(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
         responses = self.client.tool.filemetadata.create(items, overwrite=True)
         if self.support_upload:
             for response in responses:
                 self._try_upload_file_content(response)
-        return self.get_ids(responses)
+        return responses
 
     def _try_upload_file_content(self, response: FileMetadataResponse) -> None:
         if response.filepath and response.upload_url:
@@ -197,7 +197,7 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
     def retrieve(self, ids: Sequence[ExternalId]) -> list[FileMetadataResponse]:
         return self.client.tool.filemetadata.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[FileMetadataRequest]) -> list[ExternalId]:
+    def update(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
         pre_update_hash_by_id: dict[str, str | None] = {}
         if self.support_upload:
             # Read hashes before updating — the update payload overwrites them, making
@@ -220,7 +220,7 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
                             f"Expected to get one upload url for file with external id {item.external_id}, but got {len(responses_with_url)}"
                         )
                     self._try_upload_file_content(responses_with_url[0])
-        return self.get_ids(responses)
+        return responses
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)

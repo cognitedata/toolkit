@@ -75,8 +75,8 @@ class SchemaMappingIO(ResourceIO[ExternalId, SchemaMappingRequest, SchemaMapping
     def dump_resource(self, resource: SchemaMappingResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         return resource.as_request_resource().dump()
 
-    def create(self, items: Sequence[SchemaMappingRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.sap_writeback.mappings.create(list(items)))
+    def create(self, items: Sequence[SchemaMappingRequest]) -> list[SchemaMappingResponse]:
+        return self.client.sap_writeback.mappings.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SchemaMappingResponse]:
         if not ids:
@@ -149,8 +149,8 @@ class SAPInstanceIO(ResourceIO[ExternalId, SAPInstanceRequest, SAPInstanceRespon
     def sensitive_strings(self, item: SAPInstanceRequest) -> Iterable[str]:
         yield item.password
 
-    def create(self, items: Sequence[SAPInstanceRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.sap_writeback.instances.create(list(items)))
+    def create(self, items: Sequence[SAPInstanceRequest]) -> list[SAPInstanceResponse]:
+        return self.client.sap_writeback.instances.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SAPInstanceResponse]:
         if not ids:
@@ -222,8 +222,8 @@ class SAPEndpointIO(ResourceIO[ExternalId, SAPEndpointRequest, SAPEndpointRespon
     def dump_resource(self, resource: SAPEndpointResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         return resource.as_request_resource().dump()
 
-    def create(self, items: Sequence[SAPEndpointRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.sap_writeback.endpoints.create(list(items)))
+    def create(self, items: Sequence[SAPEndpointRequest]) -> list[SAPEndpointResponse]:
+        return self.client.sap_writeback.endpoints.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SAPEndpointResponse]:
         if not ids:

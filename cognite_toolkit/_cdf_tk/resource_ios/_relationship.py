@@ -58,14 +58,14 @@ class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipRes
         if isinstance(scope, AllScope | DataSetScope):
             yield RelationshipsAcl(actions=sorted(actions), scope=scope)
 
-    def create(self, items: Sequence[RelationshipRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.relationships.create(list(items)))
+    def create(self, items: Sequence[RelationshipRequest]) -> list[RelationshipResponse]:
+        return self.client.tool.relationships.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[RelationshipResponse]:
         return self.client.tool.relationships.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[RelationshipRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.relationships.update(list(items)))
+    def update(self, items: Sequence[RelationshipRequest]) -> list[RelationshipResponse]:
+        return self.client.tool.relationships.update(list(items))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         if not ids:

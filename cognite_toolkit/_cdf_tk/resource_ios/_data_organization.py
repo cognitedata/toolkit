@@ -124,14 +124,14 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSet
         # rawTables and consoleOwners, and pull diffs those through this loader.
         return diff_list_force_hashable(local, cdf)
 
-    def create(self, items: Sequence[DataSetRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.datasets.create(list(items)))
+    def create(self, items: Sequence[DataSetRequest]) -> list[DataSetResponse]:
+        return self.client.tool.datasets.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[DataSetResponse]:
         return self.client.tool.datasets.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[DataSetRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.datasets.update(list(items), mode="replace"))
+    def update(self, items: Sequence[DataSetRequest]) -> list[DataSetResponse]:
+        return self.client.tool.datasets.update(list(items), mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         raise NotImplementedError("CDF does not support deleting data sets.")
@@ -182,8 +182,8 @@ class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse, LabelsYAML]):
         if isinstance(scope, AllScope | DataSetScope):
             yield LabelsAcl(actions=sorted(actions), scope=scope)
 
-    def create(self, items: Sequence[LabelRequest]) -> list[ExternalId]:
-        return self.get_ids(self.client.tool.labels.create(list(items)))
+    def create(self, items: Sequence[LabelRequest]) -> list[LabelResponse]:
+        return self.client.tool.labels.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[LabelResponse]:
         return self.client.tool.labels.retrieve(list(ids), ignore_unknown_ids=True)

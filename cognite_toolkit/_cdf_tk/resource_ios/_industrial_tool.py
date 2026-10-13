@@ -265,7 +265,8 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
                 f"Missing file metadata for Streamlit app with external_id {e.args[0]!r}. Cannot create Streamlit app without the file metadata."
             ) from e
         file_requests = fileio.load_resource_files(filepaths)
-        return fileio.create(file_requests)
+        # Streamlit apps are created through file metadata, so the file responses are not Streamlit responses.
+        return fileio.get_ids(fileio.create(file_requests))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[StreamlitResponse]:
         return self.client.tool.streamlit.retrieve(list(ids), ignore_unknown_ids=True)
@@ -290,8 +291,9 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
             for r in current_cdf
             if r.external_id is not None
         }
-        updated_ids = fileio.update(list(file_request_by_external_id.values()))
-        updated_external_ids = {identifier.external_id for identifier in updated_ids}
+        updated = fileio.update(list(file_request_by_external_id.values()))
+        updated_external_ids = {response.external_id for response in updated if response.external_id}
+        updated_ids = fileio.get_ids(updated)
         for item in items:
             if item.external_id not in updated_external_ids or item.external_id not in file_request_by_external_id:
                 continue

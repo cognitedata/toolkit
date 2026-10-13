@@ -98,11 +98,11 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
-    def create(self, items: Sequence[SearchConfigRequest]) -> list[ViewNoVersionId]:
+    def create(self, items: Sequence[SearchConfigRequest]) -> list[SearchConfigResponse]:
         """
         Create new search configurations using the create/upsert method
         """
-        return self.get_ids(self.client.tool.search_configurations.create(items))
+        return self.client.tool.search_configurations.create(items)
 
     def retrieve(self, ids: Sequence[ViewNoVersionId]) -> list[SearchConfigResponse]:
         """Retrieve search configurations by their IDs"""
@@ -111,11 +111,11 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
         # The API does not support server-side filtering, so we filter in memory.
         return [config for config in all_configs if config.view in id_set]
 
-    def update(self, items: Sequence[SearchConfigRequest]) -> list[ViewNoVersionId]:
+    def update(self, items: Sequence[SearchConfigRequest]) -> list[SearchConfigResponse]:
         """
         Update search configurations using the update/upsert method
         """
-        return self.get_ids(self.client.tool.search_configurations.update(items))
+        return self.client.tool.search_configurations.update(items)
 
     def delete(self, ids: Sequence[ViewNoVersionId]) -> list[ViewNoVersionId]:
         """
