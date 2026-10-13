@@ -7,6 +7,7 @@ from ._dependencies import DependencyRuleSet
 from ._functions import FunctionRuleSet
 from ._infield import InFieldCDMRuleSet
 from ._orchestrator import LocalRulesOrchestrator, get_global_rules_registry
+from ._transformations import TransformationRuleSet
 
 __all__ = [
     "AgentRuleSet",
@@ -20,5 +21,6 @@ __all__ = [
     "ToolkitGlobalRuleSet",
     "ToolkitGlobalRuleSet",
     "ToolkitLocalRule",
+    "TransformationRuleSet",
     "get_global_rules_registry",
 ]
