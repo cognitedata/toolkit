@@ -23,7 +23,7 @@ class TestPlugins:
 
     def test_plugin_is_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
         cdf_toml_singleton = self._create_cdf_toml({"run": True, "data": True, "dump": False, "dev": False})
-        monkeypatch.setattr(f"{Plugins.__module__}.CDFToml", cdf_toml_singleton)
+        monkeypatch.setattr(CDFToml, "load_module_context", cdf_toml_singleton.load_module_context)
 
         assert not Plugins.dump.value.is_enabled()
         assert not Plugins.dev.value.is_enabled()
