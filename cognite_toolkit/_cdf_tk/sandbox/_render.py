@@ -1,80 +1,27 @@
-"""Render dirty source files back to YAML with comments and variables preserved."""
+"""Render edited source files back to YAML with comments and variables preserved."""
 
-from copy import deepcopy
-from pathlib import Path
 from typing import Any
 
-from cognite_toolkit._cdf_tk.client._resource_base import RequestResource
-from cognite_toolkit._cdf_tk.commands.pull import ResourceReplacer
 from cognite_toolkit._cdf_tk.data_classes import YAMLComments
 from cognite_toolkit._cdf_tk.sandbox._source import SourceFile
-from cognite_toolkit._cdf_tk.utils.file import safe_write, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 
-def align_dump_to_local(
-    dumped: Any,
-    local: Any,
-    baseline: Any,
-) -> Any:
-    """Drop keys that the request dump adds but the original file never had.
-
-    New keys (present in dumped, absent from local) are kept as-is so additive
-    operations survive. Keys that exist on both sides are recursed into; keys
-    that appear in both dumped and the load-time baseline but not in local are
-    stripped as serializer noise (for example ``type: container`` on a view
-    property reference).
-    """
-    if isinstance(dumped, dict) and isinstance(local, dict):
-        baseline_dict = baseline if isinstance(baseline, dict) else {}
-        result: dict[str, Any] = {}
-        for key, value in dumped.items():
-            if key not in local:
-                # Keys the dump always had but the author never wrote are noise.
-                # Keys absent from both local and the load-time baseline are new.
-                if key in baseline_dict:
-                    continue
-                result[key] = deepcopy(value)
-                continue
-            result[key] = align_dump_to_local(value, local[key], baseline_dict.get(key))
-        return result
-    if isinstance(dumped, list) and isinstance(local, list):
-        baseline_list = baseline if isinstance(baseline, list) else []
-        result_list: list[Any] = []
-        for index, value in enumerate(dumped):
-            if index < len(local):
-                baseline_item = baseline_list[index] if index < len(baseline_list) else None
-                result_list.append(align_dump_to_local(value, local[index], baseline_item))
-            else:
-                result_list.append(deepcopy(value))
-        return result_list
-    return deepcopy(dumped)
-
-
-def new_properties_only(
-    aligned: dict[str, Any],
-    resolved: dict[str, Any],
-) -> dict[str, Any] | None:
+def new_properties_only(current: dict[str, Any], baseline: dict[str, Any]) -> dict[str, Any] | None:
     """If the only change is new entries under ``properties``, return those entries."""
-    if set(aligned) - set(resolved) - {"properties"}:
+    if "properties" not in baseline or set(current) - set(baseline) - {"properties"}:
         return None
-    for key, value in resolved.items():
-        if key == "properties":
-            continue
-        if key not in aligned or aligned[key] != value:
+    for key, value in baseline.items():
+        if key != "properties" and current.get(key) != value:
             return None
 
-    resolved_props = resolved.get("properties") or {}
-    aligned_props = aligned.get("properties") or {}
-    if not isinstance(resolved_props, dict) or not isinstance(aligned_props, dict):
+    baseline_props = baseline["properties"] or {}
+    current_props = current.get("properties") or {}
+    if not isinstance(baseline_props, dict) or not isinstance(current_props, dict):
         return None
-    if any(key not in aligned_props for key in resolved_props):
+    if any(current_props.get(key) != value for key, value in baseline_props.items()):
         return None
-    for key, value in resolved_props.items():
-        if aligned_props.get(key) != value:
-            return None
-
-    new_props = {key: value for key, value in aligned_props.items() if key not in resolved_props}
-    return new_props or None
+    return {key: value for key, value in current_props.items() if key not in baseline_props} or None
 
 
 def _indent_block(block: str, spaces: int) -> str:
@@ -128,62 +75,26 @@ def _restore_original_tokens(dumped: str, token_by_placeholder: dict[str, str]) 
     return dumped
 
 
-def render_source_file(
-    source: SourceFile,
-    requests_by_index: dict[int, RequestResource],
-) -> str:
-    """Render a dirty source file to YAML text ready to write."""
+def render_source_file(source: SourceFile) -> str:
+    """Render an edited source file to YAML text ready to write."""
+    content: dict[str, Any] | list[dict[str, Any]] = source.placeholder if source.is_list else source.placeholder[0]
     if source.is_new:
-        items = [requests_by_index[index].dump() for index in sorted(requests_by_index)]
-        content: dict[str, Any] | list[dict[str, Any]] = items if source.is_list else items[0]
         return yaml_safe_dump(content)
 
-    # Prefer a surgical splice when the only change is new properties. Full
-    # yaml_safe_dump rewrites quoting and {{ }} spacing on real projects.
-    if not source.is_list and len(source.resolved) == 1 and 0 in requests_by_index:
-        baseline = source.baseline_dumps[0] if source.baseline_dumps else {}
-        aligned = align_dump_to_local(requests_by_index[0].dump(), source.resolved[0], baseline)
-        if (new_props := new_properties_only(aligned, source.resolved[0])) is not None:
-            return splice_properties_into_source(source.original_text, new_props)
-
-    updated_items: list[dict[str, Any]] = []
-    replacer = ResourceReplacer(source.value_by_placeholder, source.crud)
-    for index, resolved in enumerate(source.resolved):
-        request = requests_by_index.get(index)
-        if request is None:
-            updated_items.append(deepcopy(resolved))
-            continue
-        baseline = source.baseline_dumps[index] if index < len(source.baseline_dumps) else {}
-        to_write = align_dump_to_local(request.dump(), resolved, baseline)
-        updated_items.append(
-            replacer.replace(
-                resolved,
-                source.placeholder[index],
-                to_write,
-            )
+    # Prefer a surgical splice when the only change is new properties. A full
+    # dump rewrites quoting and {{ }} spacing on real projects.
+    if (
+        source.baseline
+        and not source.is_list
+        and (new := new_properties_only(source.placeholder[0], source.baseline[0]))
+    ):
+        return _restore_original_tokens(
+            splice_properties_into_source(source.original_text, new), source.token_by_placeholder
         )
 
-    updated: dict[str, Any] | list[dict[str, Any]] = updated_items if source.is_list else updated_items[0]
-    dumped = yaml_safe_dump(updated)
-    dumped = _restore_original_tokens(dumped, source.token_by_placeholder)
-    if source.original_text:
-        # YAMLComments.dump joins with "\n" and drops a trailing newline; restore it.
-        content = YAMLComments.load(source.original_text).dump(dumped)
-        if source.original_text.endswith("\n") and not content.endswith("\n"):
-            content += "\n"
-        return content
-    return dumped
-
-
-def write_source_file(
-    source: SourceFile,
-    requests_by_index: dict[int, RequestResource],
-) -> Path:
-    """Render and write a dirty source file. Returns the path written."""
-    content = render_source_file(source, requests_by_index)
-    source.path.parent.mkdir(parents=True, exist_ok=True)
-    safe_write(source.path, content)
-    source.original_text = content
-    source.dirty = False
-    source.is_new = False
-    return source.path
+    dumped = _restore_original_tokens(yaml_safe_dump(content), source.token_by_placeholder)
+    rendered = YAMLComments.load(source.original_text).dump(dumped)
+    # YAMLComments.dump joins with "\n" and drops a trailing newline; restore it.
+    if source.original_text.endswith("\n") and not rendered.endswith("\n"):
+        rendered += "\n"
+    return rendered

@@ -4,18 +4,15 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, DataModelId, ExternalId, SpaceId, ViewId
+from pydantic import TypeAdapter
+
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight
 from cognite_toolkit._cdf_tk.rules._base import InternalValidatorException
-from cognite_toolkit._cdf_tk.sandbox import _operations
+from cognite_toolkit._cdf_tk.sandbox._operations import AddResource, Operation, RemovePath, SetExtra, SetPath
 from cognite_toolkit._cdf_tk.sandbox._session import ApplyResult, ModelingSession
 
-OPERATIONS: dict[str, type[_operations.Operation]] = {
-    cls.__name__: cls for cls in _operations.Operation.__subclasses__()
-}
-DATA_MODELING_FOLDERS = ("data_modeling", "transformations")
+OPERATIONS: dict[str, type[Operation]] = {cls.__name__: cls for cls in (SetPath, RemovePath, SetExtra, AddResource)}
 
 
 def insight_to_json(insight: Insight | InternalValidatorException) -> dict[str, Any]:
@@ -24,7 +21,7 @@ def insight_to_json(insight: Insight | InternalValidatorException) -> dict[str, 
     return insight.model_dump(mode="json")
 
 
-def parse_operation(payload: dict[str, Any]) -> _operations.Operation:
+def parse_operation(payload: dict[str, Any]) -> Operation:
     payload = dict(payload)
     name = payload.pop("op", None)
     if name not in OPERATIONS:
@@ -50,6 +47,8 @@ class Workspace:
         if build.selected_modules is None:
             raise ValueError("No modules selected. Pass modules or set environment.selected in the config YAML.")
         scan = BuildV2Command.find_modules(build, "load")
+        if scan.non_existing_module_names:
+            raise ValueError(f"Modules do not exist: {[item.name for item in scan.non_existing_module_names]}")
 
         if self.session is None or self.session.root != organization_dir:
             self.session = ModelingSession(root=organization_dir)
@@ -59,67 +58,40 @@ class Workspace:
         for module in scan.modules:
             if module.path in self._loaded_modules:
                 continue
-            for folder in DATA_MODELING_FOLDERS:
-                if (module.path / folder).is_dir():
-                    self.session.load_dir(module.path / folder, module.variables)
+            self.session.add_module(module)
             self._loaded_modules.add(module.path)
             loaded.append(module.id.as_posix())
         return {"modules": loaded, "counts": self.counts()}
 
     def counts(self) -> dict[str, int]:
         session = self.get_session()
-        counts = Counter(
-            type(request).__name__.removesuffix("Request").lower() for request in session.requests.values()
-        )
-        counts["transformationQuery"] = len(session.queries)
-        return dict(counts)
+        return dict(Counter(ref.source.read.source_type.kind.lower() for ref in session.resources()))
 
     def list_resources(self) -> list[dict[str, Any]]:
-        session = self.get_session()
-        resources = [
+        return [
             {
-                "kind": type(request).__name__.removesuffix("Request").lower(),
-                "identifier": identifier.dump(),
-                "file": str(session._locations[identifier].path),
+                "kind": ref.source.read.source_type.kind,
+                "folder": ref.source.read.source_type.resource_folder,
+                "identifier": ref.resource.identifier.dump(),
+                "file": str(ref.source.path),
             }
-            for identifier, request in session.requests.items()
+            for ref in self.get_session().resources()
         ]
-        resources.extend(
-            {"kind": "transformationquery", "identifier": identifier.dump(), "file": str(source.path)}
-            for identifier, source in session.queries.items()
-        )
-        return resources
 
-    def get_resource(self, kind: str, space: str | None, external_id: str | None, version: str | None) -> Any:
+    def get_resource(self, kind: str, identifier: dict[str, Any], folder: str | None = None) -> dict[str, Any]:
         session = self.get_session()
-        if kind == "transformationquery":
-            return {"query": session.get_query(ExternalId(external_id=_required(external_id, "externalId"))).text}
-        identifier: Identifier
-        if kind == "space":
-            identifier = SpaceId(space=_required(space, "space"))
-        elif kind == "container":
-            identifier = ContainerId(space=_required(space, "space"), external_id=_required(external_id, "externalId"))
-        elif kind == "view":
-            identifier = ViewId(
-                space=_required(space, "space"),
-                external_id=_required(external_id, "externalId"),
-                version=_required(version, "version"),
-            )
-        elif kind == "datamodel":
-            identifier = DataModelId(
-                space=_required(space, "space"),
-                external_id=_required(external_id, "externalId"),
-                version=_required(version, "version"),
-            )
-        else:
-            raise ValueError(f"Unknown kind {kind!r}")
-        return session.get(identifier).dump()
+        ref = session.find(kind, identifier, folder)
+        return {
+            "resource": ref.source.resolved[ref.index],
+            "extraFiles": [
+                {"field": field, "file": str(text_file.path), "text": text_file.text}
+                for field, text_file in session.extra_texts(ref).items()
+            ],
+        }
+
+    def get_schema(self, kind: str, folder: str | None = None) -> dict[str, Any]:
+        crud_cls = self.get_session().crud_class(kind, folder)
+        return TypeAdapter(crud_cls.yaml_cls).json_schema(by_alias=True)
 
     def apply(self, payload: dict[str, Any]) -> ApplyResult:
         return self.get_session().apply(parse_operation(payload))
-
-
-def _required(value: str | None, name: str) -> str:
-    if not value:
-        raise ValueError(f"Missing query parameter {name!r}")
-    return value

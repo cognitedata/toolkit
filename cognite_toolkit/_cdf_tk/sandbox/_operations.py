@@ -1,141 +1,68 @@
-"""Typed operations that mutate a ModelingSession."""
+"""Generic operations that mutate a ModelingSession."""
 
-from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, DataModelId, ExternalId, ViewId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    ContainerPropertyDefinition,
-    ContainerRequest,
-    ViewRequest,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import ViewCorePropertyRequest
-from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, ViewIO
+from cognite_toolkit._cdf_tk.sandbox._session import ModelingSession
 
 
 class Operation(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")
 
-    def apply(self, session: Any) -> None:
+    def apply(self, session: ModelingSession) -> None:
         raise NotImplementedError()
 
 
-class AddContainer(Operation):
-    """Create a new container resource and source file."""
+class _Target(Operation):
+    """Points at a loaded resource by kind and identifier, as listed by the server."""
 
-    container: ContainerRequest
-    relative_dir: str | None = None
-
-    def apply(self, session: Any) -> None:
-        session.add_request(
-            self.container,
-            ContainerIO,
-            sub_folder=ContainerIO.sub_folder_name,
-            relative_dir=Path(self.relative_dir) if self.relative_dir else None,
-        )
+    kind: str
+    identifier: dict[str, Any]
+    folder: str | None = Field(default=None, description="Only needed if the kind exists in several folders.")
 
 
-class AddContainerProperty(Operation):
-    """Add a property to an existing container."""
+class SetPath(_Target):
+    """Set the value at a path in the resource YAML. A ``-`` as the last step appends to a list."""
 
-    container: ContainerId
-    name: str = Field(min_length=1)
-    definition: ContainerPropertyDefinition
+    path: list[str | int] = Field(min_length=1)
+    value: Any
 
-    def apply(self, session: Any) -> None:
-        request = session.get_container(self.container)
-        if self.name in request.properties:
-            raise ValueError(f"Property '{self.name}' already exists on container {self.container}")
-        request.properties[self.name] = self.definition
-        session.mark_dirty(self.container)
+    def apply(self, session: ModelingSession) -> None:
+        session.set_path(session.find(self.kind, self.identifier, self.folder), self.path, self.value)
 
 
-class RemoveContainerProperty(Operation):
-    """Remove a property from an existing container."""
+class RemovePath(_Target):
+    """Remove the key or list item at a path in the resource YAML."""
 
-    container: ContainerId
-    name: str = Field(min_length=1)
+    path: list[str | int] = Field(min_length=1)
 
-    def apply(self, session: Any) -> None:
-        request = session.get_container(self.container)
-        if self.name not in request.properties:
-            raise ValueError(f"Property '{self.name}' does not exist on container {self.container}")
-        del request.properties[self.name]
-        session.mark_dirty(self.container)
+    def apply(self, session: ModelingSession) -> None:
+        session.remove_path(session.find(self.kind, self.identifier, self.folder), self.path)
 
 
-class AddView(Operation):
-    """Create a new view resource and source file."""
+class SetExtra(_Target):
+    """Replace the text file filling a resource field, for example the SQL ``query`` of a transformation.
 
-    view: ViewRequest
-    relative_dir: str | None = None
+    Keep ``{{ variable }}`` tokens in the text.
+    """
 
-    def apply(self, session: Any) -> None:
-        session.add_request(
-            self.view,
-            ViewIO,
-            sub_folder=ViewIO.sub_folder_name,
-            relative_dir=Path(self.relative_dir) if self.relative_dir else None,
-        )
+    field: str
+    text: str
+
+    def apply(self, session: ModelingSession) -> None:
+        session.set_extra(session.find(self.kind, self.identifier, self.folder), self.field, self.text)
 
 
-class AddViewProperty(Operation):
-    """Add a core (container-mapped) property to an existing view."""
+class AddResource(Operation):
+    """Add a resource in a new file, below the resource folder of the module."""
 
-    view: ViewId
-    name: str = Field(min_length=1)
-    definition: ViewCorePropertyRequest
+    kind: str
+    resource: dict[str, Any]
+    folder: str | None = Field(default=None, description="Only needed if the kind exists in several folders.")
+    module: str | None = Field(default=None, description="Only needed if several modules are loaded.")
+    sub_dir: str | None = Field(default=None, description="Defaults to the sub folder of the kind, if it has one.")
 
-    def apply(self, session: Any) -> None:
-        request = session.get_view(self.view)
-        if request.properties is None:
-            request.properties = {}
-        if self.name in request.properties:
-            raise ValueError(f"Property '{self.name}' already exists on view {self.view}")
-        request.properties[self.name] = self.definition
-        session.mark_dirty(self.view)
-
-
-class RemoveViewProperty(Operation):
-    """Remove a property from an existing view."""
-
-    view: ViewId
-    name: str = Field(min_length=1)
-
-    def apply(self, session: Any) -> None:
-        request = session.get_view(self.view)
-        if not request.properties or self.name not in request.properties:
-            raise ValueError(f"Property '{self.name}' does not exist on view {self.view}")
-        del request.properties[self.name]
-        session.mark_dirty(self.view)
-
-
-class SetTransformationQuery(Operation):
-    """Replace the SQL file text of a transformation. Keep ``{{ variable }}`` tokens in the query."""
-
-    transformation: ExternalId
-    query: str
-
-    def apply(self, session: Any) -> None:
-        session.set_query(self.transformation, self.query)
-
-
-class AddViewToDataModel(Operation):
-    """Append a view reference to a data model's views list."""
-
-    data_model: DataModelId
-    view: ViewId
-
-    def apply(self, session: Any) -> None:
-        if self.view not in session.requests:
-            raise ValueError(f"View {self.view} is not loaded in the session")
-        request = session.get_data_model(self.data_model)
-        if request.views is None:
-            request.views = []
-        if self.view in request.views:
-            raise ValueError(f"View {self.view} is already in data model {self.data_model}")
-        request.views.append(self.view)
-        session.mark_dirty(self.data_model)
+    def apply(self, session: ModelingSession) -> None:
+        session.add_resource(self.kind, self.resource, self.folder, self.module, self.sub_dir)

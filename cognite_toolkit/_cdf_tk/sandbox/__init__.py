@@ -1,31 +1,17 @@
-"""Sandbox session for incremental data modeling edits.
+"""Sandbox session for incremental edits of Toolkit resources.
 
-Loads Space, Container, View and DataModel YAML into the same *Request
-classes used by deploy, accepts typed operations, and writes back only
-dirty files via ResourceReplacer + YAMLComments.
+Loads the resources of modules with the same code as ``cdf build``, accepts generic path operations, checks
+each change with the build's rules, and writes back only edited files with comments and variables preserved.
 """
 
-from ._operations import (
-    AddContainer,
-    AddContainerProperty,
-    AddView,
-    AddViewProperty,
-    AddViewToDataModel,
-    RemoveContainerProperty,
-    RemoveViewProperty,
-    SetTransformationQuery,
-)
+from ._operations import AddResource, RemovePath, SetExtra, SetPath
 from ._session import ApplyResult, ModelingSession
 
 __all__ = [
-    "AddContainer",
-    "AddContainerProperty",
-    "AddView",
-    "AddViewProperty",
-    "AddViewToDataModel",
+    "AddResource",
     "ApplyResult",
     "ModelingSession",
-    "RemoveContainerProperty",
-    "RemoveViewProperty",
-    "SetTransformationQuery",
+    "RemovePath",
+    "SetExtra",
+    "SetPath",
 ]

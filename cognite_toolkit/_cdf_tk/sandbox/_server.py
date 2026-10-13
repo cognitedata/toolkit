@@ -48,10 +48,10 @@ def make_server(host: str, port: int, workspace: Workspace | None = None) -> Thr
                 return HTTPStatus.OK, workspace.list_resources()
             if method == "GET" and path.startswith("/resources/"):
                 kind = path.removeprefix("/resources/")
-                resource = workspace.get_resource(
-                    kind, query.get("space"), query.get("externalId"), query.get("version")
-                )
-                return HTTPStatus.OK, resource
+                identifier = {key: value for key, value in query.items() if key != "folder"}
+                return HTTPStatus.OK, workspace.get_resource(kind, identifier, query.get("folder"))
+            if method == "GET" and path.startswith("/schema/"):
+                return HTTPStatus.OK, workspace.get_schema(path.removeprefix("/schema/"), query.get("folder"))
             if method == "POST" and path == "/apply":
                 result = workspace.apply(body)
                 return HTTPStatus.OK, {"ok": result.ok, "insights": [insight_to_json(i) for i in result.insights]}

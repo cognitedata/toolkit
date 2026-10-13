@@ -1,295 +1,414 @@
-"""In-memory modeling session backed by *Request pydantic classes."""
+"""In-memory session over the resources of one or more modules, built on the build's own loading and rules."""
 
+from collections import Counter
 from copy import deepcopy
 from dataclasses import dataclass, field
 from difflib import unified_diff
 from pathlib import Path
-from types import SimpleNamespace
-from typing import Any, Self, cast
+from typing import Any
 
-from cognite_toolkit._cdf_tk.client._resource_base import Identifier, RequestResource
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, DataModelId, ExternalId, SpaceId, ViewId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    ContainerRequest,
-    DataModelRequest,
-    SpaceRequest,
-    ViewRequest,
+from pydantic import ValidationError
+
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
+    BuildVariable,
+    BuiltModule,
+    InsightList,
+    Module,
+    ModuleDirectory,
+    SuccessfulReadYAMLFile,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight
-from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, ResourceIO, SpaceIO, ViewIO
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    BuildError,
+    BuildWarning,
+    ConsistencyError,
+    FileReadError,
+    Insight,
+    InsightDefinition,
+    ModelSyntaxError,
+    ModelSyntaxWarning,
+)
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
+    SUPPORTS_VARIABLE_REPLACEMENT,
+    ModuleId,
+    ReadResource,
+)
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_BUILD_IO_BY_TYPE, RESOURCE_BUILD_IO_LIST
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import BaseResourceIO, ResourceFileIO, SuccessExtra
+from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator
 from cognite_toolkit._cdf_tk.rules._base import InternalValidatorException
-from cognite_toolkit._cdf_tk.sandbox._render import render_source_file, write_source_file
-from cognite_toolkit._cdf_tk.sandbox._source import SourceFile, SqlSource
-from cognite_toolkit._cdf_tk.sandbox._validation import (
-    ResourceLocation,
-    is_blocking_insight,
-    validate_session,
-)
-from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
+from cognite_toolkit._cdf_tk.sandbox._render import render_source_file
+from cognite_toolkit._cdf_tk.sandbox._source import SourceFile, TextFile
+from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_write, sanitize_filename
+from cognite_toolkit._cdf_tk.validation import humanize_validation_error_categorized
 
-SUPPORTED_KINDS: dict[str, type[ResourceIO]] = {
-    "space": SpaceIO,
-    "container": ContainerIO,
-    "view": ViewIO,
-    "datamodel": DataModelIO,
-}
+BLOCKING_INSIGHT_TYPES = (ModelSyntaxError, ConsistencyError, BuildError, FileReadError)
+
+SessionInsight = Insight | InternalValidatorException
 
 
 @dataclass
 class ApplyResult:
     ok: bool
-    insights: list[Insight | InternalValidatorException] = field(default_factory=list)
+    insights: list[SessionInsight] = field(default_factory=list)
 
 
 @dataclass
-class _IndexEntry:
+class ResourceRef:
     source: SourceFile
     index: int
 
+    @property
+    def resource(self) -> ReadResource:
+        return self.source.read.resources[self.index]
+
+
+@dataclass
+class _Journal:
+    """What an operation changed, so that it can be rolled back."""
+
+    sources: dict[int, tuple[SourceFile, list[dict[str, Any]], list[dict[str, Any]], bool]] = field(
+        default_factory=dict
+    )
+    added: list[SourceFile] = field(default_factory=list)
+    texts: dict[Path, tuple[TextFile, str, list[tuple[SuccessExtra, str | None]]]] = field(default_factory=dict)
+
+
+def is_blocking_insight(insight: SessionInsight) -> bool:
+    return isinstance(insight, BLOCKING_INSIGHT_TYPES)
+
+
+def _fingerprint(insight: InsightDefinition) -> tuple[str, str, str, str]:
+    return type(insight).__name__, insight.code, insight.message, str(insight.source_file)
+
+
+def _child(container: Any, step: str | int) -> Any:
+    if isinstance(container, dict) and isinstance(step, str) and step in container:
+        return container[step]
+    if isinstance(container, list) and isinstance(step, int) and -len(container) <= step < len(container):
+        return container[step]
+    raise ValueError(f"Cannot step into {step!r}: it does not exist")
+
 
 class ModelingSession:
-    """Loaded data modeling resources that can be mutated and written back."""
+    """Resources of the loaded modules, which can be edited and written back.
 
-    def __init__(
-        self,
-        root: Path,
-        variables: list[BuildVariable] | None = None,
-    ) -> None:
+    Files are loaded with the same code as ``cdf build``, edited through generic path operations, and checked
+    with the build's local and global rules after each operation.
+    """
+
+    def __init__(self, root: Path) -> None:
         self.root = root.resolve()
-        self.variables = variables or []
+        self.modules: dict[ModuleId, Module] = {}
         self.files: list[SourceFile] = []
-        self.requests: dict[Identifier, RequestResource] = {}
-        self.queries: dict[ExternalId, SqlSource] = {}
-        self._index: dict[Identifier, _IndexEntry] = {}
-        self._locations: dict[Identifier, ResourceLocation] = {}
-        self._ios: dict[type[ResourceIO], ResourceIO] = {}
+        self._variables: dict[ModuleId, list[BuildVariable]] = {}
+        self._texts: dict[Path, TextFile] = {}
+        self._built: dict[ModuleId, BuiltModule] = {}
+        self._insights: list[SessionInsight] = []
+        self._journal = _Journal()
+        self._command = BuildV2Command(print_warning=False, skip_tracking=True, silent=True)
+        self._local_rules = LocalRulesOrchestrator()
 
-    def _io(self, crud_cls: type[ResourceIO]) -> ResourceIO:
-        if crud_cls not in self._ios:
-            client = cast(Any, SimpleNamespace(console=None))
-            self._ios[crud_cls] = crud_cls(client)
-        return self._ios[crud_cls]
+    def add_module(self, source: ModuleDirectory) -> None:
+        module = self._command.import_module(source)
+        self.modules[module.id] = module
+        self._variables[module.id] = source.variables
+        for read in module.files:
+            if isinstance(read, SuccessfulReadYAMLFile):
+                crud_cls = RESOURCE_BUILD_IO_BY_TYPE[read.source_type]
+                self.files.append(SourceFile.load(read, module.id, crud_cls, source.variables))
+        self._insights = self._check()
 
-    @classmethod
-    def load(cls, root: Path, variables: list[BuildVariable] | None = None) -> Self:
-        session = cls(root=root, variables=variables)
-        session.load_dir(root, session.variables)
-        return session
+    def resources(self) -> list[ResourceRef]:
+        return [ResourceRef(source, index) for source in self.files for index in range(len(source.resolved))]
 
-    def load_dir(self, directory: Path, variables: list[BuildVariable]) -> None:
-        """Load all resources below a directory, resolving them with the given variables."""
-        for path in sorted(directory.resolve().rglob("*.yaml")):
-            if path.stem.lower().endswith(".transformation"):
-                self._load_transformation(path, variables)
-                continue
-            kind = self._kind_from_path(path)
-            if kind is None:
-                continue
-            crud_cls = SUPPORTED_KINDS[kind]
-            crud = self._io(crud_cls)
-            source = SourceFile.load(path, crud, variables)
-            self.files.append(source)
-            for index, raw in enumerate(source.resolved):
-                request = crud.load_resource(deepcopy(raw))
-                identifier = crud.get_id(request)
-                if identifier in self.requests:
-                    raise ValueError(
-                        f"Duplicate identifier {identifier} in {path} and {self._locations[identifier].path}"
-                    )
-                self.requests[identifier] = request
-                self._index[identifier] = _IndexEntry(source=source, index=index)
-                self._locations[identifier] = ResourceLocation(path=source.path, crud=crud, variables=variables)
-                source.baseline_dumps.append(request.dump())
+    def find(self, kind: str, identifier: dict[str, Any], folder: str | None = None) -> ResourceRef:
+        matches = [
+            ref
+            for ref in self.resources()
+            if ref.source.read.source_type.kind.lower() == kind.lower()
+            and (folder is None or ref.source.read.source_type.resource_folder == folder)
+            and ref.resource.identifier.dump() == identifier
+        ]
+        if not matches:
+            raise KeyError(f"No {kind} with identifier {identifier} is loaded in the session")
+        if len(matches) > 1:
+            folders = sorted({ref.source.read.source_type.resource_folder for ref in matches})
+            raise ValueError(f"{kind} {identifier} exists in several folders, pass one of {folders}")
+        return matches[0]
 
-    def _load_transformation(self, path: Path, variables: list[BuildVariable]) -> None:
-        for sql in SqlSource.load_all(path, variables):
-            if sql.transformation in self.queries:
-                raise ValueError(f"Duplicate transformation {sql.transformation} in {path}")
-            self.queries[sql.transformation] = sql
+    def extra_texts(self, ref: ResourceRef) -> dict[str, TextFile]:
+        """The text files of a resource by the resource field they fill, for example the SQL of a transformation."""
+        return {
+            extra.resource_field: self._text_file(extra.source_path)
+            for extra in ref.resource.extra_files
+            if isinstance(extra, SuccessExtra) and extra.resource_field and extra.content is not None
+        }
 
-    def get_query(self, transformation: ExternalId) -> SqlSource:
-        try:
-            return self.queries[transformation]
-        except KeyError as error:
-            raise KeyError(f"Transformation {transformation} has no SQL file in the session") from error
+    def _text_file(self, path: Path) -> TextFile:
+        if path not in self._texts:
+            text = safe_read(path)
+            self._texts[path] = TextFile(path=path, original_text=text, text=text)
+        return self._texts[path]
 
-    def set_query(self, transformation: ExternalId, query: str) -> None:
-        source = self.get_query(transformation)
-        source.text = query
-        source.is_dirty = query != source.original_text
+    def _touch(self, source: SourceFile) -> None:
+        self._journal.sources.setdefault(
+            id(source), (source, deepcopy(source.resolved), deepcopy(source.placeholder), source.dirty)
+        )
+        source.dirty = True
 
-    @staticmethod
-    def _kind_from_path(path: Path) -> str | None:
-        if "." not in path.stem:
-            return None
-        kind = path.stem.rsplit(".", maxsplit=1)[-1].lower()
-        return kind if kind in SUPPORTED_KINDS else None
+    def set_path(self, ref: ResourceRef, path: list[str | int], value: Any) -> None:
+        """Set the value at the path. ``"-"`` as the last step appends to a list."""
+        resolved_parent, placeholder_parent = self._parents(ref, path)
+        self._touch(ref.source)
+        for parent in (resolved_parent, placeholder_parent):
+            step, new_value = path[-1], deepcopy(value)
+            if isinstance(parent, list) and step == "-":
+                parent.append(new_value)
+            elif isinstance(parent, list) and isinstance(step, int):
+                parent[step] = new_value
+            elif isinstance(parent, dict) and isinstance(step, str):
+                parent[step] = new_value
+            else:
+                raise ValueError(f"Cannot set {step!r} on a {type(parent).__name__}")
 
-    def get(self, identifier: Identifier) -> RequestResource:
-        try:
-            return self.requests[identifier]
-        except KeyError as error:
-            raise KeyError(f"Resource {identifier} is not loaded in the session") from error
+    def remove_path(self, ref: ResourceRef, path: list[str | int]) -> None:
+        resolved_parent, placeholder_parent = self._parents(ref, path)
+        _child(resolved_parent, path[-1])
+        self._touch(ref.source)
+        del resolved_parent[path[-1]]
+        del placeholder_parent[path[-1]]
 
-    def get_container(self, container_id: ContainerId) -> ContainerRequest:
-        request = self.get(container_id)
-        if not isinstance(request, ContainerRequest):
-            raise TypeError(f"Expected ContainerRequest for {container_id}, got {type(request).__name__}")
-        return request
+    def _parents(self, ref: ResourceRef, path: list[str | int]) -> tuple[Any, Any]:
+        """The containers holding the last step of the path, in the resolved and the placeholder form."""
+        resolved, placeholder = ref.source.resolved[ref.index], ref.source.placeholder[ref.index]
+        for step in path[:-1]:
+            resolved, placeholder = _child(resolved, step), _child(placeholder, step)
+            if type(resolved) is not type(placeholder) or (
+                isinstance(resolved, list) and len(resolved) != len(placeholder)
+            ):
+                raise ValueError(f"Cannot edit below {step!r}: its shape comes from a variable")
+        return resolved, placeholder
 
-    def get_view(self, view_id: ViewId) -> ViewRequest:
-        request = self.get(view_id)
-        if not isinstance(request, ViewRequest):
-            raise TypeError(f"Expected ViewRequest for {view_id}, got {type(request).__name__}")
-        return request
+    def set_extra(self, ref: ResourceRef, resource_field: str, text: str) -> None:
+        """Replace the text file filling a resource field. Keep ``{{ variable }}`` tokens in the text."""
+        extras = [
+            extra
+            for extra in ref.resource.extra_files
+            if isinstance(extra, SuccessExtra) and extra.resource_field == resource_field
+        ]
+        if not extras or extras[0].content is None:
+            raise ValueError(f"The resource has no text file for field {resource_field!r}")
+        text_file = self._text_file(extras[0].source_path)
+        self._journal.texts.setdefault(
+            text_file.path, (text_file, text_file.text, [(extra, extra.content) for extra in extras])
+        )
+        text_file.text = text
+        for extra in extras:
+            extra.content = (
+                BuildVariable.substitute(text, ref.source.variables, extra.suffix)
+                if extra.suffix in SUPPORTS_VARIABLE_REPLACEMENT
+                else text
+            )
 
-    def get_data_model(self, data_model_id: DataModelId) -> DataModelRequest:
-        request = self.get(data_model_id)
-        if not isinstance(request, DataModelRequest):
-            raise TypeError(f"Expected DataModelRequest for {data_model_id}, got {type(request).__name__}")
-        return request
-
-    def get_space(self, space_id: SpaceId) -> SpaceRequest:
-        request = self.get(space_id)
-        if not isinstance(request, SpaceRequest):
-            raise TypeError(f"Expected SpaceRequest for {space_id}, got {type(request).__name__}")
-        return request
-
-    def mark_dirty(self, identifier: Identifier) -> None:
-        self._index[identifier].source.dirty = True
-
-    def add_request(
+    def add_resource(
         self,
-        request: RequestResource,
-        crud_cls: type[ResourceIO],
-        sub_folder: str | None = None,
-        relative_dir: Path | None = None,
+        kind: str,
+        resource: dict[str, Any],
+        folder: str | None = None,
+        module: str | None = None,
+        sub_dir: str | None = None,
     ) -> Identifier:
-        """Register a new request and create a dirty SourceFile for it.
+        """Add a resource in a new file. The file is placed below the module, in the resource folder of the kind."""
+        crud_cls = self.crud_class(kind, folder)
+        target = self._module(module)
+        identifier = crud_cls.validate_object(deepcopy(resource), extra="forbid").as_id()
+        if any(ref.resource.identifier == identifier and ref.source.crud_cls is crud_cls for ref in self.resources()):
+            raise ValueError(f"{kind} {identifier} already exists in the session")
 
-        Args:
-            relative_dir: Optional path relative to the session root where the
-                file should be written (for example ``dm_ent_emergency360/containers``).
-                When set, ``sub_folder`` is ignored.
-        """
-        crud = self._io(crud_cls)
-        identifier = crud.get_id(request)
-        if identifier in self.requests:
-            raise ValueError(f"Resource {identifier} already exists in the session")
+        directory = target.id.path / crud_cls.folder_name
+        if sub_dir is None:
+            sub_dir = crud_cls.sub_folder_name or ""
+        name = sanitize_filename(getattr(identifier, "external_id", str(identifier)))
+        path = (directory / sub_dir / f"{name}.{crud_cls.kind}.yaml").resolve()
+        if path.exists() or any(source.path == path for source in self.files):
+            raise ValueError(f"{path} already exists")
 
-        filename = f"{sanitize_filename(getattr(identifier, 'external_id', str(identifier)))}.{crud.kind}.yaml"
-        if relative_dir is not None:
-            folder = self.root / relative_dir
-        else:
-            folder = self.root
-            if sub_folder:
-                folder = folder / sub_folder
-        path = folder / filename
-
-        dumped = request.dump()
-        source = SourceFile.create_new(path, crud, dumped, self.variables)
+        source = SourceFile.create_new(path, target.id, crud_cls, resource, identifier, self._variables[target.id])
+        target.files.append(source.read)
         self.files.append(source)
-        self.requests[identifier] = request
-        self._index[identifier] = _IndexEntry(source=source, index=0)
-        self._locations[identifier] = ResourceLocation(path=path, crud=crud, variables=self.variables)
+        self._journal.added.append(source)
+        self._refresh(source)
         return identifier
 
-    def apply(self, operation: Any) -> ApplyResult:
-        """Apply an operation with validation and rollback on blocking insights."""
-        snapshot = {identifier: request.model_copy(deep=True) for identifier, request in self.requests.items()}
-        dirty_before = {id(source): source.dirty for source in self.files}
-        files_before = list(self.files)
-        index_before = dict(self._index)
-        locations_before = dict(self._locations)
-        queries_before = {identifier: source.text for identifier, source in self.queries.items()}
+    def crud_class(self, kind: str, folder: str | None) -> type[BaseResourceIO]:
+        matches = [
+            io_cls
+            for io_cls in RESOURCE_BUILD_IO_LIST
+            if io_cls.kind.lower() == kind.lower() and (folder is None or io_cls.folder_name == folder)
+        ]
+        if len(matches) != 1:
+            options = sorted(io_cls.folder_name for io_cls in matches)
+            raise ValueError(
+                f"Unknown kind {kind!r}" if not matches else f"{kind!r} exists in {options}, pass a folder"
+            )
+        return matches[0]
 
+    def _module(self, module: str | None) -> Module:
+        if module is None and len(self.modules) == 1:
+            return next(iter(self.modules.values()))
+        for candidate in self.modules.values():
+            if candidate.id.id.as_posix() == module:
+                return candidate
+        raise ValueError(
+            f"Pass the module to add the resource to, one of {[m.id.id.as_posix() for m in self.modules.values()]}"
+        )
+
+    def _refresh(self, source: SourceFile) -> None:
+        """Validate the edited file again, and update the resources the rules read."""
+        read = source.read
+        messages: list[str] = []
+        warnings: list[ModelSyntaxWarning | BuildWarning] = []
+        for resolved, resource in zip(source.resolved, read.resources):
+            try:
+                validated = source.crud_cls.validate_object(deepcopy(resolved), extra="forbid")
+            except ValidationError as error:
+                resource.validated = None
+                found = humanize_validation_error_categorized(error, source.crud_cls.yaml_cls, for_insights=True)
+                messages.extend(item.message for item in found if item.category == "error")
+                warnings.extend(
+                    BuildWarning(code=item.code, message=item.message, source_file=source.path)
+                    for item in found
+                    if item.category == "warning"
+                )
+                if not found:
+                    messages.append(str(error))
+                continue
+            resource.validated = validated
+            resource.identifier = validated.as_id()
+            resource.raw = (
+                source.crud_cls.to_crud_type(resolved)
+                if issubclass(source.crud_cls, ResourceFileIO)
+                else deepcopy(resolved)
+            )
+            warnings.extend(validated.syntax_warnings(source.path))
+        read.syntax_error = (
+            BuildError(
+                code="INVALID-FIELD",
+                message="\n".join(messages),
+                fix="Compare the YAML with reference documentation and make sure it is valid.",
+                source_file=source.path,
+            )
+            if messages
+            else None
+        )
+        read.syntax_warnings = warnings
+        self._built.pop(source.module_id, None)
+
+    def apply(self, operation: Any) -> ApplyResult:
+        """Apply an operation. It is rolled back if it introduces blocking insights."""
+        self._journal = _Journal()
         try:
             operation.apply(self)
+            for source, *_ in self._journal.sources.values():
+                self._refresh(source)
         except Exception:
-            self._restore(snapshot, dirty_before, files_before, index_before, locations_before, queries_before)
+            self._rollback()
             raise
 
-        dirty_ids = {
-            identifier for identifier, entry in self._index.items() if entry.source.dirty or entry.source.is_new
-        }
-        insights = validate_session(self.requests, self._locations, self.queries, syntax_ids=dirty_ids)
-        if any(is_blocking_insight(insight) for insight in insights):
-            self._restore(snapshot, dirty_before, files_before, index_before, locations_before, queries_before)
+        insights = self._check()
+        known = {_fingerprint(insight) for insight in self._insights if isinstance(insight, InsightDefinition)}
+        if any(
+            isinstance(insight, InsightDefinition)
+            and is_blocking_insight(insight)
+            and _fingerprint(insight) not in known
+            for insight in insights
+        ):
+            self._rollback()
             return ApplyResult(ok=False, insights=insights)
+        self._insights = insights
         return ApplyResult(ok=True, insights=insights)
 
-    def _restore(
-        self,
-        snapshot: dict[Identifier, RequestResource],
-        dirty_before: dict[int, bool],
-        files_before: list[SourceFile],
-        index_before: dict[Identifier, _IndexEntry],
-        locations_before: dict[Identifier, ResourceLocation],
-        queries_before: dict[ExternalId, str],
-    ) -> None:
-        self.requests = snapshot
-        self.files = files_before
-        self._index = index_before
-        self._locations = locations_before
-        for source in self.files:
-            source.dirty = dirty_before.get(id(source), source.dirty)
-        for identifier, text in queries_before.items():
-            self.set_query(identifier, text)
+    def _rollback(self) -> None:
+        journal = self._journal
+        for source in journal.added:
+            self.files.remove(source)
+            for module in self.modules.values():
+                if source.read in module.files:
+                    module.files.remove(source.read)
+            self._built.pop(source.module_id, None)
+        for source, resolved, placeholder, dirty in journal.sources.values():
+            source.resolved, source.placeholder, source.dirty = resolved, placeholder, dirty
+            self._refresh(source)
+        for text_file, text, extras in journal.texts.values():
+            text_file.text = text
+            for extra, content in extras:
+                extra.content = content
 
-    def validate(self) -> list[Insight | InternalValidatorException]:
-        return validate_session(self.requests, self._locations, self.queries, syntax_ids=None)
+    def validate(self) -> list[SessionInsight]:
+        self._built.clear()
+        self._insights = self._check()
+        return self._insights
 
-    def _requests_by_index(self, source: SourceFile) -> dict[int, RequestResource]:
-        by_index: dict[int, RequestResource] = {}
-        for identifier, entry in self._index.items():
-            if entry.source is source:
-                by_index[entry.index] = self.requests[identifier]
-        return by_index
+    def _check(self) -> list[SessionInsight]:
+        """All insights of the loaded modules: the build's syntax findings plus the local and global rules."""
+        for module in self.modules.values():
+            if module.id not in self._built:
+                self._built[module.id] = self._command.build_module(
+                    module, self._variables[module.id], Counter(), None, self._local_rules
+                )
+        built_modules = list(self._built.values())
+        results = self._command.run_global_rules(built_modules)
 
-    def diff(self, include_clean: bool = False) -> dict[Path, str]:
-        """Return unified diffs for dirty files (or all files if include_clean)."""
+        found = InsightList()
+        ignored_by_source: dict[Path, set[str]] = {}
+        for built in built_modules:
+            found.extend(built.all_insights)
+            for path, rules in built.ignore_rules_by_source.items():
+                ignored_by_source.setdefault(path, set()).update(rules)
+        for result in results:
+            found.extend(result.insights)
+        reported = self._command.filter_to_reported_insights(found, ignored_by_source, set())
+        return [*reported, *(error for result in results for error in result.errors)]
+
+    def diff(self) -> dict[Path, str]:
+        """Unified diffs for the files that are edited."""
         diffs: dict[Path, str] = {}
         for source in self.files:
-            if not include_clean and not source.dirty and not source.is_new:
-                continue
-            rendered = render_source_file(source, self._requests_by_index(source))
-            original = source.original_text
-            if rendered == original:
-                continue
-            diff_lines = unified_diff(
-                original.splitlines(keepends=True),
-                rendered.splitlines(keepends=True),
-                fromfile=str(source.path),
-                tofile=str(source.path),
-            )
-            diffs[source.path] = "".join(diff_lines)
-        for sql in self.queries.values():
-            if sql.text != sql.original_text:
-                diffs[sql.path] = "".join(
-                    unified_diff(
-                        sql.original_text.splitlines(keepends=True),
-                        sql.text.splitlines(keepends=True),
-                        fromfile=str(sql.path),
-                        tofile=str(sql.path),
-                    )
-                )
+            if source.dirty or source.is_new:
+                self._add_diff(diffs, source.path, source.original_text, render_source_file(source))
+        for text_file in self._texts.values():
+            self._add_diff(diffs, text_file.path, text_file.original_text, text_file.text)
         return diffs
 
+    @staticmethod
+    def _add_diff(diffs: dict[Path, str], path: Path, original: str, updated: str) -> None:
+        if original != updated:
+            lines = unified_diff(
+                original.splitlines(keepends=True),
+                updated.splitlines(keepends=True),
+                fromfile=str(path),
+                tofile=str(path),
+            )
+            diffs[path] = "".join(lines)
+
     def write(self) -> list[Path]:
-        """Write dirty files to disk. Returns the paths written."""
+        """Write the edited files to disk. Returns the paths written."""
         written: list[Path] = []
         for source in self.files:
             if not source.dirty and not source.is_new:
                 continue
-            written.append(write_source_file(source, self._requests_by_index(source)))
-        for sql in self.queries.values():
-            if sql.is_dirty:
-                written.append(sql.write())
+            content = render_source_file(source)
+            source.path.parent.mkdir(parents=True, exist_ok=True)
+            safe_write(source.path, content)
+            source.original_text = content
+            source.baseline = deepcopy(source.placeholder)
+            source.dirty = source.is_new = False
+            written.append(source.path)
+        for text_file in self._texts.values():
+            if text_file.dirty:
+                safe_write(text_file.path, text_file.text)
+                text_file.original_text = text_file.text
+                written.append(text_file.path)
         return written
-
-    def force_render_all(self) -> dict[Path, str]:
-        """Render every file as if dirty. Used by the no-op round-trip measurement."""
-        for source in self.files:
-            source.dirty = True
-        return self.diff(include_clean=True)

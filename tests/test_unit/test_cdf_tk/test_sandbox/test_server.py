@@ -1,4 +1,4 @@
-"""Tests for the sandbox HTTP server and the transformation SQL support."""
+"""Tests for the sandbox HTTP server."""
 
 import json
 import shutil
@@ -11,11 +11,7 @@ from urllib.request import Request, urlopen
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ExternalId, ViewId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewCorePropertyRequest, ViewRequest
 from cognite_toolkit._cdf_tk.sandbox._server import make_server
-from cognite_toolkit._cdf_tk.sandbox._source import SqlSource
-from cognite_toolkit._cdf_tk.sandbox._validation import transformation_alias_insights
 from tests.constants import REPO_ROOT
 
 COMPLETE_ORG = REPO_ROOT / "tests/data/complete_org"
@@ -45,8 +41,8 @@ def call(base_url: str, path: str, body: dict[str, Any] | None = None) -> Any:
         return json.load(response)
 
 
-def test_load_apply_diff_and_write(base_url: str, org_dir: Path) -> None:
-    loaded = call(
+def load(base_url: str, org_dir: Path) -> Any:
+    return call(
         base_url,
         "/load",
         {
@@ -55,18 +51,23 @@ def test_load_apply_diff_and_write(base_url: str, org_dir: Path) -> None:
             "modules": ["modules/my_example_module"],
         },
     )
+
+
+def test_load_apply_diff_and_write(base_url: str, org_dir: Path) -> None:
+    loaded = load(base_url, org_dir)
     assert loaded["counts"]["container"] >= 1
-    assert loaded["counts"]["transformationQuery"] == 1
+    assert loaded["counts"]["transformation"] >= 1
     assert call(base_url, "/diff") == {}
 
     result = call(
         base_url,
         "/apply",
         {
-            "op": "AddContainerProperty",
-            "container": {"space": "sp_schema", "externalId": "NameContainer"},
-            "name": "tag",
-            "definition": {"type": {"type": "text"}},
+            "op": "SetPath",
+            "kind": "Container",
+            "identifier": {"space": "sp_schema", "externalId": "NameContainer"},
+            "path": ["properties", "tag"],
+            "value": {"type": {"type": "text"}},
         },
     )
     assert result["ok"]
@@ -76,7 +77,13 @@ def test_load_apply_diff_and_write(base_url: str, org_dir: Path) -> None:
     result = call(
         base_url,
         "/apply",
-        {"op": "SetTransformationQuery", "transformation": {"externalId": "tr_first_transformation"}, "query": query},
+        {
+            "op": "SetExtra",
+            "kind": "Transformation",
+            "identifier": {"externalId": "tr_first_transformation"},
+            "field": "query",
+            "text": query,
+        },
     )
     assert result["ok"]
 
@@ -90,47 +97,17 @@ def test_load_apply_diff_and_write(base_url: str, org_dir: Path) -> None:
     assert "tag:" in (org_dir / "modules/my_example_module/data_modeling/name.Container.yaml").read_text()
 
 
+def test_get_resource_and_schema(base_url: str, org_dir: Path) -> None:
+    load(base_url, org_dir)
+
+    fetched = call(base_url, "/resources/Transformation?externalId=tr_first_transformation")
+    assert fetched["resource"]["externalId"] == "tr_first_transformation"
+    assert [extra["field"] for extra in fetched["extraFiles"]] == ["query"]
+    assert "properties" in call(base_url, "/schema/Container")
+
+
 def test_unknown_operation_returns_400(base_url: str, org_dir: Path) -> None:
-    call(
-        base_url,
-        "/load",
-        {
-            "organizationDir": str(org_dir),
-            "configYaml": str(org_dir / "config.dev.yaml"),
-            "modules": ["modules/my_example_module"],
-        },
-    )
+    load(base_url, org_dir)
     with pytest.raises(HTTPError) as error:
         call(base_url, "/apply", {"op": "DropEverything"})
     assert error.value.code == 400
-
-
-def test_transformation_alias_warning_clears_when_view_has_property(tmp_path: Path) -> None:
-    view_id = ViewId(space="sp", external_id="Person", version="v1")
-    sql = SqlSource(
-        path=tmp_path / "t.sql",
-        original_text="",
-        text="-- from comment\nSELECT\n  p.externalId AS externalId,\n  node_reference('a', b.externalId) AS rel,\n  b.dob AS dateOfBirth\nFROM x AS p",
-        variables=[],
-        transformation=ExternalId(external_id="t"),
-        destination_view=view_id,
-    )
-
-    def view_with(*names: str) -> ViewRequest:
-        return ViewRequest(
-            space="sp",
-            external_id="Person",
-            version="v1",
-            properties={
-                name: ViewCorePropertyRequest(
-                    container=ContainerId(space="sp", external_id="Person"), container_property_identifier=name
-                )
-                for name in names
-            },
-        )
-
-    assert transformation_alias_insights({sql.transformation: sql}, {view_id: view_with("rel", "dateOfBirth")}) == []
-
-    insights = transformation_alias_insights({sql.transformation: sql}, {view_id: view_with("rel")})
-    assert len(insights) == 1
-    assert "dateOfBirth" in insights[0].message

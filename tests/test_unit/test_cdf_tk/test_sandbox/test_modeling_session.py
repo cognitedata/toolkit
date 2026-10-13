@@ -1,297 +1,193 @@
-"""Tests for the data modeling sandbox POC."""
+"""Tests for the sandbox session."""
 
 import shutil
 from pathlib import Path
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, DataModelId, ViewId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    ContainerPropertyDefinition,
-    ContainerRequest,
-    TextProperty,
-    ViewCorePropertyRequest,
-    ViewRequest,
-)
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
-from cognite_toolkit._cdf_tk.sandbox import (
-    AddContainer,
-    AddContainerProperty,
-    AddView,
-    AddViewProperty,
-    AddViewToDataModel,
-    ModelingSession,
-    RemoveContainerProperty,
-    RemoveViewProperty,
-)
+from cognite_toolkit._cdf_tk.sandbox import AddResource, ModelingSession, RemovePath, SetExtra, SetPath
 from cognite_toolkit._cdf_tk.sandbox._render import render_source_file
+from cognite_toolkit._cdf_tk.sandbox._workspace import Workspace
 from tests.constants import REPO_ROOT
 
-COMPLETE_ORG_DM = REPO_ROOT / "tests/data/complete_org/modules/my_example_module/data_modeling"
+COMPLETE_ORG = REPO_ROOT / "tests/data/complete_org"
+MODULE = "modules/my_example_module"
+
+NAME_CONTAINER = {"space": "sp_schema", "externalId": "NameContainer"}
+PARENT_VIEW = {"space": "sp_schema", "externalId": "ParentView", "version": "v1"}
+TEXT_PROPERTY = {"type": {"type": "text"}}
+
+
+def load_session(org_dir: Path, module: str = MODULE) -> ModelingSession:
+    workspace = Workspace()
+    workspace.load(org_dir, org_dir / "config.dev.yaml", [module])
+    return workspace.get_session()
 
 
 @pytest.fixture
-def dm_root(tmp_path: Path) -> Path:
-    dest = tmp_path / "data_modeling"
-    shutil.copytree(COMPLETE_ORG_DM, dest)
+def org_dir(tmp_path: Path) -> Path:
+    dest = tmp_path / "complete_org"
+    shutil.copytree(COMPLETE_ORG, dest)
     return dest
 
 
-def test_noop_round_trip_is_byte_identical(dm_root: Path) -> None:
-    session = ModelingSession.load(dm_root)
-    assert session.requests
-    for source in session.files:
-        rendered = render_source_file(source, session._requests_by_index(source))
-        assert rendered == source.original_text, source.path.name
+@pytest.fixture
+def dm_dir(org_dir: Path) -> Path:
+    return org_dir / MODULE / "data_modeling"
 
 
-def test_add_container_property_diff_is_only_new_property(dm_root: Path) -> None:
-    session = ModelingSession.load(dm_root)
-    container_id = ContainerId(space="sp_schema", external_id="NameContainer")
-    original = (dm_root / "name.Container.yaml").read_text()
+def container_op(path: list[str | int], value: object) -> SetPath:
+    return SetPath(kind="Container", identifier=NAME_CONTAINER, path=path, value=value)
 
-    result = session.apply(
-        AddContainerProperty(
-            container=container_id,
-            name="tag",
-            definition=ContainerPropertyDefinition(type=TextProperty(type="text")),
-        )
-    )
+
+def test_unedited_data_modeling_files_round_trip_byte_identical(org_dir: Path, dm_dir: Path) -> None:
+    session = load_session(org_dir)
+    data_modeling_files = [source for source in session.files if source.path.parent == dm_dir.resolve()]
+    assert data_modeling_files
+    for source in data_modeling_files:
+        assert render_source_file(source) == source.original_text, source.path.name
+
+
+def test_loads_kinds_beyond_data_modeling(org_dir: Path) -> None:
+    session = load_session(org_dir)
+    kinds = {source.read.source_type.kind for source in session.files}
+    assert {"Container", "Transformation", "Workflow", "Function"} <= kinds
+
+
+def test_set_path_adds_property_without_touching_other_lines(org_dir: Path, dm_dir: Path) -> None:
+    session = load_session(org_dir)
+    original = (dm_dir / "name.Container.yaml").read_text()
+
+    result = session.apply(container_op(["properties", "tag"], TEXT_PROPERTY))
     assert result.ok, result.insights
-    written = session.write()
-    assert written == [dm_root / "name.Container.yaml"]
+    assert session.write() == [(dm_dir / "name.Container.yaml").resolve()]
 
-    updated = (dm_root / "name.Container.yaml").read_text()
-    assert "tag:" in updated
-    assert "type: text" in updated
-    # Existing content stays; only the new property is added.
+    updated = (dm_dir / "name.Container.yaml").read_text()
+    assert updated.startswith(original)
+    assert "  tag:\n    type:\n      type: text\n" in updated
+
+
+def test_remove_path_removes_property(org_dir: Path, dm_dir: Path) -> None:
+    session = load_session(org_dir)
+    path = dm_dir / "name.Container.yaml"
+
+    result = session.apply(RemovePath(kind="Container", identifier=NAME_CONTAINER, path=["properties", "direct"]))
+    assert result.ok, result.insights
+    assert "-  direct:" in session.diff()[path.resolve()]
+    session.write()
+    updated = path.read_text()
+    assert "direct:" not in updated
     assert "name:" in updated
-    assert "direct:" in updated
-    assert updated.count("externalId: NameContainer") == 1
-    # Diff should not rewrite unrelated keys.
-    assert "usedFor: node" in updated
-    assert original.split("properties:")[0] == updated.split("properties:")[0]
 
 
-def test_remove_container_property_updates_yaml(dm_root: Path) -> None:
-    container_id = ContainerId(space="sp_schema", external_id="NameContainer")
-    path = dm_root / "name.Container.yaml"
+def test_invalid_value_is_rejected_and_rolled_back(org_dir: Path, dm_dir: Path) -> None:
+    session = load_session(org_dir)
+    original = (dm_dir / "name.Container.yaml").read_text()
 
-    session = ModelingSession.load(dm_root)
-    assert session.apply(
-        AddContainerProperty(
-            container=container_id,
-            name="tag",
-            definition=ContainerPropertyDefinition(type=TextProperty(type="text")),
-        )
-    ).ok
-    session.write()
-    assert "tag:" in path.read_text()
-
-    session = ModelingSession.load(dm_root)
-    result = session.apply(RemoveContainerProperty(container=container_id, name="tag"))
-    assert result.ok, result.insights
-    diff = session.diff()[path]
-    assert "-  tag:" in diff or "- tag:" in diff
-    session.write()
-    assert "tag:" not in path.read_text()
-    assert "name:" in path.read_text()
-    assert "direct:" in path.read_text()
-
-
-def test_remove_container_property_rejects_when_view_still_maps_to_it(dm_root: Path) -> None:
-    session = ModelingSession.load(dm_root)
-    container_id = ContainerId(space="sp_schema", external_id="NameContainer")
-    original = (dm_root / "name.Container.yaml").read_text()
-
-    result = session.apply(RemoveContainerProperty(container=container_id, name="name"))
+    result = session.apply(container_op(["description"], {"not": "text"}))
     assert not result.ok
-    assert any(isinstance(insight, BuildError) for insight in result.insights)
-    session.write()
-    assert (dm_root / "name.Container.yaml").read_text() == original
+    assert session.diff() == {}
+    assert session.write() == []
+    assert (dm_dir / "name.Container.yaml").read_text() == original
+
+    # The session is still usable after a rejected operation.
+    assert session.apply(container_op(["properties", "tag"], TEXT_PROPERTY)).ok
 
 
-def test_remove_view_property_updates_yaml(dm_root: Path) -> None:
-    view_id = ViewId(space="sp_schema", external_id="ParentView", version="v1")
-    path = dm_root / "parent.View.yaml"
+def test_unknown_path_raises_and_rolls_back(org_dir: Path) -> None:
+    session = load_session(org_dir)
+    with pytest.raises(ValueError, match="does not exist"):
+        session.apply(container_op(["missing", "tag"], TEXT_PROPERTY))
+    assert session.diff() == {}
 
-    session = ModelingSession.load(dm_root)
+
+def test_set_path_appends_to_list_and_adds_view_property(org_dir: Path, dm_dir: Path) -> None:
+    session = load_session(org_dir)
+    view_property = {
+        "container": {"space": "sp_schema", "externalId": "NameContainer", "type": "container"},
+        "containerPropertyIdentifier": "direct",
+    }
     assert session.apply(
-        AddViewProperty(
-            view=view_id,
-            name="directAgain",
-            definition=ViewCorePropertyRequest(
-                container=ContainerId(space="sp_schema", external_id="NameContainer"),
-                container_property_identifier="direct",
-            ),
+        SetPath(kind="View", identifier=PARENT_VIEW, path=["properties", "directAgain"], value=view_property)
+    ).ok
+    assert session.apply(
+        SetPath(
+            kind="DataModel",
+            identifier={"space": "DataModelSpace", "externalId": "DataModelLocation", "version": "1_0_0"},
+            path=["views", "-"],
+            value={"space": "sp_schema", "externalId": "ParentView", "version": "v1", "type": "view"},
         )
     ).ok
     session.write()
-    assert "directAgain:" in path.read_text()
 
-    session = ModelingSession.load(dm_root)
-    result = session.apply(RemoveViewProperty(view=view_id, name="directAgain"))
-    assert result.ok, result.insights
-    session.write()
-    assert "directAgain:" not in path.read_text()
-    assert "name:" in path.read_text()
+    assert "containerPropertyIdentifier: direct\n" in (dm_dir / "parent.View.yaml").read_text()
+    model_text = (dm_dir / "location.DataModel.yaml").read_text()
+    # The existing view stays first, the new one is appended.
+    assert model_text.index("CogniteFile") < model_text.index("ParentView")
 
 
-def test_add_container_property_preserves_comments_and_variables(tmp_path: Path) -> None:
-    root = tmp_path / "data_modeling"
-    root.mkdir()
-    source = root / "pump.Container.yaml"
-    original = """\
-# Pump container
-space: '{{sp_id_prefix}}_{{ent_prefix}}'
-externalId: Pump
-usedFor: node
-properties:
-  name:
-    type:
-      type: text
-    nullable: true  # keep this comment
-"""
-    source.write_text(original)
-    variables = [
-        BuildVariable(id=Path("modules/sp_id_prefix"), value="sp", is_selected=True),
-        BuildVariable(id=Path("modules/ent_prefix"), value="ent", is_selected=True),
-    ]
-    session = ModelingSession.load(root, variables=variables)
+def test_add_resource_creates_file_under_sub_folder(org_dir: Path, dm_dir: Path) -> None:
+    session = load_session(org_dir)
     result = session.apply(
-        AddContainerProperty(
-            container=ContainerId(space="sp_ent", external_id="Pump"),
-            name="tag",
-            definition=ContainerPropertyDefinition(type=TextProperty(type="text"), nullable=False),
+        AddResource(
+            kind="Container",
+            resource={"space": "sp_schema", "externalId": "NewThing", "properties": {"name": TEXT_PROPERTY}},
         )
     )
     assert result.ok, result.insights
-    session.write()
-    text = source.read_text()
-    # Existing authored lines must stay byte-identical; only the new property is appended.
-    assert text.startswith(original.rstrip("\n") + "\n")
-    assert "tag:" in text
-    assert "{{sp_id_prefix}}" in text
-    assert "{{ent_prefix}}" in text
-    assert "# keep this comment" in text
-
-
-def test_add_container_creates_file_under_containers(dm_root: Path) -> None:
-    session = ModelingSession.load(dm_root)
-    result = session.apply(
-        AddContainer(
-            container=ContainerRequest(
-                space="sp_schema",
-                external_id="NewThing",
-                properties={"name": ContainerPropertyDefinition(type=TextProperty(type="text"))},
-            )
-        )
-    )
-    assert result.ok, result.insights
-    written = session.write()
-    expected = dm_root / "containers" / "NewThing.Container.yaml"
-    assert expected in written
-    assert expected.is_file()
+    expected = (dm_dir / "containers" / "NewThing.Container.yaml").resolve()
+    assert session.write() == [expected]
     assert "externalId: NewThing" in expected.read_text()
+    assert session.find("Container", {"space": "sp_schema", "externalId": "NewThing"})
 
 
-def test_add_view_property_rejects_unknown_local_container_property(dm_root: Path) -> None:
-    session = ModelingSession.load(dm_root)
-    view_id = ViewId(space="sp_schema", external_id="ParentView", version="v1")
-    before = session.get_view(view_id).model_copy(deep=True)
-    original_text = (dm_root / "parent.View.yaml").read_text()
+def test_add_resource_rejects_existing_identifier(org_dir: Path) -> None:
+    session = load_session(org_dir)
+    with pytest.raises(ValueError, match="already exists"):
+        session.apply(AddResource(kind="Container", resource={**NAME_CONTAINER, "properties": {}}))
 
-    result = session.apply(
-        AddViewProperty(
-            view=view_id,
-            name="missingProp",
-            definition=ViewCorePropertyRequest(
-                container=ContainerId(space="sp_schema", external_id="NameContainer"),
-                container_property_identifier="doesNotExist",
-            ),
-        )
+
+def test_set_extra_replaces_query_and_keeps_variable_tokens(org_dir: Path) -> None:
+    session = load_session(org_dir)
+    sql_path = org_dir / MODULE / "transformations" / "first.transformation.sql"
+    identifier = {"externalId": "tr_first_transformation"}
+    query = "select 'a' as externalId from `db_{{ example_variable }}`.`table`"
+
+    assert session.apply(SetExtra(kind="Transformation", identifier=identifier, field="query", text=query)).ok
+    assert session.write() == [sql_path.resolve()]
+    assert sql_path.read_text() == query
+
+
+def test_edit_preserves_comments_and_variables(tmp_path: Path) -> None:
+    org = tmp_path / "org"
+    module = org / "modules" / "mod" / "data_modeling"
+    module.mkdir(parents=True)
+    (org / "config.dev.yaml").write_text(
+        "environment:\n  name: dev\n  project: p\n  type: dev\n  selected:\n    - modules/\n"
+        "variables:\n  modules:\n    mod:\n      prefix: sp\n"
     )
-    assert not result.ok
-    assert any(isinstance(insight, BuildError) for insight in result.insights)
-    assert session.get_view(view_id).dump() == before.dump()
-    assert not any(source.dirty for source in session.files)
-    session.write()
-    assert (dm_root / "parent.View.yaml").read_text() == original_text
-
-
-def test_add_view_property_accepts_existing_container_property(dm_root: Path) -> None:
-    session = ModelingSession.load(dm_root)
-    view_id = ViewId(space="sp_schema", external_id="ParentView", version="v1")
-    result = session.apply(
-        AddViewProperty(
-            view=view_id,
-            name="directAgain",
-            definition=ViewCorePropertyRequest(
-                container=ContainerId(space="sp_schema", external_id="NameContainer"),
-                container_property_identifier="direct",
-            ),
-        )
+    original = (
+        "# Pump container\n"
+        "space: '{{ prefix }}_schema'\n"
+        "externalId: Pump\n"
+        "usedFor: node\n"
+        "properties:\n"
+        "  name:\n"
+        "    type:\n"
+        "      type: text\n"
+        "    nullable: true  # keep this comment\n"
     )
-    assert result.ok, result.insights
-    session.write()
-    text = (dm_root / "parent.View.yaml").read_text()
-    assert "directAgain:" in text
-    assert "containerPropertyIdentifier: direct" in text
+    (module / "pump.Container.yaml").write_text(original)
+    session = load_session(org, "modules/mod")
 
-
-def test_add_view_creates_file_under_views(dm_root: Path) -> None:
-    session = ModelingSession.load(dm_root)
+    identifier = {"space": "sp_schema", "externalId": "Pump"}
     result = session.apply(
-        AddView(
-            view=ViewRequest(
-                space="sp_schema",
-                external_id="BrandNewView",
-                version="v1",
-                properties={
-                    "name": ViewCorePropertyRequest(
-                        container=ContainerId(space="sp_schema", external_id="NameContainer"),
-                        container_property_identifier="name",
-                    )
-                },
-            )
-        )
+        SetPath(kind="Container", identifier=identifier, path=["properties", "tag"], value=TEXT_PROPERTY)
     )
-    assert result.ok, result.insights
-    written = session.write()
-    expected = dm_root / "views" / "BrandNewView.View.yaml"
-    assert expected in written
-    assert expected.is_file()
-
-
-def test_add_view_to_data_model_appends_without_reordering(dm_root: Path) -> None:
-    session = ModelingSession.load(dm_root)
-    data_model_id = DataModelId(space="DataModelSpace", external_id="DataModelLocation", version="1_0_0")
-    # Add a local view first so AddViewToDataModel's existence check passes.
-    new_view_id = ViewId(space="sp_schema", external_id="LocalForModel", version="v1")
-    assert session.apply(
-        AddView(
-            view=ViewRequest(
-                space=new_view_id.space,
-                external_id=new_view_id.external_id,
-                version=new_view_id.version,
-                properties={
-                    "name": ViewCorePropertyRequest(
-                        container=ContainerId(space="sp_schema", external_id="NameContainer"),
-                        container_property_identifier="name",
-                    )
-                },
-            )
-        )
-    ).ok
-
-    result = session.apply(AddViewToDataModel(data_model=data_model_id, view=new_view_id))
     assert result.ok, result.insights
     session.write()
 
-    text = (dm_root / "location.DataModel.yaml").read_text()
-    # Original CogniteFile entry stays first; new view is appended.
-    cognite_pos = text.index("CogniteFile")
-    local_pos = text.index("LocalForModel")
-    assert cognite_pos < local_pos
-    assert text.count("externalId:") >= 3
+    text = (module / "pump.Container.yaml").read_text()
+    assert text.startswith(original)
+    assert "{{ prefix }}_schema" in text
+    assert "tag:" in text
