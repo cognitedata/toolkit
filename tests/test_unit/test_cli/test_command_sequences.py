@@ -37,6 +37,10 @@ SNAPSHOTS_DIR_CLEAN = THIS_DIR / "test_build_clean_snapshots"
 SNAPSHOTS_DIR_CLEAN.mkdir(exist_ok=True)
 
 
+def module_param_id(module_path: Path) -> str:
+    return f"{module_path.parent.name}/{module_path.name}"
+
+
 def find_all_modules() -> Iterator[Path]:
     result, _ = ModuleParser.find_modules(BUILDABLE_PACKAGE)
     for module_relative_path in result.keys():
@@ -45,10 +49,10 @@ def find_all_modules() -> Iterator[Path]:
         elif module_relative_path.name == "search":
             # Not ready yet
             continue
-        yield pytest.param(module_relative_path, id=f"{module_relative_path.parent.name}/{module_relative_path.name}")
+        yield module_relative_path
 
 
-@pytest.mark.parametrize("module_path", list(find_all_modules()))
+@pytest.mark.parametrize("module_path", list(find_all_modules()), ids=module_param_id)
 def test_build_deploy_module(
     module_path: Path,
     build_tmp_path: Path,
@@ -110,7 +114,7 @@ def test_build_deploy_module(
         )
 
 
-@pytest.mark.parametrize("module_path", list(find_all_modules()))
+@pytest.mark.parametrize("module_path", list(find_all_modules()), ids=module_param_id)
 def test_build_deploy_with_dry_run(
     module_path: Path,
     build_tmp_path: Path,
@@ -154,7 +158,7 @@ def test_build_deploy_with_dry_run(
     assert not delete_result, f"No resources should be deleted in dry run: got these calls: {delete_result}"
 
 
-@pytest.mark.parametrize("module_path", list(find_all_modules()))
+@pytest.mark.parametrize("module_path", list(find_all_modules()), ids=module_param_id)
 def test_init_build_clean(
     module_path: Path,
     build_tmp_path: Path,

@@ -523,49 +523,41 @@ def test_dump_datamodel(
     assert len(view_files) == 2
     loaded_views = [ViewRequest.model_validate(yaml.safe_load(f.read_text())) for f in view_files]
     child_loaded = next(v for v in loaded_views if v.external_id == "my_view")
-    assert child_loaded.implements[0] == parent_view.as_id()
+    implements = child_loaded.implements
+    assert implements is not None
+    assert implements[0] == parent_view.as_id()
     # The parent property should have been removed from the child view.
-    assert len(child_loaded.properties) == 1
+    properties = child_loaded.properties
+    assert properties is not None
+    assert len(properties) == 1
 
 
 def test_dump_datamodel_skip_global(
     tmp_path: Path, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
 ) -> None:
     output_dir = tmp_path / "tmp_dump"
-    default_space_args = dict(is_global=False, last_updated_time=0, created_time=0)
-    default_view_args = dict(
-        last_updated_time=1,
-        created_time=1,
-        writable=True,
-        queryable=True,
-        used_for="node",
-        is_global=False,
-    )
-    default_prop_args = dict(
-        nullable=True,
-        immutable=False,
-        auto_increment=False,
-        constraint_state=ConstraintOrIndexState(),
-    )
-    default_container_args = dict(
+    local_space = SpaceResponse(space="my_space", is_global=False, last_updated_time=0, created_time=0)
+    global_space = SpaceResponse(space="cdf_cdm", is_global=True, last_updated_time=0, created_time=0)
+    toolkit_client_approval.append(SpaceResponse, [local_space, global_space])
+    local_container_ref = ContainerId(space=local_space.space, external_id="MyAsset")
+    local_container = ContainerResponse(
+        space=local_space.space,
+        external_id="MyAsset",
+        properties={},
         is_global=False,
         last_updated_time=0,
         created_time=0,
         used_for="node",
-    )
-    local_space = SpaceResponse(space="my_space", **default_space_args)
-    global_space = SpaceResponse(space="cdf_cdm", **{**default_space_args, "is_global": True})
-    toolkit_client_approval.append(SpaceResponse, [local_space, global_space])
-    local_container_ref = ContainerId(space=local_space.space, external_id="MyAsset")
-    local_container = ContainerResponse(
-        space=local_space.space, external_id="MyAsset", properties={}, **default_container_args
     )
     global_container_ref = ContainerId(space=global_space.space, external_id="CogniteAsset")
     global_container = ContainerResponse(
         space=global_space.space,
         external_id="CogniteAsset",
         properties={},
-        **{**default_container_args, "is_global": True},
+        is_global=True,
+        last_updated_time=0,
+        created_time=0,
+        used_for="node",
     )
     toolkit_client_approval.append(ContainerResponse, [local_container, global_container])
     local_view = ViewResponse(
@@ -577,11 +569,19 @@ def test_dump_datamodel_skip_global(
                 container=local_container_ref,
                 container_property_identifier="prop1",
                 type=TextProperty(),
-                **default_prop_args,
+                nullable=True,
+                immutable=False,
+                auto_increment=False,
+                constraint_state=ConstraintOrIndexState(),
             ),
         },
         mapped_containers=[local_container_ref],
-        **{**default_view_args, "is_global": False},
+        last_updated_time=1,
+        created_time=1,
+        writable=True,
+        queryable=True,
+        used_for="node",
+        is_global=False,
     )
     global_view = ViewResponse(
         space=global_space.space,
@@ -592,11 +592,19 @@ def test_dump_datamodel_skip_global(
                 container=global_container_ref,
                 container_property_identifier="prop1",
                 type=TextProperty(),
-                **default_prop_args,
+                nullable=True,
+                immutable=False,
+                auto_increment=False,
+                constraint_state=ConstraintOrIndexState(),
             ),
         },
         mapped_containers=[global_container_ref],
-        **{**default_view_args, "is_global": True},
+        last_updated_time=1,
+        created_time=1,
+        writable=True,
+        queryable=True,
+        used_for="node",
+        is_global=True,
     )
     toolkit_client_approval.append(ViewResponse, [local_view, global_view])
     data_model = DataModelResponse(
@@ -698,8 +706,10 @@ def test_deploy_group_with_unknown_acl(
     assert len(groups) == 1
     group = cast(GroupRequest, groups[0])
     assert group.name == "my_group_with_unknown_acl"
-    assert len(group.capabilities) == 1
-    assert group.capabilities[0].dump() == {
+    capabilities = group.capabilities
+    assert capabilities is not None
+    assert len(capabilities) == 1
+    assert capabilities[0].dump() == {
         "someUnknownAcl": {
             "actions": ["UTTERLY_UNKNOWN"],
             "scope": {"unknownScope": {"with": ["some", {"strange": "structure"}]}},

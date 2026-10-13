@@ -9,7 +9,7 @@ import zipfile
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, BinaryIO, TextIO, cast
+from typing import Any, BinaryIO, TextIO, TypeVar, cast
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -32,7 +32,7 @@ from cognite.client.data_classes import (
     WorkflowVersion,
     capabilities,
 )
-from cognite.client.data_classes._base import CogniteResource, T_CogniteResource
+from cognite.client.data_classes._base import CogniteResource
 from cognite.client.data_classes.capabilities import AllProjectsScope, ProjectCapability, ProjectCapabilityList
 from cognite.client.data_classes.data_modeling import (
     DataModelList,
@@ -59,7 +59,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from requests import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -84,6 +84,8 @@ from tests.constants import CDF_PROJECT
 
 from .config import API_RESOURCES
 from .data_classes import APIResource, AuthGroupCalls
+
+T_CDFResource = TypeVar("T_CDFResource", bound=CogniteResource | BaseModelObject)
 
 TEST_FOLDER = Path(__file__).resolve().parent.parent
 
@@ -176,7 +178,7 @@ class ApprovalToolkitClient:
             is_strict_validation=False,
         )
         # This is used to simulate the existing resources in CDF
-        self._existing_resources: dict[str, list[CogniteResource]] = defaultdict(list)
+        self._existing_resources: dict[str, list[CogniteResource | BaseModelObject]] = defaultdict(list)
         # This is used to log all delete operations
         self._deleted_resources: dict[str, list[str | int | dict[str, Any]]] = defaultdict(list)
         # This is used to log all create operations
@@ -309,7 +311,7 @@ class ApprovalToolkitClient:
         """
         self._return_verify_resources = value
 
-    def append(self, resource_cls: type[CogniteResource], items: CogniteResource | Sequence[CogniteResource]) -> None:
+    def append(self, resource_cls: type[T_CDFResource], items: T_CDFResource | Sequence[T_CDFResource]) -> None:
         """This is used to simulate existing resources in CDF.
 
         Args:
@@ -322,7 +324,7 @@ class ApprovalToolkitClient:
         else:
             self._existing_resources[resource_cls.__name__].append(items)
 
-    def clear_cdf_resources(self, resource_cls: type[CogniteResource]) -> None:
+    def clear_cdf_resources(self, resource_cls: type[T_CDFResource]) -> None:
         """Clears the existing resources in CDF.
 
         Args:
@@ -1233,7 +1235,7 @@ class ApprovalToolkitClient:
 
         return dumped
 
-    def created_resources_of_type(self, resource_type: type[T_CogniteResource]) -> list[T_CogniteResource]:
+    def created_resources_of_type(self, resource_type: type[T_CDFResource]) -> list[T_CDFResource]:
         """This returns all the resources that have been created of a specific type.
 
         Args:
