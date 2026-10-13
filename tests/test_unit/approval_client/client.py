@@ -582,7 +582,7 @@ class ApprovalToolkitClient:
 
             if issubclass(resource_list_cls, CogniteResourceList):
                 return resource_list_cls.load(read_resource_objects)
-            return read_resource_objects
+            return upserted
 
         def _create_dataframe_info(dataframe: pd.DataFrame) -> dict[str, Any]:
             return {
@@ -1012,7 +1012,7 @@ class ApprovalToolkitClient:
                     id = resource.as_id()
                     if id in id_set:
                         to_return.append(resource)
-                    elif not isinstance(id, str) and (id.as_tuple() in id_set and id.as_tuple()[:2] in id_set):
+                    elif not isinstance(id, str) and (id.as_tuple() in id_set or id.as_tuple()[:2] in id_set):
                         to_return.append(resource)
             return to_return
 
