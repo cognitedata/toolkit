@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Annotated, Literal
 
-from pydantic import Field, JsonValue
+from pydantic import Discriminator, Field, JsonValue, Tag
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
@@ -63,13 +63,16 @@ class RockwellFormat(DataModelFormat):
     type: Literal["rockwell"] = Field("rockwell")
 
 
+class SparkplugFormat(DataModelFormat):
+    type: Literal["sparkplug"] = Field("sparkplug")
+
+
 class ValueFormat(DataModelFormat):
     type: Literal["value"] = Field("value")
 
 
 JobFormatType = Annotated[
-    CustomFormat | CogniteFormat | RockwellFormat | ValueFormat,
-    Field(discriminator="type"),
+    CustomFormat | CogniteFormat | RockwellFormat | SparkplugFormat | ValueFormat, Field(discriminator="type")
 ]
 
 
@@ -105,7 +108,7 @@ class NextURLIncrementalLoad(IncrementalLoad):
 
 
 class QueryParameterIncrementalLoad(IncrementalLoad):
-    type: Literal["queryParameter"] = Field("queryParameter")
+    type: Literal["queryParam"] = Field("queryParam")
     key: str = Field("Key to insert the generated value into")
     value: str = Field("Expression that will be evaluated, and its result used as a query parameter")
 
@@ -151,6 +154,19 @@ class RestConfig(BaseModelResource):
     )
 
 
+def _determine_config_type(config: dict | None) -> str:
+    if not isinstance(config, dict):
+        return "none"
+    if "topicFilter" in config:
+        return "mqtt"
+    elif "topic" in config:
+        return "kafka"
+    elif "path" in config:
+        return "rest"
+    else:
+        raise ValueError("Unknown config type")
+
+
 class HostedExtractorJobYAML(ToolkitResource):
     external_id: str = Field(
         description="The external ID provided by the client. Must be unique for the resource type.",
@@ -164,12 +180,34 @@ class HostedExtractorJobYAML(ToolkitResource):
         description="ID of the source this job should read from.",
         max_length=255,
     )
+    name: str | None = Field(
+        None,
+        description="The name of the job.",
+        max_length=50,
+    )
+    description: str | None = Field(
+        None,
+        description="The description of the job.",
+        max_length=500,
+    )
+
+    metadata: dict[str, str] | None = Field(
+        None,
+        description="Custom, application specific metadata. String key -> String value. Limits are 16 key-value pairs, 512 bytes per value, and 4096 bytes total.",
+        max_length=16,
+    )
     format: JobFormatType = Field(
         description="The format of the messages from the source. This is used to convert messages coming from the source system to a format that can be inserted into CDF.",
     )
-    config: MQTTConfig | KafkaConfig | RestConfig | None = Field(
+    config: (
+        Annotated[MQTTConfig, Tag("mqtt")]
+        | Annotated[KafkaConfig, Tag("kafka")]
+        | Annotated[RestConfig, Tag("rest")]
+        | Annotated[None, Tag("none")]
+    ) = Field(
         None,
         description="Source specific job configuration. The type depends on the type of source, and is required for some sources.",
+        discriminator=Discriminator(_determine_config_type),
     )
 
     def as_id(self) -> ExternalId:

@@ -148,6 +148,21 @@ class HostedExtractorSource(ToolkitResource):
         description="The external ID provided by the client. Must be unique for the resource type.",
         max_length=255,
     )
+    name: str | None = Field(
+        None,
+        description="Name of the source",
+        max_length=50,
+    )
+    description: str | None = Field(
+        None,
+        description="Description of the source",
+        max_length=500,
+    )
+    metadata: dict[str, str] | None = Field(
+        None,
+        description="Custom, application specific metadata. String key -> String value. Limits are 16 key-value pairs, 512 bytes per value, and 4096 bytes total.",
+        max_length=16,
+    )
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
@@ -177,6 +192,10 @@ class EventHubSource(HostedExtractorSource):
         None,
         description="The event hub consumer group to use. Microsoft recommends having a distinct consumer group for each application consuming data from event hub. If left out, this uses the default consumer group.",
         max_length=200,
+    )
+    authentication: BasicAuthentication | ClientCredentials | None = Field(
+        None,
+        description="Authentication details for source",
     )
 
     @field_serializer("key_value", when_used="json")
@@ -278,21 +297,6 @@ class KafkaSource(HostedExtractorSource):
 
 class MQTTBroker(HostedExtractorSource):
     type: Literal["mqtt_broker"] = Field("mqtt_broker")
-    name: str | None = Field(
-        None,
-        description="Name of the MQTT broker.",
-        max_length=50,
-    )
-    description: str | None = Field(
-        None,
-        description="Description of the MQTT broker.",
-        max_length=500,
-    )
-    metadata: dict[str, str] | None = Field(
-        None,
-        description="Metadata of the MQTT broker.",
-        max_length=16,
-    )
 
 
 HostedExtractorSourceYAML = Annotated[

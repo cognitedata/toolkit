@@ -7,7 +7,6 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client._types import Metadata
 
 from ._base import SourceRequestDefinition, SourceResponseDefinition
 
@@ -25,9 +24,6 @@ class MQTTBrokerAuthentication(BaseModelObject):
 
 class MQTTBrokerSource(BaseModelObject):
     type: Literal["mqtt_broker"] = "mqtt_broker"
-    name: str | None = None
-    description: str | None = None
-    metadata: Metadata | None = None
 
 
 class MQTTBrokerSourceRequest(MQTTBrokerSource, SourceRequestDefinition):

@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
+from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field
 
@@ -55,6 +56,14 @@ class ValueFormat(JobFormatDefinition):
     data_models: list[SpaceRef] | None = None
 
 
+class SparkplugFormat(JobFormatDefinition):
+    type: Literal["sparkplug"] = "sparkplug"
+    encoding: str | None = None
+    compression: str | None = None
+    prefix: PrefixConfig | None = None
+    data_models: list[SpaceRef] | None = None
+
+
 class UnknownJobFormat(JobFormatDefinition):
     type: str
 
@@ -76,7 +85,7 @@ _JOB_FORMAT_BY_TYPE = registry_from_subclasses_with_type_field(
 
 
 JobFormat = Annotated[
-    CogniteFormat | CustomFormat | RockwellFormat | ValueFormat | UnknownJobFormat,
+    CogniteFormat | CustomFormat | RockwellFormat | ValueFormat | SparkplugFormat | UnknownJobFormat,
     BeforeValidator(_handle_unknown_job_format),
 ]
 
@@ -162,6 +171,9 @@ class HostedExtractorJob(BaseModelObject):
     external_id: str
     destination_id: str
     source_id: str
+    name: str | None = None
+    description: str | None = None
+    metadata: Metadata | None = None
     format: JobFormat
     config: MQTTConfig | KafkaConfig | RestConfig | None = None
 
@@ -180,6 +192,7 @@ class HostedExtractorJobRequest(HostedExtractorJob, UpdatableRequestResource):
     # Event Hub / Service Bus jobs have no source-specific config. The update API
     # does not support setting config to null.
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"config"})
+    container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         update_item = super().as_update(mode=mode)

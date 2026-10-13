@@ -53,8 +53,25 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     IDScopeLowerCase,
     TimeSeriesAcl,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
+    Credentials,
+    HostedExtractorDestinationRequest,
+    HostedExtractorDestinationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping import (
+    HostedExtractorMappingRequest,
+    HostedExtractorMappingResponse,
+    Mapping,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
+    BasicAuthenticationRequest,
+    EventHubSourceRequest,
+    HostedExtractorSourceResponseUnion,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    ClientCredentialsSessionRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
@@ -72,6 +89,8 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     FunctionIO,
     FunctionScheduleIO,
     GroupIO,
+    HostedExtractorJobIO,
+    HostedExtractorSourceIO,
     LabelIO,
     NodeIO,
     SkillIO,
@@ -82,7 +101,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from tests.test_integration.constants import RUN_UNIQUE_ID
-from tests.test_integration.helpers import retry_on_deadlock
+from tests.test_integration.helpers import load_local_yaml, retry_on_deadlock
 from tests.utils import to_deploy_status
 
 
@@ -1129,3 +1148,302 @@ class TestSkillIO:
             assert "Used by toolkit integration tests (updated)." in retrieved[0].content
         finally:
             loader.delete([original.as_id()])
+
+
+class TestHostedExtractorSourceIO:
+    event_hub = """type: eventhub
+externalId: test_no_redeploy_unchanged_eventhub
+host: eventhubnamespace.servicebus.windows.net
+eventHubName: my-event-hub
+authentication:
+  type: basic
+  username: my-username
+  password: my-password
+"""
+
+    mqtt_basic = """type: mqtt5
+externalId: test_no_redeploy_unchanged_mqtt
+host: mqtt.example.com
+authentication:
+  type: basic
+  username: my-username
+  password: my-password
+caCertificate:
+  type: pem
+  certificate: |
+    -----BEGIN CERTIFICATE-----
+    MIICvDCCAaSgAwIBAgIUfHkd6VypizbuYiWSVpQn62iiacgwDQYJKoZIhvcNAQEL
+    BQAwFzEVMBMGA1UEAwwMdG9vbGtpdC10ZXN0MCAXDTIwMDEwMTAwMDAwMFoYDzIw
+    NTAwMTAxMDAwMDAwWjAXMRUwEwYDVQQDDAx0b29sa2l0LXRlc3QwggEiMA0GCSqG
+    SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDTnbjFLCDwBow87hU6DUV0P5u4Dkx7dZix
+    GsbRHbIH3XUUszLxjYqwbpp9DWzDEl51U++UQFk3Jkp2IhlPle+RZuWAlWgT6xab
+    LJYQnTQhXP+wwJBU26LtXo69zvS1iXf18O5GXagFkdl8jM4izMAoGzq5Ysj4ERJO
+    q274flSKP72zVOfk2QQqKzsmMOzUhiwQ+ZlpX1UZomj9CAQV8fC6Eu/LUkFSqDR4
+    BhqnpmGQfpMxO8EZ2G/J7mAjdW05vJX8nkY7MHAFtyt0dqjuzI6UwSMi6r/E7mcR
+    nQRukP3Qh3G3rPmlUQWFH4tcNk9iugiKFEHlyiFxC7kPhXbbm6fFAgMBAAEwDQYJ
+    KoZIhvcNAQELBQADggEBAHATYlNZJLkVYovdeZ8anycKt3PoFYYOQypyEJ6myH6s
+    ztcimolI8ldCc1l9nqYzohKakVu12iNHfTMthNgEr4/20+zmLbAwMlcujJoAKa06
+    us5WY4fisExjZ9W76WPGhrd0YqCQRA3hd4n6PwfctTINxh97rRPm0PZXn/4FsaTS
+    4HnOGbz/gkJvL1grkJdcfo6CLevEaePCZx0iq5IVmSA7sLm/yXVnQnKWnlqLnFHZ
+    p6trlU7q8XR+F86b3ZyjC4YfkEzR0JWLFh1c/EDoAdr15H4+w1NsPvXV7312pCBl
+    w5uD6GrMLpfBYRBhkMInfewQiYPxPE1fzMXKccitMlY=
+    -----END CERTIFICATE-----
+"""
+
+    kafka_scram = """type: kafka
+externalId: test_no_redeploy_unchanged_kafka
+bootstrapBrokers:
+  - host: broker.example.com
+    port: 9092
+authentication:
+  type: scramSha256
+  username: my-username
+  password: my-password
+authCertificate:
+  type: pem
+  key: |
+    -----BEGIN ENCRYPTED PRIVATE KEY-----
+    MIIFNTBfBgkqhkiG9w0BBQ0wUjAxBgkqhkiG9w0BBQwwJAQQQe0ZJy+eaEAyfthP
+    gXo+yQICCAAwDAYIKoZIhvcNAgkFADAdBglghkgBZQMEASoEEKHoFhMIYStZSl67
+    LrPMF/0EggTQlxhJ2QIOz0aO5v9j2g3mn4w+4PDrO/yA6l4CpOhM/2zjfsf9+MEq
+    whn06RvGOqfoPeDMZwMA9Zm7XltzMmosf3vTJF7X0r4RJaUNItnLSCxU/VEE3DOn
+    fwGQorJgTrHogXopr7E/6HQ3YGJFbR689Gpb5yBafHozbH/x/YgpLDhzibmioNc8
+    pYGJq7qFo/u18NMmvmSloz7G0TFB+P+Z1ZQJGwA/+r0AqGsvSHtiBnoFThDIS+zh
+    pSBeIANKVz9zdUCY+6Clr+DyvBfF5zDx8RTJe4v37AUTx8P4TtgPWIOU8OAXQ0cb
+    6x6QzDa9qVNYt6q1+dovns2i2GCfQpaEx9G/S0tuQxyB4OAAWXapghAQsCepIluf
+    RBndtPTFXmEIgQt/RJPXPPFLrTSNOa/CFpv0L+e1QBwIJtJNnIScOwFnmOFHS2u/
+    UM26A+locpWa7mYRUcFR0xNzZQEtemSI/DVmpAvKFLSQ/XGZdhr59Ve1/JcyFjAb
+    a7qJtNs1W/3H6oxPVM8p6q6ANg9rCXhX0L9zJ21QBYkmxHlyJ3AwcKQM1d0OwPyZ
+    rQhfFdPbGarjHbij2E1uaxQ3sVm/1MzLqHS+MfOvlpDstB+GQYu/r/seXu7wYjfV
+    qUIoFWF19hOSjt8sfsiGPII335acq9QLjPwuih0gxC/JyAHcD4NU8bkpqHtgRQge
+    T3zxdodACmRIcigR9hadZJoNy19rKC/ma8B1FypVqM19r7BspVtRW5Y9UmOOJ9Ir
+    50AVQnhiZul/qKtBUnrqv3QM9LbbfBmMp+WPjsaxwZEGSzuCnXrc5s79zUYuE10+
+    MSpIzaHVt8J6N8yXqsnebp8vSOpNVlgcwB0QmMspZJTmg8KXOTqJDTPS597Sq/A9
+    4OVvE1iW9OsMjqCmo1+2at2PIMZZE7mMPtyWNRNUPEJ6fTG4HzzXtnMoBIYT/JJB
+    7lEjeu34bQNA9Ud5IorCx5Xsen3l9B3M0Hhd/5XlmtKRsPQxx/huDPzAJG7hJlZe
+    JA8POcJOwKyI+rykFC4YNNW/DyuROOJLIYLeJJk2Fg3phmId5YctX+TDVImTitJx
+    RD3NHowl9pYqLOjYYhS+RpJQsiuW/Qj/eVJmvxPH9KWrknvWZELdkNYAHDdgRGAj
+    ra01pz2WQ66KF1S6Ls/YaESfLWmt7pnHtV9l9w7U9dntsPV/vSD86OfeIDZcyYET
+    pz7Nzl7dFDozvjDSkVjopGjC01dDzhR+CMcvCHNDdTJugPZyRY1MwX2XTqFIrajf
+    PBoe7Z8GepbzcVlxsqTciI8LHs5hfjliX7Xw45tBznj1gfJt8boWVoBf77FqfI45
+    FH4OYMCCYrxp+sOhP2KRmOCd8wjyl0YpDY9hHDLhSZfLnLtMzP4BCrqMA11IgrBL
+    SbXg3gBowZt+a9nwQm4TH5/8YKTTsKGr/ZLnTfk9X/2CezmKIu2BXde+AoebtNo7
+    xkU4JKAdK9G9gAi1nXorXkO8MM7BuCB5w78vCNOOAsGW/sAL9l15WLbn52+dL5v6
+    0EbUpJkIHBcUJ+PthiiyE+cSQilDxSI2oJ8LVvlNMhysZGPkQPWhrs2zXMsH2UVA
+    Lp1TeRHNccv0/296V0yD53YfR0vILvwmRbqcd+xEGye56TzMaiqz9R4=
+    -----END ENCRYPTED PRIVATE KEY-----
+  keyPassword: my-key-password
+  certificate: |
+    -----BEGIN CERTIFICATE-----
+    MIICvDCCAaSgAwIBAgIUfHkd6VypizbuYiWSVpQn62iiacgwDQYJKoZIhvcNAQEL
+    BQAwFzEVMBMGA1UEAwwMdG9vbGtpdC10ZXN0MCAXDTIwMDEwMTAwMDAwMFoYDzIw
+    NTAwMTAxMDAwMDAwWjAXMRUwEwYDVQQDDAx0b29sa2l0LXRlc3QwggEiMA0GCSqG
+    SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDTnbjFLCDwBow87hU6DUV0P5u4Dkx7dZix
+    GsbRHbIH3XUUszLxjYqwbpp9DWzDEl51U++UQFk3Jkp2IhlPle+RZuWAlWgT6xab
+    LJYQnTQhXP+wwJBU26LtXo69zvS1iXf18O5GXagFkdl8jM4izMAoGzq5Ysj4ERJO
+    q274flSKP72zVOfk2QQqKzsmMOzUhiwQ+ZlpX1UZomj9CAQV8fC6Eu/LUkFSqDR4
+    BhqnpmGQfpMxO8EZ2G/J7mAjdW05vJX8nkY7MHAFtyt0dqjuzI6UwSMi6r/E7mcR
+    nQRukP3Qh3G3rPmlUQWFH4tcNk9iugiKFEHlyiFxC7kPhXbbm6fFAgMBAAEwDQYJ
+    KoZIhvcNAQELBQADggEBAHATYlNZJLkVYovdeZ8anycKt3PoFYYOQypyEJ6myH6s
+    ztcimolI8ldCc1l9nqYzohKakVu12iNHfTMthNgEr4/20+zmLbAwMlcujJoAKa06
+    us5WY4fisExjZ9W76WPGhrd0YqCQRA3hd4n6PwfctTINxh97rRPm0PZXn/4FsaTS
+    4HnOGbz/gkJvL1grkJdcfo6CLevEaePCZx0iq5IVmSA7sLm/yXVnQnKWnlqLnFHZ
+    p6trlU7q8XR+F86b3ZyjC4YfkEzR0JWLFh1c/EDoAdr15H4+w1NsPvXV7312pCBl
+    w5uD6GrMLpfBYRBhkMInfewQiYPxPE1fzMXKccitMlY=
+    -----END CERTIFICATE-----
+"""
+
+    rest_client_credentials = """type: rest
+externalId: test_no_redeploy_unchanged_rest_client_credentials
+host: api.example.com
+authentication:
+  type: clientCredentials
+  clientId: my-client-id
+  tokenUrl: https://token.example.com/oauth/token
+  scopes: my-scope
+  clientSecret: my-client-secret
+caCertificate:
+  type: pem
+  certificate: |
+    -----BEGIN CERTIFICATE-----
+    MIICvDCCAaSgAwIBAgIUfHkd6VypizbuYiWSVpQn62iiacgwDQYJKoZIhvcNAQEL
+    BQAwFzEVMBMGA1UEAwwMdG9vbGtpdC10ZXN0MCAXDTIwMDEwMTAwMDAwMFoYDzIw
+    NTAwMTAxMDAwMDAwWjAXMRUwEwYDVQQDDAx0b29sa2l0LXRlc3QwggEiMA0GCSqG
+    SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDTnbjFLCDwBow87hU6DUV0P5u4Dkx7dZix
+    GsbRHbIH3XUUszLxjYqwbpp9DWzDEl51U++UQFk3Jkp2IhlPle+RZuWAlWgT6xab
+    LJYQnTQhXP+wwJBU26LtXo69zvS1iXf18O5GXagFkdl8jM4izMAoGzq5Ysj4ERJO
+    q274flSKP72zVOfk2QQqKzsmMOzUhiwQ+ZlpX1UZomj9CAQV8fC6Eu/LUkFSqDR4
+    BhqnpmGQfpMxO8EZ2G/J7mAjdW05vJX8nkY7MHAFtyt0dqjuzI6UwSMi6r/E7mcR
+    nQRukP3Qh3G3rPmlUQWFH4tcNk9iugiKFEHlyiFxC7kPhXbbm6fFAgMBAAEwDQYJ
+    KoZIhvcNAQELBQADggEBAHATYlNZJLkVYovdeZ8anycKt3PoFYYOQypyEJ6myH6s
+    ztcimolI8ldCc1l9nqYzohKakVu12iNHfTMthNgEr4/20+zmLbAwMlcujJoAKa06
+    us5WY4fisExjZ9W76WPGhrd0YqCQRA3hd4n6PwfctTINxh97rRPm0PZXn/4FsaTS
+    4HnOGbz/gkJvL1grkJdcfo6CLevEaePCZx0iq5IVmSA7sLm/yXVnQnKWnlqLnFHZ
+    p6trlU7q8XR+F86b3ZyjC4YfkEzR0JWLFh1c/EDoAdr15H4+w1NsPvXV7312pCBl
+    w5uD6GrMLpfBYRBhkMInfewQiYPxPE1fzMXKccitMlY=
+    -----END CERTIFICATE-----
+authCertificate:
+  type: pem
+  key: |
+    -----BEGIN ENCRYPTED PRIVATE KEY-----
+    MIIFNTBfBgkqhkiG9w0BBQ0wUjAxBgkqhkiG9w0BBQwwJAQQQe0ZJy+eaEAyfthP
+    gXo+yQICCAAwDAYIKoZIhvcNAgkFADAdBglghkgBZQMEASoEEKHoFhMIYStZSl67
+    LrPMF/0EggTQlxhJ2QIOz0aO5v9j2g3mn4w+4PDrO/yA6l4CpOhM/2zjfsf9+MEq
+    whn06RvGOqfoPeDMZwMA9Zm7XltzMmosf3vTJF7X0r4RJaUNItnLSCxU/VEE3DOn
+    fwGQorJgTrHogXopr7E/6HQ3YGJFbR689Gpb5yBafHozbH/x/YgpLDhzibmioNc8
+    pYGJq7qFo/u18NMmvmSloz7G0TFB+P+Z1ZQJGwA/+r0AqGsvSHtiBnoFThDIS+zh
+    pSBeIANKVz9zdUCY+6Clr+DyvBfF5zDx8RTJe4v37AUTx8P4TtgPWIOU8OAXQ0cb
+    6x6QzDa9qVNYt6q1+dovns2i2GCfQpaEx9G/S0tuQxyB4OAAWXapghAQsCepIluf
+    RBndtPTFXmEIgQt/RJPXPPFLrTSNOa/CFpv0L+e1QBwIJtJNnIScOwFnmOFHS2u/
+    UM26A+locpWa7mYRUcFR0xNzZQEtemSI/DVmpAvKFLSQ/XGZdhr59Ve1/JcyFjAb
+    a7qJtNs1W/3H6oxPVM8p6q6ANg9rCXhX0L9zJ21QBYkmxHlyJ3AwcKQM1d0OwPyZ
+    rQhfFdPbGarjHbij2E1uaxQ3sVm/1MzLqHS+MfOvlpDstB+GQYu/r/seXu7wYjfV
+    qUIoFWF19hOSjt8sfsiGPII335acq9QLjPwuih0gxC/JyAHcD4NU8bkpqHtgRQge
+    T3zxdodACmRIcigR9hadZJoNy19rKC/ma8B1FypVqM19r7BspVtRW5Y9UmOOJ9Ir
+    50AVQnhiZul/qKtBUnrqv3QM9LbbfBmMp+WPjsaxwZEGSzuCnXrc5s79zUYuE10+
+    MSpIzaHVt8J6N8yXqsnebp8vSOpNVlgcwB0QmMspZJTmg8KXOTqJDTPS597Sq/A9
+    4OVvE1iW9OsMjqCmo1+2at2PIMZZE7mMPtyWNRNUPEJ6fTG4HzzXtnMoBIYT/JJB
+    7lEjeu34bQNA9Ud5IorCx5Xsen3l9B3M0Hhd/5XlmtKRsPQxx/huDPzAJG7hJlZe
+    JA8POcJOwKyI+rykFC4YNNW/DyuROOJLIYLeJJk2Fg3phmId5YctX+TDVImTitJx
+    RD3NHowl9pYqLOjYYhS+RpJQsiuW/Qj/eVJmvxPH9KWrknvWZELdkNYAHDdgRGAj
+    ra01pz2WQ66KF1S6Ls/YaESfLWmt7pnHtV9l9w7U9dntsPV/vSD86OfeIDZcyYET
+    pz7Nzl7dFDozvjDSkVjopGjC01dDzhR+CMcvCHNDdTJugPZyRY1MwX2XTqFIrajf
+    PBoe7Z8GepbzcVlxsqTciI8LHs5hfjliX7Xw45tBznj1gfJt8boWVoBf77FqfI45
+    FH4OYMCCYrxp+sOhP2KRmOCd8wjyl0YpDY9hHDLhSZfLnLtMzP4BCrqMA11IgrBL
+    SbXg3gBowZt+a9nwQm4TH5/8YKTTsKGr/ZLnTfk9X/2CezmKIu2BXde+AoebtNo7
+    xkU4JKAdK9G9gAi1nXorXkO8MM7BuCB5w78vCNOOAsGW/sAL9l15WLbn52+dL5v6
+    0EbUpJkIHBcUJ+PthiiyE+cSQilDxSI2oJ8LVvlNMhysZGPkQPWhrs2zXMsH2UVA
+    Lp1TeRHNccv0/296V0yD53YfR0vILvwmRbqcd+xEGye56TzMaiqz9R4=
+    -----END ENCRYPTED PRIVATE KEY-----
+  keyPassword: my-key-password
+  certificate: |
+    -----BEGIN CERTIFICATE-----
+    MIICvDCCAaSgAwIBAgIUfHkd6VypizbuYiWSVpQn62iiacgwDQYJKoZIhvcNAQEL
+    BQAwFzEVMBMGA1UEAwwMdG9vbGtpdC10ZXN0MCAXDTIwMDEwMTAwMDAwMFoYDzIw
+    NTAwMTAxMDAwMDAwWjAXMRUwEwYDVQQDDAx0b29sa2l0LXRlc3QwggEiMA0GCSqG
+    SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDTnbjFLCDwBow87hU6DUV0P5u4Dkx7dZix
+    GsbRHbIH3XUUszLxjYqwbpp9DWzDEl51U++UQFk3Jkp2IhlPle+RZuWAlWgT6xab
+    LJYQnTQhXP+wwJBU26LtXo69zvS1iXf18O5GXagFkdl8jM4izMAoGzq5Ysj4ERJO
+    q274flSKP72zVOfk2QQqKzsmMOzUhiwQ+ZlpX1UZomj9CAQV8fC6Eu/LUkFSqDR4
+    BhqnpmGQfpMxO8EZ2G/J7mAjdW05vJX8nkY7MHAFtyt0dqjuzI6UwSMi6r/E7mcR
+    nQRukP3Qh3G3rPmlUQWFH4tcNk9iugiKFEHlyiFxC7kPhXbbm6fFAgMBAAEwDQYJ
+    KoZIhvcNAQELBQADggEBAHATYlNZJLkVYovdeZ8anycKt3PoFYYOQypyEJ6myH6s
+    ztcimolI8ldCc1l9nqYzohKakVu12iNHfTMthNgEr4/20+zmLbAwMlcujJoAKa06
+    us5WY4fisExjZ9W76WPGhrd0YqCQRA3hd4n6PwfctTINxh97rRPm0PZXn/4FsaTS
+    4HnOGbz/gkJvL1grkJdcfo6CLevEaePCZx0iq5IVmSA7sLm/yXVnQnKWnlqLnFHZ
+    p6trlU7q8XR+F86b3ZyjC4YfkEzR0JWLFh1c/EDoAdr15H4+w1NsPvXV7312pCBl
+    w5uD6GrMLpfBYRBhkMInfewQiYPxPE1fzMXKccitMlY=
+    -----END CERTIFICATE-----
+"""
+
+    rest_header = """type: rest
+externalId: test_no_redeploy_unchanged_rest_header
+host: api.example.com
+authentication:
+  type: header
+  key: Authorization
+  value: my-secret-token
+"""
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            pytest.param(event_hub, id="eventhub basic auth"),
+            pytest.param(mqtt_basic, id="mqtt basic auth"),
+            pytest.param(kafka_scram, id="kafka scramSha256 auth"),
+            pytest.param(rest_client_credentials, id="rest clientCredentials auth"),
+            pytest.param(rest_header, id="rest header auth"),
+        ],
+    )
+    def test_no_redeploy_unchanged(self, content: str, toolkit_client: ToolkitClient) -> None:
+        io = HostedExtractorSourceIO(toolkit_client)
+
+        raw_data = load_local_yaml(content, io)
+        cdf_source = io.load_resource(raw_data)
+        retrieved = io.retrieve([cdf_source.as_id()])
+        if len(retrieved) == 0:
+            # Create the source if it doesn't exist, so we can test that it is not redeployed when unchanged
+            retrieved = io.create([cdf_source])
+            assert len(retrieved) == 1
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)
+
+
+@pytest.fixture(scope="session")
+def persistent_hosted_extractor_mapping(toolkit_client: ToolkitClient) -> HostedExtractorMappingResponse:
+    mapping = HostedExtractorMappingRequest(
+        external_id="toolkit_test_hosted_extractor_mapping_persistet",
+        name="Toolkit Test Hosted Extractor Mapping",
+        description="Integration test hosted extractor mapping",
+        mapping=Mapping(
+            expression="""[{ "type": "datapoint", "timestamp": to_unix_timestamp(input.timestamp,
+    "%Y-%m-%dT%H:%M:%S"), "value": try_float(input.value, null), "externalId": input.tag
+    }].filter(datapoint => datapoint.value is not null)""",
+        ),
+        published=True,
+    )
+    if existing := toolkit_client.tool.hosted_extractors.mappings.retrieve([mapping.as_id()], ignore_unknown_ids=True):
+        return existing[0]
+    created = toolkit_client.tool.hosted_extractors.mappings.create([mapping])
+    assert len(created) == 1
+    return created[0]
+
+
+@pytest.fixture(scope="session")
+def persistent_hosted_extractor_source(toolkit_client: ToolkitClient) -> HostedExtractorSourceResponseUnion:
+    source = EventHubSourceRequest(
+        external_id="toolkit_test_hosted_extractor_source_persistent",
+        host="eventhubnamespace.servicebus.windows.net",
+        event_hub_name="my-event-hub",
+        authentication=BasicAuthenticationRequest(username="my-username", password="my-password"),
+    )
+    if existing := toolkit_client.tool.hosted_extractors.sources.retrieve([source.as_id()], ignore_unknown_ids=True):
+        return existing[0]
+    created = toolkit_client.tool.hosted_extractors.sources.create([source])
+    assert len(created) == 1
+    return created[0]
+
+
+@pytest.fixture(scope="session")
+def persistent_hosted_extractor_destination(toolkit_client: ToolkitClient) -> HostedExtractorDestinationResponse:
+    external_id = "toolkit_test_hosted_extractor_destination_persistent"
+    if existing := toolkit_client.tool.hosted_extractors.destinations.retrieve(
+        [ExternalId(external_id=external_id)], ignore_unknown_ids=True
+    ):
+        return existing[0]
+    session = toolkit_client.sessions.create_one_shot_token_exchange_session()
+    destination = HostedExtractorDestinationRequest(
+        external_id=external_id,
+        name="Toolkit Test Hosted Extractor Destination",
+        description="Integration test hosted extractor destination",
+        credentials=Credentials(nonce=session.nonce),
+    )
+    created = toolkit_client.tool.hosted_extractors.destinations.create([destination])
+    assert len(created) == 1
+    return created[0]
+
+
+class TestHosedExtractorJobIO:
+    def test_no_redeploy_unchanged(
+        self,
+        persistent_hosted_extractor_mapping: HostedExtractorMappingResponse,
+        persistent_hosted_extractor_source: HostedExtractorSourceResponseUnion,
+        persistent_hosted_extractor_destination: HostedExtractorDestinationResponse,
+        toolkit_client: ToolkitClient,
+    ) -> None:
+        io = HostedExtractorJobIO(toolkit_client)
+
+        content = f"""externalId: test_no_redeploy_unchanged_job
+destinationId: {persistent_hosted_extractor_destination.external_id}
+sourceId: {persistent_hosted_extractor_source.external_id}
+format:
+  type: custom
+  mappingId: {persistent_hosted_extractor_mapping.external_id}
+"""
+        raw_data = load_local_yaml(content, io)
+        cdf_job = io.load_resource(raw_data)
+        retrieved = io.retrieve([cdf_job.as_id()])
+        if len(retrieved) == 0:
+            # Create the job if it doesn't exist, so we can test that it is not redeployed when unchanged
+            retrieved = io.create([cdf_job])
+            assert len(retrieved) == 1
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)

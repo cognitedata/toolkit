@@ -707,18 +707,6 @@ class TestDumpHostedExtractor:
             dumped = HostedExtractorSourceIO.create_io(client).dump_resource(source)
         assert dumped == {"type": "mqtt5", "externalId": "sourceA", "host": "localhost"}
 
-    def test_dump_source_with_local_returns_identifier(self) -> None:
-        source = MQTTSourceResponse(
-            type="mqtt5",
-            external_id="sourceA",
-            host="localhost",
-            created_time=1,
-            last_updated_time=1,
-        )
-        with monkeypatch_toolkit_client() as client:
-            dumped = HostedExtractorSourceIO.create_io(client).dump_resource(source, local={"externalId": "sourceA"})
-        assert dumped == {"externalId": "sourceA"}
-
     def test_dump_destination_without_local_translates_dataset(self) -> None:
         destination = HostedExtractorDestinationResponse(
             external_id="destA",

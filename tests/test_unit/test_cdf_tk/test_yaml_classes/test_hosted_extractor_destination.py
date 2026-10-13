@@ -12,8 +12,8 @@ from tests.test_unit.utils import find_resources
 
 def invalid_hosted_extractor_destination_test_cases() -> Iterable:
     yield pytest.param(
-        {"name": "Pump"},
-        {"Missing required field: 'externalId'", "Unrecognized field: 'name'"},
+        {"nameId": "Pump"},
+        {"Missing required field: 'externalId'", "Unrecognized field: 'nameId'"},
         id="Missing required field: externalId",
     )
     yield pytest.param(
