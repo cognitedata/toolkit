@@ -53,10 +53,25 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     IDScopeLowerCase,
     TimeSeriesAcl,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping import HostedExtractorMappingRequest, \
-    Mapping, HostedExtractorMapping, HostedExtractorMappingResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
+    Credentials,
+    HostedExtractorDestinationRequest,
+    HostedExtractorDestinationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping import (
+    HostedExtractorMappingRequest,
+    HostedExtractorMappingResponse,
+    Mapping,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
+    BasicAuthenticationRequest,
+    EventHubSourceRequest,
+    HostedExtractorSourceResponseUnion,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    ClientCredentialsSessionRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
@@ -74,13 +89,14 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     FunctionIO,
     FunctionScheduleIO,
     GroupIO,
+    HostedExtractorJobIO,
     HostedExtractorSourceIO,
     LabelIO,
     NodeIO,
     SkillIO,
     TransformationIO,
     ViewIO,
-    WorkflowVersionIO, HostedExtractorJobIO,
+    WorkflowVersionIO,
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
@@ -1351,6 +1367,7 @@ authentication:
             assert len(retrieved) == 1
         assert raw_data == io.dump_resource(retrieved[0], raw_data)
 
+
 @pytest.fixture(scope="session")
 def persistent_hosted_extractor_mapping(toolkit_client: ToolkitClient) -> HostedExtractorMappingResponse:
     mapping = HostedExtractorMappingRequest(
@@ -1358,18 +1375,75 @@ def persistent_hosted_extractor_mapping(toolkit_client: ToolkitClient) -> Hosted
         name="Toolkit Test Hosted Extractor Mapping",
         description="Integration test hosted extractor mapping",
         mapping=Mapping(
-            expression="SELECT * FROM my_table",
+            expression="""[{ "type": "datapoint", "timestamp": to_unix_timestamp(input.timestamp,
+    "%Y-%m-%dT%H:%M:%S"), "value": try_float(input.value, null), "externalId": input.tag
+    }].filter(datapoint => datapoint.value is not null)""",
         ),
         published=True,
     )
     if existing := toolkit_client.tool.hosted_extractors.mappings.retrieve([mapping.as_id()], ignore_unknown_ids=True):
         return existing[0]
-    created =  toolkit_client.tool.hosted_extractors.mappings.create([mapping])
+    created = toolkit_client.tool.hosted_extractors.mappings.create([mapping])
+    assert len(created) == 1
+    return created[0]
+
+
+@pytest.fixture(scope="session")
+def persistent_hosted_extractor_source(toolkit_client: ToolkitClient) -> HostedExtractorSourceResponseUnion:
+    source = EventHubSourceRequest(
+        external_id="toolkit_test_hosted_extractor_source_persistent",
+        host="eventhubnamespace.servicebus.windows.net",
+        event_hub_name="my-event-hub",
+        authentication=BasicAuthenticationRequest(username="my-username", password="my-password"),
+    )
+    if existing := toolkit_client.tool.hosted_extractors.sources.retrieve([source.as_id()], ignore_unknown_ids=True):
+        return existing[0]
+    created = toolkit_client.tool.hosted_extractors.sources.create([source])
+    assert len(created) == 1
+    return created[0]
+
+
+@pytest.fixture(scope="session")
+def persistent_hosted_extractor_destination(toolkit_client: ToolkitClient) -> HostedExtractorDestinationResponse:
+    external_id = "toolkit_test_hosted_extractor_destination_persistent"
+    if existing := toolkit_client.tool.hosted_extractors.destinations.retrieve(
+        [ExternalId(external_id=external_id)], ignore_unknown_ids=True
+    ):
+        return existing[0]
+    session = toolkit_client.sessions.create_one_shot_token_exchange_session()
+    destination = HostedExtractorDestinationRequest(
+        external_id=external_id,
+        name="Toolkit Test Hosted Extractor Destination",
+        description="Integration test hosted extractor destination",
+        credentials=Credentials(nonce=session.nonce),
+    )
+    created = toolkit_client.tool.hosted_extractors.destinations.create([destination])
     assert len(created) == 1
     return created[0]
 
 
 class TestHosedExtractorJobIO:
-    def test_no_redeploy_unchanged(self, persistent_hosted_extractor_mapping: HostedExtractorMappingResponse, toolkit_client: ToolkitClient) -> None:
-        definition_yaml = f"""space: {toolkit_space.space}
-        
+    def test_no_redeploy_unchanged(
+        self,
+        persistent_hosted_extractor_mapping: HostedExtractorMappingResponse,
+        persistent_hosted_extractor_source: HostedExtractorSourceResponseUnion,
+        persistent_hosted_extractor_destination: HostedExtractorDestinationResponse,
+        toolkit_client: ToolkitClient,
+    ) -> None:
+        io = HostedExtractorJobIO(toolkit_client)
+
+        content = f"""externalId: test_no_redeploy_unchanged_job
+destinationId: {persistent_hosted_extractor_destination.external_id}
+sourceId: {persistent_hosted_extractor_source.external_id}
+format:
+  type: custom
+  mappingId: {persistent_hosted_extractor_mapping.external_id}
+"""
+        raw_data = load_local_yaml(content, io)
+        cdf_job = io.load_resource(raw_data)
+        retrieved = io.retrieve([cdf_job.as_id()])
+        if len(retrieved) == 0:
+            # Create the job if it doesn't exist, so we can test that it is not redeployed when unchanged
+            retrieved = io.create([cdf_job])
+            assert len(retrieved) == 1
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)
