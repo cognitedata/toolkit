@@ -173,10 +173,7 @@ def _download_file_content(
         lambda self: selected,
     )
     try:
-        # data_sets must be a list. None starts interactive dataset selection and, when the
-        # extend-download/v09 flags are off, discards include_file_contents. Those flags come
-        # from the cdf.toml in the process cwd, so an IDE run from another directory never
-        # reaches the file-content download. The list is unused once file contents are included.
+        # data_sets must be a list. None starts interactive dataset selection.
         with MockQuestionary(
             DownloadApp.__module__,
             monkeypatch,

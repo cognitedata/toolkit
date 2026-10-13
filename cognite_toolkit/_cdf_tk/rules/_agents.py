@@ -6,11 +6,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.agent import ServicesAvaila
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildError,
-    ConsistencyError,
     Insight,
     InternalValidatorException,
 )
-from cognite_toolkit._cdf_tk.feature_flags import v09_gate
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet, with_position
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -90,12 +88,12 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
         if agent_def.model is not None and supported_models is not None and agent_def.model not in supported_models:
             quoted_models = humanize_collection([f"{model!r}" for model in supported_models])
             yield with_position(
-                v09_gate(BuildError, ConsistencyError)(
+                BuildError(
                     message=(
                         f"Agent '{agent_def.external_id}' model {agent_def.model!r} is not available in this "
                         f"CDF project. Available models: {quoted_models}."
                     ),
-                    code=v09_gate("INVALID-VALUE", "AGENT-MODEL"),
+                    code="INVALID-VALUE",
                     fix="Use one of the available models for this CDF project.",
                     source_file=resource.source_path,
                 ),
@@ -109,13 +107,13 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                     [f"{runtime_version!r}" for runtime_version in supported_runtime_versions]
                 )
                 yield with_position(
-                    v09_gate(BuildError, ConsistencyError)(
+                    BuildError(
                         message=(
                             f"Agent '{agent_def.external_id}' runtime version {agent_def.runtime_version!r} is not "
                             f"available in this CDF project. "
                             f"Available runtime versions: {quoted_runtime_versions}."
                         ),
-                        code=v09_gate("INVALID-VALUE", "AGENT-UNKNOWN-RUNTIME"),
+                        code="INVALID-VALUE",
                         fix="Use one of the available runtime versions for this CDF project.",
                         source_file=resource.source_path,
                     ),
@@ -134,12 +132,12 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                 )
                 if has_capability is False:
                     yield with_position(
-                        v09_gate(BuildError, ConsistencyError)(
+                        BuildError(
                             message=(
                                 f"Agent '{agent_def.external_id}' runtime version {effective_runtime_version!r} "
                                 f"does not support the '{requirement.field_name}' field."
                             ),
-                            code=v09_gate("INVALID-FIELD", "AGENT-RUNTIME-UNSUPPORTED-CAPABILITY"),
+                            code="INVALID-FIELD",
                             fix=(
                                 f"Use a runtime version that supports '{requirement.field_name}', "
                                 f"or remove the '{requirement.field_name}' field."
@@ -152,12 +150,12 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
         max_tools = availability.max_tools_per_agent
         if agent_def.tools is not None and max_tools is not None and len(agent_def.tools) > max_tools:
             yield with_position(
-                v09_gate(BuildError, ConsistencyError)(
+                BuildError(
                     message=(
                         f"Agent '{agent_def.external_id}' has {len(agent_def.tools)} tools, "
                         f"which exceeds the maximum of {max_tools} tools per agent for this CDF project."
                     ),
-                    code=v09_gate("EXCEEDED-LIMIT", "AGENT-TOOLS-LIMIT"),
+                    code="EXCEEDED-LIMIT",
                     fix=f"Reduce the number of tools to at most {max_tools}.",
                     source_file=resource.source_path,
                 ),

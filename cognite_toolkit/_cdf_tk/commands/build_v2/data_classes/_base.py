@@ -1,14 +1,9 @@
-import sys
 from pathlib import Path
+from typing import Self
 
 from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, read_yaml_file
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 
 class YAMLFile(BaseModel):

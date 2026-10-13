@@ -16,7 +16,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewRequest,
     ViewResponse,
 )
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
 
 class ViewsAPI(CDFResourceAPI[ViewResponse]):
@@ -26,8 +25,7 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
     """
 
     def __init__(self, http_client: HTTPClient) -> None:
-        use_alpha = FeatureFlag.is_enabled(Flags.RECORD_VIEWS) or FeatureFlag.is_enabled(Flags.V09)
-        api_version = "alpha" if use_alpha else None
+        api_version = "alpha"
         super().__init__(
             http_client=http_client,
             method_endpoint_map={

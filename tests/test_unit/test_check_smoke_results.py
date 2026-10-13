@@ -7,7 +7,6 @@ from unittest.mock import MagicMock
 
 import pytest
 import respx
-from httpx2 import Response
 
 from tests_smoke.check_smoke_results import Context, SlackMessage, check_smoke_tests_results
 
@@ -27,7 +26,7 @@ def context() -> Context:
 @pytest.fixture
 def call_slack(respx_mock: respx.MockRouter, context: Context) -> Iterator[respx.MockRouter]:
     """Fixture to mock Slack webhook calls."""
-    respx_mock.post(url=context.slack_webhook_url).mock(Response(status_code=200))
+    respx_mock.post(url=context.slack_webhook_url).respond(status_code=200)
     yield respx_mock
 
 

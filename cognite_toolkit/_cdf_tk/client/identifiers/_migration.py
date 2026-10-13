@@ -1,13 +1,8 @@
-import sys
 from collections.abc import Iterable
+from typing import Self
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricTypeExtended
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 
 class AssetCentricExternalId(Identifier):

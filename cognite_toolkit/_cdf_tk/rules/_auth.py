@@ -1,7 +1,6 @@
 from collections.abc import Iterable
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
-from cognite_toolkit._cdf_tk.feature_flags import v09_gate
 from cognite_toolkit._cdf_tk.rules._base import ToolkitLocalRule, quote_identifier
 
 
@@ -34,7 +33,6 @@ class CheckDataSetMissing(ToolkitLocalRule):
     """
 
     CODE = "UNGOVERNED-RESOURCE"
-    LEGACY_CODE = "AUTH-001"  # Used when the v09 flag is not enabled
     insight_type = Recommendation
 
     def validate(self) -> Iterable[Recommendation]:
@@ -48,28 +46,15 @@ class CheckDataSetMissing(ToolkitLocalRule):
             space = getattr(resource, "space", None) if supports_space else None
             if data_set_external_id is None and space is None:
                 kind = source_file.resource_type.kind
-                resource_type = source_file.resource_type
                 if supports_space:
-                    message = v09_gate(
-                        f"{kind} {quote_identifier(resource.as_id())} is not assigned to a data set or space.",
-                        f"Missing data set external ID or space for {resource.as_id()!s} {resource_type!s}",
-                    )
-                    fix = v09_gate(
-                        f"Set 'dataSetExternalId' or 'space' on the {kind}.",
-                        f"Add a dataset or space association to the {resource_type!s}.",
-                    )
+                    message = f"{kind} {quote_identifier(resource.as_id())} is not assigned to a data set or space."
+                    fix = f"Set 'dataSetExternalId' or 'space' on the {kind}."
                 else:
-                    message = v09_gate(
-                        f"{kind} {quote_identifier(resource.as_id())} is not assigned to a data set.",
-                        f"Missing data set external ID for {resource.as_id()!s} {resource_type!s}",
-                    )
-                    fix = v09_gate(
-                        f"Set 'dataSetExternalId' on the {kind}.",
-                        f"Add a dataset association to the {resource_type!s}.",
-                    )
+                    message = f"{kind} {quote_identifier(resource.as_id())} is not assigned to a data set."
+                    fix = f"Set 'dataSetExternalId' on the {kind}."
                 yield Recommendation(
                     message=message,
-                    code=v09_gate(self.CODE, self.LEGACY_CODE),
+                    code=self.CODE,
                     fix=fix,
                     source_file=source_file.source_path,
                 )

@@ -1,13 +1,7 @@
-import sys
 from abc import ABC
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
 from pydantic import Field, JsonValue, model_validator
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as WorkflowVersionIdIdentifier
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags

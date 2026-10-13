@@ -78,7 +78,6 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     TransformationFinder,
     WorkflowFinder,
 )
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     AgentIO,
     DataSetsIO,
@@ -103,26 +102,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import MockQuestionary
-
-
-def _enable_external_data_sources(monkeypatch: MonkeyPatch) -> None:
-    original = FeatureFlag.is_enabled
-    monkeypatch.setattr(
-        FeatureFlag,
-        "is_enabled",
-        lambda flag: flag is Flags.EXTERNAL_DATA_SOURCES or original(flag),
-    )
-
-
-def _set_v09(monkeypatch: MonkeyPatch, enabled: bool) -> None:
-    original = FeatureFlag.is_enabled.__wrapped__
-
-    def _is_enabled(flag: Flags) -> bool:
-        if flag is Flags.V09:
-            return enabled
-        return original(flag)
-
-    monkeypatch.setattr(FeatureFlag, "is_enabled", _is_enabled)
 
 
 def _onelake_transformation_and_source() -> tuple[TransformationResponse, ExternalDataSourceResponse]:
@@ -253,8 +232,7 @@ class TestDumpTransformations:
         items = [read_yaml_file(filepath) for filepath in filepaths]
         assert items == [loader.dump_resource(t) for t in three_transformations[1:]]
 
-    def test_dump_transformations_with_ext_onelake_sources(self, monkeypatch: MonkeyPatch) -> None:
-        _enable_external_data_sources(monkeypatch)
+    def test_dump_transformations_with_ext_onelake_sources(self) -> None:
         transformation, external_source = _onelake_transformation_and_source()
         with monkeypatch_toolkit_client() as client:
             finder = TransformationFinder(client, ("transformationA",))
@@ -340,71 +318,8 @@ class TestWorkflowFinder:
         assert selected == (WorkflowVersionId(workflow_external_id="workflowA", version="v2"),)
 
 
-@pytest.fixture()
-def three_data_models() -> list[DataModelResponse]:
-    """Three data models in one space. The first two are different versions of the same model."""
-    default_args = dict(
-        is_global=False,
-        last_updated_time=1,
-        created_time=1,
-        description=None,
-        name=None,
-    )
-    return [
-        DataModelResponse(
-            space="my_space",
-            external_id="my_model",
-            version="v1",
-            views=[ViewId(space="my_space", external_id="firstView", version="v1")],
-            **default_args,
-        ),
-        DataModelResponse(
-            space="my_space",
-            external_id="my_model",
-            version="v2",
-            views=[
-                ViewId(space="my_space", external_id="firstView", version="v2"),
-                ViewId(space="my_space2", external_id="secondView", version="v2"),
-            ],
-            **default_args,
-        ),
-        DataModelResponse(
-            space="my_space",
-            external_id="other_model",
-            version="v1",
-            views=[ViewId(space="my_space", external_id="otherView", version="v1")],
-            **default_args,
-        ),
-    ]
-
-
 class TestDataModelFinder:
-    def test_select_data_model(self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch) -> None:
-        _set_v09(monkeypatch, False)
-        default_args = dict(
-            is_global=False,
-            last_updated_time=1,
-            created_time=1,
-            description=None,
-            name=None,
-            views=[],
-        )
-        models = [
-            DataModelResponse(space="my_space", external_id="first_model", version="v1", **default_args),
-            DataModelResponse(space="my_space2", external_id="second_model", version="v1", **default_args),
-        ]
-        toolkit_client_approval.append(DataModelResponse, models)
-        selected = models[1].as_id()
-        finder = DataModelFinder(toolkit_client_approval.mock_client, None)
-        answers = ["my_space2", selected, False]
-        with MockQuestionary(DataModelFinder.__module__, monkeypatch, answers):
-            result = finder._interactive_select()
-
-        assert result == selected
-        assert finder.data_model.as_id() == selected
-
     def test_select_multiple_data_models(self, monkeypatch: MonkeyPatch) -> None:
-        _set_v09(monkeypatch, True)
         default_args = dict(
             is_global=False,
             last_updated_time=1,
@@ -482,36 +397,6 @@ class TestDataModelFinder:
         dumped = sorted(path.name for path in tmp_path.glob("**/*.DataModel.yaml"))
         assert dumped == ["first_model.DataModel.yaml", "second_model.DataModel.yaml"]
 
-    def test_select_data_model_multiple_versions(
-        self, three_data_models: list[DataModelResponse], monkeypatch: MonkeyPatch
-    ) -> None:
-        _set_v09(monkeypatch, False)
-
-        def select_data_model(choices: list[Choice]) -> dm.DataModelId:
-            assert len(choices) == 2
-            return choices[0].value
-
-        def select_version_of_model(choices: list[Choice]) -> str:
-            assert len(choices) == 2
-
-            return choices[0].value
-
-        answers = [select_data_model, True, select_version_of_model]
-
-        with (
-            monkeypatch_toolkit_client() as client,
-            MockQuestionary(DataModelFinder.__module__, monkeypatch, answers),
-        ):
-            # Last two are different models
-            client.tool.data_models.list.return_value = three_data_models[1:]
-            # First two are different versions of the same model
-            client.tool.data_models.retrieve.return_value = three_data_models[:2]
-
-            finder = DataModelFinder(client, None)
-            selected = finder._interactive_select()
-
-        assert selected == three_data_models[0].as_id()
-
 
 @pytest.fixture()
 def three_location_filters() -> list[LocationFilterResponse]:
@@ -587,10 +472,6 @@ def three_agents() -> list[AgentResponse]:
 
 
 class TestDumpAgents:
-    @pytest.mark.skipif(
-        not Flags.V09.is_enabled(),
-        reason="This test requires v0.9 as it splits the agent dump into two files: tool and agent",
-    )
     def test_dump_agents(self, three_agents: list[AgentResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
             client.tool.agents.retrieve.return_value = three_agents[1:2]

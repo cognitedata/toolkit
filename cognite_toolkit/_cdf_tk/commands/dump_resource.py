@@ -61,7 +61,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitResourceMissingError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
 from cognite_toolkit._cdf_tk.resource_ios import (
     AgentIO,
@@ -171,10 +170,8 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId | tuple[DataModelId, .
             return f"{model.name} ({identifier})"
         return identifier
 
-    def _interactive_select(self) -> DataModelId | tuple[DataModelId, ...]:
-        if Flags.V09.is_enabled():
-            return self._interactive_select_many()
-        return self._interactive_select_one()
+    def _interactive_select(self) -> tuple[DataModelId, ...]:
+        return self._interactive_select_many()
 
     def _interactive_select_many(self) -> tuple[DataModelId, ...]:
         all_models = self.client.tool.data_models.list(
@@ -196,66 +193,6 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId | tuple[DataModelId, .
         if not selected_data_models:
             raise ToolkitValueError(f"No data models selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_data_models)
-
-    def _interactive_select_one(self) -> DataModelId:
-        all_models = self.client.tool.data_models.list(
-            filter=DataModelFilter(all_versions=False, include_global=self._include_global)
-        )
-        data_model_ids = [model.as_id() for model in all_models]
-        available_spaces = sorted({model.space for model in data_model_ids})
-        if not available_spaces:
-            raise ToolkitMissingResourceError("No data models found")
-        if len(available_spaces) == 1:
-            selected_space = available_spaces[0]
-        else:
-            selected_space = questionary.select(
-                "In which space is your data model located?", available_spaces
-            ).unsafe_ask()
-        data_model_ids = sorted(
-            [model for model in data_model_ids if model.space == selected_space],
-            key=lambda model: (model.space, model.external_id, model.version),
-        )
-
-        selected_data_model: DataModelId = questionary.select(
-            "Which data model would you like to dump?",
-            [
-                Choice(f"{model_id!r}", value=model_id)
-                for model_id in sorted(
-                    data_model_ids, key=lambda model: (model.space, model.external_id, model.version)
-                )
-            ],
-        ).unsafe_ask()
-
-        all_versions = self.client.tool.data_models.retrieve(
-            [DataModelNoVersionId(space=selected_space, external_id=selected_data_model.external_id)]
-        )
-        retrieved_models = [m for m in all_versions if m.external_id == selected_data_model.external_id]
-        if not retrieved_models:
-            # This happens if the data model is removed after the list call above.
-            raise ToolkitMissingResourceError(f"Data model {selected_data_model} not found")
-        if len(retrieved_models) == 1:
-            self.data_model = retrieved_models[0]
-            return selected_data_model
-        models_by_version = {model.version: model for model in retrieved_models}
-        if len(models_by_version) == 1:
-            self.data_model = retrieved_models[0]
-            return selected_data_model
-        if not questionary.confirm(
-            f"Would you like to select a different version than {selected_data_model.version} of the data model",
-            default=False,
-        ).unsafe_ask():
-            self.data_model = models_by_version[selected_data_model.version]
-            return selected_data_model
-
-        selected_model = questionary.select(
-            "Which version would you like to dump?",
-            [
-                Choice(f"{version} ({len(model.views or [])} views)", value=version)
-                for version, model in models_by_version.items()
-            ],
-        ).unsafe_ask()
-        self.data_model = models_by_version[selected_model]
-        return self.data_model.as_id()
 
     def update(self, resources: Sequence[ResourceResponseProtocol]) -> None:
         if not resources:
@@ -430,24 +367,23 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
         schedule_loader = TransformationScheduleIO.create_io(self.client)
         schedule_list = list(schedule_loader.iterate(parent_ids=external_ids))
         yield [], schedule_list, schedule_loader, None
-        if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) or FeatureFlag.is_enabled(Flags.V09):
-            transformations = (
-                [t for t in self.transformations if t.external_id in self.identifier]
-                if self.transformations
-                else self.client.tool.transformations.retrieve(external_ids, ignore_unknown_ids=True)
+        transformations = (
+            [t for t in self.transformations if t.external_id in self.identifier]
+            if self.transformations
+            else self.client.tool.transformations.retrieve(external_ids, ignore_unknown_ids=True)
+        )
+        source_ids = {
+            source_id
+            for transformation in transformations
+            if transformation.query
+            for source_id in get_ext_onelake_source_ids(transformation.query)
+        }
+        if source_ids:
+            external_data_loader = ExternalDataSourceIO.create_io(self.client)
+            external_data_list = external_data_loader.retrieve(
+                [ExternalId(external_id=source_id) for source_id in sorted(source_ids)]
             )
-            source_ids = {
-                source_id
-                for transformation in transformations
-                if transformation.query
-                for source_id in get_ext_onelake_source_ids(transformation.query)
-            }
-            if source_ids:
-                external_data_loader = ExternalDataSourceIO.create_io(self.client)
-                external_data_list = external_data_loader.retrieve(
-                    [ExternalId(external_id=source_id) for source_id in sorted(source_ids)]
-                )
-                yield [], external_data_list, external_data_loader, None
+            yield [], external_data_list, external_data_loader, None
         notification_loader = TransformationNotificationIO.create_io(self.client)
         notification_list = list(notification_loader.iterate(parent_ids=external_ids))
         yield [], notification_list, notification_loader, None

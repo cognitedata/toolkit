@@ -18,7 +18,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
 
 class DataModelsAPI(CDFResourceAPI[DataModelResponse]):
@@ -28,8 +27,7 @@ class DataModelsAPI(CDFResourceAPI[DataModelResponse]):
     """
 
     def __init__(self, http_client: HTTPClient) -> None:
-        use_alpha = FeatureFlag.is_enabled(Flags.RECORD_VIEWS) or FeatureFlag.is_enabled(Flags.V09)
-        api_version = "alpha" if use_alpha else None
+        api_version = "alpha"
         super().__init__(
             http_client=http_client,
             method_endpoint_map={

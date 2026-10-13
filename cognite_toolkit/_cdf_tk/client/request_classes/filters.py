@@ -1,5 +1,4 @@
-import sys
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 from pydantic import ConfigDict, Field, JsonValue, field_validator
 from pydantic_core.core_schema import ValidationInfo
@@ -11,11 +10,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallStatus
 
 from .base import BaseModelRequest
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 
 class Filter(BaseModelRequest): ...

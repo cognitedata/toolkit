@@ -1,12 +1,9 @@
 from dataclasses import dataclass
 from enum import Enum
 from functools import lru_cache
-from typing import TypeVar
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import clean_name
-
-T_Value = TypeVar("T_Value")
 
 
 @dataclass(frozen=True)
@@ -53,18 +50,6 @@ class Flags(Enum):
         visible=True,
         description="Enables support for the resources create command under dev plugin",
     )
-    EXTEND_DOWNLOAD = FlagMetadata(
-        visible=True,
-        description="Enables extended download to support downloading file content, datapoints and records",
-    )
-    EXTEND_UPLOAD = FlagMetadata(
-        visible=True,
-        description="Enables extended upload to support uploading individual files and records",
-    )
-    SIGNALS = FlagMetadata(
-        visible=True,
-        description="Enables support for signal resources",
-    )
     FUNCTION_REQUIREMENTS_VALIDATION = FlagMetadata(
         visible=True,
         description="Enables validation of function requirements.txt during build using pip dry-run",
@@ -84,30 +69,6 @@ class Flags(Enum):
     CUSTOM_APPS = FlagMetadata(
         visible=True,
         description="Enables support for custom app resources (App Hosting API deployment)",
-    )
-    AGENT_SKILLS = FlagMetadata(
-        visible=True,
-        description="Enables support for agent skill resources",
-    )
-    EXTERNAL_DATA_SOURCES = FlagMetadata(
-        visible=True,
-        description="Enables support for transformation external data sources (OneLake / Fabric)",
-    )
-    SAP_WRITEBACK = FlagMetadata(
-        visible=True,
-        description="Enables support for SAP writeback resources",
-    )
-    INTEGRATIONS = FlagMetadata(
-        visible=True,
-        description="Enables support for integration resources",
-    )
-    RECORD_VIEWS = FlagMetadata(
-        visible=True,
-        description="Enables support for record-backed views (streamId on views)",
-    )
-    V09 = FlagMetadata(
-        visible=False,
-        description="Enables persisted CogIdP auth session commands (login, logout, status)",
     )
     INFIELD_LOCATION_SPLIT = FlagMetadata(
         visible=True,
@@ -139,8 +100,3 @@ class FeatureFlag:
     @staticmethod
     def flush() -> None:
         FeatureFlag.is_enabled.cache_clear()
-
-
-def v09_gate(new: T_Value, legacy: T_Value) -> T_Value:
-    """Returns the new behavior with the v09 flag enabled, otherwise the legacy behavior."""
-    return new if Flags.V09.is_enabled() else legacy

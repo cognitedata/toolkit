@@ -6,7 +6,6 @@ from pydantic.functional_validators import BeforeValidator
 
 from cognite_toolkit._cdf_tk.client.identifiers import NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupAttributes
-from cognite_toolkit._cdf_tk.feature_flags import v09_gate
 
 from .base import ToolkitResource
 from .capabilities import CapabilityType, UnknownCapability
@@ -31,12 +30,11 @@ class BaseGroupYAML(ToolkitResource):
         # Lazy import to avoid circular dependency (yaml_classes → commands.build_v2 → resource_ios → yaml_classes).
         from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
             BuildWarning,
-            ModelSyntaxWarning,
         )
 
         return [
-            v09_gate(BuildWarning, ModelSyntaxWarning)(
-                code=v09_gate("UNRECOGNIZED-VALUE", "MODEL-SYNTAX-WARNING"),
+            BuildWarning(
+                code="UNRECOGNIZED-VALUE",
                 message=(
                     f"'{cap.original_name}' is not a known capability name. "
                     "It will be deployed as-is, but may be rejected by CDF."

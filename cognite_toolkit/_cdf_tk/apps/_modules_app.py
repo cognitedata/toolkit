@@ -197,7 +197,7 @@ class ModulesApp(typer.Typer):
             typer.Option(
                 "--env",
                 "-e",
-                hidden=Flags.V09.is_enabled(),
+                hidden=True,
                 help="Build environment to use.",
             ),
         ] = CDF_TOML.cdf.default_env or "dev",
@@ -207,7 +207,6 @@ class ModulesApp(typer.Typer):
                 "--config-yaml",
                 "-c",
                 exists=True,
-                hidden=not Flags.V09.is_enabled(),
                 file_okay=True,
                 dir_okay=False,
                 help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
@@ -260,7 +259,7 @@ class ModulesApp(typer.Typer):
             typer.Option(
                 "--env",
                 help="Build environment to use.",
-                hidden=Flags.V09.is_enabled(),
+                hidden=True,
             ),
         ] = CDF_TOML.cdf.default_env,
         config_yaml: Annotated[
@@ -269,7 +268,6 @@ class ModulesApp(typer.Typer):
                 "--config-yaml",
                 "-c",
                 exists=True,
-                hidden=not Flags.V09.is_enabled(),
                 file_okay=True,
                 dir_okay=False,
                 help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",

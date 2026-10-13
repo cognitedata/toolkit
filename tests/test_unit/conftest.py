@@ -191,7 +191,7 @@ variables:
 @pytest.fixture(scope="session")
 def complete_org_dir(
     local_tmp_repo_path: Path,
-) -> None:
+) -> Path:
     organization_dir = local_tmp_repo_path / "pytest-org"
     init_organization_dir(organization_dir, COMPLETE_ORG / MODULES)
     return organization_dir
@@ -398,7 +398,7 @@ def cognite_core_containers_no_3D() -> list[ContainerResponse]:
     Note if you use this fixture in a test, ensure that you do not modify the returned
     containers, as it is shared between tests.
     """
-    raw_data = read_yaml_file(CORE_CONTAINERS_NO_3D_YAML.read_text(encoding="utf-8"))
+    raw_data = read_yaml_file(CORE_CONTAINERS_NO_3D_YAML, expected_output="list")
     return [ContainerResponse.model_validate(item) for item in raw_data]
 
 
