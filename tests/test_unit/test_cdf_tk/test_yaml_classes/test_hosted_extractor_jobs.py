@@ -30,7 +30,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
         },
         {
             "Invalid value for format: Input tag 'invalid' found using 'type' does not match any of the expected tags: "
-            "'custom', 'cognite', 'rockwell', 'value'",
+            "'custom', 'cognite', 'rockwell', 'sparkplug', 'value'",
         },
         id="Invalid type",
     )
@@ -226,7 +226,7 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "Unrecognized fields in config.MQTTConfig: 'incrementalLoad', 'interval', 'method', "
             "'pagination' and 'path'. ",
             "Invalid value at config.RestConfig.incrementalLoad: Input tag 'nextUrl' found using 'type' "
-            "does not match any of the expected tags: 'body', 'headerValue', 'queryParameter'",
+            "does not match any of the expected tags: 'body', 'headerValue', 'queryParam'",
         },
         id="Invalid IncrementalLoad and Pagination type",
     )
