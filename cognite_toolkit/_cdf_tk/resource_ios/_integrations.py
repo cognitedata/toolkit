@@ -135,7 +135,9 @@ class IntegrationConfigsIO(
         return "integration configs"
 
     @classmethod
-    def get_id(cls, item: IntegrationConfigRequest | IntegrationConfigResponse  | ExternalId | dict[str, Any]) -> ExternalId:
+    def get_id(
+        cls, item: IntegrationConfigRequest | IntegrationConfigResponse | ExternalId | dict[str, Any]
+    ) -> ExternalId:
         if isinstance(item, ExternalId):
             return item
         if isinstance(item, dict):

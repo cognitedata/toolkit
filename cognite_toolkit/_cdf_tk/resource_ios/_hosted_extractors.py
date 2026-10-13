@@ -78,7 +78,9 @@ class HostedExtractorSourceIO(
         return "hosted extractor sources"
 
     @classmethod
-    def get_id(cls, item: HostedExtractorSourceRequestUnion | HostedExtractorSourceResponseUnion | ExternalId | dict) -> ExternalId:
+    def get_id(
+        cls, item: HostedExtractorSourceRequestUnion | HostedExtractorSourceResponseUnion | ExternalId | dict
+    ) -> ExternalId:
         if isinstance(item, ExternalId):
             return item
         if isinstance(item, dict):
@@ -218,7 +220,9 @@ class HostedExtractorDestinationIO(
         return "hosted extractor destinations"
 
     @classmethod
-    def get_id(cls, item: HostedExtractorDestinationRequest | HostedExtractorDestinationResponse | ExternalId | dict) -> ExternalId:
+    def get_id(
+        cls, item: HostedExtractorDestinationRequest | HostedExtractorDestinationResponse | ExternalId | dict
+    ) -> ExternalId:
         if isinstance(item, ExternalId):
             return item
         if isinstance(item, dict):
@@ -425,7 +429,9 @@ class HostedExtractorMappingIO(
         return "hosted extractor mappings"
 
     @classmethod
-    def get_id(cls, item: HostedExtractorMappingRequest | HostedExtractorMappingResponse  | ExternalId | dict) -> ExternalId:
+    def get_id(
+        cls, item: HostedExtractorMappingRequest | HostedExtractorMappingResponse | ExternalId | dict
+    ) -> ExternalId:
         if isinstance(item, ExternalId):
             return item
         if isinstance(item, dict):

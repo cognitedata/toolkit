@@ -224,7 +224,9 @@ class WorkflowVersionIO(
         yield from ()
 
     @classmethod
-    def get_id(cls, item: WorkflowVersionRequest | WorkflowVersionResponse | WorkflowVersionId | dict) -> WorkflowVersionId:
+    def get_id(
+        cls, item: WorkflowVersionRequest | WorkflowVersionResponse | WorkflowVersionId | dict
+    ) -> WorkflowVersionId:
         if isinstance(item, WorkflowVersionId):
             return item
         if isinstance(item, dict):

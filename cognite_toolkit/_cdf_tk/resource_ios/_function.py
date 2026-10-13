@@ -537,7 +537,9 @@ class FunctionScheduleIO(
         return id.dump()
 
     @classmethod
-    def get_id(cls, item: FunctionScheduleRequest | FunctionScheduleResponse | FunctionScheduleId | dict) -> FunctionScheduleId:
+    def get_id(
+        cls, item: FunctionScheduleRequest | FunctionScheduleResponse | FunctionScheduleId | dict
+    ) -> FunctionScheduleId:
         if isinstance(item, FunctionScheduleId):
             return item
         if isinstance(item, dict):
