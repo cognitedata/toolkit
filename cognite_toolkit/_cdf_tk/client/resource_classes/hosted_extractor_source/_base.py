@@ -6,12 +6,16 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
+from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 
 class SourceRequestDefinition(UpdatableRequestResource):
     type: str
     external_id: str
+    name: str | None = None
+    description: str | None = None
+    metadata: Metadata | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
@@ -26,6 +30,9 @@ class SourceRequestDefinition(UpdatableRequestResource):
 
 class SourceResponseDefinition(BaseModelObject):
     external_id: str
+    name: str | None = None
+    description: str | None = None
+    metadata: Metadata | None = None
     created_time: int
     last_updated_time: int
 

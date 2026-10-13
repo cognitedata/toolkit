@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
+from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_model_classes
 
@@ -71,6 +72,9 @@ MappingInput = Annotated[
 
 class HostedExtractorMapping(BaseModelObject):
     external_id: str
+    name: str | None = None
+    description: str | None = None
+    metadata: Metadata | None = None
     mapping: Mapping
     published: bool
 

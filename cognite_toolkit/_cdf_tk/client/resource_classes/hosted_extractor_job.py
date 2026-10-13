@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
+from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field
 
@@ -162,6 +163,9 @@ class HostedExtractorJob(BaseModelObject):
     external_id: str
     destination_id: str
     source_id: str
+    name: str | None = None
+    description: str | None = None
+    metadata: Metadata | None = None
     format: JobFormat
     config: MQTTConfig | KafkaConfig | RestConfig | None = None
 

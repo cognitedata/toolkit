@@ -3,6 +3,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
+from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 
@@ -12,6 +13,9 @@ class Credentials(BaseModelObject):
 
 class HostedExtractorDestination(BaseModelObject):
     external_id: str
+    name: str | None = None
+    description: str | None = None
+    metadata: Metadata | None = None
     target_data_set_id: int | None = None
 
     def as_id(self) -> ExternalId:
