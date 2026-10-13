@@ -113,7 +113,7 @@ def test_no_cognite_sdk_imports() -> None:
             return imp.lineno, imp.format()
         return None
 
-    _assert_import_violations(check, "cognite.client imports", expected_total=None)
+    _assert_import_violations(check, "cognite.client imports", expected_total=37)
 
 
 def test_utils_module_independent() -> None:
