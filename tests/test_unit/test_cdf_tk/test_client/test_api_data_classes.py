@@ -753,6 +753,9 @@ class TestHostedExtractorJobRequest:
                 "destinationId": {"set": "dest_1"},
                 "format": {"set": {"type": "cognite"}},
                 "sourceId": {"set": "src_1"},
+                "description": {"setNull": True},
+                "name": {"setNull": True},
+                "metadata": {"setNull": True},
             },
         }
 
