@@ -755,7 +755,7 @@ class TestHostedExtractorJobRequest:
                 "sourceId": {"set": "src_1"},
                 "description": {"setNull": True},
                 "name": {"setNull": True},
-                "metadata": {"setNull": True},
+                "metadata": {"set": {}},
             },
         }
 
