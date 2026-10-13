@@ -1455,7 +1455,7 @@ class TestInFieldCDMLocationConfigIO:
         io = InFieldCDMLocationConfigIO(toolkit_client)
         content = f"""space: {toolkit_space.space}
 externalId: infield_config_test_no_redeploy_unchanged
-name: SI
+name: InField Location Configuration Test
 description: Migrated InField Location Configuration
 featureToggles:
   threeD: true
@@ -1470,37 +1470,33 @@ featureToggles:
   copilot: true
 accessManagement:
   templateAdmins:
-  - DigitalPlant-INFIELD2-COR-ALL-Admin-prod
-  - DigitalPlant-CDF-ReadWrite
-  - DigitalPlant-INFIELD2-SPS-ALL-LearningFacilitator-prod
+  - Admin-prod
   checklistAdmins:
-  - DigitalPlant-INFIELD2-COR-ALL-Admin-prod
-  - DigitalPlant-CDF-ReadWrite
-  - DigitalPlant-INFIELD2-SPS-ALL-TeamCaptain-prod
+  - Admin-prod
 dataFilters:
   assets:
     instanceSpaces:
-    - SAP-SPS-ALL-DAT
+    - test-space-assets
   files:
     instanceSpaces:
-    - BEN-SPS-ALL-DAT
+    - test-space-files
   timeseries:
     instanceSpaces:
-    - PI-SPS-ALL-DAT
+    - test-space-timeseries
   maintenanceOrders:
     instanceSpaces:
-    - INF3-SPS-ALL-REF
+    - test-space-maintenance-orders
   operations:
     instanceSpaces:
-    - INF3-SPS-ALL-REF
+    - test-space-operations
   notifications:
     instanceSpaces:
-    - INF3-SPS-ALL-REF
+    - test-space-notifications
 dataStorage:
   rootLocation:
-    space: SAP-SPS-ALL-DAT
-    externalId: SI
-  appInstanceSpace: INF3-SPS-ALL-DAT
+    space: some-space
+    externalId: CogniteRootLocation
+  appInstanceSpace: some-app-instance-space
 viewMappings:
   asset:
     space: cdf_cdm
@@ -1524,9 +1520,9 @@ viewMappings:
     version: v1
   observation:
   - view:
-      space: INF3-COR-ALL-DMD
+      space: another-space
       externalId: ObservationView
-      version: v19
+      version: v37
       type: view
     fieldsConfig:
       startTime:
@@ -1537,82 +1533,11 @@ viewMappings:
         isRequired: true
         isEditable: true
         orderNumber: 2
-      notificationIdInSap:
-        isRequired: false
-        isEditable: false
-        orderNumber: 3
-      assets:
-        isRequired: true
-        isEditable: true
-        orderNumber: 4
-      priority:
-        isRequired: true
-        isEditable: true
-        orderNumber: 5
-      type:
-        isRequired: true
-        isEditable: true
-        orderNumber: 6
-      description:
-        isRequired: true
-        isEditable: true
-        orderNumber: 7
-      troubleshooting:
-        isRequired: true
-        isEditable: true
-        orderNumber: 8
-      sourceCreatedUser:
-        isRequired: false
-        isEditable: false
-        orderNumber: 9
-      sourceUpdatedUser:
-        isRequired: false
-        isEditable: false
-        orderNumber: 10
-      files:
-        isRequired: false
-        isEditable: true
-        orderNumber: 11
-      sapStatus:
-        isRequired: false
-        isEditable: false
-        orderNumber: 12
-      sourceCreatedTime:
-        isRequired: false
-        isEditable: false
-        orderNumber: 13
-      sourceUpdatedTime:
-        isRequired: false
-        isEditable: false
-        orderNumber: 14
-      source:
-        isRequired: false
-        isEditable: false
-        orderNumber: 15
     writeBack: null
 disciplines:
 - name: Automation & Instrument
-  externalId: dacec482-fbc3-4667-b293-83c32ae7f5fb
-- name: Logistics, Crane & Deck
-  externalId: c2103a3e-8fb9-40a3-874b-507139e83468
-- name: Digital, Data & Telecom
-  externalId: 6002e611-cb47-4089-88d1-48af67ac06f4
-- name: Electrical
-  externalId: c2559cf4-bcc8-4d43-a1a9-2128ce53b544
-- name: Mechanical
-  externalId: ec99ee40-b39e-416d-a777-45fc2244b284
-- name: Process
-  externalId: d0ac1d5d-744d-458d-8889-f1cf46f20879
-- name: HSE & Medic
-  externalId: c06a6f74-7ece-405c-b379-78cc68d177f6
-- name: Inspection
-  externalId: da8ea971-138d-486c-b23a-9606a08dd97d
-- name: Technical Support
-  externalId: 30c6a820-480e-429f-bc6e-afa12c71b25e
-- name: Management
-  externalId: 695060ae-6983-4320-8a0b-86310f06d608
-- name: Metering
-  externalId: 83c23bf9-5d4b-4ca2-89f1-f704e152cca1
+  externalId: automation_instrument
+
 """
 
         raw_data = load_local_yaml(content, io)
