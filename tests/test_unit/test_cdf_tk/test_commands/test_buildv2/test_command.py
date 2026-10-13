@@ -366,7 +366,7 @@ class TestReadFileSystem:
             config_yaml=config_yaml,
             user_selected_modules=["module1", "module2"],
         )
-        build_files = BuildV2Command._read_file_system(
+        build_files = BuildV2Command.read_file_system(
             parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
         )
         assert build_files.model_dump() == {
@@ -392,7 +392,7 @@ class TestReadFileSystem:
         _ = create_resource_file(tmp_path, SpaceIO, SPACE_YAML)
         parameters = BuildParameters(organization_dir=tmp_path, build_dir=Path("build"), config_yaml=config_yaml)
         with pytest.raises(ToolkitValueError) as exc_info:
-            BuildV2Command._read_file_system(
+            BuildV2Command.read_file_system(
                 parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
             )
 

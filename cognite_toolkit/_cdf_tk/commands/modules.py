@@ -1106,13 +1106,13 @@ class ModulesCommand(ToolkitCommand):
         """
         Returns a list of existing module names in the given organization directory and build environment.
         """
-        build_input = BuildV2Command._read_file_system(
+        build_input = BuildV2Command.read_file_system(
             organization_dir=organization_dir,
             config_yaml=organization_dir / f"config.{build_env}.yaml",
             user_selected_modules=[f"{MODULES}/"],
         )
 
-        scan_result = BuildV2Command._find_modules(build_input, "module add")
+        scan_result = BuildV2Command.find_modules(build_input, "module add")
         return [module.name for module in scan_result.modules]
 
     def _get_available_packages(self, user_library: Library | None = None) -> tuple[Packages, Path]:

@@ -1,5 +1,6 @@
 import builtins
 import re
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -14,7 +15,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     ResourceType,
     SuccessExtra,
 )
-from cognite_toolkit._cdf_tk.utils.file import find_unique_variable_position
+from cognite_toolkit._cdf_tk.utils.file import find_unique_variable_position, read_yaml_file
 
 from ._insights import (
     BuildError,
@@ -132,6 +133,11 @@ class BuiltResource(BaseModel):
     )
     source_path: AbsoluteFilePath
     build_path: AbsoluteFilePath
+    built_content: dict[str, Any] | None = Field(
+        default=None,
+        description="The built resource when it is kept in memory instead of written to the build directory. "
+        "Use read_built() to get the built resource regardless of where it is stored.",
+    )
     crud_cls: builtins.type[ResourceIO]
     dependencies: set[tuple[builtins.type[ResourceIO], Identifier]] = Field(default_factory=set)
 
@@ -141,6 +147,12 @@ class BuiltResource(BaseModel):
     has_syntax_error: bool
     variables: list[BuildVariable] = Field(default_factory=list)
     module_id: ModuleId
+
+    def read_built(self) -> dict[str, Any]:
+        """The built resource, from memory if available, otherwise from the build directory."""
+        if self.built_content is not None:
+            return self.built_content
+        return read_yaml_file(self.build_path, expected_output="dict")
 
     @property
     def can_verify(self) -> bool:
@@ -189,10 +201,13 @@ class BuiltModule(BaseModel):
         if not resource_by_id:
             return {}
 
-        build_paths = {resource.build_path for resource in resource_by_id.values()}
         local_by_id: dict[T_Identifier, tuple[BuiltResource, T_RequestResource]] = {}
-        for build_path in build_paths:
-            for raw in crud.load_resource_file(build_path):
+        for resource in resource_by_id.values():
+            if resource.built_content is not None:
+                raws = [deepcopy(resource.built_content)]
+            else:
+                raws = crud.load_resource_file(resource.build_path)
+            for raw in raws:
                 request = crud.load_resource(raw)
                 item_id = crud.get_id(request)
                 if item_id in resource_by_id:

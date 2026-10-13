@@ -12,7 +12,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet, with_position
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes.agent import AgentYAML
 
 
@@ -77,7 +76,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
         Yields:
             Errors for any violations found.
         """
-        raw_data = read_yaml_file(resource.build_path, expected_output="dict")
+        raw_data = resource.read_built()
         agent_def = AgentYAML.model_validate(raw_data)
 
         availability = self.service_availability

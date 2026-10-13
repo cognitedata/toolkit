@@ -46,10 +46,10 @@ class Workspace:
 
     def load(self, organization_dir: Path, config_yaml: Path | None, modules: list[str]) -> dict[str, Any]:
         organization_dir = organization_dir.resolve()
-        build = BuildV2Command._read_file_system(organization_dir, config_yaml, modules)
+        build = BuildV2Command.read_file_system(organization_dir, config_yaml, modules)
         if build.selected_modules is None:
             raise ValueError("No modules selected. Pass modules or set environment.selected in the config YAML.")
-        scan = BuildV2Command._find_modules(build, "load")
+        scan = BuildV2Command.find_modules(build, "load")
 
         if self.session is None or self.session.root != organization_dir:
             self.session = ModelingSession(root=organization_dir)

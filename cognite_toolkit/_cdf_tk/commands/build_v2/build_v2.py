@@ -4,6 +4,7 @@ import shutil
 import sys
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from itertools import zip_longest
@@ -172,7 +173,7 @@ class BuildV2Command(ToolkitCommand):
 
         # We report all insights in Mixpanel, but only display to the user the insights they have not ignored.
         found_insights = build_folder.all_insights
-        report_insights = self._filter_to_reported_insights(
+        report_insights = self.filter_to_reported_insights(
             found_insights, build_folder.rules_ignored_by_source, parameters.rules_ignore
         )
 
@@ -193,7 +194,7 @@ class BuildV2Command(ToolkitCommand):
         return build_folder
 
     @classmethod
-    def _filter_to_reported_insights(
+    def filter_to_reported_insights(
         cls, found_insights: InsightList, local_ignores_by_file: dict[Path, set[str]], global_ignores: set[str]
     ) -> InsightList:
         """Filters the tracked insights to only include those that are not ignored by the user, either globally or locally."""
@@ -239,7 +240,7 @@ class BuildV2Command(ToolkitCommand):
         Returns:
             A tuple containing the ModuleScanResult and the SelectionSource indicating how the modules were selected (from user input, config file, or interactive selection).
         """
-        build_files = cls._read_file_system(organization_dir, config_yaml, user_selected_modules)
+        build_files = cls.read_file_system(organization_dir, config_yaml, user_selected_modules)
 
         if user_selected_modules:
             selection_source: SelectionSource = "cli-arg"
@@ -248,7 +249,7 @@ class BuildV2Command(ToolkitCommand):
         else:
             selection_source = "interactive"
 
-        module_scan_result = cls._find_modules(build_files, operation or "build")
+        module_scan_result = cls.find_modules(build_files, operation or "build")
         return module_scan_result, selection_source
 
     @classmethod
@@ -393,7 +394,7 @@ class BuildV2Command(ToolkitCommand):
             if cached_lineage.config_hash != current_config_hash:
                 return None, False
 
-        build_files = self._read_file_system(
+        build_files = self.read_file_system(
             parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
         )
         source_by_module_id, _ = ModuleParser.find_modules(build_files.organization_dir, build_files.yaml_files)
@@ -543,7 +544,7 @@ class BuildV2Command(ToolkitCommand):
         return f"'{' '.join(suggestion)}'"
 
     @classmethod
-    def _find_modules(cls, build: BuildInput, operation: str) -> ModuleScanResult:
+    def find_modules(cls, build: BuildInput, operation: str) -> ModuleScanResult:
         source_by_module_id, orphan_files = ModuleParser.find_modules(build.organization_dir, build.yaml_files)
 
         if build.selected_modules is None:
@@ -728,7 +729,7 @@ class BuildV2Command(ToolkitCommand):
         return "interactive"
 
     @classmethod
-    def _read_file_system(
+    def read_file_system(
         cls,
         organization_dir: Path,
         config_yaml: Path | None,
@@ -835,58 +836,57 @@ class BuildV2Command(ToolkitCommand):
                 progress.update(build_task, description=f"Building {module_name}")
 
                 # Inside this loop, do not raise exceptions.
-                module = self._import_module(source)
-
-                # Local validation of module
-                insights = validator.run(module)
-                built_resources = self._export_resources(
-                    module.files, resource_counter, build_dir, source.variables, source.as_id()
-                )
-
+                module = self.import_module(source)
                 built_modules.append(
-                    BuiltModule(
-                        module_id=module.id,
-                        resources=built_resources,
-                        insights=insights,
-                        syntax_errors_by_source={
-                            file.source_path: file.syntax_error
-                            for file in module.files
-                            if isinstance(file, SuccessfulReadYAMLFile)
-                            and file.syntax_error is not None
-                            # If the file has unresolved variables (e.g. "{{space}}"), the syntax error is
-                            # almost certainly caused by that and is already reported as its own insight.
-                            and not file.unresolved_variables
-                        },
-                        syntax_warnings_by_source={
-                            file.source_path: file.syntax_warnings
-                            for file in module.files
-                            if isinstance(file, SuccessfulReadYAMLFile)
-                            and file.syntax_warnings
-                            and not file.unresolved_variables
-                        },
-                        failed_files=[file for file in module.files if isinstance(file, FailedReadYAMLFile)],
-                        ignored_files=module.ignored_files,
-                        unresolved_variables_by_source={
-                            file.source_path: file.unresolved_variables
-                            for file in module.files
-                            if file.unresolved_variables
-                        },
-                        yaml_line_count=sum(
-                            file.line_count for file in module.files if isinstance(file, SuccessfulReadYAMLFile)
-                        ),
-                        ignore_rules_by_source={
-                            file.source_path: file.rules_ignore
-                            for file in module.files
-                            if isinstance(file, SuccessfulReadYAMLFile)
-                        },
-                        variables=source.variables,
-                    )
+                    self.build_module(module, source.variables, resource_counter, build_dir, validator)
                 )
                 progress.update(build_task, description=f"Built {module_name}", advance=source.total_files)
             progress.update(build_task, description=f"Finished building. Built {len(built_modules)} modules")
         return built_modules
 
-    def _import_module(self, source: ModuleDirectory) -> Module:
+    def build_module(
+        self,
+        module: Module,
+        variables: list[BuildVariable],
+        resource_counter: Counter,
+        build_dir: Path | None,
+        validator: LocalRulesOrchestrator,
+    ) -> BuiltModule:
+        """Validates and exports an imported module. If build_dir is None nothing is written to disk, the built
+        resources are kept in memory."""
+        insights = validator.run(module)
+        built_resources = self._export_resources(module.files, resource_counter, build_dir, variables, module.id)
+        return BuiltModule(
+            module_id=module.id,
+            resources=built_resources,
+            insights=insights,
+            syntax_errors_by_source={
+                file.source_path: file.syntax_error
+                for file in module.files
+                if isinstance(file, SuccessfulReadYAMLFile)
+                and file.syntax_error is not None
+                # If the file has unresolved variables (e.g. "{{space}}"), the syntax error is
+                # almost certainly caused by that and is already reported as its own insight.
+                and not file.unresolved_variables
+            },
+            syntax_warnings_by_source={
+                file.source_path: file.syntax_warnings
+                for file in module.files
+                if isinstance(file, SuccessfulReadYAMLFile) and file.syntax_warnings and not file.unresolved_variables
+            },
+            failed_files=[file for file in module.files if isinstance(file, FailedReadYAMLFile)],
+            ignored_files=module.ignored_files,
+            unresolved_variables_by_source={
+                file.source_path: file.unresolved_variables for file in module.files if file.unresolved_variables
+            },
+            yaml_line_count=sum(file.line_count for file in module.files if isinstance(file, SuccessfulReadYAMLFile)),
+            ignore_rules_by_source={
+                file.source_path: file.rules_ignore for file in module.files if isinstance(file, SuccessfulReadYAMLFile)
+            },
+            variables=variables,
+        )
+
+    def import_module(self, source: ModuleDirectory) -> Module:
         resources: list[ReadYAMLFile] = []
         ignored_files: list[IgnoredFile] = []
         for resource_folder, resource_files in source.resource_files_by_folder.items():
@@ -1194,25 +1194,34 @@ class BuildV2Command(ToolkitCommand):
         self,
         files: Sequence[ReadYAMLFile],
         resource_counter: Counter,
-        build_dir: Path,
+        build_dir: Path | None,
         variables: list[BuildVariable],
         module_id: ModuleId,
     ) -> list[BuiltResource]:
+        """Creates the built resources. If build_dir is None nothing is written, instead the built content
+        is kept on the BuiltResource, with the source file as its build path."""
         built_resources: list[BuiltResource] = []
         for file in files:
             if not isinstance(file, SuccessfulReadYAMLFile):
                 continue
-            folder = build_dir / file.resource_type.resource_folder
-            folder.mkdir(parents=True, exist_ok=True)
+            folder: Path | None = None
+            if build_dir is not None:
+                folder = build_dir / file.resource_type.resource_folder
+                folder.mkdir(parents=True, exist_ok=True)
             for resource in file.resources:
                 # Count the number of resources of this type to create a unique filename for each resource.
                 resource_counter.update([file.resource_type])
 
-                filestem = self._create_filestem(
-                    resource.identifier, file.source_path, index=resource_counter[file.resource_type]
-                )
-                destination_path = folder / f"{filestem}.{file.resource_type.kind}.yaml"
-                self._write_to_build_dir(resource, destination_path, filestem, folder)
+                built_content: dict[str, Any] | None = None
+                if folder is None:
+                    destination_path = file.source_path
+                    built_content = deepcopy(self._built_content(resource))
+                else:
+                    filestem = self._create_filestem(
+                        resource.identifier, file.source_path, index=resource_counter[file.resource_type]
+                    )
+                    destination_path = folder / f"{filestem}.{file.resource_type.kind}.yaml"
+                    self._write_to_build_dir(resource, destination_path, filestem, folder)
 
                 dependencies: set[tuple[type[ResourceIO], Identifier]] = set()
                 if resource.validated:
@@ -1226,6 +1235,7 @@ class BuildV2Command(ToolkitCommand):
                         source_hash=file.source_hash,
                         source_path=file.source_path,
                         build_path=destination_path,
+                        built_content=built_content,
                         crud_cls=file.resource_type.crud_cls,
                         dependencies=dependencies,
                         failed_extra=[extra for extra in resource.extra_files if isinstance(extra, FailedReadExtra)],
@@ -1244,40 +1254,54 @@ class BuildV2Command(ToolkitCommand):
         return f"{index}-{source_stem}-{identifier_filename}"
 
     @classmethod
-    def _write_to_build_dir(
-        cls, resource: ReadResource[ToolkitResource], destination_path: Path, filestem: str, folder: Path
-    ) -> None:
+    def _extra_files_by_field(cls, resource: ReadResource[ToolkitResource]) -> dict[str | None, list[SuccessExtra]]:
         extra_by_field: dict[str | None, list[SuccessExtra]] = defaultdict(list)
         for extra_file in resource.extra_files:
             if isinstance(extra_file, SuccessExtra):
                 extra_by_field[extra_file.resource_field].append(extra_file)
+        return extra_by_field
 
+    @classmethod
+    def _built_content(cls, resource: ReadResource[ToolkitResource]) -> dict[str, Any]:
+        """The resource as written to the build directory, with the extra files merged in."""
         to_write = dict(resource.raw)
-        for field, extra_files in extra_by_field.items():
-            if field is None:
-                # These extra files are not a specific resource field, it is typically another resource. For
-                # example in Functions, the code directory is a zip file.
-                for extra_file in extra_files:
-                    if not extra_file.write_to_build:
-                        continue
-                    extra_path = folder / f"{filestem}{extra_file.suffix}"
-                    if extra_file.content:
-                        safe_write(extra_path, extra_file.content, encoding=BUILD_FOLDER_ENCODING)
-                    elif extra_file.content_byte:
-                        extra_path.write_bytes(extra_file.content_byte)
-                    else:
-                        shutil.copy2(extra_file.source_path, extra_path)
-            elif extra_files[0].is_list:
+        for field, extra_files in cls._extra_files_by_field(resource).items():
+            # Extra files without a field are not part of the resource, it is typically another resource. For
+            # example in Functions, the code directory is a zip file.
+            if field is not None and extra_files[0].is_list:
                 to_write[field] = [
                     ef.content_parsed or ef.content for ef in extra_files if ef.content_parsed or ef.content
                 ]
-            else:
+            elif field is not None:
                 to_write[field] = extra_files[0].content_parsed or extra_files[0].content
 
             for remove_field in extra_files[0].remove_fields:
                 to_write.pop(remove_field, None)
+        return to_write
 
-        safe_write(destination_path, yaml_safe_dump(to_write), encoding=BUILD_FOLDER_ENCODING)
+    @classmethod
+    def _write_to_build_dir(
+        cls, resource: ReadResource[ToolkitResource], destination_path: Path, filestem: str, folder: Path
+    ) -> None:
+        for extra_file in cls._extra_files_by_field(resource).get(None, []):
+            if not extra_file.write_to_build:
+                continue
+            extra_path = folder / f"{filestem}{extra_file.suffix}"
+            if extra_file.content:
+                safe_write(extra_path, extra_file.content, encoding=BUILD_FOLDER_ENCODING)
+            elif extra_file.content_byte:
+                extra_path.write_bytes(extra_file.content_byte)
+            else:
+                shutil.copy2(extra_file.source_path, extra_path)
+
+        safe_write(destination_path, yaml_safe_dump(cls._built_content(resource)), encoding=BUILD_FOLDER_ENCODING)
+
+    def run_global_rules(
+        self, built_modules: list[BuiltModule], client: ToolkitClient | None = None
+    ) -> list[ValidationResult]:
+        """Runs the rules that validate all built modules as a whole, without displaying anything."""
+        plan = self._create_validation_plan(built_modules, client)
+        return self._run_validation(plan, Console(quiet=True))
 
     def _create_validation_plan(
         self, built_modules: list[BuiltModule], client: ToolkitClient | None

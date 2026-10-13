@@ -13,7 +13,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import Absolu
 from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet, with_position
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes import InFieldCDMLocationConfigYAML
 from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import INFIELD_CDM_CARD_VIEW_ATTRS
 from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ViewReference
@@ -96,7 +95,7 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
     def _collect_refs(
         resource: BuiltResource,
     ) -> tuple[list[_CardViewRef], list[_FieldConfigRef]]:
-        raw_data = read_yaml_file(resource.build_path, expected_output="dict")
+        raw_data = resource.read_built()
         config = InFieldCDMLocationConfigYAML.model_validate(raw_data)
 
         card_refs: list[_CardViewRef] = []
