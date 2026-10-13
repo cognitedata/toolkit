@@ -128,7 +128,9 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
             yield FilesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: FunctionResponse | FunctionRequest | dict) -> ExternalId:
+    def get_id(cls, item: FunctionResponse | FunctionRequest | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
@@ -463,7 +465,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
             return []
         return self.client.tool.functions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         functions = self.retrieve(ids)
 
         self.client.tool.functions.delete(list(ids), ignore_unknown_ids=True)
@@ -484,7 +486,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
             )
         if dm_file_nodes:
             self.client.tool.instances.delete(list(dm_file_nodes))
-        return len(ids)
+        return list(ids)
 
     def _iterate(
         self,
@@ -535,7 +537,11 @@ class FunctionScheduleIO(
         return id.dump()
 
     @classmethod
-    def get_id(cls, item: FunctionScheduleRequest | FunctionScheduleResponse | dict) -> FunctionScheduleId:
+    def get_id(
+        cls, item: FunctionScheduleRequest | FunctionScheduleResponse | FunctionScheduleId | dict
+    ) -> FunctionScheduleId:
+        if isinstance(item, FunctionScheduleId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("functionExternalId", "name") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -683,11 +689,11 @@ class FunctionScheduleIO(
             f"Could not find function{plural_fun} {humanize_collection(missing_functions)!r}"
         )
 
-    def delete(self, ids: Sequence[FunctionScheduleId]) -> int:
+    def delete(self, ids: Sequence[FunctionScheduleId]) -> list[FunctionScheduleId]:
         schedules = self.retrieve(ids)
         internal_ids = [InternalId(id=schedule.id) for schedule in schedules if schedule.id]
         self.client.tool.functions.schedules.delete(internal_ids)
-        return len(ids)
+        return list(ids)
 
     def _iterate(
         self,

@@ -50,7 +50,9 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
             yield AppConfigAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: SearchConfigRequest | SearchConfigResponse | dict) -> ViewNoVersionId:
+    def get_id(cls, item: SearchConfigRequest | SearchConfigResponse | ViewNoVersionId | dict) -> ViewNoVersionId:
+        if isinstance(item, ViewNoVersionId):
+            return item
         if isinstance(item, dict):
             view = item.get("view", {})
             return ViewNoVersionId(space=view.get("space", ""), external_id=view.get("externalId", ""))
@@ -117,7 +119,7 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
         """
         return self.client.tool.search_configurations.update(items)
 
-    def delete(self, ids: Sequence[ViewNoVersionId]) -> int:
+    def delete(self, ids: Sequence[ViewNoVersionId]) -> list[ViewNoVersionId]:
         """
         Delete is not implemented in the API client
         """

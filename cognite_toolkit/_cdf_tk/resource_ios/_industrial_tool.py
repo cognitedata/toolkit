@@ -81,7 +81,9 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
             yield FilesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: StreamlitRequest | StreamlitResponse | dict) -> ExternalId:
+    def get_id(cls, item: StreamlitRequest | StreamlitResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
@@ -247,7 +249,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         result = self.client.http_client.request_single_retries(request)
         result.get_success_or_raise(request)
 
-    def create(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
+    def create(self, items: Sequence[StreamlitRequest]) -> list[ExternalId]:
         fileio = FileMetadataIO(self.client)
         try:
             filepaths = [self.filemetadata_by_external_id[item.external_id] for item in items]
@@ -256,13 +258,13 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
                 f"Missing file metadata for Streamlit app with external_id {e.args[0]!r}. Cannot create Streamlit app without the file metadata."
             ) from e
         file_requests = fileio.load_resource_files(filepaths)
-        file_responses = fileio.create(file_requests)
-        return [StreamlitResponse.model_validate(file.dump()) for file in file_responses]
+        # Streamlit apps are created through file metadata, so the file responses are not Streamlit responses.
+        return fileio.get_ids(fileio.create(file_requests))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[StreamlitResponse]:
         return self.client.tool.streamlit.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
+    def update(self, items: Sequence[StreamlitRequest]) -> list[ExternalId]:
         fileio = FileMetadataIO(self.client)
         try:
             filepaths = [self.filemetadata_by_external_id[item.external_id] for item in items]
@@ -282,12 +284,11 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
             for r in current_cdf
             if r.external_id is not None
         }
-        file_responses = fileio.update(list(file_request_by_external_id.values()))
-        response_by_external_id = {
-            response.external_id: StreamlitResponse.model_validate(response.dump()) for response in file_responses
-        }
+        updated = fileio.update(list(file_request_by_external_id.values()))
+        updated_external_ids = {response.external_id for response in updated if response.external_id}
+        updated_ids = fileio.get_ids(updated)
         for item in items:
-            if item.external_id not in response_by_external_id or item.external_id not in file_request_by_external_id:
+            if item.external_id not in updated_external_ids or item.external_id not in file_request_by_external_id:
                 continue
             request = file_request_by_external_id[item.external_id]
             if item.cognite_toolkit_app_hash == pre_update_hash_by_id.get(item.external_id):
@@ -307,13 +308,14 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
                 )
             self.client.tool.filemetadata.upload_file(request.filepath, upload_url=response_with_url.upload_url)
 
-        return list(response_by_external_id.values())
+        return updated_ids
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.streamlit.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.streamlit.delete(id_list)
+        return id_list
 
     def _iterate(
         self,

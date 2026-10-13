@@ -9,7 +9,6 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import (
     DatapointSubscriptionTimeSeriesId,
     ExternalId,
-    InternalOrExternalId,
     NameId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
@@ -79,7 +78,9 @@ class TimeSeriesIO(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeries
             yield TimeSeriesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: TimeSeriesRequest | TimeSeriesResponse | dict) -> ExternalId:
+    def get_id(cls, item: TimeSeriesRequest | TimeSeriesResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
@@ -144,11 +145,11 @@ class TimeSeriesIO(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeries
     def update(self, items: Sequence[TimeSeriesRequest]) -> list[TimeSeriesResponse]:
         return self.client.tool.timeseries.update(items, mode="replace")
 
-    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.timeseries.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if id_list:
+            self.client.tool.timeseries.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -223,7 +224,11 @@ class DatapointSubscriptionIO(
         return "timeseries subscriptions"
 
     @classmethod
-    def get_id(cls, item: DatapointSubscriptionRequest | DatapointSubscriptionResponse | dict) -> ExternalId:
+    def get_id(
+        cls, item: DatapointSubscriptionRequest | DatapointSubscriptionResponse | ExternalId | dict
+    ) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -251,7 +256,7 @@ class DatapointSubscriptionIO(
             yield TimeSeriesSubscriptionsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[DatapointSubscriptionRequest]) -> list[DatapointSubscriptionResponse]:
-        created_list = []
+        created_list: list[DatapointSubscriptionResponse] = []
         for item in items:
             to_create, update_batches = self.create_split_timeseries_ids(item)
             created = self.client.tool.datapoint_subscriptions.create([to_create])
@@ -265,8 +270,12 @@ class DatapointSubscriptionIO(
     def retrieve(self, ids: Sequence[ExternalId]) -> list[DatapointSubscriptionResponse]:
         return self.client.tool.datapoint_subscriptions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[DatapointSubscriptionRequest]) -> list[DatapointSubscriptionResponse]:
-        updated_list = []
+    def update(
+        self, items: Sequence[DatapointSubscriptionRequest]
+    ) -> list[DatapointSubscriptionResponse] | list[ExternalId]:
+        updated_responses: list[DatapointSubscriptionResponse] = []
+        fallback_ids: list[ExternalId] = []
+        missing_response = False
         for item in items:
             current = self.client.tool.datapoint_subscriptions.list_members(item.external_id, limit=None)
             to_update, update_batches = self.update_split_timeseries_ids(item, current)
@@ -280,16 +289,22 @@ class DatapointSubscriptionIO(
                 updated = self.client.tool.datapoint_subscriptions.update(update_batches)
             # The last batch contains all the time series IDs, so it represents the fully updated subscription.
             if updated:
-                updated_list.append(updated[-1])
+                updated_responses.append(updated[-1])
+                fallback_ids.append(self.get_id(updated[-1]))
             else:
-                updated_list.extend(self.client.tool.datapoint_subscriptions.retrieve([item.as_id()]))
-        return updated_list
+                # The API was not called, so there is no response object to return.
+                missing_response = True
+                fallback_ids.append(self.get_id(item))
+        if missing_response:
+            return fallback_ids
+        return updated_responses
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.datapoint_subscriptions.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.datapoint_subscriptions.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,

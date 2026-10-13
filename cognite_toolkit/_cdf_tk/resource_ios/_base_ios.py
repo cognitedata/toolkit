@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Iterable, Sequence, Sized
+from collections.abc import Hashable, Iterable, Sequence
 from functools import cache
 from pathlib import Path
 from types import GenericAlias
@@ -265,7 +265,7 @@ class ResourceIO(
     # The methods that must be implemented in the subclass
     @classmethod
     @abstractmethod
-    def get_id(cls, item: T_RequestResource | T_ResponseResource | dict) -> T_Identifier:
+    def get_id(cls, item: T_RequestResource | T_ResponseResource | T_Identifier | dict) -> T_Identifier:
         raise NotImplementedError
 
     @classmethod
@@ -291,18 +291,18 @@ class ResourceIO(
         raise NotImplementedError(f"create_acl must be implemented for {cls.__name__} ")
 
     @abstractmethod
-    def create(self, items: Sequence[T_RequestResource]) -> Sized:
+    def create(self, items: Sequence[T_RequestResource]) -> Sequence[T_Identifier] | Sequence[T_ResponseResource]:
         raise NotImplementedError
 
     @abstractmethod
     def retrieve(self, ids: Sequence[T_Identifier]) -> Sequence[T_ResponseResource]:
         raise NotImplementedError
 
-    def update(self, items: Sequence[T_RequestResource]) -> Sized:
+    def update(self, items: Sequence[T_RequestResource]) -> Sequence[T_Identifier] | Sequence[T_ResponseResource]:
         raise NotImplementedError(f"Update is not supported for {type(self).__name__}.")
 
     @abstractmethod
-    def delete(self, ids: Sequence[T_Identifier]) -> int:
+    def delete(self, ids: Sequence[T_Identifier]) -> Sequence[T_Identifier]:
         raise NotImplementedError
 
     def iterate(
@@ -482,7 +482,9 @@ class ResourceIO(
         return file.suffix in YAML_SUFFIX and file.stem.casefold().endswith(cls.kind.casefold())
 
     @classmethod
-    def get_ids(cls, items: Sequence[T_RequestResource | T_ResponseResource | dict]) -> list[T_Identifier]:
+    def get_ids(
+        cls, items: Sequence[T_RequestResource | T_ResponseResource | T_Identifier | dict]
+    ) -> list[T_Identifier]:
         return [cls.get_id(item) for item in items]
 
     @classmethod

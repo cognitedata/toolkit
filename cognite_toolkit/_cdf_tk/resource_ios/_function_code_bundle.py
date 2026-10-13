@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceId, InternalId
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_hash, humanize_collection
@@ -149,14 +149,20 @@ class FunctionCodeBundle:
         if filemetadata_files:
             fileio = FileMetadataIO(self.client)
             file_request = fileio.load_resource_files(list(filemetadata_files))
-            fileresponse = fileio.create(file_request)
-            file_id_by_external_id.update(zip(filemetadata_files.values(), (InternalId(id=f.id) for f in fileresponse)))
+            created = fileio.create(file_request)
+            by_external_id = {response.external_id: response for response in created if response.external_id}
+            file_id_by_external_id.update(
+                {
+                    external_id: InternalId(id=by_external_id[external_id].id)
+                    for external_id in filemetadata_files.values()
+                }
+            )
         if cognite_files:
             cognitefileio = CogniteFileIO(self.client)
             cognitefile_request = cognitefileio.load_resource_files(list(cognite_files))
-            cognitefile_response = cognitefileio.create(cognitefile_request)
+            created_node_ids = cognitefileio.create(cognitefile_request)
             dm_fileresponse = self.client.tool.filemetadata.retrieve(
-                [node.as_instance_id() for node in cognitefile_response]
+                [InstanceId(instance_id=node_id) for node_id in created_node_ids]
             )
             file_id_by_external_id.update(zip(cognite_files.values(), (InternalId(id=f.id) for f in dm_fileresponse)))
         return file_id_by_external_id

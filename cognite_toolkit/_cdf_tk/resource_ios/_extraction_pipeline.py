@@ -24,7 +24,6 @@ from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     ExtractionPipelineConfigId,
-    InternalOrExternalId,
     RawDatabaseId,
     RawTableId,
 )
@@ -99,7 +98,9 @@ class ExtractionPipelineIO(
             yield ExtractionPipelinesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: ExtractionPipelineRequest | ExtractionPipelineResponse | dict) -> ExternalId:
+    def get_id(cls, item: ExtractionPipelineRequest | ExtractionPipelineResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -223,11 +224,11 @@ class ExtractionPipelineIO(
     def update(self, items: Sequence[ExtractionPipelineRequest]) -> list[ExtractionPipelineResponse]:
         return self.client.tool.extraction_pipelines.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.extraction_pipelines.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if id_list:
+            self.client.tool.extraction_pipelines.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -276,7 +277,11 @@ class ExtractionPipelineConfigIO(
             yield ExtractionConfigsAcl(actions=["READ", "WRITE"], scope=scope)
 
     @classmethod
-    def get_id(cls, item: ExtractionPipelineConfigRequest | ExtractionPipelineConfigResponse | dict) -> ExternalId:
+    def get_id(
+        cls, item: ExtractionPipelineConfigRequest | ExtractionPipelineConfigResponse | ExternalId | dict
+    ) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -395,15 +400,14 @@ class ExtractionPipelineConfigIO(
             ignore_unknown_ids=True,
         )
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         """Delete is not supported for extraction pipeline configs.
 
-        Instead, we assume that when the user deletes the extraction pipeline configs, they are also deleting the
-        extraction pipelines which will automatically delete the configs. In this method, we simply count the number
-        of configs that exist for the given ids and return that number as these will be deleted.
+        Deleting the extraction pipeline removes its configs. Returns the pipeline ids that currently have
+        configs, which are removed with the pipeline.
         """
         # Todo; Change to raise ToolkitNotSupportedError in v0.8
-        count = 0
+        deleted: list[ExternalId] = []
         for id_ in ids:
             try:
                 result = self.client.tool.extraction_pipelines.configs.list(external_id=id_.external_id, limit=None)
@@ -412,8 +416,9 @@ class ExtractionPipelineConfigIO(
                     continue
                 raise
             else:
-                count += len(result)
-        return count
+                if result:
+                    deleted.append(id_)
+        return deleted
 
     def _iterate(
         self,

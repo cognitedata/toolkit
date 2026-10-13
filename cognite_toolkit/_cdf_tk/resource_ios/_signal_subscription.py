@@ -66,7 +66,9 @@ class SignalSubscriptionIO(
                 yield HostedExtractorDestinationIO, ExternalId(external_id=resource.filter.destination_external_id)
 
     @classmethod
-    def get_id(cls, item: SignalSubscriptionRequest | SignalSubscriptionResponse | dict) -> ExternalId:
+    def get_id(cls, item: SignalSubscriptionRequest | SignalSubscriptionResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -104,9 +106,10 @@ class SignalSubscriptionIO(
     def update(self, items: Sequence[SignalSubscriptionRequest]) -> list[SignalSubscriptionResponse]:
         return self.client.tool.signal_subscriptions.update(list(items))
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        self.client.tool.signal_subscriptions.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        self.client.tool.signal_subscriptions.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,

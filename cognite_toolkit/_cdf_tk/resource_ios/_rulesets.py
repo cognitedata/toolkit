@@ -51,7 +51,9 @@ class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse, RuleSetY
         return "rule sets"
 
     @classmethod
-    def get_id(cls, item: RuleSetRequest | RuleSetResponse | dict) -> ExternalId:
+    def get_id(cls, item: RuleSetRequest | RuleSetResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return item.as_id()
@@ -88,14 +90,15 @@ class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse, RuleSetY
     def retrieve(self, ids: Sequence[ExternalId]) -> list[RuleSetResponse]:
         return self.client.tool.rulesets.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[RuleSetRequest]) -> list[RuleSetResponse]:
+    def update(self, items: Sequence[RuleSetRequest]) -> list[ExternalId]:
         raise NotImplementedError("Rule sets do not support updates.")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.rulesets.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.rulesets.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -128,7 +131,9 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
         return "rule set versions"
 
     @classmethod
-    def get_id(cls, item: RuleSetVersionRequest | RuleSetVersionResponse | dict) -> RuleSetVersionId:
+    def get_id(cls, item: RuleSetVersionRequest | RuleSetVersionResponse | RuleSetVersionId | dict) -> RuleSetVersionId:
+        if isinstance(item, RuleSetVersionId):
+            return item
         if isinstance(item, dict):
             ext_id = item.get("ruleSetExternalId") or item.get("rule_set_external_id")
             version = item.get("version")
@@ -276,14 +281,15 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
             return []
         return self.client.tool.rulesets.versions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[RuleSetVersionRequest]) -> list[RuleSetVersionResponse]:
+    def update(self, items: Sequence[RuleSetVersionRequest]) -> list[RuleSetVersionId]:
         raise NotImplementedError("Rule set versions are immutable and do not support updates.")
 
-    def delete(self, ids: Sequence[RuleSetVersionId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.rulesets.versions.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[RuleSetVersionId]) -> list[RuleSetVersionId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.rulesets.versions.delete(id_list)
+        return id_list
 
     def _iterate(
         self,

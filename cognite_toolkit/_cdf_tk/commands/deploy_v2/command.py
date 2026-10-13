@@ -1147,7 +1147,8 @@ class DeployV2Command(ToolkitCommand):
         deploy_dir: Path | None = None,
         insights_by_resource: InsightsByResource | None = None,
     ) -> DeploymentResult:
-        deleted, created, updated = 0, 0, 0
+        deleted: Sequence[T_Identifier] = []
+        created, updated = 0, 0
         action: Literal["create", "delete", "update", "upsert"] | None = None
         try:
             if resources.to_delete:
@@ -1160,8 +1161,8 @@ class DeployV2Command(ToolkitCommand):
                 action = "upsert"
                 to_create_ids = {crud.get_id(item) for item in resources.to_create}  # type: ignore[arg-type]
                 to_upsert = [*resources.to_create, *resources.to_update]
-                upserted = cast(Sequence[Any], crud.create(to_upsert))  # type: ignore[arg-type]
-                created = sum(1 for view in upserted if crud.get_id(view) in to_create_ids)
+                upserted = crud.create(to_upsert)  # type: ignore[arg-type]
+                created = sum(1 for item in upserted if crud.get_id(item) in to_create_ids)  # type: ignore[arg-type]
                 updated = len(upserted) - created
             else:
                 if resources.to_create:
@@ -1181,7 +1182,7 @@ class DeployV2Command(ToolkitCommand):
             is_dry_run=False,
             created_count=created,
             updated_count=updated,
-            deleted_count=deleted,
+            deleted_count=len(deleted),
             unchanged_count=len(unchanged_ids),
             skipped=resources.skipped,
             is_missing_write_acl=False,

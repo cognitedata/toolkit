@@ -208,8 +208,10 @@ class TestExternalDataSourceIO:
             assert loader.create([item]) == [response]
             assert loader.retrieve([ExternalId(external_id="fabric-lakehouse-prod")]) == [response]
             assert loader.retrieve([]) == []
-            assert loader.delete([ExternalId(external_id="fabric-lakehouse-prod")]) == 1
-            assert loader.delete([]) == 0
+            assert loader.delete([ExternalId(external_id="fabric-lakehouse-prod")]) == [
+                ExternalId(external_id="fabric-lakehouse-prod")
+            ]
+            assert loader.delete([]) == []
 
     def test_iterate_all(self) -> None:
         with monkeypatch_toolkit_client() as client:

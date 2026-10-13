@@ -305,9 +305,16 @@ secrets:
 
             loader.filemetadata_path_by_external_id[function_id] = filemetadata
 
-            client.tool.filemetadata.create.return_value = [
-                FileMetadataResponse(id=42, created_time=0, last_updated_time=1, uploaded=True, name=function_id)
-            ]
+            file_response = FileMetadataResponse(
+                id=42,
+                external_id=function_id,
+                created_time=0,
+                last_updated_time=1,
+                uploaded=True,
+                name=function_id,
+            )
+            client.tool.filemetadata.create.return_value = [file_response]
+            client.tool.filemetadata.retrieve.return_value = [file_response]
             yield loader
 
     def test_replacing_file_mapping_updates_code_bundle(

@@ -73,7 +73,9 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
             yield LocationFiltersAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: LocationFilterRequest | LocationFilterResponse | dict) -> ExternalId:
+    def get_id(cls, item: LocationFilterRequest | LocationFilterResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -213,13 +215,13 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
             item.id = ids[item.external_id]
         return self.client.tool.location_filters.update(items)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         locations = self.retrieve(ids)
         if not locations:
-            return 0
+            return []
         internal_ids = [InternalId(id=loc.id) for loc in locations]
         self.client.tool.location_filters.delete(internal_ids)
-        return len(internal_ids)
+        return [ExternalId(external_id=loc.external_id) for loc in locations if loc.external_id is not None]
 
     def _iterate(
         self,

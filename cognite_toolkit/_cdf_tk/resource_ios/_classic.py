@@ -5,7 +5,7 @@ from typing import Any, Literal, final
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter, SequenceRowFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import (
     AssetAggregateItem,
@@ -22,7 +22,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
     SequencesAcl,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.sequence import (
+    SequenceRequest,
+    SequenceResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
@@ -50,7 +53,9 @@ class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse, AssetYAML]):
         return "assets"
 
     @classmethod
-    def get_id(cls, item: AssetRequest | AssetResponse | dict) -> ExternalId:
+    def get_id(cls, item: AssetRequest | AssetResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -87,11 +92,11 @@ class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse, AssetYAML]):
     def update(self, items: collections.abc.Sequence[AssetRequest]) -> list[AssetResponse]:
         return self.client.tool.assets.update(items, mode="replace")
 
-    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.assets.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if id_list:
+            self.client.tool.assets.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -175,7 +180,9 @@ class SequenceIO(ResourceIO[ExternalId, SequenceRequest, SequenceResponse, Seque
         return "sequences"
 
     @classmethod
-    def get_id(cls, item: SequenceRequest | SequenceResponse | dict) -> ExternalId:
+    def get_id(cls, item: SequenceRequest | SequenceResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -247,11 +254,11 @@ class SequenceIO(ResourceIO[ExternalId, SequenceRequest, SequenceResponse, Seque
     def update(self, items: collections.abc.Sequence[SequenceRequest]) -> list[SequenceResponse]:
         return self.client.tool.sequences.update(items, mode="replace")
 
-    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.sequences.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if id_list:
+            self.client.tool.sequences.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -294,7 +301,9 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
         return "sequence rows"
 
     @classmethod
-    def get_id(cls, item: SequenceRowsRequest | SequenceRowsResponse | dict) -> ExternalId:
+    def get_id(cls, item: SequenceRowsRequest | SequenceRowsResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -321,9 +330,13 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
-    def create(self, items: Sequence[SequenceRowsRequest]) -> Sequence[SequenceRowsRequest]:
-        self.client.tool.sequences.rows.create(list(items))
-        return items
+    def create(self, items: Sequence[SequenceRowsRequest]) -> list[ExternalId]:
+        item_list = list(items)
+        if not item_list:
+            return []
+        # The rows API does not return the written rows. The sequence external id is the identifier.
+        self.client.tool.sequences.rows.create(item_list)
+        return self.get_ids(item_list)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SequenceRowsResponse]:
         results: list[SequenceRowsResponse] = []
@@ -338,17 +351,16 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
             results.extend(responses)
         return results
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        deleted: int = 0
-        for id_ in ids:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        for id_ in id_list:
             row_filter = SequenceRowFilter(external_id=id_.external_id)
             for batch in self.client.tool.sequences.rows.iterate(row_filter, limit=None):
                 if not batch or not batch[0].rows:
                     continue
                 item = batch[0]
                 self.client.tool.sequences.rows.delete([item.as_request_resource().as_id()])
-                deleted += len(item.rows)
-        return deleted
+        return id_list
 
     def _iterate(
         self,
@@ -418,7 +430,9 @@ class EventIO(ResourceIO[ExternalId, EventRequest, EventResponse, EventYAML]):
         return "events"
 
     @classmethod
-    def get_id(cls, item: EventRequest | EventResponse | dict) -> ExternalId:
+    def get_id(cls, item: EventRequest | EventResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -455,11 +469,11 @@ class EventIO(ResourceIO[ExternalId, EventRequest, EventResponse, EventYAML]):
     def update(self, items: collections.abc.Sequence[EventRequest]) -> list[EventResponse]:
         return self.client.tool.events.update(items, mode="replace")
 
-    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.events.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if id_list:
+            self.client.tool.events.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,

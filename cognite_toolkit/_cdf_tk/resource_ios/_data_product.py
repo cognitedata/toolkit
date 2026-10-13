@@ -31,7 +31,9 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
         return "data products"
 
     @classmethod
-    def get_id(cls, item: DataProductRequest | DataProductResponse | dict) -> ExternalId:
+    def get_id(cls, item: DataProductRequest | DataProductResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if isinstance(item, DataProductRequest):
@@ -88,11 +90,12 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
     def update(self, items: Sequence[DataProductRequest]) -> list[DataProductResponse]:
         return self.client.tool.data_products.update(list(items))
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.data_products.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.data_products.delete(id_list)
+        return id_list
 
     def _iterate(
         self,

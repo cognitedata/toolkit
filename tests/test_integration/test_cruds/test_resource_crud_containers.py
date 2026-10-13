@@ -8,13 +8,10 @@ from cognite.client import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import NameId, RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NameId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId, ContainerRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
-    ThreeDModelClassicRequest,
-    ThreeDModelClassicResponse,
-)
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, RawTableIO, TimeSeriesIO
 from cognite_toolkit._cdf_tk.resource_ios._three_d_model import ThreeDModelIO
@@ -59,7 +56,7 @@ class TestTimeSeriesLoader:
 
             assert loader.count(ts_ids) == 0
 
-            assert loader.delete(ts_ids) == 1
+            assert loader.delete(ts_ids) == ts_ids
 
             assert not loader.retrieve(ts_ids)
         finally:
@@ -119,13 +116,15 @@ class TestContainerIO:
 
             write_container = ContainerRequest.model_validate(node_container.as_write().dump())
             write_container.description = "Updated description"
-            updated = loader.update([write_container])
-            assert len(updated) == 1
+            updated_items = loader.update([write_container])
+            assert len(updated_items) == 1
+            updated_ids = loader.get_ids(updated_items)
+            updated = loader.retrieve(updated_ids)
             if updated[0].description != write_container.description:
                 # The API is not always consistent in returning the updated description,
                 # so we need to retrieve the container to verify the update
                 sleep(1)
-                updated = loader.retrieve(container_id)
+                updated = loader.retrieve(updated_ids)
             assert updated[0].description == write_container.description
         finally:
             loader.drop_data(container_id)
@@ -174,13 +173,15 @@ class TestContainerIO:
 
             write_container = ContainerRequest.model_validate(edge_container.as_write().dump())
             write_container.description = "Updated description"
-            updated = loader.update([write_container])
-            assert len(updated) == 1
+            updated_items = loader.update([write_container])
+            assert len(updated_items) == 1
+            updated_ids = loader.get_ids(updated_items)
+            updated = loader.retrieve(updated_ids)
             if updated[0].description != write_container.description:
                 # The API is not always consistent in returning the updated description,
                 # so we need to retrieve the container to verify the update
                 sleep(1)
-                updated = loader.retrieve([write_container.as_id()])
+                updated = loader.retrieve(updated_ids)
             assert updated[0].description == write_container.description
         finally:
             cognite_client.data_modeling.instances.delete(nodes=nodes.as_ids(), edges=edge.as_id())
@@ -208,9 +209,9 @@ class TestContainerIO:
         container = io.load_resource(raw_data)
         retrieved = io.retrieve([container.as_id()])
         if len(retrieved) == 0:
-            # Create the container
-            retrieved = io.create([container])
-            assert len(retrieved) == 1
+            created_items = io.create([container])
+            assert len(created_items) == 1
+            retrieved = io.retrieve(io.get_ids(created_items))
         assert raw_data == io.dump_resource(retrieved[0], raw_data)
 
 
@@ -223,12 +224,15 @@ class Test3DModelLoader:
             },
         )
 
-        loader = ThreeDModelIO(toolkit_client)
+        io = ThreeDModelIO(toolkit_client)
 
-        created: list[ThreeDModelClassicResponse] | None = None
+        created_internal_ids: list[InternalId] = []
         try:
-            created = loader.create([model])
+            created_items = io.create([model])
+            assert len(created_items) == 1
+            created = io.retrieve(io.get_ids(created_items))
             assert len(created) == 1
+            created_internal_ids.append(InternalId(id=created[0].id))
 
             # Serialize and deserialize the model to get a copy
             update = created[0].as_request_resource().model_copy(deep=True)
@@ -236,19 +240,21 @@ class Test3DModelLoader:
             assert metadata is not None
             metadata["new_key"] = "new_value"
 
-            updated = loader.update([update])
+            updated_items = io.update([update])
+            assert len(updated_items) == 1
+            updated = io.retrieve(io.get_ids(updated_items))
             assert len(updated) == 1
             updated_metadata = updated[0].metadata
             assert updated_metadata is not None
             assert updated_metadata["new_key"] == "new_value"
 
-            delete_count = loader.delete([NameId(name=model.name)])
-            assert delete_count == 1
+            deleted = io.delete([NameId(name=model.name)])
+            assert deleted == [NameId(name=model.name)]
         finally:
             # Ensure that the model is deleted even if the test fails.
-            if created is not None:
+            if created_internal_ids:
                 with suppress(ToolkitAPIError):
-                    toolkit_client.tool.three_d.models_classic.delete([created[0].as_id()])
+                    toolkit_client.tool.three_d.models_classic.delete(created_internal_ids)
 
 
 class TestRawTableCRUD:

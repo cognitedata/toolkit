@@ -78,7 +78,11 @@ class HostedExtractorSourceIO(
         return "hosted extractor sources"
 
     @classmethod
-    def get_id(cls, item: HostedExtractorSourceRequestUnion | HostedExtractorSourceResponseUnion | dict) -> ExternalId:
+    def get_id(
+        cls, item: HostedExtractorSourceRequestUnion | HostedExtractorSourceResponseUnion | ExternalId | dict
+    ) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -113,11 +117,12 @@ class HostedExtractorSourceIO(
     def update(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
         return self.client.tool.hosted_extractors.sources.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.hosted_extractors.sources.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.hosted_extractors.sources.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -215,7 +220,11 @@ class HostedExtractorDestinationIO(
         return "hosted extractor destinations"
 
     @classmethod
-    def get_id(cls, item: HostedExtractorDestinationRequest | HostedExtractorDestinationResponse | dict) -> ExternalId:
+    def get_id(
+        cls, item: HostedExtractorDestinationRequest | HostedExtractorDestinationResponse | ExternalId | dict
+    ) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -246,11 +255,12 @@ class HostedExtractorDestinationIO(
     def update(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[HostedExtractorDestinationResponse]:
         return self.client.tool.hosted_extractors.destinations.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.hosted_extractors.destinations.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.hosted_extractors.destinations.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -329,7 +339,9 @@ class HostedExtractorJobIO(
         return "hosted extractor jobs"
 
     @classmethod
-    def get_id(cls, item: HostedExtractorJobRequest | HostedExtractorJobResponse | dict) -> ExternalId:
+    def get_id(cls, item: HostedExtractorJobRequest | HostedExtractorJobResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -369,11 +381,12 @@ class HostedExtractorJobIO(
     def update(self, items: Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
         return self.client.tool.hosted_extractors.jobs.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.hosted_extractors.jobs.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.hosted_extractors.jobs.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -416,7 +429,11 @@ class HostedExtractorMappingIO(
         return "hosted extractor mappings"
 
     @classmethod
-    def get_id(cls, item: HostedExtractorMappingRequest | HostedExtractorMappingResponse | dict) -> ExternalId:
+    def get_id(
+        cls, item: HostedExtractorMappingRequest | HostedExtractorMappingResponse | ExternalId | dict
+    ) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -451,11 +468,12 @@ class HostedExtractorMappingIO(
     def update(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:
         return self.client.tool.hosted_extractors.mappings.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.hosted_extractors.mappings.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.hosted_extractors.mappings.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,

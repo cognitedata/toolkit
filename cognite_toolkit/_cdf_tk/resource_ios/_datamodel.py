@@ -180,7 +180,9 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: SpaceRequest | SpaceResponse | dict) -> SpaceId:
+    def get_id(cls, item: SpaceRequest | SpaceResponse | SpaceId | dict) -> SpaceId:
+        if isinstance(item, SpaceId):
+            return item
         if isinstance(item, dict):
             return SpaceId(space=item["space"])
         return item.as_id()
@@ -222,7 +224,7 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
     def update(self, items: Sequence[SpaceRequest]) -> list[SpaceResponse]:
         return self.create(items)
 
-    def delete(self, ids: Sequence[SpaceId]) -> int:
+    def delete(self, ids: Sequence[SpaceId]) -> list[SpaceId]:
         existing = self.client.tool.spaces.retrieve(list(ids))
         is_global = {space.space for space in existing if space.is_global}
         if is_global:
@@ -233,7 +235,7 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
         self.client.tool.spaces.delete(to_delete)
         for item_id in to_delete:
             self._deleted_time_by_id[item_id] = time.perf_counter()
-        return len(to_delete)
+        return to_delete
 
     def _iterate(
         self,
@@ -314,7 +316,9 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: ContainerRequest | ContainerResponse | dict) -> ContainerId:
+    def get_id(cls, item: ContainerRequest | ContainerResponse | ContainerId | dict) -> ContainerId:
+        if isinstance(item, ContainerId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -403,6 +407,9 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
         return dumped
 
     def create(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
+        return self._upsert(items)
+
+    def _upsert(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
         created: list[ContainerResponse] = []
         for batch in self._compute_deploy_batches(items):
             created.extend(self.client.tool.containers.create(batch))
@@ -440,7 +447,7 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
         return self.client.tool.containers.retrieve(list(ids))
 
     def update(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
-        updated = self.create(items)
+        updated = self._upsert(items)
         # The API might silently fail to apply some changes.
         updated_by_id = {item.as_id(): item for item in updated}
         for local in items:
@@ -500,9 +507,10 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
         else:
             self.console.print("    Use -v/--verbose for a full diff.")
 
-    def delete(self, ids: Sequence[ContainerId]) -> int:
-        self.client.tool.containers.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ContainerId]) -> list[ContainerId]:
+        id_list = list(ids)
+        self.client.tool.containers.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -676,7 +684,9 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: ViewRequest | ViewResponse | dict) -> ViewId:
+    def get_id(cls, item: ViewRequest | ViewResponse | ViewId | dict) -> ViewId:
+        if isinstance(item, ViewId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId", "version") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -870,16 +880,14 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
     def update(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
         return self.create(items)
 
-    def delete(self, ids: Sequence[ViewId]) -> int:
+    def delete(self, ids: Sequence[ViewId]) -> list[ViewId]:
         to_delete = list(ids)
-        nr_of_deleted = 0
         attempt_count = 5
-        for attempt_no in range(attempt_count):
+        for _attempt_no in range(attempt_count):
             self.client.tool.views.delete(to_delete)
-            nr_of_deleted += len(to_delete)
             existing = [view.as_id() for view in self.client.tool.views.retrieve(to_delete)]
             if not existing:
-                return nr_of_deleted
+                return list(ids)
             sleep(2)
             to_delete = existing
         msg = f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts."
@@ -887,7 +895,8 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
             self.console.print(msg)
         else:
             print(msg)
-        return nr_of_deleted
+        remaining = set(to_delete)
+        return [view_id for view_id in ids if view_id not in remaining]
 
     def _iterate(
         self,
@@ -1060,7 +1069,9 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: DataModelRequest | DataModelResponse | dict) -> DataModelId:
+    def get_id(cls, item: DataModelRequest | DataModelResponse | DataModelId | dict) -> DataModelId:
+        if isinstance(item, DataModelId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId", "version") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -1123,7 +1134,7 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
         return self.client.tool.data_models.retrieve(list(ids))
 
     def update(self, items: Sequence[DataModelRequest]) -> list[DataModelResponse]:
-        updated = self.create(items)
+        updated = self.client.tool.data_models.create(items)
         # There is a bug in the API not raising an exception if view is removed from a data model.
         # So we check here that the update was fixed.
         updated_by_id = {item.as_id(): item for item in updated}
@@ -1149,9 +1160,10 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
 
         return updated
 
-    def delete(self, ids: Sequence[DataModelId]) -> int:
-        self.client.tool.data_models.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[DataModelId]) -> list[DataModelId]:
+        id_list = list(ids)
+        self.client.tool.data_models.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -1205,7 +1217,9 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: NodeRequest | NodeResponse | dict) -> NodeId:
+    def get_id(cls, item: NodeRequest | NodeResponse | NodeId | dict) -> NodeId:
+        if isinstance(item, NodeId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -1264,11 +1278,13 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
 
         return dumped
 
-    def create(self, items: Sequence[NodeRequest]) -> list[InstanceSlimDefinition]:
+    def create(self, items: Sequence[NodeRequest]) -> list[NodeId]:
         created: list[InstanceSlimDefinition] = []
         for batch in self._compute_deploy_batches(items):
             created.extend(self.client.tool.instances.create(batch))
-        return created
+        return [
+            NodeId(space=item.space, external_id=item.external_id) for item in created if item.instance_type == "node"
+        ]
 
     def _compute_deploy_batches(self, items: Sequence[NodeRequest]) -> list[list[NodeRequest]]:
         """Sorts nodes into batches based on container-constrained direct relations between them.
@@ -1375,17 +1391,19 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
         results = self.client.tool.instances.retrieve(list(ids), source=source_ref)
         return [r for r in results if isinstance(r, NodeResponse)]
 
-    def update(self, items: Sequence[NodeRequest]) -> list[InstanceSlimDefinition]:
+    def update(self, items: Sequence[NodeRequest]) -> list[NodeId]:
         return self.create(items)
 
-    def delete(self, ids: Sequence[NodeId]) -> int:
+    def delete(self, ids: Sequence[NodeId]) -> list[NodeId]:
         try:
             deleted = self.client.tool.instances.delete(list(ids))
         except ToolkitAPIError as e:
             if "not exist" in str(e) and "space" in str(e).lower():
-                return 0
+                return []
             raise e
-        return len(deleted)
+        return [
+            NodeId(space=item.space, external_id=item.external_id) for item in deleted if item.instance_type == "node"
+        ]
 
     def _iterate(
         self,
@@ -1444,7 +1462,9 @@ class GraphQLIO(
         return "graph QL schemas"
 
     @classmethod
-    def get_id(cls, item: GraphQLDataModelRequest | GraphQLDataModelResponse | dict) -> DataModelId:
+    def get_id(cls, item: GraphQLDataModelRequest | GraphQLDataModelResponse | DataModelId | dict) -> DataModelId:
+        if isinstance(item, DataModelId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId", "version") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -1632,15 +1652,14 @@ class GraphQLIO(
     def update(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
         return self.create(items)
 
-    def delete(self, ids: Sequence[DataModelId]) -> int:
+    def delete(self, ids: Sequence[DataModelId]) -> list[DataModelId]:
         retrieved = self.retrieve(ids)
         views = {view for dml in retrieved for view in dml.views or []}
-        self.client.tool.graphql_data_models.delete(list(ids))
-        deleted = len(ids)
+        id_list = list(ids)
+        self.client.tool.graphql_data_models.delete(id_list)
         if views:
             self.client.tool.views.delete(list(views))
-            deleted += len(views)
-        return deleted
+        return id_list
 
     def _iterate(
         self,
@@ -1657,7 +1676,9 @@ class GraphQLIO(
         return sum(len(d.views or []) for d in retrieved)
 
     def drop_data(self, ids: Sequence[DataModelId]) -> int:
-        return self.delete(ids)
+        retrieved = self.retrieve(ids)
+        view_count = len({view for dml in retrieved for view in dml.views or []})
+        return len(self.delete(ids)) + view_count
 
     def _topological_sort(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelRequest]:
         to_sort = {item.as_id(): item for item in items}
@@ -1706,7 +1727,9 @@ class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: EdgeRequest | EdgeResponse | dict) -> EdgeId:
+    def get_id(cls, item: EdgeRequest | EdgeResponse | EdgeId | dict) -> EdgeId:
+        if isinstance(item, EdgeId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -1770,24 +1793,29 @@ class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
 
         return dumped
 
-    def create(self, items: Sequence[EdgeRequest]) -> list[InstanceSlimDefinition]:
-        return self.client.tool.instances.create(list(items))
+    def create(self, items: Sequence[EdgeRequest]) -> list[EdgeId]:
+        created = self.client.tool.instances.create(list(items))
+        return [
+            EdgeId(space=item.space, external_id=item.external_id) for item in created if item.instance_type == "edge"
+        ]
 
     def retrieve(self, ids: Sequence[EdgeId]) -> list[EdgeResponse]:
         results = self.client.tool.instances.retrieve(list(ids))
         return [r for r in results if isinstance(r, EdgeResponse)]
 
-    def update(self, items: Sequence[EdgeRequest]) -> list[InstanceSlimDefinition]:
-        return self.client.tool.instances.create(list(items))
+    def update(self, items: Sequence[EdgeRequest]) -> list[EdgeId]:
+        return self.create(items)
 
-    def delete(self, ids: Sequence[EdgeId]) -> int:
+    def delete(self, ids: Sequence[EdgeId]) -> list[EdgeId]:
         try:
             deleted = self.client.tool.instances.delete(list(ids))
         except ToolkitAPIError as e:
             if "not exist" in str(e) and "space" in str(e).lower():
-                return 0
+                return []
             raise e
-        return len(deleted)
+        return [
+            EdgeId(space=item.space, external_id=item.external_id) for item in deleted if item.instance_type == "edge"
+        ]
 
     def _iterate(
         self,

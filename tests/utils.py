@@ -1,4 +1,3 @@
-from collections.abc import Sequence
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -24,13 +23,12 @@ def to_deploy_status(definition_yaml: str | Path | MagicMock, loader: ResourceIO
     resource = loader.load_resource(deepcopy(resource_dict[0]))
     resource_id = loader.get_id(resource)
     retrieved = loader.retrieve([resource_id])
-    if retrieved:
-        existing = retrieved[0]
-    else:
+    if not retrieved:
         created = loader.create([resource])
-        if not isinstance(created, Sequence):
-            raise TypeError(f"{type(loader).__name__}.create() must return a sequence of resources")
-        existing = created[0]
+        retrieved = loader.retrieve(loader.get_ids(created))
+    if not retrieved:
+        raise RuntimeError(f"{type(loader).__name__} did not return a resource for {resource_id}")
+    existing = retrieved[0]
 
     result = DeployV2Command.categorize_resources(
         loader,
