@@ -53,6 +53,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     IDScopeLowerCase,
     TimeSeriesAcl,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping import HostedExtractorMappingRequest, \
+    Mapping, HostedExtractorMapping, HostedExtractorMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest
@@ -78,7 +80,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     SkillIO,
     TransformationIO,
     ViewIO,
-    WorkflowVersionIO,
+    WorkflowVersionIO, HostedExtractorJobIO,
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
@@ -1348,3 +1350,26 @@ authentication:
             retrieved = io.create([cdf_source])
             assert len(retrieved) == 1
         assert raw_data == io.dump_resource(retrieved[0], raw_data)
+
+@pytest.fixture(scope="session")
+def persistent_hosted_extractor_mapping(toolkit_client: ToolkitClient) -> HostedExtractorMappingResponse:
+    mapping = HostedExtractorMappingRequest(
+        external_id="toolkit_test_hosted_extractor_mapping_persistet",
+        name="Toolkit Test Hosted Extractor Mapping",
+        description="Integration test hosted extractor mapping",
+        mapping=Mapping(
+            expression="SELECT * FROM my_table",
+        ),
+        published=True,
+    )
+    if existing := toolkit_client.tool.hosted_extractors.mappings.retrieve([mapping.as_id()], ignore_unknown_ids=True):
+        return existing[0]
+    created =  toolkit_client.tool.hosted_extractors.mappings.create([mapping])
+    assert len(created) == 1
+    return created[0]
+
+
+class TestHosedExtractorJobIO:
+    def test_no_redeploy_unchanged(self, persistent_hosted_extractor_mapping: HostedExtractorMappingResponse, toolkit_client: ToolkitClient) -> None:
+        definition_yaml = f"""space: {toolkit_space.space}
+        
