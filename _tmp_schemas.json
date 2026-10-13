@@ -1,0 +1,1382 @@
+{
+  "CreateDestination": {
+    "additionalProperties": false,
+    "properties": {
+      "externalId": {
+        "title": "External ID",
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "credentials": {
+        "$ref": "#/components/schemas/SessionCredentials"
+      },
+      "targetDataSetId": {
+        "type": "integer",
+        "title": "Data Set ID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "format": "int64",
+        "description": "Data set ID the created items are inserted into, if applicable."
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      }
+    },
+    "required": [
+      "externalId"
+    ],
+    "title": "CreateDestination",
+    "type": "object"
+  },
+  "Destination": {
+    "additionalProperties": false,
+    "properties": {
+      "externalId": {
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "sessionId": {
+        "type": "integer",
+        "title": "Session ID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "format": "int64",
+        "description": "ID of the session tied to this destination."
+      },
+      "targetDataSetId": {
+        "type": "integer",
+        "title": "Data Set ID",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "format": "int64",
+        "description": "Data set ID the created items are inserted into, if applicable."
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      },
+      "createdTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      },
+      "lastUpdatedTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      }
+    },
+    "required": [
+      "externalId",
+      "lastUpdatedTime",
+      "createdTime"
+    ],
+    "title": "Destination",
+    "type": "object"
+  },
+  "CreateJob": {
+    "additionalProperties": false,
+    "properties": {
+      "externalId": {
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "destinationId": {
+        "title": "Destination ID",
+        "description": "ID of the destination this job should write to.",
+        "type": "string",
+        "maxLength": 255
+      },
+      "sourceId": {
+        "title": "Source ID",
+        "description": "ID of the source this job should read from.",
+        "type": "string",
+        "maxLength": 255
+      },
+      "format": {
+        "discriminator": {
+          "mapping": {
+            "cognite": "#/components/schemas/CogniteFormat",
+            "custom": "#/components/schemas/WriteCustomFormat",
+            "rockwell": "#/components/schemas/RockwellFormat",
+            "sparkplug": "#/components/schemas/SparkplugFormat",
+            "value": "#/components/schemas/ValueFormat"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/RockwellFormat"
+          },
+          {
+            "$ref": "#/components/schemas/CogniteFormat"
+          },
+          {
+            "$ref": "#/components/schemas/WriteCustomFormat"
+          },
+          {
+            "$ref": "#/components/schemas/ValueFormat"
+          },
+          {
+            "$ref": "#/components/schemas/SparkplugFormat"
+          }
+        ],
+        "title": "Format",
+        "description": "The format of the messages from the source. This is used to convert messages coming from the source system to a format that can be inserted into CDF.",
+        "type": "object"
+      },
+      "config": {
+        "$ref": "#/components/schemas/JobConfig"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      }
+    },
+    "required": [
+      "sourceId",
+      "destinationId",
+      "externalId",
+      "format"
+    ],
+    "title": "CreateJob",
+    "type": "object"
+  },
+  "MinimalJob": {
+    "additionalProperties": false,
+    "properties": {
+      "externalId": {
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "destinationId": {
+        "title": "Destination ID",
+        "description": "ID of the destination this job writes to.",
+        "type": "string",
+        "maxLength": 255
+      },
+      "sourceId": {
+        "title": "Source ID",
+        "description": "ID of the source this job reads from.",
+        "type": "string",
+        "maxLength": 255
+      },
+      "format": {
+        "discriminator": {
+          "mapping": {
+            "cognite": "#/components/schemas/CogniteFormat",
+            "custom": "#/components/schemas/CustomFormat",
+            "rockwell": "#/components/schemas/RockwellFormat",
+            "sparkplug": "#/components/schemas/SparkplugFormat",
+            "value": "#/components/schemas/ValueFormat"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/RockwellFormat"
+          },
+          {
+            "$ref": "#/components/schemas/CogniteFormat"
+          },
+          {
+            "$ref": "#/components/schemas/CustomFormat"
+          },
+          {
+            "$ref": "#/components/schemas/ValueFormat"
+          },
+          {
+            "$ref": "#/components/schemas/SparkplugFormat"
+          }
+        ],
+        "title": "Format",
+        "description": "The format of the messages from the source. This is used to convert messages coming from the source system to a format that can be inserted into CDF.",
+        "type": "object"
+      },
+      "targetStatus": {
+        "$ref": "#/components/schemas/JobTargetStatus"
+      },
+      "status": {
+        "title": "Status",
+        "description": "Status of this job.",
+        "enum": [
+          "startup_error",
+          "paused",
+          "shutting_down",
+          "connected",
+          "running",
+          "waiting",
+          "connection_error",
+          "cdf_write_error",
+          "transform_error"
+        ],
+        "type": "string"
+      },
+      "config": {
+        "$ref": "#/components/schemas/JobConfig"
+      },
+      "createdTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      },
+      "lastUpdatedTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      }
+    },
+    "required": [
+      "sourceId",
+      "destinationId",
+      "externalId",
+      "createdTime",
+      "lastUpdatedTime",
+      "status",
+      "targetStatus",
+      "format",
+      "config"
+    ],
+    "title": "Job",
+    "type": "object"
+  },
+  "MQTTJobConfig": {
+    "additionalProperties": false,
+    "type": "object",
+    "title": "MQTT",
+    "required": [
+      "topicFilter"
+    ],
+    "properties": {
+      "topicFilter": {
+        "title": "TopicFilter",
+        "type": "string",
+        "description": "Topic filter.",
+        "maxLength": 200
+      }
+    }
+  },
+  "KafkaJobConfig": {
+    "additionalProperties": false,
+    "type": "object",
+    "title": "Kafka",
+    "required": [
+      "topic"
+    ],
+    "properties": {
+      "topic": {
+        "title": "Topic",
+        "type": "string",
+        "description": "Kafka topic to connect to",
+        "maxLength": 200
+      },
+      "partitions": {
+        "title": "Partitions",
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 10,
+        "default": 1,
+        "description": "Number of partitions on the topic."
+      }
+    }
+  },
+  "QueryParameterConfig": {
+    "additionalProperties": false,
+    "type": "object",
+    "title": "QueryParameterConfig",
+    "required": [
+      "key",
+      "value",
+      "type"
+    ],
+    "properties": {
+      "type": {
+        "title": "Type",
+        "type": "string",
+        "enum": [
+          "queryParam"
+        ]
+      },
+      "key": {
+        "title": "Key",
+        "type": "string",
+        "description": "Key to insert the generated value into"
+      },
+      "value": {
+        "title": "Value",
+        "type": "string",
+        "description": "Expression that will be evaluated, and its result used as a query parameter"
+      }
+    }
+  },
+  "HeaderValueConfig": {
+    "additionalProperties": false,
+    "type": "object",
+    "title": "HeaderValueConfig",
+    "required": [
+      "key",
+      "value",
+      "type"
+    ],
+    "properties": {
+      "type": {
+        "title": "Type",
+        "type": "string",
+        "enum": [
+          "headerValue"
+        ]
+      },
+      "key": {
+        "title": "Key",
+        "type": "string",
+        "description": "Key to insert the generated value into"
+      },
+      "value": {
+        "title": "Value",
+        "type": "string",
+        "description": "Expression that will be evaluated, and its result used as a header value"
+      }
+    }
+  },
+  "NextUrlConfig": {
+    "additionalProperties": false,
+    "type": "object",
+    "title": "HeaderValueConfig",
+    "required": [
+      "type",
+      "value"
+    ],
+    "properties": {
+      "type": {
+        "title": "Type",
+        "type": "string",
+        "enum": [
+          "nextUrl"
+        ]
+      },
+      "value": {
+        "title": "Value",
+        "type": "string",
+        "description": "Expression yielding the next URL to call"
+      }
+    }
+  },
+  "BodyPaginationConfig": {
+    "additionalProperties": false,
+    "type": "object",
+    "title": "BodyPaginationConfig",
+    "required": [
+      "type",
+      "value"
+    ],
+    "properties": {
+      "type": {
+        "title": "Type",
+        "type": "string",
+        "enum": [
+          "body"
+        ]
+      },
+      "value": {
+        "title": "Value",
+        "type": "string",
+        "description": "Expression yielding next message body. Note that body-based pagination is not allowed to be used if `method` is not set to `post`.\n"
+      }
+    }
+  },
+  "JobConfig": {
+    "description": "Source specific job configuration. The type depends on the type of source, and is required for some sources.\n",
+    "title": "Job Config",
+    "oneOf": [
+      {
+        "$ref": "#/components/schemas/MQTTJobConfig"
+      },
+      {
+        "$ref": "#/components/schemas/KafkaJobConfig"
+      },
+      {
+        "$ref": "#/components/schemas/RestJobConfig"
+      }
+    ]
+  },
+  "CreateMapping": {
+    "additionalProperties": false,
+    "properties": {
+      "externalId": {
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "mapping": {
+        "$ref": "#/components/schemas/CustomMapping"
+      },
+      "input": {
+        "$ref": "#/components/schemas/CreateInputConfig"
+      },
+      "published": {
+        "title": "Published",
+        "type": "boolean",
+        "description": "Whether this mapping is published and should be available to be used in jobs."
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      }
+    },
+    "required": [
+      "externalId",
+      "mapping",
+      "published"
+    ],
+    "title": "CreateMapping",
+    "type": "object"
+  },
+  "Mapping": {
+    "additionalProperties": false,
+    "properties": {
+      "externalId": {
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "mapping": {
+        "$ref": "#/components/schemas/CustomMapping"
+      },
+      "input": {
+        "$ref": "#/components/schemas/InputConfig"
+      },
+      "published": {
+        "title": "Published",
+        "type": "boolean",
+        "description": "Whether this mapping is published and should be available to be used in jobs."
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      },
+      "createdTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      },
+      "lastUpdatedTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      }
+    },
+    "required": [
+      "externalId",
+      "mapping",
+      "published",
+      "lastUpdatedTime",
+      "createdTime",
+      "input"
+    ],
+    "title": "Mapping",
+    "type": "object"
+  },
+  "CustomMapping": {
+    "type": "object",
+    "properties": {
+      "expression": {
+        "type": "string",
+        "description": "Custom transform expression written in the Cognite transformation language.",
+        "maxLength": 2000
+      }
+    },
+    "required": [
+      "expression"
+    ]
+  },
+  "CreateEventHubSource": {
+    "additionalProperties": false,
+    "properties": {
+      "type": {
+        "enum": [
+          "eventhub"
+        ],
+        "title": "Type",
+        "type": "string",
+        "description": "Source type."
+      },
+      "externalId": {
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "host": {
+        "title": "Host",
+        "type": "string",
+        "description": "Host name or IP address of the event hub consumer endpoint.",
+        "example": "iothub-ns-myhub-12345678-12345abcde.servicebus.windows.net",
+        "maxLength": 200
+      },
+      "eventHubName": {
+        "title": "Eventhubname",
+        "type": "string",
+        "description": "Name of the event hub",
+        "example": "myhub",
+        "maxLength": 200
+      },
+      "keyName": {
+        "title": "KeyName",
+        "type": "string",
+        "description": "The name of the Event Hub key to use for authentication. This parameter is deprecated, use `username` under basic authentication instead.",
+        "example": "iothubowner",
+        "maxLength": 200,
+        "deprecated": true
+      },
+      "keyValue": {
+        "title": "KeyValue",
+        "type": "string",
+        "description": "Value of the Event Hub key to use for authentication. This parameter is deprecated, use `password` under basic authentication instead.",
+        "maxLength": 200,
+        "deprecated": true
+      },
+      "authentication": {
+        "$ref": "#/components/schemas/EventhubAuthenticationWrite"
+      },
+      "consumerGroup": {
+        "type": "string",
+        "title": "ConsumerGroup",
+        "description": "The event hub consumer group to use. Microsoft recommends having a distinct consumer group for each application consuming data from event hub. If left out, this uses the default consumer group.",
+        "maxLength": 200
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      }
+    },
+    "required": [
+      "type",
+      "externalId",
+      "host",
+      "eventHubName"
+    ],
+    "title": "CreateEventHubSource",
+    "type": "object"
+  },
+  "CreateKafkaSource": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "type": {
+        "enum": [
+          "kafka"
+        ],
+        "title": "Type",
+        "type": "string",
+        "description": "Source type."
+      },
+      "externalId": {
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "bootstrapBrokers": {
+        "$ref": "#/components/schemas/KafkaBrokerList"
+      },
+      "authentication": {
+        "$ref": "#/components/schemas/KafkaAuthenticationWrite"
+      },
+      "useTls": {
+        "type": "boolean",
+        "title": "UseTLS",
+        "description": "If true, use TLS when connecting to the broker"
+      },
+      "caCertificate": {
+        "$ref": "#/components/schemas/CACertificate"
+      },
+      "authCertificate": {
+        "$ref": "#/components/schemas/AuthCertificate"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      }
+    },
+    "required": [
+      "bootstrapBrokers",
+      "externalId",
+      "type"
+    ]
+  },
+  "CreateMqttBrokerSource": {
+    "description": "Create a source that lets users write data to CDF using the MQTT protocol.",
+    "title": "CreateMqttBrokerSource",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "type": {
+        "enum": [
+          "mqtt_broker"
+        ],
+        "title": "Type",
+        "type": "string",
+        "description": "Source type."
+      },
+      "externalId": {
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      }
+    },
+    "required": [
+      "type",
+      "externalId"
+    ]
+  },
+  "CreateMqttV3Source": {
+    "additionalProperties": false,
+    "properties": {
+      "type": {
+        "enum": [
+          "mqtt3"
+        ],
+        "title": "Type",
+        "type": "string",
+        "description": "Source type."
+      },
+      "externalId": {
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "host": {
+        "title": "Host",
+        "type": "string",
+        "description": "Host or IP address of the MQTT broker to connect to.",
+        "maxLength": 200
+      },
+      "port": {
+        "type": "integer",
+        "title": "Port",
+        "default": 1883,
+        "description": "Port on the MQTT broker to connect to.",
+        "minimum": 1,
+        "maximum": 65535
+      },
+      "authentication": {
+        "$ref": "#/components/schemas/MqttAuthenticationWrite"
+      },
+      "useTls": {
+        "type": "boolean",
+        "title": "UseTls",
+        "description": "If true, use TLS when connecting to the broker."
+      },
+      "caCertificate": {
+        "$ref": "#/components/schemas/CACertificate"
+      },
+      "authCertificate": {
+        "$ref": "#/components/schemas/AuthCertificate"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      }
+    },
+    "required": [
+      "type",
+      "externalId",
+      "host"
+    ],
+    "title": "CreateMqttV3Source",
+    "type": "object"
+  },
+  "CreateMqttV5Source": {
+    "additionalProperties": false,
+    "properties": {
+      "type": {
+        "enum": [
+          "mqtt5"
+        ],
+        "title": "Type",
+        "type": "string",
+        "description": "Source type."
+      },
+      "externalId": {
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "host": {
+        "title": "Host",
+        "type": "string",
+        "description": "Host or IP address of the MQTT broker to connect to.",
+        "maxLength": 200
+      },
+      "port": {
+        "type": "integer",
+        "title": "Port",
+        "default": 1883,
+        "description": "Port on the MQTT broker to connect to.",
+        "minimum": 1,
+        "maximum": 65535
+      },
+      "authentication": {
+        "$ref": "#/components/schemas/MqttAuthenticationWrite"
+      },
+      "useTls": {
+        "type": "boolean",
+        "title": "UseTls",
+        "description": "If true, use TLS when connecting to the broker."
+      },
+      "caCertificate": {
+        "$ref": "#/components/schemas/CACertificate"
+      },
+      "authCertificate": {
+        "$ref": "#/components/schemas/AuthCertificate"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      }
+    },
+    "required": [
+      "type",
+      "externalId",
+      "host"
+    ],
+    "title": "CreateMqttV5Source",
+    "type": "object"
+  },
+  "CreateRestSource": {
+    "additionalProperties": false,
+    "properties": {
+      "type": {
+        "enum": [
+          "rest"
+        ],
+        "title": "Type",
+        "type": "string",
+        "description": "Source type."
+      },
+      "externalId": {
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "host": {
+        "title": "Host",
+        "type": "string",
+        "description": "Host or IP address to connect to.",
+        "maxLength": 200
+      },
+      "scheme": {
+        "title": "Scheme",
+        "type": "string",
+        "description": "Type of connection to establish",
+        "enum": [
+          "http",
+          "https"
+        ],
+        "default": "https"
+      },
+      "port": {
+        "type": "integer",
+        "title": "Port",
+        "description": "Port on server to connect to. Uses default ports based on the scheme if omitted.",
+        "minimum": 1,
+        "maximum": 65535
+      },
+      "caCertificate": {
+        "$ref": "#/components/schemas/CACertificate"
+      },
+      "authCertificate": {
+        "$ref": "#/components/schemas/AuthCertificate"
+      },
+      "authentication": {
+        "discriminator": {
+          "mapping": {
+            "basic": "#/components/schemas/CreateBasicAuthentication",
+            "header": "#/components/schemas/CreateHeaderValueAuthentication",
+            "query": "#/components/schemas/CreateQueryParamAuthentication",
+            "clientCredentials": "#/components/schemas/CreateClientCredentialsAuthentication"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CreateBasicAuthentication"
+          },
+          {
+            "$ref": "#/components/schemas/CreateHeaderValueAuthentication"
+          },
+          {
+            "$ref": "#/components/schemas/CreateQueryParamAuthentication"
+          },
+          {
+            "$ref": "#/components/schemas/CreateClientCredentialsAuthentication"
+          }
+        ],
+        "title": "Authentication",
+        "description": "Authentication details for source"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      }
+    },
+    "required": [
+      "type",
+      "externalId",
+      "host"
+    ],
+    "title": "CreateRestSource",
+    "type": "object"
+  },
+  "EventHubSource": {
+    "additionalProperties": false,
+    "properties": {
+      "type": {
+        "enum": [
+          "eventhub"
+        ],
+        "title": "Type",
+        "type": "string",
+        "description": "Source type."
+      },
+      "externalId": {
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "host": {
+        "title": "Host",
+        "type": "string",
+        "description": "URL of the event hub consumer endpoint.",
+        "example": "iothub-ns-myhub-12345678-12345abcde.servicebus.windows.net",
+        "maxLength": 200
+      },
+      "eventHubName": {
+        "title": "EventHubName",
+        "type": "string",
+        "description": "Name of the event hub.",
+        "example": "myhub",
+        "maxLength": 200
+      },
+      "keyName": {
+        "title": "KeyName",
+        "type": "string",
+        "description": "The name of the Event Hub key to use. This parameter is deprecated. Use `username` under basic authentication instead.",
+        "example": "iothubowner",
+        "maxLength": 200,
+        "deprecated": true
+      },
+      "authentication": {
+        "$ref": "#/components/schemas/EventhubAuthentication"
+      },
+      "consumerGroup": {
+        "type": "string",
+        "title": "ConsumerGroup",
+        "description": "The event hub consumer group to use. Microsoft recommends having a distinct consumer group for each application consuming data from event hub. If left out, this uses the default consumer group.",
+        "maxLength": 200
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      },
+      "createdTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      },
+      "lastUpdatedTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      }
+    },
+    "required": [
+      "type",
+      "externalId",
+      "host",
+      "eventHubName",
+      "createdTime",
+      "lastUpdatedTime"
+    ],
+    "title": "EventHubSource",
+    "type": "object"
+  },
+  "KafkaSource": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "type": {
+        "enum": [
+          "kafka"
+        ],
+        "title": "Type",
+        "type": "string",
+        "description": "Source type."
+      },
+      "externalId": {
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "bootstrapBrokers": {
+        "$ref": "#/components/schemas/KafkaBrokerList"
+      },
+      "authentication": {
+        "$ref": "#/components/schemas/KafkaAuthentication"
+      },
+      "createdTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      },
+      "lastUpdatedTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      },
+      "caCertificate": {
+        "$ref": "#/components/schemas/CertificateDetails"
+      },
+      "authCertificate": {
+        "$ref": "#/components/schemas/CertificateDetails"
+      },
+      "useTls": {
+        "type": "boolean",
+        "title": "UseTLS",
+        "description": "Indicates whether TLS will be used for connection to broker."
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      }
+    },
+    "required": [
+      "bootstrapBrokers",
+      "externalId",
+      "type",
+      "createdTime",
+      "lastUpdatedTime"
+    ]
+  },
+  "MqttBrokerSource": {
+    "description": "Description of a source that lets users write data to CDF using the MQTT protocol.",
+    "title": "MqttBrokerSource",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "type": {
+        "enum": [
+          "mqtt_broker"
+        ],
+        "title": "Type",
+        "type": "string",
+        "description": "Source type."
+      },
+      "externalId": {
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "host": {
+        "type": "string",
+        "title": "Host",
+        "description": "Hostname of the MQTT broker in CDF. Clients should connect to this host."
+      },
+      "port": {
+        "type": "integer",
+        "title": "Port",
+        "description": "Port number of the MQTT broker in CDF. Clients should connect to this port.",
+        "minimum": 1,
+        "maximum": 65535
+      },
+      "authentication": {
+        "type": "object",
+        "title": "Authentication",
+        "description": "Authentication details for connecting to the MQTT broker in CDF.\n",
+        "required": [
+          "type",
+          "username"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "basic"
+            ],
+            "title": "Type",
+            "description": "Authentication type."
+          },
+          "username": {
+            "type": "string",
+            "title": "Username",
+            "description": "Username to use when connecting to the MQTT broker in CDF."
+          },
+          "password": {
+            "type": "string",
+            "title": "Password",
+            "description": "Password to use when connecting to the MQTT broker in CDF. This is only present if the source is newly created, or the password was updated.\n"
+          }
+        }
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      },
+      "createdTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      },
+      "lastUpdatedTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      }
+    },
+    "required": [
+      "type",
+      "externalId",
+      "host",
+      "port",
+      "authentication",
+      "createdTime",
+      "lastUpdatedTime"
+    ]
+  },
+  "MqttV3Source": {
+    "additionalProperties": false,
+    "properties": {
+      "type": {
+        "enum": [
+          "mqtt3"
+        ],
+        "title": "Type",
+        "type": "string",
+        "description": "Source type."
+      },
+      "externalId": {
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "host": {
+        "title": "Host",
+        "type": "string",
+        "description": "Host or IP address of the MQTT broker to connect to.",
+        "maxLength": 200
+      },
+      "port": {
+        "type": "integer",
+        "title": "Port",
+        "description": "Port to connect to on the MQTT broker.",
+        "default": 1883,
+        "minimum": 1,
+        "maximum": 65535
+      },
+      "authentication": {
+        "$ref": "#/components/schemas/MqttAuthentication"
+      },
+      "useTls": {
+        "type": "boolean",
+        "title": "UseTls",
+        "description": "If true, use TLS when connecting to the broker."
+      },
+      "createdTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      },
+      "lastUpdatedTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      },
+      "caCertificate": {
+        "$ref": "#/components/schemas/CertificateDetails"
+      },
+      "authCertificate": {
+        "$ref": "#/components/schemas/CertificateDetails"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      }
+    },
+    "required": [
+      "type",
+      "externalId",
+      "host",
+      "createdTime",
+      "lastUpdatedTime"
+    ],
+    "title": "MqttV3Source",
+    "type": "object"
+  },
+  "MqttV5Source": {
+    "additionalProperties": false,
+    "properties": {
+      "type": {
+        "enum": [
+          "mqtt5"
+        ],
+        "title": "Type",
+        "type": "string",
+        "description": "Source type."
+      },
+      "externalId": {
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "host": {
+        "title": "Host",
+        "type": "string",
+        "description": "Host or IP address of the MQTT broker to connect to.",
+        "maxLength": 200
+      },
+      "port": {
+        "type": "integer",
+        "title": "Port",
+        "description": "Port to connect to on the MQTT broker.",
+        "default": 1883,
+        "minimum": 1,
+        "maximum": 65535
+      },
+      "authentication": {
+        "$ref": "#/components/schemas/MqttAuthentication"
+      },
+      "useTls": {
+        "type": "boolean",
+        "title": "UseTls",
+        "description": "If true, use TLS when connecting to the broker."
+      },
+      "createdTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      },
+      "lastUpdatedTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      },
+      "caCertificate": {
+        "$ref": "#/components/schemas/CertificateDetails"
+      },
+      "authCertificate": {
+        "$ref": "#/components/schemas/CertificateDetails"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      }
+    },
+    "required": [
+      "type",
+      "externalId",
+      "host",
+      "createdTime",
+      "lastUpdatedTime"
+    ],
+    "title": "MqttV5Source",
+    "type": "object"
+  },
+  "RestSource": {
+    "additionalProperties": false,
+    "properties": {
+      "type": {
+        "enum": [
+          "rest"
+        ],
+        "title": "Type",
+        "type": "string",
+        "description": "Source type."
+      },
+      "externalId": {
+        "$ref": "#/components/schemas/CogniteExternalId"
+      },
+      "host": {
+        "title": "Host",
+        "type": "string",
+        "description": "Host or IP address to connect to.",
+        "maxLength": 200
+      },
+      "scheme": {
+        "title": "Scheme",
+        "type": "string",
+        "description": "Type of connection to establish",
+        "enum": [
+          "http",
+          "https"
+        ]
+      },
+      "port": {
+        "type": "integer",
+        "title": "Port",
+        "description": "Port on server to connect to. Uses default ports based on the scheme if omitted.",
+        "minimum": 1,
+        "maximum": 65535
+      },
+      "caCertificate": {
+        "$ref": "#/components/schemas/CertificateDetails"
+      },
+      "authCertificate": {
+        "$ref": "#/components/schemas/CertificateDetails"
+      },
+      "authentication": {
+        "discriminator": {
+          "mapping": {
+            "basic": "#/components/schemas/BasicAuthentication",
+            "header": "#/components/schemas/HeaderValueAuthentication",
+            "query": "#/components/schemas/QueryParamAuthentication",
+            "clientCredentials": "#/components/schemas/ClientCredentialsAuthentication"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/BasicAuthentication"
+          },
+          {
+            "$ref": "#/components/schemas/HeaderValueAuthentication"
+          },
+          {
+            "$ref": "#/components/schemas/QueryParamAuthentication"
+          },
+          {
+            "$ref": "#/components/schemas/ClientCredentialsAuthentication"
+          }
+        ],
+        "title": "Authentication",
+        "description": "Authentication details for source"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": {
+        "title": "Description",
+        "type": "string",
+        "maxLength": 500
+      },
+      "metadata": {
+        "$ref": "#/components/schemas/HostedExtractorMetadata"
+      },
+      "createdTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      },
+      "lastUpdatedTime": {
+        "$ref": "#/components/schemas/EpochTimestamp"
+      }
+    },
+    "required": [
+      "type",
+      "externalId",
+      "host",
+      "createdTime",
+      "lastUpdatedTime",
+      "scheme"
+    ],
+    "title": "RestSource",
+    "type": "object"
+  }
+}

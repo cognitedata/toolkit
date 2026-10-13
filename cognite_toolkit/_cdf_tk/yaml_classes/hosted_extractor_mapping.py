@@ -67,6 +67,22 @@ class HostedExtractorMappingYAML(ToolkitResource):
     external_id: str = Field(
         description="The external ID provided by the client. Must be unique for the resource type.", max_length=255
     )
+    name: str | None = Field(
+        None,
+        description="The name of the mapping.",
+        max_length=50,
+    )
+    description: str | None = Field(
+        None,
+        description="The description of the mapping.",
+        max_length=500,
+    )
+
+    metadata: dict[str, str] | None = Field(
+        None,
+        description="Custom, application specific metadata. String key -> String value. Limits are 16 key-value pairs, 512 bytes per value, and 4096 bytes total.",
+        max_length=16,
+    )
     mapping: Mapping
     input: MappingInputType | None = Field(None, description="The input format of the data to be transformed.")
     published: bool = Field(description="Whether this mapping is published and should be available to be used in jobs.")

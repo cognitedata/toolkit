@@ -164,6 +164,22 @@ class HostedExtractorJobYAML(ToolkitResource):
         description="ID of the source this job should read from.",
         max_length=255,
     )
+    name: str | None = Field(
+        None,
+        description="The name of the job.",
+        max_length=50,
+    )
+    description: str | None = Field(
+        None,
+        description="The description of the job.",
+        max_length=500,
+    )
+
+    metadata: dict[str, str] | None = Field(
+        None,
+        description="Custom, application specific metadata. String key -> String value. Limits are 16 key-value pairs, 512 bytes per value, and 4096 bytes total.",
+        max_length=16,
+    )
     format: JobFormatType = Field(
         description="The format of the messages from the source. This is used to convert messages coming from the source system to a format that can be inserted into CDF.",
     )
