@@ -216,7 +216,7 @@ class HostedExtractorSourceIO(
     ) -> list[dict[str, Any]]:
         raw_data_list = super().load_resource_file(filepath, environment_variables)
         for raw_data in raw_data_list:
-            metadata = raw_data.get("metadata", {})
+            metadata = raw_data.get("metadata", {}) or {}
             authentication = raw_data.get("authentication")
             if isinstance(authentication, dict):
                 for field_name, metadata_key in self._sensitive_auth_fields(authentication):
