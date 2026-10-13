@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from functools import cached_property
+from pathlib import Path
 
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
@@ -10,8 +11,21 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet, with_position
-from cognite_toolkit._cdf_tk.utils import humanize_collection, validate_requirements_with_pip
+from cognite_toolkit._cdf_tk.utils import PipValidationResult, humanize_collection, validate_requirements_with_pip
 from cognite_toolkit._cdf_tk.yaml_classes.functions import FunctionsYAML
+
+_PIP_RESULTS: dict[tuple[str, str | None, tuple[str, ...]], PipValidationResult] = {}
+
+
+def _validate_requirements(
+    requirements_txt: Path, index_url: str | None, extra_index_urls: list[str] | None
+) -> PipValidationResult:
+    """Cached on the content of the file, as pip resolves the packages over the network. Validating again
+    and again, for example after each edit in the sandbox, would otherwise take seconds per function."""
+    key = (requirements_txt.read_text(encoding="utf-8"), index_url, tuple(extra_index_urls or ()))
+    if key not in _PIP_RESULTS:
+        _PIP_RESULTS[key] = validate_requirements_with_pip(requirements_txt, index_url, extra_index_urls)
+    return _PIP_RESULTS[key]
 
 
 class FunctionRuleSet(ToolkitGlobalRuleSet):
@@ -117,9 +131,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
 
         function_folder = FunctionIO.get_function_code_implicitly(resource.source_path, function_def.as_id())
         if function_folder.is_dir() and (requirement_txt := next(function_folder.rglob("requirements.txt"), None)):
-            pip_result = validate_requirements_with_pip(
-                requirement_txt, function_def.index_url, function_def.extra_index_urls
-            )
+            pip_result = _validate_requirements(requirement_txt, function_def.index_url, function_def.extra_index_urls)
             if not pip_result.success:
                 yield BuildError(
                     message=pip_result.create_message("Function", function_def.external_id),
