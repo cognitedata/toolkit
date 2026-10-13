@@ -5,7 +5,12 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import MigrationMapping, MigrationMappingList
-from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence, flatten_dict_json_path, get_string_nested_dict
+from cognite_toolkit._cdf_tk.utils.collection import (
+    chunker_sequence,
+    flatten_dict_json_path,
+    get_string_nested_dict,
+    set_nested_dict_if_path_exists,
+)
 
 
 class TestChunkSequence:
@@ -162,3 +167,49 @@ class TestGetStringNestedDict:
         """Test that get_string_nested_dict raises TypeError for non-dict intermediate values."""
         with pytest.raises(TypeError):
             get_string_nested_dict(dct, path)
+
+
+class TestSetNestedDictIfPathExists:
+    @pytest.mark.parametrize(
+        "dct, path, value, expected",
+        [
+            pytest.param({"a": {"b": {"c": 1}}}, ("a", "b", "c"), 2, {"a": {"b": {"c": 2}}}, id="simple nested dict"),
+            pytest.param(
+                {"a": [{"b": {"c": 1}}]}, ("a", 0, "b", "c"), 2, {"a": [{"b": {"c": 2}}]}, id="nested dict in list"
+            ),
+        ],
+    )
+    def test_set_nested_dict_if_path_exists(
+        self, dct: dict[str, Any], path: tuple[str | int, ...], value: Any, expected: dict[str, Any]
+    ):
+        """Test that set_nested_dict_if_path_exists correctly sets a value in a nested dictionary."""
+        assert dct != expected  # Ensure the original dict is not already equal to expected
+        set_nested_dict_if_path_exists(dct, path, value)
+        assert dct == expected
+
+    @pytest.mark.parametrize(
+        "dct, path, value",
+        [
+            pytest.param({"a": {"b": {"c": 1}}}, ("x", "y", "z"), 2, id="non-existent path"),
+            pytest.param({}, ("a", "b", "c"), 2, id="empty dict"),
+        ],
+    )
+    def test_set_nested_dict_if_path_exists_no_change(
+        self, dct: dict[str, Any], path: tuple[str | int, ...], value: Any
+    ):
+        """Test that set_nested_dict_if_path_exists does not change the dict if the path does not exist."""
+        original_dct = dct.copy()
+        set_nested_dict_if_path_exists(dct, path, value)
+        assert dct == original_dct  # The dict should remain unchanged
+
+    @pytest.mark.parametrize(
+        "dct, path",
+        [
+            pytest.param({"a": {"b": "not a dict"}}, ("a", "b", "c"), id="non-dict intermediate value"),
+            pytest.param({"a": [{"b": {"c": 1}}]}, ("a", 0, "b", 0), id="non-list intermediate value"),
+        ],
+    )
+    def test_set_nested_dict_if_path_exists_raises(self, dct: dict[str, Any], path: tuple[str | int, ...]):
+        """Test that set_nested_dict_if_path_exists raises TypeError for non-dict or non-list intermediate values."""
+        with pytest.raises(TypeError):
+            set_nested_dict_if_path_exists(dct, path, value=42)

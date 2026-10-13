@@ -130,3 +130,33 @@ def get_string_nested_dict(dct: dict[str, Any], path: tuple[str | int, ...]) -> 
         return current
     else:
         raise TypeError(f"Value at path {path} is not a string: {current}")
+
+
+def set_nested_dict_if_path_exists(dct: dict[str, Any], path: tuple[str | int, ...], value: Any) -> None:
+    """Set a value in a nested dictionary using a path of keys, if the path exists.
+
+    Args:
+        dct: The nested dictionary to modify.
+        path: A tuple of keys representing the path to the value to set.
+        value: The value to set at the specified path.
+
+    Raises:
+        TypeError: If the value at the specified path is not a dictionary or list when expected
+    """
+    current: Any = dct
+    for key in path[:-1]:
+        if isinstance(current, dict) and key in current and isinstance(key, str):
+            current = current[key]
+        elif isinstance(current, list) and isinstance(key, int) and 0 <= key < len(current):
+            current = current[key]
+        else:
+            return  # Path does not exist, do nothing
+
+    last_key = path[-1]
+    if isinstance(current, dict) and isinstance(last_key, str):
+        if last_key in current:
+            current[last_key] = value
+    elif isinstance(current, list) and isinstance(last_key, int) and 0 <= last_key < len(current):
+        current[last_key] = value
+    else:
+        raise TypeError(f"Cannot set value at path {path}: expected a dictionary or list at the last key.")
