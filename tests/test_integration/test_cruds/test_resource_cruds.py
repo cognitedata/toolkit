@@ -1150,6 +1150,12 @@ authentication:
   type: basic
   username: my-username
   password: my-password
+caCertificate:
+  type: pem
+  certificate: |
+    -----BEGIN CERTIFICATE-----
+    MIIB-ca-certificate-content
+    -----END CERTIFICATE-----
 """
 
     kafka_scram = """type: kafka
@@ -1161,6 +1167,17 @@ authentication:
   type: scramSha256
   username: my-username
   password: my-password
+authCertificate:
+  type: pem
+  key: |
+    -----BEGIN PRIVATE KEY-----
+    MIIB-private-key-content
+    -----END PRIVATE KEY-----
+  keyPassword: my-key-password
+  certificate: |
+    -----BEGIN CERTIFICATE-----
+    MIIB-auth-certificate-content
+    -----END CERTIFICATE-----
 """
 
     rest_client_credentials = """type: rest
@@ -1172,6 +1189,23 @@ authentication:
   tokenUrl: https://token.example.com/oauth/token
   scopes: my-scope
   clientSecret: my-client-secret
+caCertificate:
+  type: pem
+  certificate: |
+    -----BEGIN CERTIFICATE-----
+    MIIB-ca-certificate-content
+    -----END CERTIFICATE-----
+authCertificate:
+  type: pem
+  key: |
+    -----BEGIN PRIVATE KEY-----
+    MIIB-private-key-content
+    -----END PRIVATE KEY-----
+  keyPassword: my-key-password
+  certificate: |
+    -----BEGIN CERTIFICATE-----
+    MIIB-auth-certificate-content
+    -----END CERTIFICATE-----
 """
 
     rest_header = """type: rest

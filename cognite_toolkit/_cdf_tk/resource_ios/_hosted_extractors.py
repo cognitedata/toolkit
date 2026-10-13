@@ -87,10 +87,20 @@ class HostedExtractorSourceIO(
         AUTH_BASIC_PASSWORD = f"{_prefix}-auth-basic-password"
         AUTH_CLIENT_SECRET = f"{_prefix}-auth-client-secret"
         AUTH_VALUE = f"{_prefix}-auth-value"
+        CA_CERTIFICATE = f"{_prefix}-ca-certificate"
+        AUTH_CERTIFICATE = f"{_prefix}-auth-certificate"
 
         @classmethod
         def auth_unknown(cls, field: str) -> str:
             return f"{cls._prefix}-auth-{field}"
+
+    # The certificate fields are objects that may contain sensitive strings (private key and key password).
+    # The API only returns certificate metadata (thumbprint/expiry), so we hash the local value into the
+    # resource metadata to detect changes.
+    _CERTIFICATE_KEYS: tuple[tuple[str, str], ...] = (
+        ("caCertificate", _MetadataKey.CA_CERTIFICATE),
+        ("authCertificate", _MetadataKey.AUTH_CERTIFICATE),
+    )
 
     @property
     def display_name(self) -> str:
@@ -178,9 +188,14 @@ class HostedExtractorSourceIO(
             # We remove the default set by the API to avoid unnecessary redeploys.
             dumped.pop("scheme")
 
-        # API returns certificate metadata (thumbprint/expiry) that cannot be redeployed.
-        dumped.pop("caCertificate", None)
-        dumped.pop("authCertificate", None)
+        # API returns certificate metadata (thumbprint/expiry) that cannot be redeployed. Re-inject the
+        # local certificate so an unchanged source is not flagged as changed. Any change to the certificate
+        # (including its private key or key password) is caught by the hash stored in metadata.
+        for cert_key, _ in self._CERTIFICATE_KEYS:
+            if local and isinstance(local.get(cert_key), dict):
+                dumped[cert_key] = local[cert_key]
+            else:
+                dumped.pop(cert_key, None)
         return dumped
 
     def load_resource_file(
@@ -195,29 +210,12 @@ class HostedExtractorSourceIO(
                     secret = authentication.get(field_name)
                     if isinstance(secret, str) and secret:
                         metadata[metadata_key] = calculate_secure_hash(secret, shorten=True)
+            for cert_key, metadata_key in self._CERTIFICATE_KEYS:
+                certificate = raw_data.get(cert_key)
+                if isinstance(certificate, dict):
+                    metadata[metadata_key] = calculate_secure_hash(certificate, shorten=True)
             raw_data["metadata"] = metadata
         return raw_data_list
-
-    @classmethod
-    def _sensitive_auth_fields(cls, authentication: dict[str, Any]) -> Iterable[tuple[str, str]]:
-        """Yields (field name in the authentication object, metadata hash key) for each sensitive string.
-
-        The hash of each sensitive string is stored in the resource metadata so that a change to a secret
-        is detected (and triggers a redeploy) even though the API never returns the secret itself.
-        """
-        auth_type = authentication.get("type")
-        if auth_type in ("basic", "scramSha256", "scramSha512"):
-            yield "password", cls._MetadataKey.AUTH_BASIC_PASSWORD
-        elif auth_type == "clientCredentials":
-            yield "clientSecret", cls._MetadataKey.AUTH_CLIENT_SECRET
-        elif auth_type in ("header", "query"):
-            yield "value", cls._MetadataKey.AUTH_VALUE
-        else:
-            # Unknown authentication type. Assume every field (except the discriminator 'type') is
-            # sensitive to ensure we do not expose secrets.
-            for field in authentication:
-                if field != "type":
-                    yield field, cls._MetadataKey.auth_unknown(field)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> HostedExtractorSourceRequestUnion:
         loaded = HostedExtractorSourceRequest.validate_python(resource)
@@ -259,6 +257,27 @@ class HostedExtractorSourceIO(
         elif isinstance(auth, UnknownAuthenticationRequest):
             # Assume all keys are sensitive. Ensuring that we do not expose secrets.
             yield from set(auth.dump().keys()) - {"type"}
+
+    @classmethod
+    def _sensitive_auth_fields(cls, authentication: dict[str, Any]) -> Iterable[tuple[str, str]]:
+        """Yields (field name in the authentication object, metadata hash key) for each sensitive string.
+
+        The hash of each sensitive string is stored in the resource metadata so that a change to a secret
+        is detected (and triggers a redeploy) even though the API never returns the secret itself.
+        """
+        auth_type = authentication.get("type")
+        if auth_type in ("basic", "scramSha256", "scramSha512"):
+            yield "password", cls._MetadataKey.AUTH_BASIC_PASSWORD
+        elif auth_type == "clientCredentials":
+            yield "clientSecret", cls._MetadataKey.AUTH_CLIENT_SECRET
+        elif auth_type in ("header", "query"):
+            yield "value", cls._MetadataKey.AUTH_VALUE
+        else:
+            # Unknown authentication type. Assume every field (except the discriminator 'type') is
+            # sensitive to ensure we do not expose secrets.
+            for field in authentication:
+                if field != "type":
+                    yield field, cls._MetadataKey.auth_unknown(field)
 
 
 @final
