@@ -72,6 +72,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     FunctionIO,
     FunctionScheduleIO,
     GroupIO,
+    HostedExtractorSourceIO,
     LabelIO,
     NodeIO,
     SkillIO,
@@ -82,7 +83,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from tests.test_integration.constants import RUN_UNIQUE_ID
-from tests.test_integration.helpers import retry_on_deadlock
+from tests.test_integration.helpers import load_local_yaml, retry_on_deadlock
 from tests.utils import to_deploy_status
 
 
@@ -1129,3 +1130,34 @@ class TestSkillIO:
             assert "Used by toolkit integration tests (updated)." in retrieved[0].content
         finally:
             loader.delete([original.as_id()])
+
+
+class TestHostedExtractorSourceIO:
+    event_hub = """type: eventhub
+externalId: test_no_redeploy_unchanged_eventhub
+host: eventhubnamespace.servicebus.windows.net
+eventHubName: my-event-hub
+authentication:
+  type: basic
+  username: my-username
+  password: my-password
+"""
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            pytest.param(event_hub, id="eventhub basic auth"),
+        ],
+    )
+    def test_no_redeploy_unchanged(self, content: str, toolkit_client: ToolkitClient) -> None:
+        io = HostedExtractorSourceIO(toolkit_client)
+
+        raw_data = load_local_yaml(content, io)
+        cdf_source = io.load_resource(raw_data)
+        io.delete([cdf_source.as_id()])
+        retrieved = io.retrieve([cdf_source.as_id()])
+        if len(retrieved) == 0:
+            # Create the source if it doesn't exist, so we can test that it is not redeployed when unchanged
+            retrieved = io.create([cdf_source])
+            assert len(retrieved) == 1
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)

@@ -1,4 +1,5 @@
 from collections.abc import Hashable, Iterable, Sequence
+from pathlib import Path
 from typing import Any, Literal, final
 
 from typing_extensions import TypeForm
@@ -28,11 +29,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
     BasicAuthenticationRequest,
     ClientCredentialAuthenticationRequest,
     EventHubSourceRequest,
+    EventHubSourceResponse,
     HostedExtractorSourceRequest,
     HostedExtractorSourceRequestUnion,
     HostedExtractorSourceResponseUnion,
     HTTPBasicAuthenticationRequest,
     KafkaSourceRequest,
+    MQTTBrokerSourceRequest,
     MQTTSourceRequest,
     RESTSourceRequest,
     ScramShaAuthenticationRequest,
@@ -41,8 +44,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._data_organization import DataSetsIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth
+from cognite_toolkit._cdf_tk.utils.collection import get_string_nested_dict, set_nested_dict_if_path_exists
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import (
     HostedExtractorDestinationYAML,
@@ -50,8 +56,6 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
     HostedExtractorMappingYAML,
     HostedExtractorSourceYAML,
 )
-
-from ._data_organization import DataSetsIO
 
 
 @final
@@ -71,7 +75,17 @@ class HostedExtractorSourceIO(
     yaml_cls = HostedExtractorSourceYAML
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Sources/operation/create_sources"
-    _SupportedSources = (MQTTSourceRequest, KafkaSourceRequest, RESTSourceRequest, EventHubSourceRequest)
+    _SupportedSources = (
+        MQTTSourceRequest,
+        KafkaSourceRequest,
+        RESTSourceRequest,
+        EventHubSourceRequest,
+        MQTTBrokerSourceRequest,
+    )
+
+    class _MetadataKey:
+        _prefix = "toolkit-hash"
+        AUTH_BASIC_PASSWORD = f"{_prefix}-auth-basic-password"
 
     @property
     def display_name(self) -> str:
@@ -136,20 +150,38 @@ class HostedExtractorSourceIO(
     def dump_resource(
         self, resource: HostedExtractorSourceResponseUnion, local: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        # Secrets and certificates cannot be compared (API never returns them). Dumping only
-        # the identifier when a local YAML exists makes deploy always upsert.
-        if local:
-            HighSeverityWarning(
-                "Sources that contain credentials are always considered as changed and will be redeployed every time"
-            ).print_warning(console=self.client.console)
-            return self.dump_id(self.get_id(resource))
+        # Hosted extractor sources cannot be automatically
         dumped = resource.dump()
         dumped.pop("createdTime", None)
         dumped.pop("lastUpdatedTime", None)
+        if isinstance(resource, EventHubSourceResponse):
+            if not (local and "keyName" in local):
+                # Deprecated, but still returned by the API even if it is not set.
+                dumped.pop("keyName", None)
+            if local and (basic_password := get_string_nested_dict(local, ("authentication", "password"))):
+                # The API does not return the password, we set it to equal as if has changed it will
+                # be caught by the hash comparison and redeployed. Furthermore, it should confuse the user
+                # as all passwords are hidden from terminal output.
+                set_nested_dict_if_path_exists(dumped, ("authentication", "password"), basic_password)
+
         # API returns certificate metadata (thumbprint/expiry) that cannot be redeployed.
         dumped.pop("caCertificate", None)
         dumped.pop("authCertificate", None)
         return dumped
+
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        raw_data_list = super().load_resource_file(filepath, environment_variables)
+        for raw_data in raw_data_list:
+            metadata = raw_data.get("metadata", {})
+            if raw_data.get("type") == "eventhub":
+                if basic_password := get_string_nested_dict(raw_data, ("authentication", "password")):
+                    metadata[self._MetadataKey.AUTH_BASIC_PASSWORD] = calculate_secure_hash(
+                        basic_password, shorten=True
+                    )
+            raw_data["metadata"] = metadata
+        return raw_data_list
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> HostedExtractorSourceRequestUnion:
         loaded = HostedExtractorSourceRequest.validate_python(resource)
