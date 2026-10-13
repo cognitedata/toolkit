@@ -63,13 +63,16 @@ class RockwellFormat(DataModelFormat):
     type: Literal["rockwell"] = Field("rockwell")
 
 
+class SparkplugFormat(DataModelFormat):
+    type: Literal["sparkplug"] = Field("sparkplug")
+
+
 class ValueFormat(DataModelFormat):
     type: Literal["value"] = Field("value")
 
 
 JobFormatType = Annotated[
-    CustomFormat | CogniteFormat | RockwellFormat | ValueFormat,
-    Field(discriminator="type"),
+    CustomFormat | CogniteFormat | RockwellFormat | SparkplugFormat | ValueFormat, Field(discriminator="type")
 ]
 
 
@@ -105,7 +108,7 @@ class NextURLIncrementalLoad(IncrementalLoad):
 
 
 class QueryParameterIncrementalLoad(IncrementalLoad):
-    type: Literal["queryParameter"] = Field("queryParameter")
+    type: Literal["queryParam"] = Field("queryParam")
     key: str = Field("Key to insert the generated value into")
     value: str = Field("Expression that will be evaluated, and its result used as a query parameter")
 

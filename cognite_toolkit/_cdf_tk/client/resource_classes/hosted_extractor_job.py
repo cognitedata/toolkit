@@ -56,6 +56,14 @@ class ValueFormat(JobFormatDefinition):
     data_models: list[SpaceRef] | None = None
 
 
+class SparkplugFormat(JobFormatDefinition):
+    type: Literal["sparkplug"] = "sparkplug"
+    encoding: str | None = None
+    compression: str | None = None
+    prefix: PrefixConfig | None = None
+    data_models: list[SpaceRef] | None = None
+
+
 class UnknownJobFormat(JobFormatDefinition):
     type: str
 
@@ -77,7 +85,7 @@ _JOB_FORMAT_BY_TYPE = registry_from_subclasses_with_type_field(
 
 
 JobFormat = Annotated[
-    CogniteFormat | CustomFormat | RockwellFormat | ValueFormat | UnknownJobFormat,
+    CogniteFormat | CustomFormat | RockwellFormat | ValueFormat | SparkplugFormat | UnknownJobFormat,
     BeforeValidator(_handle_unknown_job_format),
 ]
 
