@@ -1,5 +1,5 @@
 import builtins
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -11,6 +11,8 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 
 class SourceRequestDefinition(UpdatableRequestResource):
+    container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
+
     type: str
     external_id: str
     name: str | None = None

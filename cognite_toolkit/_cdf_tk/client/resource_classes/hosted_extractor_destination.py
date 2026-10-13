@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     ResponseResource,
@@ -23,6 +25,7 @@ class HostedExtractorDestination(BaseModelObject):
 
 
 class HostedExtractorDestinationRequest(HostedExtractorDestination, UpdatableRequestResource):
+    container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
     credentials: Credentials | None = None
 
 

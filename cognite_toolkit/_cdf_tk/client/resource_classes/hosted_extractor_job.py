@@ -192,6 +192,7 @@ class HostedExtractorJobRequest(HostedExtractorJob, UpdatableRequestResource):
     # Event Hub / Service Bus jobs have no source-specific config. The update API
     # does not support setting config to null.
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"config"})
+    container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         update_item = super().as_update(mode=mode)

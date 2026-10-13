@@ -84,6 +84,7 @@ class HostedExtractorMapping(BaseModelObject):
 
 class HostedExtractorMappingRequest(HostedExtractorMapping, UpdatableRequestResource):
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"input"})
+    container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
     input: MappingInput | None = None
 
 
