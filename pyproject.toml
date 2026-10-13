@@ -132,7 +132,8 @@ markers = [
 include = ["cognite_toolkit", "tests_smoke", "tests"]
 exclude = [
     "tests/data/",
-    "tests/test_unit/",
+    "tests/test_unit/approval_client",
+    "tests/test_unit/test_cdf_tk", # 1277 diagnostics
 ]
 [tool.ty.environment]
 python-version = "3.14"
