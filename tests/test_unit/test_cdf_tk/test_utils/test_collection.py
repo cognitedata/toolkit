@@ -5,7 +5,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import MigrationMapping, MigrationMappingList
-from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence, flatten_dict_json_path
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence, flatten_dict_json_path, get_string_nested_dict
 
 
 class TestChunkSequence:
@@ -134,3 +134,31 @@ class TestFlattenDictJsonPath:
         """Test that flatten_dict_json_path correctly flattens a nested dictionary."""
         flat_dict = flatten_dict_json_path(dct, keep_structured=exclude_keys)
         assert flat_dict == expected
+
+
+class TestGetStringNestedDict:
+    @pytest.mark.parametrize(
+        "dct, path, expected",
+        [
+            pytest.param({"a": {"b": {"c": "value"}}}, ("a", "b", "c"), "value", id="simple nested dict"),
+            pytest.param({"a": [{"b": {"c": "value"}}]}, ("a", 0, "b", "c"), "value", id="nested dict in list"),
+            pytest.param({"a": {"b": {"c": "value"}}}, ("x", "y", "z"), None, id="non-existent path"),
+            pytest.param({}, ("a", "b", "c"), None, id="empty dict"),
+        ],
+    )
+    def test_get_string_nested_dict(self, dct: dict[str, Any], path: tuple[str, ...], expected: str | None):
+        """Test that get_string_nested_dict correctly retrieves a value from a nested dictionary."""
+        assert get_string_nested_dict(dct, path) == expected
+
+    @pytest.mark.parametrize(
+        "dct, path",
+        [
+            pytest.param({"a": {"b": "not a dict"}}, ("a", "b", "c"), id="non-dict intermediate value"),
+            pytest.param({"a": {"b": {"value"}}}, ("a", 0, "b"), id="non-list intermediate value"),
+            pytest.param({"a": {"b": 123}}, ("a", "b"), id="non-string value"),
+        ],
+    )
+    def test_get_string_nested_dict_raises(self, dct: dict[str, Any], path: tuple[str, ...]):
+        """Test that get_string_nested_dict raises TypeError for non-dict intermediate values."""
+        with pytest.raises(TypeError):
+            get_string_nested_dict(dct, path)

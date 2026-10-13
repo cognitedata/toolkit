@@ -100,3 +100,33 @@ def chunker_sequence(sequence: T_Sequence, size: int) -> Iterator[T_Sequence]:
         # Slicing does not preserve a TypeVar bound to Sequence. Sequences such as
         # MigrationMappingList still return their own type at runtime.
         yield sequence[i : i + size]  # type: ignore[misc]  # ty: ignore[invalid-yield]
+
+
+def get_string_nested_dict(dct: dict[str, Any], path: tuple[str | int, ...]) -> str | None:
+    """Get a string value from a nested dictionary using a path of keys.
+
+    Finds the value at the specified path in the nested dictionary.
+
+    Returns:
+        The string value at the specified path, or None if the path does not exist or the value is not a string.
+
+    Raises:
+        TypeError: If the value at the specified path is not a string.
+    """
+    current: Any = dct
+    for key in path:
+        if isinstance(current, dict) and key in current and isinstance(key, str):
+            current = current[key]
+        elif isinstance(current, list) and isinstance(key, int) and 0 <= key < len(current):
+            current = current[key]
+        elif isinstance(key, str) and not isinstance(current, dict):
+            raise TypeError(f"Expected a dictionary at path {path}, but found {type(current).__name__}")
+        elif isinstance(key, int) and not isinstance(current, list):
+            raise TypeError(f"Expected a list at path {path}, but found {type(current).__name__}")
+        else:
+            return None
+
+    if isinstance(current, str) or current is None:
+        return current
+    else:
+        raise TypeError(f"Value at path {path} is not a string: {current}")
