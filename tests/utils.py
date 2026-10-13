@@ -24,8 +24,8 @@ def to_deploy_status(definition_yaml: str | Path | MagicMock, loader: ResourceIO
     resource_id = loader.get_id(resource)
     retrieved = loader.retrieve([resource_id])
     if not retrieved:
-        created_ids = loader.create([resource])
-        retrieved = loader.retrieve(list(created_ids))
+        created = loader.create([resource])
+        retrieved = loader.retrieve(loader.get_ids(created))
     if not retrieved:
         raise RuntimeError(f"{type(loader).__name__} did not return a resource for {resource_id}")
     existing = retrieved[0]
