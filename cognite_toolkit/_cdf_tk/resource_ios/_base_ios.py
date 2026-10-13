@@ -273,7 +273,7 @@ class ResourceIO(
     # The methods that must be implemented in the subclass
     @classmethod
     @abstractmethod
-    def get_id(cls, item: T_RequestResource | T_ResponseResource | dict) -> T_Identifier:
+    def get_id(cls, item: T_RequestResource | T_ResponseResource | T_Identifier | dict) -> T_Identifier:
         raise NotImplementedError
 
     @classmethod
@@ -490,7 +490,7 @@ class ResourceIO(
         return file.suffix in YAML_SUFFIX and file.stem.casefold().endswith(cls.kind.casefold())
 
     @classmethod
-    def get_ids(cls, items: Sequence[T_RequestResource | T_ResponseResource | dict]) -> list[T_Identifier]:
+    def get_ids(cls, items: Sequence[T_RequestResource | T_ResponseResource | T_Identifier | dict]) -> list[T_Identifier]:
         return [cls.get_id(item) for item in items]
 
     @classmethod

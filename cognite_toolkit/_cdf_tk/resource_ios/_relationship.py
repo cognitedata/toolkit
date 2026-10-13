@@ -38,7 +38,9 @@ class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipRes
         return "relationships"
 
     @classmethod
-    def get_id(cls, item: RelationshipRequest | RelationshipResponse | dict) -> ExternalId:
+    def get_id(cls, item: RelationshipRequest | RelationshipResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:

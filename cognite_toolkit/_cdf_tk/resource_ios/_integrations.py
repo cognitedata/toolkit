@@ -55,7 +55,9 @@ class IntegrationsIO(ResourceIO[ExternalId, IntegrationRequest, IntegrationRespo
         return "integrations"
 
     @classmethod
-    def get_id(cls, item: IntegrationRequest | IntegrationResponse | dict[str, Any]) -> ExternalId:
+    def get_id(cls, item: IntegrationRequest | IntegrationResponse | ExternalId | dict[str, Any]) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=_external_id(item, "Integration"))
         return item.as_id()
@@ -133,7 +135,9 @@ class IntegrationConfigsIO(
         return "integration configs"
 
     @classmethod
-    def get_id(cls, item: IntegrationConfigRequest | IntegrationConfigResponse | dict[str, Any]) -> ExternalId:
+    def get_id(cls, item: IntegrationConfigRequest | IntegrationConfigResponse  | ExternalId | dict[str, Any]) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=_external_id(item, "Integration config"))
         if not item.external_id:

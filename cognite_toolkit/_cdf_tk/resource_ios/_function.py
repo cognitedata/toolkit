@@ -128,7 +128,9 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
             yield FilesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: FunctionResponse | FunctionRequest | dict) -> ExternalId:
+    def get_id(cls, item: FunctionResponse | FunctionRequest | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
@@ -535,7 +537,9 @@ class FunctionScheduleIO(
         return id.dump()
 
     @classmethod
-    def get_id(cls, item: FunctionScheduleRequest | FunctionScheduleResponse | dict) -> FunctionScheduleId:
+    def get_id(cls, item: FunctionScheduleRequest | FunctionScheduleResponse | FunctionScheduleId | dict) -> FunctionScheduleId:
+        if isinstance(item, FunctionScheduleId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("functionExternalId", "name") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.

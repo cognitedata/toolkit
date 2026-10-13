@@ -46,7 +46,9 @@ class SchemaMappingIO(ResourceIO[ExternalId, SchemaMappingRequest, SchemaMapping
         return "schema mappings"
 
     @classmethod
-    def get_id(cls, item: SchemaMappingRequest | SchemaMappingResponse | dict[str, Any]) -> ExternalId:
+    def get_id(cls, item: SchemaMappingRequest | SchemaMappingResponse | ExternalId | dict[str, Any]) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=_external_id(item, "Schema mapping"))
         return item.as_id()
@@ -116,7 +118,9 @@ class SAPInstanceIO(ResourceIO[ExternalId, SAPInstanceRequest, SAPInstanceRespon
         return "SAP instances"
 
     @classmethod
-    def get_id(cls, item: SAPInstanceRequest | SAPInstanceResponse | dict[str, Any]) -> ExternalId:
+    def get_id(cls, item: SAPInstanceRequest | SAPInstanceResponse | ExternalId | dict[str, Any]) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=_external_id(item, "SAP instance"))
         return item.as_id()
@@ -191,7 +195,9 @@ class SAPEndpointIO(ResourceIO[ExternalId, SAPEndpointRequest, SAPEndpointRespon
         return "SAP endpoints"
 
     @classmethod
-    def get_id(cls, item: SAPEndpointRequest | SAPEndpointResponse | dict[str, Any]) -> ExternalId:
+    def get_id(cls, item: SAPEndpointRequest | SAPEndpointResponse | ExternalId | dict[str, Any]) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=_external_id(item, "SAP endpoint"))
         return item.as_id()

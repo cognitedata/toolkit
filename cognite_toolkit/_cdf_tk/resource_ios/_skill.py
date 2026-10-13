@@ -50,7 +50,9 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
         return "agent skills"
 
     @classmethod
-    def get_id(cls, item: SkillRequest | SkillResponse | dict) -> ExternalId:
+    def get_id(cls, item: SkillRequest | SkillResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             external_id = item.get("externalId") or item.get("external_id")
             if external_id is None:

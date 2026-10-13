@@ -65,7 +65,9 @@ class SimulatorModelIO(ResourceIO[ExternalId, SimulatorModelRequest, SimulatorMo
         return "simulator models"
 
     @classmethod
-    def get_id(cls, item: SimulatorModelRequest | SimulatorModelResponse | dict) -> ExternalId:
+    def get_id(cls, item: SimulatorModelRequest | SimulatorModelResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -189,7 +191,9 @@ class SimulatorModelRevisionIO(
         return "simulator model revisions"
 
     @classmethod
-    def get_id(cls, item: SimulatorModelRevisionRequest | SimulatorModelRevisionResponse | dict) -> ExternalId:
+    def get_id(cls, item: SimulatorModelRevisionRequest | SimulatorModelRevisionResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -303,7 +307,8 @@ class SimulatorRoutineIO(
         return "simulator routines"
 
     @classmethod
-    def get_id(cls, item: SimulatorRoutineRequest | SimulatorRoutineResponse | dict) -> ExternalId:
+    def get_id(cls, item: SimulatorRoutineRequest | SimulatorRoutineResponse | ExternalId | dict) -> ExternalId:
+        zc
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -397,7 +402,9 @@ class SimulatorRoutineRevisionIO(
         return "simulator routine revisions"
 
     @classmethod
-    def get_id(cls, item: SimulatorRoutineRevisionRequest | SimulatorRoutineRevisionResponse | dict) -> ExternalId:
+    def get_id(cls, item: SimulatorRoutineRevisionRequest | SimulatorRoutineRevisionResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:

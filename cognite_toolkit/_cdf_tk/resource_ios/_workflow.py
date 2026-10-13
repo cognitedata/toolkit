@@ -123,7 +123,9 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
             yield WorkflowOrchestrationAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: WorkflowRequest | WorkflowResponse | dict) -> ExternalId:
+    def get_id(cls, item: WorkflowRequest | WorkflowResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
@@ -222,7 +224,9 @@ class WorkflowVersionIO(
         yield from ()
 
     @classmethod
-    def get_id(cls, item: WorkflowVersionRequest | WorkflowVersionResponse | dict) -> WorkflowVersionId:
+    def get_id(cls, item: WorkflowVersionRequest | WorkflowVersionResponse | WorkflowVersionId | dict) -> WorkflowVersionId:
+        if isinstance(item, WorkflowVersionId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("workflowExternalId", "version") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -533,7 +537,9 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         return "workflow triggers"
 
     @classmethod
-    def get_id(cls, item: WorkflowTriggerRequest | WorkflowTriggerResponse | dict) -> ExternalId:
+    def get_id(cls, item: WorkflowTriggerRequest | WorkflowTriggerResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)

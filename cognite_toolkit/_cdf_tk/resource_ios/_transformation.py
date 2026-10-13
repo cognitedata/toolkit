@@ -196,7 +196,9 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
             yield TransformationsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: TransformationResponse | TransformationRequest | dict) -> ExternalId:
+    def get_id(cls, item: TransformationResponse | TransformationRequest | TransformationId | dict) -> ExternalId:
+        if isinstance(item, TransformationId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
@@ -729,7 +731,9 @@ class TransformationScheduleIO(
         yield from ()
 
     @classmethod
-    def get_id(cls, item: TransformationScheduleResponse | TransformationScheduleRequest | dict) -> ExternalId:
+    def get_id(cls, item: TransformationScheduleResponse | TransformationScheduleRequest | TransformationScheduleId | dict) -> ExternalId:
+        if isinstance(item, TransformationScheduleId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
@@ -817,8 +821,10 @@ class TransformationNotificationIO(
 
     @classmethod
     def get_id(
-        cls, item: TransformationNotificationResponse | TransformationNotificationRequest | dict
+        cls, item: TransformationNotificationResponse| TransformationNotificationRequest | TransformationNotificationId | dict
     ) -> TransformationNotificationId:
+        if isinstance(item, TransformationNotificationId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("transformationExternalId", "destination") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.

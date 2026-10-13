@@ -78,7 +78,9 @@ class HostedExtractorSourceIO(
         return "hosted extractor sources"
 
     @classmethod
-    def get_id(cls, item: HostedExtractorSourceRequestUnion | HostedExtractorSourceResponseUnion | dict) -> ExternalId:
+    def get_id(cls, item: HostedExtractorSourceRequestUnion | HostedExtractorSourceResponseUnion | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -216,7 +218,9 @@ class HostedExtractorDestinationIO(
         return "hosted extractor destinations"
 
     @classmethod
-    def get_id(cls, item: HostedExtractorDestinationRequest | HostedExtractorDestinationResponse | dict) -> ExternalId:
+    def get_id(cls, item: HostedExtractorDestinationRequest | HostedExtractorDestinationResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -331,7 +335,9 @@ class HostedExtractorJobIO(
         return "hosted extractor jobs"
 
     @classmethod
-    def get_id(cls, item: HostedExtractorJobRequest | HostedExtractorJobResponse | dict) -> ExternalId:
+    def get_id(cls, item: HostedExtractorJobRequest | HostedExtractorJobResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -419,7 +425,9 @@ class HostedExtractorMappingIO(
         return "hosted extractor mappings"
 
     @classmethod
-    def get_id(cls, item: HostedExtractorMappingRequest | HostedExtractorMappingResponse | dict) -> ExternalId:
+    def get_id(cls, item: HostedExtractorMappingRequest | HostedExtractorMappingResponse  | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)

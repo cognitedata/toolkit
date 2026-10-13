@@ -367,7 +367,9 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
         return "cognite files"
 
     @classmethod
-    def get_id(cls, item: CogniteFileResponse | CogniteFileRequest | dict) -> NodeId:
+    def get_id(cls, item: CogniteFileResponse | CogniteFileRequest| NodeId | dict) -> NodeId:
+        if isinstance(item, NodeId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.

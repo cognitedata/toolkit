@@ -52,7 +52,9 @@ class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse, RuleSetY
         return "rule sets"
 
     @classmethod
-    def get_id(cls, item: RuleSetRequest | RuleSetResponse | dict) -> ExternalId:
+    def get_id(cls, item: RuleSetRequest | RuleSetResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return item.as_id()
@@ -130,7 +132,9 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
         return "rule set versions"
 
     @classmethod
-    def get_id(cls, item: RuleSetVersionRequest | RuleSetVersionResponse | dict) -> RuleSetVersionId:
+    def get_id(cls, item: RuleSetVersionRequest | RuleSetVersionResponse | RuleSetVersionId | dict) -> RuleSetVersionId:
+        if isinstance(item, RuleSetVersionId):
+            return item
         if isinstance(item, dict):
             ext_id = item.get("ruleSetExternalId") or item.get("rule_set_external_id")
             version = item.get("version")

@@ -78,7 +78,9 @@ class TimeSeriesIO(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeries
             yield TimeSeriesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: TimeSeriesRequest | TimeSeriesResponse | dict) -> ExternalId:
+    def get_id(cls, item: TimeSeriesRequest | TimeSeriesResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
@@ -222,7 +224,7 @@ class DatapointSubscriptionIO(
         return "timeseries subscriptions"
 
     @classmethod
-    def get_id(cls, item: DatapointSubscriptionRequest | DatapointSubscriptionResponse | dict) -> ExternalId:
+    def get_id(cls, item: DatapointSubscriptionRequest | DatapointSubscriptionResponse | DatapointSubscriptionId | dict) -> ExternalId:
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)

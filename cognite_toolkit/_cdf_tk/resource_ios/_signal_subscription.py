@@ -66,7 +66,9 @@ class SignalSubscriptionIO(
                 yield HostedExtractorDestinationIO, ExternalId(external_id=resource.filter.destination_external_id)
 
     @classmethod
-    def get_id(cls, item: SignalSubscriptionRequest | SignalSubscriptionResponse | dict) -> ExternalId:
+    def get_id(cls, item: SignalSubscriptionRequest | SignalSubscriptionResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)

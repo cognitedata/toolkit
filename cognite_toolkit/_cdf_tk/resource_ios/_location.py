@@ -73,7 +73,9 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
             yield LocationFiltersAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: LocationFilterRequest | LocationFilterResponse | dict) -> ExternalId:
+    def get_id(cls, item: LocationFilterRequest | LocationFilterResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:

@@ -681,7 +681,9 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: ViewRequest | ViewResponse | dict) -> ViewId:
+    def get_id(cls, item: ViewRequest | ViewResponse | ViewId | dict) -> ViewId:
+        if isinstance(item, ViewId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId", "version") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.

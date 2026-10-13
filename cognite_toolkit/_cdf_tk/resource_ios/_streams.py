@@ -51,7 +51,9 @@ class StreamIO(ResourceContainerIO[ExternalId, StreamRequest, StreamResponse, St
         return "streams"
 
     @classmethod
-    def get_id(cls, item: StreamRequest | StreamResponse | dict) -> ExternalId:
+    def get_id(cls, item: StreamRequest | StreamResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)

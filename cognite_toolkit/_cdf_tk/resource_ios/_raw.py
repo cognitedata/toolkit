@@ -75,7 +75,9 @@ class RawDatabaseIO(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDa
             yield RawAcl(actions=as_read_list_write_actions(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: RAWDatabaseResponse | RAWDatabaseRequest | dict) -> RawDatabaseId:
+    def get_id(cls, item: RAWDatabaseResponse | RAWDatabaseRequest | RawDatabaseId | dict) -> RawDatabaseId:
+        if isinstance(item, RawDatabaseId):
+            return item
         if isinstance(item, dict):
             return RawDatabaseId.model_validate(item)
         return RawDatabaseId(name=item.name)
@@ -183,7 +185,9 @@ class RawTableIO(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableRespon
             yield RawAcl(actions=as_read_list_write_actions(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: RAWTableResponse | RAWTableRequest | dict) -> RawTableId:
+    def get_id(cls, item: RAWTableResponse | RAWTableRequest | RawTableId | dict) -> RawTableId:
+        if isinstance(item, RawTableId):
+            return item
         if isinstance(item, dict):
             missing: list[str] = []
             if "dbName" not in item:

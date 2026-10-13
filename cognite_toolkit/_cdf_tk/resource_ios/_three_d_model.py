@@ -45,7 +45,9 @@ class ThreeDModelIO(
         return "3D models"
 
     @classmethod
-    def get_id(cls, item: ThreeDModelClassicRequest | ThreeDModelClassicResponse | dict) -> NameId:
+    def get_id(cls, item: ThreeDModelClassicRequest | ThreeDModelClassicResponse | NameId | dict) -> NameId:
+        if isinstance(item, NameId):
+            return item
         if isinstance(item, dict):
             return NameId(name=item["name"])
         if not item.name:
