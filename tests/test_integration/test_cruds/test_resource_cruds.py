@@ -1232,7 +1232,6 @@ authentication:
 
         raw_data = load_local_yaml(content, io)
         cdf_source = io.load_resource(raw_data)
-        io.delete([cdf_source.as_id()])  # remove once test is complete
         retrieved = io.retrieve([cdf_source.as_id()])
         if len(retrieved) == 0:
             # Create the source if it doesn't exist, so we can test that it is not redeployed when unchanged
