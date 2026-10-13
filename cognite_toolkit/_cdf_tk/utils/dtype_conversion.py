@@ -5,7 +5,6 @@ from collections.abc import Mapping
 from datetime import date, datetime
 from typing import ClassVar, Literal, overload
 
-from cognite.client.utils import ms_to_datetime
 from dateutil import parser
 
 from cognite_toolkit._cdf_tk.client.resource_classes import data_modeling
@@ -28,6 +27,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
 )
 
 from .collection import humanize_collection
+from .time import ms_to_datetime
 
 # Type alias for property values that can be written to data modeling instances.
 PropertyValueWrite = str | int | float | bool | dict | list | datetime | date | None

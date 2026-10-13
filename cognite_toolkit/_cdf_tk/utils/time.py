@@ -6,7 +6,7 @@ not be moved.
 import numbers
 import re
 import time
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 UNIT_IN_MS_WITHOUT_WEEK = {"s": 1000, "m": 60000, "h": 3600000, "d": 86400000}
 UNIT_IN_MS = {**UNIT_IN_MS_WITHOUT_WEEK, "w": 604800000}
@@ -95,6 +95,25 @@ def datetime_to_ms(dt: datetime) -> int:
             "Failed to convert datetime to epoch. This likely because you are using a naive datetime. "
             "Try using a timezone aware datetime instead."
         ) from e
+
+
+def ms_to_datetime(ms: int | float) -> datetime:
+    """Converts valid Cognite timestamps, i.e. milliseconds since epoch, to datetime object.
+
+    Args:
+        ms (int | float): Milliseconds since epoch.
+
+    Raises:
+        ValueError: On invalid Cognite timestamps.
+
+    Returns:
+        datetime: Aware datetime object in UTC.
+    """
+    if not (MIN_TIMESTAMP_MS <= ms <= MAX_TIMESTAMP_MS):
+        raise ValueError(f"Input {ms=} does not satisfy: {MIN_TIMESTAMP_MS} <= ms <= {MAX_TIMESTAMP_MS}")
+
+    # Note: We don't use fromtimestamp because it typically fails for negative values on Windows
+    return datetime(1970, 1, 1, tzinfo=UTC) + timedelta(milliseconds=ms)
 
 
 def time_windows_ms(start_ms: int, now_ms: int, max_interval_ms: int | None) -> list[tuple[int, int]]:

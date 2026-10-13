@@ -7,7 +7,6 @@ from functools import cached_property, lru_cache, partial
 from typing import Any, ClassVar, Literal, TypeVar, get_args, overload
 
 import questionary
-from cognite.client.utils import ms_to_datetime
 from questionary import Choice
 from rich.console import Console
 
@@ -60,6 +59,7 @@ from .aggregators import (
     FileAggregator,
     TimeSeriesAggregator,
 )
+from .time import ms_to_datetime
 from .useful_types import AssetCentricDestinationType
 
 T_Type = TypeVar("T_Type", bound=AssetResponse | DataSetResponse)
