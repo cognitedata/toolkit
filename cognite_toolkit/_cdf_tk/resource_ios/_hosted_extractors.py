@@ -174,6 +174,10 @@ class HostedExtractorSourceIO(
                 if field_name in local_auth:
                     dumped_auth[field_name] = local_auth[field_name]
 
+        if dumped.get("scheme") == "https" and local and "scheme" not in local:
+            # We remove the default set by the API to avoid unnecessary redeploys.
+            dumped.pop("scheme")
+
         # API returns certificate metadata (thumbprint/expiry) that cannot be redeployed.
         dumped.pop("caCertificate", None)
         dumped.pop("authCertificate", None)
