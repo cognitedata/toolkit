@@ -12,7 +12,7 @@ from typing import Any, ClassVar, Literal, cast
 
 import questionary
 import yaml
-from pydantic import JsonValue, ValidationError
+from pydantic import ValidationError
 from questionary import Choice
 from rich.console import Console, Group, RenderableType
 from rich.markup import escape
@@ -43,6 +43,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     UNRESOLVED_VARIABLE_PATTERN,
     BuiltResource,
+    ConfigFile,
     ValidationResult,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
@@ -144,7 +145,7 @@ class BuildV2Command(ToolkitCommand):
         self.validate_build_parameters(parameters, console, sys.argv)
 
         module_scan_result, selection_source = self.read_filesystem_and_find_modules(
-            parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules, parameters.operation
+            parameters.organization_dir, parameters.config_yamls, parameters.user_selected_modules, parameters.operation
         )
 
         if display:
@@ -229,7 +230,7 @@ class BuildV2Command(ToolkitCommand):
     def read_filesystem_and_find_modules(
         cls,
         organization_dir: Path,
-        config_yaml: Path | None = None,
+        config_yamls: list[Path] | None = None,
         user_selected_modules: list[str] | None = None,
         operation: str | None = None,
     ) -> tuple[ModuleScanResult, SelectionSource]:
@@ -239,7 +240,7 @@ class BuildV2Command(ToolkitCommand):
         Returns:
             A tuple containing the ModuleScanResult and the SelectionSource indicating how the modules were selected (from user input, config file, or interactive selection).
         """
-        build_files = cls._read_file_system(organization_dir, config_yaml, user_selected_modules)
+        build_files = cls._read_file_system(organization_dir, config_yamls, user_selected_modules)
 
         if user_selected_modules:
             selection_source: SelectionSource = "cli-arg"
@@ -731,12 +732,10 @@ class BuildV2Command(ToolkitCommand):
     def _read_file_system(
         cls,
         organization_dir: Path,
-        config_yaml: Path | None,
+        config_yamls: list[Path] | None,
         user_selected_modules: list[str] | None,
     ) -> BuildInput:
         """Reads the file system to find the YAML files to build along with config.<name>.yaml if it exists."""
-        selected: set[RelativeDirPath | str] | None = None
-        variables: dict[str, JsonValue] = {}
         cdf_project: str = os.environ.get("CDF_PROJECT", "UNKNOWN")
         validation_type: ValidationType = "prod"
         if user_selected_modules:
@@ -744,16 +743,17 @@ class BuildV2Command(ToolkitCommand):
             if errors:
                 raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
 
-        config_path: Path | None = None
-        if config_yaml:
-            config_path = config_yaml.resolve()
+        config_files: list[ConfigFile] = []
+        for config_yaml in config_yamls or []:
+            config_path_resolved = config_yaml.resolve()
             try:
-                config = ConfigYAML.from_yaml_file(config_path)
+                config = ConfigYAML.from_yaml_file(config_path_resolved)
             except ValidationError as e:
                 errors = humanize_validation_error(e)
                 raise ToolkitValueError(
-                    f"Config YAML file '{config_path.as_posix()}' is invalid:\n{'- '.join(errors)}"
+                    f"Config YAML file '{config_path_resolved.as_posix()}' is invalid:\n{'- '.join(errors)}"
                 ) from e
+            selected: set[RelativeDirPath | str] | None = None
             if not user_selected_modules and config.environment.selected:
                 selected, errors = cls.parse_user_selection(config.environment.selected, organization_dir)
                 if errors:
@@ -761,6 +761,9 @@ class BuildV2Command(ToolkitCommand):
             variables = config.variables or {}
             cdf_project = config.environment.project
             validation_type = config.environment.validation_type
+            config_files.append(
+                ConfigFile(selected_modules=selected, variables=variables, config_path=config_path_resolved)
+            )
 
         yaml_files = [
             yaml_file.relative_to(organization_dir) for yaml_file in (organization_dir / MODULES).rglob("*.y*ml")
@@ -768,12 +771,12 @@ class BuildV2Command(ToolkitCommand):
 
         return BuildInput(
             yaml_files=yaml_files,
-            selected_modules=selected,
-            variables=variables,
+            selected_modules=None,
+            variables={},
             validation_type=validation_type,
             cdf_project=cdf_project,
             organization_dir=organization_dir.resolve(),
-            config_path=config_path,
+            config_files=config_files,
         )
 
     @classmethod
@@ -1618,5 +1621,5 @@ class BuildV2Command(ToolkitCommand):
 
         if parameters.write_lineage:
             lineage_file = build.build_dir / BuildLineage.filename
-            lineage = BuildLineage.from_build(build, cdf_project, parameters.config_yaml).to_yaml()
+            lineage = BuildLineage.from_build(build, cdf_project, parameters.config_yamls).to_yaml()
             safe_write(lineage_file, lineage)

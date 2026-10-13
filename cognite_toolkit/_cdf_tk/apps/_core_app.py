@@ -247,7 +247,7 @@ class CoreApp(typer.Typer):
         parameter = BuildParameters(
             organization_dir=organization_dir,
             build_dir=build_dir,
-            config_yaml=config_yaml,
+            config_yamls=[config_yaml] if config_yaml is not None else [],
             user_selected_modules=selected,
             verbose=verbose,
             insight_format=insight_format.value,
