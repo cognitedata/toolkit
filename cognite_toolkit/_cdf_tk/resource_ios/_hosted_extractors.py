@@ -46,7 +46,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._data_organization import DataSetsIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
+from cognite_toolkit._cdf_tk.utils import calculate_secure_hash, humanize_collection
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import (
@@ -138,7 +138,21 @@ class HostedExtractorSourceIO(
         return []
 
     def create(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
-        return self.client.tool.hosted_extractors.sources.create(list(items))
+        to_create: list[HostedExtractorSourceRequestUnion] = []
+        to_skip: list[MQTTBrokerSourceRequest] = []
+        for item in items:
+            if isinstance(item, MQTTBrokerSourceRequest):
+                to_skip.append(item)
+            else:
+                to_create.append(item)
+        if to_skip:
+            HighSeverityWarning(
+                f"{len(to_skip)} MQTT broker sources will not be created by Toolkit. You will need to create them manually through the CDF API, Toolkit can update them once they are created. "
+                f"The reason is that MQTT broker responses return auth information in the response. If you had created them through Toolkit this would be lost."
+                f"The following MQTT broker sources will not be created: {humanize_collection(to_skip)}"
+            ).print_warning(console=self.client.console)
+
+        return self.client.tool.hosted_extractors.sources.create(to_create)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorSourceResponseUnion]:
         return self.client.tool.hosted_extractors.sources.retrieve(list(ids), ignore_unknown_ids=True)
