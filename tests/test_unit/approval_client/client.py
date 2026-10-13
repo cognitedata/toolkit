@@ -7,7 +7,7 @@ import itertools
 import json as JSON
 import zipfile
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, BinaryIO, TextIO, TypeVar, cast
 from unittest.mock import MagicMock
@@ -32,7 +32,7 @@ from cognite.client.data_classes import (
     WorkflowVersion,
     capabilities,
 )
-from cognite.client.data_classes._base import CogniteResource
+from cognite.client.data_classes._base import CogniteResource, CogniteResourceList
 from cognite.client.data_classes.capabilities import AllProjectsScope, ProjectCapability, ProjectCapabilityList
 from cognite.client.data_classes.data_modeling import (
     DataModelList,
@@ -147,7 +147,7 @@ class LookUpAPIMock:
             return self._reverse_cache[id] if isinstance(id, int) else [self._reverse_cache[i] for i in id]
         except KeyError:
             if self._allow_reverse_lookup:
-                return self.create_external_id(id) if isinstance(id, int) else [self.create_external_id(i) for i in id]
+                return self.create_external_id(id)
             else:
                 raise RuntimeError(f"{type(self).__name__} does not support reverse lookup before lookup")
 
@@ -169,6 +169,7 @@ class ApprovalToolkitClient:
         credentials.client_secret = "toolkit-client-secret"
         credentials.token_url = "https://toolkit.auth.com/oauth/token"
         credentials.scopes = ["https://pytest-field.cognitedata.com/.default"]
+        credentials.authorization_header = MagicMock(return_value=("Bearer", "123"))
         project = CDF_PROJECT
         self.mock_client.config = ToolkitClientConfig(
             client_name=CLIENT_NAME,
@@ -182,7 +183,7 @@ class ApprovalToolkitClient:
         # This is used to log all delete operations
         self._deleted_resources: dict[str, list[str | int | dict[str, Any]]] = defaultdict(list)
         # This is used to log all create operations
-        self.created_resources: dict[str, list[CogniteResource | dict[str, Any]]] = defaultdict(list)
+        self.created_resources: dict[str, list[CogniteResource | BaseModelObject | dict[str, Any]]] = defaultdict(list)
 
         # This is used to log all operations
         self._delete_methods: dict[str, list[MagicMock]] = defaultdict(list)
@@ -240,8 +241,6 @@ class ApprovalToolkitClient:
         return_list._project = project
         self.mock_client.project.status.return_value = return_list
 
-        # Activate authorization_header()
-        self.mock_client.config.credentials.authorization_header.return_value = ("Bearer", "123")
         # Set project
         self.mock_client.config.project = project
         self.mock_client.config.base_url = "https://bluefield.cognitedata.com"
@@ -369,39 +368,52 @@ class ApprovalToolkitClient:
             nodes: dm.NodeId | Sequence[dm.NodeId] | tuple[str, str] | Sequence[tuple[str, str]] | None = None,
             edges: dm.EdgeId | Sequence[dm.EdgeId] | tuple[str, str] | Sequence[tuple[str, str]] | None = None,
         ) -> InstancesDeleteResult:
-            deleted = []
+            node_ids: list[dm.NodeId] = []
+            edge_ids: list[dm.EdgeId] = []
             if isinstance(nodes, dm.NodeId):
-                deleted.append(nodes.dump(camel_case=True, include_instance_type=True))
-            elif isinstance(nodes, tuple):
-                deleted.append(dm.NodeId(*nodes).dump(camel_case=True, include_instance_type=True))
-            elif isinstance(edges, dm.EdgeId):
-                deleted.append(edges.dump(camel_case=True, include_instance_type=True))
-            elif isinstance(edges, tuple):
-                deleted.append(dm.EdgeId(*edges).dump(camel_case=True, include_instance_type=True))
+                node_ids.append(nodes)
+            elif (
+                isinstance(nodes, tuple) and len(nodes) == 2 and isinstance(nodes[0], str) and isinstance(nodes[1], str)
+            ):
+                node_ids.append(dm.NodeId(nodes[0], nodes[1]))
             elif isinstance(nodes, Sequence):
-                deleted.extend(
-                    [
-                        node.dump(camel_case=True, include_instance_type=True) if isinstance(node, dm.NodeId) else node
-                        for node in nodes
-                    ]
-                )
+                for node in nodes:
+                    if isinstance(node, dm.NodeId):
+                        node_ids.append(node)
+                    elif (
+                        isinstance(node, tuple)
+                        and len(node) == 2
+                        and isinstance(node[0], str)
+                        and isinstance(node[1], str)
+                    ):
+                        node_ids.append(dm.NodeId(node[0], node[1]))
+
+            if isinstance(edges, dm.EdgeId):
+                edge_ids.append(edges)
+            elif (
+                isinstance(edges, tuple) and len(edges) == 2 and isinstance(edges[0], str) and isinstance(edges[1], str)
+            ):
+                edge_ids.append(dm.EdgeId(edges[0], edges[1]))
             elif isinstance(edges, Sequence):
-                deleted.extend(
-                    [
-                        edge.dump(camel_case=True, include_instance_type=True) if isinstance(edge, dm.EdgeId) else edge
-                        for edge in edges
-                    ]
-                )
+                for edge in edges:
+                    if isinstance(edge, dm.EdgeId):
+                        edge_ids.append(edge)
+                    elif (
+                        isinstance(edge, tuple)
+                        and len(edge) == 2
+                        and isinstance(edge[0], str)
+                        and isinstance(edge[1], str)
+                    ):
+                        edge_ids.append(dm.EdgeId(edge[0], edge[1]))
+
+            deleted: list[dict[str, Any]] = [n.dump(camel_case=True, include_instance_type=True) for n in node_ids] + [
+                e.dump(camel_case=True, include_instance_type=True) for e in edge_ids
+            ]
 
             if deleted:
                 deleted_resources[resource_cls.__name__].extend(deleted)
 
-            if nodes:
-                return InstancesDeleteResult(nodes=deleted, edges=[])
-            elif edges:
-                return InstancesDeleteResult(nodes=[], edges=deleted)
-            else:
-                return InstancesDeleteResult(nodes=[], edges=[])
+            return InstancesDeleteResult(nodes=node_ids, edges=edge_ids)
 
         def delete_space(spaces: str | Sequence[str]) -> list:
             deleted = []
@@ -470,7 +482,7 @@ class ApprovalToolkitClient:
             if resource_list_cls is GroupList:
                 # Groups needs special handling to convert the write to read
                 # to account for Unknown ACLs.
-                return resource_list_cls(_group_write_to_read(c) for c in created)
+                return resource_list_cls([_group_write_to_read(c) for c in created])
             if resource_cls is StreamResponse:
                 return [
                     {
@@ -484,34 +496,36 @@ class ApprovalToolkitClient:
                     for c in created
                 ]
 
-            read_list = resource_list_cls.load(
-                [
-                    {
-                        # These are server set fields, so we need to set them manually
-                        # Note that many of them are only used for certain resources. This is not a problem
-                        # as any extra fields are ignored by the load method.
-                        "isGlobal": False,  # Data Modeling
-                        "lastUpdatedTime": 0,
-                        "createdTime": 0,
-                        "writable": True,  # Data Modeling
-                        "ignoreNullFields": False,  # Transformations
-                        "usedFor": "nodes",  # Views
-                        "timeSeriesCount": 10,  # Datapoint subscription
-                        "updatedTime": 0,  # Robotics
-                        "id": 42,  # LocationFilters
-                        "status": "connected",  # Hosted Extractor Job
-                        "targetStatus": "paused",  # Hosted Extractor Job
-                        **c.dump(camel_case=True),
-                    }
-                    for c in created
-                ],
-            )
-            return read_list
+            if issubclass(resource_list_cls, CogniteResourceList):
+                read_list = resource_list_cls.load(
+                    [
+                        {
+                            # These are server set fields, so we need to set them manually
+                            # Note that many of them are only used for certain resources. This is not a problem
+                            # as any extra fields are ignored by the load method.
+                            "isGlobal": False,  # Data Modeling
+                            "lastUpdatedTime": 0,
+                            "createdTime": 0,
+                            "writable": True,  # Data Modeling
+                            "ignoreNullFields": False,  # Transformations
+                            "usedFor": "nodes",  # Views
+                            "timeSeriesCount": 10,  # Datapoint subscription
+                            "updatedTime": 0,  # Robotics
+                            "id": 42,  # LocationFilters
+                            "status": "connected",  # Hosted Extractor Job
+                            "targetStatus": "paused",  # Hosted Extractor Job
+                            **c.dump(camel_case=True),
+                        }
+                        for c in created
+                    ],
+                )
+                return read_list
+            return created
 
         def create_multiple(*args, **kwargs) -> Any:
             return _create(*args, **kwargs)
 
-        def create_single(*args, **kwargs) -> Sequence:
+        def create_single(*args, **kwargs) -> Any:
             return _create(*args, **kwargs)[0]
 
         def create_filemetadata(*args, **kwargs) -> tuple[FileMetadata, str]:
@@ -529,6 +543,8 @@ class ApprovalToolkitClient:
 
         def _group_write_to_read(group: GroupWrite) -> Group:
             return Group(
+                id=1,
+                is_deleted=False,
                 name=group.name,
                 source_id=group.source_id,
                 capabilities=group.capabilities,
@@ -564,7 +580,9 @@ class ApprovalToolkitClient:
                         )
                     item["workflowDefinition"]["hash"] = "123"
 
-            return resource_list_cls.load(read_resource_objects)
+            if issubclass(resource_list_cls, CogniteResourceList):
+                return resource_list_cls.load(read_resource_objects)
+            return read_resource_objects
 
         def _create_dataframe_info(dataframe: pd.DataFrame) -> dict[str, Any]:
             return {
@@ -731,7 +749,7 @@ class ApprovalToolkitClient:
         def upload_file_content_bytes_files_api(
             content: str | bytes,
             external_id: str | None = None,
-            instance_id: NodeId | None = None,
+            instance_id: dm.NodeId | None = None,
         ) -> FileMetadata:
             if isinstance(content, bytes):
                 try:
@@ -757,15 +775,17 @@ class ApprovalToolkitClient:
         def _upload_file_content_files_api(
             filehash: str,
             external_id: str | None = None,
-            instance_id: NodeId | None = None,
+            instance_id: dm.NodeId | None = None,
         ) -> FileMetadata:
             if sum([bool(external_id), bool(instance_id)]) != 1:
                 raise ValueError("Exactly one of external_id or instance_id must be set")
 
             if external_id:
                 entry = {"external_id": external_id}
-            else:
+            elif instance_id is not None:
                 entry = instance_id.dump()
+            else:
+                raise ValueError("Exactly one of external_id or instance_id must be set")
             entry["filehash"] = filehash
 
             created_resources[FileMetadataDataIO.__name__].append(entry)
@@ -801,7 +821,7 @@ class ApprovalToolkitClient:
             created_resources[InstanceDefinition.__name__].extend(items)
             return [
                 InstanceSlimDefinition(
-                    instance_type=item.instance_type,
+                    instance_type="edge" if item.instance_type == "edge" else "node",
                     space=item.space,
                     external_id=item.external_id,
                     was_modified=True,
@@ -906,6 +926,7 @@ class ApprovalToolkitClient:
                         id=42,
                         last_updated_time=1,
                         created_time=1,
+                        write_protected=False,
                     )
                     for external_id in external_ids
                 ]
@@ -944,11 +965,12 @@ class ApprovalToolkitClient:
             if not existing_resources[resource_cls.__name__]:
                 return DataModelList([])
             id_set = {ids} if isinstance(ids, str | tuple | dm.DataModelId) else set(ids)
-            to_return = read_list_cls([])
+            to_return = DataModelList([])
             for resource in existing_resources[resource_cls.__name__]:
-                id_ = resource.as_id()
-                if id_ in id_set or id_.as_tuple() in id_set or id_.as_tuple()[:2] in id_set:
-                    to_return.append(resource)
+                if isinstance(resource, dm.DataModel):
+                    id_ = resource.as_id()
+                    if id_ in id_set or id_.as_tuple() in id_set or id_.as_tuple()[:2] in id_set:
+                        to_return.append(resource)
             return to_return
 
         def iterate_values(*argd, **kwargs):
@@ -986,9 +1008,12 @@ class ApprovalToolkitClient:
             id_set = set(ids) if isinstance(ids, Sequence) else {ids}
             to_return = read_list_cls([])
             for resource in existing_resources[resource_cls.__name__]:
-                id = resource.as_id()
-                if id in id_set or (id.as_tuple() in id_set and id.as_tuple()[:2] in id_set):
-                    to_return.append(resource)
+                if isinstance(resource, (dm.Container, dm.View, dm.DataModel, dm.Space)):
+                    id = resource.as_id()
+                    if id in id_set:
+                        to_return.append(resource)
+                    elif not isinstance(id, str) and (id.as_tuple() in id_set and id.as_tuple()[:2] in id_set):
+                        to_return.append(resource)
             return to_return
 
         def retrieve(ids: Sequence, *_, **__) -> list:
@@ -1022,20 +1047,20 @@ class ApprovalToolkitClient:
         def retrieve_instances_pydantic(items: Sequence[InstanceRequest], *_, **__) -> list:
             return existing_resources[InstanceDefinition.__name__]
 
-        def list(*_, **__) -> list:
+        def list_all(*_, **__) -> list:
             return existing_resources[resource_cls.__name__]
 
         def iterate(*_, **__) -> list[list]:
             return [existing_resources[resource_cls.__name__]]
 
         def list_raw_db(*_, **__) -> list[RAWDatabaseResponse]:
-            return existing_resources[resource_cls.__name__]
+            return [r for r in existing_resources[resource_cls.__name__] if isinstance(r, RAWDatabaseResponse)]
 
         def list_raw_table(db_name: str, limit: int | None = None) -> list[RAWTableResponse]:
             tables = [
                 RAWTableResponse(db_name=db_name, name=table.name, created_time=0)
                 for table in existing_resources[resource_cls.__name__]
-                if table.db_name == db_name
+                if isinstance(table, RAWTableResponse) and table.db_name == db_name
             ]
             if limit is not None:
                 return tables[:limit]
@@ -1080,12 +1105,12 @@ class ApprovalToolkitClient:
                 retrieve_hosted_extractor_source,
                 list_raw_db,
                 list_raw_table,
-                list,
                 iterate,
                 retrieve_instances_pydantic,
                 retrieve_filemetadata,
             ]
         }
+        available_retrieve_methods["list"] = list_all
         if mock_method not in available_retrieve_methods:
             raise ValueError(
                 f"Invalid mock retrieve method {mock_method} for resource {resource_cls.__name__}. Supported {available_retrieve_methods.keys()}"
@@ -1139,7 +1164,7 @@ class ApprovalToolkitClient:
             elif url.split("/")[-3] == "functions" and url.split("/")[-2].isdigit() and url.endswith("call"):
                 sessionResponse.status_code = 201
                 sessionResponse._content = str.encode(
-                    JSON.dumps(FunctionCall(id=1, status="RUNNING").dump(camel_case=True))
+                    JSON.dumps(FunctionCall(id=1, start_time=0, status="RUNNING", function_id=1).dump(camel_case=True))
                 )
             else:
                 raise ValueError(
@@ -1188,7 +1213,10 @@ class ApprovalToolkitClient:
         for key in created_resources:
             values = self.created_resources[key]
             if values:
-                dumped_resource = (value.dump(camel_case=True) if hasattr(value, "dump") else value for value in values)
+                dumped_resource = (
+                    value.dump(camel_case=True) if isinstance(value, (CogniteResource, BaseModelObject)) else value
+                    for value in values
+                )
                 if sort:
 
                     def sort_key(v: dict[str, Any]) -> str:
@@ -1258,7 +1286,7 @@ class ApprovalToolkitClient:
 
         return dumped
 
-    def created_resources_of_type(self, resource_type: type[T_CDFResource]) -> list[T_CDFResource]:
+    def created_resources_of_type(self, resource_type: type) -> list:
         """This returns all the resources that have been created of a specific type.
 
         Args:
@@ -1334,7 +1362,7 @@ class ApprovalToolkitClient:
         mocked_apis.add(("project",))
 
         not_mocked: dict[tuple[str, ...], int] = defaultdict(int)
-        to_check = [(tuple(), vars(self.mock_client))]
+        to_check: list[tuple[tuple[str, ...], Mapping[str, Any]]] = [(tuple(), vars(self.mock_client))]
         while to_check:
             parent_key, api = to_check.pop()
             for api_name, api in api.items():
@@ -1358,7 +1386,7 @@ class ApprovalToolkitClient:
         return dict(not_mocked)
 
     def auth_create_group_calls(self) -> Iterable[AuthGroupCalls]:
-        groups = cast(GroupList, self.created_resources[Group.__name__])
-        groups = sorted(groups, key=lambda x: x.name)
-        for name, group in itertools.groupby(groups, key=lambda x: x.name):
+        groups = [g for g in self.created_resources.get(Group.__name__, []) if isinstance(g, Group) and g.name]
+        groups = sorted(groups, key=lambda x: x.name or "")
+        for name, group in itertools.groupby(groups, key=lambda x: x.name or ""):
             yield AuthGroupCalls(name=name, calls=list(group))
