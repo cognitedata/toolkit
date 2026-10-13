@@ -25,36 +25,37 @@ class TestExtendedTimeSeriesAPI:
         """
         client = toolkit_client
         sdk = CogniteClient(client.config)
+        external_id = "ts_toolkit_integration_test_happy_path"
         ts = TimeSeriesWrite(
-            external_id="ts_toolkit_integration_test_happy_path",
+            external_id=external_id,
             name="Toolkit Integration Test Happy Path",
             is_step=False,
             is_string=False,
         )
         cognite_ts = CogniteTimeSeriesApply(
             space=dev_space,
-            external_id=ts.external_id,
+            external_id=external_id,
             is_step=False,
             time_series_type="numeric",
             name="Toolkit Integration Test Happy Path",
         )
-        datapoints = [
+        datapoints: list[dict[str, int | float | str | datetime]] = [
             {"timestamp": datetime_to_ms(datetime(2020, 1, 1, 0, 0, 0)), "value": 1.0},
             {"timestamp": datetime_to_ms(datetime(2020, 1, 2, 0, 0, 0)), "value": 2.0},
             {"timestamp": datetime_to_ms(datetime(2020, 1, 3, 0, 0, 0)), "value": 3.0},
         ]
-        more_datapoints = [
+        more_datapoints: list[dict[str, int | float | str | datetime]] = [
             {"timestamp": datetime_to_ms(datetime(2020, 1, 4, 0, 0, 0)), "value": 4.0},
             {"timestamp": datetime_to_ms(datetime(2020, 1, 5, 0, 0, 0)), "value": 5.0},
         ]
         created: TimeSeries | None = None
         created_dm: NodeApplyResultList | None = None
-        node_ref = NodeId(space=dev_space, external_id=ts.external_id)
+        node_ref = NodeId(space=dev_space, external_id=external_id)
         try:
             created = sdk.time_series.create(ts)
             sdk.time_series.data.insert(datapoints, external_id=ts.external_id)
             updated_list = client.tool.timeseries.set_pending_ids(
-                [PendingInstanceId(pending_instance_id=node_ref, external_id=ts.external_id)]
+                [PendingInstanceId(pending_instance_id=node_ref, external_id=external_id)]
             )
             assert len(updated_list) == 1
             assert updated_list[0].pending_instance_id == node_ref
@@ -62,15 +63,18 @@ class TestExtendedTimeSeriesAPI:
             created_dm = sdk.data_modeling.instances.apply(cognite_ts).nodes
 
             retrieve_datapoints = sdk.time_series.data.retrieve(instance_id=cognite_ts.as_id())
+            assert retrieve_datapoints is not None
             assert len(retrieve_datapoints) == len(datapoints)
             assert retrieve_datapoints.dump()["datapoints"] == datapoints
             sdk.time_series.data.insert(more_datapoints, instance_id=cognite_ts.as_id())
 
-            retrieve_datapoints2 = sdk.time_series.data.retrieve(external_id=ts.external_id)
+            retrieve_datapoints2 = sdk.time_series.data.retrieve(external_id=external_id)
+            assert retrieve_datapoints2 is not None
             assert len(retrieve_datapoints2) == len(datapoints) + len(more_datapoints)
             assert retrieve_datapoints2.dump()["datapoints"] == datapoints + more_datapoints
 
             retrieved_ts = sdk.time_series.retrieve(external_id=ts.external_id)
+            assert retrieved_ts is not None
             assert retrieved_ts.instance_id == cognite_ts.as_id()
             listed = sdk.time_series.list(external_id_prefix=ts.external_id)
             assert len(listed) == 1
@@ -84,27 +88,30 @@ class TestExtendedTimeSeriesAPI:
     def test_unlink_instance_ids(self, dev_cluster_client: ToolkitClient, dev_space: str) -> None:
         space = dev_space
         client = dev_cluster_client
+        external_id = "ts_toolkit_integration_test_unlink"
         sdk = CogniteClient(client.config)
         ts = TimeSeriesWrite(
-            external_id="ts_toolkit_integration_test_unlink",
+            external_id=external_id,
             name="Toolkit Integration Test Unlink",
             is_step=False,
             is_string=False,
         )
         cognite_ts = CogniteTimeSeriesApply(
             space=space,
-            external_id=ts.external_id,
+            external_id=external_id,
             is_step=False,
             time_series_type="numeric",
             name="Toolkit Integration Test Unlink",
         )
         created: TimeSeries | None = None
         created_dm: NodeApplyResultList | None = None
-        node_ref = NodeId(space=space, external_id=ts.external_id)
+        node_ref = NodeId(space=space, external_id=external_id)
         try:
             created = sdk.time_series.create(ts)
+            assert created is not None
+            updated_list = client.tool.timeseries
             updated_list = client.tool.timeseries.set_pending_ids(
-                [PendingInstanceId(pending_instance_id=node_ref, external_id=ts.external_id)]
+                [PendingInstanceId(pending_instance_id=node_ref, external_id=external_id)]
             )
             assert len(updated_list) == 1
             assert updated_list[0].pending_instance_id == node_ref
@@ -112,6 +119,7 @@ class TestExtendedTimeSeriesAPI:
             created_dm = sdk.data_modeling.instances.apply(cognite_ts).nodes
 
             retrieved_ts = sdk.time_series.retrieve(instance_id=cognite_ts.as_id())
+            assert retrieved_ts is not None
             assert retrieved_ts.id == created.id
 
             unlinked_list = client.tool.timeseries.unlink_instance_ids([InternalId(id=created.id)])
