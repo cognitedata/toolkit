@@ -214,7 +214,8 @@ class HostedExtractorSourceIO(
                 certificate = raw_data.get(cert_key)
                 if isinstance(certificate, dict):
                     metadata[metadata_key] = calculate_secure_hash(certificate, shorten=True)
-            raw_data["metadata"] = metadata
+            if metadata:
+                raw_data["metadata"] = metadata
         return raw_data_list
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> HostedExtractorSourceRequestUnion:
