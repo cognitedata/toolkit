@@ -224,7 +224,11 @@ class DatapointSubscriptionIO(
         return "timeseries subscriptions"
 
     @classmethod
-    def get_id(cls, item: DatapointSubscriptionRequest | DatapointSubscriptionResponse | DatapointSubscriptionId | dict) -> ExternalId:
+    def get_id(
+        cls, item: DatapointSubscriptionRequest | DatapointSubscriptionResponse | ExternalId | dict
+    ) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)

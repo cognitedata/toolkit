@@ -53,7 +53,9 @@ class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse, AssetYAML]):
         return "assets"
 
     @classmethod
-    def get_id(cls, item: AssetRequest | AssetResponse | dict) -> ExternalId:
+    def get_id(cls, item: AssetRequest | AssetResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -178,7 +180,9 @@ class SequenceIO(ResourceIO[ExternalId, SequenceRequest, SequenceResponse, Seque
         return "sequences"
 
     @classmethod
-    def get_id(cls, item: SequenceRequest | SequenceResponse | dict) -> ExternalId:
+    def get_id(cls, item: SequenceRequest | SequenceResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -297,7 +301,9 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
         return "sequence rows"
 
     @classmethod
-    def get_id(cls, item: SequenceRowsRequest | SequenceRowsResponse | dict) -> ExternalId:
+    def get_id(cls, item: SequenceRowsRequest | SequenceRowsResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -424,7 +430,9 @@ class EventIO(ResourceIO[ExternalId, EventRequest, EventResponse, EventYAML]):
         return "events"
 
     @classmethod
-    def get_id(cls, item: EventRequest | EventResponse | dict) -> ExternalId:
+    def get_id(cls, item: EventRequest | EventResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:

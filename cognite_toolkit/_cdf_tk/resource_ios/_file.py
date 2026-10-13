@@ -108,7 +108,9 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
             yield FilesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: FileMetadataRequest | FileMetadataResponse | dict) -> ExternalId:
+    def get_id(cls, item: FileMetadataRequest | FileMetadataResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
@@ -367,7 +369,7 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
         return "cognite files"
 
     @classmethod
-    def get_id(cls, item: CogniteFileResponse | CogniteFileRequest| NodeId | dict) -> NodeId:
+    def get_id(cls, item: CogniteFileResponse | CogniteFileRequest | NodeId | dict) -> NodeId:
         if isinstance(item, NodeId):
             return item
         if isinstance(item, dict):

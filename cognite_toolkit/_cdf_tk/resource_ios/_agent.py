@@ -59,7 +59,9 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
     _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/main_ai_agents_post/"
 
     @classmethod
-    def get_id(cls, item: AgentRequest | AgentResponse | dict) -> ExternalId:
+    def get_id(cls, item: AgentRequest | AgentResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return item.as_id()

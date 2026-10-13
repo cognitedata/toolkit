@@ -31,7 +31,9 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
         return "data products"
 
     @classmethod
-    def get_id(cls, item: DataProductRequest | DataProductResponse | dict) -> ExternalId:
+    def get_id(cls, item: DataProductRequest | DataProductResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if isinstance(item, DataProductRequest):

@@ -99,7 +99,9 @@ class ExtractionPipelineIO(
             yield ExtractionPipelinesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: ExtractionPipelineRequest | ExtractionPipelineResponse | dict) -> ExternalId:
+    def get_id(cls, item: ExtractionPipelineRequest | ExtractionPipelineResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -276,7 +278,11 @@ class ExtractionPipelineConfigIO(
             yield ExtractionConfigsAcl(actions=["READ", "WRITE"], scope=scope)
 
     @classmethod
-    def get_id(cls, item: ExtractionPipelineConfigRequest | ExtractionPipelineConfigResponse | dict) -> ExternalId:
+    def get_id(
+        cls, item: ExtractionPipelineConfigRequest | ExtractionPipelineConfigResponse | ExternalId | dict
+    ) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:

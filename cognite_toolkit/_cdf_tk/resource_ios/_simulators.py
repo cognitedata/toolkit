@@ -191,7 +191,9 @@ class SimulatorModelRevisionIO(
         return "simulator model revisions"
 
     @classmethod
-    def get_id(cls, item: SimulatorModelRevisionRequest | SimulatorModelRevisionResponse | ExternalId | dict) -> ExternalId:
+    def get_id(
+        cls, item: SimulatorModelRevisionRequest | SimulatorModelRevisionResponse | ExternalId | dict
+    ) -> ExternalId:
         if isinstance(item, ExternalId):
             return item
         if isinstance(item, dict):
@@ -308,7 +310,8 @@ class SimulatorRoutineIO(
 
     @classmethod
     def get_id(cls, item: SimulatorRoutineRequest | SimulatorRoutineResponse | ExternalId | dict) -> ExternalId:
-        zc
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -402,7 +405,9 @@ class SimulatorRoutineRevisionIO(
         return "simulator routine revisions"
 
     @classmethod
-    def get_id(cls, item: SimulatorRoutineRevisionRequest | SimulatorRoutineRevisionResponse | ExternalId | dict) -> ExternalId:
+    def get_id(
+        cls, item: SimulatorRoutineRevisionRequest | SimulatorRoutineRevisionResponse | ExternalId | dict
+    ) -> ExternalId:
         if isinstance(item, ExternalId):
             return item
         if isinstance(item, dict):

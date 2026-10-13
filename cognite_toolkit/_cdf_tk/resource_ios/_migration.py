@@ -43,7 +43,9 @@ class ResourceViewMappingIO(
         return "resource view mapping"
 
     @classmethod
-    def get_id(cls, item: ResourceViewMappingRequest | ResourceViewMappingResponse | dict) -> ExternalId:
+    def get_id(cls, item: ResourceViewMappingRequest | ResourceViewMappingResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)

@@ -136,7 +136,9 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             yield GroupsAcl(actions=sorted(acl_actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: GroupRequest | GroupResponse | dict) -> NameId:
+    def get_id(cls, item: GroupRequest | GroupResponse | NameId | dict) -> NameId:
+        if isinstance(item, NameId):
+            return item
         if isinstance(item, dict):
             return NameId(name=item["name"])
         return NameId(name=item.name)
@@ -507,7 +509,9 @@ class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCat
         return "security categories"
 
     @classmethod
-    def get_id(cls, item: SecurityCategoryRequest | SecurityCategoryResponse | dict) -> NameId:
+    def get_id(cls, item: SecurityCategoryRequest | SecurityCategoryResponse | NameId | dict) -> NameId:
+        if isinstance(item, NameId):
+            return item
         if isinstance(item, dict):
             return NameId(name=item["name"])
         return NameId(name=item.name)

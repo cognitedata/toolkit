@@ -56,7 +56,9 @@ class ExternalDataSourceIO(
             yield TransformationsExternalDataSourcesAcl(actions=sorted(acl_actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: ExternalDataSourceRequest | ExternalDataSourceResponse | dict) -> ExternalId:
+    def get_id(cls, item: ExternalDataSourceRequest | ExternalDataSourceResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             external_id = item.get("externalId") or item.get("external_id")
             if external_id is None:

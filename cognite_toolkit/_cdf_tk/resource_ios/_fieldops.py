@@ -64,7 +64,9 @@ class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse, In
         return "infield configs"
 
     @classmethod
-    def get_id(cls, item: APMConfigResponse | APMConfigRequest | dict) -> ExternalId:
+    def get_id(cls, item: APMConfigResponse | APMConfigRequest | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -259,7 +261,9 @@ class InFieldLocationConfigIO(
         return "infield location configs"
 
     @classmethod
-    def get_id(cls, item: InFieldLocationConfigRequest | InFieldLocationConfigResponse | dict) -> NodeId:
+    def get_id(cls, item: InFieldLocationConfigRequest | InFieldLocationConfigResponse | NodeId | dict) -> NodeId:
+        if isinstance(item, NodeId):
+            return item
         if isinstance(item, dict):
             return NodeId(space=item["space"], external_id=item["externalId"])
         return NodeId(space=item.space, external_id=item.external_id)
@@ -367,7 +371,9 @@ class InFieldCDMLocationConfigIO(
         return "infield CDM location configs"
 
     @classmethod
-    def get_id(cls, item: InFieldCDMLocationConfigRequest | InFieldCDMLocationConfigResponse | dict) -> NodeId:
+    def get_id(cls, item: InFieldCDMLocationConfigRequest | InFieldCDMLocationConfigResponse | NodeId | dict) -> NodeId:
+        if isinstance(item, NodeId):
+            return item
         if isinstance(item, dict):
             return NodeId(space=item["space"], external_id=item["externalId"])
         return NodeId(space=item.space, external_id=item.external_id)

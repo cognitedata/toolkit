@@ -36,7 +36,11 @@ class DataProductVersionIO(
         return "data product versions"
 
     @classmethod
-    def get_id(cls, item: DataProductVersionRequest | DataProductVersionResponse | dict) -> DataProductVersionId:
+    def get_id(
+        cls, item: DataProductVersionRequest | DataProductVersionResponse | DataProductVersionId | dict
+    ) -> DataProductVersionId:
+        if isinstance(item, DataProductVersionId):
+            return item
         if isinstance(item, dict):
             return DataProductVersionId(
                 data_product_external_id=item["dataProductExternalId"],

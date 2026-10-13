@@ -57,7 +57,9 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
             yield AppHostingAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: AppResponse | AppRequest | dict[str, Any]) -> ExternalId:
+    def get_id(cls, item: AppResponse | AppRequest | ExternalId | dict[str, Any]) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -141,7 +143,9 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
             yield AppHostingAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: AppVersionResponse | AppVersionRequest | dict[str, Any]) -> AppVersionId:
+    def get_id(cls, item: AppVersionResponse | AppVersionRequest | AppVersionId | dict[str, Any]) -> AppVersionId:
+        if isinstance(item, AppVersionId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("appExternalId", "version") if k not in item):
                 raise KeyError(*missing)

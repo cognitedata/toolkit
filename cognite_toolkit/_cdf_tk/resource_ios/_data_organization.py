@@ -70,7 +70,9 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSet
             yield DataSetsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: DataSetRequest | DataSetResponse | dict) -> ExternalId:
+    def get_id(cls, item: DataSetRequest | DataSetResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -162,7 +164,9 @@ class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse, LabelsYAML]):
         return "labels"
 
     @classmethod
-    def get_id(cls, item: LabelRequest | LabelResponse | dict) -> ExternalId:
+    def get_id(cls, item: LabelRequest | LabelResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:

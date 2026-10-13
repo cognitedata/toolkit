@@ -181,7 +181,9 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: SpaceRequest | SpaceResponse | dict) -> SpaceId:
+    def get_id(cls, item: SpaceRequest | SpaceResponse | SpaceId | dict) -> SpaceId:
+        if isinstance(item, SpaceId):
+            return item
         if isinstance(item, dict):
             return SpaceId(space=item["space"])
         return item.as_id()
@@ -315,7 +317,9 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: ContainerRequest | ContainerResponse | dict) -> ContainerId:
+    def get_id(cls, item: ContainerRequest | ContainerResponse | ContainerId | dict) -> ContainerId:
+        if isinstance(item, ContainerId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -1070,7 +1074,9 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: DataModelRequest | DataModelResponse | dict) -> DataModelId:
+    def get_id(cls, item: DataModelRequest | DataModelResponse | DataModelId | dict) -> DataModelId:
+        if isinstance(item, DataModelId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId", "version") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -1216,7 +1222,9 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: NodeRequest | NodeResponse | dict) -> NodeId:
+    def get_id(cls, item: NodeRequest | NodeResponse | NodeId | dict) -> NodeId:
+        if isinstance(item, NodeId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -1459,7 +1467,9 @@ class GraphQLIO(
         return "graph QL schemas"
 
     @classmethod
-    def get_id(cls, item: GraphQLDataModelRequest | GraphQLDataModelResponse | dict) -> DataModelId:
+    def get_id(cls, item: GraphQLDataModelRequest | GraphQLDataModelResponse | DataModelId | dict) -> DataModelId:
+        if isinstance(item, DataModelId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId", "version") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -1722,7 +1732,9 @@ class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: EdgeRequest | EdgeResponse | dict) -> EdgeId:
+    def get_id(cls, item: EdgeRequest | EdgeResponse | EdgeId | dict) -> EdgeId:
+        if isinstance(item, EdgeId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("space", "externalId") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.

@@ -196,8 +196,8 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
             yield TransformationsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: TransformationResponse | TransformationRequest | TransformationId | dict) -> ExternalId:
-        if isinstance(item, TransformationId):
+    def get_id(cls, item: TransformationResponse | TransformationRequest | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
             return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
@@ -731,8 +731,10 @@ class TransformationScheduleIO(
         yield from ()
 
     @classmethod
-    def get_id(cls, item: TransformationScheduleResponse | TransformationScheduleRequest | TransformationScheduleId | dict) -> ExternalId:
-        if isinstance(item, TransformationScheduleId):
+    def get_id(
+        cls, item: TransformationScheduleResponse | TransformationScheduleRequest | ExternalId | dict
+    ) -> ExternalId:
+        if isinstance(item, ExternalId):
             return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
@@ -821,7 +823,11 @@ class TransformationNotificationIO(
 
     @classmethod
     def get_id(
-        cls, item: TransformationNotificationResponse| TransformationNotificationRequest | TransformationNotificationId | dict
+        cls,
+        item: TransformationNotificationResponse
+        | TransformationNotificationRequest
+        | TransformationNotificationId
+        | dict,
     ) -> TransformationNotificationId:
         if isinstance(item, TransformationNotificationId):
             return item
