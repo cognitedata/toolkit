@@ -10,8 +10,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse, SubagentConfig
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, FunctionIO, SkillIO
+from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, FunctionIO
 from cognite_toolkit._cdf_tk.resource_ios._agent import AgentIO
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
@@ -118,12 +117,6 @@ class TestAgentIODependencies:
             (AgentIO, ExternalId(external_id="weather-specialist")),
             (AgentIO, ExternalId(external_id="rca-specialist")),
         ]
-
-    def test_skill_is_in_class_dependencies(self) -> None:
-        if FeatureFlag.is_enabled(Flags.AGENT_SKILLS) or FeatureFlag.is_enabled(Flags.V09):
-            assert SkillIO in AgentIO.dependencies
-        else:
-            assert SkillIO not in AgentIO.dependencies
 
 
 class TestAgentIODiffList:
@@ -354,7 +347,6 @@ class TestAgentIOExtraFiles:
             },
         ]
 
-    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="V09 feature flag is not enabled")
     def test_get_extra_files_missing_instructions_file(self, tmp_path: Path) -> None:
         yaml_path = MagicMock(spec=Path)
         yaml_path.parent = tmp_path
@@ -367,7 +359,6 @@ class TestAgentIOExtraFiles:
         extra = extras[0]
         assert extra.model_dump(exclude_unset=True)["code"] == "MISSING-REFERENCED-FILE"
 
-    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="We only split files in v0.9+")
     def test_split_resource_writes_markdown_and_tools(
         self, tmp_path: Path, toolkit_client_cheap: ToolkitClient
     ) -> None:

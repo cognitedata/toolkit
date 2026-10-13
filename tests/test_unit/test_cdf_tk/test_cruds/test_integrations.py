@@ -4,7 +4,6 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_BASE_IO_BY_FOLDER_NAME,
     RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA,
@@ -42,11 +41,8 @@ class TestIntegrationsIO:
             loader.folder_name == "integrations"
             for loader in RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["integrations"]
         )
-        if Flags.INTEGRATIONS.is_enabled() or Flags.V09.is_enabled():
-            enabled = {loader.kind for loader in RESOURCE_BASE_IO_BY_FOLDER_NAME["integrations"]}
-            assert enabled == included
-        else:
-            assert "integrations" not in RESOURCE_BASE_IO_BY_FOLDER_NAME
+        enabled = {loader.kind for loader in RESOURCE_BASE_IO_BY_FOLDER_NAME["integrations"]}
+        assert enabled == included
 
     def test_config_depends_on_integration(self) -> None:
         resource = IntegrationConfigYAML.model_validate(

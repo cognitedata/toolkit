@@ -1,9 +1,8 @@
-import sys
 from abc import ABC, abstractmethod
 from collections import UserList
 from collections.abc import Collection
 from pathlib import Path
-from typing import Literal, TypeVar
+from typing import Literal, Self, TypeVar
 
 from pydantic import BaseModel
 from pydantic.alias_generators import to_camel
@@ -13,11 +12,6 @@ from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader, SchemaColumn
 from cognite_toolkit._cdf_tk.validation import T_BaseModel, instantiate_class
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 
 class ModelList(UserList[T_BaseModel], ABC):

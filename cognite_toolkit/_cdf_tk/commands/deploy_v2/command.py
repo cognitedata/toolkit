@@ -4,7 +4,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence, Set
 from copy import deepcopy
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, Generic, Literal, TypeAlias, cast
@@ -55,7 +55,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitWrongResourceError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags, v09_gate
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_IO_BY_FOLDER_NAME,
     ContainerIO,
@@ -954,8 +953,6 @@ class DeployV2Command(ToolkitCommand):
             write_acl = list(crud.create_acl({"WRITE"}, minimum_scope))
             if dataset_owner:
                 write_acl.append(dataset_owner)
-            if not Flags.V09.is_enabled() and (missing_read := crud.client.tool.token.verify_acls(read_acl)):
-                raise crud.client.tool.token.create_error(missing_read, action=f"deploy {crud.display_name}")
             is_write_acl_unknown = cls._resources_have_unresolved_data_set(resources)
             return (
                 bool(crud.client.tool.token.verify_acls(read_acl)),
@@ -1033,7 +1030,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code=v09_gate("NONEXISTENT-RESOURCE", "NOT-EXISTING"),
+                            code="NONEXISTENT-RESOURCE",
                             source_file=resource.source_files[0],
                             reason=f"Will not delete {identifier!s} does not exist in CDF",
                         )
@@ -1043,7 +1040,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code=v09_gate("NONEMPTY-RESOURCE", "HAS-DATA"),
+                            code="NONEMPTY-RESOURCE",
                             source_file=resource.source_files[0],
                             reason=f"{identifier!s} has data and --drop-data flag is not set, skipping deletion to avoid data loss",
                         )
@@ -1053,7 +1050,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code=v09_gate("UNSUPPORTED-RESOURCE-DELETION", "DELETE-NOT-SUPPORTED"),
+                            code="UNSUPPORTED-RESOURCE-DELETION",
                             source_file=resource.source_files[0],
                             reason=f"{crud.display_name.capitalize()!s} does not support deletion, skipping",
                         )
@@ -1074,7 +1071,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code=v09_gate("NONEMPTY-RESOURCE", "HAS-DATA"),
+                            code="NONEMPTY-RESOURCE",
                             source_file=resource.source_files[0],
                             reason=(f"{identifier!s} contains data and does not support updates."),
                         )
@@ -1230,7 +1227,7 @@ class DeployV2Command(ToolkitCommand):
         suffix = ""
         if deploy_dir:
             deploy_dir.mkdir(parents=True, exist_ok=True)
-            filepath = deploy_dir / f"{sanitize_filename(datetime.now(timezone.utc).isoformat())}.json"
+            filepath = deploy_dir / f"{sanitize_filename(datetime.now(UTC).isoformat())}.json"
             suffix = (
                 f"\nThe request body and response has been written to {filepath.as_posix()} for debugging purposes."
             )
@@ -1338,7 +1335,7 @@ class DeployV2Command(ToolkitCommand):
         suffix = ""
         if deploy_dir:
             deploy_dir.mkdir(parents=True, exist_ok=True)
-            filepath = deploy_dir / f"{sanitize_filename(datetime.now(timezone.utc).isoformat())}.json"
+            filepath = deploy_dir / f"{sanitize_filename(datetime.now(UTC).isoformat())}.json"
             suffix = f"\nThe error details has been written to {filepath.as_posix()} for debugging purposes."
             json_str = json.dumps(list(error.errors()), indent=2, sort_keys=False)
             for resource in resources:

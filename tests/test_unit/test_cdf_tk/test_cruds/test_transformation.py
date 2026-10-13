@@ -15,7 +15,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     ExternalDataSourceIO,
     TransformationIO,
@@ -27,15 +26,6 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 def _return_none(*args, **kwargs) -> str | None:
     return None
-
-
-def _enable_external_data_sources(monkeypatch: MonkeyPatch) -> None:
-    original = FeatureFlag.is_enabled
-    monkeypatch.setattr(
-        FeatureFlag,
-        "is_enabled",
-        lambda flag: flag is Flags.EXTERNAL_DATA_SOURCES or original(flag),
-    )
 
 
 def _ext_onelake_transformation_yaml() -> TransformationYAML:
@@ -174,8 +164,7 @@ authentication:
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
         assert loaded.query == resource["query"]
 
-    def test_get_dependencies_ext_onelake(self, monkeypatch: MonkeyPatch) -> None:
-        _enable_external_data_sources(monkeypatch)
+    def test_get_dependencies_ext_onelake(self) -> None:
         resource = _ext_onelake_transformation_yaml()
         deps = list(TransformationIO.get_dependencies(resource))
         assert (ExternalDataSourceIO, ExternalId(external_id="fabric-prod")) in deps

@@ -6,9 +6,8 @@ FeatureConfiguration objects as this is just JSON object in the node, but use th
 data sets, spaces, and groups.
 """
 
-import sys
 from collections.abc import Iterator, Sequence
-from typing import ClassVar, Literal
+from typing import ClassVar, Literal, Self
 
 from pydantic import JsonValue
 
@@ -18,11 +17,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     WrappedInstanceRequest,
     WrappedInstanceResponse,
 )
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 APM_CONFIG_SPACE: Literal["APM_Config"] = "APM_Config"
 APM_CONFIG_VIEW_ID = ViewId(space=APM_CONFIG_SPACE, external_id="APM_Config", version="1")

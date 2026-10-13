@@ -1,34 +1,24 @@
 import csv
 import io
 import json
-import sys
 from collections import Counter, UserList, defaultdict
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal, TypeAlias, TypeVar
+from typing import Annotated, Any, ClassVar, Literal, Self, TypeAlias, TypeVar
 
 from pydantic import (
     BaseModel,
     Field,
-    SerializerFunctionWrapHandler,
     StringConstraints,
     TypeAdapter,
     field_serializer,
     field_validator,
-    model_serializer,
-    model_validator,
 )
 from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
-from cognite_toolkit._cdf_tk.feature_flags import Flags, v09_gate
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_modules
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 T_Insight = TypeVar("T_Insight", bound="InsightDefinition")
 PATH_SEP_CSV = " | "  # Separator for multiple source files in CSV output
@@ -61,7 +51,6 @@ InsightCode: TypeAlias = Literal[
     "UNSUPPORTED-RESOURCE-REMOVAL",
     "INVALID-DIRECT-RELATION",
     "UNGOVERNED-RESOURCE",
-    # Legacy codes, used when the v09 flag is not enabled
     "MISSING-SUFFIX",
     "INVALID-KIND",
     "READ-ERROR",
@@ -141,35 +130,6 @@ class InsightDefinition(BaseModel):
     def group_key(self) -> tuple[str, str, str, str | None]:
         """Insights with the same key are displayed together, listing their locations."""
         return self.insight_type, self.code, self.message, self.fix
-
-    @model_validator(mode="before")
-    @classmethod
-    def _from_legacy_source_files(cls, data: Any) -> Any:
-        """Insight files written without the v09 flag have a 'source_files' list (or separator-joined cell)."""
-        if not isinstance(data, dict) or "source_files" not in data or "source_file" in data:
-            return data
-        data = dict(data)
-        source_files = data.pop("source_files")
-        if isinstance(source_files, str):
-            source_files = _split_source_files(source_files, PATH_SEP_CSV)
-        if not source_files:
-            raise ValueError("source_files must contain at least one file")
-        # Only the first file is kept. Insights written by this code always have exactly one, and this legacy
-        # format will be removed together with the v09 flag.
-        data["source_file"] = source_files[0]
-        return data
-
-    @model_serializer(mode="wrap")
-    def _serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
-        """Without the v09 flag, serialize in the legacy shape: 'source_files' and 'alpha', without positions."""
-        data: dict[str, Any] = handler(self)
-        if Flags.V09.is_enabled():
-            return data
-        data.pop("line", None)
-        data.pop("column", None)
-        data["source_files"] = [data.pop("source_file")]
-        data["alpha"] = self.alpha
-        return data
 
     @field_validator("line", "column", mode="before")
     @classmethod
@@ -366,10 +326,7 @@ class InsightList(UserList[Insight]):
         Returns:
             CSV formatted string with columns: insight_type, code, source_file, message, fix
         """
-        field_names = v09_gate(
-            [name for name, field in InsightDefinition.model_fields.items() if not field.exclude],
-            ["insight_type", "code", "message", "source_files", "fix", "alpha"],
-        )
+        field_names = [name for name, field in InsightDefinition.model_fields.items() if not field.exclude]
         with io.StringIO() as output:
             writer = csv.DictWriter(
                 output,
@@ -381,8 +338,6 @@ class InsightList(UserList[Insight]):
             writer.writeheader()
             for insight in self.data:
                 row = insight.model_dump()
-                if not Flags.V09.is_enabled():
-                    row["source_files"] = PATH_SEP_CSV.join(row["source_files"])
                 writer.writerow(row)
             return output.getvalue()
 

@@ -1,5 +1,4 @@
-import sys
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal, Self
 
 from pydantic import Field
 
@@ -12,11 +11,6 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeUntypedId, ThreeDModelRevisionId
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 
 class RevisionStatus(BaseModelObject):

@@ -1,4 +1,3 @@
-import sys
 from abc import ABC
 from collections import UserDict
 from collections.abc import Iterable
@@ -7,11 +6,6 @@ from functools import total_ordering
 from typing import Literal
 
 from rich.table import Table
-
-if sys.version_info >= (3, 11):
-    pass
-else:
-    pass
 
 
 @total_ordering

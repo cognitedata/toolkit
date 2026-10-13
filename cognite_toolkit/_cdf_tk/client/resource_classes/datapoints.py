@@ -1,6 +1,5 @@
 import builtins
-import sys
-from typing import Annotated, Any, Literal, TypeAlias
+from typing import Annotated, Any, Literal, Self, TypeAlias
 
 from pydantic import BeforeValidator, Field, model_validator
 
@@ -12,12 +11,6 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 from cognite_toolkit._cdf_tk.client._types import Timestamp
 from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
 
 DatapointAggregate = Literal[
     "average",

@@ -1,13 +1,13 @@
 import json
 import re
-import sys
 import uuid
 from collections.abc import Callable
 from datetime import datetime
 from functools import cached_property
 from pathlib import Path
-from typing import Any, ClassVar, Generic, Literal, TypeAlias, get_args
+from typing import Any, ClassVar, Generic, Literal, Self, TypeAlias, get_args
 
+import tomllib as toml
 from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue, field_validator
 from pydantic.alias_generators import to_camel
 
@@ -18,15 +18,6 @@ from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResourc
 
 from ._insights import BuildError, BuildWarning, ModelSyntaxError, ModelSyntaxWarning
 from ._types import AbsoluteFilePath, RelativeDirPath, RelativeFilePath
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-
-    import tomllib as toml
-else:
-    import tomli as toml
-    from typing_extensions import Self
-
 
 FileSuffix: TypeAlias = Literal[".yaml", ".sql", ".yml", ".json", ".md", ".ttl"]
 SUPPORTS_VARIABLE_REPLACEMENT = frozenset(get_args(FileSuffix))
@@ -336,11 +327,6 @@ class FailedReadYAMLFile(ReadYAMLFile):
         "UNREADABLE-FILE",
         "INVALID-FILE-CONTENT",
         "EMPTY-FILE",
-        # Legacy codes, used when the v09 flag is not enabled
-        "MISSING-SUFFIX",
-        "INVALID-KIND",
-        "READ-ERROR",
-        "YAML-PARSE-ERROR",
     ]
     error: str
 

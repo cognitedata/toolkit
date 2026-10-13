@@ -1,13 +1,12 @@
 import itertools
 import os
 import re
-import sys
 from abc import ABC
 from collections import UserDict, defaultdict
 from collections.abc import Hashable, Iterable, Sequence, Set
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar, cast, get_args
+from typing import Any, ClassVar, Self, cast, get_args
 
 from rich import print
 
@@ -35,10 +34,6 @@ from cognite_toolkit._cdf_tk.utils import (
 
 from ._base import ConfigCore
 
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 _AVAILABLE_ENV_TYPES = tuple(get_args(EnvType))
 
 

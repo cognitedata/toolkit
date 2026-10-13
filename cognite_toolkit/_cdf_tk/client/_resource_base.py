@@ -1,21 +1,15 @@
 """Base classes for Cognite Client resources and identifiers."""
 
-import sys
 import types
 from abc import ABC, abstractmethod
 from functools import total_ordering
-from typing import Annotated, Any, ClassVar, Generic, Literal, TypeVar, Union, get_args, get_origin
+from typing import Annotated, Any, ClassVar, Generic, Literal, Self, TypeVar, Union, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 from pydantic_core import PydanticUndefined
 
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, sanitize_filename, yaml_safe_dump
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 
 class BaseModelObject(BaseModel):

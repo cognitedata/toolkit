@@ -34,7 +34,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.session import (
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_NONCE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -76,7 +75,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         self,
         client: ToolkitClient,
         skip_existing: bool = False,
-        skip_backend_services: bool = not (Flags.EXTEND_UPLOAD.is_enabled() or Flags.V09.is_enabled()),
+        skip_backend_services: bool = False,
         skip_strict_mode: bool = False,
         api_format: Literal["request", "response"] = "request",
     ) -> None:

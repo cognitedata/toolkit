@@ -5,11 +5,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLim
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildError,
-    ConsistencyError,
     Insight,
     InternalValidatorException,
 )
-from cognite_toolkit._cdf_tk.feature_flags import v09_gate
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet, with_position
 from cognite_toolkit._cdf_tk.utils import humanize_collection, validate_requirements_with_pip
@@ -75,12 +73,12 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
         if function_def.cpu is not None and limits:
             if function_def.cpu < limits.cpu_cores.min or function_def.cpu > limits.cpu_cores.max:
                 yield with_position(
-                    v09_gate(BuildError, ConsistencyError)(
+                    BuildError(
                         message=(
                             f"Function '{function_def.external_id}' CPU cores ({function_def.cpu}) "
                             f"must be between {limits.cpu_cores.min} and {limits.cpu_cores.max}."
                         ),
-                        code=v09_gate("EXCEEDED-LIMIT", "FUNCTION-CPU-OUT-OF-RANGE"),
+                        code="EXCEEDED-LIMIT",
                         fix=f"Ensure that CPU cores is between {limits.cpu_cores.min} and {limits.cpu_cores.max}.",
                         source_file=resource.source_path,
                     ),
@@ -91,12 +89,12 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
         if function_def.memory is not None and limits:
             if function_def.memory < limits.memory_gb.min or function_def.memory > limits.memory_gb.max:
                 yield with_position(
-                    v09_gate(BuildError, ConsistencyError)(
+                    BuildError(
                         message=(
                             f"Function '{function_def.external_id}' memory ({function_def.memory} GB) "
                             f"must be between {limits.memory_gb.min} and {limits.memory_gb.max} GB."
                         ),
-                        code=v09_gate("EXCEEDED-LIMIT", "FUNCTION-MEMORY-OUT-OF-RANGE"),
+                        code="EXCEEDED-LIMIT",
                         fix=f"Ensure that memory is between {limits.memory_gb.min} and {limits.memory_gb.max} GB.",
                         source_file=resource.source_path,
                     ),
@@ -107,13 +105,13 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
         if function_def.runtime is not None and limits is not None:
             if function_def.runtime not in limits.runtimes:
                 quoted_runtimes = humanize_collection([f"{runtime!r}" for runtime in limits.runtimes])
-                yield v09_gate(BuildError, ConsistencyError)(
+                yield BuildError(
                     message=(
                         f"Function '{function_def.external_id}' runtime {function_def.runtime!r} is not "
                         f"available in this CDF project. "
                         f"Available runtimes: {quoted_runtimes}."
                     ),
-                    code=v09_gate("INVALID-VALUE", "FUNCTION-UNKNOWN-RUNTIME"),
+                    code="INVALID-VALUE",
                     fix=f"Use one of the available runtimes: {quoted_runtimes}.",
                     source_file=resource.source_path,
                 )
@@ -124,9 +122,9 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                 requirement_txt, function_def.index_url, function_def.extra_index_urls
             )
             if not pip_result.success:
-                yield v09_gate(BuildError, ConsistencyError)(
+                yield BuildError(
                     message=pip_result.create_message("Function", function_def.external_id),
-                    code=v09_gate("INVALID-FUNCTION-REQUIREMENTS", "FUNCTION-INVALID-REQUIREMENTS"),
+                    code="INVALID-FUNCTION-REQUIREMENTS",
                     fix="Ensure that requirements.txt is valid.",
                     source_file=resource.source_path,
                 )

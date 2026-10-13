@@ -16,7 +16,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     T_Insight,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable, Module, SuccessfulReadYAMLFile
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.file import yaml_find_unique_position
 from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
@@ -55,8 +54,6 @@ def with_position(
             that values built from variables, e.g., 'sp_{{ location }}_assets', are found. Substituted values
             can shift the column of text after them on the same line, but not where a key or value starts.
     """
-    if not Flags.V09.is_enabled():
-        return insight
     try:
         content = insight.source_file.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
@@ -96,7 +93,6 @@ class ToolkitLocalRule(ABC):
     """
 
     CODE: ClassVar[InsightCode]
-    LEGACY_CODE: ClassVar[InsightCode]  # Used when the v09 flag is not enabled
     IS_ALPHA: ClassVar[bool] = False
     IS_FIXABLE: ClassVar[bool] = False
 

@@ -7,11 +7,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view import 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildError,
-    ConsistencyError,
     Insight,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
-from cognite_toolkit._cdf_tk.feature_flags import v09_gate
 from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet, with_position
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -155,8 +153,8 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
         if missing:
             quoted_missing = humanize_collection([f"{property_name!r}" for property_name in missing])
             yield with_position(
-                v09_gate(BuildError, ConsistencyError)(
-                    code=v09_gate("INVALID-REFERENCED-RESOURCE", "INFIELD-VIEW-MISSING-PROPERTIES"),
+                BuildError(
+                    code="INVALID-REFERENCED-RESOURCE",
                     message=(
                         f"View {view_id!s} used as {card_key!r} is missing required properties: {quoted_missing}."
                     ),
@@ -182,8 +180,8 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
         if unknown:
             quoted_unknown = humanize_collection([f"{property_name!r}" for property_name in unknown])
             yield with_position(
-                v09_gate(BuildError, ConsistencyError)(
-                    code=v09_gate("MISSING-REFERENCED-PROPERTY", "INFIELD-UNKNOWN-VIEW-PROPERTY"),
+                BuildError(
+                    code="MISSING-REFERENCED-PROPERTY",
                     message=(f"View {view_id!s} used for {config_key!r} does not have properties: {quoted_unknown}."),
                     fix=f"Use property names that exist on the view: {quoted_unknown}.",
                     source_file=source_path,

@@ -1,4 +1,3 @@
-import sys
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence
 from functools import cache
@@ -24,11 +23,7 @@ from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read,
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
 
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
+from typing import Self
 
 T_YamlResource = TypeVar("T_YamlResource")
 
@@ -42,9 +37,6 @@ class FailedReadExtra(ReadExtra):
         "MISSING-REFERENCED-FILE",
         "MISSING-REFERENCED-DIRECTORY",
         "INVALID-FILE-CONTENT",
-        # Legacy codes, used when the v09 flag is not enabled
-        "MISSING",
-        "SYNTAX-ERROR",
     ]
     error: str
 
