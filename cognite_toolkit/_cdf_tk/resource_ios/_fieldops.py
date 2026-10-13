@@ -465,7 +465,25 @@ class InFieldCDMLocationConfigIO(
             # when we retrieve the node from the server.
             dumped.pop("existingVersion", None)
         dumped.pop("instanceType", None)
+        # The server drops fields that are None, but they may be explicitly set to None in the
+        # local file. In that case, add them back to avoid a spurious redeploy.
+        self._restore_local_none_fields(dumped, local)
         return dumped
+
+    @classmethod
+    def _restore_local_none_fields(cls, dumped: Any, local: Any) -> None:
+        """Recursively adds back fields that are explicitly set to None locally but are missing
+        in the dumped resource."""
+        if isinstance(dumped, dict) and isinstance(local, dict):
+            for key, local_value in local.items():
+                if key not in dumped:
+                    if local_value is None:
+                        dumped[key] = None
+                else:
+                    cls._restore_local_none_fields(dumped[key], local_value)
+        elif isinstance(dumped, list) and isinstance(local, list):
+            for dumped_item, local_item in zip(dumped, local):
+                cls._restore_local_none_fields(dumped_item, local_item)
 
     def create(self, items: Sequence[InFieldCDMLocationConfigRequest]) -> list[NodeId]:
         legacy_instance_spaces = self._legacy_instance_spaces

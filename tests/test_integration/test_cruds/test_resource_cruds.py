@@ -91,6 +91,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     GroupIO,
     HostedExtractorJobIO,
     HostedExtractorSourceIO,
+    InFieldCDMLocationConfigIO,
     LabelIO,
     NodeIO,
     SkillIO,
@@ -1445,5 +1446,107 @@ format:
         if len(retrieved) == 0:
             # Create the job if it doesn't exist, so we can test that it is not redeployed when unchanged
             retrieved = io.create([cdf_job])
+            assert len(retrieved) == 1
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)
+
+
+class TestInFieldCDMLocationConfigIO:
+    def test_no_redeploy_unchanged(self, toolkit_client: ToolkitClient, toolkit_space: Space) -> None:
+        io = InFieldCDMLocationConfigIO(toolkit_client)
+        content = f"""space: {toolkit_space.space}
+externalId: infield_config_test_no_redeploy_unchanged
+name: InField Location Configuration Test
+description: Migrated InField Location Configuration
+featureToggles:
+  threeD: true
+  trends: true
+  documents: true
+  workorders: true
+  notifications: true
+  media: true
+  templateChecklistFlow: true
+  workorderChecklistFlow: true
+  observations: true
+  copilot: true
+accessManagement:
+  templateAdmins:
+  - Admin-prod
+  checklistAdmins:
+  - Admin-prod
+dataFilters:
+  assets:
+    instanceSpaces:
+    - test-space-assets
+  files:
+    instanceSpaces:
+    - test-space-files
+  timeseries:
+    instanceSpaces:
+    - test-space-timeseries
+  maintenanceOrders:
+    instanceSpaces:
+    - test-space-maintenance-orders
+  operations:
+    instanceSpaces:
+    - test-space-operations
+  notifications:
+    instanceSpaces:
+    - test-space-notifications
+dataStorage:
+  rootLocation:
+    space: some-space
+    externalId: CogniteRootLocation
+  appInstanceSpace: some-app-instance-space
+viewMappings:
+  asset:
+    space: cdf_cdm
+    externalId: CogniteAsset
+    version: v1
+  operation:
+    space: cdf_idm
+    externalId: CogniteOperation
+    version: v1
+  notification:
+    space: cdf_idm
+    externalId: CogniteNotification
+    version: v1
+  maintenanceOrder:
+    space: cdf_idm
+    externalId: CogniteMaintenanceOrder
+    version: v1
+  file:
+    space: cdf_cdm
+    externalId: CogniteFile
+    version: v1
+  observation:
+  - view:
+      space: another-space
+      externalId: ObservationView
+      version: v37
+      type: view
+    fieldsConfig:
+      startTime:
+        isRequired: true
+        isEditable: true
+        orderNumber: 1
+      status:
+        isRequired: true
+        isEditable: true
+        orderNumber: 2
+    writeBack: null
+disciplines:
+- name: Automation & Instrument
+  externalId: automation_instrument
+
+"""
+
+        raw_data = load_local_yaml(content, io)
+
+        local_request = io.load_resource(raw_data)
+        retrieved = io.retrieve([local_request.as_id()])
+        if len(retrieved) == 0:
+            # Create the source if it doesn't exist, so we can test that it is not redeployed when unchanged
+            _ = io.create([local_request])
+            retrieved = io.retrieve([local_request.as_id()])
             assert len(retrieved) == 1
         assert raw_data == io.dump_resource(retrieved[0], raw_data)
