@@ -9,7 +9,6 @@ from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR, DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 from ._helpers import print_help_if_no_subcommand
 
@@ -76,21 +75,12 @@ class UploadApp(typer.Typer):
                 help="If set, the command will look for resource configuration files in adjacent folders and create them if they do not exist.",
             ),
         ] = False,
-        skip_verify_cdf_project: Annotated[
-            bool,
-            typer.Option(
-                "--skip-verify-cdf-project",
-                help="If set, the command will skip the verification step that checks if the CDF project in the environment variables matches the one provided by the user.",
-                hidden=Flags.V09.is_enabled(),
-            ),
-        ] = False,
         cdf_project: Annotated[
             str | None,
             typer.Option(
                 "--cdf-project",
                 help="The CDF Project you are uploading to. This is used to verify against the credentials you have set. "
                 "If it is not passed, you will be prompted for it.",
-                hidden=not Flags.V09.is_enabled(),
             ),
         ] = None,
         skip_strict_mode: Annotated[
@@ -98,7 +88,6 @@ class UploadApp(typer.Typer):
             typer.Option(
                 "--skip-strict-mode",
                 help="When uploading Charts with monitoring jobs and/or scheduled calculations. Skipping strict mode allows you to reuse the toolkit credentials when creating these jobs. This is only recommended for sandbox projects.",
-                hidden=not (Flags.EXTEND_UPLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = False,
         overwrite: Annotated[
@@ -106,7 +95,6 @@ class UploadApp(typer.Typer):
             typer.Option(
                 "--overwrite",
                 help="If the data type supports it, overwrite the data in CDF with the local data.",
-                hidden=not (Flags.EXTEND_UPLOAD.is_enabled() or Flags.V09.is_enabled()),
             ),
         ] = False,
         verbose: Annotated[
@@ -121,20 +109,7 @@ class UploadApp(typer.Typer):
         """Commands to upload data to CDF."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = UploadCommand(client=client)
-        if Flags.V09.is_enabled():
-            _validate_cdf_project(cdf_project, client.config.project)
-        elif not skip_verify_cdf_project:
-            client.console.print(
-                f"You are about to upload data to the CDF project [bold]{client.config.project}[/bold], as set in your environment variables."
-            )
-            typed_project = questionary.text(
-                "To confirm, please type the name of the project: ",
-            ).unsafe_ask()
-            if typed_project != client.config.project:
-                client.console.print(
-                    f"The CDF project you typed does not match your credentials {typed_project!r}≠{client.config.project!r}. Exiting..."
-                )
-                raise typer.Abort()
+        _validate_cdf_project(cdf_project, client.config.project)
 
         if input_dir is None:
             input_candidate = sorted({p.parent for p in DEFAULT_INPUT_DIR.rglob(f"**/*{DATA_MANIFEST_SUFFIX}")})

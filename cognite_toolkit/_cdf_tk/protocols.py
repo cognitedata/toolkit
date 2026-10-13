@@ -1,13 +1,7 @@
-import sys
 from collections.abc import Collection, Iterator
-from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
+from typing import Any, Generic, Protocol, Self, TypeVar, runtime_checkable
 
 from cognite.client import CogniteClient
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 
 @runtime_checkable

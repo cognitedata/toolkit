@@ -1,13 +1,7 @@
 import re
-import sys
 from typing import Any
 
-from pydantic import Field, field_validator, model_validator
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
+from pydantic import Field, field_validator
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId as ViewReferenceId
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamExternalId
@@ -19,7 +13,6 @@ from cognite_toolkit._cdf_tk.constants import (
     FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER,
     SPACE_FORMAT_PATTERN,
 )
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
 from .base import ToolkitResource
@@ -80,14 +73,6 @@ class ViewYAML(ToolkitResource):
     def as_id(self) -> ViewReferenceId:
         return ViewReferenceId(space=self.space, external_id=self.external_id, version=self.version)
 
-    @model_validator(mode="after")
-    def validate_record_view_alpha_flag(self) -> Self:
-        if self.stream_id is not None and not (
-            FeatureFlag.is_enabled(Flags.RECORD_VIEWS) or FeatureFlag.is_enabled(Flags.V09)
-        ):
-            raise ValueError("streamId requires the record_views alpha flag to be enabled in cdf.toml [alpha_flags].")
-        return self
-
     @field_validator("external_id")
     @classmethod
     def check_forbidden_external_id_value(cls, val: str) -> str:
@@ -102,7 +87,7 @@ class ViewYAML(ToolkitResource):
     @classmethod
     def validate_properties_identifier(cls, val: dict[str, str]) -> dict[str, str]:
         """Validate properties Identifier"""
-        for key in val.keys():
+        for key in val:
             if not KEY_PATTERN.match(key):
                 raise ValueError(f"Property '{key}' does not match the required pattern: {KEY_PATTERN.pattern}")
             if key in FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER:

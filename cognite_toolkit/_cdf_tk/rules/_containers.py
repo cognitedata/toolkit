@@ -5,7 +5,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     Insight,
 )
-from cognite_toolkit._cdf_tk.feature_flags import v09_gate
 from cognite_toolkit._cdf_tk.rules._base import ToolkitLocalRule, with_position
 from cognite_toolkit._cdf_tk.yaml_classes import ContainerYAML
 
@@ -57,7 +56,6 @@ class DeployableContainer(ToolkitLocalRule):
     """
 
     CODE = "INVALID-DIRECT-RELATION"
-    LEGACY_CODE = "DMS-CONTAINER-001"  # Used when the v09 flag is not enabled
     insight_type = ConsistencyError
 
     def validate(self) -> Iterable[Insight]:
@@ -75,9 +73,9 @@ class DeployableContainer(ToolkitLocalRule):
                     "Direct relations must be nullable."
                 )
                 yield with_position(
-                    v09_gate(BuildError, ConsistencyError)(
+                    BuildError(
                         message=message,
-                        code=v09_gate(self.CODE, self.LEGACY_CODE),
+                        code=self.CODE,
                         fix=fix,
                         source_file=source_file.source_path,
                         alpha=True,

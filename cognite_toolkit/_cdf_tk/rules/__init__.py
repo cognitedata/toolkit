@@ -6,7 +6,6 @@ from ._data_modeling import DataModelingRuleSet
 from ._dependencies import DependencyRuleSet
 from ._functions import FunctionRuleSet
 from ._infield import InFieldCDMRuleSet
-from ._neat import NeatRuleSet
 from ._orchestrator import LocalRulesOrchestrator, get_global_rules_registry
 
 __all__ = [
@@ -18,7 +17,6 @@ __all__ = [
     "FunctionRuleSet",
     "InFieldCDMRuleSet",
     "LocalRulesOrchestrator",
-    "NeatRuleSet",
     "ToolkitGlobalRuleSet",
     "ToolkitGlobalRuleSet",
     "ToolkitLocalRule",

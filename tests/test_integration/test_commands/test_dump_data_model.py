@@ -12,7 +12,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataMo
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, GraphQLIO, SpaceIO, ViewIO
 from tests.data import NAUGHTY_PROJECT
 
@@ -35,7 +34,7 @@ def deployed_misbehaving_grandparent(toolkit_client: ToolkitClient, cognite_clie
 
 class TestDumpResource:
     def test_dump_model_without_version(self, toolkit_client: ToolkitClient, tmp_path: Path) -> None:
-        data_model_id = ["cdf_cdm:CogniteCore/v1"] if Flags.V09.is_enabled() else ["cdf_cdm", "CogniteCore"]
+        data_model_id = ["cdf_cdm:CogniteCore/v1"]
         DumpConfigApp().dump_datamodel_cmd(
             typer.Context(click.Command("dump-datamodel")),
             data_model_id,

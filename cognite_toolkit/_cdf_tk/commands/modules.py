@@ -8,7 +8,7 @@ import zipfile
 from collections import Counter
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 import questionary
 import requests
@@ -66,7 +66,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
     Packages,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.ui import QUESTIONARY_STYLE, ToolkitPanel, ToolkitPanelSection, ToolkitTable
@@ -80,11 +79,6 @@ from cognite_toolkit._cdf_tk.utils.file import (
 )
 from cognite_toolkit._cdf_tk.utils.repository import FileDownloader
 from cognite_toolkit._version import __version__
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 INDENT = "  "
 POINTER = INDENT + "▶"
@@ -913,12 +907,7 @@ class ModulesCommand(ToolkitCommand):
             organization_dir = Path.cwd()
         effective_build_env = build_env_name or DEFAULT_ENV
         verify_module_directory(organization_dir, effective_build_env)
-
-        if Flags.V09.is_enabled():
-            config_yaml_input = config_yaml
-        else:
-            config_path = organization_dir / BuildConfigYAML.get_filename(effective_build_env)
-            config_yaml_input = config_path if config_path.is_file() else None
+        config_yaml_input = config_yaml
         lineage = BuildV2Command(
             print_warning=self.print_warning,
             skip_tracking=True,

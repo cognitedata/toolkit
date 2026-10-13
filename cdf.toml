@@ -16,19 +16,11 @@ import-cmd = true
 infield = true
 migrate = true
 create = true
-extend-download = true
-extend-upload = true
 data-products = true
 entity-matching = false
 custom-apps = true
-external-data-sources = true
-signals = true
 api = true
-sap-writeback = true
 catalog-dataset = true
-integrations = true
-agent-skills = true
-v09 = true
 
 [plugins]
 run = true

@@ -45,7 +45,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import v09_gate
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     FailedReadExtra,
     ReadExtra,
@@ -322,7 +321,7 @@ def _iter_file_content_read_extras(
         return
     if not source.is_file():
         yield FailedReadExtra(
-            code=v09_gate("MISSING-REFERENCED-FILE", "MISSING"),
+            code="MISSING-REFERENCED-FILE",
             error=f"File contents path does not exist: {source.as_posix()}",
             source_path=source,
         )
@@ -506,7 +505,7 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
         return []
 
     def count(self, ids: Sequence[NodeId]) -> int:
-        return sum(bool(file.is_uploaded or False) for file in self.retrieve(ids))
+        return sum(bool(file.is_uploaded) for file in self.retrieve(ids))
 
     def drop_data(self, ids: Sequence[NodeId]) -> int:
         # Deleting and recreating the file, will remove the file contents but keep the metadata.

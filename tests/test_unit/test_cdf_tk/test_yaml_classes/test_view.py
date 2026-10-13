@@ -3,7 +3,6 @@ from typing import get_args
 
 import pytest
 
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ViewProperty, ViewPropertyType
 from cognite_toolkit._cdf_tk.yaml_classes.views import ViewYAML
@@ -260,13 +259,7 @@ class TestViewYAML:
         with pytest.raises(ValueError):
             ViewYAML.model_validate(invalid_data)
 
-    def test_load_valid_record_view_with_stream_id(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        original = FeatureFlag.is_enabled
-        monkeypatch.setattr(
-            FeatureFlag,
-            "is_enabled",
-            lambda flag: flag is Flags.RECORD_VIEWS or original(flag),
-        )
+    def test_load_valid_record_view_with_stream_id(self) -> None:
         data = {
             "space": "my_space",
             "externalId": "my_record_view",

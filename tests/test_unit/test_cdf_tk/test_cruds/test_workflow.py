@@ -146,7 +146,6 @@ authentication:
         client.tool.workflows.triggers.pause.assert_not_called()
         client.tool.workflows.triggers.resume.assert_not_called()
 
-    @pytest.mark.skipif(not FeatureFlag.is_enabled(Flags.V09), reason="V09 feature flag is not enabled")
     @pytest.mark.parametrize(
         ("is_paused", "method_name"),
         [(True, "pause"), (False, "resume")],
@@ -183,7 +182,6 @@ authentication:
         getattr(client.tool.workflows.triggers, other).assert_not_called()
         assert created[0].is_paused == is_paused
 
-    @pytest.mark.skipif(not FeatureFlag.is_enabled(Flags.V09), reason="V09 feature flag is not enabled")
     def test_dump_resource_keeps_is_paused(self, toolkit_client_cheap: ToolkitClient) -> None:
         dumped = WorkflowTriggerIO(toolkit_client_cheap).dump_resource(
             WorkflowTriggerResponse(

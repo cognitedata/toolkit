@@ -88,7 +88,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -160,11 +159,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
             RawTableIO,
             RawDatabaseIO,
             GroupResourceScopedIO,
-            *(
-                {ExternalDataSourceIO}
-                if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) or FeatureFlag.is_enabled(Flags.V09)
-                else set()
-            ),
+            ExternalDataSourceIO,
         }
     )
 
@@ -223,8 +218,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     def get_dependencies(cls, resource: TransformationYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
-        flag_enabled = FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) or FeatureFlag.is_enabled(Flags.V09)
-        if flag_enabled and resource.query:
+        if resource.query:
             for source_id in get_ext_onelake_source_ids(resource.query):
                 yield ExternalDataSourceIO, ExternalId(external_id=source_id)
         if destination := resource.destination:

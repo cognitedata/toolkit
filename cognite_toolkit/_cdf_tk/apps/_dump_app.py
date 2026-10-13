@@ -42,50 +42,26 @@ class DumpApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.dump_main)
-        if Flags.V09.is_enabled():
-            self.command("datamodels")(DumpConfigApp.dump_datamodel_cmd)
-            self.command("workflows")(DumpConfigApp.dump_workflow)
-            self.command("transformations")(DumpConfigApp.dump_transformation)
-            self.command("groups")(DumpConfigApp.dump_group)
-            self.command("nodes")(DumpConfigApp.dump_node)
-            self.command("spaces")(DumpConfigApp.dump_spaces)
+        self.command("datamodels")(DumpConfigApp.dump_datamodel_cmd)
+        self.command("workflows")(DumpConfigApp.dump_workflow)
+        self.command("transformations")(DumpConfigApp.dump_transformation)
+        self.command("groups")(DumpConfigApp.dump_group)
+        self.command("nodes")(DumpConfigApp.dump_node)
+        self.command("spaces")(DumpConfigApp.dump_spaces)
 
-            self.command("location-filters")(DumpConfigApp.dump_location_filters)
-            self.command("extraction-pipelines")(DumpConfigApp.dump_extraction_pipeline)
-            self.command("hosted-extractors")(DumpConfigApp.dump_hosted_extractor)
-            self.command("functions")(DumpConfigApp.dump_functions)
-            self.command("datasets")(DumpConfigApp.dump_datasets)
-            self.command("streamlit")(DumpConfigApp.dump_streamlit)
+        self.command("location-filters")(DumpConfigApp.dump_location_filters)
+        self.command("extraction-pipelines")(DumpConfigApp.dump_extraction_pipeline)
+        self.command("hosted-extractors")(DumpConfigApp.dump_hosted_extractor)
+        self.command("functions")(DumpConfigApp.dump_functions)
+        self.command("datasets")(DumpConfigApp.dump_datasets)
+        self.command("streamlit")(DumpConfigApp.dump_streamlit)
 
-            self.command("agents")(DumpConfigApp.dump_agents)
+        self.command("agents")(DumpConfigApp.dump_agents)
 
-            self.command("search-configs")(DumpConfigApp.dump_search_config)
-            if Flags.SAP_WRITEBACK.is_enabled() or Flags.V09.is_enabled():
-                self.command("sap-writebacks")(DumpConfigApp.dump_sap_writeback)
-            if Flags.MIGRATE.is_enabled():
-                self.command("resource-view-mappings")(DumpConfigApp.dump_resource_view_mapping)
-        else:
-            self.command("datamodel")(DumpConfigApp.dump_datamodel_cmd)
-            self.command("workflow")(DumpConfigApp.dump_workflow)
-            self.command("transformation")(DumpConfigApp.dump_transformation)
-            self.command("group")(DumpConfigApp.dump_group)
-            self.command("node")(DumpConfigApp.dump_node)
-            self.command("spaces")(DumpConfigApp.dump_spaces)
-
-            self.command("location-filter")(DumpConfigApp.dump_location_filters)
-            self.command("extraction-pipeline")(DumpConfigApp.dump_extraction_pipeline)
-            self.command("hosted-extractor")(DumpConfigApp.dump_hosted_extractor)
-            self.command("functions")(DumpConfigApp.dump_functions)
-            self.command("datasets")(DumpConfigApp.dump_datasets)
-            self.command("streamlit")(DumpConfigApp.dump_streamlit)
-
-            self.command("agents")(DumpConfigApp.dump_agents)
-
-            self.command("search-config")(DumpConfigApp.dump_search_config)
-            if Flags.SAP_WRITEBACK.is_enabled() or Flags.V09.is_enabled():
-                self.command("sap-writeback")(DumpConfigApp.dump_sap_writeback)
-            if Flags.MIGRATE.is_enabled():
-                self.command("resource-view-mapping")(DumpConfigApp.dump_resource_view_mapping)
+        self.command("search-configs")(DumpConfigApp.dump_search_config)
+        self.command("sap-writebacks")(DumpConfigApp.dump_sap_writeback)
+        if Flags.MIGRATE.is_enabled():
+            self.command("resource-view-mappings")(DumpConfigApp.dump_resource_view_mapping)
 
     @staticmethod
     def dump_main(ctx: typer.Context) -> None:
@@ -98,24 +74,23 @@ class DumpConfigApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.dump_config_main)
 
-        self.command("datamodel")(self.dump_datamodel_cmd)
-        self.command("workflow")(self.dump_workflow)
-        self.command("transformation")(self.dump_transformation)
-        self.command("group")(self.dump_group)
-        self.command("node")(self.dump_node)
+        self.command("datamodels")(self.dump_datamodel_cmd)
+        self.command("workflows")(self.dump_workflow)
+        self.command("transformations")(self.dump_transformation)
+        self.command("groups")(self.dump_group)
+        self.command("nodes")(self.dump_node)
         self.command("spaces")(self.dump_spaces)
         self.command("location-filters")(self.dump_location_filters)
-        self.command("extraction-pipeline")(self.dump_extraction_pipeline)
-        self.command("hosted-extractor")(self.dump_hosted_extractor)
+        self.command("extraction-pipelines")(self.dump_extraction_pipeline)
+        self.command("hosted-extractors")(self.dump_hosted_extractor)
         self.command("datasets")(DumpConfigApp.dump_datasets)
         self.command("functions")(self.dump_functions)
         self.command("streamlit")(DumpConfigApp.dump_streamlit)
         self.command("agents")(self.dump_agents)
-        self.command("search-config")(self.dump_search_config)
-        if Flags.SAP_WRITEBACK.is_enabled() or Flags.V09.is_enabled():
-            self.command("sap-writeback")(self.dump_sap_writeback)
+        self.command("search-configs")(self.dump_search_config)
+        self.command("sap-writebacks")(self.dump_sap_writeback)
         if Flags.MIGRATE.is_enabled():
-            self.command("resource-view-mapping")(self.dump_resource_view_mapping)
+            self.command("resource-view-mappings")(self.dump_resource_view_mapping)
 
     @staticmethod
     def dump_config_main(ctx: typer.Context) -> None:
@@ -128,16 +103,9 @@ class DumpConfigApp(typer.Typer):
         data_model_id: Annotated[
             list[str] | None,
             typer.Argument(
-                help=(
-                    "Data model ID(s) to dump. Format: space:externalId/version. "
-                    "Example: 'my_space:my_external_id/v1'. You can provide multiple IDs separated by spaces. "
-                    "If nothing is provided, an interactive prompt will be shown to select the data model(s)."
-                    if Flags.V09.is_enabled()
-                    else "Data model ID to dump. Format: space external_id version. "
-                    "Example: 'my_space my_external_id v1'. "
-                    "Note that version is optional and defaults to the latest published version. "
-                    "If nothing is provided, an interactive prompt will be shown to select the data model."
-                ),
+                help="Data model ID(s) to dump. Format: space:externalId/version. "
+                "Example: 'my_space:my_external_id/v1'. You can provide multiple IDs separated by spaces. "
+                "If nothing is provided, an interactive prompt will be shown to select the data model(s).",
             ),
         ] = None,
         output_dir: Annotated[
@@ -178,18 +146,7 @@ class DumpConfigApp(typer.Typer):
         """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
         selected_data_model: DataModelNoVersionId | tuple[DataModelId, ...] | None = None
         if data_model_id is not None:
-            if Flags.V09.is_enabled():
-                selected_data_model = tuple(parse_data_model_str(model_id) for model_id in data_model_id)
-            elif len(data_model_id) < 2:
-                raise ToolkitRequiredValueError(
-                    "Data model ID must have at least 2 parts: space, external_id, and, optionally, version."
-                )
-            elif len(data_model_id) == 2:
-                selected_data_model = DataModelNoVersionId(space=data_model_id[0], external_id=data_model_id[1])
-            else:
-                selected_data_model = DataModelId(
-                    space=data_model_id[0], external_id=data_model_id[1], version=data_model_id[2]
-                )
+            selected_data_model = tuple(parse_data_model_str(model_id) for model_id in data_model_id)
         else:
             include_global = questionary.confirm(
                 "Include global data models in options?", default=include_global
