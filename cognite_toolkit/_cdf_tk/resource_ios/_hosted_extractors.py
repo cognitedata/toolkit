@@ -471,6 +471,17 @@ class HostedExtractorJobIO(
         local = local or {}
         if not dumped.get("config") and "config" not in local:
             dumped.pop("config", None)
+        cdf_format: dict | None = dumped["format"] if isinstance(dumped.get("format"), dict) else None
+        if cdf_format:
+            if isinstance(local_format := local.get("format"), dict):
+                if cdf_format.get("encoding") == "utf8" and "encoding" not in local_format:
+                    # The API returns a default encoding of "utf8" even if it is not set. We remove it to avoid unnecessary redeploys.
+                    cdf_format.pop("encoding")
+            if cdf_format.get("type") == "custom" and "expression" in cdf_format:
+                # The API returns a default expression fetched from the mapping itself.
+                # removing it.
+                cdf_format.pop("expression")
+
         return dumped
 
     def create(self, items: Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
