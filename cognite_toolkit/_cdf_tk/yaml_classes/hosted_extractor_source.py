@@ -297,7 +297,6 @@ class KafkaSource(HostedExtractorSource):
 
 class MQTTBroker(HostedExtractorSource):
     type: Literal["mqtt_broker"] = Field("mqtt_broker")
-    ...
 
 
 HostedExtractorSourceYAML = Annotated[
