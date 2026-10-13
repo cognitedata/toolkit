@@ -48,7 +48,6 @@ from cognite_toolkit._cdf_tk.resource_ios._data_organization import DataSetsIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth
-from cognite_toolkit._cdf_tk.utils.collection import get_string_nested_dict, set_nested_dict_if_path_exists
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import (
     HostedExtractorDestinationYAML,
@@ -86,6 +85,12 @@ class HostedExtractorSourceIO(
     class _MetadataKey:
         _prefix = "toolkit-hash"
         AUTH_BASIC_PASSWORD = f"{_prefix}-auth-basic-password"
+        AUTH_CLIENT_SECRET = f"{_prefix}-auth-client-secret"
+        AUTH_VALUE = f"{_prefix}-auth-value"
+
+        @classmethod
+        def auth_unknown(cls, field: str) -> str:
+            return f"{cls._prefix}-auth-{field}"
 
     @property
     def display_name(self) -> str:
@@ -158,11 +163,16 @@ class HostedExtractorSourceIO(
             if not (local and "keyName" in local):
                 # Deprecated, but still returned by the API even if it is not set.
                 dumped.pop("keyName", None)
-            if local and (basic_password := get_string_nested_dict(local, ("authentication", "password"))):
-                # The API does not return the password, we set it to equal as if has changed it will
-                # be caught by the hash comparison and redeployed. Furthermore, it should confuse the user
-                # as all passwords are hidden from terminal output.
-                set_nested_dict_if_path_exists(dumped, ("authentication", "password"), basic_password)
+
+        local_auth = local.get("authentication") if local else None
+        if isinstance(local_auth, dict) and isinstance(dumped.get("authentication"), dict):
+            # The API does not return sensitive strings (passwords, secrets, tokens). We set them equal
+            # to the local values as any actual change will be caught by the hash comparison and redeployed.
+            # Furthermore, it should not confuse the user as all sensitive strings are hidden from terminal output.
+            dumped_auth = dumped["authentication"]
+            for field_name, _ in self._sensitive_auth_fields(local_auth):
+                if field_name in local_auth:
+                    dumped_auth[field_name] = local_auth[field_name]
 
         # API returns certificate metadata (thumbprint/expiry) that cannot be redeployed.
         dumped.pop("caCertificate", None)
@@ -175,13 +185,35 @@ class HostedExtractorSourceIO(
         raw_data_list = super().load_resource_file(filepath, environment_variables)
         for raw_data in raw_data_list:
             metadata = raw_data.get("metadata", {})
-            if raw_data.get("type") == "eventhub":
-                if basic_password := get_string_nested_dict(raw_data, ("authentication", "password")):
-                    metadata[self._MetadataKey.AUTH_BASIC_PASSWORD] = calculate_secure_hash(
-                        basic_password, shorten=True
-                    )
+            authentication = raw_data.get("authentication")
+            if isinstance(authentication, dict):
+                for field_name, metadata_key in self._sensitive_auth_fields(authentication):
+                    secret = authentication.get(field_name)
+                    if isinstance(secret, str) and secret:
+                        metadata[metadata_key] = calculate_secure_hash(secret, shorten=True)
             raw_data["metadata"] = metadata
         return raw_data_list
+
+    @classmethod
+    def _sensitive_auth_fields(cls, authentication: dict[str, Any]) -> Iterable[tuple[str, str]]:
+        """Yields (field name in the authentication object, metadata hash key) for each sensitive string.
+
+        The hash of each sensitive string is stored in the resource metadata so that a change to a secret
+        is detected (and triggers a redeploy) even though the API never returns the secret itself.
+        """
+        auth_type = authentication.get("type")
+        if auth_type in ("basic", "scramSha256", "scramSha512"):
+            yield "password", cls._MetadataKey.AUTH_BASIC_PASSWORD
+        elif auth_type == "clientCredentials":
+            yield "clientSecret", cls._MetadataKey.AUTH_CLIENT_SECRET
+        elif auth_type in ("header", "query"):
+            yield "value", cls._MetadataKey.AUTH_VALUE
+        else:
+            # Unknown authentication type. Assume every field (except the discriminator 'type') is
+            # sensitive to ensure we do not expose secrets.
+            for field in authentication:
+                if field != "type":
+                    yield field, cls._MetadataKey.auth_unknown(field)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> HostedExtractorSourceRequestUnion:
         loaded = HostedExtractorSourceRequest.validate_python(resource)

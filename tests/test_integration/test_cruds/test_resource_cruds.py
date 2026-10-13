@@ -1143,10 +1143,54 @@ authentication:
   password: my-password
 """
 
+    mqtt_basic = """type: mqtt5
+externalId: test_no_redeploy_unchanged_mqtt
+host: mqtt.example.com
+authentication:
+  type: basic
+  username: my-username
+  password: my-password
+"""
+
+    kafka_scram = """type: kafka
+externalId: test_no_redeploy_unchanged_kafka
+bootstrapBrokers:
+  - host: broker.example.com
+    port: 9092
+authentication:
+  type: scramSha256
+  username: my-username
+  password: my-password
+"""
+
+    rest_client_credentials = """type: rest
+externalId: test_no_redeploy_unchanged_rest_client_credentials
+host: api.example.com
+authentication:
+  type: clientCredentials
+  clientId: my-client-id
+  tokenUrl: https://token.example.com/oauth/token
+  scopes: my-scope
+  clientSecret: my-client-secret
+"""
+
+    rest_header = """type: rest
+externalId: test_no_redeploy_unchanged_rest_header
+host: api.example.com
+authentication:
+  type: header
+  key: Authorization
+  value: my-secret-token
+"""
+
     @pytest.mark.parametrize(
         "content",
         [
             pytest.param(event_hub, id="eventhub basic auth"),
+            pytest.param(mqtt_basic, id="mqtt basic auth"),
+            pytest.param(kafka_scram, id="kafka scramSha256 auth"),
+            pytest.param(rest_client_credentials, id="rest clientCredentials auth"),
+            pytest.param(rest_header, id="rest header auth"),
         ],
     )
     def test_no_redeploy_unchanged(self, content: str, toolkit_client: ToolkitClient) -> None:
