@@ -179,7 +179,6 @@ class HostedExtractorSourceIO(
     def dump_resource(
         self, resource: HostedExtractorSourceResponseUnion, local: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        # Hosted extractor sources cannot be automatically
         dumped = resource.dump()
         dumped.pop("createdTime", None)
         dumped.pop("lastUpdatedTime", None)

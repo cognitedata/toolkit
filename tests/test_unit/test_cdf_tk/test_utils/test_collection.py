@@ -8,8 +8,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_classes import MigrationMapp
 from cognite_toolkit._cdf_tk.utils.collection import (
     chunker_sequence,
     flatten_dict_json_path,
-    get_string_nested_dict,
-    set_nested_dict_if_path_exists,
 )
 
 
@@ -139,77 +137,3 @@ class TestFlattenDictJsonPath:
         """Test that flatten_dict_json_path correctly flattens a nested dictionary."""
         flat_dict = flatten_dict_json_path(dct, keep_structured=exclude_keys)
         assert flat_dict == expected
-
-
-class TestGetStringNestedDict:
-    @pytest.mark.parametrize(
-        "dct, path, expected",
-        [
-            pytest.param({"a": {"b": {"c": "value"}}}, ("a", "b", "c"), "value", id="simple nested dict"),
-            pytest.param({"a": [{"b": {"c": "value"}}]}, ("a", 0, "b", "c"), "value", id="nested dict in list"),
-            pytest.param({"a": {"b": {"c": "value"}}}, ("x", "y", "z"), None, id="non-existent path"),
-            pytest.param({}, ("a", "b", "c"), None, id="empty dict"),
-        ],
-    )
-    def test_get_string_nested_dict(self, dct: dict[str, Any], path: tuple[str, ...], expected: str | None):
-        """Test that get_string_nested_dict correctly retrieves a value from a nested dictionary."""
-        assert get_string_nested_dict(dct, path) == expected
-
-    @pytest.mark.parametrize(
-        "dct, path",
-        [
-            pytest.param({"a": {"b": "not a dict"}}, ("a", "b", "c"), id="non-dict intermediate value"),
-            pytest.param({"a": {"b": {"value"}}}, ("a", 0, "b"), id="non-list intermediate value"),
-            pytest.param({"a": {"b": 123}}, ("a", "b"), id="non-string value"),
-        ],
-    )
-    def test_get_string_nested_dict_raises(self, dct: dict[str, Any], path: tuple[str, ...]):
-        """Test that get_string_nested_dict raises TypeError for non-dict intermediate values."""
-        with pytest.raises(TypeError):
-            get_string_nested_dict(dct, path)
-
-
-class TestSetNestedDictIfPathExists:
-    @pytest.mark.parametrize(
-        "dct, path, value, expected",
-        [
-            pytest.param({"a": {"b": {"c": 1}}}, ("a", "b", "c"), 2, {"a": {"b": {"c": 2}}}, id="simple nested dict"),
-            pytest.param(
-                {"a": [{"b": {"c": 1}}]}, ("a", 0, "b", "c"), 2, {"a": [{"b": {"c": 2}}]}, id="nested dict in list"
-            ),
-        ],
-    )
-    def test_set_nested_dict_if_path_exists(
-        self, dct: dict[str, Any], path: tuple[str | int, ...], value: Any, expected: dict[str, Any]
-    ):
-        """Test that set_nested_dict_if_path_exists correctly sets a value in a nested dictionary."""
-        assert dct != expected  # Ensure the original dict is not already equal to expected
-        set_nested_dict_if_path_exists(dct, path, value)
-        assert dct == expected
-
-    @pytest.mark.parametrize(
-        "dct, path, value",
-        [
-            pytest.param({"a": {"b": {"c": 1}}}, ("x", "y", "z"), 2, id="non-existent path"),
-            pytest.param({}, ("a", "b", "c"), 2, id="empty dict"),
-        ],
-    )
-    def test_set_nested_dict_if_path_exists_no_change(
-        self, dct: dict[str, Any], path: tuple[str | int, ...], value: Any
-    ):
-        """Test that set_nested_dict_if_path_exists does not change the dict if the path does not exist."""
-        original_dct = dct.copy()
-        set_nested_dict_if_path_exists(dct, path, value)
-        assert dct == original_dct  # The dict should remain unchanged
-
-    @pytest.mark.parametrize(
-        "dct, path",
-        [
-            pytest.param({"a": {"b": "not a dict"}}, ("a", "b", "c"), id="non-dict intermediate value"),
-            pytest.param({"a": [{"b": {"c": 1}}]}, ("a", 0, "b", 0), id="non-list intermediate value"),
-        ],
-    )
-    def test_set_nested_dict_if_path_exists_raises(self, dct: dict[str, Any], path: tuple[str | int, ...]):
-        """Test that set_nested_dict_if_path_exists raises TypeError for non-dict or non-list intermediate values."""
-        with pytest.raises(TypeError):
-            set_nested_dict_if_path_exists(dct, path, value=42)
