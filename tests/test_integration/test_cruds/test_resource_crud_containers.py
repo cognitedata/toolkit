@@ -8,7 +8,7 @@ from cognite.client import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import NameId, RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NameId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId, ContainerRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicRequest
@@ -222,14 +222,15 @@ class Test3DModelLoader:
             },
         )
 
-        loader = ThreeDModelIO(toolkit_client)
+        io = ThreeDModelIO(toolkit_client)
 
-        created_ids: list[NameId] | None = None
+        created_internal_ids: list[InternalId] = []
         try:
-            created_ids = loader.create([model])
+            created_ids = io.create([model])
             assert len(created_ids) == 1
-            created = loader.retrieve(created_ids)
+            created = io.retrieve(created_ids)
             assert len(created) == 1
+            created_internal_ids.append(InternalId(id=created[0].id))
 
             # Serialize and deserialize the model to get a copy
             update = created[0].as_request_resource().model_copy(deep=True)
@@ -237,19 +238,21 @@ class Test3DModelLoader:
             assert metadata is not None
             metadata["new_key"] = "new_value"
 
-            updated_ids = loader.update([update])
+            updated_ids = io.update([update])
             assert len(updated_ids) == 1
-            updated = loader.retrieve(updated_ids)
+            updated = io.retrieve(updated_ids)
             assert len(updated) == 1
-            assert updated[0].metadata["new_key"] == "new_value"
+            updated_metadata = updated[0].metadata
+            assert updated_metadata is not None
+            assert updated_metadata["new_key"] == "new_value"
 
-            deleted = loader.delete([NameId(name=model.name)])
+            deleted = io.delete([NameId(name=model.name)])
             assert deleted == [NameId(name=model.name)]
         finally:
             # Ensure that the model is deleted even if the test fails.
-            if created_ids is not None:
+            if created_internal_ids:
                 with suppress(ToolkitAPIError):
-                    toolkit_client.tool.three_d.models_classic.delete(created_ids)
+                    toolkit_client.tool.three_d.models_classic.delete(created_internal_ids)
 
 
 class TestRawTableCRUD:

@@ -299,14 +299,14 @@ class ResourceIO(
         raise NotImplementedError(f"create_acl must be implemented for {cls.__name__} ")
 
     @abstractmethod
-    def create(self, items: Sequence[T_RequestResource]) -> Sequence[T_Identifier]:
+    def create(self, items: Sequence[T_RequestResource]) -> Sequence[T_Identifier] | Sequence[T_ResponseResource]:
         raise NotImplementedError
 
     @abstractmethod
     def retrieve(self, ids: Sequence[T_Identifier]) -> Sequence[T_ResponseResource]:
         raise NotImplementedError
 
-    def update(self, items: Sequence[T_RequestResource]) -> Sequence[T_Identifier]:
+    def update(self, items: Sequence[T_RequestResource]) -> Sequence[T_Identifier] | Sequence[T_ResponseResource]:
         raise NotImplementedError(f"Update is not supported for {type(self).__name__}.")
 
     @abstractmethod

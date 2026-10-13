@@ -144,7 +144,7 @@ class TestFunctionScheduleLoader:
             client_secret=toolkit_client_config.credentials.client_secret,
         )
 
-        created_ids = loader.create(FunctionScheduleWriteList([local]))
+        created_ids = loader.create([local])
         try:
             assert created_ids == [loader.get_id(local)]
         finally:
@@ -553,6 +553,7 @@ class TestDataModelLoader:
             updated_ids = loader.update([update])
             assert len(updated_ids) == 1
             updated = loader.retrieve(updated_ids)
+            assert my_model.views is not None
             assert updated[0].views == [my_model.views[0]]
         finally:
             loader.delete([my_model.as_id(), update.as_id()])

@@ -534,17 +534,17 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
             return diff_list_hashable(local, cdf)
         return super().diff_list(local, cdf, json_path)
 
-    def create(self, items: Sequence[TransformationRequest]) -> list[ExternalId]:
-        return self.get_ids(self._execute_in_batches(items, self.client.tool.transformations.create))
+    def create(self, items: Sequence[TransformationRequest]) -> list[TransformationResponse]:
+        return self._execute_in_batches(items, self.client.tool.transformations.create)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[TransformationResponse]:
         return self.client.tool.transformations.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[TransformationRequest]) -> list[ExternalId]:
+    def update(self, items: Sequence[TransformationRequest]) -> list[TransformationResponse]:
         def update(transformations: Sequence[TransformationRequest]) -> list[TransformationResponse]:
             return self.client.tool.transformations.update(list(transformations), mode="replace")
 
-        return self.get_ids(self._execute_in_batches(items, update))
+        return self._execute_in_batches(items, update)
 
     def _create_auth_creation_error(self, items: Sequence[TransformationRequest]) -> ResourceCreationError | None:
         hints_by_id: dict[str, list[str]] = defaultdict(list)
