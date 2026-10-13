@@ -206,7 +206,7 @@ class HostedExtractorSourceIO(
         # local certificate so an unchanged source is not flagged as changed. Any change to the certificate
         # (including its private key or key password) is caught by the hash stored in metadata.
         for cert_key, _ in self._CERTIFICATE_KEYS:
-            if local and isinstance(local.get(cert_key), dict):
+            if local and isinstance(local.get(cert_key), dict | str):
                 dumped[cert_key] = local[cert_key]
             else:
                 dumped.pop(cert_key, None)
@@ -226,7 +226,7 @@ class HostedExtractorSourceIO(
                         metadata[metadata_key] = calculate_secure_hash(secret, shorten=True)
             for cert_key, metadata_key in self._CERTIFICATE_KEYS:
                 certificate = raw_data.get(cert_key)
-                if isinstance(certificate, dict):
+                if isinstance(certificate, dict | str):
                     metadata[metadata_key] = calculate_secure_hash(certificate, shorten=True)
             if metadata:
                 raw_data["metadata"] = metadata

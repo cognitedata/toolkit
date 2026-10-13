@@ -155,7 +155,7 @@ class RestConfig(BaseModelResource):
 
 
 def _determine_config_type(config: dict | None) -> str:
-    if config is None:
+    if not isinstance(config, dict):
         return "none"
     if "topicFilter" in config:
         return "mqtt"
