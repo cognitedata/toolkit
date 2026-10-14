@@ -146,6 +146,9 @@ exclude = [
 python-version = "3.14"
 python = ".venv"
 
+[tool.ty.rules]
+# This we do a lot intentionally when using the Discriminator pattern in pydantic.
+invalid-mutable-override = "ignore"
 
 [tool.ruff]
 line-length = 120
