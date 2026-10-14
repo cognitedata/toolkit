@@ -158,6 +158,20 @@ def test_set_extra_replaces_query_and_keeps_variable_tokens(org_dir: Path) -> No
     assert sql_path.read_text() == query
 
 
+def test_set_extra_is_checked_by_rules_straight_away(org_dir: Path) -> None:
+    session = load_session(org_dir)
+    identifier = {"externalId": "tr_first_transformation"}
+    destination = {"type": "nodes", "view": {"space": "sp_schema", "externalId": "ParentView", "version": "v1"}}
+    assert session.apply(
+        SetPath(kind="Transformation", identifier=identifier, path=["destination"], value=destination)
+    ).ok
+
+    result = session.apply(
+        SetExtra(kind="Transformation", identifier=identifier, field="query", text="select 1 as nope from t")
+    )
+    assert any("selects 'nope'" in insight.message for insight in result.insights)
+
+
 def test_edit_preserves_comments_and_variables(tmp_path: Path) -> None:
     org = tmp_path / "org"
     module = org / "modules" / "mod" / "data_modeling"

@@ -211,6 +211,7 @@ class ModelingSession:
                 if extra.suffix in SUPPORTS_VARIABLE_REPLACEMENT
                 else text
             )
+        self._built.pop(ref.source.module_id, None)
 
     def add_resource(
         self,
@@ -345,6 +346,7 @@ class ModelingSession:
             text_file.text = text
             for extra, content in extras:
                 extra.content = content
+            self._built.clear()
 
     def validate(self) -> list[SessionInsight]:
         self._built.clear()

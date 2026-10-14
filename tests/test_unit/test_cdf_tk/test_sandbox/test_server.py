@@ -111,3 +111,36 @@ def test_unknown_operation_returns_400(base_url: str, org_dir: Path) -> None:
     with pytest.raises(HTTPError) as error:
         call(base_url, "/apply", {"op": "DropEverything"})
     assert error.value.code == 400
+
+
+def test_describe_api(base_url: str) -> None:
+    description = call(base_url, "/")
+    assert "POST /apply" in description["routes"]
+    assert set(description["operations"]) == {"SetPath", "RemovePath", "SetExtra", "AddResource"}
+
+
+def test_load_with_missing_config_returns_400(base_url: str, org_dir: Path) -> None:
+    with pytest.raises(HTTPError) as error:
+        call(
+            base_url,
+            "/load",
+            {"organizationDir": str(org_dir), "configYaml": "missing.yaml", "modules": ["modules/my_example_module"]},
+        )
+    assert error.value.code == 400
+
+
+def test_rejected_token_value_gets_hint(base_url: str, org_dir: Path) -> None:
+    load(base_url, org_dir)
+    result = call(
+        base_url,
+        "/apply",
+        {
+            "op": "SetPath",
+            "kind": "Container",
+            "identifier": {"space": "sp_schema", "externalId": "NameContainer"},
+            "path": ["properties", "tag"],
+            "value": {"type": {"type": "text", "maxListSize": "{{ size }}"}},
+        },
+    )
+    assert not result["ok"]
+    assert "{{ variable }}" in result["hint"]
