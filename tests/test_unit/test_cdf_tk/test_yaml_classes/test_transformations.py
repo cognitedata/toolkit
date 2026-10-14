@@ -210,6 +210,7 @@ class TestTransformationYAML:
 
         dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
         if "authentication" in dumped:
+            assert isinstance(data["authentication"], dict)
             # Secret is not dumped as per design, so we add it back for comparison
             dumped["authentication"]["clientSecret"] = data["authentication"]["clientSecret"]
         assert dumped == data
@@ -223,6 +224,7 @@ class TestTransformationYAML:
             # Secret is not dumped as per design, so we add it back for comparison
             auth = dumped["authentication"]
             orig_auth = data["authentication"]
+            assert isinstance(orig_auth, dict)
             if "read" in auth or "write" in auth:
                 for key in ("read", "write"):
                     if key in auth:

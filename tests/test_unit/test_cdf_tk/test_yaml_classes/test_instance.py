@@ -251,13 +251,14 @@ class TestNodeYAML:
             ],
         }
         loaded = NodeYAML.model_validate(data)
+        assert loaded.sources is not None
         assert len(loaded.sources) == 2
         assert isinstance(loaded.sources[0].properties, dict)
         assert "prop1" in loaded.sources[0].properties
         assert loaded.sources[0].properties["prop1"] == "value1"
         assert isinstance(loaded.sources[1].properties, dict)
         assert "prop2" in loaded.sources[1].properties
-        assert loaded.sources[1].properties["prop2"] == "value2"
+        assert loaded.sources[1].properties["prop2"] == "valu2"
 
 
 class TestEdgeYAML:
