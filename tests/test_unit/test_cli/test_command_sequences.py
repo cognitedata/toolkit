@@ -267,7 +267,7 @@ def test_build_deploy_v2_complete_orgs(
 def test_complete_org_is_complete() -> None:
     module_scan, _ = BuildV2Command.read_filesystem_and_find_modules(
         organization_dir=COMPLETE_ORG,
-        config_yaml=COMPLETE_ORG / "config.dev.yaml",
+        config_yamls=[COMPLETE_ORG / "config.dev.yaml"],
         user_selected_modules=[f"{MODULES}/"],
     )
     used_loader_by_folder_name: dict[str, set[type[ResourceIO]]] = defaultdict(set)
@@ -279,7 +279,9 @@ def test_complete_org_is_complete() -> None:
                     used_loader_by_folder_name[resource_folder].add(loader)
 
     alpha_dir_scan, _ = BuildV2Command.read_filesystem_and_find_modules(
-        COMPLETE_ORG_ALPHA_FLAGS, COMPLETE_ORG_ALPHA_FLAGS / "config.dev.yaml", user_selected_modules=[f"{MODULES}/"]
+        COMPLETE_ORG_ALPHA_FLAGS,
+        config_yamls=[COMPLETE_ORG_ALPHA_FLAGS / "config.dev.yaml"],
+        user_selected_modules=[f"{MODULES}/"],
     )
     for module in alpha_dir_scan.modules:
         for resource_folder, files in module.resource_files_by_folder.items():

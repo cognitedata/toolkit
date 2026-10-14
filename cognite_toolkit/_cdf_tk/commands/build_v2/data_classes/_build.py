@@ -38,6 +38,7 @@ def contains_unresolved_variable(value: object) -> bool:
 class BuildParameters(BaseModel):
     organization_dir: Path
     build_dir: Path = Field(default_factory=lambda: Path.cwd() / "build")
+    # Todo Delete once refactoring is ocomplete
     config_yaml: Path | None = Field(
         None,
         description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory).",
@@ -116,12 +117,11 @@ class BuildInput(BaseModel):
     config_files: list[ConfigFile] = Field(
         default_factory=list,
         description="List of configuration YAML files to be used during the build process. Each file corresponds to a set of variables and "
-                    "selected modules.",
+        "selected modules.",
     )
     validation_type: ValidationType = "prod"
     cdf_project: str
     organization_dir: AbsoluteDirPath
-
 
     selected_modules: set[RelativeDirPath | str] | None = Field(
         description="Set of modules to build. Either module names (folder names) or relative paths to the organization directory."
