@@ -762,7 +762,9 @@ class BuildV2Command(ToolkitCommand):
         if config_yamls and len(config_yamls) > 1 and user_selected_modules is not None:
             # This should have been caught a lot earlier, but keep it for safety.
             raise ToolkitValueError(
-                f"Cannot specify multiple config YAML files and also provide {BUILD_MODULE_ARG} argument. The {BUILD_MODULE_ARG} argument is used to overwrite the selected section in the config YAML file, but this is not supported for multiple config files"
+                f"Cannot specify multiple config YAML files and also provide {BUILD_MODULE_ARG} argument. "
+                f"The {BUILD_MODULE_ARG} argument is used to overwrite the selected section in the config YAML file, "
+                "but this is not supported for multiple config files"
             )
 
         parsed_user_selected: set[RelativeDirPath | str] | None = None

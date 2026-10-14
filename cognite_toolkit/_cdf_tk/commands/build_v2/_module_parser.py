@@ -44,14 +44,20 @@ class ModuleParser:
             all_selected_modules.update(user_selected_modules)
             selected_modules = cls._select_modules(module_ids, user_selected_modules)
             module_sources.extend(source_by_module_id[module] for module in selected_modules)
-        elif build.config_files is not None and user_selected_modules is None:
+        elif build.config_files is not None:
             for config_file in build.config_files:
-                selected_modules = cls._select_modules(module_ids, config_file.selected_modules)
+                config_selected_modules = config_file.selected_modules or user_selected_modules
+                if config_selected_modules is None:
+                    raise RuntimeError(
+                        "Bug in Toolkit: No selected modules provided to parse modules for config file "
+                        f"{config_file.config_path}"
+                    )
+                selected_modules = cls._select_modules(module_ids, config_selected_modules)
                 selected_paths = cls._expand_parents(selected_modules)
                 build_variables, invalid_config_variables = cls._parse_variables(
                     build.variables, available_paths, selected_paths, build.config_path
                 )
-                all_selected_modules.update(config_file.selected_modules)
+                all_selected_modules.update(config_selected_modules)
                 invalid_variables.extend(invalid_config_variables)
                 for module in selected_modules:
                     source = source_by_module_id[module]

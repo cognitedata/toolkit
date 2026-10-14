@@ -101,7 +101,7 @@ class BuildParameters(BaseModel):
 
 
 class ConfigFile(BaseModel):
-    selected_modules: set[RelativeDirPath | str] = Field(
+    selected_modules: set[RelativeDirPath | str] | None = Field(
         description="Set of modules to build. Either module names (folder names) or relative paths"
         " to the organization directory. If None, no modules are selected."
     )
