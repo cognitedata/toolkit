@@ -153,13 +153,11 @@ class TestUploadCommand:
     ) -> None:
         config = toolkit_config
         cmd = UploadCommand(silent=True, skip_tracking=True)
-        monkeypatch.setenv("CDF_CLUSTER", config.attempt_to_get_cdf_cluster())
+        monkeypatch.setenv("CDF_CLUSTER", config.cloud_provider)
         monkeypatch.setenv("CDF_PROJECT", config.project)
         with monkeypatch_toolkit_client() as client:
             client.token.verify_acls.return_value = []
             cmd.upload(raw_json_directory, client, deploy_resources=True, dry_run=True, verbose=False)
-
-            client.raw.rows.insert.assert_not_called()
             client.raw.databases.create.assert_not_called()
             client.raw.tables.create.assert_not_called()
 

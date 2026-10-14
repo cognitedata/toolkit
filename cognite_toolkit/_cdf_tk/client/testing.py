@@ -186,6 +186,14 @@ class ToolkitClientMock(ToolkitClient):
         # Intentionally do NOT call super().__init__(): it would require a real
         # ToolkitClientConfig and build real API clients. We replace every API
         # attribute with a MagicMock below.
+        # Guard against re-initialization: ``monkeypatch_toolkit_client`` patches
+        # ``ToolkitClient.__new__`` to return this singleton. Any code that constructs a
+        # ``ToolkitClient(...)`` (e.g. TransformationIO building a session client for OIDC
+        # credentials) would otherwise trigger ``__init__`` again and wipe out all the mock
+        # return values/side effects configured by the test.
+        if getattr(self, "_is_initialized", False):
+            return
+        self._is_initialized = True
         self.console = Console()
         # spec= (not spec_set): ClientConfig fields are not plain class attributes, so spec_set
         # blocked assigning project/timeout in tests. Defaults keep HTTPClient(...) usable.

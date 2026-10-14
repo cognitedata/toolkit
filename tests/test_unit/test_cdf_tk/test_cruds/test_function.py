@@ -405,8 +405,6 @@ authentication:
                 created_time=1,
                 when="2024-01-01T08:00:00Z",
             )
-            # The as_write method looks up the input data.
-            client.functions.schedules.get_input_data.return_value = None
             loader = FunctionScheduleIO(client)
 
         filepath = MagicMock(spec=Path)

@@ -5,6 +5,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     APMConfigResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest, AppResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.app_version import (
+    AppVersionRequest,
+    AppVersionResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import (
     CogniteFileRequest,
@@ -141,6 +146,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
     SimulatorRoutineRevisionRequest,
     SimulatorRoutineRevisionResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest, SkillResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest, StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -691,6 +697,41 @@ API_RESOURCES = [
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [Method(api_class_method="retrieve", mock_class_method="retrieve")],
+        },
+    ),
+    APIResource(
+        api_name="skills",
+        resource_cls=SkillResponse,
+        _write_cls=SkillRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+                Method(api_class_method="list", mock_class_method="list"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="apps",
+        resource_cls=AppResponse,
+        _write_cls=AppRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+                Method(api_class_method="iterate", mock_class_method="iterate"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="apps.versions",
+        resource_cls=AppVersionResponse,
+        _write_cls=AppVersionRequest,
+        methods={
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+                Method(api_class_method="iterate", mock_class_method="iterate"),
+            ],
         },
     ),
     APIResource(
