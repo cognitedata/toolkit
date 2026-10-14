@@ -10,8 +10,8 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, Literal, Self
 
+import httpx2
 import questionary
-import requests
 import typer
 from packaging.version import Version
 from packaging.version import parse as parse_version
@@ -1241,19 +1241,19 @@ class ModulesCommand(ToolkitCommand):
             if file_path.exists():
                 file_path.unlink()
 
-            response = requests.get(url, stream=True)
-            response.raise_for_status()  # Raise an exception for HTTP errors
+            with httpx2.stream("GET", url, follow_redirects=True) as response:
+                response.raise_for_status()  # Raise an exception for HTTP errors
 
-            total_size = int(response.headers.get("content-length", 0))
+                total_size = int(response.headers.get("content-length", 0))
 
-            with Progress() as progress:
-                task = progress.add_task("Download", total=total_size)
-                with open(file_path, "wb") as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                        progress.update(task, advance=len(chunk))
+                with Progress() as progress:
+                    task = progress.add_task("Download", total=total_size)
+                    with open(file_path, "wb") as f:
+                        for chunk in response.iter_bytes(chunk_size=8192):
+                            f.write(chunk)
+                            progress.update(task, advance=len(chunk))
 
-        except requests.exceptions.RequestException as e:
+        except httpx2.HTTPError as e:
             raise ToolkitError(f"Error downloading file from {url}: {e}") from e
 
     def _unpack(self, file_path: Path) -> None:
