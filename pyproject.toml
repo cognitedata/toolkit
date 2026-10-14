@@ -18,6 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Operating System :: OS Independent",
 ]
 dependencies = [
@@ -72,7 +73,7 @@ dev = [
 
 [project.optional-dependencies]
 table = [
-    "pyarrow>=20.0.0",
+    "pyarrow>=26.0.0",
 ]
 sql = [
     "sqlparse >=0.5.3",
