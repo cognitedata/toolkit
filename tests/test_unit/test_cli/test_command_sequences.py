@@ -68,7 +68,7 @@ def test_build_deploy_module(
         parameters=BuildParameters(
             organization_dir=buildable_modules,
             build_dir=build_tmp_path,
-            config_yaml=buildable_modules / "config.dev.yaml",
+            config_yamls=[buildable_modules / "config.dev.yaml"],
             user_selected_modules=[module_path.name],
         ),
     )
@@ -128,7 +128,7 @@ def test_build_deploy_with_dry_run(
         parameters=BuildParameters(
             organization_dir=buildable_modules,
             build_dir=build_tmp_path,
-            config_yaml=buildable_modules / "config.dev.yaml",
+            config_yamls=[buildable_modules / "config.dev.yaml"],
             user_selected_modules=[module_path.name],
         ),
     )
@@ -173,7 +173,7 @@ def test_init_build_clean(
         parameters=BuildParameters(
             organization_dir=buildable_modules,
             build_dir=build_tmp_path,
-            config_yaml=buildable_modules / "config.dev.yaml",
+            config_yamls=[buildable_modules / "config.dev.yaml"],
             user_selected_modules=[module_path.name],
         ),
     )
@@ -230,7 +230,7 @@ def test_build_deploy_v2_complete_orgs(
         parameters=BuildParameters(
             organization_dir=organization_dir,
             build_dir=build_tmp_path,
-            config_yaml=organization_dir / "config.dev.yaml",
+            config_yamls=[organization_dir / "config.dev.yaml"],
         ),
     )
     with patch.dict(

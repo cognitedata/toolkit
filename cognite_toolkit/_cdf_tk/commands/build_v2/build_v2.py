@@ -100,6 +100,7 @@ from cognite_toolkit._cdf_tk.utils.file import (
     yaml_positions,
     yaml_safe_dump,
 )
+from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash_multi_file
 from cognite_toolkit._cdf_tk.validation import (
     ValidationMessage,
     humanize_validation_error,
@@ -329,13 +330,17 @@ class BuildV2Command(ToolkitCommand):
         """
         console = client.console if client else Console(markup=True)
         self.validate_build_parameters(
-            BuildParameters(organization_dir=organization_dir, config_yaml=config_yaml), console, sys.argv
+            BuildParameters(organization_dir=organization_dir, config_yamls=[config_yaml] if config_yaml else None),
+            console,
+            sys.argv,
         )
 
         organization_dir = organization_dir.resolve()
         config_yaml_path = config_yaml.resolve() if config_yaml else None
         base_parameters = BuildParameters(
-            organization_dir=organization_dir, config_yaml=config_yaml_path, user_selected_modules=[f"{MODULES}/"]
+            organization_dir=organization_dir,
+            config_yamls=[config_yaml_path] if config_yaml_path else None,
+            user_selected_modules=[f"{MODULES}/"],
         )
 
         cache_path = self._build_cache_path(organization_dir, config_yaml_path)
@@ -391,8 +396,8 @@ class BuildV2Command(ToolkitCommand):
         if cached_lineage is None:
             return None, False
 
-        if parameters.config_yaml is not None:
-            current_config_hash = calculate_hash(parameters.config_yaml, shorten=True)
+        if parameters.config_yamls is not None:
+            current_config_hash = calculate_hash_multi_file(parameters.config_yamls, shorten=True)
             if cached_lineage.config_hash != current_config_hash:
                 return None, False
 
@@ -471,17 +476,25 @@ class BuildV2Command(ToolkitCommand):
 
         # Set up the variables
         organization_dir = parameters.organization_dir
-        config_yaml_path: Path | None = parameters.config_yaml.resolve() if parameters.config_yaml else None
+        config_yaml_paths: list[Path] | None = (
+            [path.resolve() for path in parameters.config_yamls] if parameters.config_yamls else None
+        )
         module_directory = parameters.modules_directory
 
         # Execute the checks.
-        if module_directory.exists() and (config_yaml_path is None or config_yaml_path.exists()):
+        if module_directory.exists() and (
+            config_yaml_paths is None or all(path.exists() for path in config_yaml_paths)
+        ):
             # All good.
             return
 
         # Display what Toolkit expects.
-        if isinstance(config_yaml_path, Path):
-            content = f"  ┣ {MODULES}/\n  ┗ {config_yaml_path.name}\n"
+        if config_yaml_paths is not None and config_yaml_paths:
+            content_lines = [f"  ┣ {MODULES}/"]
+            for config_path in config_yaml_paths[:-1]:
+                content_lines.append(f"  ┣ {config_path.name}")
+            content_lines.append(f"  ┗ {config_yaml_paths[-1].name}\n")
+            content = "\n".join(content_lines)
         else:
             content = f"  ┗ {MODULES}\n"
         organization_dir_display = relative_to_if_possible(organization_dir)
@@ -493,9 +506,14 @@ class BuildV2Command(ToolkitCommand):
 
         if not organization_dir.exists():
             raise ToolkitNotADirectoryError(f"Organization directory '{organization_dir_display.as_posix()}' not found")
-        elif module_directory.exists() and config_yaml_path is not None and not config_yaml_path.exists():
+        elif (
+            module_directory.exists()
+            and config_yaml_paths is not None
+            and (missing_config_paths := [path for path in config_yaml_paths if not path.exists()])
+        ):
+            suffix = "s" if len(missing_config_paths) > 1 else ""
             raise ToolkitFileNotFoundError(
-                f"Config YAML file '{relative_to_if_possible(config_yaml_path).as_posix()}' not found"
+                f"Config YAML file{suffix} '{humanize_collection([relative_to_if_possible(path).as_posix() for path in missing_config_paths])}' not found"
             )
         elif not module_directory.exists():
             # This is likely the most common error. The user pass in Path.cwd() as the organization directory,

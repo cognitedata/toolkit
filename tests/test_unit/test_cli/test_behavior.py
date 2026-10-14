@@ -95,7 +95,7 @@ def test_inject_custom_environmental_variables(
         parameters=BuildParameters(
             organization_dir=buildable_modules,
             build_dir=build_tmp_path,
-            config_yaml=config_path,
+            config_yamls=[config_path],
             user_selected_modules=["cdf_common"],
         ),
     )
@@ -649,7 +649,7 @@ def test_build_custom_project(
         parameters=BuildParameters(
             organization_dir=PROJECT_NO_COGNITE_MODULES,
             build_dir=build_tmp_path,
-            config_yaml=PROJECT_NO_COGNITE_MODULES / "config.dev.yaml",
+            config_yamls=[PROJECT_NO_COGNITE_MODULES / "config.dev.yaml"],
         ),
     )
 
@@ -670,7 +670,7 @@ def test_build_project_selecting_parent_path(
         parameters=BuildParameters(
             organization_dir=PROJECT_FOR_TEST,
             build_dir=build_tmp_path,
-            config_yaml=PROJECT_FOR_TEST / "config.dev.yaml",
+            config_yamls=[PROJECT_FOR_TEST / "config.dev.yaml"],
         ),
     )
 
@@ -724,7 +724,7 @@ def test_build_project_with_only_top_level_variables(
         parameters=BuildParameters(
             organization_dir=PROJECT_NO_COGNITE_MODULES,
             build_dir=build_tmp_path,
-            config_yaml=PROJECT_NO_COGNITE_MODULES / "config.top_level_variables.yaml",
+            config_yamls=[PROJECT_NO_COGNITE_MODULES / "config.top_level_variables.yaml"],
         ),
     )
 
@@ -794,7 +794,7 @@ def test_build_deploy_location_filter_with_same_filename_in_different_modules(
         parameters=BuildParameters(
             organization_dir=NAUGHTY_PROJECT,
             build_dir=build_tmp_path,
-            config_yaml=None,
+            config_yamls=None,
             user_selected_modules=["modules/multi_locations"],
         ),
     )
@@ -840,7 +840,7 @@ def test_build_deploy_keep_special_characters(
         parameters=BuildParameters(
             organization_dir=NAUGHTY_PROJECT,
             build_dir=build_dir,
-            config_yaml=None,
+            config_yamls=None,
             user_selected_modules=["encoding_issue"],
         ),
     )
@@ -910,7 +910,7 @@ dataModelingType: DATA_MODELING_ONLY
         parameters=BuildParameters(
             organization_dir=org,
             build_dir=build_tmp_path,
-            config_yaml=None,
+            config_yamls=None,
             user_selected_modules=["my_first", "my_second"],
         ),
     )
@@ -1006,7 +1006,7 @@ def test_workflow_deployment_order(
         parameters=BuildParameters(
             organization_dir=org,
             build_dir=build_tmp_path,
-            config_yaml=None,
+            config_yamls=None,
             user_selected_modules=["my_workflow_module"],
         ),
     )
@@ -1068,7 +1068,7 @@ runtimeVersion: "1.3.0"
         parameters=BuildParameters(
             organization_dir=org,
             build_dir=build_tmp_path,
-            config_yaml=None,
+            config_yamls=None,
             user_selected_modules=["my_agent_module"],
         ),
     )
@@ -1125,7 +1125,7 @@ capabilities:
         parameters=BuildParameters(
             organization_dir=my_org,
             build_dir=tmp_path / "build",
-            config_yaml=my_org / "config.dev.yaml",
+            config_yamls=[my_org / "config.dev.yaml"],
         ),
     )
     insights = [insight for insight in folder.all_insights if insight.code == "MISSING-REFERENCED-RESOURCE"]
@@ -1165,7 +1165,7 @@ capabilities:
         parameters=BuildParameters(
             organization_dir=my_org,
             build_dir=tmp_path / "build",
-            config_yaml=my_org / "config.dev.yaml",
+            config_yamls=[my_org / "config.dev.yaml"],
         ),
     )
     codes = {insight.code for insight in folder.all_insights}
@@ -1220,7 +1220,7 @@ capabilities:
         parameters=BuildParameters(
             organization_dir=my_org,
             build_dir=tmp_path / "build",
-            config_yaml=my_org / "config.dev.yaml",
+            config_yamls=[my_org / "config.dev.yaml"],
         ),
     )
     # The unknown capability should produce an UNRECOGNIZED-VALUE (not an error — the YAML
