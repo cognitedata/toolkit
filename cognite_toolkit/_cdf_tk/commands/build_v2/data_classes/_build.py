@@ -38,11 +38,6 @@ def contains_unresolved_variable(value: object) -> bool:
 class BuildParameters(BaseModel):
     organization_dir: Path
     build_dir: Path = Field(default_factory=lambda: Path.cwd() / "build")
-    # Todo Delete once refactoring is complete
-    config_yaml: Path | None = Field(
-        None,
-        description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory).",
-    )
     config_yamls: list[Path] | None = Field(
         default=None,
         description="List of configuration YAML files (typically config.<env>.yaml under the organization directory).",
