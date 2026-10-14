@@ -108,6 +108,8 @@ class ModelingSession:
         self.files: list[SourceFile] = []
         self._variables: dict[ModuleId, list[BuildVariable]] = {}
         self._texts: dict[Path, TextFile] = {}
+        # Rendered text of files as dumped or pulled from CDF, to compare edits against.
+        self._cdf_text: dict[Path, str] = {}
         self._built: dict[ModuleId, BuiltModule] = {}
         self._insights: list[SessionInsight] = []
         self._journal = _Journal()
@@ -261,10 +263,12 @@ class ModelingSession:
         module: str | None = None,
         sub_dir: str | None = None,
         extras: dict[str, str] | None = None,
+        from_cdf: bool = False,
     ) -> Identifier:
         """Add a resource in a new file. The file is placed below the module, in the resource folder of the kind.
 
         ``extras`` maps a resource field (for example ``query``) to sidecar text written next to the YAML.
+        ``from_cdf`` records the file as it is now as the CDF version, so ``changes`` can show later edits against it.
         """
         crud_cls = self.crud_class(kind, folder)
         target = self._module(module)
@@ -309,6 +313,10 @@ class ModelingSession:
         self.files.append(source)
         self._journal.added.append(source)
         self._refresh(source)
+        if from_cdf:
+            self._cdf_text[source.path] = render_source_file(source)
+            for success_extra in success_extras:
+                self._cdf_text[success_extra.source_path] = success_extra.content or ""
         return identifier
 
     def remove_resource(self, ref: ResourceRef) -> None:
@@ -513,6 +521,41 @@ class ModelingSession:
                 tofile=str(path),
             )
             diffs[path] = "".join(lines)
+
+    def mark_cdf_baseline(self, ref: ResourceRef) -> None:
+        """Treat the resource's files, as they are now, as the CDF version (after a pull)."""
+        self._cdf_text[ref.source.path] = render_source_file(ref.source)
+        for text_file in self.extra_texts(ref).values():
+            self._cdf_text[text_file.path] = text_file.text
+
+    def changes(self) -> list[dict[str, Any]]:
+        """Files with the text to compare them against.
+
+        ``origin`` is ``cdf`` when the baseline is the CDF version (dumped or pulled), and ``sandbox`` when it is
+        the text on disk. Files that still match a CDF baseline are included, so a caller can tell what came from
+        CDF unchanged. Disk files without pending edits are left out.
+        """
+        entries = [
+            self._change_entry(
+                source.path, render_source_file(source), source.original_text, source.dirty or source.is_new
+            )
+            for source in self.files
+            if not source.deleted
+        ]
+        entries += [
+            self._change_entry(text.path, text.text, text.original_text, text.dirty) for text in self._texts.values()
+        ]
+        return [entry for entry in entries if entry is not None]
+
+    def _change_entry(self, path: Path, current: str, original: str, pending: bool) -> dict[str, Any] | None:
+        cdf_text = self._cdf_text.get(path)
+        if cdf_text is not None:
+            state = "unchanged" if current == cdf_text else "changed"
+            return {"path": str(path), "origin": "cdf", "baseline": cdf_text, "current": current, "state": state}
+        if not pending or current == original:
+            return None
+        state = "new" if original == "" else "changed"
+        return {"path": str(path), "origin": "sandbox", "baseline": original, "current": current, "state": state}
 
     def write(self) -> list[Path]:
         """Write the edited files to disk. Returns the paths written."""

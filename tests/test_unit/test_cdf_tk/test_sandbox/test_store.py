@@ -10,7 +10,7 @@ from urllib.request import Request, urlopen
 import pytest
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
-from cognite_toolkit._cdf_tk.sandbox import RemoveResource
+from cognite_toolkit._cdf_tk.sandbox import RemoveResource, SetPath
 from cognite_toolkit._cdf_tk.sandbox._server import make_server
 from cognite_toolkit._cdf_tk.sandbox._workspace import Workspace
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -121,6 +121,47 @@ def test_cdf_load_dumps_space_into_session(
     assert "name: From CDF" in dumped.read_text()
 
 
+def test_changes_compare_cdf_dump_against_its_loaded_text(
+    org_dir: Path, toolkit_client_approval: ApprovalToolkitClient
+) -> None:
+    toolkit_client_approval.append(
+        SpaceResponse,
+        SpaceResponse(space="from_cdf", name="From CDF", is_global=False, created_time=1, last_updated_time=1),
+    )
+    workspace = Workspace(client=toolkit_client_approval.client)
+    workspace.load(org_dir, org_dir / "config.dev.yaml", [MODULE])
+    workspace.cdf_load({"kind": "Space", "folder": "data_modeling", "identifiers": [{"space": "from_cdf"}]})
+    session = workspace.get_session()
+
+    def dumped() -> dict[str, Any]:
+        return next(entry for entry in session.changes() if "from_cdf" in entry["path"])
+
+    assert dumped()["origin"] == "cdf"
+    assert dumped()["state"] == "unchanged"
+    assert dumped()["baseline"] == dumped()["current"]
+    # The disk diff calls the whole file new, which is what changes() avoids.
+    assert any("from_cdf" in str(path) for path in session.diff())
+
+    edit = SetPath(kind="Space", identifier={"space": "from_cdf"}, path=["description"], value="edited")
+    result = session.apply(edit)
+    assert result.ok, result.insights
+    assert dumped()["state"] == "changed"
+    assert "description" not in dumped()["baseline"]
+    assert "description: edited" in dumped()["current"]
+
+
+def test_changes_leave_out_untouched_disk_files(org_dir: Path) -> None:
+    workspace = Workspace()
+    workspace.load(org_dir, org_dir / "config.dev.yaml", [MODULE])
+    session = workspace.get_session()
+    assert session.changes() == []
+
+    session.apply(SetPath(kind="Space", identifier={"space": "sp_schema"}, path=["description"], value="x"))
+    [entry] = session.changes()
+    assert entry["origin"] == "sandbox"
+    assert entry["state"] == "changed"
+
+
 def test_cdf_pull_merges_description(
     org_dir: Path, toolkit_client_approval: ApprovalToolkitClient
 ) -> None:
@@ -141,6 +182,8 @@ def test_cdf_pull_merges_description(
     assert result["updated"]
     space = workspace.get_resource("Space", {"space": "sp_schema"})["resource"]
     assert space["description"] == "pulled from cdf"
+    [entry] = [e for e in workspace.get_session().changes() if "schema.Space" in e["path"]]
+    assert (entry["origin"], entry["state"]) == ("cdf", "unchanged")
     workspace.get_session().write()
     text = (org_dir / MODULE / "data_modeling" / "schema.Space.yaml").read_text()
     assert "pulled from cdf" in text

@@ -38,6 +38,10 @@ def describe_api() -> dict[str, Any]:
             "POST /apply": "Body: one operation, selected with the op field. Returns ok and insights. ok=false is rolled back.",
             "GET /insights": "Validate the whole session.",
             "GET /diff": "Unified diffs of the pending edits.",
+            "GET /changes": (
+                "Files with the text to compare them against: path, origin (cdf or sandbox), baseline, current, "
+                "state (new, changed, unchanged). A cdf baseline is the file as dumped or pulled from CDF."
+            ),
             "POST /write": "Write the pending edits to disk.",
             "GET /cdf/diff": "Compare the session to CDF (create / update / delete / unchanged). Requires a client.",
             "POST /cdf/deploy": (
@@ -114,6 +118,8 @@ def make_server(
                 return HTTPStatus.OK, {"insights": [insight_to_json(i) for i in insights]}
             if method == "GET" and path == "/diff":
                 return HTTPStatus.OK, {str(file): diff for file, diff in workspace.get_session().diff().items()}
+            if method == "GET" and path == "/changes":
+                return HTTPStatus.OK, {"files": workspace.get_session().changes()}
             if method == "POST" and path == "/write":
                 return HTTPStatus.OK, {"written": [str(file) for file in workspace.get_session().write()]}
             if method == "GET" and path == "/cdf/diff":

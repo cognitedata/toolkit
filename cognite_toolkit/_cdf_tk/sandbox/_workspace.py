@@ -150,6 +150,7 @@ class Workspace:
                 folder=crud_cls.folder_name,
                 module=module,
                 extras=sidecars or None,
+                from_cdf=True,
             )
             added.append({"kind": crud_cls.kind, "identifier": identifier.dump()})
         return {"added": added, "counts": self.counts()}

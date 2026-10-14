@@ -200,6 +200,8 @@ class CdfStore:
         skipped: list[dict[str, str]] = []
         for ref in refs:
             result = self._merge_one(session, ref)
+            if result is not None:
+                session.mark_cdf_baseline(ref)
             if result is None:
                 skipped.append(
                     {
