@@ -49,6 +49,8 @@ def calculate_secure_hash(item: dict[str, Any] | str, shorten: bool = False) -> 
 
 
 def calculate_hash_multi_file(filepaths: list[Path], shorten: bool = False) -> str:
+    if not filepaths:
+        return ""
     byte_array: list[bytes] = []
     for config_file in filepaths:
         byte_array.append(config_file.read_bytes().replace(b"\r\n", b"\n"))
