@@ -134,18 +134,13 @@ include = ["cognite_toolkit", "tests_smoke", "tests"]
 exclude = [
     "tests/data/",
     "tests/test_unit/test_cdf_tk/approval_client",
-    "tests/test_unit/test_cdf_tk/test_apps",
-    "tests/test_unit/test_cdf_tk/test_auth",
-    "tests/test_unit/test_cdf_tk/test_client",
-    "tests/test_unit/test_cdf_tk/test_commands",
-    "tests/test_unit/test_cdf_tk/test_cruds",
-    "tests/test_unit/test_cdf_tk/test_data_classes",
-    "tests/test_unit/test_cdf_tk/test_rules",
-    "tests/test_unit/test_cdf_tk/test_storageio",
-    "tests/test_unit/test_cdf_tk/test_tk_warnings",
-    "tests/test_unit/test_cdf_tk/test_utils",
-    "tests/test_unit/test_cdf_tk/test_validation",
-    "tests/test_unit/test_cdf_tk/test_yaml_classes",
+    "tests/test_unit/test_cdf_tk/test_client", # 258
+    "tests/test_unit/test_cdf_tk/test_commands", # 586
+    "tests/test_unit/test_cdf_tk/test_cruds", # 45
+    "tests/test_unit/test_cdf_tk/test_rules", # 21
+    "tests/test_unit/test_cdf_tk/test_storageio", # 71
+    "tests/test_unit/test_cdf_tk/test_utils", # 184
+    "tests/test_unit/test_cdf_tk/test_yaml_classes", # 22
 ]
 [tool.ty.environment]
 python-version = "3.14"
