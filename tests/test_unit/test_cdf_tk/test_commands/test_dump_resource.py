@@ -1,5 +1,4 @@
 import json
-from collections import Counter
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -7,7 +6,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from questionary import Choice
 from rich.console import Console
@@ -995,10 +993,6 @@ class TestDumpStreamlitApps:
             MockQuestionary(StreamlitFinder.__module__, monkeypatch, answers),
         ):
             client.streamlit.list.return_value = three_streamlit_apps
-            counts_by_creator = Counter([app.creator for app in three_streamlit_apps])
-            # client.documents.aggregate_unique_values.return_value = UniqueResultList(
-            #     [UniqueResult(count=count, values=[creator]) for creator, count in counts_by_creator.items()]
-            # )
             finder = StreamlitFinder(client, None)
             selected = finder._interactive_select()
 

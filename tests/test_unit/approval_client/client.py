@@ -13,7 +13,6 @@ from typing import Any, BinaryIO, TextIO, TypeVar, cast
 from unittest.mock import MagicMock
 
 import pandas as pd
-from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
@@ -330,7 +329,7 @@ class ApprovalToolkitClient:
         """
         self._existing_resources[resource_cls.__name__].clear()
 
-    def _create_delete_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
+    def _create_delete_method(self, resource: APIResource, mock_method: str, client: ToolkitClient) -> Callable:
         deleted_resources = self._deleted_resources
         resource_cls = resource.resource_cls
 
@@ -450,7 +449,7 @@ class ApprovalToolkitClient:
         method = available_delete_methods[mock_method]
         return method
 
-    def _create_create_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
+    def _create_create_method(self, resource: APIResource, mock_method: str, client: ToolkitClient) -> Callable:
         created_resources = self.created_resources
         write_resource_cls = resource.write_cls
         resource_cls = resource.resource_cls
@@ -890,7 +889,7 @@ class ApprovalToolkitClient:
         method = available_create_methods[mock_method]
         return method
 
-    def _create_retrieve_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
+    def _create_retrieve_method(self, resource: APIResource, mock_method: str, client: ToolkitClient) -> Callable:
         existing_resources = self._existing_resources
         resource_cls = resource.resource_cls
         read_list_cls = resource.list_cls
@@ -1116,7 +1115,7 @@ class ApprovalToolkitClient:
         method = available_retrieve_methods[mock_method]
         return method
 
-    def _create_inspect_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
+    def _create_inspect_method(self, resource: APIResource, mock_method: str, client: ToolkitClient) -> Callable:
         existing_resources = self._existing_resources
         resource_cls = resource.resource_cls
 
@@ -1148,7 +1147,7 @@ class ApprovalToolkitClient:
         method = available_inspect_methods[mock_method]
         return method
 
-    def _create_post_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
+    def _create_post_method(self, resource: APIResource, mock_method: str, client: ToolkitClient) -> Callable:
         def post_method(
             url: str, json: dict[str, Any], params: dict[str, Any] | None = None, headers: dict[str, Any] | None = None
         ) -> Response:
@@ -1381,6 +1380,7 @@ class ApprovalToolkitClient:
         # These are mocked in the __init__. create_single delegates to create.
         not_mocked.pop(("sessions", "create"), None)
         not_mocked.pop(("sessions", "create_single"), None)
+        not_mocked.pop(("token", "verify_acls"), None)
         return dict(not_mocked)
 
     def auth_create_group_calls(self) -> Iterable[AuthGroupCalls]:

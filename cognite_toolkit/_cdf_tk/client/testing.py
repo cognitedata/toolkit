@@ -119,13 +119,73 @@ from .api.workflow_versions import WorkflowVersionsAPI
 from .api.workflows import WorkflowsAPI
 
 
-class ToolkitClientMock:
+class ToolkitClientMock(ToolkitClient):
     """Mock for ToolkitClient object
 
     All APIs are replaced with specked MagicMock objects.
     """
 
+    # These attributes are declared as ``MagicMock`` (overriding the real API types inherited
+    # from ``ToolkitClient``) so that type checkers understand that a ``ToolkitClientMock`` *is* a
+    # ``ToolkitClient`` while still allowing tests to configure them with ``.return_value`` /
+    # ``.side_effect`` etc. Keep this list in sync with the attributes assigned in ``__init__``.
+    canvas: MagicMock
+    charts: MagicMock
+    infield: MagicMock
+    project: MagicMock
+    lookup: MagicMock
+    migration: MagicMock
+    principals: MagicMock
+    sessions: MagicMock
+    agents: MagicMock
+    skills: MagicMock
+    apps: MagicMock
+    datapoint_subscriptions: MagicMock
+    three_d: MagicMock
+    assets: MagicMock
+    cognite_files: MagicMock
+    timeseries: MagicMock
+    filemetadata: MagicMock
+    instances: MagicMock
+    spaces: MagicMock
+    views: MagicMock
+    containers: MagicMock
+    data_models: MagicMock
+    graphql_data_models: MagicMock
+    location_filters: MagicMock
+    events: MagicMock
+    functions: MagicMock
+    groups: MagicMock
+    search_configurations: MagicMock
+    signal_sinks: MagicMock
+    signal_subscriptions: MagicMock
+    simulators: MagicMock
+    datasets: MagicMock
+    documents: MagicMock
+    extraction_pipelines: MagicMock
+    hosted_extractors: MagicMock
+    labels: MagicMock
+    raw: MagicMock
+    relationships: MagicMock
+    security_categories: MagicMock
+    sequences: MagicMock
+    transformations: MagicMock
+    streamlit: MagicMock
+    token: MagicMock
+    workflows: MagicMock
+    data_products: MagicMock
+    rulesets: MagicMock
+    records: MagicMock
+    statistics: MagicMock
+    streams: MagicMock
+    sap_writeback: MagicMock
+    integrations: MagicMock
+    user_profiles: MagicMock
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # Intentionally do NOT call super().__init__(): it would require a real
+        # ToolkitClientConfig and build real API clients. We replace every API
+        # attribute with a MagicMock below.
         self.console = Console()
         # spec= (not spec_set): ClientConfig fields are not plain class attributes, so spec_set
         # blocked assigning project/timeout in tests. Defaults keep HTTPClient(...) usable.
@@ -184,7 +244,7 @@ class ToolkitClientMock:
         self.principals = MagicMock(spec_set=PrincipalsAPI)
         self.sessions = MagicMock(spec_set=SessionAPI)
 
-        def create_single(item: object) -> object:
+        def create_single(item: Any) -> Any:
             # SessionAPI.create_single delegates to create. Keep that so tests that stub
             # sessions.create still produce a real session response.
             return self.sessions.create([item])[0]
