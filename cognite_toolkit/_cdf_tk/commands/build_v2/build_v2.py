@@ -791,7 +791,11 @@ class BuildV2Command(ToolkitCommand):
                         f"Config YAML file '{relative_to_if_possible(config_path_resolved).as_posix()}' is invalid:\n{'- '.join(errors)}"
                     ) from e
                 selected: set[RelativeDirPath | str] | None = None
-                if config.environment.selected:
+                if parsed_user_selected:
+                    # CLI args override config YAML selection, so we use the parsed user selection if provided.
+                    # This can only happen if there is a single config YAML file, as we check for this above.
+                    selected = parsed_user_selected
+                elif config.environment.selected:
                     selected, errors = cls.parse_user_selection(config.environment.selected, organization_dir)
                     if errors:
                         raise ToolkitValueError(
