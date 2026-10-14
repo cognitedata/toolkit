@@ -46,6 +46,10 @@ class ModuleParser:
             module_sources.extend(source_by_module_id[module] for module in selected_modules)
         elif build.config_files is not None:
             for config_file in build.config_files:
+                # A config file can be missing selected section, which will trigger the use of the CLI-arg
+                # or if not given interactively prompt the user for selection. This is handled in the BuildInput class.
+                # For more than one config file, and error is already raised as then we require selected modules
+                # set for each config file.
                 config_selected_modules = config_file.selected_modules or user_selected_modules
                 if config_selected_modules is None:
                     raise RuntimeError(
