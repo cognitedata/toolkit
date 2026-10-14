@@ -28,13 +28,13 @@ dependencies = [
     "typer >=0.12.0, <1.0.0",
     "rich >=13.9.4",
     "questionary >=2.0.1",
-    "tomli >=2.0.1, <3.0.0; python_version < '3.11'",
     "packaging >=25",
     "typing-extensions >=4.13.0",
     "toml >=0.10.2",
     "sentry-sdk >=2.1.0",
     "mixpanel >=4.10.1",
     "pydantic >=2.12.0",
+    "pydantic_core >=2.41.0",
     "python-dateutil>= 2.9.0",
     # Pip is used in the cognite run function local
     "pip>=25.0.1",
@@ -134,18 +134,13 @@ include = ["cognite_toolkit", "tests_smoke", "tests"]
 exclude = [
     "tests/data/",
     "tests/test_unit/test_cdf_tk/approval_client",
-    "tests/test_unit/test_cdf_tk/test_apps",
-    "tests/test_unit/test_cdf_tk/test_auth",
-    "tests/test_unit/test_cdf_tk/test_client",
-    "tests/test_unit/test_cdf_tk/test_commands",
-    "tests/test_unit/test_cdf_tk/test_cruds",
-    "tests/test_unit/test_cdf_tk/test_data_classes",
-    "tests/test_unit/test_cdf_tk/test_rules",
-    "tests/test_unit/test_cdf_tk/test_storageio",
-    "tests/test_unit/test_cdf_tk/test_tk_warnings",
-    "tests/test_unit/test_cdf_tk/test_utils",
-    "tests/test_unit/test_cdf_tk/test_validation",
-    "tests/test_unit/test_cdf_tk/test_yaml_classes",
+    "tests/test_unit/test_cdf_tk/test_client", # 258
+    "tests/test_unit/test_cdf_tk/test_commands", # 586
+    "tests/test_unit/test_cdf_tk/test_cruds", # 45
+    "tests/test_unit/test_cdf_tk/test_rules", # 21
+    "tests/test_unit/test_cdf_tk/test_storageio", # 71
+    "tests/test_unit/test_cdf_tk/test_utils", # 184
+    "tests/test_unit/test_cdf_tk/test_yaml_classes", # 22
 ]
 [tool.ty.environment]
 python-version = "3.14"
@@ -163,6 +158,23 @@ exclude = [
 
 [tool.ruff.lint]
 exclude = []
+
+[tool.deptry.package_module_name_map]
+cognite-sdk = "cognite"
+pyyaml = "yaml"
+python-dotenv = "dotenv"
+python-dateutil = "dateutil"
+
+[tool.deptry]
+known_first_party = ["cognite_toolkit"]
+
+[tool.deptry.per_rule_ignores]
+# Pyodide is used to check if it runs inside a browser, and pip is used in the cognite run function local.
+# Both are not imported directly in the code.
+# Uvicorn is an extra dependency.
+DEP001 = ["pyodide", "uvicorn"]
+DEP002 = ["pip"]
+
 
 [build-system]
 requires = ["uv_build>=0.11.0,<0.12.0"]

@@ -6,8 +6,8 @@ from typing import Any
 import pytest
 
 from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, GroupRequest, ScopeDefinition, UnknownAcl
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.yaml_classes.capabilities import Capability
-from tests.test_unit.test_cdf_tk.test_tk_warnings.test_warnings_metatest import get_all_subclasses
 
 
 def all_acls() -> Iterable[tuple]:
@@ -239,12 +239,12 @@ class TestGroupAPIClasses:
 
     def test_capability_in_sync(self) -> None:
         """Checks that the request/response capabilities are in sync with the YAML spec."""
-        request_capabilities = {acl.model_fields["acl_name"].default for acl in get_all_subclasses(Acl)} - {
+        request_capabilities = {acl.model_fields["acl_name"].default for acl in get_concrete_subclasses(Acl)} - {
             "unknownAcl"
         }
         spec_capabilities = {
             capability.model_fields["capability_name"].default
-            for capability in get_all_subclasses(Capability)
+            for capability in get_concrete_subclasses(Capability)
             if capability.model_fields["capability_name"].default != "__unknown__"
         }
 
