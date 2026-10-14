@@ -225,7 +225,7 @@ class TestSignalSubscriptionCRUDRetrieve:
         subscriptions_api = MagicMock()
         subscriptions_api.iterate.return_value = iter([[sub_a, sub_a], [sub_b]])
 
-        io = SignalSubscriptionIO(MagicMock(tool=MagicMock(signal_subscriptions=subscriptions_api)))
+        io = SignalSubscriptionIO(MagicMock(signal_subscriptions=subscriptions_api))
 
         retrieved = io.retrieve([ExternalId(external_id="sub-a"), ExternalId(external_id="sub-b")])
 

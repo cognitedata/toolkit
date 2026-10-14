@@ -6,10 +6,6 @@ from unittest.mock import MagicMock
 import httpx2
 import pytest
 import respx
-from cognite.client.data_classes import (
-    LabelDefinition,
-    LabelDefinitionList,
-)
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
@@ -17,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
@@ -195,9 +192,7 @@ def asset_centric_client(
         client.lookup.assets.id.side_effect = lookup_asset_id
 
         client.token.verify_acls.return_value = []
-        client.labels.retrieve.return_value = LabelDefinitionList(
-            [LabelDefinition(external_id="my_label", name="my_label", created_time=0)]
-        )
+        client.labels.retrieve.return_value = [LabelResponse(external_id="my_label", name="my_label", created_time=0)]
         client.config = toolkit_config
         yield client
 
