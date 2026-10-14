@@ -133,4 +133,4 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
     def limits(self) -> FunctionLimits | None:
         if not self.client:
             return None
-        return self.client.tool.functions.limits()
+        return self.client.functions.limits()

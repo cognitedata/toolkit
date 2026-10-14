@@ -36,25 +36,25 @@ class TestExtendedFilesAPI:
         created: FileMetadataResponse | None = None
         created_dm = False
         try:
-            created_files = client.tool.filemetadata.create([metadata])
+            created_files = client.filemetadata.create([metadata])
             assert len(created_files) == 1
             created = created_files[0]
             assert created.upload_url is not None
-            client.tool.filemetadata.upload_file(content, created.upload_url, created.mime_type)
+            client.filemetadata.upload_file(content, created.upload_url, created.mime_type)
 
             node_ref = NodeId(space=dev_space, external_id=external_id)
-            updated = client.tool.filemetadata.set_pending_ids(
+            updated = client.filemetadata.set_pending_ids(
                 [PendingInstanceId(pending_instance_id=node_ref, id=created.id)]
             )
             assert len(updated) == 1
             assert updated[0].pending_instance_id == node_ref
 
-            client.tool.cognite_files.create([cognite_file], replace=True)
+            client.cognite_files.create([cognite_file], replace=True)
             created_dm = True
 
             linked: FileMetadataResponse | None = None
             for _ in range(30):
-                retrieved = client.tool.filemetadata.retrieve([cognite_file.as_instance_id()], ignore_unknown_ids=True)
+                retrieved = client.filemetadata.retrieve([cognite_file.as_instance_id()], ignore_unknown_ids=True)
                 linked = retrieved[0] if retrieved else None
                 if linked is not None:
                     break
@@ -62,14 +62,14 @@ class TestExtendedFilesAPI:
             assert linked is not None, "File metadata was not linked to the data model instance."
             assert linked.id == created.id
 
-            downloads = client.tool.filemetadata.get_download_url([linked.as_internal_id()])
+            downloads = client.filemetadata.get_download_url([linked.as_internal_id()])
             assert downloads[0].download_url is not None
             with tempfile.TemporaryDirectory() as tmp:
                 destination = Path(tmp) / "file.txt"
-                client.tool.filemetadata.download_file(downloads[0].download_url, destination)
+                client.filemetadata.download_file(downloads[0].download_url, destination)
                 assert destination.read_bytes() == content
         finally:
             if created is not None and not created_dm:
-                client.tool.filemetadata.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
+                client.filemetadata.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
             if created_dm:
-                client.tool.cognite_files.delete([cognite_file.as_id()])
+                client.cognite_files.delete([cognite_file.as_id()])

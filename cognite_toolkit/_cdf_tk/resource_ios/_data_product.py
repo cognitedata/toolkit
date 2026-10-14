@@ -82,19 +82,19 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
         return dumped
 
     def create(self, items: Sequence[DataProductRequest]) -> list[DataProductResponse]:
-        return self.client.tool.data_products.create(list(items))
+        return self.client.data_products.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[DataProductResponse]:
-        return self.client.tool.data_products.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.data_products.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[DataProductRequest]) -> list[DataProductResponse]:
-        return self.client.tool.data_products.update(list(items))
+        return self.client.data_products.update(list(items))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if not id_list:
             return []
-        self.client.tool.data_products.delete(id_list)
+        self.client.data_products.delete(id_list)
         return id_list
 
     def _iterate(
@@ -103,5 +103,5 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DataProductResponse]:
-        for items in self.client.tool.data_products.iterate(limit=None):
+        for items in self.client.data_products.iterate(limit=None):
             yield from items

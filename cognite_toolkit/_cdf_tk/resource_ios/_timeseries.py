@@ -137,18 +137,18 @@ class TimeSeriesIO(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeries
         return dumped
 
     def create(self, items: Sequence[TimeSeriesRequest]) -> list[TimeSeriesResponse]:
-        return self.client.tool.timeseries.create(items)
+        return self.client.timeseries.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[TimeSeriesResponse]:
-        return self.client.tool.timeseries.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.timeseries.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[TimeSeriesRequest]) -> list[TimeSeriesResponse]:
-        return self.client.tool.timeseries.update(items, mode="replace")
+        return self.client.timeseries.update(items, mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if id_list:
-            self.client.tool.timeseries.delete(id_list, ignore_unknown_ids=True)
+            self.client.timeseries.delete(id_list, ignore_unknown_ids=True)
         return id_list
 
     def _iterate(
@@ -158,12 +158,12 @@ class TimeSeriesIO(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeries
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[TimeSeriesResponse]:
         filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
-        for timeseries in self.client.tool.timeseries.iterate(filter=filter_, limit=None):
+        for timeseries in self.client.timeseries.iterate(filter=filter_, limit=None):
             yield from timeseries
 
     def count(self, ids: Sequence[ExternalId]) -> int:
         epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
-        datapoints = self.client.tool.timeseries.datapoints.retrieve(
+        datapoints = self.client.timeseries.datapoints.retrieve(
             [DatapointsQueryRequest(external_id=item.external_id) for item in ids],
             start=epoch + timedelta(milliseconds=MIN_TIMESTAMP_MS),
             end=epoch + timedelta(milliseconds=MAX_TIMESTAMP_MS + 1),
@@ -179,7 +179,7 @@ class TimeSeriesIO(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeries
 
     def drop_data(self, ids: Sequence[ExternalId]) -> int:
         count = self.count(ids)
-        existing = self.client.tool.timeseries.retrieve(list(ids), ignore_unknown_ids=True)
+        existing = self.client.timeseries.retrieve(list(ids), ignore_unknown_ids=True)
         delete_requests = [
             DatapointsDeleteRequest(
                 external_id=ts.external_id,
@@ -190,7 +190,7 @@ class TimeSeriesIO(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeries
             if ts.external_id is not None
         ]
         if delete_requests:
-            self.client.tool.timeseries.datapoints.delete(delete_requests)
+            self.client.timeseries.datapoints.delete(delete_requests)
         return count
 
 
@@ -259,16 +259,16 @@ class DatapointSubscriptionIO(
         created_list: list[DatapointSubscriptionResponse] = []
         for item in items:
             to_create, update_batches = self.create_split_timeseries_ids(item)
-            created = self.client.tool.datapoint_subscriptions.create([to_create])
+            created = self.client.datapoint_subscriptions.create([to_create])
             if update_batches:
-                created = self.client.tool.datapoint_subscriptions.update(update_batches)
+                created = self.client.datapoint_subscriptions.update(update_batches)
             if created:
                 # The last batch contains all the time series IDs, so it represents the fully created subscription.
                 created_list.append(created[-1])
         return created_list
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[DatapointSubscriptionResponse]:
-        return self.client.tool.datapoint_subscriptions.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.datapoint_subscriptions.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(
         self, items: Sequence[DatapointSubscriptionRequest]
@@ -277,16 +277,16 @@ class DatapointSubscriptionIO(
         fallback_ids: list[ExternalId] = []
         missing_response = False
         for item in items:
-            current = self.client.tool.datapoint_subscriptions.list_members(item.external_id, limit=None)
+            current = self.client.datapoint_subscriptions.list_members(item.external_id, limit=None)
             to_update, update_batches = self.update_split_timeseries_ids(item, current)
             # There are two versions of a TimeSeries Subscription, one selects timeseries based filter
             # and the other selects timeseries based on timeSeriesIds.
             first_update = to_update.as_update()
             updated: list[DatapointSubscriptionResponse] = []
             if first_update.has_data():
-                updated = self.client.tool.datapoint_subscriptions.update([to_update.as_update()])
+                updated = self.client.datapoint_subscriptions.update([to_update.as_update()])
             if update_batches:
-                updated = self.client.tool.datapoint_subscriptions.update(update_batches)
+                updated = self.client.datapoint_subscriptions.update(update_batches)
             # The last batch contains all the time series IDs, so it represents the fully updated subscription.
             if updated:
                 updated_responses.append(updated[-1])
@@ -303,7 +303,7 @@ class DatapointSubscriptionIO(
         id_list = list(ids)
         if not id_list:
             return []
-        self.client.tool.datapoint_subscriptions.delete(id_list, ignore_unknown_ids=True)
+        self.client.datapoint_subscriptions.delete(id_list, ignore_unknown_ids=True)
         return id_list
 
     def _iterate(
@@ -312,7 +312,7 @@ class DatapointSubscriptionIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DatapointSubscriptionResponse]:
-        for subscriptions in self.client.tool.datapoint_subscriptions.iterate(limit=None):
+        for subscriptions in self.client.datapoint_subscriptions.iterate(limit=None):
             yield from subscriptions
 
     def load_resource_file(

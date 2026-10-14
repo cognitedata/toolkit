@@ -21,9 +21,9 @@ def large_sequence(toolkit_client: ToolkitClient) -> SequenceResponse:
     sequence_request = SequenceRequest(
         external_id=SEQUENCE_EXTERNAL_ID, columns=[SequenceColumnRequest(external_id="col1")]
     )
-    retrieved = toolkit_client.tool.sequences.retrieve([sequence_request.as_id()], ignore_unknown_ids=True)
+    retrieved = toolkit_client.sequences.retrieve([sequence_request.as_id()], ignore_unknown_ids=True)
     if len(retrieved) == 0:
-        return toolkit_client.tool.sequences.create([sequence_request])[0]
+        return toolkit_client.sequences.create([sequence_request])[0]
     return retrieved[0]
 
 

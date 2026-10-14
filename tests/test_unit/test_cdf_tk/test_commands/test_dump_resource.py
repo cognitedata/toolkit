@@ -205,7 +205,7 @@ class TestTransformationFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(TransformationFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.transformations.list.return_value = three_transformations
+            client.transformations.list.return_value = three_transformations
             finder = TransformationFinder(client, None)
             selected = finder._interactive_select()
 
@@ -215,8 +215,8 @@ class TestTransformationFinder:
 class TestDumpTransformations:
     def test_dump_transformations(self, three_transformations: list[TransformationResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.transformations.retrieve.return_value = three_transformations[1:]
-            client.tool.transformations.schedules.retrieve.return_value = []
+            client.transformations.retrieve.return_value = three_transformations[1:]
+            client.transformations.schedules.retrieve.return_value = []
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -236,9 +236,9 @@ class TestDumpTransformations:
         transformation, external_source = _onelake_transformation_and_source()
         with monkeypatch_toolkit_client() as client:
             finder = TransformationFinder(client, ("transformationA",))
-            client.tool.transformations.retrieve.return_value = [transformation]
-            client.tool.transformations.schedules.retrieve.return_value = []
-            client.tool.transformations.external_data_sources.list.return_value = [external_source]
+            client.transformations.retrieve.return_value = [transformation]
+            client.transformations.schedules.retrieve.return_value = []
+            client.transformations.external_data_sources.list.return_value = [external_source]
 
             batches = list(finder)
 
@@ -279,8 +279,8 @@ class TestWorkflowFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(WorkflowFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.workflows.list.return_value = three_workflows
-            client.tool.workflows.versions.list.side_effect = lambda workflow_external_id, limit=None: [
+            client.workflows.list.return_value = three_workflows
+            client.workflows.versions.list.side_effect = lambda workflow_external_id, limit=None: [
                 v for v in versions if v.workflow_external_id == workflow_external_id
             ]
             finder = WorkflowFinder(client, None)
@@ -308,8 +308,8 @@ class TestWorkflowFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(WorkflowFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.workflows.list.return_value = three_workflows
-            client.tool.workflows.versions.list.side_effect = lambda workflow_external_id, limit=None: [
+            client.workflows.list.return_value = three_workflows
+            client.workflows.versions.list.side_effect = lambda workflow_external_id, limit=None: [
                 v for v in versions if v.workflow_external_id == workflow_external_id
             ]
             finder = WorkflowFinder(client, None)
@@ -344,7 +344,7 @@ class TestDataModelFinder:
 
         monkeypatch.setattr(f"{DataModelFinder.__module__}.questionary.checkbox", checkbox)
         with monkeypatch_toolkit_client() as client:
-            client.tool.data_models.list.return_value = models
+            client.data_models.list.return_value = models
             finder = DataModelFinder(client, None)
             result = finder._interactive_select()
 
@@ -383,10 +383,10 @@ class TestDataModelFinder:
             SpaceResponse(space=model.space, is_global=False, last_updated_time=1, created_time=1) for model in models
         ]
         with monkeypatch_toolkit_client() as client:
-            client.tool.data_models.retrieve.return_value = models
-            client.tool.views.retrieve.return_value = []
-            client.tool.containers.retrieve.return_value = []
-            client.tool.spaces.retrieve.return_value = spaces
+            client.data_models.retrieve.return_value = models
+            client.views.retrieve.return_value = []
+            client.containers.retrieve.return_value = []
+            client.spaces.retrieve.return_value = spaces
             DumpResourceCommand(silent=True).dump_to_yamls(
                 DataModelFinder(client, tuple(model.as_id() for model in models)),
                 output_dir=tmp_path,
@@ -421,7 +421,7 @@ class TestLocationFilterFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(LocationFilterFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.location_filters.list.return_value = three_location_filters
+            client.location_filters.list.return_value = three_location_filters
             finder = LocationFilterFinder(client, None)
             selected = finder._interactive_select()
 
@@ -431,7 +431,7 @@ class TestLocationFilterFinder:
 class TestDumpLocationFilter:
     def test_dump_location_filter(self, three_location_filters: list[LocationFilterResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.location_filters.list.return_value = three_location_filters
+            client.location_filters.list.return_value = three_location_filters
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
                 LocationFilterFinder(client, ("filterB", "filterC")),
@@ -474,7 +474,7 @@ def three_agents() -> list[AgentResponse]:
 class TestDumpAgents:
     def test_dump_agents(self, three_agents: list[AgentResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.agents.retrieve.return_value = three_agents[1:2]
+            client.agents.retrieve.return_value = three_agents[1:2]
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
                 AgentFinder(client, tuple([agent.external_id for agent in three_agents[1:2]])),
@@ -504,7 +504,7 @@ class TestDumpAgents:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(AgentFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.agents.list.return_value = three_agents
+            client.agents.list.return_value = three_agents
             finder = AgentFinder(client, None)
             selected = finder._interactive_select()
 
@@ -540,7 +540,7 @@ class TestExtractionPipelineFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(ExtractionPipelineFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.extraction_pipelines.list.return_value = three_extraction_pipelines
+            client.extraction_pipelines.list.return_value = three_extraction_pipelines
             finder = ExtractionPipelineFinder(client, None)
             selected = finder._interactive_select()
 
@@ -621,7 +621,7 @@ class TestHostedExtractorFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(HostedExtractorFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.hosted_extractors.sources.list.return_value = three_hosted_extractor_sources
+            client.hosted_extractors.sources.list.return_value = three_hosted_extractor_sources
             finder = HostedExtractorFinder(client, None)
             selected = finder._interactive_select()
 
@@ -665,10 +665,10 @@ class TestDumpHostedExtractor:
             ),
         ]
         with monkeypatch_toolkit_client() as client:
-            client.tool.hosted_extractors.sources.retrieve.return_value = selected_sources
-            client.tool.hosted_extractors.jobs.list.return_value = jobs
-            client.tool.hosted_extractors.destinations.retrieve.return_value = destinations
-            client.tool.hosted_extractors.mappings.retrieve.return_value = mappings
+            client.hosted_extractors.sources.retrieve.return_value = selected_sources
+            client.hosted_extractors.jobs.list.return_value = jobs
+            client.hosted_extractors.destinations.retrieve.return_value = destinations
+            client.hosted_extractors.mappings.retrieve.return_value = mappings
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -759,7 +759,7 @@ class TestGroupFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(GroupFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.groups.list.return_value = three_groups
+            client.groups.list.return_value = three_groups
             finder = GroupFinder(client, None)
             selected = finder._interactive_select()
 
@@ -769,7 +769,7 @@ class TestGroupFinder:
 class TestDumpGroups:
     def test_dump_groups(self, three_groups: list[GroupResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.groups.list.return_value = three_groups
+            client.groups.list.return_value = three_groups
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -834,7 +834,7 @@ class _DownloadStream:
 
 
 def _mock_file_bytes(client: MagicMock, content: bytes) -> None:
-    client.tool.filemetadata.retrieve.return_value = [
+    client.filemetadata.retrieve.return_value = [
         FileMetadataResponse(
             id=1,
             name="file",
@@ -844,7 +844,7 @@ def _mock_file_bytes(client: MagicMock, content: bytes) -> None:
             last_updated_time=1,
         )
     ]
-    client.tool.filemetadata.get_download_url.return_value = [
+    client.filemetadata.get_download_url.return_value = [
         DownloadResponse(id=1, download_url="https://example.test/file")
     ]
 
@@ -852,10 +852,10 @@ def _mock_file_bytes(client: MagicMock, content: bytes) -> None:
 class TestDumpFunctions:
     def test_dump_functions(self, three_functions: list[FunctionResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.functions.retrieve.return_value = three_functions[1:]
-            client.tool.functions.status.return_value = FunctionsActivation(status="activated")
-            client.tool.filemetadata.retrieve.return_value = []
-            client.tool.filemetadata.get_download_url.return_value = []
+            client.functions.retrieve.return_value = three_functions[1:]
+            client.functions.status.return_value = FunctionsActivation(status="activated")
+            client.filemetadata.retrieve.return_value = []
+            client.filemetadata.get_download_url.return_value = []
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -885,7 +885,7 @@ class TestDumpFunctions:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(FunctionFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.functions.list.return_value = three_functions
+            client.functions.list.return_value = three_functions
             finder = FunctionFinder(client, None)
             selected = finder._interactive_select()
 
@@ -913,7 +913,7 @@ class TestDataSetFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataSetFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.datasets.list.return_value = three_datasets
+            client.datasets.list.return_value = three_datasets
             finder = DataSetFinder(client, None)
             selected = finder._interactive_select()
 
@@ -923,7 +923,7 @@ class TestDataSetFinder:
 class TestDumpDataSets:
     def test_dump_datasets(self, three_datasets: list[DataSetResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.datasets.retrieve.return_value = three_datasets[1:]
+            client.datasets.retrieve.return_value = three_datasets[1:]
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -994,7 +994,7 @@ class TestDumpStreamlitApps:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(StreamlitFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.streamlit.list.return_value = three_streamlit_apps
+            client.streamlit.list.return_value = three_streamlit_apps
             counts_by_creator = Counter([app.creator for app in three_streamlit_apps])
             client.documents.aggregate_unique_values.return_value = UniqueResultList(
                 [UniqueResult(count=count, values=[creator]) for creator, count in counts_by_creator.items()]
@@ -1027,7 +1027,7 @@ class TestDumpStreamlitApps:
                 return_value=_DownloadStream(content),
             ),
         ):
-            client.tool.streamlit.retrieve.return_value = [app_b]
+            client.streamlit.retrieve.return_value = [app_b]
             _mock_file_bytes(client, content)
 
             cmd = DumpResourceCommand(silent=True)
@@ -1117,7 +1117,7 @@ class TestDumpStreamlitApps:
         app = three_streamlit_apps[1]
         with monkeypatch_toolkit_client() as client:
             if content is None:
-                client.tool.filemetadata.retrieve.return_value = []
+                client.filemetadata.retrieve.return_value = []
             else:
                 _mock_file_bytes(client, content.encode("utf-8"))
             download = patch(
@@ -1227,7 +1227,7 @@ class TestDumpSpaces:
         adapted_spaces = [SpaceResponse.model_validate(space.dump()) for space in three_spaces]
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.spaces.retrieve.return_value = adapted_spaces[1:]
+            client.spaces.retrieve.return_value = adapted_spaces[1:]
             identifier: tuple[str, ...] = "spaceB", "spaceC"
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -1283,7 +1283,7 @@ class TestSearchConfigFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(SearchConfigFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.search_configurations.list.return_value = three_search_configs
+            client.search_configurations.list.return_value = three_search_configs
             finder = SearchConfigFinder(client, None)
             selected = finder._interactive_select()
 
@@ -1296,7 +1296,7 @@ class TestSearchConfigFinder:
 class TestDumpSearchConfigs:
     def test_dump_search_configs(self, three_search_configs: list[SearchConfigResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.search_configurations.list.return_value = three_search_configs[1:]
+            client.search_configurations.list.return_value = three_search_configs[1:]
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(

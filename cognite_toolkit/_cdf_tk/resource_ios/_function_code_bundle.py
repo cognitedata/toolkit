@@ -161,7 +161,7 @@ class FunctionCodeBundle:
             cognitefileio = CogniteFileIO(self.client)
             cognitefile_request = cognitefileio.load_resource_files(list(cognite_files))
             created_node_ids = cognitefileio.create(cognitefile_request)
-            dm_fileresponse = self.client.tool.filemetadata.retrieve(
+            dm_fileresponse = self.client.filemetadata.retrieve(
                 [InstanceId(instance_id=node_id) for node_id in created_node_ids]
             )
             file_id_by_external_id.update(zip(cognite_files.values(), (InternalId(id=f.id) for f in dm_fileresponse)))

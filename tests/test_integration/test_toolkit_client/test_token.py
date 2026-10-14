@@ -6,6 +6,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.token import (
 
 class TestTokenAPI:
     def test_inspect(self, toolkit_client: ToolkitClient) -> None:
-        token = toolkit_client.tool.token.inspect()
+        token = toolkit_client.token.inspect()
         token.to_project_capabilities()
         assert isinstance(token, InspectResponse)

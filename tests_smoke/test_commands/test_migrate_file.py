@@ -33,9 +33,9 @@ def classic_file_with_content(
         mime_type=mime_type,
     )
     # Ensure clean state
-    client.tool.instances.delete([NodeId(space=smoke_space.space, external_id=external_id)])
+    client.instances.delete([NodeId(space=smoke_space.space, external_id=external_id)])
     try:
-        client.tool.filemetadata.delete([metadata.as_id()], ignore_unknown_ids=True)
+        client.filemetadata.delete([metadata.as_id()], ignore_unknown_ids=True)
     except ToolkitAPIError as e:
         if (
             "Files scheduled for migration to data modeling with pending instance ids set cannot be deleted"
@@ -43,13 +43,13 @@ def classic_file_with_content(
         ):
             # If the file is already scheduled for migration, retrieve and yield it. This means this test
             # was aborted previously after file creation but before cleanup.
-            yield client.tool.filemetadata.retrieve([metadata.as_id()])[0]
+            yield client.filemetadata.retrieve([metadata.as_id()])[0]
             return
 
-    created = client.tool.filemetadata.create([metadata])
+    created = client.filemetadata.create([metadata])
     if len(created) != 1:
         raise EndpointAssertionError(
-            client.tool.filemetadata._method_endpoint_map["create"].path,
+            client.filemetadata._method_endpoint_map["create"].path,
             "Failed to create classic file metadata for migration test.",
         )
     created_file = created[0]
@@ -72,9 +72,9 @@ def classic_file_with_content(
     yield created_file
 
     # Cleanup
-    client.tool.instances.delete([NodeId(space=smoke_space.space, external_id=external_id)])
+    client.instances.delete([NodeId(space=smoke_space.space, external_id=external_id)])
     try:
-        client.tool.filemetadata.delete([created_file.as_id()], ignore_unknown_ids=True)
+        client.filemetadata.delete([created_file.as_id()], ignore_unknown_ids=True)
     except ToolkitAPIError as e:
         if "files with instance ids must be deleted through data modeling" in str(e).lower():
             return
@@ -115,7 +115,7 @@ class TestMigrateFile:
         assert file.external_id is not None, "File external ID is None, cannot validate migration."
         # Validate that the file exists in data modeling and has content.
         # In addition, check that the instanceId is set on the file metadata in CDF.
-        nodes = client.tool.instances.retrieve([NodeId(space=space, external_id=file.external_id)])
+        nodes = client.instances.retrieve([NodeId(space=space, external_id=file.external_id)])
         if len(nodes) != 1:
             raise EndpointAssertionError(
                 "data_modeling.instances.retrieve",
@@ -126,13 +126,13 @@ class TestMigrateFile:
             raise AssertionError("Migrated file instance external ID does not match expected value.")
 
         time.sleep(5)  # Wait for eventual consistency in CDF before downloading content
-        linked_files = client.tool.filemetadata.retrieve(
+        linked_files = client.filemetadata.retrieve(
             [InstanceId(instance_id=NodeId(space=space, external_id=file.external_id))],
             ignore_unknown_ids=True,
         )
         if not linked_files:
             raise AssertionError("Migrated file metadata was not found for content download.")
-        download_links = client.tool.filemetadata.get_download_url([InternalId(id=linked_files[0].id)])
+        download_links = client.filemetadata.get_download_url([InternalId(id=linked_files[0].id)])
         if not download_links or not download_links[0].download_url:
             raise AssertionError("Migrated file has no download URL.")
         with httpx2.stream("GET", download_links[0].download_url) as response:
@@ -141,10 +141,10 @@ class TestMigrateFile:
             content = b"".join(response.iter_bytes())
         if content != b"Toolkit classic file content for migration smoke test.":
             raise AssertionError("Migrated file content does not match expected content.")
-        migrated_file = client.tool.filemetadata.retrieve([file.as_id()])
+        migrated_file = client.filemetadata.retrieve([file.as_id()])
         if len(migrated_file) != 1:
             raise EndpointAssertionError(
-                client.tool.filemetadata._method_endpoint_map["retrieve"].path,
+                client.filemetadata._method_endpoint_map["retrieve"].path,
                 "Failed to retrieve migrated file metadata from CDF after migration.",
             )
         if migrated_file[0].instance_id is None:

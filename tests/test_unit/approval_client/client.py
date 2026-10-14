@@ -204,13 +204,13 @@ class ApprovalToolkitClient:
             )
         ]
         # Set the token verify to never be missing ACLs.
-        self.mock_client.tool.token.verify_acls.return_value = []
+        self.mock_client.token.verify_acls.return_value = []
         # Set functions to be activated. MagicMock equality is false, so an unconfigured
         # status() would make FunctionIO treat the service as inactive.
-        self.mock_client.tool.functions.status.return_value = FunctionsActivation(status="activated")
+        self.mock_client.functions.status.return_value = FunctionsActivation(status="activated")
 
         # All files are uploaded successfully
-        self.mock_client.tool.filemetadata.await_file_uploaded.return_value = set(), 0.0
+        self.mock_client.filemetadata.await_file_uploaded.return_value = set(), 0.0
 
         def get_upload_url(items: Sequence, ignore_unknown_ids: bool = False) -> list[FileMetadataResponse]:
             responses: list[FileMetadataResponse] = []
@@ -234,7 +234,7 @@ class ApprovalToolkitClient:
                 )
             return responses
 
-        self.mock_client.tool.filemetadata.get_upload_url.side_effect = get_upload_url
+        self.mock_client.filemetadata.get_upload_url.side_effect = get_upload_url
 
         # Use Hybrid project
         return_list = ProjectStatusList([ProjectStatus(url_name=project, data_modeling_status="HYBRID")])

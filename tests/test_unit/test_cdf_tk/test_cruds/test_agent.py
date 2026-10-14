@@ -240,12 +240,12 @@ class TestAgentIODelete:
             }
         )
         client = ToolkitClientMock()
-        client.tool.agents.retrieve.return_value = [supervisor, subagent]
+        client.agents.retrieve.return_value = [supervisor, subagent]
         io = AgentIO(client)
 
         io.delete([ExternalId(external_id="weather-specialist"), ExternalId(external_id="supervisor")])
 
-        deleted_ids = client.tool.agents.delete.call_args[0][0]
+        deleted_ids = client.agents.delete.call_args[0][0]
         assert deleted_ids == [
             ExternalId(external_id="supervisor"),
             ExternalId(external_id="weather-specialist"),

@@ -168,15 +168,15 @@ def asset_centric_client(
             file_items = file_chunks.pop()
             return PagedResponse(items=file_items, nextCursor="cursor" if file_chunks else None)
 
-        client.tool.assets.paginate.side_effect = iterate_assets
-        client.tool.timeseries.paginate.side_effect = iterate_timeseries
-        client.tool.events.paginate.side_effect = iterate_events
-        client.tool.filemetadata.paginate.side_effect = iterate_files
+        client.assets.paginate.side_effect = iterate_assets
+        client.timeseries.paginate.side_effect = iterate_timeseries
+        client.events.paginate.side_effect = iterate_events
+        client.filemetadata.paginate.side_effect = iterate_files
 
-        client.tool.assets.count.return_value = RESOURCE_COUNT
-        client.tool.filemetadata.count.return_value = RESOURCE_COUNT
-        client.tool.events.count.return_value = RESOURCE_COUNT
-        client.tool.timeseries.count.return_value = RESOURCE_COUNT
+        client.assets.count.return_value = RESOURCE_COUNT
+        client.filemetadata.count.return_value = RESOURCE_COUNT
+        client.events.count.return_value = RESOURCE_COUNT
+        client.timeseries.count.return_value = RESOURCE_COUNT
 
         client.lookup.data_sets.external_id.return_value = DATA_SET_EXTERNAL_ID
         client.lookup.data_sets.id.return_value = DATA_SET_ID
@@ -194,7 +194,7 @@ def asset_centric_client(
         client.lookup.assets.external_id.side_effect = lookup_asset_external_id
         client.lookup.assets.id.side_effect = lookup_asset_id
 
-        client.tool.token.verify_acls.return_value = []
+        client.token.verify_acls.return_value = []
         client.labels.retrieve.return_value = LabelDefinitionList(
             [LabelDefinition(external_id="my_label", name="my_label", created_time=0)]
         )

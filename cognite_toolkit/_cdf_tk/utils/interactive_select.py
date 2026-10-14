@@ -86,14 +86,14 @@ class AssetCentricInteractiveSelect(ABC):
     def _get_available_data_sets(self, hierarchy: str | None = None) -> list[DataSetResponse]:
         if hierarchy is not None:
             datasets = self._aggregator.used_data_sets(hierarchy)
-            return self.client.tool.datasets.retrieve(ExternalId.from_external_ids(datasets), ignore_unknown_ids=True)
+            return self.client.datasets.retrieve(ExternalId.from_external_ids(datasets), ignore_unknown_ids=True)
         else:
-            return self.client.tool.datasets.list(limit=None)
+            return self.client.datasets.list(limit=None)
 
     @lru_cache
     def _get_available_hierarchies(self, data_set: str | None = None) -> list[AssetResponse]:
         data_set_external_ids = [data_set] if data_set else None
-        return self.client.tool.assets.list(root=True, limit=None, data_set_external_ids=data_set_external_ids)
+        return self.client.assets.list(root=True, limit=None, data_set_external_ids=data_set_external_ids)
 
     def _create_choice(self, item: AssetResponse | DataSetResponse) -> tuple[questionary.Choice, int]:
         """Create a questionary choice for the given item."""
@@ -271,11 +271,11 @@ class RawTableInteractiveSelect:
         self.operation = operation
 
     def _available_databases(self) -> list[str]:
-        databases = self.client.tool.raw.databases.list(limit=None)
+        databases = self.client.raw.databases.list(limit=None)
         return [db.name for db in databases]
 
     def _available_tables(self, database: str) -> list[RawTableId]:
-        tables = self.client.tool.raw.tables.list(db_name=database, limit=None)
+        tables = self.client.raw.tables.list(db_name=database, limit=None)
         return [table.as_id() for table in tables]
 
     def select_tables(self, database: str | None = None) -> list[RawTableId]:
@@ -418,9 +418,9 @@ class InteractiveChartSelect:
 
     def _select_external_ids(self, select_filter: ChartFilter) -> list[str]:
         if select_filter.visibility != "PUBLIC" and (
-            missing_acls := self.client.tool.token.verify_acls([ChartsAdminAcl(actions=["READ"], scope=AllScope())])
+            missing_acls := self.client.token.verify_acls([ChartsAdminAcl(actions=["READ"], scope=AllScope())])
         ):
-            raise self.client.tool.token.create_error(
+            raise self.client.token.create_error(
                 missing_acls, action="list (including private) charts for interactive selection"
             )
 
@@ -620,7 +620,7 @@ class DataModelingSelect:
                     message=f"In which Spaces is the view you will use to select instances to {self.operation}?",
                 ).space
             )
-            views = self.client.tool.views.list(
+            views = self.client.views.list(
                 filter=ViewFilter(
                     space=selected_space,
                     include_inherited_properties=True,
@@ -630,7 +630,7 @@ class DataModelingSelect:
             )
         elif filter.strategy == "dataModel":
             if filter.data_model:
-                data_models = self.client.tool.data_models.retrieve([filter.data_model], inline_views=True)
+                data_models = self.client.data_models.retrieve([filter.data_model], inline_views=True)
                 if not data_models or not data_models[0].views:
                     raise ToolkitMissingResourceError(
                         f"No views found in data model {filter.data_model!r} for filter: {filter!s}"
@@ -685,7 +685,7 @@ class DataModelingSelect:
         schema_space: str | None = None,
         include_global: bool | None = None,
     ) -> DataModelResponse | DataModelResponseWithViews:
-        datamodels = self.client.tool.data_models.list(
+        datamodels = self.client.data_models.list(
             inline_views=inline_views,
             filter=DataModelFilter(space=schema_space, all_versions=False, include_global=include_global),
             limit=None,
@@ -901,7 +901,7 @@ class DataModelingSelect:
         self, space: str, view_id: ViewId, instance_type: Literal["node", "edge"]
     ) -> tuple[str, float]:
         """Get the count of instances in a specific space for a given view and instance type."""
-        aggregate_result = self.client.tool.instances.aggregate(
+        aggregate_result = self.client.instances.aggregate(
             view_id,
             aggregates=[CountAggregate(property="externalId")],
             instance_type=instance_type,
@@ -914,7 +914,7 @@ class DataModelingSelect:
 
     def _get_available_spaces(self, include_global: bool = False) -> list[SpaceResponse]:
         if self._available_spaces is None:
-            self._available_spaces = self.client.tool.spaces.list(include_global=True)
+            self._available_spaces = self.client.spaces.list(include_global=True)
         if include_global:
             return self._available_spaces
         return [space for space in self._available_spaces if not space.is_global]
@@ -980,9 +980,7 @@ class ThreeDInteractiveSelect:
             ],
         ).unsafe_ask()
 
-        models = self.client.tool.three_d.models_classic.list(
-            published=published, include_revision_info=True, limit=None
-        )
+        models = self.client.three_d.models_classic.list(published=published, include_revision_info=True, limit=None)
         if model_type == "classic":
             models = [model for model in models if model.space is None]
         else:
@@ -1016,7 +1014,7 @@ class Image360CollectionInteractiveSelect:
 
     def list_collections(self) -> list[NodeResponse]:
         instance_filter = InstanceFilter(instance_type="node", source=self.LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW)
-        nodes = self.client.tool.instances.list(filter=instance_filter, limit=None)
+        nodes = self.client.instances.list(filter=instance_filter, limit=None)
         return [node for node in nodes if isinstance(node, NodeResponse)]
 
     @classmethod
@@ -1132,7 +1130,7 @@ class RecordInteractiveSelect:
         return selected_stream
 
     def select_containers(self) -> list[ContainerResponse]:
-        record_containers = self.client.tool.containers.list(filter=ContainerFilter(used_for="record"))
+        record_containers = self.client.containers.list(filter=ContainerFilter(used_for="record"))
         if not record_containers:
             raise ToolkitValueError("No record containers found in the project.")
         selected_containers = questionary.checkbox(
@@ -1149,7 +1147,7 @@ class RecordInteractiveSelect:
         ).unsafe_ask()
 
     def select_instance_spaces(self) -> list[str]:
-        available_spaces = self.client.tool.spaces.list(include_global=False)
+        available_spaces = self.client.spaces.list(include_global=False)
         if not available_spaces:
             raise ToolkitValueError("No spaces found in the project.")
         selected_spaces = questionary.checkbox(
@@ -1222,12 +1220,12 @@ class DocumentsInteractiveSelect:
 
     @cached_property
     def _all_metadata_keys(self) -> set[DocumentPropertyPath]:
-        metadata_keys = self.client.tool.documents.unique(("sourceFile", "metadata"))
+        metadata_keys = self.client.documents.unique(("sourceFile", "metadata"))
         return {("sourceFile", "metadata", str(key.value)) for key in metadata_keys}
 
     def select_documents(self) -> SelectedDocuments:
         while True:
-            count = self.client.tool.documents.count(filter=self.status.current_filter, query=self.status.search_query)
+            count = self.client.documents.count(filter=self.status.current_filter, query=self.status.search_query)
             action = self._action(count)
             if action == "abort":
                 raise ToolkitValueError("Aborted document selection.")
@@ -1301,7 +1299,7 @@ class DocumentsInteractiveSelect:
         if filter_type is None:
             return
 
-        buckets = self.client.tool.documents.unique(
+        buckets = self.client.documents.unique(
             property=filter_type, filter=self.status.current_filter, query=self.status.search_query
         )
         if len(buckets) == 0:
@@ -1320,7 +1318,7 @@ class DocumentsInteractiveSelect:
         self.status.attempted_options.add(filter_type)
 
     def _select_dataset(self) -> None:
-        buckets = self.client.tool.documents.unique(
+        buckets = self.client.documents.unique(
             property=("sourceFile", "dataSetId"), filter=self.status.current_filter, query=self.status.search_query
         )
         internal_ids = {int(bucket.value): bucket.count for bucket in buckets if isinstance(bucket.value, int | float)}
@@ -1339,7 +1337,7 @@ class DocumentsInteractiveSelect:
 
     def _set_cognite_file(self) -> None:
         self.status.is_cognite_file = True
-        count = self.client.tool.documents.count(filter=self.status.current_filter, query=self.status.search_query)
+        count = self.client.documents.count(filter=self.status.current_filter, query=self.status.search_query)
         if count == 0:
             self.client.console.print(
                 "No CogniteFiles found with the current filter. Reverting the CogniteFile filter.", style="bold red"
@@ -1353,7 +1351,7 @@ class DocumentsInteractiveSelect:
         ).unsafe_ask()
         stripped = (answer or "").strip()
         self.status.search_query = stripped or None
-        count = self.client.tool.documents.count(filter=self.status.current_filter, query=self.status.search_query)
+        count = self.client.documents.count(filter=self.status.current_filter, query=self.status.search_query)
         if count == 0:
             self.client.console.print("No documents found. Clearing search query.", style="bold red")
             self.status.search_query = None
@@ -1361,9 +1359,9 @@ class DocumentsInteractiveSelect:
     def _documents_list_or_search(self, *, limit: int) -> SelectedDocuments:
         if self.status.search_query is None:
             return SelectedDocuments(
-                self.client.tool.documents.list(filter=self.status.current_filter, limit=limit), self.status
+                self.client.documents.list(filter=self.status.current_filter, limit=limit), self.status
             )
-        page = self.client.tool.documents.search(
+        page = self.client.documents.search(
             query=self.status.search_query,
             filter=self.status.current_filter,
             limit=limit,

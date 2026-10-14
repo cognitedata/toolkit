@@ -313,8 +313,8 @@ secrets:
                 uploaded=True,
                 name=function_id,
             )
-            client.tool.filemetadata.create.return_value = [file_response]
-            client.tool.filemetadata.retrieve.return_value = [file_response]
+            client.filemetadata.create.return_value = [file_response]
+            client.filemetadata.retrieve.return_value = [file_response]
             yield loader
 
     def test_replacing_file_mapping_updates_code_bundle(
@@ -328,11 +328,11 @@ secrets:
     def test_create_succeeds_when_file_uploaded_within_timeout(self, function_io_with_file: FunctionIO) -> None:
         function_io = function_io_with_file
         client = function_io.client
-        client.tool.filemetadata.await_file_uploaded.return_value = set(), 3.0
+        client.filemetadata.await_file_uploaded.return_value = set(), 3.0
         created_response = FunctionResponse(
             id=1, name="my_func", external_id="my_func", file_id=42, created_time=0, status="Ready"
         )
-        client.tool.functions.create.return_value = [created_response]
+        client.functions.create.return_value = [created_response]
 
         with patch.object(function_io, "_is_activated", return_value=True):
             result = function_io.create([FunctionRequest(name="my_func", external_id="my_func", file_id=-1)])
@@ -342,7 +342,7 @@ secrets:
     def test_create_raises_timeout_when_file_not_uploaded(self, function_io_with_file: FunctionIO) -> None:
         function_io = function_io_with_file
         client = function_io.client
-        client.tool.filemetadata.await_file_uploaded.return_value = {InternalId(id=42)}, 0.0
+        client.filemetadata.await_file_uploaded.return_value = {InternalId(id=42)}, 0.0
 
         item = FunctionRequest(name="my_func", external_id="my_func", file_id=-1)
 

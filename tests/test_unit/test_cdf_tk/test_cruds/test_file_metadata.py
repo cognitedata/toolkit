@@ -136,10 +136,10 @@ class TestFileMetadataCRUDUpdate:
                 metadata={FileMetadataIO._MetadataKey.FILECONTENT_HASH: h},
             )
 
-        mock_client.tool.filemetadata.retrieve.return_value = [_response(cdf_hash)]
-        mock_client.tool.filemetadata.update.return_value = [_response(local_hash)]
+        mock_client.filemetadata.retrieve.return_value = [_response(cdf_hash)]
+        mock_client.filemetadata.update.return_value = [_response(local_hash)]
         upload_resp = MagicMock(filepath=MagicMock(spec=Path), upload_url="https://upload.example.com", mime_type=None)
-        mock_client.tool.filemetadata.get_upload_url.return_value = [upload_resp]
+        mock_client.filemetadata.get_upload_url.return_value = [upload_resp]
 
         item = FileMetadataRequest(
             external_id="f",
@@ -149,4 +149,4 @@ class TestFileMetadataCRUDUpdate:
         )
         fileio.update([item])
 
-        assert mock_client.tool.filemetadata.upload_file.called == expect_upload
+        assert mock_client.filemetadata.upload_file.called == expect_upload

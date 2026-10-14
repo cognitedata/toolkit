@@ -87,14 +87,14 @@ class SignalSubscriptionIO(
             yield SubscribeSignalsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[SignalSubscriptionRequest]) -> list[SignalSubscriptionResponse]:
-        return self.client.tool.signal_subscriptions.create(list(items))
+        return self.client.signal_subscriptions.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SignalSubscriptionResponse]:
         if not ids:
             return []
         remaining = {id_.external_id for id_ in ids}
         found: list[SignalSubscriptionResponse] = []
-        for page in self.client.tool.signal_subscriptions.iterate(limit=None):
+        for page in self.client.signal_subscriptions.iterate(limit=None):
             for item in page:
                 if item.external_id in remaining:
                     found.append(item)
@@ -104,11 +104,11 @@ class SignalSubscriptionIO(
         return found
 
     def update(self, items: Sequence[SignalSubscriptionRequest]) -> list[SignalSubscriptionResponse]:
-        return self.client.tool.signal_subscriptions.update(list(items))
+        return self.client.signal_subscriptions.update(list(items))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
-        self.client.tool.signal_subscriptions.delete(id_list, ignore_unknown_ids=True)
+        self.client.signal_subscriptions.delete(id_list, ignore_unknown_ids=True)
         return id_list
 
     def _iterate(
@@ -119,5 +119,5 @@ class SignalSubscriptionIO(
     ) -> Iterable[SignalSubscriptionResponse]:
         if data_set_external_id or space or parent_ids:
             return
-        for page in self.client.tool.signal_subscriptions.iterate():
+        for page in self.client.signal_subscriptions.iterate():
             yield from page

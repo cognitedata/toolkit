@@ -100,7 +100,7 @@ def raw_mock_client(
     monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
     monkeypatch.setenv("CDF_PROJECT", config.project)
     with monkeypatch_toolkit_client() as client:
-        client.tool.token.verify_acls.return_value = []
+        client.token.verify_acls.return_value = []
         client.raw.tables.list.return_value = []
         client.raw.tables.create.return_value = TableList([Table(name="test_table")])
         client.config = config
@@ -144,8 +144,8 @@ class TestUploadCommand:
         assert isinstance(body, list)
         assert len(body) == 1_000
 
-        client.tool.raw.tables.create.assert_called_once()
-        raw_tables, *_ = client.tool.raw.tables.create.call_args[0]
+        client.raw.tables.create.assert_called_once()
+        raw_tables, *_ = client.raw.tables.create.call_args[0]
         assert raw_tables == [RAWTableRequest(db_name="test_db", name="test_table")]
 
     def test_upload_raw_rows_dry_run(
@@ -156,7 +156,7 @@ class TestUploadCommand:
         monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
         monkeypatch.setenv("CDF_PROJECT", config.project)
         with monkeypatch_toolkit_client() as client:
-            client.tool.token.verify_acls.return_value = []
+            client.token.verify_acls.return_value = []
             cmd.upload(raw_json_directory, client, deploy_resources=True, dry_run=True, verbose=False)
 
             client.raw.rows.insert.assert_not_called()

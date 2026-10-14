@@ -29,15 +29,15 @@ class TestExtendedFilesAPI:
         created: FileMetadataResponse | None = None
         created_dm = False
         try:
-            created_files = client.tool.filemetadata.create([metadata])
+            created_files = client.filemetadata.create([metadata])
             if len(created_files) != 1:
                 raise AssertionError("Expected exactly one file metadata record to be created.")
             created = created_files[0]
             if created.external_id is None or created.upload_url is None:
                 raise AssertionError("Created file metadata is missing an external id or upload URL.")
-            client.tool.filemetadata.upload_file(content, created.upload_url, created.mime_type)
+            client.filemetadata.upload_file(content, created.upload_url, created.mime_type)
 
-            updated = client.tool.filemetadata.set_pending_ids(
+            updated = client.filemetadata.set_pending_ids(
                 [
                     PendingInstanceId(
                         pending_instance_id=NodeId(space=cognite_file.space, external_id=cognite_file.external_id),
@@ -59,12 +59,12 @@ class TestExtendedFilesAPI:
             }:
                 raise AssertionError("Pending instance id on file metadata did not match the CogniteFile instance id.")
 
-            client.tool.cognite_files.create([cognite_file], replace=True)
+            client.cognite_files.create([cognite_file], replace=True)
             created_dm = True
 
             retrieved_ts: FileMetadataResponse | None = None
             for _ in range(60):
-                retrieved = client.tool.filemetadata.retrieve([cognite_file.as_instance_id()], ignore_unknown_ids=True)
+                retrieved = client.filemetadata.retrieve([cognite_file.as_instance_id()], ignore_unknown_ids=True)
                 retrieved_ts = retrieved[0] if retrieved else None
                 if retrieved_ts is not None:
                     break
@@ -75,16 +75,14 @@ class TestExtendedFilesAPI:
             if retrieved_ts.id != created.id:
                 raise AssertionError("Linked file metadata id did not match the created asset-centric file id.")
 
-            unlinked = client.tool.filemetadata.unlink_instance_ids([InternalId(id=created.id)])
+            unlinked = client.filemetadata.unlink_instance_ids([InternalId(id=created.id)])
             if len(unlinked) != 1 or unlinked[0].id != created.id:
                 raise AssertionError("Unlinking file instance ids did not return the expected file metadata.")
 
-            client.tool.cognite_files.delete([cognite_file.as_id()])
+            client.cognite_files.delete([cognite_file.as_id()])
             created_dm = False
 
-            retrieved = client.tool.filemetadata.retrieve(
-                [ExternalId(external_id=external_id)], ignore_unknown_ids=True
-            )
+            retrieved = client.filemetadata.retrieve([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
             retrieved_ts = retrieved[0] if retrieved else None
             if retrieved_ts is None or retrieved_ts.id != created.id:
                 raise AssertionError(
@@ -92,6 +90,6 @@ class TestExtendedFilesAPI:
                 )
         finally:
             if created is not None and not created_dm:
-                client.tool.filemetadata.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
+                client.filemetadata.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
             if created_dm:
-                client.tool.cognite_files.delete([cognite_file.as_id()])
+                client.cognite_files.delete([cognite_file.as_id()])

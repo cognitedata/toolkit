@@ -61,11 +61,11 @@ def tmp_classic_asset(toolkit_client: ToolkitClient, smoke_dataset: DataSet) -> 
         metadata={"source": "smoke_test_migration"},
         external_id=external_id,
     )
-    client.tool.assets.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
-    created = client.tool.assets.create([asset])[0]
+    client.assets.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
+    created = client.assets.create([asset])[0]
     yield created
 
-    client.tool.assets.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
+    client.assets.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
 
 
 @pytest.fixture
@@ -91,7 +91,7 @@ def migrated_asset(
         verbose=False,
     )
     asset_external_id = cast(str, asset.external_id)
-    migrated_nodes = client.tool.instances.retrieve([NodeId(space=smoke_space.space, external_id=asset_external_id)])
+    migrated_nodes = client.instances.retrieve([NodeId(space=smoke_space.space, external_id=asset_external_id)])
     migrated_node = migrated_nodes[0] if migrated_nodes else None
     if not isinstance(migrated_node, NodeResponse):
         raise EndpointAssertionError(
@@ -100,7 +100,7 @@ def migrated_asset(
         )
     yield tmp_classic_asset, migrated_node
 
-    client.tool.instances.delete([NodeId(space=smoke_space.space, external_id=asset_external_id)])
+    client.instances.delete([NodeId(space=smoke_space.space, external_id=asset_external_id)])
 
 
 @pytest.fixture
@@ -118,13 +118,13 @@ def tmp_3D_model_with_asset_mapping(
         data_set_id=smoke_dataset.id,
         metadata={"source": "smoke_test_migration"},
     )
-    models = client.tool.three_d.models_classic.create([model_request])
+    models = client.three_d.models_classic.create([model_request])
     if len(models) != 1:
-        create_path = client.tool.three_d.models_classic._method_endpoint_map["create"].path
+        create_path = client.three_d.models_classic._method_endpoint_map["create"].path
         raise EndpointAssertionError(create_path, "Failed to create 3D model for migration test.")
     model = models[0]
 
-    created_revisions = client.tool.three_d.revisions_classic.create(
+    created_revisions = client.three_d.revisions_classic.create(
         [ThreeDRevisionClassicRequest(model_id=model.id, file_id=three_d_file.id, published=True)]
     )
     if len(created_revisions) != 1:
@@ -133,7 +133,7 @@ def tmp_3D_model_with_asset_mapping(
 
     max_time = time.time() + 300  # 5 minutes timeout
     while revision.status in {"Processing", "Queued"}:
-        revisions = client.tool.three_d.revisions_classic.list(model.id, limit=None)
+        revisions = client.three_d.revisions_classic.list(model.id, limit=None)
         revision_status = next((item for item in revisions if item.id == revision.id), None)
         if revision_status is None:
             raise EndpointAssertionError(
@@ -146,15 +146,15 @@ def tmp_3D_model_with_asset_mapping(
             raise AssertionError("Timeout waiting for 3D model revision to be processed.")
     if revision.status != "Done":
         raise AssertionError(f"3D model revision processing failed with status: {revision.status}")
-    page = client.tool.three_d.models_classic.paginate(include_revision_info=True)
+    page = client.three_d.models_classic.paginate(include_revision_info=True)
     retrieved_model = next((m for m in page.items if m.id == model.id), None)
     if not retrieved_model:
-        list_path = client.tool.three_d.models_classic._method_endpoint_map["list"].path
+        list_path = client.three_d.models_classic._method_endpoint_map["list"].path
         raise EndpointAssertionError(list_path, "Failed to retrieve created 3D model for migration test.")
     revision_info = retrieved_model.last_revision_info
     if revision_info is None or revision_info.revision_id is None:
         raise AssertionError("Retrieved 3D model has incorrect revision info.")
-    three_d_nodes = client.tool.three_d.nodes.list(retrieved_model.id, revision_info.revision_id, limit=1)
+    three_d_nodes = client.three_d.nodes.list(retrieved_model.id, revision_info.revision_id, limit=1)
     if not three_d_nodes:
         raise EndpointAssertionError(
             "three_d.revisions",
@@ -163,7 +163,7 @@ def tmp_3D_model_with_asset_mapping(
     three_d_node = three_d_nodes[0]
     if not three_d_node.id:
         raise AssertionError("3D model node has no ID.")
-    created_mapping = client.tool.three_d.asset_mappings_classic.create(
+    created_mapping = client.three_d.asset_mappings_classic.create(
         [
             AssetMappingClassicRequestId(
                 node_id=three_d_node.id,
@@ -175,14 +175,14 @@ def tmp_3D_model_with_asset_mapping(
     )
     if not created_mapping or len(created_mapping) != 1:
         raise EndpointAssertionError(
-            client.tool.three_d.asset_mappings_classic.ENDPOINT,
+            client.three_d.asset_mappings_classic.ENDPOINT,
             "Failed to create asset mapping for 3D model migration test.",
         )
 
     yield retrieved_model, asset_node
 
-    client.tool.three_d.models_classic.delete([model.as_request_resource().as_id()])
-    client.tool.instances.delete(
+    client.three_d.models_classic.delete([model.as_request_resource().as_id()])
+    client.instances.delete(
         [
             NodeId(space=smoke_space.space, external_id=f"cog_3d_model_{model.id!s}"),
             NodeId(space=smoke_space.space, external_id=f"cog_3d_revision_{revision.id!s}"),
@@ -197,7 +197,7 @@ def three_d_model_instance_space(
     """This sets up the instance space mapping from the classic dataset."""
     client = toolkit_client
     space = smoke_space.space
-    client.tool.instances.create(
+    client.instances.create(
         [
             NodeRequest(
                 space=COGNITE_MIGRATION_MODEL.space,
@@ -262,7 +262,7 @@ class TestMigrate3D:
         has_name = filters.Equals(view_id.as_property_reference("name"), model.name)
         nodes = [
             item
-            for item in client.tool.instances.list(
+            for item in client.instances.list(
                 filter=InstanceFilter(
                     instance_type="node",
                     source=view_id,
@@ -294,7 +294,7 @@ class TestMigrate3D:
         )
         revisions = [
             item
-            for item in client.tool.instances.list(
+            for item in client.instances.list(
                 filter=InstanceFilter(
                     instance_type="node",
                     source=revision_view,
@@ -320,7 +320,7 @@ class TestMigrate3D:
 
         # Verify that the asset mapping exists in data modeling
         asset_view = ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")
-        asset_nodes = client.tool.instances.retrieve(
+        asset_nodes = client.instances.retrieve(
             [NodeId(space=smoke_space.space, external_id=asset_node.external_id)], source=asset_view
         )
         if not asset_nodes:
@@ -341,7 +341,7 @@ class TestMigrate3D:
         )
         cad_node = [
             item
-            for item in client.tool.instances.list(
+            for item in client.instances.list(
                 filter=InstanceFilter(instance_type="node", source=cad_node_view, filter=is_cad_node.dump()),
                 limit=None,
             )

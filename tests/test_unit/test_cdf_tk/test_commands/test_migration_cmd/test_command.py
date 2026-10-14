@@ -1311,7 +1311,7 @@ class TestMigrationCommand:
             model2 = MagicMock(spec=DataModel)
             model2.as_id.return_value = MODEL_ID
 
-            client.tool.data_models.retrieve.return_value = DataModelList([model1, model2])
+            client.data_models.retrieve.return_value = DataModelList([model1, model2])
 
             with pytest.raises(ToolkitMigrationError) as exc_info:
                 MigrationCommand.validate_migration_model_available(client)
@@ -1342,12 +1342,12 @@ class TestMigrationCommand:
             # Model has all required views
             model.views = [INSTANCE_SOURCE_VIEW_ID, RESOURCE_VIEW_MAPPING_VIEW_ID]
 
-            client.tool.data_models.retrieve.return_value = DataModelList([model])
+            client.data_models.retrieve.return_value = DataModelList([model])
 
             # Should not raise any exception
             MigrationCommand.validate_migration_model_available(client)
 
-            client.tool.data_models.retrieve.assert_called_once_with([MODEL_ID], inline_views=False)
+            client.data_models.retrieve.assert_called_once_with([MODEL_ID], inline_views=False)
 
     def test_validate_available_capacity_missing_capacity(self) -> None:
         cmd = MigrationCommand(silent=True)

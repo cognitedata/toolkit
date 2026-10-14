@@ -96,7 +96,7 @@ class TestRunTransformationV2:
         client.sessions.create_one_shot_token_exchange_session.return_value = SessionCreateResponse(
             id=42, status="READY", nonce="dummy-nonce"
         )
-        client.tool.transformations.run.return_value = _transformation_job("Created")
+        client.transformations.run.return_value = _transformation_job("Created")
         return client
 
     def test_run_transformation(self) -> None:
@@ -105,17 +105,17 @@ class TestRunTransformationV2:
         result = RunTransformationV2Command().run_transformation(client, "tr_assets", is_dry_run=False, wait=False)
 
         assert result is True
-        client.tool.transformations.run.assert_called_once_with(
+        client.transformations.run.assert_called_once_with(
             ExternalId(external_id="tr_assets"),
             nonce=TransformationNonceCredentials(session_id=42, nonce="dummy-nonce", cdf_project_name="my-project"),
         )
 
     def test_run_transformation_dry_run(self) -> None:
         client = self._mock_client()
-        client.tool.transformations.retrieve.return_value = [
+        client.transformations.retrieve.return_value = [
             _transformation_response("tr_assets", "Assets", query="SELECT * FROM assets")
         ]
-        client.tool.transformations.run_query_preview.return_value = SQLQueryResponse(
+        client.transformations.run_query_preview.return_value = SQLQueryResponse(
             schema_=[Column(name="id", sql_type="INT", type="INT", nullable=False)],
             results=[{"id": 1}],
         )
@@ -123,26 +123,26 @@ class TestRunTransformationV2:
         result = RunTransformationV2Command().run_transformation(client, "tr_assets", is_dry_run=True, wait=False)
 
         assert result is True
-        client.tool.transformations.run.assert_not_called()
-        client.tool.transformations.run_query_preview.assert_called_once_with(
+        client.transformations.run.assert_not_called()
+        client.transformations.run_query_preview.assert_called_once_with(
             "SELECT * FROM assets", convert_to_string=False
         )
 
     @patch("cognite_toolkit._cdf_tk.commands.run.time.sleep")
     def test_run_transformation_wait(self, _sleep: MagicMock) -> None:
         client = self._mock_client()
-        client.tool.transformations.jobs.retrieve.side_effect = [
+        client.transformations.jobs.retrieve.side_effect = [
             [_transformation_job("Running")],
             [_transformation_job("Completed")],
         ]
-        client.tool.transformations.jobs.list_metrics.return_value = [
+        client.transformations.jobs.list_metrics.return_value = [
             TransformationJobMetricResponse(timestamp=1_622_547_800_000, name="assets.read", count=10),
         ]
 
         result = RunTransformationV2Command().run_transformation(client, "tr_assets", is_dry_run=False, wait=True)
 
         assert result is True
-        client.tool.transformations.jobs.list_metrics.assert_called_once_with(1)
+        client.transformations.jobs.list_metrics.assert_called_once_with(1)
 
     def test_run_transformation_interactive(self, monkeypatch: pytest.MonkeyPatch) -> None:
         transformations = [
@@ -158,20 +158,20 @@ class TestRunTransformationV2:
         answers = [select_transformation, False, False]
         with MockQuestionary(RunTransformationV2Command.__module__, monkeypatch, answers):
             client = self._mock_client()
-            client.tool.transformations.list.return_value = transformations
+            client.transformations.list.return_value = transformations
 
             result = RunTransformationV2Command().run_transformation(client, None, is_dry_run=False, wait=False)
 
         assert result is True
-        client.tool.transformations.list.assert_called_once_with(limit=None)
-        client.tool.transformations.run.assert_called_once_with(
+        client.transformations.list.assert_called_once_with(limit=None)
+        client.transformations.run.assert_called_once_with(
             ExternalId(external_id="tr_events"),
             nonce=TransformationNonceCredentials(session_id=42, nonce="dummy-nonce", cdf_project_name="my-project"),
         )
 
     def test_run_transformation_interactive_no_transformations(self) -> None:
         client = self._mock_client()
-        client.tool.transformations.list.return_value = []
+        client.transformations.list.return_value = []
 
         with pytest.raises(ToolkitMissingResourceError, match="No transformations found"):
             RunTransformationV2Command().run_transformation(client, None, is_dry_run=False, wait=False)
@@ -208,8 +208,8 @@ class TestRunFunction:
             secrets={"my_secret": "***"},
         )
         toolkit_client_approval.append(Function, function)
-        toolkit_client_approval.mock_client.tool.functions.retrieve.side_effect = None
-        toolkit_client_approval.mock_client.tool.functions.retrieve.return_value = [
+        toolkit_client_approval.mock_client.functions.retrieve.side_effect = None
+        toolkit_client_approval.mock_client.functions.retrieve.return_value = [
             FunctionResponse(
                 id=function.id,
                 created_time=function.created_time,
@@ -223,7 +223,7 @@ class TestRunFunction:
                 secrets=function.secrets,
             )
         ]
-        toolkit_client_approval.mock_client.tool.functions.calls.call.return_value = FunctionCallResponse(
+        toolkit_client_approval.mock_client.functions.calls.call.return_value = FunctionCallResponse(
             id=1234567890,
             status="Running",
             start_time=1_700_000_000_000,
@@ -240,7 +240,7 @@ class TestRunFunction:
             wait=False,
             config_yaml=RUN_DATA / "config.dev.yaml",
         )
-        assert toolkit_client_approval.mock_client.tool.functions.calls.call.called
+        assert toolkit_client_approval.mock_client.functions.calls.call.called
 
     @patch.dict(
         os.environ,
@@ -427,18 +427,18 @@ def workflow_client() -> MagicMock:
     client.sessions.create_one_shot_token_exchange_session.return_value = SessionCreateResponse(
         id=1, status="READY", nonce="dummy-nonce"
     )
-    client.tool.workflows = MagicMock(spec=WorkflowsAPI)
-    client.tool.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)
-    client.tool.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)
-    client.tool.workflows.executions = MagicMock(spec_set=WorkflowExecutionsAPI)
-    client.tool.workflows.executions.run.return_value = _workflow_execution()
+    client.workflows = MagicMock(spec=WorkflowsAPI)
+    client.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)
+    client.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)
+    client.workflows.executions = MagicMock(spec_set=WorkflowExecutionsAPI)
+    client.workflows.executions.run.return_value = _workflow_execution()
     return client
 
 
 class TestRunWorkflowV2:
     def test_run_workflow(self, workflow_client: MagicMock) -> None:
         client = workflow_client
-        client.tool.workflows.versions.retrieve.return_value = [_workflow_version()]
+        client.workflows.versions.retrieve.return_value = [_workflow_version()]
 
         assert (
             RunWorkflowV2Command().run_workflow(
@@ -449,7 +449,7 @@ class TestRunWorkflowV2:
             )
             is True
         )
-        client.tool.workflows.executions.run.assert_called_once_with(
+        client.workflows.executions.run.assert_called_once_with(
             ToolkitWorkflowVersionId(workflow_external_id="workflow", version="v1"),
             nonce="dummy-nonce",
             input=None,
@@ -457,7 +457,7 @@ class TestRunWorkflowV2:
 
     def test_run_workflow_without_version_runs_last_updated(self, workflow_client: MagicMock) -> None:
         client = workflow_client
-        client.tool.workflows.versions.list.return_value = [
+        client.workflows.versions.list.return_value = [
             _workflow_version(version="v1", last_updated_time=1),
             _workflow_version(version="v2", last_updated_time=2),
         ]
@@ -469,7 +469,7 @@ class TestRunWorkflowV2:
             wait=False,
         )
 
-        client.tool.workflows.executions.run.assert_called_once_with(
+        client.workflows.executions.run.assert_called_once_with(
             ToolkitWorkflowVersionId(workflow_external_id="workflow", version="v2"),
             nonce="dummy-nonce",
             input=None,
@@ -491,8 +491,8 @@ class TestRunWorkflowV2:
             }
         )
         client = workflow_client
-        client.tool.workflows.versions.list.return_value = [_workflow_version()]
-        client.tool.workflows.triggers.list.return_value = [trigger]
+        client.workflows.versions.list.return_value = [_workflow_version()]
+        client.workflows.triggers.list.return_value = [trigger]
 
         def select_workflow(choices: list[Choice]) -> object:
             assert len(choices) == 1
@@ -508,7 +508,7 @@ class TestRunWorkflowV2:
                 wait=False,
             )
 
-        client.tool.workflows.executions.run.assert_called_once_with(
+        client.workflows.executions.run.assert_called_once_with(
             ToolkitWorkflowVersionId(workflow_external_id="workflow", version="v1"),
             nonce="dummy-nonce",
             input={"breakfast": "egg and bacon"},
@@ -517,8 +517,8 @@ class TestRunWorkflowV2:
     @patch("cognite_toolkit._cdf_tk.commands.run.time.sleep")
     def test_run_workflow_wait_for_completion(self, _sleep: MagicMock, workflow_client: MagicMock) -> None:
         client = workflow_client
-        client.tool.workflows.versions.retrieve.return_value = [_workflow_version()]
-        client.tool.workflows.executions.retrieve.side_effect = [
+        client.workflows.versions.retrieve.return_value = [_workflow_version()]
+        client.workflows.executions.retrieve.side_effect = [
             [_detailed_execution("RUNNING", [_task_execution("1", "task1", "IN_PROGRESS")])],
             [_detailed_execution("COMPLETED", [_task_execution("1", "task1", "COMPLETED")])],
         ]
@@ -532,11 +532,11 @@ class TestRunWorkflowV2:
             )
             is True
         )
-        assert client.tool.workflows.executions.retrieve.call_count == 2
+        assert client.workflows.executions.retrieve.call_count == 2
 
     def test_run_workflow_missing_version(self, workflow_client: MagicMock) -> None:
         client = workflow_client
-        client.tool.workflows.versions.retrieve.return_value = []
+        client.workflows.versions.retrieve.return_value = []
 
         with pytest.raises(ToolkitMissingResourceError, match="Could not find workflow"):
             RunWorkflowV2Command().run_workflow(

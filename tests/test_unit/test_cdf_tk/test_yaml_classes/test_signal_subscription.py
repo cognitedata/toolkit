@@ -206,7 +206,7 @@ class TestSignalSubscriptionCRUDRetrieve:
         subscriptions_api.iterate.return_value = iter([filler, [target]])
 
         client = MagicMock()
-        client.tool.signal_subscriptions = subscriptions_api
+        client.signal_subscriptions = subscriptions_api
         io = SignalSubscriptionIO(client)
 
         retrieved = io.retrieve([ExternalId(external_id="sub-beyond-first-page")])

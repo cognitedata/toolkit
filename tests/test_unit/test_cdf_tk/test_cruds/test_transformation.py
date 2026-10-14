@@ -209,7 +209,7 @@ authentication:
             ]
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.transformations.create.side_effect = create_transformations
+            client.transformations.create.side_effect = create_transformations
             crud = TransformationIO(client)
             created = crud.create(transformations)
 

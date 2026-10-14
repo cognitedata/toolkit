@@ -280,7 +280,7 @@ def parent_grandparent_view() -> list[ViewResponse]:
 class TestViewLoader:
     def test_topological_sorting(self, parent_grandparent_view: list[ViewResponse]) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.views.retrieve.return_value = parent_grandparent_view
+            client.views.retrieve.return_value = parent_grandparent_view
             parent = ViewId(space="space", external_id="Parent", version="v1")
             grandparent = ViewId(space="space", external_id="GrandParent", version="v1")
             loader = ViewIO(client, topological_sort_implements=True)
@@ -301,7 +301,7 @@ class TestViewLoader:
         grandparent = ViewId(space="space", external_id="GrandParent", version="v1")
 
         with monkeypatch_toolkit_client() as client, pytest.raises(ToolkitCycleError) as exc_info:
-            client.tool.views.retrieve.return_value = parent_grandparent_view
+            client.views.retrieve.return_value = parent_grandparent_view
             loader = ViewIO(client, topological_sort_implements=True)
             loader.topological_sort_implements(
                 [

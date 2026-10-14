@@ -203,7 +203,7 @@ class DirectRelationCache:
             ]
             id_cache = self._cache_map[self.TableName.FILE_ID]
             external_id_cache = self._cache_map[self.TableName.FILE_EXTERNAL_ID]
-            for file in self._client.tool.filemetadata.retrieve(items, ignore_unknown_ids=True):
+            for file in self._client.filemetadata.retrieve(items, ignore_unknown_ids=True):
                 if file.instance_id is None:
                     continue
                 id_cache[file.id] = file.instance_id
@@ -864,7 +864,7 @@ class ConnectionCreator:
         if view_ids is not None:
             missing_views = set(view_ids) - set(self.view_by_id.keys())
             if missing_views:
-                retrieved_views = self._client.tool.views.retrieve(list(missing_views))
+                retrieved_views = self._client.views.retrieve(list(missing_views))
                 for view in retrieved_views:
                     self.view_by_id[view.as_id()] = view
 
@@ -902,7 +902,7 @@ class ConnectionCreator:
         if timeseries_refs:
             missing_timeseries_refs = timeseries_refs - set(self._timeseries_reference_cache.keys())
             if missing_timeseries_refs:
-                missing_ts = self._client.tool.timeseries.retrieve(
+                missing_ts = self._client.timeseries.retrieve(
                     ExternalId.from_external_ids(missing_timeseries_refs), ignore_unknown_ids=True
                 )
                 for ts in missing_ts:
@@ -911,7 +911,7 @@ class ConnectionCreator:
         if file_refs:
             missing_file_refs = file_refs - set(self._file_reference_cache.keys())
             if missing_file_refs:
-                missing_refs = self._client.tool.filemetadata.retrieve(
+                missing_refs = self._client.filemetadata.retrieve(
                     ExternalId.from_external_ids(missing_file_refs), ignore_unknown_ids=True
                 )
                 for file in missing_refs:
