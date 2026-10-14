@@ -106,7 +106,7 @@ class ConfigFile(BaseModel):
         " to the organization directory. If None, no modules are selected."
     )
     variables: dict[str, JsonValue] = Field(description="Variables to be used during the build process.")
-    config_path: AbsoluteFilePath = Field(
+    path: AbsoluteFilePath = Field(
         description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory that contains the variables)."
     )
 
@@ -135,15 +135,6 @@ class BuildInput(BaseModel):
     selected_modules: set[RelativeDirPath | str] | None = Field(
         description="Set of modules to build. Either module names (folder names) or relative paths to the organization directory."
         "If None, no modules are selected."
-    )
-
-    # Todo: Delete once we have moved to using config_files instead of variables and config_path
-    variables: dict[str, JsonValue] = Field(
-        default_factory=dict, description="Variables to be used during the build process."
-    )
-    config_path: AbsoluteFilePath | None = Field(
-        None,
-        description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory).",
     )
 
     @property

@@ -801,9 +801,7 @@ class BuildV2Command(ToolkitCommand):
                 projects.update([config.environment.project])
                 validation_types.update([config.environment.validation_type])
                 config_files.append(
-                    ConfigFile(
-                        selected_modules=selected, variables=config.variables or {}, config_path=config_path_resolved
-                    )
+                    ConfigFile(selected_modules=selected, variables=config.variables or {}, path=config_path_resolved)
                 )
 
             if len(projects) > 1:
@@ -825,7 +823,6 @@ class BuildV2Command(ToolkitCommand):
         return BuildInput(
             yaml_files=yaml_files,
             selected_modules=parsed_user_selected,
-            variables={},
             validation_type=validation_type,
             cdf_project=cdf_project,
             organization_dir=organization_dir.resolve(),

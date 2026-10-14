@@ -50,12 +50,12 @@ class ModuleParser:
                 if config_selected_modules is None:
                     raise RuntimeError(
                         "Bug in Toolkit: No selected modules provided to parse modules for config file "
-                        f"{config_file.config_path}"
+                        f"{config_file.path}"
                     )
                 selected_modules = cls._select_modules(module_ids, config_selected_modules)
                 selected_paths = cls._expand_parents(selected_modules)
                 build_variables, invalid_config_variables = cls._parse_variables(
-                    build.variables, available_paths, selected_paths, build.config_path
+                    config_file.variables, available_paths, selected_paths, config_file.path
                 )
                 all_selected_modules.update(config_selected_modules)
                 invalid_variables.extend(invalid_config_variables)
