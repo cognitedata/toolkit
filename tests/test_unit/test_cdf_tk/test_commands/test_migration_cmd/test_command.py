@@ -1298,7 +1298,6 @@ class TestMigrationCommand:
 
     def test_validate_migration_model_available(self) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.data_modeling.data_models.retrieve.return_value = DataModelList([])
             with pytest.raises(ToolkitMigrationError):
                 MigrationCommand.validate_migration_model_available(client)
 
@@ -1325,8 +1324,6 @@ class TestMigrationCommand:
             model.as_id.return_value = MODEL_ID
             # Model has views but missing the required ones
             model.views = [INSTANCE_SOURCE_VIEW_ID]  # Missing VIEW_SOURCE_VIEW_ID
-
-            client.data_modeling.data_models.retrieve.return_value = DataModelList([model])
 
             with pytest.raises(ToolkitMigrationError, match=r"Invalid migration model. Missing views"):
                 MigrationCommand.validate_migration_model_available(client)

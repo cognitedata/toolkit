@@ -153,7 +153,7 @@ class TestUploadCommand:
     ) -> None:
         config = toolkit_config
         cmd = UploadCommand(silent=True, skip_tracking=True)
-        monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
+        monkeypatch.setenv("CDF_CLUSTER", config.attempt_to_get_cdf_cluster())
         monkeypatch.setenv("CDF_PROJECT", config.project)
         with monkeypatch_toolkit_client() as client:
             client.token.verify_acls.return_value = []

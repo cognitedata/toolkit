@@ -996,9 +996,9 @@ class TestDumpStreamlitApps:
         ):
             client.streamlit.list.return_value = three_streamlit_apps
             counts_by_creator = Counter([app.creator for app in three_streamlit_apps])
-            client.documents.aggregate_unique_values.return_value = UniqueResultList(
-                [UniqueResult(count=count, values=[creator]) for creator, count in counts_by_creator.items()]
-            )
+            # client.documents.aggregate_unique_values.return_value = UniqueResultList(
+            #     [UniqueResult(count=count, values=[creator]) for creator, count in counts_by_creator.items()]
+            # )
             finder = StreamlitFinder(client, None)
             selected = finder._interactive_select()
 
@@ -1210,7 +1210,6 @@ class TestSpaceFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary("cognite_toolkit._cdf_tk.utils.interactive_select", monkeypatch, answers),
         ):
-            client.data_modeling.spaces.list.return_value = three_spaces
             monkeypatch.setattr(
                 "cognite_toolkit._cdf_tk.utils.interactive_select.DataModelingSelect.stats_by_space",
                 mock_stats_by_space,

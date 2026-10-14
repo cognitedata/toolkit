@@ -300,9 +300,6 @@ class TestAssetCentricToInstanceMapper:
                 )
             ]
 
-            # Return empty list to simulate missing view in Data Modeling
-            client.data_modeling.views.retrieve.return_value = []
-
             mapper = AssetCentricToInstanceMapper(client)
 
             with pytest.raises(ToolkitValueError) as exc_info:
