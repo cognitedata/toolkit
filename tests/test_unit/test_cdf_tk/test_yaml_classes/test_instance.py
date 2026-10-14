@@ -258,7 +258,7 @@ class TestNodeYAML:
         assert loaded.sources[0].properties["prop1"] == "value1"
         assert isinstance(loaded.sources[1].properties, dict)
         assert "prop2" in loaded.sources[1].properties
-        assert loaded.sources[1].properties["prop2"] == "valu2"
+        assert loaded.sources[1].properties["prop2"] == "value2"
 
 
 class TestEdgeYAML:
