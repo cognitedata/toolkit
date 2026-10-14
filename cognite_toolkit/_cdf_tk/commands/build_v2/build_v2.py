@@ -396,7 +396,7 @@ class BuildV2Command(ToolkitCommand):
         if cached_lineage is None:
             return None, False
 
-        if parameters.config_yamls is not None:
+        if parameters.config_yamls:
             current_config_hash = calculate_hash_multi_file(parameters.config_yamls, shorten=True)
             if cached_lineage.config_hash != current_config_hash:
                 return None, False
@@ -567,7 +567,9 @@ class BuildV2Command(ToolkitCommand):
     def _find_modules(cls, build: BuildInput, operation: str) -> ModuleScanResult:
         source_by_module_id, orphan_files = ModuleParser.find_modules(build.organization_dir, build.yaml_files)
 
-        if build.user_selected_modules is None and not build.config_files:
+        if build.user_selected_modules is None and all(
+            file.selected_modules is None for file in build.config_files or []
+        ):
             user_selected_modules = cls._ask_user_to_select_modules(list(source_by_module_id.values()), operation)
         else:
             user_selected_modules = build.user_selected_modules
@@ -776,8 +778,9 @@ class BuildV2Command(ToolkitCommand):
                     + "\n".join(f"- {error}" for error in errors)
                 )
 
-        config_files: list[ConfigFile] = []
+        config_files: list[ConfigFile] | None = None
         if config_yamls:
+            config_files = []
             projects: Counter[str] = Counter()
             validation_types: Counter[ValidationType] = Counter()
             missing_selected: list[Path] = []

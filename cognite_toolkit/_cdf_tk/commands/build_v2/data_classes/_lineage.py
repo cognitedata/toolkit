@@ -255,7 +255,7 @@ class BuildLineage(_BaseLineageModel):
             modules_summary=modules_summary,
             insights_summary=insights_summary,
             cdf_project=cdf_project,
-            config_hash=calculate_hash_multi_file(config_yamls, shorten=True) if config_yamls is not None else None,
+            config_hash=calculate_hash_multi_file(config_yamls, shorten=True) if config_yamls else None,
         )
 
     def to_yaml(self) -> str:
