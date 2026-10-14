@@ -64,7 +64,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     ReadYAMLFile,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
-from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, MODULES
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, BUILD_MODULE_ARG, HINT_LEAD_TEXT, MODULES
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import BuildTracking, ResourceBuildStat
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
@@ -755,35 +755,66 @@ class BuildV2Command(ToolkitCommand):
         config_yamls: list[Path] | None,
         user_selected_modules: list[str] | None,
     ) -> BuildInput:
-        """Reads the file system to find the YAML files to build along with config.<name>.yaml if it exists."""
+        """Reads the file system to find the YAML files to build along with config.<name>.yaml if they exists."""
         cdf_project: str = os.environ.get("CDF_PROJECT", "UNKNOWN")
         validation_type: ValidationType = "prod"
+
+        if config_yamls and len(config_yamls) > 1 and user_selected_modules is not None:
+            # This should have been caught a lot earlier, but keep it for safety.
+            raise ToolkitValueError(
+                f"Cannot specify multiple config YAML files and also provide {BUILD_MODULE_ARG} argument. The {BUILD_MODULE_ARG} argument is used to overwrite the selected section in the config YAML file, but this is not supported for multiple config files"
+            )
+
+        parsed_user_selected: set[RelativeDirPath | str] | None = None
         if user_selected_modules:
-            selected, errors = cls.parse_user_selection(user_selected_modules, organization_dir)
+            parsed_user_selected, errors = cls.parse_user_selection(user_selected_modules, organization_dir)
             if errors:
-                raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
+                raise ToolkitValueError(
+                    f"Invalid module selection given by the {BUILD_MODULE_ARG}:\n"
+                    + "\n".join(f"- {error}" for error in errors)
+                )
 
         config_files: list[ConfigFile] = []
-        for config_yaml in config_yamls or []:
-            config_path_resolved = config_yaml.resolve()
-            try:
-                config = ConfigYAML.from_yaml_file(config_path_resolved)
-            except ValidationError as e:
-                errors = humanize_validation_error(e)
+        if config_yamls:
+            projects: Counter[str] = Counter()
+            validation_types: Counter[ValidationType] = Counter()
+            for config_yaml in config_yamls:
+                config_path_resolved = config_yaml.resolve()
+                try:
+                    config = ConfigYAML.from_yaml_file(config_path_resolved)
+                except ValidationError as e:
+                    errors = humanize_validation_error(e)
+                    raise ToolkitValueError(
+                        f"Config YAML file '{relative_to_if_possible(config_path_resolved).as_posix()}' is invalid:\n{'- '.join(errors)}"
+                    ) from e
+                selected: set[RelativeDirPath | str] | None = None
+                if config.environment.selected:
+                    selected, errors = cls.parse_user_selection(config.environment.selected, organization_dir)
+                    if errors:
+                        raise ToolkitValueError(
+                            f"Invalid module selection in {relative_to_if_possible(config_path_resolved).as_posix()}:\n"
+                            + "\n".join(f"- {error}" for error in errors)
+                        )
+
+                projects.update([config.environment.project])
+                validation_types.update([config.environment.validation_type])
+                config_files.append(
+                    ConfigFile(
+                        selected_modules=selected, variables=config.variables or {}, config_path=config_path_resolved
+                    )
+                )
+
+            if len(projects) > 1:
                 raise ToolkitValueError(
-                    f"Config YAML file '{config_path_resolved.as_posix()}' is invalid:\n{'- '.join(errors)}"
-                ) from e
-            selected: set[RelativeDirPath | str] | None = None
-            if not user_selected_modules and config.environment.selected:
-                selected, errors = cls.parse_user_selection(config.environment.selected, organization_dir)
-                if errors:
-                    raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
-            variables = config.variables or {}
-            cdf_project = config.environment.project
-            validation_type = config.environment.validation_type
-            config_files.append(
-                ConfigFile(selected_modules=selected, variables=variables, config_path=config_path_resolved)
-            )
+                    f"Multiple config YAML files provided with different CDF projects: {', '.join(f'{project} ({count})' for project, count in projects.items())}. Please ensure all config YAML files specify the same CDF project."
+                )
+            if len(validation_types) > 1:
+                raise ToolkitValueError(
+                    f"Multiple config YAML files provided with different validation types: {', '.join(f'{validation_type} ({count})' for validation_type, count in validation_types.items())}. Please ensure all config YAML files specify the same validation type."
+                )
+
+            validation_type = validation_types.most_common(1)[0][0]
+            cdf_project = projects.most_common(1)[0][0]
 
         yaml_files = [
             yaml_file.relative_to(organization_dir) for yaml_file in (organization_dir / MODULES).rglob("*.y*ml")
@@ -791,7 +822,7 @@ class BuildV2Command(ToolkitCommand):
 
         return BuildInput(
             yaml_files=yaml_files,
-            selected_modules=None,
+            selected_modules=parsed_user_selected,
             variables={},
             validation_type=validation_type,
             cdf_project=cdf_project,

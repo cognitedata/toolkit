@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.commands import (
 from cognite_toolkit._cdf_tk.commands._base import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConfigYAML
-from cognite_toolkit._cdf_tk.constants import LOGS_DIRECTORY
+from cognite_toolkit._cdf_tk.constants import BUILD_MODULE_ARG, LOGS_DIRECTORY
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -185,7 +185,7 @@ class CoreApp(typer.Typer):
         selected: Annotated[
             list[str] | None,
             typer.Option(
-                "--modules",
+                BUILD_MODULE_ARG,
                 "-m",
                 help="Specify paths or names to the modules to build",
             ),
