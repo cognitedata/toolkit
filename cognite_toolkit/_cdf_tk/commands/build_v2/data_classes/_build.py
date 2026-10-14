@@ -103,7 +103,7 @@ class BuildParameters(BaseModel):
 class ConfigFile(BaseModel):
     selected_modules: set[RelativeDirPath | str] | None = Field(
         description="Set of modules to build. Either module names (folder names) or relative paths"
-        " to the organization directory. If None, no modules are selected."
+        " to the organization directory. This can be empty"
     )
     variables: dict[str, JsonValue] = Field(description="Variables to be used during the build process.")
     path: AbsoluteFilePath = Field(
@@ -131,8 +131,7 @@ class BuildInput(BaseModel):
     cdf_project: str
     organization_dir: AbsoluteDirPath
 
-    # Todo: Rename to user_selected_modules once we have moved to using config_files instead of variables and config_path
-    selected_modules: set[RelativeDirPath | str] | None = Field(
+    user_selected_modules: set[RelativeDirPath | str] | None = Field(
         description="Set of modules to build. Either module names (folder names) or relative paths to the organization directory."
         "If None, no modules are selected."
     )

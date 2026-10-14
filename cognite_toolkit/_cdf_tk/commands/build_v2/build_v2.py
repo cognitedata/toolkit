@@ -245,7 +245,7 @@ class BuildV2Command(ToolkitCommand):
 
         if user_selected_modules:
             selection_source: SelectionSource = "cli-arg"
-        elif build_files.selected_modules is not None:
+        elif build_files.config_files and any(config_file.selected_modules for config_file in build_files.config_files):
             selection_source = "config"
         else:
             selection_source = "interactive"
@@ -567,10 +567,10 @@ class BuildV2Command(ToolkitCommand):
     def _find_modules(cls, build: BuildInput, operation: str) -> ModuleScanResult:
         source_by_module_id, orphan_files = ModuleParser.find_modules(build.organization_dir, build.yaml_files)
 
-        if build.selected_modules is None and not build.config_files:
+        if build.user_selected_modules is None and not build.config_files:
             user_selected_modules = cls._ask_user_to_select_modules(list(source_by_module_id.values()), operation)
         else:
-            user_selected_modules = build.selected_modules
+            user_selected_modules = build.user_selected_modules
 
         return ModuleParser.parse(build, user_selected_modules, source_by_module_id, orphan_files)
 
@@ -780,6 +780,7 @@ class BuildV2Command(ToolkitCommand):
         if config_yamls:
             projects: Counter[str] = Counter()
             validation_types: Counter[ValidationType] = Counter()
+            missing_selected: list[Path] = []
             for config_yaml in config_yamls:
                 config_path_resolved = config_yaml.resolve()
                 try:
@@ -797,6 +798,8 @@ class BuildV2Command(ToolkitCommand):
                             f"Invalid module selection in {relative_to_if_possible(config_path_resolved).as_posix()}:\n"
                             + "\n".join(f"- {error}" for error in errors)
                         )
+                else:
+                    missing_selected.append(config_path_resolved)
 
                 projects.update([config.environment.project])
                 validation_types.update([config.environment.validation_type])
@@ -804,13 +807,25 @@ class BuildV2Command(ToolkitCommand):
                     ConfigFile(selected_modules=selected, variables=config.variables or {}, path=config_path_resolved)
                 )
 
+            if len(config_yamls) > 1 and missing_selected:
+                raise ToolkitValueError(
+                    "Multiple config YAML files provided, but the following config YAML files do not specify any "
+                    "selected modules: "
+                    f"{', '.join(relative_to_if_possible(path).as_posix() for path in missing_selected)}. "
+                    f"When using multiple config YAML files, all config YAML files must specify selected modules."
+                )
+
             if len(projects) > 1:
                 raise ToolkitValueError(
-                    f"Multiple config YAML files provided with different CDF projects: {', '.join(f'{project} ({count})' for project, count in projects.items())}. Please ensure all config YAML files specify the same CDF project."
+                    f"Multiple config YAML files provided with different CDF projects: "
+                    f"{', '.join(f'{project} ({count})' for project, count in projects.items())}. "
+                    f"Please ensure all config YAML files specify the same CDF project."
                 )
             if len(validation_types) > 1:
                 raise ToolkitValueError(
-                    f"Multiple config YAML files provided with different validation types: {', '.join(f'{validation_type} ({count})' for validation_type, count in validation_types.items())}. Please ensure all config YAML files specify the same validation type."
+                    f"Multiple config YAML files provided with different validation types: "
+                    f"{', '.join(f'{validation_type} ({count})' for validation_type, count in validation_types.items())}. "
+                    f"Please ensure all config YAML files specify the same validation type."
                 )
 
             validation_type = validation_types.most_common(1)[0][0]
@@ -822,7 +837,7 @@ class BuildV2Command(ToolkitCommand):
 
         return BuildInput(
             yaml_files=yaml_files,
-            selected_modules=parsed_user_selected,
+            user_selected_modules=parsed_user_selected,
             validation_type=validation_type,
             cdf_project=cdf_project,
             organization_dir=organization_dir.resolve(),
