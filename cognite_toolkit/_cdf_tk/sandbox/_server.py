@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, urlparse
 
 from pydantic import ValidationError
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from cognite_toolkit._cdf_tk.sandbox._workspace import OPERATIONS, Workspace, insight_to_json
 
@@ -38,6 +39,18 @@ def describe_api() -> dict[str, Any]:
             "GET /insights": "Validate the whole session.",
             "GET /diff": "Unified diffs of the pending edits.",
             "POST /write": "Write the pending edits to disk.",
+            "GET /cdf/diff": "Compare the session to CDF (create / update / delete / unchanged). Requires a client.",
+            "POST /cdf/deploy": (
+                "Deploy the session to CDF. Body: dryRun (default true), confirm (required when dryRun is false)."
+            ),
+            "POST /cdf/load": (
+                "Dump resources from CDF into the session as new files. Body: kind, and one of identifiers, "
+                "dataSetExternalId, or space. Optional: folder, module."
+            ),
+            "POST /cdf/pull": (
+                "Merge CDF values into loaded session resources, keeping variables and comments. "
+                "Optional body: kind, identifier, folder."
+            ),
         },
         "operations": {
             name: {"description": (cls.__doc__ or "").strip(), "schema": cls.model_json_schema(by_alias=True)}
@@ -47,8 +60,10 @@ def describe_api() -> dict[str, Any]:
     }
 
 
-def make_server(host: str, port: int, workspace: Workspace | None = None) -> ThreadingHTTPServer:
-    workspace = workspace or Workspace()
+def make_server(
+    host: str, port: int, workspace: Workspace | None = None, client: ToolkitClient | None = None
+) -> ThreadingHTTPServer:
+    workspace = workspace or Workspace(client=client)
     lock = threading.Lock()
 
     class Handler(BaseHTTPRequestHandler):
@@ -101,6 +116,17 @@ def make_server(host: str, port: int, workspace: Workspace | None = None) -> Thr
                 return HTTPStatus.OK, {str(file): diff for file, diff in workspace.get_session().diff().items()}
             if method == "POST" and path == "/write":
                 return HTTPStatus.OK, {"written": [str(file) for file in workspace.get_session().write()]}
+            if method == "GET" and path == "/cdf/diff":
+                return HTTPStatus.OK, workspace.cdf_plan().to_json()
+            if method == "POST" and path == "/cdf/deploy":
+                return HTTPStatus.OK, workspace.cdf_deploy(
+                    dry_run=body.get("dryRun", True),
+                    confirm=body.get("confirm", False),
+                ).to_json()
+            if method == "POST" and path == "/cdf/load":
+                return HTTPStatus.OK, workspace.cdf_load(body)
+            if method == "POST" and path == "/cdf/pull":
+                return HTTPStatus.OK, workspace.cdf_pull(body)
             return HTTPStatus.NOT_FOUND, {"error": f"No route for {method} {path}"}
 
         def _read_body(self) -> dict[str, Any]:

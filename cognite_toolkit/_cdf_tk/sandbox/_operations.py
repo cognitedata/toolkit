@@ -63,6 +63,17 @@ class AddResource(Operation):
     folder: str | None = Field(default=None, description="Only needed if the kind exists in several folders.")
     module: str | None = Field(default=None, description="Only needed if several modules are loaded.")
     sub_dir: str | None = Field(default=None, description="Defaults to the sub folder of the kind, if it has one.")
+    extras: dict[str, str] | None = Field(
+        default=None,
+        description="Sidecar text by resource field, for example {'query': 'select 1'}.",
+    )
 
     def apply(self, session: ModelingSession) -> None:
-        session.add_resource(self.kind, self.resource, self.folder, self.module, self.sub_dir)
+        session.add_resource(self.kind, self.resource, self.folder, self.module, self.sub_dir, self.extras)
+
+
+class RemoveResource(_Target):
+    """Remove a loaded resource from the session. On write, its file is deleted."""
+
+    def apply(self, session: ModelingSession) -> None:
+        session.remove_resource(session.find(self.kind, self.identifier, self.folder))

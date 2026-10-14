@@ -116,7 +116,14 @@ def test_unknown_operation_returns_400(base_url: str, org_dir: Path) -> None:
 def test_describe_api(base_url: str) -> None:
     description = call(base_url, "/")
     assert "POST /apply" in description["routes"]
-    assert set(description["operations"]) == {"SetPath", "RemovePath", "SetExtra", "AddResource"}
+    assert set(description["operations"]) == {
+        "SetPath",
+        "RemovePath",
+        "SetExtra",
+        "AddResource",
+        "RemoveResource",
+    }
+    assert "GET /cdf/diff" in description["routes"]
 
 
 def test_load_with_missing_config_returns_400(base_url: str, org_dir: Path) -> None:

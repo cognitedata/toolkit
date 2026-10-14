@@ -22,24 +22,29 @@ def _as_resource_dicts(content: dict[str, Any] | list[dict[str, Any]], path: Pat
     raise ValueError(f"Expected a mapping or list of mappings in {path}, got {type(content)}")
 
 
-def substitute_with_original_tokens(content: str, variables: list[BuildVariable]) -> tuple[str, dict[str, str]]:
+def substitute_with_original_tokens(
+    content: str, variables: list[BuildVariable]
+) -> tuple[str, dict[str, str], dict[str, BuildVariable]]:
     """Replace ``{{ variable }}`` tokens with placeholders, keeping the original spelling.
 
     Unlike ``BuildVariable.substitute_with_placeholders``, the restore map preserves
     the exact token text from the file (spacing and surrounding characters are not
-    normalized to ``{{ name }}``).
+    normalized to ``{{ name }}``). Also returns ``placeholder -> BuildVariable`` for
+    CDF merge (``ResourceReplacer``).
     """
     token_by_placeholder: dict[str, str] = {}
+    variable_by_placeholder: dict[str, BuildVariable] = {}
     for variable in variables:
         pattern = re.compile(rf"{{{{\s*{re.escape(variable.name)}\s*}}}}")
 
         def _replace(match: re.Match[str]) -> str:
             placeholder = f"VARIABLE_{uuid.uuid4().hex[:8]}"
             token_by_placeholder[placeholder] = match.group(0)
+            variable_by_placeholder[placeholder] = variable
             return placeholder
 
         content = pattern.sub(_replace, content)
-    return content, token_by_placeholder
+    return content, token_by_placeholder, variable_by_placeholder
 
 
 @dataclass
@@ -57,11 +62,14 @@ class SourceFile:
     variables: list[BuildVariable]
     original_text: str
     token_by_placeholder: dict[str, str]
+    variable_by_placeholder: dict[str, BuildVariable]
     resolved: list[dict[str, Any]]
     placeholder: list[dict[str, Any]]
     is_list: bool
     dirty: bool = False
     is_new: bool = False
+    # Marked for deletion on the next write (RemoveResource).
+    deleted: bool = False
     # The placeholder form at load or last write, to recognise edits that only add properties.
     baseline: list[dict[str, Any]] | None = None
 
@@ -79,7 +87,9 @@ class SourceFile:
     ) -> Self:
         original_text = safe_read(read.source_path)
         text = crud_cls.safe_read(original_text)
-        placeholder_text, token_by_placeholder = substitute_with_original_tokens(text, variables)
+        placeholder_text, token_by_placeholder, variable_by_placeholder = substitute_with_original_tokens(
+            text, variables
+        )
         resolved_content = read_yaml_content(crud_cls.substitute_variables_content(text, variables))
         placeholder_content = read_yaml_content(placeholder_text)
 
@@ -97,6 +107,7 @@ class SourceFile:
             variables=variables,
             original_text=original_text,
             token_by_placeholder=token_by_placeholder,
+            variable_by_placeholder=variable_by_placeholder,
             resolved=resolved,
             placeholder=placeholder,
             is_list=isinstance(resolved_content, list),
@@ -129,6 +140,7 @@ class SourceFile:
             variables=variables,
             original_text="",
             token_by_placeholder={},
+            variable_by_placeholder={},
             resolved=[deepcopy(resource)],
             placeholder=[deepcopy(resource)],
             is_list=False,

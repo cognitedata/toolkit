@@ -9,6 +9,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
@@ -34,12 +35,13 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     ModuleId,
     ReadResource,
 )
-from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_BUILD_IO_BY_TYPE, RESOURCE_BUILD_IO_LIST
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_BUILD_IO_BY_TYPE, RESOURCE_BUILD_IO_LIST, ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import BaseResourceIO, ResourceFileIO, SuccessExtra
 from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator
 from cognite_toolkit._cdf_tk.rules._base import InternalValidatorException
 from cognite_toolkit._cdf_tk.sandbox._render import render_source_file
 from cognite_toolkit._cdf_tk.sandbox._source import SourceFile, TextFile
+from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error_categorized
 
@@ -72,6 +74,7 @@ class _Journal:
         default_factory=dict
     )
     added: list[SourceFile] = field(default_factory=list)
+    removed: list[SourceFile] = field(default_factory=list)
     texts: dict[Path, tuple[TextFile, str, list[tuple[SuccessExtra, str | None]]]] = field(default_factory=dict)
 
 
@@ -98,8 +101,9 @@ class ModelingSession:
     with the build's local and global rules after each operation.
     """
 
-    def __init__(self, root: Path) -> None:
+    def __init__(self, root: Path, client: ToolkitClient | None = None) -> None:
         self.root = root.resolve()
+        self.client = client
         self.modules: dict[ModuleId, Module] = {}
         self.files: list[SourceFile] = []
         self._variables: dict[ModuleId, list[BuildVariable]] = {}
@@ -107,6 +111,7 @@ class ModelingSession:
         self._built: dict[ModuleId, BuiltModule] = {}
         self._insights: list[SessionInsight] = []
         self._journal = _Journal()
+        self._removed: list[SourceFile] = []
         self._command = BuildV2Command(print_warning=False, skip_tracking=True, silent=True)
         self._local_rules = LocalRulesOrchestrator()
 
@@ -121,7 +126,42 @@ class ModelingSession:
         self._insights = self._check()
 
     def resources(self) -> list[ResourceRef]:
-        return [ResourceRef(source, index) for source in self.files for index in range(len(source.resolved))]
+        return [
+            ResourceRef(source, index)
+            for source in self.files
+            if not source.deleted
+            for index in range(len(source.resolved))
+        ]
+
+    def ensure_built(self) -> None:
+        """Make sure ``_built`` is up to date without clearing existing entries when possible."""
+        self._check()
+
+    def built_modules(self) -> list[BuiltModule]:
+        self.ensure_built()
+        return list(self._built.values())
+
+    def removed_paths(self) -> list[Path]:
+        return [source.path for source in self._removed]
+
+    def removed_identifiers(self, crud_cls: type[ResourceIO]) -> list[Identifier]:
+        found: list[Identifier] = []
+        for source in self._removed:
+            if source.crud_cls is not crud_cls:
+                continue
+            for resource in source.read.resources:
+                found.append(resource.identifier)
+        return found
+
+    def unsupported_cdf_resources(self) -> list[tuple[str, str, list[Identifier]]]:
+        """Kinds loaded in the session that have no CDF ResourceIO."""
+        by_kind: dict[tuple[str, str], list[Identifier]] = {}
+        for ref in self.resources():
+            if issubclass(ref.source.crud_cls, ResourceIO):
+                continue
+            key = (ref.source.read.source_type.kind, ref.source.read.source_type.resource_folder)
+            by_kind.setdefault(key, []).append(ref.resource.identifier)
+        return [(kind, folder, ids) for (kind, folder), ids in by_kind.items()]
 
     def find(self, kind: str, identifier: dict[str, Any], folder: str | None = None) -> ResourceRef:
         matches = [
@@ -220,10 +260,15 @@ class ModelingSession:
         folder: str | None = None,
         module: str | None = None,
         sub_dir: str | None = None,
+        extras: dict[str, str] | None = None,
     ) -> Identifier:
-        """Add a resource in a new file. The file is placed below the module, in the resource folder of the kind."""
+        """Add a resource in a new file. The file is placed below the module, in the resource folder of the kind.
+
+        ``extras`` maps a resource field (for example ``query``) to sidecar text written next to the YAML.
+        """
         crud_cls = self.crud_class(kind, folder)
         target = self._module(module)
+        resource = deepcopy(resource)
         identifier = crud_cls.validate_object(deepcopy(resource), extra="forbid").as_id()
         if any(ref.resource.identifier == identifier and ref.source.crud_cls is crud_cls for ref in self.resources()):
             raise ValueError(f"{kind} {identifier} already exists in the session")
@@ -236,12 +281,71 @@ class ModelingSession:
         if path.exists() or any(source.path == path for source in self.files):
             raise ValueError(f"{path} already exists")
 
+        success_extras: list[SuccessExtra] = []
+        if extras:
+            for field_name, text in extras.items():
+                suffix = ".sql" if field_name == "query" else f".{field_name}"
+                extra_path = path.with_suffix(suffix)
+                if field_name == "query":
+                    resource["queryFile"] = extra_path.name
+                    resource.pop("query", None)
+                success_extras.append(
+                    SuccessExtra(
+                        source_path=extra_path,
+                        source_hash=calculate_hash(text, shorten=True),
+                        suffix=suffix,
+                        content=text,
+                        description=f"{kind} {field_name}",
+                        resource_field=field_name,
+                        remove_fields=["queryFile"] if field_name == "query" else [],
+                    )
+                )
+                self._texts[extra_path] = TextFile(path=extra_path, original_text="", text=text)
+
         source = SourceFile.create_new(path, target.id, crud_cls, resource, identifier, self._variables[target.id])
+        if success_extras:
+            source.read.resources[0].extra_files = success_extras
         target.files.append(source.read)
         self.files.append(source)
         self._journal.added.append(source)
         self._refresh(source)
         return identifier
+
+    def remove_resource(self, ref: ResourceRef) -> None:
+        """Remove a resource from the session. On write, its file is deleted if it held only that resource."""
+        source = ref.source
+        if source.is_list and len(source.resolved) > 1:
+            self._touch(source)
+            del source.resolved[ref.index]
+            del source.placeholder[ref.index]
+            del source.read.resources[ref.index]
+            if source.baseline is not None and len(source.baseline) > ref.index:
+                del source.baseline[ref.index]
+            self._built.pop(source.module_id, None)
+            return
+
+        if source not in self.files:
+            raise KeyError(f"{source.path} is not loaded in the session")
+        self.files.remove(source)
+        for module in self.modules.values():
+            if source.read in module.files:
+                module.files.remove(source.read)
+        source.deleted = True
+        self._removed.append(source)
+        self._journal.removed.append(source)
+        self._built.pop(source.module_id, None)
+
+    def replace_resource(
+        self,
+        ref: ResourceRef,
+        resolved: dict[str, Any],
+        placeholder: dict[str, Any] | None = None,
+    ) -> None:
+        """Replace the whole resource body (used by CDF merge pull)."""
+        self._touch(ref.source)
+        ref.source.resolved[ref.index] = deepcopy(resolved)
+        ref.source.placeholder[ref.index] = deepcopy(placeholder if placeholder is not None else resolved)
+        self._refresh(ref.source)
 
     def crud_class(self, kind: str, folder: str | None) -> type[BaseResourceIO]:
         matches = [
@@ -339,6 +443,16 @@ class ModelingSession:
                 if source.read in module.files:
                     module.files.remove(source.read)
             self._built.pop(source.module_id, None)
+        for source in journal.removed:
+            source.deleted = False
+            if source in self._removed:
+                self._removed.remove(source)
+            if source not in self.files:
+                self.files.append(source)
+            module = self.modules.get(source.module_id)
+            if module is not None and source.read not in module.files:
+                module.files.append(source.read)
+            self._built.pop(source.module_id, None)
         for source, resolved, placeholder, dirty in journal.sources.values():
             source.resolved, source.placeholder, source.dirty = resolved, placeholder, dirty
             self._refresh(source)
@@ -361,7 +475,7 @@ class ModelingSession:
                     module, self._variables[module.id], Counter(), None, self._local_rules
                 )
         built_modules = list(self._built.values())
-        results = self._command.run_global_rules(built_modules)
+        results = self._command.run_global_rules(built_modules, client=self.client)
 
         found = InsightList()
         ignored_by_source: dict[Path, set[str]] = {}
@@ -378,8 +492,13 @@ class ModelingSession:
         """Unified diffs for the files that are edited."""
         diffs: dict[Path, str] = {}
         for source in self.files:
+            if source.deleted:
+                continue
             if source.dirty or source.is_new:
                 self._add_diff(diffs, source.path, source.original_text, render_source_file(source))
+        for source in self._removed:
+            if source.original_text:
+                self._add_diff(diffs, source.path, source.original_text, "")
         for text_file in self._texts.values():
             self._add_diff(diffs, text_file.path, text_file.original_text, text_file.text)
         return diffs
@@ -398,8 +517,23 @@ class ModelingSession:
     def write(self) -> list[Path]:
         """Write the edited files to disk. Returns the paths written."""
         written: list[Path] = []
+        removed_extra_paths: set[Path] = set()
+        for source in list(self._removed):
+            if source.path.exists():
+                source.path.unlink()
+            for resource in source.read.resources:
+                for extra in resource.extra_files:
+                    if not isinstance(extra, SuccessExtra):
+                        continue
+                    removed_extra_paths.add(extra.source_path)
+                    if extra.source_path.exists():
+                        extra.source_path.unlink()
+                        written.append(extra.source_path)
+                    self._texts.pop(extra.source_path, None)
+            written.append(source.path)
+            self._removed.remove(source)
         for source in self.files:
-            if not source.dirty and not source.is_new:
+            if source.deleted or (not source.dirty and not source.is_new):
                 continue
             content = render_source_file(source)
             source.path.parent.mkdir(parents=True, exist_ok=True)
@@ -409,8 +543,12 @@ class ModelingSession:
             source.dirty = source.is_new = False
             written.append(source.path)
         for text_file in self._texts.values():
-            if text_file.dirty:
-                safe_write(text_file.path, text_file.text)
-                text_file.original_text = text_file.text
-                written.append(text_file.path)
+            if text_file.path in removed_extra_paths:
+                continue
+            if not text_file.dirty and text_file.original_text != "":
+                continue
+            text_file.path.parent.mkdir(parents=True, exist_ok=True)
+            safe_write(text_file.path, text_file.text)
+            text_file.original_text = text_file.text
+            written.append(text_file.path)
         return written
