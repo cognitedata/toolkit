@@ -361,12 +361,14 @@ class BuildV2Command(ToolkitCommand):
             build_parameters = BuildParameters(
                 organization_dir=organization_dir,
                 build_dir=build_dir,
-                config_yaml=config_yaml_path,
+                config_yamls=[config_yaml_path] if config_yaml_path else [],
                 user_selected_modules=user_selected_modules,
             )
             build_folder = self.build(build_parameters, client, display=False)
             cdf_project = client.config.project if client else None
-            lineage = BuildLineage.from_build(build_folder, cdf_project, config_yaml_path)
+            lineage = BuildLineage.from_build(
+                build_folder, cdf_project, [config_yaml_path] if config_yaml_path else None
+            )
             if cached_lineage is not None and needs_rebuild is not None:
                 lineage = self._merge_build_lineage(cached_lineage, lineage)
 
@@ -395,7 +397,7 @@ class BuildV2Command(ToolkitCommand):
                 return None, False
 
         build_files = self._read_file_system(
-            parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
+            parameters.organization_dir, parameters.config_yamls, parameters.user_selected_modules
         )
         source_by_module_id, _ = ModuleParser.find_modules(build_files.organization_dir, build_files.yaml_files)
         module_scan = ModuleParser.parse(build_files, {Path(MODULES)}, source_by_module_id, [])

@@ -113,15 +113,21 @@ class BuildInput(BaseModel):
     yaml_files: list[RelativeFilePath] = Field(
         description="List of all YAML files that are part of the build, with paths relative to the organization directory."
     )
+    config_files: list[ConfigFile] = Field(
+        default_factory=list,
+        description="List of configuration YAML files to be used during the build process. Each file corresponds to a set of variables and "
+                    "selected modules.",
+    )
+    validation_type: ValidationType = "prod"
+    cdf_project: str
+    organization_dir: AbsoluteDirPath
+
+
     selected_modules: set[RelativeDirPath | str] | None = Field(
         description="Set of modules to build. Either module names (folder names) or relative paths to the organization directory."
         "If None, no modules are selected."
     )
-    config_files: list[ConfigFile] = Field(
-        default_factory=list,
-        description="List of configuration YAML files to be used during the build process. Each file corresponds to a set of variables and "
-        "selected modules.",
-    )
+
     variables: dict[str, JsonValue] = Field(
         default_factory=dict, description="Variables to be used during the build process."
     )
@@ -129,9 +135,6 @@ class BuildInput(BaseModel):
         None,
         description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory).",
     )
-    validation_type: ValidationType = "prod"
-    cdf_project: str
-    organization_dir: AbsoluteDirPath
 
     @property
     def module_dir(self) -> Path:
