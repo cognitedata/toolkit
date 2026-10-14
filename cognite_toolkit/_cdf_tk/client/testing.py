@@ -3,7 +3,6 @@ from contextlib import contextmanager
 from typing import Any, cast
 from unittest.mock import MagicMock
 
-from cognite.client.testing import CogniteClientMock
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
@@ -120,17 +119,13 @@ from .api.workflow_versions import WorkflowVersionsAPI
 from .api.workflows import WorkflowsAPI
 
 
-class ToolkitClientMock(CogniteClientMock):
+class ToolkitClientMock:
     """Mock for ToolkitClient object
 
     All APIs are replaced with specked MagicMock objects.
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        if "parent" in kwargs:
-            super().__init__(*args, **kwargs)
-            return None
-        super().__init__(*args, **kwargs)
         self.console = Console()
         # spec= (not spec_set): ClientConfig fields are not plain class attributes, so spec_set
         # blocked assigning project/timeout in tests. Defaults keep HTTPClient(...) usable.

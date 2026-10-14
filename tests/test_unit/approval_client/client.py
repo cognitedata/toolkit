@@ -15,7 +15,6 @@ from unittest.mock import MagicMock
 import pandas as pd
 from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
-from cognite.client._api.iam import IAMAPI
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     DataSet,
@@ -193,7 +192,6 @@ class ApprovalToolkitClient:
         self._post_methods: dict[str, list[MagicMock]] = defaultdict(list)
 
         # Set the side effect of the MagicMock to the real method
-        self.mock_client.iam.compare_capabilities.side_effect = IAMAPI.compare_capabilities
         self.mock_client.sessions.create.return_value = [
             SessionCreateResponse(
                 id=1234,
