@@ -4,7 +4,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
+from pydantic_core.core_schema import FieldValidationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_Identifier, T_RequestResource
 from cognite_toolkit._cdf_tk.constants import MODULES
@@ -73,6 +74,18 @@ class BuildParameters(BaseModel):
         default=False,
         description="Whether to enforce rules during validation. If True, any rule violations will cause the build to fail. If False, rule violations will be reported as warnings.",
     )
+
+    @field_validator("user_selected_modules", mode="after")
+    @classmethod
+    def user_selected_modules_not_compatible_with_multiple_config_yamls(
+        cls, v: list[str] | None, info: FieldValidationInfo
+    ) -> list[str] | None:
+        if v and info.data.get("config_yamls") and len(info.data["config_yamls"]) > 1:
+            raise ValueError(
+                "Cannot specify user_selected_modules when multiple config YAMLs are provided. "
+                "Please specify the modules to build in each config YAML instead."
+            )
+        return v
 
     @property
     def modules_directory(self) -> Path:

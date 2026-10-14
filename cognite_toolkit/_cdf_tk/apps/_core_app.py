@@ -244,6 +244,9 @@ class CoreApp(typer.Typer):
             if config_yaml is None:
                 config_yaml = organization_dir / ConfigYAML.get_filename(build_env_name)
 
+        # Todo when allowing multiple config YAMLS, check if selected is set and multiple config YAMLS are set,
+        # Then raise a BadParameterError, as this is ambiguous. The selected is used to overwrite the selected section
+        # in a config YAML, but if multiple config YAMLS are set, it is ambiguous which one to overwrite. So we should raise an error in that case.
         parameter = BuildParameters(
             organization_dir=organization_dir,
             build_dir=build_dir,
