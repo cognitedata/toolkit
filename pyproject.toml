@@ -141,7 +141,6 @@ exclude = [
     "tests/test_unit/test_cdf_tk/test_rules", # 21
     "tests/test_unit/test_cdf_tk/test_storageio", # 71
     "tests/test_unit/test_cdf_tk/test_utils", # 184
-    "tests/test_unit/test_cdf_tk/test_yaml_classes", # 22
 ]
 [tool.ty.environment]
 python-version = "3.14"
