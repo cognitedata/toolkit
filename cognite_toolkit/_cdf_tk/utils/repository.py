@@ -68,7 +68,13 @@ class GitHubFileDownloader(FileDownloader):
         return response.json()
 
     def _requests(self, url: str, action: str) -> Response | None:
-        response = httpx2.get(url, follow_redirects=True)
+        try:
+            response = httpx2.get(url, follow_redirects=True)
+        except httpx2.HTTPError as e:
+            if self.errors == "raise":
+                raise
+            print(HTTPWarning(action, str(e), 0).get_message())
+            return None
         if response.status_code >= 400:
             if self.errors == "raise":
                 response.raise_for_status()
@@ -103,7 +109,13 @@ class HttpFileDownloader(FileDownloader):
         for source in sources:
             file_url = urljoin(self.repo, source)
 
-            response = httpx2.get(file_url, follow_redirects=True)
+            try:
+                response = httpx2.get(file_url, follow_redirects=True)
+            except httpx2.HTTPError as e:
+                if self.errors == "raise":
+                    raise
+                print(HTTPWarning("GET", str(e), 0).get_message())
+                continue
             if response.status_code >= 400:
                 if self.errors == "raise":
                     response.raise_for_status()
