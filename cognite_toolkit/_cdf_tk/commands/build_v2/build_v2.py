@@ -567,7 +567,7 @@ class BuildV2Command(ToolkitCommand):
     def _find_modules(cls, build: BuildInput, operation: str) -> ModuleScanResult:
         source_by_module_id, orphan_files = ModuleParser.find_modules(build.organization_dir, build.yaml_files)
 
-        if build.selected_modules is None:
+        if build.selected_modules is None and not build.config_files:
             user_selected_modules = cls._ask_user_to_select_modules(list(source_by_module_id.values()), operation)
         else:
             user_selected_modules = build.selected_modules

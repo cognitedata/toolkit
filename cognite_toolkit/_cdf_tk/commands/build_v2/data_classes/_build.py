@@ -101,7 +101,7 @@ class BuildParameters(BaseModel):
 
 
 class ConfigFile(BaseModel):
-    selected_modules: set[RelativeDirPath | str] | None = Field(
+    selected_modules: set[RelativeDirPath | str] = Field(
         description="Set of modules to build. Either module names (folder names) or relative paths"
         " to the organization directory. If None, no modules are selected."
     )
@@ -122,8 +122,8 @@ class BuildInput(BaseModel):
     yaml_files: list[RelativeFilePath] = Field(
         description="List of all YAML files that are part of the build, with paths relative to the organization directory."
     )
-    config_files: list[ConfigFile] = Field(
-        default_factory=list,
+    config_files: list[ConfigFile] | None = Field(
+        None,
         description="List of configuration YAML files to be used during the build process. Each file corresponds to a set of variables and "
         "selected modules.",
     )
@@ -131,11 +131,13 @@ class BuildInput(BaseModel):
     cdf_project: str
     organization_dir: AbsoluteDirPath
 
+    # Todo: Rename to user_selected_modules once we have moved to using config_files instead of variables and config_path
     selected_modules: set[RelativeDirPath | str] | None = Field(
         description="Set of modules to build. Either module names (folder names) or relative paths to the organization directory."
         "If None, no modules are selected."
     )
 
+    # Todo: Delete once we have moved to using config_files instead of variables and config_path
     variables: dict[str, JsonValue] = Field(
         default_factory=dict, description="Variables to be used during the build process."
     )
