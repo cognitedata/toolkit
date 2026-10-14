@@ -18,10 +18,10 @@ from cognite_toolkit._cdf_tk.utils.user import UserInfo
 from cognite_toolkit._version import __version__
 
 _COGNITE_TOOLKIT_MIXPANEL_TOKEN: str = "9afc120ac61d408c81009ea7dd280a38"
+
 # Telemetry is best-effort and must never slow down or block the CLI. The Mixpanel SDK defaults
 # to no request timeout and 4 retries with backoff which can cause exorbitant delays in certain scenarios,
 # so we set a short timeout and disable retries.
-
 _MIXPANEL_REQUEST_TIMEOUT_SECONDS: float = 3.0
 _MIXPANEL_RETRY_LIMIT: int = 0
 
