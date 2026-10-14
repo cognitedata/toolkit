@@ -1,19 +1,14 @@
 import ast
 import re
-import sys
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
 import pytest
+import tomllib
 
 from tests.constants import REPO_ROOT
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
 
 CDF_TK_PATH = REPO_ROOT / "cognite_toolkit" / "_cdf_tk"
 
