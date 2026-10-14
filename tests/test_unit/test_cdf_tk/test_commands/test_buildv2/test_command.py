@@ -372,12 +372,17 @@ class TestReadFileSystem:
         assert build_files.model_dump() == {
             "yaml_files": [resource_file.relative_to(tmp_path)],
             # Since user_selected_modules are provided, they should be used instead of config selected modules.
-            "selected_modules": {"module1", "module2"},
-            "variables": {},
+            "user_selected_modules": {"module1", "module2"},
             "validation_type": "dev",
             "cdf_project": "my-project",
             "organization_dir": tmp_path.resolve(),
-            "config_path": config_yaml.resolve(),
+            "config_files": [
+                {
+                    "selected_modules": {"module1", "module2"},
+                    "variables": {},
+                    "path": config_yaml.resolve(),
+                }
+            ],
         }
 
     def test_invalid_config_yaml(self, tmp_path: Path) -> None:
