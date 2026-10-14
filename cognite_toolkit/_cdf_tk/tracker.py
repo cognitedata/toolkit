@@ -19,10 +19,23 @@ from cognite_toolkit._version import __version__
 
 _COGNITE_TOOLKIT_MIXPANEL_TOKEN: str = "9afc120ac61d408c81009ea7dd280a38"
 
+# Telemetry is best-effort and must never slow down or block the CLI. The Mixpanel SDK defaults
+# to no request timeout and 4 retries with backoff which can cause exorbitant delays in certain scenarios,
+# so we set a short timeout and disable retries.
+_MIXPANEL_REQUEST_TIMEOUT_SECONDS: float = 3.0
+_MIXPANEL_RETRY_LIMIT: int = 0
+
 
 class Tracker:
     def __init__(self, skip_tracking: bool = False) -> None:
-        self.mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN, consumer=Consumer(api_host="api-eu.mixpanel.com"))
+        self.mp = Mixpanel(
+            _COGNITE_TOOLKIT_MIXPANEL_TOKEN,
+            consumer=Consumer(
+                api_host="api-eu.mixpanel.com",
+                request_timeout=_MIXPANEL_REQUEST_TIMEOUT_SECONDS,
+                retry_limit=_MIXPANEL_RETRY_LIMIT,
+            ),
+        )
         self.skip_tracking = skip_tracking
         self._distinct_id: str | None = None
         self._all_event_properties: dict[str, Any] | None = None
