@@ -34,6 +34,7 @@ dependencies = [
     "sentry-sdk >=2.1.0",
     "mixpanel >=4.10.1",
     "pydantic >=2.12.0",
+    "pydantic_core >=2.12.0",
     "python-dateutil>= 2.9.0",
     # Pip is used in the cognite run function local
     "pip>=25.0.1",
@@ -173,7 +174,12 @@ python-dateutil = "dateutil"
 known_first_party = ["cognite_toolkit"]
 
 [tool.deptry.per_rule_ignores]
-DEP001 = ["pyodide"]
+# Pyodide is used to check if it runs inside a browser, and pip is used in the cognite run function local.
+# Both are not imported directly in the code.
+# Uvicorn is an extra dependency.
+DEP001 = ["pyodide", "uvicorn"]
+DEP002 = ["pip"]
+
 
 [build-system]
 requires = ["uv_build>=0.11.0,<0.12.0"]
