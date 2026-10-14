@@ -163,6 +163,18 @@ exclude = [
 [tool.ruff.lint]
 exclude = []
 
+[tool.deptry.package_module_name_map]
+cognite-sdk = "cognite"
+pyyaml = "yaml"
+python-dotenv = "dotenv"
+python-dateutil = "dateutil"
+
+[tool.deptry]
+known_first_party = ["cognite_toolkit"]
+
+[tool.deptry.per_rule_ignores]
+DEP001 = ["pyodide"]
+
 [build-system]
 requires = ["uv_build>=0.11.0,<0.12.0"]
 build-backend = "uv_build"
