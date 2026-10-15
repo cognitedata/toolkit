@@ -178,9 +178,9 @@ class TestCreator:
         file_sources = [DocumentUniqueBucket(count=1000, values=["sharepoint"])]
         client = toolkit_client_approval.mock_client
         client.lookup.data_sets.id.return_value = 1
-        client.tool.assets.unique.return_value = asset_sources
-        client.tool.events.unique.return_value = event_sources
-        client.tool.documents.unique.return_value = file_sources
+        client.assets.unique.return_value = asset_sources
+        client.events.unique.return_value = event_sources
+        client.documents.unique.return_value = file_sources
         client.migration.created_source_system.list.return_value = [
             CreatedSourceSystem(
                 space="my_other_space",

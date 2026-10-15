@@ -65,7 +65,7 @@ def _external_id(external_id: str | None) -> ExternalId:
 def _labels_in_dataset(client: ToolkitClient, dataset_external_id: str) -> list[LabelResponse]:
     return [
         label
-        for page in client.tool.labels.iterate(
+        for page in client.labels.iterate(
             filter=ClassicFilter(data_set_ids=[ExternalId(external_id=dataset_external_id)]),
             limit=None,
         )
@@ -76,14 +76,12 @@ def _labels_in_dataset(client: ToolkitClient, dataset_external_id: str) -> list[
 def _relationships_from_source(client: ToolkitClient, source_external_id: str | None) -> list[RelationshipResponse]:
     if source_external_id is None:
         return []
-    return [
-        item for item in client.tool.relationships.list(limit=None) if item.source_external_id == source_external_id
-    ]
+    return [item for item in client.relationships.list(limit=None) if item.source_external_id == source_external_id]
 
 
 def _retrieve_3d_model(client: ToolkitClient, model_id: int) -> ThreeDModelClassicResponse | None:
     try:
-        return _first(client.tool.three_d.models_classic.retrieve([InternalId(id=model_id)]))
+        return _first(client.three_d.models_classic.retrieve([InternalId(id=model_id)]))
     except ToolkitAPIError:
         return None
 
@@ -131,10 +129,10 @@ def wait_until_dm_nodes_deleted(
     """Retry DM instances retrieve until it returns 0 nodes or timeout expires."""
     ids = [NodeId(space=node.space, external_id=node.external_id) for node in node_ids]
     start_time = time.monotonic()
-    result = client.tool.instances.retrieve(ids)
+    result = client.instances.retrieve(ids)
     while len(result) != 0 and (time.monotonic() - start_time) < timeout_seconds:
         time.sleep(poll_interval)
-        result = client.tool.instances.retrieve(ids)
+        result = client.instances.retrieve(ids)
     return result
 
 
@@ -197,26 +195,24 @@ def file_ts_nodes(
     file_id: int | None = None
     ts_id: int | None = None
     try:
-        client.tool.instances.delete([file_node.as_id(), ts_node.as_id()])
-        client.tool.filemetadata.delete([classic_file.as_id()], ignore_unknown_ids=True)
-        client.tool.timeseries.delete([classic_ts.as_id()], ignore_unknown_ids=True)
+        client.instances.delete([file_node.as_id(), ts_node.as_id()])
+        client.filemetadata.delete([classic_file.as_id()], ignore_unknown_ids=True)
+        client.timeseries.delete([classic_ts.as_id()], ignore_unknown_ids=True)
 
-        created_files = client.tool.filemetadata.create([classic_file])
+        created_files = client.filemetadata.create([classic_file])
         created_file = created_files[0]
         if created_file.upload_url is not None:
-            client.tool.filemetadata.upload_file(
-                b"Sample file content", created_file.upload_url, created_file.mime_type
-            )
+            client.filemetadata.upload_file(b"Sample file content", created_file.upload_url, created_file.mime_type)
         file_id = created_file.id
-        created_ts = client.tool.timeseries.create([classic_ts])[0]
+        created_ts = client.timeseries.create([classic_ts])[0]
         ts_id = created_ts.id
         ts_ms = datetime_to_ms(datetime(2020, 1, 1, 0, 0, 0))
-        client.tool.timeseries.datapoints.create(
+        client.timeseries.datapoints.create(
             [DatapointsRequest(id=ts_id, datapoints=[Datapoint(timestamp=ts_ms, value=1.0)])]
         )
 
-        client.tool.filemetadata.set_pending_ids([PendingInstanceId(pending_instance_id=file_node.as_id(), id=file_id)])
-        client.tool.timeseries.set_pending_ids(
+        client.filemetadata.set_pending_ids([PendingInstanceId(pending_instance_id=file_node.as_id(), id=file_id)])
+        client.timeseries.set_pending_ids(
             [
                 PendingInstanceId(
                     pending_instance_id=ts_node.as_id(),
@@ -225,19 +221,19 @@ def file_ts_nodes(
             ]
         )
 
-        created = client.tool.instances.create([file_node, ts_node])
+        created = client.instances.create([file_node, ts_node])
         if len(created) != 2:
             raise AssertionError(f"Expected 2 data modeling nodes after apply, got {len(created)} nodes: {created!r}")
 
         yield (file_node.as_id(), created_file.id), (ts_node.as_id(), created_ts.id)
     finally:
-        client.tool.instances.delete([file_node.as_id(), ts_node.as_id()])
+        client.instances.delete([file_node.as_id(), ts_node.as_id()])
         if file_id is not None:
-            client.tool.filemetadata.unlink_instance_ids([InternalId(id=file_id)])
-            client.tool.filemetadata.delete([InternalId(id=file_id)], ignore_unknown_ids=True)
+            client.filemetadata.unlink_instance_ids([InternalId(id=file_id)])
+            client.filemetadata.delete([InternalId(id=file_id)], ignore_unknown_ids=True)
         if ts_id is not None:
-            client.tool.timeseries.unlink_instance_ids([InternalId(id=ts_id)])
-            client.tool.timeseries.delete([InternalId(id=ts_id)], ignore_unknown_ids=True)
+            client.timeseries.unlink_instance_ids([InternalId(id=ts_id)])
+            client.timeseries.delete([InternalId(id=ts_id)], ignore_unknown_ids=True)
 
 
 @dataclass
@@ -277,10 +273,10 @@ def populated_datasets_2(toolkit_client: ToolkitClient) -> Iterable[PopulatedDat
 def create_populated_dataset(toolkit_client: ToolkitClient, name: str, external_id: str, no: int) -> PopulatedDataSet:
     client = toolkit_client
     dataset = DataSetRequest(name=name, external_id=external_id)
-    retrieved = client.tool.datasets.retrieve([dataset.as_id()], ignore_unknown_ids=True)
-    created = retrieved[0] if retrieved else client.tool.datasets.create([dataset])[0]
+    retrieved = client.datasets.retrieve([dataset.as_id()], ignore_unknown_ids=True)
+    created = retrieved[0] if retrieved else client.datasets.create([dataset])[0]
 
-    created_asset = client.tool.assets.create(
+    created_asset = client.assets.create(
         [
             AssetRequest(
                 name="Test Asset",
@@ -289,10 +285,10 @@ def create_populated_dataset(toolkit_client: ToolkitClient, name: str, external_
             )
         ]
     )[0]
-    created_event = client.tool.events.create(
+    created_event = client.events.create(
         [EventRequest(external_id=f"test_event_{RUN_UNIQUE_ID}_{no}", data_set_id=created.id)]
     )[0]
-    created_sequence = client.tool.sequences.create(
+    created_sequence = client.sequences.create(
         [
             SequenceRequest(
                 external_id=f"test_sequence_{RUN_UNIQUE_ID}_{no}",
@@ -301,10 +297,10 @@ def create_populated_dataset(toolkit_client: ToolkitClient, name: str, external_
             )
         ]
     )[0]
-    created_timeseries = client.tool.timeseries.create(
+    created_timeseries = client.timeseries.create(
         [TimeSeriesRequest(external_id=f"test_timeseries_{RUN_UNIQUE_ID}_{no}", data_set_id=created.id)]
     )[0]
-    created_file = client.tool.filemetadata.create(
+    created_file = client.filemetadata.create(
         [
             FileMetadataRequest(
                 name="Test File",
@@ -314,7 +310,7 @@ def create_populated_dataset(toolkit_client: ToolkitClient, name: str, external_
             )
         ]
     )[0]
-    created_label = client.tool.labels.create(
+    created_label = client.labels.create(
         [
             LabelRequest(
                 name="Test Label",
@@ -329,7 +325,7 @@ def create_populated_dataset(toolkit_client: ToolkitClient, name: str, external_
     if asset_external_id is None or event_external_id is None:
         raise AssertionError("Expected external_id on created asset and event for relationship setup")
 
-    created_relationship = client.tool.relationships.create(
+    created_relationship = client.relationships.create(
         [
             RelationshipRequest(
                 external_id=f"test_relationship_{RUN_UNIQUE_ID}_{no}",
@@ -341,7 +337,7 @@ def create_populated_dataset(toolkit_client: ToolkitClient, name: str, external_
             )
         ]
     )[0]
-    created_three_d = client.tool.three_d.models_classic.create(
+    created_three_d = client.three_d.models_classic.create(
         [
             ThreeDModelClassicRequest(
                 name=f"Test 3D Model {RUN_UNIQUE_ID}_{no}",
@@ -349,10 +345,10 @@ def create_populated_dataset(toolkit_client: ToolkitClient, name: str, external_
             )
         ]
     )[0]
-    created_workflow = client.tool.workflows.create(
+    created_workflow = client.workflows.create(
         [WorkflowRequest(external_id=f"test_workflow_{RUN_UNIQUE_ID}_{no}", data_set_id=created.id)]
     )[0]
-    created_transformation = client.tool.transformations.create(
+    created_transformation = client.transformations.create(
         [
             TransformationRequest(
                 name="Test Transformation",
@@ -362,7 +358,7 @@ def create_populated_dataset(toolkit_client: ToolkitClient, name: str, external_
             )
         ]
     )[0]
-    created_extraction_pipeline = client.tool.extraction_pipelines.create(
+    created_extraction_pipeline = client.extraction_pipelines.create(
         [
             ExtractionPipelineRequest(
                 name="Test Extraction Pipeline",
@@ -389,21 +385,19 @@ def create_populated_dataset(toolkit_client: ToolkitClient, name: str, external_
 
 
 def cleanup_populated_dataset(client: ToolkitClient, populated: PopulatedDataSet) -> None:
-    client.tool.assets.delete([InternalId(id=populated.asset.id)], ignore_unknown_ids=True)
-    client.tool.events.delete([InternalId(id=populated.event.id)], ignore_unknown_ids=True)
-    client.tool.sequences.delete([InternalId(id=populated.sequence.id)], ignore_unknown_ids=True)
-    client.tool.timeseries.delete([InternalId(id=populated.timeseries.id)], ignore_unknown_ids=True)
-    client.tool.filemetadata.delete([InternalId(id=populated.file.id)], ignore_unknown_ids=True)
-    client.tool.labels.delete([populated.label.as_id()])
-    client.tool.relationships.delete(
-        [ExternalId(external_id=populated.relationships.external_id)], ignore_unknown_ids=True
-    )
+    client.assets.delete([InternalId(id=populated.asset.id)], ignore_unknown_ids=True)
+    client.events.delete([InternalId(id=populated.event.id)], ignore_unknown_ids=True)
+    client.sequences.delete([InternalId(id=populated.sequence.id)], ignore_unknown_ids=True)
+    client.timeseries.delete([InternalId(id=populated.timeseries.id)], ignore_unknown_ids=True)
+    client.filemetadata.delete([InternalId(id=populated.file.id)], ignore_unknown_ids=True)
+    client.labels.delete([populated.label.as_id()])
+    client.relationships.delete([ExternalId(external_id=populated.relationships.external_id)], ignore_unknown_ids=True)
     with contextlib.suppress(ToolkitAPIError):
-        client.tool.three_d.models_classic.delete([InternalId(id=populated.three_d.id)])
+        client.three_d.models_classic.delete([InternalId(id=populated.three_d.id)])
     with contextlib.suppress(ToolkitAPIError):
-        client.tool.workflows.delete([populated.workflow.as_id()])
-    client.tool.transformations.delete([InternalId(id=populated.transformation.id)], ignore_unknown_ids=True)
-    client.tool.extraction_pipelines.delete([InternalId(id=populated.extraction_pipeline.id)], ignore_unknown_ids=True)
+        client.workflows.delete([populated.workflow.as_id()])
+    client.transformations.delete([InternalId(id=populated.transformation.id)], ignore_unknown_ids=True)
+    client.extraction_pipelines.delete([InternalId(id=populated.extraction_pipeline.id)], ignore_unknown_ids=True)
 
 
 class TestPurgeSmoke:
@@ -452,13 +446,13 @@ class TestPurgeSmoke:
             )
 
         classic_file = wait_until_exists(
-            lambda: _first(client.tool.filemetadata.retrieve([InternalId(id=file_id)], ignore_unknown_ids=True))
+            lambda: _first(client.filemetadata.retrieve([InternalId(id=file_id)], ignore_unknown_ids=True))
         )
         if classic_file is None:
             raise AssertionError("Classic file was not found after purge; expected it to remain unlinked")
 
         classic_ts = wait_until_exists(
-            lambda: _first(client.tool.timeseries.retrieve([InternalId(id=ts_id)], ignore_unknown_ids=True))
+            lambda: _first(client.timeseries.retrieve([InternalId(id=ts_id)], ignore_unknown_ids=True))
         )
         if classic_ts is None:
             raise AssertionError("Classic time series was not found after purge; expected it to remain unlinked")
@@ -490,7 +484,7 @@ class TestPurgeSmoke:
         if (
             wait_until_deleted(
                 lambda: _first(
-                    client.tool.assets.retrieve([_external_id(populated.asset.external_id)], ignore_unknown_ids=True)
+                    client.assets.retrieve([_external_id(populated.asset.external_id)], ignore_unknown_ids=True)
                 )
             )
             is not None
@@ -499,7 +493,7 @@ class TestPurgeSmoke:
         if (
             wait_until_deleted(
                 lambda: _first(
-                    client.tool.events.retrieve([_external_id(populated.event.external_id)], ignore_unknown_ids=True)
+                    client.events.retrieve([_external_id(populated.event.external_id)], ignore_unknown_ids=True)
                 )
             )
             is not None
@@ -508,9 +502,7 @@ class TestPurgeSmoke:
         if (
             wait_until_deleted(
                 lambda: _first(
-                    client.tool.sequences.retrieve(
-                        [_external_id(populated.sequence.external_id)], ignore_unknown_ids=True
-                    )
+                    client.sequences.retrieve([_external_id(populated.sequence.external_id)], ignore_unknown_ids=True)
                 )
             )
             is not None
@@ -519,7 +511,7 @@ class TestPurgeSmoke:
         if (
             wait_until_deleted(
                 lambda: _first(
-                    client.tool.timeseries.retrieve(
+                    client.timeseries.retrieve(
                         [_external_id(populated.timeseries.external_id)], ignore_unknown_ids=True
                     )
                 )
@@ -530,9 +522,7 @@ class TestPurgeSmoke:
         if (
             wait_until_deleted(
                 lambda: _first(
-                    client.tool.filemetadata.retrieve(
-                        [_external_id(populated.file.external_id)], ignore_unknown_ids=True
-                    )
+                    client.filemetadata.retrieve([_external_id(populated.file.external_id)], ignore_unknown_ids=True)
                 )
             )
             is not None
@@ -553,14 +543,14 @@ class TestPurgeSmoke:
             raise AssertionError("Expected 3D model to be deleted when include_data=True")
 
         workflow = wait_until_exists(
-            lambda: _first(client.tool.workflows.retrieve([populated.workflow.as_id()], ignore_unknown_ids=True))
+            lambda: _first(client.workflows.retrieve([populated.workflow.as_id()], ignore_unknown_ids=True))
         )
         if workflow is None:
             raise AssertionError("Expected workflow to remain when include_configurations=False")
         if (
             wait_until_exists(
                 lambda: _first(
-                    client.tool.transformations.retrieve(
+                    client.transformations.retrieve(
                         [_external_id(populated.transformation.external_id)], ignore_unknown_ids=True
                     )
                 )
@@ -571,7 +561,7 @@ class TestPurgeSmoke:
         if (
             wait_until_exists(
                 lambda: _first(
-                    client.tool.extraction_pipelines.retrieve(
+                    client.extraction_pipelines.retrieve(
                         [_external_id(populated.extraction_pipeline.external_id)], ignore_unknown_ids=True
                     )
                 )
@@ -604,7 +594,7 @@ class TestPurgeSmoke:
         if (
             wait_until_exists(
                 lambda: _first(
-                    client.tool.assets.retrieve([_external_id(populated.asset.external_id)], ignore_unknown_ids=True)
+                    client.assets.retrieve([_external_id(populated.asset.external_id)], ignore_unknown_ids=True)
                 )
             )
             is None
@@ -613,7 +603,7 @@ class TestPurgeSmoke:
         if (
             wait_until_exists(
                 lambda: _first(
-                    client.tool.events.retrieve([_external_id(populated.event.external_id)], ignore_unknown_ids=True)
+                    client.events.retrieve([_external_id(populated.event.external_id)], ignore_unknown_ids=True)
                 )
             )
             is None
@@ -622,9 +612,7 @@ class TestPurgeSmoke:
         if (
             wait_until_exists(
                 lambda: _first(
-                    client.tool.sequences.retrieve(
-                        [_external_id(populated.sequence.external_id)], ignore_unknown_ids=True
-                    )
+                    client.sequences.retrieve([_external_id(populated.sequence.external_id)], ignore_unknown_ids=True)
                 )
             )
             is None
@@ -633,7 +621,7 @@ class TestPurgeSmoke:
         if (
             wait_until_exists(
                 lambda: _first(
-                    client.tool.timeseries.retrieve(
+                    client.timeseries.retrieve(
                         [_external_id(populated.timeseries.external_id)], ignore_unknown_ids=True
                     )
                 )
@@ -644,9 +632,7 @@ class TestPurgeSmoke:
         if (
             wait_until_exists(
                 lambda: _first(
-                    client.tool.filemetadata.retrieve(
-                        [_external_id(populated.file.external_id)], ignore_unknown_ids=True
-                    )
+                    client.filemetadata.retrieve([_external_id(populated.file.external_id)], ignore_unknown_ids=True)
                 )
             )
             is None
@@ -668,7 +654,7 @@ class TestPurgeSmoke:
 
         if (
             wait_until_deleted(
-                lambda: _first(client.tool.workflows.retrieve([populated.workflow.as_id()], ignore_unknown_ids=True))
+                lambda: _first(client.workflows.retrieve([populated.workflow.as_id()], ignore_unknown_ids=True))
             )
             is not None
         ):
@@ -676,7 +662,7 @@ class TestPurgeSmoke:
         if (
             wait_until_deleted(
                 lambda: _first(
-                    client.tool.transformations.retrieve(
+                    client.transformations.retrieve(
                         [_external_id(populated.transformation.external_id)], ignore_unknown_ids=True
                     )
                 )
@@ -687,7 +673,7 @@ class TestPurgeSmoke:
         if (
             wait_until_deleted(
                 lambda: _first(
-                    client.tool.extraction_pipelines.retrieve(
+                    client.extraction_pipelines.retrieve(
                         [_external_id(populated.extraction_pipeline.external_id)], ignore_unknown_ids=True
                     )
                 )

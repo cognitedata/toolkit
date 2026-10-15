@@ -71,9 +71,9 @@ authentication:
             "cognite_toolkit._cdf_tk.resource_ios._function.FunctionIO.load_resource_file"
         ) as mock_load_resource_file:
             mock_client = toolkit_client_approval.mock_client
-            mock_authorization = mock_client.tool.token.verify_acls
+            mock_authorization = mock_client.token.verify_acls
             mock_authorization.return_value = []
-            mock_client.tool.datasets.retrieve.return_value = []
+            mock_client.datasets.retrieve.return_value = []
             mock_load_resource_file.return_value = [
                 {
                     "externalId": "my_function",

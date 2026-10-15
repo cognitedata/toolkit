@@ -61,24 +61,24 @@ class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipRes
             yield RelationshipsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[RelationshipRequest]) -> list[RelationshipResponse]:
-        return self.client.tool.relationships.create(list(items))
+        return self.client.relationships.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[RelationshipResponse]:
-        return self.client.tool.relationships.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.relationships.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[RelationshipRequest]) -> list[RelationshipResponse]:
-        return self.client.tool.relationships.update(list(items))
+        return self.client.relationships.update(list(items))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         if not ids:
             return []
         try:
-            self.client.tool.relationships.delete(list(ids))
+            self.client.relationships.delete(list(ids))
         except ToolkitAPIError as e:
             if missing := {ExternalId.model_validate(item) for item in e.missing or []}:
                 if existing := (set(ids) - missing):
                     existing_list = list(existing)
-                    self.client.tool.relationships.delete(existing_list)
+                    self.client.relationships.delete(existing_list)
                     return existing_list
                 return []
             raise
@@ -93,7 +93,7 @@ class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipRes
         filter: ClassicFilter | None = None
         if data_set_external_id:
             filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
-        for items in self.client.tool.relationships.iterate(filter=filter, limit=None):
+        for items in self.client.relationships.iterate(filter=filter, limit=None):
             yield from items
 
     @classmethod

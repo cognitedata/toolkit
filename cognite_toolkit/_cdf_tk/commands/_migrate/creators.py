@@ -109,7 +109,7 @@ class InstanceSpaceCreator(MigrationCreator):
 
     def create_resources(self) -> Iterable[ToCreateResources]:
         if self.data_set_external_ids is not None:
-            self.datasets = self.client.tool.datasets.retrieve(ExternalId.from_external_ids(self.data_set_external_ids))
+            self.datasets = self.client.datasets.retrieve(ExternalId.from_external_ids(self.data_set_external_ids))
 
         if missing_external_ids := [ds.id for ds in self.datasets if ds.external_id is None]:
             raise ToolkitRequiredValueError(
@@ -202,7 +202,7 @@ class InstanceSpaceCreator(MigrationCreator):
         return result
 
     def store_lineage(self, lineage_nodes: Sequence[NodeRequest]) -> int:
-        res = self.client.tool.instances.create(lineage_nodes)
+        res = self.client.instances.create(lineage_nodes)
         return len(res)
 
 
@@ -264,9 +264,9 @@ class SourceSystemCreator(MigrationCreator):
         return {node.source: NodeId(space=node.space, external_id=node.external_id) for node in all_existing}
 
     def _lookup_sources(self) -> Iterable[ClassicAggregateUniqueBucket | DocumentUniqueBucket]:
-        yield from self.client.tool.assets.unique(("source",), filter=self._simple_filter)
-        yield from self.client.tool.events.unique(("source",), filter=self._simple_filter)
-        yield from self.client.tool.documents.unique(
+        yield from self.client.assets.unique(("source",), filter=self._simple_filter)
+        yield from self.client.events.unique(("source",), filter=self._simple_filter)
+        yield from self.client.documents.unique(
             ("sourceFile", "source"), filter=self._advanced_filter.dump(), limit=1000
         )
 
@@ -404,7 +404,7 @@ class InfieldCDMConfigCreator(MigrationCreator):
             if space_id is not None
         }
         origin_space_ids = [SpaceId(space=space_name) for space_name in origin_space_names]
-        origin_spaces = {s.space: s for s in self.client.tool.spaces.retrieve(origin_space_ids)}
+        origin_spaces = {s.space: s for s in self.client.spaces.retrieve(origin_space_ids)}
 
         for index, root_location_config in enumerate(config.feature_configuration.root_location_configurations or []):
             identifier = root_location_config.external_id or root_location_config.asset_external_id or f"index {index}"

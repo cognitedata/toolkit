@@ -106,7 +106,7 @@ class AuthCommand(ToolkitCommand):
 
         client = env_vars.get_client()
         try:
-            client.tool.token.inspect()
+            client.token.inspect()
         except ToolkitAPIError as e:
             raise AuthenticationError(f"Unable to verify the credentials.\n{e}")
 
@@ -147,7 +147,7 @@ class AuthCommand(ToolkitCommand):
         env_vars = prompt_user_environment_variables(current=current, login_flow=login_flow)
         client = env_vars.get_client()
         try:
-            client.tool.token.inspect()
+            client.token.inspect()
         except ToolkitAPIError as exc:
             raise AuthenticationError(f"Unable to verify the credentials.\n{exc}") from exc
         print("[green]The credentials are valid.[/green]")
@@ -211,7 +211,7 @@ class AuthCommand(ToolkitCommand):
         self.check_identity_provider(client)
 
         try:
-            user_groups = client.tool.groups.list(all_groups=False)
+            user_groups = client.groups.list(all_groups=False)
         except ToolkitAPIError as e:
             raise AuthorizationError(f"Unable to retrieve CDF groups.\n{e}")
 
@@ -239,7 +239,7 @@ class AuthCommand(ToolkitCommand):
             if is_interactive:
                 Prompt.ask("Press enter key to continue...")
 
-        all_groups = client.tool.groups.list(all_groups=True)
+        all_groups = client.groups.list(all_groups=True)
 
         is_user_in_toolkit_group = any(group.name == toolkit_group.name for group in user_groups)
         is_toolkit_group_existing = any(group.name == toolkit_group.name for group in all_groups)
@@ -309,7 +309,7 @@ class AuthCommand(ToolkitCommand):
                     and questionary.confirm("Do you want to delete the extra groups?", default=True).unsafe_ask()
                 ):
                     try:
-                        client.tool.groups.delete([InternalId(id=g.id) for g in extra])
+                        client.groups.delete([InternalId(id=g.id) for g in extra])
                     except ToolkitAPIError as e:
                         raise ResourceDeleteError(f"Unable to delete the extra groups.\n{e}")
                     print(f"  [bold green]OK[/] - Deleted {len(extra)} duplicated groups.")
@@ -365,7 +365,7 @@ class AuthCommand(ToolkitCommand):
         client: ToolkitClient,
         toolkit_group: GroupRequest,
     ) -> GroupResponse:
-        created = client.tool.groups.create([toolkit_group])[0]
+        created = client.groups.create([toolkit_group])[0]
         print(
             f"  [bold green]OK[/] - Created new group {created.name}. It now has {len(created.capabilities or [])} capabilities."
         )
@@ -450,11 +450,11 @@ class AuthCommand(ToolkitCommand):
             return False
 
         try:
-            created = client.tool.groups.create([updated_group])[0]
+            created = client.groups.create([updated_group])[0]
         except ToolkitAPIError as e:
             raise ResourceCreationError(f"Unable to create group {updated_group.name}.\n{e}")
         try:
-            client.tool.groups.delete([InternalId(id=existing_group.id)])
+            client.groups.delete([InternalId(id=existing_group.id)])
         except ToolkitAPIError as e:
             raise ResourceDeleteError(
                 f"Failed to cleanup old version of the {existing_group.name}.\n{e}\n"
@@ -503,7 +503,7 @@ class AuthCommand(ToolkitCommand):
     def check_has_any_access(self, client: ToolkitClient) -> InspectResponse:
         print("Checking basic project configuration...")
         try:
-            inspect_response = client.tool.token.inspect()
+            inspect_response = client.token.inspect()
             if inspect_response is None or len(inspect_response.capabilities) == 0:
                 raise AuthorizationError(
                     "The authentication token is valid but does not provide any access rights to the given project."
@@ -535,7 +535,7 @@ class AuthCommand(ToolkitCommand):
             "Checking basic project and group manipulation access rights "
             "(projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
         )
-        missing_capabilities = client.tool.token.verify_acls(
+        missing_capabilities = client.token.verify_acls(
             [
                 ProjectsAcl(actions=["LIST", "READ"], scope=AllScope()),
                 GroupsAcl(actions=["READ", "LIST", "CREATE", "UPDATE", "DELETE"], scope=AllScope()),
@@ -551,7 +551,7 @@ class AuthCommand(ToolkitCommand):
             )
         )
         print("Checking basic group read access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ)...")
-        missing = client.tool.token.verify_acls(
+        missing = client.token.verify_acls(
             [
                 ProjectsAcl(actions=["LIST", "READ"], scope=AllScope()),
                 GroupsAcl(actions=["READ", "LIST"], scope=AllScope()),
@@ -659,7 +659,7 @@ class AuthCommand(ToolkitCommand):
             self.warn(HighSeverityWarning("Cannot check function service status, missing function read access."))
             return None
         try:
-            function_status = client.tool.functions.status()
+            function_status = client.functions.status()
         except ToolkitAPIError as e:
             self.warn(HighSeverityWarning(f"Unable to check function service status.\n{e}"))
             return None
@@ -684,7 +684,7 @@ class AuthCommand(ToolkitCommand):
                 )
                 return function_status.status
             try:
-                client.tool.functions.activate()
+                client.functions.activate()
             except ToolkitAPIError as e:
                 self.warn(HighSeverityWarning(f"Unable to activate function service.\n{e}"))
                 return function_status.status
@@ -701,7 +701,7 @@ class AuthCommand(ToolkitCommand):
     ) -> bool:
         t0 = time.perf_counter()
         while not (
-            has_function_access := not client.tool.token.verify_acls([FunctionsAcl(actions=actions, scope=AllScope())])
+            has_function_access := not client.token.verify_acls([FunctionsAcl(actions=actions, scope=AllScope())])
         ):
             if has_added_capabilities and (time.perf_counter() - t0 < 5.0):
                 sleep(1.0)

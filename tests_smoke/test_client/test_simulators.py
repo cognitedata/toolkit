@@ -135,10 +135,10 @@ def simulator_model_revision_file(smoke_dataset: DataSet, toolkit_client: Toolki
         mime_type="application/octet-stream",
     )
 
-    existing = client.tool.filemetadata.retrieve([file.as_id()], ignore_unknown_ids=True)
+    existing = client.filemetadata.retrieve([file.as_id()], ignore_unknown_ids=True)
     if existing:
         return existing[0]
-    created = client.tool.filemetadata.create([file])
+    created = client.filemetadata.create([file])
     if len(created) != 1:
         raise EndpointAssertionError(
             "/filemetadata",
@@ -210,8 +210,8 @@ class TestSimulatorsAPI:
         )
         try:
             ## Simulator Model CRUDL operations ##
-            model_endpoints = toolkit_client.tool.simulators.models._method_endpoint_map
-            created = toolkit_client.tool.simulators.models.create([model])
+            model_endpoints = toolkit_client.simulators.models._method_endpoint_map
+            created = toolkit_client.simulators.models.create([model])
             if len(created) != 1:
                 raise EndpointAssertionError(
                     model_endpoints["create"].path,
@@ -223,7 +223,7 @@ class TestSimulatorsAPI:
                     f"Expected created simulator model external ID to be {model.external_id}, got {created[0].external_id}",
                 )
 
-            retrieved = toolkit_client.tool.simulators.models.retrieve([model.as_id()])
+            retrieved = toolkit_client.simulators.models.retrieve([model.as_id()])
             if len(retrieved) != 1:
                 raise EndpointAssertionError(
                     model_endpoints["retrieve"].path,
@@ -236,7 +236,7 @@ class TestSimulatorsAPI:
                 )
 
             update_request = created[0].as_request_resource().model_copy(update={"description": "Updated description"})
-            updated = toolkit_client.tool.simulators.models.update([update_request])
+            updated = toolkit_client.simulators.models.update([update_request])
             if len(updated) != 1:
                 raise EndpointAssertionError(
                     model_endpoints["update"].path,
@@ -248,7 +248,7 @@ class TestSimulatorsAPI:
                     f"Expected updated simulator model description to be 'Updated description', got {updated[0].description}",
                 )
 
-            listed = toolkit_client.tool.simulators.models.list(limit=1)
+            listed = toolkit_client.simulators.models.list(limit=1)
             if len(listed) != 1:
                 raise EndpointAssertionError(
                     model_endpoints["list"].path,
@@ -256,8 +256,8 @@ class TestSimulatorsAPI:
                 )
 
             ## Simulator Model Revision CRUDL operations ##
-            revision_endpoints = toolkit_client.tool.simulators.model_revisions._method_endpoint_map
-            created_revision = toolkit_client.tool.simulators.model_revisions.create([revision])
+            revision_endpoints = toolkit_client.simulators.model_revisions._method_endpoint_map
+            created_revision = toolkit_client.simulators.model_revisions.create([revision])
             if len(created_revision) != 1:
                 raise EndpointAssertionError(
                     revision_endpoints["create"].path,
@@ -269,7 +269,7 @@ class TestSimulatorsAPI:
                     f"Expected created simulator model revision external ID to be {revision.external_id}, got {created_revision[0].external_id}",
                 )
 
-            retrieved_revision = toolkit_client.tool.simulators.model_revisions.retrieve([revision.as_id()])
+            retrieved_revision = toolkit_client.simulators.model_revisions.retrieve([revision.as_id()])
             if len(retrieved_revision) != 1:
                 raise EndpointAssertionError(
                     revision_endpoints["retrieve"].path,
@@ -282,7 +282,7 @@ class TestSimulatorsAPI:
                 )
 
             listed_revisions = list(
-                toolkit_client.tool.simulators.model_revisions.iterate(
+                toolkit_client.simulators.model_revisions.iterate(
                     filter=SimulatorModelRevisionFilter(model_external_ids=[model.external_id]), limit=1
                 )
             )
@@ -293,8 +293,8 @@ class TestSimulatorsAPI:
                 )
 
             ## Simulator Routine CRUDL operations ##
-            routine_endpoints = toolkit_client.tool.simulators.routines._method_endpoint_map
-            created_routine = toolkit_client.tool.simulators.routines.create([routine])
+            routine_endpoints = toolkit_client.simulators.routines._method_endpoint_map
+            created_routine = toolkit_client.simulators.routines.create([routine])
             if len(created_routine) != 1:
                 raise EndpointAssertionError(
                     routine_endpoints["create"].path,
@@ -306,7 +306,7 @@ class TestSimulatorsAPI:
                     f"Expected created simulator routine external ID to be {routine.external_id}, got {created_routine[0].external_id}",
                 )
             listed_routines = list(
-                toolkit_client.tool.simulators.routines.iterate(
+                toolkit_client.simulators.routines.iterate(
                     SimulatorModelRoutineFilter(model_external_ids=[model.external_id]), limit=1
                 )
             )
@@ -317,8 +317,8 @@ class TestSimulatorsAPI:
                 )
 
             # Simulator Routine Revision CRUDL operations #
-            routine_revision_endpoints = toolkit_client.tool.simulators.routine_revisions._method_endpoint_map
-            created_routine_revision = toolkit_client.tool.simulators.routine_revisions.create([routine_revision])
+            routine_revision_endpoints = toolkit_client.simulators.routine_revisions._method_endpoint_map
+            created_routine_revision = toolkit_client.simulators.routine_revisions.create([routine_revision])
             if len(created_routine_revision) != 1:
                 raise EndpointAssertionError(
                     routine_revision_endpoints["create"].path,
@@ -329,7 +329,7 @@ class TestSimulatorsAPI:
                     routine_revision_endpoints["create"].path,
                     f"Expected created simulator routine revision external ID to be {routine_revision.external_id}, got {created_routine_revision[0].external_id}",
                 )
-            retrieved_routine_revision = toolkit_client.tool.simulators.routine_revisions.retrieve(
+            retrieved_routine_revision = toolkit_client.simulators.routine_revisions.retrieve(
                 [routine_revision.as_id()]
             )
             if len(retrieved_routine_revision) != 1:
@@ -343,7 +343,7 @@ class TestSimulatorsAPI:
                     f"Expected retrieved simulator routine revision external ID to be {routine_revision.external_id}, got {retrieved_routine_revision[0].external_id}",
                 )
             listed_routine_revisions = list(
-                toolkit_client.tool.simulators.routine_revisions.iterate(
+                toolkit_client.simulators.routine_revisions.iterate(
                     filter=SimulatorModelRoutineRevisionFilter(
                         model_external_ids=[model.external_id], routine_external_ids=[routine.external_id]
                     ),
@@ -356,8 +356,8 @@ class TestSimulatorsAPI:
                     f"Expected 1 listed simulator routine revision, got {len(listed_routine_revisions)}",
                 )
         finally:
-            toolkit_client.tool.simulators.routines.delete([routine.as_id()])
-            toolkit_client.tool.simulators.models.delete([model.as_id()])
+            toolkit_client.simulators.routines.delete([routine.as_id()])
+            toolkit_client.simulators.models.delete([model.as_id()])
 
 
 SIMULATOR: dict[str, JsonValue] = {

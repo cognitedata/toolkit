@@ -108,7 +108,7 @@ _INTERACTIVE_SELECT_HELPER_TEXT = " Use arrow keys to navigate and space key to 
 
 
 def _download_file_bytes(client: ToolkitClient, file_id: int) -> bytes:
-    links = client.tool.filemetadata.get_download_url([InternalId(id=file_id)])
+    links = client.filemetadata.get_download_url([InternalId(id=file_id)])
     if not links or not links[0].download_url:
         raise ToolkitAPIError(message=f"File ids not found: {file_id}", code=400, missing=[{"id": file_id}])
     download_url = links[0].download_url
@@ -174,7 +174,7 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId | tuple[DataModelId, .
         return self._interactive_select_many()
 
     def _interactive_select_many(self) -> tuple[DataModelId, ...]:
-        all_models = self.client.tool.data_models.list(
+        all_models = self.client.data_models.list(
             filter=DataModelFilter(all_versions=False, include_global=self._include_global)
         )
         if not all_models:
@@ -227,7 +227,7 @@ class DataModelFinder(ResourceFinder[DataModelNoVersionId | tuple[DataModelId, .
             is_global_model = self.data_model.is_global
             yield [], [self.data_model], model_loader, None
         else:
-            model_list = self.client.tool.data_models.retrieve([identifier])
+            model_list = self.client.data_models.retrieve([identifier])
             if not model_list:
                 raise ToolkitResourceMissingError(f"Data model {identifier} not found", str(identifier))
             is_global_model = model_list[0].is_global
@@ -260,7 +260,7 @@ class WorkflowFinder(ResourceFinder[tuple[WorkflowVersionId, ...]]):
         self._workflow_versions: list[WorkflowVersionResponse] | None = None
 
     def _interactive_select(self) -> tuple[WorkflowVersionId, ...]:
-        workflows = self.client.tool.workflows.list(limit=None)
+        workflows = self.client.workflows.list(limit=None)
         if not workflows:
             raise ToolkitMissingResourceError("No workflows found")
         workflows_by_id = {workflow.external_id: workflow for workflow in workflows}
@@ -276,7 +276,7 @@ class WorkflowFinder(ResourceFinder[tuple[WorkflowVersionId, ...]]):
 
         selected_versions: list[WorkflowVersionResponse] = []
         for workflow_id in selected_workflow_ids:
-            versions = self.client.tool.workflows.versions.list(workflow_external_id=workflow_id, limit=None)
+            versions = self.client.workflows.versions.list(workflow_external_id=workflow_id, limit=None)
             if not versions:
                 HighSeverityWarning(f"No versions found for workflow {workflow_id}. Skipping.").print_warning(
                     console=self.client.console
@@ -325,7 +325,7 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
         self.transformations: list[TransformationResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        self.transformations = self.client.tool.transformations.list(limit=None)
+        self.transformations = self.client.transformations.list(limit=None)
         if self.transformations and not any(transformation.external_id for transformation in self.transformations):
             raise ToolkitValueError(
                 "ExternalID is required for dumping transformations. "
@@ -370,7 +370,7 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
         transformations = (
             [t for t in self.transformations if t.external_id in self.identifier]
             if self.transformations
-            else self.client.tool.transformations.retrieve(external_ids, ignore_unknown_ids=True)
+            else self.client.transformations.retrieve(external_ids, ignore_unknown_ids=True)
         )
         source_ids = {
             source_id
@@ -395,7 +395,7 @@ class GroupFinder(ResourceFinder[tuple[str, ...]]):
         self.groups: list[GroupResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        groups = self.client.tool.groups.list(all_groups=True)
+        groups = self.client.groups.list(all_groups=True)
         if not groups:
             raise ToolkitMissingResourceError("No groups found")
         groups_by_name: dict[str, list[GroupResponse]] = defaultdict(list)
@@ -435,7 +435,7 @@ class AgentFinder(ResourceFinder[tuple[str, ...]]):
         self.agents: list[AgentResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        self.agents = self.client.tool.agents.list()
+        self.agents = self.client.agents.list()
         if not self.agents:
             raise ToolkitMissingResourceError("No agents found")
 
@@ -479,14 +479,14 @@ class NodeFinder(ResourceFinder[ViewNoVersionId]):
 
     def _interactive_select(self) -> ViewNoVersionId:
         self.is_interactive = True
-        spaces = self.client.tool.spaces.list(limit=None)
+        spaces = self.client.spaces.list(limit=None)
         if not spaces:
             raise ToolkitMissingResourceError("No spaces found")
         selected_space: str = questionary.select(
             "In which space is your node property view located?", [space.space for space in spaces]
         ).unsafe_ask()
 
-        views = self.client.tool.views.list(ViewFilter(space=selected_space), limit=None)
+        views = self.client.views.list(ViewFilter(space=selected_space), limit=None)
         if not views:
             raise ToolkitMissingResourceError(f"No views found in {selected_space}")
         if len(views) == 1:
@@ -507,14 +507,14 @@ class NodeFinder(ResourceFinder[ViewNoVersionId]):
             view_id = identifier
         else:
             # Find latest version of view.
-            view = self.client.tool.views.retrieve([self.identifier])
+            view = self.client.views.retrieve([self.identifier])
             if not view:
                 raise ToolkitResourceMissingError(f"View {identifier} not found", str(identifier))
             view_id = view[0].as_id()
 
         loader = NodeIO(self.client, view_id)
         if self.is_interactive:
-            aggregate_result = self.client.tool.instances.aggregate(
+            aggregate_result = self.client.instances.aggregate(
                 view_id,
                 aggregates=[CountAggregate(property="externalId")],
                 instance_type="node",
@@ -537,7 +537,7 @@ class NodeFinder(ResourceFinder[ViewNoVersionId]):
 class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
     @cached_property
     def all_filters(self) -> list[LocationFilterResponse]:
-        return self.client.tool.location_filters.list()
+        return self.client.location_filters.list()
 
     def _interactive_select(self) -> tuple[str, ...]:
         filters = self.all_filters
@@ -575,7 +575,7 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
         self.extraction_pipelines: list[ExtractionPipelineResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        self.extraction_pipelines = self.client.tool.extraction_pipelines.list(limit=None)
+        self.extraction_pipelines = self.client.extraction_pipelines.list(limit=None)
         if not self.extraction_pipelines:
             raise ToolkitMissingResourceError("No extraction pipelines found")
         choices = [
@@ -613,7 +613,7 @@ class HostedExtractorFinder(ResourceFinder[tuple[str, ...]]):
         self.sources: list[HostedExtractorSourceResponseUnion] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        self.sources = self.client.tool.hosted_extractors.sources.list(limit=None)
+        self.sources = self.client.hosted_extractors.sources.list(limit=None)
         if not self.sources:
             raise ToolkitMissingResourceError("No hosted extractor sources found")
         choices = [
@@ -643,7 +643,7 @@ class HostedExtractorFinder(ResourceFinder[tuple[str, ...]]):
         else:
             yield [ExternalId(external_id=external_id) for external_id in self.identifier], None, source_loader, None
 
-        jobs = [job for job in self.client.tool.hosted_extractors.jobs.list(limit=None) if job.source_id in source_ids]
+        jobs = [job for job in self.client.hosted_extractors.jobs.list(limit=None) if job.source_id in source_ids]
         if jobs:
             yield [], jobs, HostedExtractorJobIO.create_io(self.client), None
 
@@ -674,7 +674,7 @@ class DataSetFinder(ResourceFinder[tuple[str, ...]]):
         self.datasets: list[DataSetResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        self.datasets = self.client.tool.datasets.list(limit=None)
+        self.datasets = self.client.datasets.list(limit=None)
         if not self.datasets:
             raise ToolkitMissingResourceError("No datasets found")
         choices = [
@@ -713,7 +713,7 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
         self.functions: list[FunctionResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        self.functions = self.client.tool.functions.list(limit=None)
+        self.functions = self.client.functions.list(limit=None)
         if not self.functions:
             raise ToolkitMissingResourceError("No functions found")
         choices = [
@@ -779,7 +779,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
 
     def _interactive_select(self) -> tuple[str, ...]:
         """Interactively select one or more Streamlit apps to dump."""
-        result = self.client.tool.documents.unique(
+        result = self.client.documents.unique(
             ("sourceFile", "metadata", "creator"),
             filter={"equals": {"property": ["sourceFile", "directory"], "value": "/streamlit-apps/"}},
         )
@@ -793,7 +793,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
                 for item in sorted(result, key=lambda r: (r.count, str(r.value) or ""))
             ],
         ).unsafe_ask()
-        self.apps = self.client.tool.streamlit.list(limit=None, filter=StreamlitFilter(creator=str(selected_creator)))
+        self.apps = self.client.streamlit.list(limit=None, filter=StreamlitFilter(creator=str(selected_creator)))
         selected_ids: list[str] | None = questionary.checkbox(
             message="Which Streamlit app(s) would you like to dump?",
             choices=[
@@ -832,7 +832,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             console (Console | None): Optional Rich console for printing warnings.
         """
         try:
-            retrieved = self.client.tool.filemetadata.retrieve(
+            retrieved = self.client.filemetadata.retrieve(
                 [ExternalId(external_id=app.external_id)], ignore_unknown_ids=True
             )
             if not retrieved:
@@ -925,7 +925,7 @@ class SearchConfigFinder(ResourceFinder[tuple[ViewNoVersionId, ...]]):
         self.search_configs: list[SearchConfigResponse] | None = None
 
     def _interactive_select(self) -> tuple[ViewNoVersionId, ...]:
-        self.search_configs = self.client.tool.search_configurations.list()
+        self.search_configs = self.client.search_configurations.list()
         if not self.search_configs:
             raise ToolkitMissingResourceError("No search configurations found!")
         choices = [

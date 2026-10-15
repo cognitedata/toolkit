@@ -364,7 +364,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
     def update(self, items: Sequence[GroupRequest]) -> list[GroupResponse]:
         # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
-        old_groups = self.client.tool.groups.list(all_groups=True)
+        old_groups = self.client.groups.list(all_groups=True)
         created = self._create_with_fallback(items, action="update")
         created_names = {g.name for g in created}
         to_delete = [group for group in old_groups if group.name in created_names]
@@ -376,7 +376,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         self, items: Sequence[GroupRequest], action: Literal["create", "update"]
     ) -> list[GroupResponse]:
         try:
-            return self.client.tool.groups.create(items)
+            return self.client.groups.create(items)
         except ToolkitAPIError as e:
             if not (e.code == 400 and "buffer" in e.message.lower() and len(items) > 1):
                 raise e
@@ -384,7 +384,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             created_list: list[GroupResponse] = []
             for item in items:
                 try:
-                    created = self.client.tool.groups.create([item])
+                    created = self.client.groups.create([item])
                 except ToolkitAPIError as e:
                     HighSeverityWarning(f"Failed to {action} group {item.name}. Error: {escape(str(e))}").print_warning(
                         include_timestamp=True, console=self.console
@@ -395,7 +395,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
     def retrieve(self, ids: Sequence[NameId]) -> list[GroupResponse]:
         names = {id.name for id in ids}
-        remote = self.client.tool.groups.list(all_groups=True)
+        remote = self.client.groups.list(all_groups=True)
         return [g for g in remote if g.name in names]
 
     def delete(self, ids: Sequence[NameId]) -> list[NameId]:
@@ -406,7 +406,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             print_fun = self.console.print if self.console else print
             try:
                 # Let's prevent that we delete groups we belong to
-                my_groups = self.client.tool.groups.list()
+                my_groups = self.client.groups.list()
             except ToolkitAPIError as e:
                 print_fun(
                     f"[bold red]ERROR:[/] Failed to retrieve the current service principal's groups. Aborting group deletion.\n{e}"
@@ -437,13 +437,13 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         failed_deletes = []
         error_str = ""
         try:
-            self.client.tool.groups.delete([InternalId(id=id_) for id_ in to_delete])
+            self.client.groups.delete([InternalId(id=id_) for id_ in to_delete])
         except ToolkitAPIError as e:
             if e.missing:
                 # Fallback to delete one by one
                 for delete_item_id in to_delete:
                     try:
-                        self.client.tool.groups.delete([InternalId(id=delete_item_id)])
+                        self.client.groups.delete([InternalId(id=delete_item_id)])
                     except ToolkitAPIError as inner_e:
                         if inner_e.missing:
                             # If the error is that the group is already deleted, we can ignore it.
@@ -468,7 +468,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[GroupResponse]:
-        yield from self.client.tool.groups.list(all_groups=True)
+        yield from self.client.groups.list(all_groups=True)
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
@@ -539,17 +539,17 @@ class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCat
         return []
 
     def create(self, items: Sequence[SecurityCategoryRequest]) -> list[SecurityCategoryResponse]:
-        return self.client.tool.security_categories.create(items)
+        return self.client.security_categories.create(items)
 
     def retrieve(self, ids: Sequence[NameId]) -> list[SecurityCategoryResponse]:
         names = {id.name for id in ids}
-        categories = self.client.tool.security_categories.list(limit=None)
+        categories = self.client.security_categories.list(limit=None)
         return [c for c in categories if c.name in names]
 
     def delete(self, ids: Sequence[NameId]) -> list[NameId]:
         retrieved = self.retrieve(ids)
         if retrieved:
-            self.client.tool.security_categories.delete([InternalUnwrappedId(id=cat.id) for cat in retrieved])
+            self.client.security_categories.delete([InternalUnwrappedId(id=cat.id) for cat in retrieved])
         return [NameId(name=cat.name) for cat in retrieved]
 
     def _iterate(
@@ -558,5 +558,5 @@ class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCat
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[SecurityCategoryResponse]:
-        for items in self.client.tool.security_categories.iterate(limit=None):
+        for items in self.client.security_categories.iterate(limit=None):
             yield from items

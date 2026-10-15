@@ -152,19 +152,19 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
         return dumped
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[WorkflowResponse]:
-        return self.client.tool.workflows.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.workflows.retrieve(list(ids), ignore_unknown_ids=True)
 
     def create(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
-        return self.client.tool.workflows.create(items)
+        return self.client.workflows.create(items)
 
     def update(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
-        return self.client.tool.workflows.update(items)
+        return self.client.workflows.update(items)
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if not id_list:
             return []
-        self.client.tool.workflows.delete(id_list)
+        self.client.workflows.delete(id_list)
         return id_list
 
     def _iterate(
@@ -174,16 +174,16 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowResponse]:
         if data_set_external_id is None:
-            for workflows in self.client.tool.workflows.iterate(limit=None):
+            for workflows in self.client.workflows.iterate(limit=None):
                 yield from workflows
             return
-        data_sets = self.client.tool.datasets.retrieve(
+        data_sets = self.client.datasets.retrieve(
             [ExternalId(external_id=data_set_external_id)], ignore_unknown_ids=True
         )
         if not data_sets:
             raise ToolkitRequiredValueError(f"DataSet {data_set_external_id!r} does not exist")
         data_set = data_sets[0]
-        for workflows in self.client.tool.workflows.iterate(limit=None):
+        for workflows in self.client.workflows.iterate(limit=None):
             for workflow in workflows:
                 if workflow.data_set_id == data_set.id:
                     yield workflow
@@ -438,15 +438,15 @@ class WorkflowVersionIO(
     def retrieve(self, ids: Sequence[WorkflowVersionId]) -> list[WorkflowVersionResponse]:
         if not ids:
             return []
-        return self.client.tool.workflows.versions.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.workflows.versions.retrieve(list(ids), ignore_unknown_ids=True)
 
     def _upsert(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
-        return self.client.tool.workflows.versions.create(items)
+        return self.client.workflows.versions.create(items)
 
     def create(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
         upserted: list[WorkflowVersionResponse] = []
         for item in self.topological_sort(items):
-            upserted.extend(self.client.tool.workflows.versions.create([item]))
+            upserted.extend(self.client.workflows.versions.create([item]))
         return upserted
 
     def update(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
@@ -456,7 +456,7 @@ class WorkflowVersionIO(
         id_list = list(ids)
         if not id_list:
             return []
-        self.client.tool.workflows.versions.delete(id_list)
+        self.client.workflows.versions.delete(id_list)
         return id_list
 
     def _iterate(
@@ -466,7 +466,7 @@ class WorkflowVersionIO(
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowVersionResponse]:
         # Note: The new API doesn't support filtering by workflow_ids in list, so we iterate over all
-        for versions in self.client.tool.workflows.versions.iterate(limit=None):
+        for versions in self.client.workflows.versions.iterate(limit=None):
             if parent_ids is not None:
                 workflow_ids = {
                     parent_id.external_id if isinstance(parent_id, ExternalId) else parent_id
@@ -579,11 +579,11 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
                 elif item.is_paused is False and created_item.is_paused:
                     to_resume.append(external_id)
         if to_pause:
-            self.client.tool.workflows.triggers.pause(to_pause)
+            self.client.workflows.triggers.pause(to_pause)
             for external_id in to_pause:
                 created[external_id].is_paused = True
         if to_resume:
-            self.client.tool.workflows.triggers.resume(to_resume)
+            self.client.workflows.triggers.resume(to_resume)
             for external_id in to_resume:
                 created[external_id].is_paused = False
         return list(created.values())
@@ -594,7 +594,7 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
             raise ToolkitRequiredValueError(f"Authentication is missing for workflow trigger {item.external_id!r}")
         try:
             item.authentication = NonceCredentials(nonce=self.client.sessions.create_single(credentials).nonce)
-            result = self.client.tool.workflows.triggers.create([item])
+            result = self.client.workflows.triggers.create([item])
             if not result:
                 return None
             return result[0]
@@ -604,7 +604,7 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
             raise e
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[WorkflowTriggerResponse]:
-        all_triggers = self.client.tool.workflows.triggers.list(limit=None)
+        all_triggers = self.client.workflows.triggers.list(limit=None)
         lookup = {id_.external_id for id_ in ids}
         return [trigger for trigger in all_triggers if trigger.external_id in lookup]
 
@@ -615,7 +615,7 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         id_list = list(ids)
         if not id_list:
             return []
-        self.client.tool.workflows.triggers.delete(id_list)
+        self.client.workflows.triggers.delete(id_list)
         return id_list
 
     def _iterate(
@@ -624,7 +624,7 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowTriggerResponse]:
-        triggers = self.client.tool.workflows.triggers.list(limit=None)
+        triggers = self.client.workflows.triggers.list(limit=None)
         if parent_ids is not None:
             # Parent = Workflow
             workflow_ids = {

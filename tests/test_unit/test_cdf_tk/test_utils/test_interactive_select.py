@@ -83,7 +83,7 @@ class TestInteractiveSelect:
             MockQuestionary(AssetInteractiveSelect.__module__, monkeypatch, answers),
         ):
             selector = AssetInteractiveSelect(client, "test_operation")
-            client.tool.assets.list.return_value = [
+            client.assets.list.return_value = [
                 AssetResponse(id=1, created_time=0, last_updated_time=0, root_id=1, name="Root1", external_id="Root1"),
                 AssetResponse(id=2, created_time=0, last_updated_time=0, root_id=2, name="Root2", external_id="Root2"),
             ]
@@ -91,7 +91,7 @@ class TestInteractiveSelect:
             aggregator.count.return_value = 1000
             aggregator.used_data_sets.return_value = ["dataset1", "dataset2", "dataset3"]
             selector._aggregator = aggregator
-            client.tool.datasets.retrieve.return_value = [
+            client.datasets.retrieve.return_value = [
                 DataSetResponse(id=1, external_id="dataset1", created_time=0, last_updated_time=0),
                 DataSetResponse(id=2, external_id="dataset2", created_time=0, last_updated_time=0),
                 DataSetResponse(id=3, external_id="dataset3", created_time=0, last_updated_time=0),
@@ -116,16 +116,16 @@ class TestInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(FileMetadataInteractiveSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.datasets.list.return_value = [
+            client.datasets.list.return_value = [
                 DataSetResponse(id=1, external_id="dataset1", name="Dataset 1", created_time=0, last_updated_time=0),
                 DataSetResponse(id=2, external_id="dataset2", name="Dataset 2", created_time=0, last_updated_time=0),
                 DataSetResponse(id=3, external_id="dataset3", name="Dataset 3", created_time=0, last_updated_time=0),
             ]
-            client.tool.assets.list.return_value = [
+            client.assets.list.return_value = [
                 AssetResponse(id=1, created_time=0, last_updated_time=0, root_id=1, name="Root 1", external_id="Root1"),
                 AssetResponse(id=2, created_time=0, last_updated_time=0, root_id=2, name="Root 2", external_id="Root2"),
             ]
-            client.tool.filemetadata.count.return_value = 100
+            client.filemetadata.count.return_value = 100
             selector = FileMetadataInteractiveSelect(client, "test_operation")
             selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
 
@@ -146,9 +146,9 @@ class TestInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(FileMetadataInteractiveSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.datasets.list.return_value = []
-            client.tool.assets.list.return_value = []
-            client.tool.filemetadata.count.return_value = 100
+            client.datasets.list.return_value = []
+            client.assets.list.return_value = []
+            client.filemetadata.count.return_value = 100
             selector = FileMetadataInteractiveSelect(client, "test_operation")
             with pytest.raises(ToolkitValueError) as exc_info:
                 _ = selector.select_hierarchies_and_data_sets()
@@ -169,16 +169,16 @@ class TestInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(TimeSeriesInteractiveSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.datasets.list.return_value = [
+            client.datasets.list.return_value = [
                 DataSetResponse(id=1, external_id="dataset1", name="Dataset 1", created_time=0, last_updated_time=0),
                 DataSetResponse(id=2, external_id="dataset2", name="Dataset 2", created_time=0, last_updated_time=0),
                 DataSetResponse(id=3, external_id="dataset3", name="Dataset 3", created_time=0, last_updated_time=0),
             ]
-            client.tool.assets.list.return_value = [
+            client.assets.list.return_value = [
                 AssetResponse(id=1, created_time=0, last_updated_time=0, root_id=1, name="Root 1", external_id="Root1"),
                 AssetResponse(id=2, created_time=0, last_updated_time=0, root_id=2, name="Root 2", external_id="Root2"),
             ]
-            client.tool.timeseries.count.return_value = 100
+            client.timeseries.count.return_value = 100
             selector = TimeSeriesInteractiveSelect(client, "test_operation")
             selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
 
@@ -199,16 +199,16 @@ class TestInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(EventInteractiveSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.datasets.list.return_value = [
+            client.datasets.list.return_value = [
                 DataSetResponse(id=1, external_id="dataset1", name="Dataset 1", created_time=0, last_updated_time=0),
                 DataSetResponse(id=2, external_id="dataset2", name="Dataset 2", created_time=0, last_updated_time=0),
                 DataSetResponse(id=3, external_id="dataset3", name="Dataset 3", created_time=0, last_updated_time=0),
             ]
-            client.tool.assets.list.return_value = [
+            client.assets.list.return_value = [
                 AssetResponse(id=1, created_time=0, last_updated_time=0, root_id=1, name="Root 1", external_id="Root1"),
                 AssetResponse(id=2, created_time=0, last_updated_time=0, root_id=2, name="Root 2", external_id="Root2"),
             ]
-            client.tool.events.count.return_value = 100
+            client.events.count.return_value = 100
             selector = EventInteractiveSelect(client, "test_operation")
             selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
 
@@ -249,7 +249,7 @@ class TestInteractiveSelect:
             aggregator.count.return_value = 1000
             selector._aggregator = aggregator
 
-            client.tool.datasets.list.return_value = [
+            client.datasets.list.return_value = [
                 DataSetResponse(id=1, external_id="ds1", name="DataSet 1", created_time=0, last_updated_time=0),
                 DataSetResponse(id=2, external_id="ds2", name="DataSet 2", created_time=0, last_updated_time=0),
             ]
@@ -272,7 +272,7 @@ class TestInteractiveSelect:
             aggregator.count.return_value = 1000
             selector._aggregator = aggregator
 
-            client.tool.datasets.list.return_value = [
+            client.datasets.list.return_value = [
                 DataSetResponse(id=1, external_id="ds1", name="DataSet 1", created_time=0, last_updated_time=0),
                 DataSetResponse(id=2, external_id="ds2", name="DataSet 2", created_time=0, last_updated_time=0),
             ]
@@ -297,7 +297,7 @@ class TestInteractiveSelect:
             aggregator.count.return_value = 1000
             selector._aggregator = aggregator
 
-            client.tool.datasets.list.return_value = [
+            client.datasets.list.return_value = [
                 DataSetResponse(id=1, external_id="ds1", name="DataSet 1", created_time=0, last_updated_time=0),
                 DataSetResponse(id=2, external_id="ds2", name="DataSet 2", created_time=0, last_updated_time=0),
             ]
@@ -322,7 +322,7 @@ class TestInteractiveSelect:
             aggregator.count.return_value = 1000
             selector._aggregator = aggregator
 
-            client.tool.assets.list.return_value = [
+            client.assets.list.return_value = [
                 AssetResponse(id=1, created_time=0, last_updated_time=0, root_id=1, name="root1", external_id="root1"),
                 AssetResponse(id=2, created_time=0, last_updated_time=0, root_id=2, name="root2", external_id="root2"),
             ]
@@ -347,7 +347,7 @@ class TestInteractiveSelect:
             aggregator.count.return_value = 1000
             selector._aggregator = aggregator
 
-            client.tool.assets.list.return_value = [
+            client.assets.list.return_value = [
                 AssetResponse(id=1, created_time=0, last_updated_time=0, root_id=1, name="root1", external_id="root1"),
                 AssetResponse(id=2, created_time=0, last_updated_time=0, root_id=2, name="root2", external_id="root2"),
             ]
@@ -369,7 +369,7 @@ class TestInteractiveSelect:
             aggregator = MagicMock(spec=AssetCentricAggregator)
             aggregator.count.return_value = 1000
             selector._aggregator = aggregator
-            client.tool.assets.list.return_value = [
+            client.assets.list.return_value = [
                 AssetResponse(id=1, created_time=0, last_updated_time=0, root_id=1, name="root1", external_id="root1"),
                 AssetResponse(id=2, created_time=0, last_updated_time=0, root_id=2, name="root2", external_id="root2"),
             ]
@@ -393,10 +393,10 @@ class TestRawTableSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(RawTableInteractiveSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.raw.databases.list.return_value = [
+            client.raw.databases.list.return_value = [
                 RAWDatabaseResponse(name=f"Database{i}", created_time=1) for i in range(1, 4)
             ]
-            client.tool.raw.tables.list.return_value = [
+            client.raw.tables.list.return_value = [
                 RAWTableResponse(name=f"Table{i}", created_time=1, db_name="Database3") for i in range(1, 24)
             ]
             selected = RawTableInteractiveSelect(client, "test_operation").select_tables()
@@ -615,7 +615,7 @@ class TestInteractiveChartSelect:
             MockQuestionary(InteractiveChartSelect.__module__, monkeypatch, answers),
         ):
             # Only include charts whose external_id is in selected_cdf
-            client.tool.token.verify_acls.return_value = []
+            client.token.verify_acls.return_value = []
             client.charts.list.return_value = [chart for chart in cdf_charts if chart.external_id in selected_cdf]
             client.user_profiles.list.return_value = UserProfileList(
                 [
@@ -701,8 +701,8 @@ class TestDataModelingInteractiveSelect:
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
             if space is None:
-                client.tool.spaces.list.return_value = spaces
-            client.tool.views.list.return_value = views
+                client.spaces.list.return_value = spaces
+            client.views.list.return_value = views
             client.statistics.spaces.list.return_value = space_stats
 
             selector = DataModelingSelect(client, "test_operation")
@@ -746,9 +746,9 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.spaces.list.return_value = [space]
+            client.spaces.list.return_value = [space]
             client.statistics.spaces.list.return_value = space_stats
-            client.tool.views.list.return_value = views
+            client.views.list.return_value = views
             selector = DataModelingSelect(client, "test_operation")
             selected_view = selector.select_view(filter=ViewSelectFilter(mapped_container=mapped_container))
 
@@ -762,9 +762,9 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.spaces.list.return_value = [space]
+            client.spaces.list.return_value = [space]
             client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
-            client.tool.views.list.return_value = []
+            client.views.list.return_value = []
             selector = DataModelingSelect(client, "test_operation")
             with pytest.raises(ToolkitMissingResourceError) as exc_info:
                 selector.select_view()
@@ -811,7 +811,7 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.spaces.list.return_value = spaces
+            client.spaces.list.return_value = spaces
             client.statistics.spaces.list.return_value = SpaceStatisticsList(stats)
             selector = DataModelingSelect(client, "test_operation")
             selected_space = selector.select_schema_space(include_global=True)
@@ -832,11 +832,11 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, [select_space]),
         ):
-            client.tool.spaces.list.return_value = [
+            client.spaces.list.return_value = [
                 SpaceResponse(space="space1", **self.DEFAULT_SPACE_ARGS),
                 SpaceResponse(space="space2", **self.DEFAULT_SPACE_ARGS),
             ]
-            client.tool.instances.aggregate.side_effect = mock_aggregate
+            client.instances.aggregate.side_effect = mock_aggregate
             client.statistics.retrieve.return_value = MagicMock(concurrent_read_limit=2)
 
             selector = DataModelingSelect(client, "test_operation")
@@ -863,8 +863,8 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.spaces.list.return_value = spaces
-            client.tool.instances.aggregate.return_value = _instance_count(5)
+            client.spaces.list.return_value = spaces
+            client.instances.aggregate.return_value = _instance_count(5)
             client.statistics.retrieve.return_value = MagicMock(concurrent_read_limit=6)
 
             selector = DataModelingSelect(client, "test_operation")
@@ -876,11 +876,11 @@ class TestDataModelingInteractiveSelect:
 
     def test_select_instance_spaces_no_instances(self, monkeypatch) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.spaces.list.return_value = [
+            client.spaces.list.return_value = [
                 SpaceResponse(space="space1", **self.DEFAULT_SPACE_ARGS),
                 SpaceResponse(space="space2", **self.DEFAULT_SPACE_ARGS),
             ]
-            client.tool.instances.aggregate.return_value = _instance_count(0)
+            client.instances.aggregate.return_value = _instance_count(0)
             client.statistics.retrieve.return_value = MagicMock(concurrent_read_limit=2)
 
             selector = DataModelingSelect(client, "test_operation")
@@ -925,7 +925,7 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.spaces.list.return_value = spaces
+            client.spaces.list.return_value = spaces
             client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
 
             selector = DataModelingSelect(client, "test_operation")
@@ -953,7 +953,7 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, [select_space]),
         ):
-            client.tool.spaces.list.return_value = spaces
+            client.spaces.list.return_value = spaces
             client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
 
             selector = DataModelingSelect(client, "test_operation")
@@ -977,7 +977,7 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, []),
         ):
-            client.tool.spaces.list.return_value = spaces
+            client.spaces.list.return_value = spaces
             client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
 
             selector = DataModelingSelect(client, "test_operation")
@@ -1010,7 +1010,7 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.spaces.list.return_value = spaces
+            client.spaces.list.return_value = spaces
             client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
 
             selector = DataModelingSelect(client, "test_operation")
@@ -1038,7 +1038,7 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, [select_space]),
         ):
-            client.tool.spaces.list.return_value = spaces
+            client.spaces.list.return_value = spaces
             client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
 
             selector = DataModelingSelect(client, "test_operation")
@@ -1062,7 +1062,7 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, []),
         ):
-            client.tool.spaces.list.return_value = spaces
+            client.spaces.list.return_value = spaces
             client.statistics.spaces.list.return_value = SpaceStatisticsList(space_stats)
 
             selector = DataModelingSelect(client, "test_operation")
@@ -1098,7 +1098,7 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.data_models.list.return_value = data_models
+            client.data_models.list.return_value = data_models
 
             selector = DataModelingSelect(client, "test_operation")
             selected_model = selector.select_data_model()
@@ -1111,7 +1111,7 @@ class TestDataModelingInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataModelingSelect.__module__, monkeypatch, []),
         ):
-            client.tool.data_models.list.return_value = []
+            client.data_models.list.return_value = []
 
             selector = DataModelingSelect(client, "test_operation")
             with pytest.raises(ToolkitMissingResourceError) as exc_info:
@@ -1170,7 +1170,7 @@ class TestThreeDInteractiveSelect:
             MockQuestionary(ThreeDInteractiveSelect.__module__, monkeypatch, answers),
         ):
             selector = ThreeDInteractiveSelect(client, "test_operation")
-            client.tool.three_d.models_classic.list.return_value = [
+            client.three_d.models_classic.list.return_value = [
                 ThreeDModelClassicResponse(
                     name=f"Model {i}", id=i, createdTime=1, lastUpdatedTime=1, space="default" if i % 2 == 0 else None
                 )
@@ -1192,7 +1192,7 @@ class TestImage360CollectionInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(Image360CollectionInteractiveSelect.__module__, monkeypatch, [select]),
         ):
-            client.tool.instances.list.return_value = [
+            client.instances.list.return_value = [
                 NodeResponse(
                     space="my_space",
                     external_id=f"collection_{i}",
@@ -1345,14 +1345,14 @@ class TestDocumentsInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DocumentsInteractiveSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.documents.unique.return_value = []
-            client.tool.documents.count.return_value = 3
-            client.tool.documents.list.return_value = docs
+            client.documents.unique.return_value = []
+            client.documents.count.return_value = 3
+            client.documents.list.return_value = docs
 
             selector = DocumentsInteractiveSelect(client)
             result = selector.select_documents()
 
-        client.tool.documents.list.assert_called_once_with(filter=None, limit=100)
+        client.documents.list.assert_called_once_with(filter=None, limit=100)
         assert isinstance(result, SelectedDocuments)
         assert result.documents == docs
 
@@ -1362,8 +1362,8 @@ class TestDocumentsInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DocumentsInteractiveSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.documents.unique.return_value = []
-            client.tool.documents.count.return_value = 1
+            client.documents.unique.return_value = []
+            client.documents.count.return_value = 1
             selector = DocumentsInteractiveSelect(client)
 
             with pytest.raises(ToolkitValueError, match=r"Aborted document selection."):
@@ -1381,14 +1381,14 @@ class TestDocumentsInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DocumentsInteractiveSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.documents.unique.return_value = []
-            client.tool.documents.count.return_value = 2
-            client.tool.documents.list.return_value = docs
+            client.documents.unique.return_value = []
+            client.documents.count.return_value = 2
+            client.documents.list.return_value = docs
 
             selector = DocumentsInteractiveSelect(client)
             result = selector.select_documents()
 
-        client.tool.documents.list.assert_called_once_with(filter=None, limit=100)
+        client.documents.list.assert_called_once_with(filter=None, limit=100)
         assert isinstance(result, SelectedDocuments)
         assert result.documents == [docs[0]]
 
@@ -1419,9 +1419,9 @@ class TestDocumentsInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DocumentsInteractiveSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.documents.unique.side_effect = unique_side_effect
-            client.tool.documents.count.return_value = 10
-            client.tool.documents.list.return_value = docs
+            client.documents.unique.side_effect = unique_side_effect
+            client.documents.count.return_value = 10
+            client.documents.list.return_value = docs
 
             selector = DocumentsInteractiveSelect(client)
             result = selector.select_documents()
@@ -1429,7 +1429,7 @@ class TestDocumentsInteractiveSelect:
         expected_filter = {
             "and": [{"in": {"property": ["mimeType"], "values": ["application/pdf"]}}],
         }
-        client.tool.documents.list.assert_called_once_with(filter=expected_filter, limit=100)
+        client.documents.list.assert_called_once_with(filter=expected_filter, limit=100)
         assert isinstance(result, SelectedDocuments)
         assert result.documents == docs
 
@@ -1443,16 +1443,16 @@ class TestDocumentsInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DocumentsInteractiveSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.documents.unique.return_value = []
-            client.tool.documents.count.return_value = 5
-            client.tool.documents.list.return_value = docs
+            client.documents.unique.return_value = []
+            client.documents.count.return_value = 5
+            client.documents.list.return_value = docs
 
             selector = DocumentsInteractiveSelect(client)
             result = selector.select_documents()
 
-        assert client.tool.documents.count.call_args_list[0].kwargs.get("filter") is None
-        assert client.tool.documents.count.call_args_list[-1].kwargs.get("filter") == cognite_file_filter
-        client.tool.documents.list.assert_called_once_with(filter=cognite_file_filter, limit=100)
+        assert client.documents.count.call_args_list[0].kwargs.get("filter") is None
+        assert client.documents.count.call_args_list[-1].kwargs.get("filter") == cognite_file_filter
+        client.documents.list.assert_called_once_with(filter=cognite_file_filter, limit=100)
         assert selector.status.is_cognite_file is True
         assert result.documents == docs
 
@@ -1462,8 +1462,8 @@ class TestDocumentsInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DocumentsInteractiveSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.documents.unique.return_value = []
-            client.tool.documents.count.side_effect = [3520, 0, 3520]
+            client.documents.unique.return_value = []
+            client.documents.count.side_effect = [3520, 0, 3520]
 
             selector = DocumentsInteractiveSelect(client)
             with pytest.raises(ToolkitValueError, match=r"Aborted document selection."):
@@ -1481,14 +1481,14 @@ class TestDocumentsInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DocumentsInteractiveSelect.__module__, monkeypatch, answers),
         ):
-            client.tool.documents.unique.return_value = []
-            client.tool.documents.count.return_value = 2
-            client.tool.documents.search.return_value = search_page
+            client.documents.unique.return_value = []
+            client.documents.count.return_value = 2
+            client.documents.search.return_value = search_page
 
             selector = DocumentsInteractiveSelect(client)
             result = selector.select_documents()
 
-        client.tool.documents.search.assert_called_once_with(query="turbine", filter=None, limit=100)
-        client.tool.documents.list.assert_not_called()
+        client.documents.search.assert_called_once_with(query="turbine", filter=None, limit=100)
+        client.documents.list.assert_not_called()
         assert isinstance(result, SelectedDocuments)
         assert result.documents == docs

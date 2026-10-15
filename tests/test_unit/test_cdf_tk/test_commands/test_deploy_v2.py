@@ -287,7 +287,7 @@ class TestCheckNoOutOfScopeViewReferences:
             ),
         )
         client = MagicMock()
-        client.tool.containers.inspect.return_value = [inspect_result]
+        client.containers.inspect.return_value = [inspect_result]
         plan = [
             DeploymentStep(crud_cls=ContainerIO, files=[]),
             DeploymentStep(crud_cls=ViewIO, files=[]),
@@ -312,12 +312,12 @@ class TestDeployResourcesSpecialUpsertHandling:
         )
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.views.create.side_effect = lambda items: list(items)
+            client.views.create.side_effect = lambda items: list(items)
             loader = ViewIO(client)
             resources: ResourceToDeploy = ResourceToDeploy(to_create=[derived_view], to_update=[base_view])
             result = DeployV2Command.deploy_resources(loader, resources, set())
 
         assert result.created_count == 1
         assert result.updated_count == 1
-        deployed_ids = [view.external_id for call in client.tool.views.create.call_args_list for view in call[0][0]]
+        deployed_ids = [view.external_id for call in client.views.create.call_args_list for view in call[0][0]]
         assert deployed_ids.index("Base") < deployed_ids.index("Derived")

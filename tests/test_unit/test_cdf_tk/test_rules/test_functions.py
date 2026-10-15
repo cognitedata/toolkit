@@ -58,7 +58,7 @@ class TestFunctionLimitsRule:
     def _create_rule_with_client(function_limits: FunctionLimits) -> FunctionRuleSet:
         """Create a FunctionLimitsRule with mocked client."""
         mock_client = MagicMock()
-        mock_client.tool.functions.limits.return_value = function_limits
+        mock_client.functions.limits.return_value = function_limits
         rule = FunctionRuleSet(modules=[], client=mock_client)
         return rule
 

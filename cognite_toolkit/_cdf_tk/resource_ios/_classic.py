@@ -84,18 +84,18 @@ class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse, AssetYAML]):
             yield AssetsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: collections.abc.Sequence[AssetRequest]) -> list[AssetResponse]:
-        return self.client.tool.assets.create(items)
+        return self.client.assets.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[AssetResponse]:
-        return self.client.tool.assets.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.assets.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: collections.abc.Sequence[AssetRequest]) -> list[AssetResponse]:
-        return self.client.tool.assets.update(items, mode="replace")
+        return self.client.assets.update(items, mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if id_list:
-            self.client.tool.assets.delete(id_list, ignore_unknown_ids=True)
+            self.client.assets.delete(id_list, ignore_unknown_ids=True)
         return id_list
 
     def _iterate(
@@ -105,7 +105,7 @@ class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse, AssetYAML]):
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[AssetResponse]:
         filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
-        for assets in self.client.tool.assets.iterate(aggregated_properties=True, filter=filter_, limit=None):
+        for assets in self.client.assets.iterate(aggregated_properties=True, filter=filter_, limit=None):
             yield from assets
 
     @classmethod
@@ -246,18 +246,18 @@ class SequenceIO(ResourceIO[ExternalId, SequenceRequest, SequenceResponse, Seque
         return diff_list_identifiable(local, cdf, get_identifier=lambda col: col["externalId"])
 
     def create(self, items: collections.abc.Sequence[SequenceRequest]) -> list[SequenceResponse]:
-        return self.client.tool.sequences.create(items)
+        return self.client.sequences.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SequenceResponse]:
-        return self.client.tool.sequences.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.sequences.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: collections.abc.Sequence[SequenceRequest]) -> list[SequenceResponse]:
-        return self.client.tool.sequences.update(items, mode="replace")
+        return self.client.sequences.update(items, mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if id_list:
-            self.client.tool.sequences.delete(id_list, ignore_unknown_ids=True)
+            self.client.sequences.delete(id_list, ignore_unknown_ids=True)
         return id_list
 
     def _iterate(
@@ -267,7 +267,7 @@ class SequenceIO(ResourceIO[ExternalId, SequenceRequest, SequenceResponse, Seque
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[SequenceResponse]:
         filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
-        for sequences in self.client.tool.sequences.iterate(filter=filter_, limit=None):
+        for sequences in self.client.sequences.iterate(filter=filter_, limit=None):
             yield from sequences
 
     @classmethod
@@ -335,7 +335,7 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
         if not item_list:
             return []
         # The rows API does not return the written rows. The sequence external id is the identifier.
-        self.client.tool.sequences.rows.create(item_list)
+        self.client.sequences.rows.create(item_list)
         return self.get_ids(item_list)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SequenceRowsResponse]:
@@ -343,7 +343,7 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
         for id_ in ids:
             row_filter = SequenceRowFilter(external_id=id_.external_id)
             try:
-                responses = self.client.tool.sequences.rows.list(row_filter)
+                responses = self.client.sequences.rows.list(row_filter)
             except ToolkitAPIError as e:
                 if e.missing == [id_.dump()]:
                     continue
@@ -355,11 +355,11 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
         id_list = list(ids)
         for id_ in id_list:
             row_filter = SequenceRowFilter(external_id=id_.external_id)
-            for batch in self.client.tool.sequences.rows.iterate(row_filter, limit=None):
+            for batch in self.client.sequences.rows.iterate(row_filter, limit=None):
                 if not batch or not batch[0].rows:
                     continue
                 item = batch[0]
-                self.client.tool.sequences.rows.delete([item.as_request_resource().as_id()])
+                self.client.sequences.rows.delete([item.as_request_resource().as_id()])
         return id_list
 
     def _iterate(
@@ -371,13 +371,13 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
         if parent_ids is None:
             filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
             parent_external_ids: list[str] = []
-            for sequences in self.client.tool.sequences.iterate(filter=filter_, limit=None):
+            for sequences in self.client.sequences.iterate(filter=filter_, limit=None):
                 parent_external_ids.extend(seq.external_id for seq in sequences if seq.external_id)
         else:
             parent_external_ids = [id.external_id for id in parent_ids if isinstance(id, ExternalId)]
         for ext_id in parent_external_ids:
             row_filter = SequenceRowFilter(external_id=ext_id)
-            responses = self.client.tool.sequences.rows.list(row_filter, limit=None)
+            responses = self.client.sequences.rows.list(row_filter, limit=None)
             yield from responses
 
     @classmethod
@@ -461,18 +461,18 @@ class EventIO(ResourceIO[ExternalId, EventRequest, EventResponse, EventYAML]):
             yield EventsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: collections.abc.Sequence[EventRequest]) -> list[EventResponse]:
-        return self.client.tool.events.create(items)
+        return self.client.events.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[EventResponse]:
-        return self.client.tool.events.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.events.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: collections.abc.Sequence[EventRequest]) -> list[EventResponse]:
-        return self.client.tool.events.update(items, mode="replace")
+        return self.client.events.update(items, mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if id_list:
-            self.client.tool.events.delete(id_list, ignore_unknown_ids=True)
+            self.client.events.delete(id_list, ignore_unknown_ids=True)
         return id_list
 
     def _iterate(
@@ -482,7 +482,7 @@ class EventIO(ResourceIO[ExternalId, EventRequest, EventResponse, EventYAML]):
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[EventResponse]:
         filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
-        for events in self.client.tool.events.iterate(filter=filter_, limit=None):
+        for events in self.client.events.iterate(filter=filter_, limit=None):
             yield from events
 
     @classmethod

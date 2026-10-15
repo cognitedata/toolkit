@@ -383,7 +383,7 @@ class AssetCentricToInstanceMapper(AssetCentricMapper[T_AssetCentricResourceExte
                 for mapping in self._view_mapping_by_id.values()
             }
         )
-        views = self.client.tool.views.retrieve(view_ids)
+        views = self.client.views.retrieve(view_ids)
         self._ingestion_view_by_id = {view.as_id(): view for view in views}
         missing_views = set(view_ids) - set(self._ingestion_view_by_id.keys())
         if missing_views:
@@ -435,7 +435,7 @@ class AssetCentricToRecordMapper(AssetCentricMapper[T_AssetCentricResourceExtend
 
     def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
         unique_container_ids = {m.container_id for m in self._mappings_by_external_id.values()}
-        containers = self.client.tool.containers.retrieve(list(unique_container_ids))
+        containers = self.client.containers.retrieve(list(unique_container_ids))
         container_properties_by_id = {container.as_id(): container.properties for container in containers}
         missing_container_ids = unique_container_ids - set(container_properties_by_id.keys())
         if missing_container_ids:
@@ -502,10 +502,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         self._classic_timeseries_external_ids: set[str] = set()
 
     def prepare(self, source_selector: ChartSelector) -> None:
-        if missing_acl := self.client.tool.token.verify_acls(
-            [ChartsAdminAcl(actions=["READ", "UPDATE"], scope=AllScope())]
-        ):
-            raise self.client.tool.token.create_error(missing_acl, action="migrate charts")
+        if missing_acl := self.client.token.verify_acls([ChartsAdminAcl(actions=["READ", "UPDATE"], scope=AllScope())]):
+            raise self.client.token.create_error(missing_acl, action="migrate charts")
 
     def map(self, source: Sequence[DataItem[ChartResponse]]) -> Sequence[DataItem[ChartRequest]]:
         raw_items = [data_item.item for data_item in source]
@@ -692,7 +690,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 api_filter["startTime"] = {"max": datetime_to_ms(data_to)}
                 api_filter["endTime"] = {"min": datetime_to_ms(date_from)}
 
-                events = self.client.tool.events.list(filter=api_filter, limit=None)
+                events = self.client.events.list(filter=api_filter, limit=None)
                 event_ids_by_chart_external_id[chart.external_id].update(event.id for event in events)
 
         if timeseries_ids:
@@ -704,7 +702,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         # Retrieve by id and external ID separately. A chart timeseries often has both, and
         # mixing them in one /timeseries/byids call returns 409 conflicting references.
         if timeseries_ids:
-            existing_by_id = self.client.tool.timeseries.retrieve(
+            existing_by_id = self.client.timeseries.retrieve(
                 [InternalId(id=timeseries_id) for timeseries_id in timeseries_ids],
                 ignore_unknown_ids=True,
             )
@@ -714,7 +712,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             )
         remaining_external_ids = timeseries_external_ids - self._classic_timeseries_external_ids
         if remaining_external_ids:
-            existing_by_external_id = self.client.tool.timeseries.retrieve(
+            existing_by_external_id = self.client.timeseries.retrieve(
                 [ExternalId(external_id=external_id) for external_id in remaining_external_ids],
                 ignore_unknown_ids=True,
             )
@@ -1070,7 +1068,7 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
     def map(self, source: Sequence[DataItem[IndustrialCanvasResponse]]) -> Sequence[DataItem[IndustrialCanvasRequest]]:
         raw_items = [data_item.item for data_item in source]
         file_node_ids = self._populate_cache(raw_items)
-        cognite_file_by_id = {file.as_id(): file for file in self.client.tool.cognite_files.retrieve(file_node_ids)}
+        cognite_file_by_id = {file.as_id(): file for file in self.client.cognite_files.retrieve(file_node_ids)}
         output: list[DataItem[IndustrialCanvasRequest]] = []
         log_entries: list[MigrationEntryV2] = []
         canvas_src = "Industrial Canvas"
@@ -1516,7 +1514,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
         view_ids = set(mapping.source_view for mapping in self._mappings_by_source_view.values()) | set(
             mapping.destination_view for mapping in self._mappings_by_source_view.values()
         )
-        views = self.client.tool.views.retrieve(list(view_ids))
+        views = self.client.views.retrieve(list(view_ids))
         self._connection_creator.update_view_cache(views)
         self._current_issue_source = str(source_selector)
         mapping = None
@@ -1764,7 +1762,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, NodeOrEdge
 
         missing_in_cache = set(to_check) - set(self._is_existing_by_node_id.keys())
         if missing_in_cache:
-            existing_node_ids = {node.as_id() for node in self.client.tool.instances.retrieve(list(missing_in_cache))}
+            existing_node_ids = {node.as_id() for node in self.client.instances.retrieve(list(missing_in_cache))}
             for node_id in missing_in_cache:
                 self._is_existing_by_node_id[node_id] = node_id in existing_node_ids
 
@@ -2135,7 +2133,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, NodeOrEdgeRe
 
     def prepare(self, source_selector: InstanceSelector) -> None:
         # We need to have the view cache ready to be able to create the direct relations.
-        retrieved = self.client.tool.views.retrieve([self._mapping.destination_view])
+        retrieved = self.client.views.retrieve([self._mapping.destination_view])
         self._connection_creator.update_view_cache(retrieved)
 
     def map(self, source: Sequence[DataItem[NodeOrEdgeResponse]]) -> Sequence[DataItem[NodeOrEdgeRequest]]:
@@ -2572,7 +2570,7 @@ class Image360CollectionMapper(DataMapper[InstanceSelector, NodeOrEdgeResponse, 
         existing_migrated_by_id = (
             {
                 node.as_id(): node
-                for node in self.client.tool.instances.retrieve(migrated_ids, source=COGNITE_3D_REVISION_VIEW)
+                for node in self.client.instances.retrieve(migrated_ids, source=COGNITE_3D_REVISION_VIEW)
                 if isinstance(node, NodeResponse)
             }
             if migrated_ids

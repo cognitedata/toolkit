@@ -3,7 +3,6 @@ from contextlib import contextmanager
 from typing import Any, cast
 from unittest.mock import MagicMock
 
-from cognite.client.testing import CogniteClientMock
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
@@ -26,7 +25,6 @@ from cognite_toolkit._cdf_tk.client.api.transformation_schedules import Transfor
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 
 from . import ToolkitClientConfig
-from ._toolkit_client import ToolAPI
 from .api.agents import AgentsAPI
 from .api.app_versions import AppVersionsAPI
 from .api.apps import AppsAPI
@@ -121,17 +119,81 @@ from .api.workflow_versions import WorkflowVersionsAPI
 from .api.workflows import WorkflowsAPI
 
 
-class ToolkitClientMock(CogniteClientMock):
+class ToolkitClientMock(ToolkitClient):
     """Mock for ToolkitClient object
 
     All APIs are replaced with specked MagicMock objects.
     """
 
+    # These attributes are declared as ``MagicMock`` (overriding the real API types inherited
+    # from ``ToolkitClient``) so that type checkers understand that a ``ToolkitClientMock`` *is* a
+    # ``ToolkitClient`` while still allowing tests to configure them with ``.return_value`` /
+    # ``.side_effect`` etc. Keep this list in sync with the attributes assigned in ``__init__``.
+    canvas: MagicMock
+    charts: MagicMock
+    infield: MagicMock
+    project: MagicMock
+    lookup: MagicMock
+    migration: MagicMock
+    principals: MagicMock
+    sessions: MagicMock
+    agents: MagicMock
+    skills: MagicMock
+    apps: MagicMock
+    datapoint_subscriptions: MagicMock
+    three_d: MagicMock
+    assets: MagicMock
+    cognite_files: MagicMock
+    timeseries: MagicMock
+    filemetadata: MagicMock
+    instances: MagicMock
+    spaces: MagicMock
+    views: MagicMock
+    containers: MagicMock
+    data_models: MagicMock
+    graphql_data_models: MagicMock
+    location_filters: MagicMock
+    events: MagicMock
+    functions: MagicMock
+    groups: MagicMock
+    search_configurations: MagicMock
+    signal_sinks: MagicMock
+    signal_subscriptions: MagicMock
+    simulators: MagicMock
+    datasets: MagicMock
+    documents: MagicMock
+    extraction_pipelines: MagicMock
+    hosted_extractors: MagicMock
+    labels: MagicMock
+    raw: MagicMock
+    relationships: MagicMock
+    security_categories: MagicMock
+    sequences: MagicMock
+    transformations: MagicMock
+    streamlit: MagicMock
+    token: MagicMock
+    workflows: MagicMock
+    data_products: MagicMock
+    rulesets: MagicMock
+    records: MagicMock
+    statistics: MagicMock
+    streams: MagicMock
+    sap_writeback: MagicMock
+    integrations: MagicMock
+    user_profiles: MagicMock
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        if "parent" in kwargs:
-            super().__init__(*args, **kwargs)
-            return None
-        super().__init__(*args, **kwargs)
+        # Intentionally do NOT call super().__init__(): it would require a real
+        # ToolkitClientConfig and build real API clients. We replace every API
+        # attribute with a MagicMock below.
+        # Guard against re-initialization: ``monkeypatch_toolkit_client`` patches
+        # ``ToolkitClient.__new__`` to return this singleton. Any code that constructs a
+        # ``ToolkitClient(...)`` (e.g. TransformationIO building a session client for OIDC
+        # credentials) would otherwise trigger ``__init__`` again and wipe out all the mock
+        # return values/side effects configured by the test.
+        if getattr(self, "_is_initialized", False):
+            return
+        self._is_initialized = True
         self.console = Console()
         # spec= (not spec_set): ClientConfig fields are not plain class attributes, so spec_set
         # blocked assigning project/timeout in tests. Defaults keep HTTPClient(...) usable.
@@ -190,83 +252,82 @@ class ToolkitClientMock(CogniteClientMock):
         self.principals = MagicMock(spec_set=PrincipalsAPI)
         self.sessions = MagicMock(spec_set=SessionAPI)
 
-        def create_single(item: object) -> object:
+        def create_single(item: Any) -> Any:
             # SessionAPI.create_single delegates to create. Keep that so tests that stub
             # sessions.create still produce a real session response.
             return self.sessions.create([item])[0]
 
         self.sessions.create_single.side_effect = create_single
 
-        self.tool = MagicMock(spec=ToolAPI)
-        self.tool.agents = MagicMock(spec=AgentsAPI)
-        self.tool.skills = MagicMock(spec=SkillsAPI)
-        self.tool.apps = MagicMock(spec=AppsAPI)
-        self.tool.apps.versions = MagicMock(spec=AppVersionsAPI)
-        self.tool.datapoint_subscriptions = MagicMock(spec=DatapointSubscriptionsAPI)
-        self.tool.three_d = MagicMock(spec=ThreeDAPI)
-        self.tool.three_d.models_classic = MagicMock(spec_set=ThreeDClassicModelsAPI)
-        self.tool.three_d.revisions_classic = MagicMock(spec_set=ThreeDClassicRevisionsAPI)
-        self.tool.three_d.nodes = MagicMock(spec_set=ThreeDNodesAPI)
-        self.tool.three_d.asset_mappings_classic = MagicMock(spec_set=ThreeDClassicAssetMappingAPI)
-        self.tool.three_d.asset_mappings_dm = MagicMock(spec_set=ThreeDDMAssetMappingAPI)
-        self.tool.assets = MagicMock(spec_set=AssetsAPI)
-        self.tool.cognite_files = MagicMock(spec_set=CogniteFilesAPI)
-        self.tool.timeseries = MagicMock(spec=TimeSeriesAPI)
-        self.tool.timeseries.datapoints = MagicMock(spec_set=DatapointsAPI)
-        self.tool.filemetadata = MagicMock(spec_set=FileMetadataAPI)
-        self.tool.instances = MagicMock(spec=InstancesAPI)
-        self.tool.spaces = MagicMock(spec=SpacesAPI)
-        self.tool.views = MagicMock(spec=ViewsAPI)
-        self.tool.containers = MagicMock(spec=ContainersAPI)
-        self.tool.data_models = MagicMock(spec=DataModelsAPI)
-        self.tool.graphql_data_models = MagicMock(spec=GraphQLDataModelsAPI)
-        self.tool.location_filters = MagicMock(spec=LocationFiltersAPI)
-        self.tool.events = MagicMock(spec_set=EventsAPI)
-        self.tool.functions = MagicMock(spec=FunctionsAPI)
-        self.tool.functions.calls = MagicMock(spec_set=FunctionCallsAPI)
-        self.tool.functions.schedules = MagicMock(spec_set=FunctionSchedulesAPI)
-        self.tool.groups = MagicMock(spec_set=GroupsAPI)
-        self.tool.search_configurations = MagicMock(spec_set=SearchConfigurationsAPI)
-        self.tool.signal_sinks = MagicMock(spec_set=SignalSinksAPI)
-        self.tool.signal_subscriptions = MagicMock(spec_set=SignalSubscriptionsAPI)
-        self.tool.simulators = MagicMock(spec=SimulatorsAPI)
-        self.tool.simulators.models = MagicMock(spec_set=SimulatorModelsAPI)
-        self.tool.simulators.model_revisions = MagicMock(spec_set=SimulatorModelRevisionsAPI)
-        self.tool.simulators.routines = MagicMock(spec_set=SimulatorRoutinesAPI)
-        self.tool.simulators.routine_revisions = MagicMock(spec_set=SimulatorRoutineRevisionsAPI)
-        self.tool.datasets = MagicMock(spec_set=DataSetsAPI)
-        self.tool.documents = MagicMock(spec_set=DocumentsAPI)
-        self.tool.extraction_pipelines = MagicMock(spec=ExtractionPipelinesAPI)
-        self.tool.extraction_pipelines.configs = MagicMock(spec_set=ExtractionPipelineConfigsAPI)
-        self.tool.hosted_extractors = MagicMock(spec=HostedExtractorsAPI)
-        self.tool.hosted_extractors.sources = MagicMock(spec_set=HostedExtractorSourcesAPI)
-        self.tool.hosted_extractors.jobs = MagicMock(spec_set=HostedExtractorJobsAPI)
-        self.tool.hosted_extractors.destinations = MagicMock(spec_set=HostedExtractorDestinationsAPI)
-        self.tool.hosted_extractors.mappings = MagicMock(spec_set=HostedExtractorMappingsAPI)
-        self.tool.labels = MagicMock(spec_set=LabelsAPI)
-        self.tool.raw = MagicMock(spec=RawAPI)
-        self.tool.raw.databases = MagicMock(spec_set=RawDatabasesAPI)
-        self.tool.raw.tables = MagicMock(spec=RawTablesAPI)
-        self.tool.raw.tables.rows = MagicMock(spec_set=RawRowsAPI)
-        self.tool.relationships = MagicMock(spec_set=RelationshipsAPI)
-        self.tool.security_categories = MagicMock(spec_set=SecurityCategoriesAPI)
-        self.tool.sequences = MagicMock(spec=SequencesAPI)
-        self.tool.sequences.rows = MagicMock(spec_set=SequenceRowsAPI)
-        self.tool.transformations = MagicMock(spec=TransformationsAPI)
-        self.tool.streamlit = MagicMock(spec=StreamlitAPI)
-        self.tool.token = MagicMock(spec=ToolkitTokenAPI)
-        self.tool.transformations.schedules = MagicMock(spec=TransformationSchedulesAPI)
-        self.tool.transformations.notifications = MagicMock(spec=TransformationNotificationsAPI)
-        self.tool.transformations.jobs = MagicMock(spec=TransformationJobsAPI)
-        self.tool.transformations.external_data_sources = MagicMock(spec=TransformationExternalDataSourcesAPI)
-        self.tool.workflows = MagicMock(spec=WorkflowsAPI)
-        self.tool.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)
-        self.tool.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)
-        self.tool.workflows.executions = MagicMock(spec_set=WorkflowExecutionsAPI)
-        self.tool.data_products = MagicMock(spec=DataProductsAPI)
-        self.tool.data_products.versions = MagicMock(spec_set=DataProductVersionsAPI)
-        self.tool.rulesets = MagicMock(spec=RuleSetsAPI)
-        self.tool.rulesets.versions = MagicMock(spec_set=RuleSetVersionsAPI)
+        self.agents = MagicMock(spec=AgentsAPI)
+        self.skills = MagicMock(spec=SkillsAPI)
+        self.apps = MagicMock(spec=AppsAPI)
+        self.apps.versions = MagicMock(spec=AppVersionsAPI)
+        self.datapoint_subscriptions = MagicMock(spec=DatapointSubscriptionsAPI)
+        self.three_d = MagicMock(spec=ThreeDAPI)
+        self.three_d.models_classic = MagicMock(spec_set=ThreeDClassicModelsAPI)
+        self.three_d.revisions_classic = MagicMock(spec_set=ThreeDClassicRevisionsAPI)
+        self.three_d.nodes = MagicMock(spec_set=ThreeDNodesAPI)
+        self.three_d.asset_mappings_classic = MagicMock(spec_set=ThreeDClassicAssetMappingAPI)
+        self.three_d.asset_mappings_dm = MagicMock(spec_set=ThreeDDMAssetMappingAPI)
+        self.assets = MagicMock(spec_set=AssetsAPI)
+        self.cognite_files = MagicMock(spec_set=CogniteFilesAPI)
+        self.timeseries = MagicMock(spec=TimeSeriesAPI)
+        self.timeseries.datapoints = MagicMock(spec_set=DatapointsAPI)
+        self.filemetadata = MagicMock(spec_set=FileMetadataAPI)
+        self.instances = MagicMock(spec=InstancesAPI)
+        self.spaces = MagicMock(spec=SpacesAPI)
+        self.views = MagicMock(spec=ViewsAPI)
+        self.containers = MagicMock(spec=ContainersAPI)
+        self.data_models = MagicMock(spec=DataModelsAPI)
+        self.graphql_data_models = MagicMock(spec=GraphQLDataModelsAPI)
+        self.location_filters = MagicMock(spec=LocationFiltersAPI)
+        self.events = MagicMock(spec_set=EventsAPI)
+        self.functions = MagicMock(spec=FunctionsAPI)
+        self.functions.calls = MagicMock(spec_set=FunctionCallsAPI)
+        self.functions.schedules = MagicMock(spec_set=FunctionSchedulesAPI)
+        self.groups = MagicMock(spec_set=GroupsAPI)
+        self.search_configurations = MagicMock(spec_set=SearchConfigurationsAPI)
+        self.signal_sinks = MagicMock(spec_set=SignalSinksAPI)
+        self.signal_subscriptions = MagicMock(spec_set=SignalSubscriptionsAPI)
+        self.simulators = MagicMock(spec=SimulatorsAPI)
+        self.simulators.models = MagicMock(spec_set=SimulatorModelsAPI)
+        self.simulators.model_revisions = MagicMock(spec_set=SimulatorModelRevisionsAPI)
+        self.simulators.routines = MagicMock(spec_set=SimulatorRoutinesAPI)
+        self.simulators.routine_revisions = MagicMock(spec_set=SimulatorRoutineRevisionsAPI)
+        self.datasets = MagicMock(spec_set=DataSetsAPI)
+        self.documents = MagicMock(spec_set=DocumentsAPI)
+        self.extraction_pipelines = MagicMock(spec=ExtractionPipelinesAPI)
+        self.extraction_pipelines.configs = MagicMock(spec_set=ExtractionPipelineConfigsAPI)
+        self.hosted_extractors = MagicMock(spec=HostedExtractorsAPI)
+        self.hosted_extractors.sources = MagicMock(spec_set=HostedExtractorSourcesAPI)
+        self.hosted_extractors.jobs = MagicMock(spec_set=HostedExtractorJobsAPI)
+        self.hosted_extractors.destinations = MagicMock(spec_set=HostedExtractorDestinationsAPI)
+        self.hosted_extractors.mappings = MagicMock(spec_set=HostedExtractorMappingsAPI)
+        self.labels = MagicMock(spec_set=LabelsAPI)
+        self.raw = MagicMock(spec=RawAPI)
+        self.raw.databases = MagicMock(spec_set=RawDatabasesAPI)
+        self.raw.tables = MagicMock(spec=RawTablesAPI)
+        self.raw.tables.rows = MagicMock(spec_set=RawRowsAPI)
+        self.relationships = MagicMock(spec_set=RelationshipsAPI)
+        self.security_categories = MagicMock(spec_set=SecurityCategoriesAPI)
+        self.sequences = MagicMock(spec=SequencesAPI)
+        self.sequences.rows = MagicMock(spec_set=SequenceRowsAPI)
+        self.transformations = MagicMock(spec=TransformationsAPI)
+        self.streamlit = MagicMock(spec=StreamlitAPI)
+        self.token = MagicMock(spec=ToolkitTokenAPI)
+        self.transformations.schedules = MagicMock(spec=TransformationSchedulesAPI)
+        self.transformations.notifications = MagicMock(spec=TransformationNotificationsAPI)
+        self.transformations.jobs = MagicMock(spec=TransformationJobsAPI)
+        self.transformations.external_data_sources = MagicMock(spec=TransformationExternalDataSourcesAPI)
+        self.workflows = MagicMock(spec=WorkflowsAPI)
+        self.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)
+        self.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)
+        self.workflows.executions = MagicMock(spec_set=WorkflowExecutionsAPI)
+        self.data_products = MagicMock(spec=DataProductsAPI)
+        self.data_products.versions = MagicMock(spec_set=DataProductVersionsAPI)
+        self.rulesets = MagicMock(spec=RuleSetsAPI)
+        self.rulesets.versions = MagicMock(spec_set=RuleSetVersionsAPI)
 
         self.records = MagicMock(spec=RecordsAPI)
         self.statistics = MagicMock(spec=StatisticsAPI)

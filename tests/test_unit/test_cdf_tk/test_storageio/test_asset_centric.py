@@ -6,10 +6,6 @@ from unittest.mock import MagicMock
 import httpx2
 import pytest
 import respx
-from cognite.client.data_classes import (
-    LabelDefinition,
-    LabelDefinitionList,
-)
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
@@ -17,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
@@ -168,15 +165,15 @@ def asset_centric_client(
             file_items = file_chunks.pop()
             return PagedResponse(items=file_items, nextCursor="cursor" if file_chunks else None)
 
-        client.tool.assets.paginate.side_effect = iterate_assets
-        client.tool.timeseries.paginate.side_effect = iterate_timeseries
-        client.tool.events.paginate.side_effect = iterate_events
-        client.tool.filemetadata.paginate.side_effect = iterate_files
+        client.assets.paginate.side_effect = iterate_assets
+        client.timeseries.paginate.side_effect = iterate_timeseries
+        client.events.paginate.side_effect = iterate_events
+        client.filemetadata.paginate.side_effect = iterate_files
 
-        client.tool.assets.count.return_value = RESOURCE_COUNT
-        client.tool.filemetadata.count.return_value = RESOURCE_COUNT
-        client.tool.events.count.return_value = RESOURCE_COUNT
-        client.tool.timeseries.count.return_value = RESOURCE_COUNT
+        client.assets.count.return_value = RESOURCE_COUNT
+        client.filemetadata.count.return_value = RESOURCE_COUNT
+        client.events.count.return_value = RESOURCE_COUNT
+        client.timeseries.count.return_value = RESOURCE_COUNT
 
         client.lookup.data_sets.external_id.return_value = DATA_SET_EXTERNAL_ID
         client.lookup.data_sets.id.return_value = DATA_SET_ID
@@ -194,10 +191,8 @@ def asset_centric_client(
         client.lookup.assets.external_id.side_effect = lookup_asset_external_id
         client.lookup.assets.id.side_effect = lookup_asset_id
 
-        client.tool.token.verify_acls.return_value = []
-        client.labels.retrieve.return_value = LabelDefinitionList(
-            [LabelDefinition(external_id="my_label", name="my_label", created_time=0)]
-        )
+        client.token.verify_acls.return_value = []
+        client.labels.retrieve.return_value = [LabelResponse(external_id="my_label", name="my_label", created_time=0)]
         client.config = toolkit_config
         yield client
 

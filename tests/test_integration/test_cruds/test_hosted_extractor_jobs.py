@@ -44,20 +44,20 @@ class TestHostedExtractorJobsAPI:
         assert "config" not in job.as_update(mode="replace")["update"], "Config should not be set to null."
 
         try:
-            created_sources = client.tool.hosted_extractors.sources.create([source])
+            created_sources = client.hosted_extractors.sources.create([source])
             assert len(created_sources) == 1
-            created_destinations = client.tool.hosted_extractors.destinations.create([destination])
+            created_destinations = client.hosted_extractors.destinations.create([destination])
             assert len(created_destinations) == 1
-            created_jobs = client.tool.hosted_extractors.jobs.create([job])
+            created_jobs = client.hosted_extractors.jobs.create([job])
             assert len(created_jobs) == 1
             assert created_jobs[0].external_id == job.external_id
 
-            updated = client.tool.hosted_extractors.jobs.update([job], mode="replace")
+            updated = client.hosted_extractors.jobs.update([job], mode="replace")
             assert len(updated) == 1
             assert updated[0].external_id == job.external_id
             assert updated[0].source_id == source_id.external_id
             assert updated[0].destination_id == dest_id.external_id
         finally:
-            client.tool.hosted_extractors.jobs.delete([job_id], ignore_unknown_ids=True)
-            client.tool.hosted_extractors.destinations.delete([dest_id], ignore_unknown_ids=True, force=True)
-            client.tool.hosted_extractors.sources.delete([source_id], ignore_unknown_ids=True, force=True)
+            client.hosted_extractors.jobs.delete([job_id], ignore_unknown_ids=True)
+            client.hosted_extractors.destinations.delete([dest_id], ignore_unknown_ids=True, force=True)
+            client.hosted_extractors.sources.delete([source_id], ignore_unknown_ids=True, force=True)

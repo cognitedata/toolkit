@@ -44,7 +44,7 @@ class TestTimeSeriesAPI:
                 external_id="my_ts",
             ),
         ]
-        result = client.tool.timeseries.set_pending_ids(items)
+        result = client.timeseries.set_pending_ids(items)
 
         assert len(result) == 1
         assert isinstance(result[0], TimeSeriesResponse)
@@ -87,7 +87,7 @@ class TestTimeSeriesAPI:
             )
         )
 
-        result = client.tool.timeseries.unlink_instance_ids(items)
+        result = client.timeseries.unlink_instance_ids(items)
 
         assert len(result) == 1
         assert isinstance(result[0], TimeSeriesResponse)

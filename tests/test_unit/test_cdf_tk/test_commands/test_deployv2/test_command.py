@@ -555,15 +555,15 @@ class TestApplyPlan:
 
     def _set_up_mock_client(self, case: ApplyPlanTestCase, client: ToolkitClientMock):
         if case.acls_missing:
-            client.tool.token.verify_acls.return_value = [MagicMock()]
-            client.tool.token.create_error.return_value = AuthorizationError("Missing capabilities")
+            client.token.verify_acls.return_value = [MagicMock()]
+            client.token.create_error.return_value = AuthorizationError("Missing capabilities")
         else:
-            client.tool.token.verify_acls.return_value = []
+            client.token.verify_acls.return_value = []
 
         if issubclass(case.crud_cls, SpaceIO):
-            client.tool.spaces.retrieve.return_value = case.cdf_resources
+            client.spaces.retrieve.return_value = case.cdf_resources
         elif issubclass(case.crud_cls, FunctionScheduleIO):
-            client.tool.functions.status.return_value = FunctionsActivation(status="activated")
+            client.functions.status.return_value = FunctionsActivation(status="activated")
             function_responses = []
             for resource in case.cdf_resources:
                 if hasattr(resource, "function_id") and resource.function_id is not None:
@@ -576,13 +576,13 @@ class TestApplyPlan:
                             file_id=37,
                         )
                     )
-            client.tool.functions.retrieve.return_value = function_responses
-            client.tool.functions.schedules.list.return_value = case.cdf_resources
-            client.tool.functions.schedules.input_data.return_value = FunctionScheduleData(id=37)
+            client.functions.retrieve.return_value = function_responses
+            client.functions.schedules.list.return_value = case.cdf_resources
+            client.functions.schedules.input_data.return_value = FunctionScheduleData(id=37)
         elif issubclass(case.crud_cls, RawDatabaseIO):
-            client.tool.raw.databases.list.return_value = case.cdf_resources
+            client.raw.databases.list.return_value = case.cdf_resources
         elif issubclass(case.crud_cls, RawTableIO):
-            client.tool.raw.tables.list.return_value = case.cdf_resources
+            client.raw.tables.list.return_value = case.cdf_resources
         else:
             pytest.fail(f"Test case for unsupported CRUD class: {case.crud_cls}")
 
@@ -811,7 +811,7 @@ class TestDeployResourcesRelatedInsights:
         console_output = io.StringIO()
         client = MagicMock()
         client.console = Console(file=console_output, width=200)
-        client.tool.spaces.create.side_effect = ToolkitAPIError("API failed")
+        client.spaces.create.side_effect = ToolkitAPIError("API failed")
         crud = SpaceIO.create_io(client)
         with pytest.raises(ResourceCreationError, match="Likely causes detected during"):
             DeployV2Command.deploy_resources(
@@ -834,17 +834,17 @@ class TestDryRunDataSetPlaceholders:
     def test_write_protected_datasets_skips_dry_run_id(self) -> None:
         client = MagicMock()
         assert DeployV2Command._write_protected_datasets(client, [DRY_RUN_ID]) == set()
-        client.tool.datasets.retrieve.assert_not_called()
+        client.datasets.retrieve.assert_not_called()
 
     def test_validate_access_dry_run_never_retrieves_dry_run_dataset(self) -> None:
         client = MagicMock()
-        client.tool.token.verify_acls.return_value = []
+        client.token.verify_acls.return_value = []
         loader = AssetIO.create_io(client)
         resource = AssetRequest(name="my_asset", external_id="my_asset", data_set_id=DRY_RUN_ID)
         is_missing_read, is_missing_write, is_write_acl_unknown = DeployV2Command._validate_access(
             loader, [resource], client, is_dry_run=True
         )
-        client.tool.datasets.retrieve.assert_not_called()
+        client.datasets.retrieve.assert_not_called()
         assert is_missing_read is False
         assert is_missing_write is False
         assert is_write_acl_unknown is True

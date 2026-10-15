@@ -94,12 +94,10 @@ class TestStreamlitUpdateWithFileio:
             mock_fileio.load_resource_files.return_value = [file_request]
             mock_fileio.retrieve.return_value = [self._file_response(ext_id, cdf_hash)]
             mock_fileio.update.return_value = [self._file_response(ext_id, local_hash)]
-            mock_client.tool.filemetadata.get_upload_url.return_value = [
-                MagicMock(upload_url="https://upload.example.com")
-            ]
+            mock_client.filemetadata.get_upload_url.return_value = [MagicMock(upload_url="https://upload.example.com")]
             streamlit_io.update([item])
 
-        assert mock_client.tool.filemetadata.upload_file.called == expect_upload
+        assert mock_client.filemetadata.upload_file.called == expect_upload
 
 
 class TestStreamlitIOGetExtraFiles:

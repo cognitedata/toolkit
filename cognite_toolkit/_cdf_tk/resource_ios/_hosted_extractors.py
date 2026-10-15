@@ -152,19 +152,19 @@ class HostedExtractorSourceIO(
                 f"The following MQTT broker sources will not be created: {humanize_collection(to_skip)}"
             ).print_warning(console=self.client.console)
 
-        return self.client.tool.hosted_extractors.sources.create(to_create)
+        return self.client.hosted_extractors.sources.create(to_create)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorSourceResponseUnion]:
-        return self.client.tool.hosted_extractors.sources.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.hosted_extractors.sources.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
-        return self.client.tool.hosted_extractors.sources.update(list(items), mode="replace")
+        return self.client.hosted_extractors.sources.update(list(items), mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if not id_list:
             return []
-        self.client.tool.hosted_extractors.sources.delete(id_list, ignore_unknown_ids=True)
+        self.client.hosted_extractors.sources.delete(id_list, ignore_unknown_ids=True)
         return id_list
 
     def _iterate(
@@ -173,7 +173,7 @@ class HostedExtractorSourceIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorSourceResponseUnion]:
-        for sources in self.client.tool.hosted_extractors.sources.iterate(limit=None):
+        for sources in self.client.hosted_extractors.sources.iterate(limit=None):
             yield from sources
 
     def dump_resource(
@@ -348,19 +348,19 @@ class HostedExtractorDestinationIO(
             yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[HostedExtractorDestinationResponse]:
-        return self.client.tool.hosted_extractors.destinations.create(list(items))
+        return self.client.hosted_extractors.destinations.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorDestinationResponse]:
-        return self.client.tool.hosted_extractors.destinations.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.hosted_extractors.destinations.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[HostedExtractorDestinationResponse]:
-        return self.client.tool.hosted_extractors.destinations.update(list(items), mode="replace")
+        return self.client.hosted_extractors.destinations.update(list(items), mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if not id_list:
             return []
-        self.client.tool.hosted_extractors.destinations.delete(id_list, ignore_unknown_ids=True)
+        self.client.hosted_extractors.destinations.delete(id_list, ignore_unknown_ids=True)
         return id_list
 
     def _iterate(
@@ -369,7 +369,7 @@ class HostedExtractorDestinationIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorDestinationResponse]:
-        for destinations in self.client.tool.hosted_extractors.destinations.iterate(limit=None):
+        for destinations in self.client.hosted_extractors.destinations.iterate(limit=None):
             yield from destinations
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> HostedExtractorDestinationRequest:
@@ -485,19 +485,19 @@ class HostedExtractorJobIO(
         return dumped
 
     def create(self, items: Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
-        return self.client.tool.hosted_extractors.jobs.create(list(items))
+        return self.client.hosted_extractors.jobs.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorJobResponse]:
-        return self.client.tool.hosted_extractors.jobs.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.hosted_extractors.jobs.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
-        return self.client.tool.hosted_extractors.jobs.update(list(items), mode="replace")
+        return self.client.hosted_extractors.jobs.update(list(items), mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if not id_list:
             return []
-        self.client.tool.hosted_extractors.jobs.delete(id_list, ignore_unknown_ids=True)
+        self.client.hosted_extractors.jobs.delete(id_list, ignore_unknown_ids=True)
         return id_list
 
     def _iterate(
@@ -506,7 +506,7 @@ class HostedExtractorJobIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorJobResponse]:
-        for jobs in self.client.tool.hosted_extractors.jobs.iterate(limit=None):
+        for jobs in self.client.hosted_extractors.jobs.iterate(limit=None):
             yield from jobs
 
     @classmethod
@@ -572,19 +572,19 @@ class HostedExtractorMappingIO(
         return []
 
     def create(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:
-        return self.client.tool.hosted_extractors.mappings.create(list(items))
+        return self.client.hosted_extractors.mappings.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorMappingResponse]:
-        return self.client.tool.hosted_extractors.mappings.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.hosted_extractors.mappings.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:
-        return self.client.tool.hosted_extractors.mappings.update(list(items), mode="replace")
+        return self.client.hosted_extractors.mappings.update(list(items), mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if not id_list:
             return []
-        self.client.tool.hosted_extractors.mappings.delete(id_list, ignore_unknown_ids=True)
+        self.client.hosted_extractors.mappings.delete(id_list, ignore_unknown_ids=True)
         return id_list
 
     def _iterate(
@@ -593,5 +593,5 @@ class HostedExtractorMappingIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorMappingResponse]:
-        for mappings in self.client.tool.hosted_extractors.mappings.iterate(limit=None):
+        for mappings in self.client.hosted_extractors.mappings.iterate(limit=None):
             yield from mappings

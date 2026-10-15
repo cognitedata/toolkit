@@ -103,8 +103,8 @@ class TestAppVersionIODeploy:
 
         loader.create([item])
 
-        client.tool.apps.create.assert_not_called()
-        client.tool.apps.versions.upload.assert_called_once_with(
+        client.apps.create.assert_not_called()
+        client.apps.versions.upload.assert_called_once_with(
             external_id="my-app",
             version="1.0.0",
             entrypoint="index.html",
@@ -126,7 +126,7 @@ class TestAppVersionIODeploy:
 
         loader.create([item])
 
-        client.tool.apps.versions.update.assert_called_once_with(
+        client.apps.versions.update.assert_called_once_with(
             "my-app", "1.0.0", {"lifecycleState": {"set": "PUBLISHED"}, "alias": expected_alias_patch}
         )
 

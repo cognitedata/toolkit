@@ -54,7 +54,7 @@ class TestExtendedTimeSeriesAPI:
         try:
             created = sdk.time_series.create(ts)
             sdk.time_series.data.insert(datapoints, external_id=ts.external_id)
-            updated_list = client.tool.timeseries.set_pending_ids(
+            updated_list = client.timeseries.set_pending_ids(
                 [PendingInstanceId(pending_instance_id=node_ref, external_id=external_id)]
             )
             assert len(updated_list) == 1
@@ -109,8 +109,8 @@ class TestExtendedTimeSeriesAPI:
         try:
             created = sdk.time_series.create(ts)
             assert created is not None
-            updated_list = client.tool.timeseries
-            updated_list = client.tool.timeseries.set_pending_ids(
+            updated_list = client.timeseries
+            updated_list = client.timeseries.set_pending_ids(
                 [PendingInstanceId(pending_instance_id=node_ref, external_id=external_id)]
             )
             assert len(updated_list) == 1
@@ -122,7 +122,7 @@ class TestExtendedTimeSeriesAPI:
             assert retrieved_ts is not None
             assert retrieved_ts.id == created.id
 
-            unlinked_list = client.tool.timeseries.unlink_instance_ids([InternalId(id=created.id)])
+            unlinked_list = client.timeseries.unlink_instance_ids([InternalId(id=created.id)])
             assert len(unlinked_list) == 1
             assert unlinked_list[0].id == created.id
 

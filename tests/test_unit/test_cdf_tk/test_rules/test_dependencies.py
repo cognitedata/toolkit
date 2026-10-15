@@ -41,7 +41,7 @@ class TestDependencyRuleSetCdfApiError:
         module.resources[0].dependencies.add((DataSetsIO, dataset_id))
 
         client = MagicMock()
-        client.tool.datasets.retrieve.side_effect = ToolkitAPIError("403 Forbidden", code=403)
+        client.datasets.retrieve.side_effect = ToolkitAPIError("403 Forbidden", code=403)
         rule = DependencyRuleSet(modules=[module], client=client)
 
         results = list(rule.validate())

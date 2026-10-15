@@ -125,7 +125,7 @@ class AssetCentricMigrationSource(
             iterator = self._stream_given_dataset(selector, space_source, limit)
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
-        existing = self.client.tool.spaces.retrieve(instance_spaces)
+        existing = self.client.spaces.retrieve(instance_spaces)
         if missing := set(instance_spaces).difference({item.as_id() for item in existing}):
             raise ToolkitValueError(
                 f"The following instance spaces do not exist in CDF: {humanize_collection(missing)}. Please create these spaces before running the migration."
@@ -256,7 +256,7 @@ class AssetCentricMigrationIO(AssetCentricMigrationSource[T_AssetCentricResource
     def _remove_existing(self, data_chunk: Page[NodeOrEdgeRequest]) -> Page[NodeOrEdgeRequest]:
         """Remove items from the chunk that already exist in CDF to avoid upload failures."""
         data_by_instance_id = {item.item.as_id(): item for item in data_chunk.items}
-        existing_ids = {item.as_id() for item in self.client.tool.instances.retrieve(list(data_by_instance_id.keys()))}
+        existing_ids = {item.as_id() for item in self.client.instances.retrieve(list(data_by_instance_id.keys()))}
         to_create: list[DataItem[NodeOrEdgeRequest]] = []
         skipped_entries: list[MigrationEntryV2] = []
         for instance_id, data in data_by_instance_id.items():
@@ -521,7 +521,7 @@ class AnnotationMigrationIO(
             items = MigrationMappingList(items[:limit])
         chunk: list[AssetCentricMapping[AnnotationResponse]] = []
         for current_batch in chunker_sequence(items, self.CHUNK_SIZE):
-            resources = self.client.tool.annotations.retrieve([InternalId(id=id_) for id_ in current_batch.get_ids()])
+            resources = self.client.annotations.retrieve([InternalId(id=id_) for id_ in current_batch.get_ids()])
             resources_by_id = {resource.id: resource for resource in resources}
             not_found = 0
             incorrect_type_count = 0
@@ -636,7 +636,7 @@ class Image360CollectionInstanceIO(InstanceIO):
             if not isinstance(node, NodeRequest):
                 continue
             label = self._extract_name(node) or node.external_id
-            created_model = self.client.tool.three_d.models_classic.create(
+            created_model = self.client.three_d.models_classic.create(
                 [ThreeDModelDMSRequest(name=label, space=node.space, type="Image360")]
             )[0]
             model_external_id = f"cog_3d_model_{created_model.id}"
@@ -701,7 +701,7 @@ def verify_target_spaces_exist(client: ToolkitClient, spaces: Iterable[str]) -> 
         return
 
     space_ids = [SpaceId(space=space) for space in requested]
-    existing = client.tool.spaces.retrieve(space_ids)
+    existing = client.spaces.retrieve(space_ids)
     found = {item.space: item for item in existing}
     missing = [space for space in requested if space not in found]
     if missing:
@@ -794,7 +794,7 @@ class ThreeDMigrationIO(UploadableDataIO[ThreeDSelector, ThreeDModelClassicRespo
         total = 0
         while True:
             request_limit = min(self.DOWNLOAD_LIMIT, limit - total) if limit is not None else self.DOWNLOAD_LIMIT
-            response = self.client.tool.three_d.models_classic.paginate(
+            response = self.client.three_d.models_classic.paginate(
                 published=published, include_revision_info=True, limit=request_limit, cursor=cursor
             )
             items = [item for item in response.items if self._is_selected(item, included_models)]
@@ -899,7 +899,7 @@ class ThreeDAssetMappingMigrationIO(
                     )
                     if limit is not None and total >= limit:
                         return
-                    response = self.client.tool.three_d.asset_mappings_classic.paginate(
+                    response = self.client.three_d.asset_mappings_classic.paginate(
                         model_id=model.id,
                         revision_id=model.last_revision_info.revision_id,
                         cursor=cursor,
@@ -1049,7 +1049,7 @@ class Image360AnnotationMigrationIO(
                 annotated_resource_type="file",
                 annotated_resource_ids=[ExternalId(external_id=ext_id) for ext_id in id_batch],
             )
-            for annotation_batch in self.client.tool.annotations.iterate(
+            for annotation_batch in self.client.annotations.iterate(
                 filter=annotation_filter,
                 limit=limit - total if limit is not None else None,
             ):

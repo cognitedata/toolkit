@@ -90,16 +90,16 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
         return dumped
 
     def create(self, items: Sequence[AppRequest]) -> list[AppResponse]:
-        return self.client.tool.apps.create(list(items))
+        return self.client.apps.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[AppResponse]:
-        return self.client.tool.apps.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.apps.retrieve(list(ids), ignore_unknown_ids=True)
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if not id_list:
             return []
-        self.client.tool.apps.delete(id_list)
+        self.client.apps.delete(id_list)
         return id_list
 
     def _iterate(
@@ -108,7 +108,7 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[AppResponse]:
-        for page in self.client.tool.apps.iterate():
+        for page in self.client.apps.iterate():
             yield from page
 
 
@@ -309,7 +309,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
             )
         zip_bytes = zip_path.read_bytes()
         try:
-            self.client.tool.apps.versions.upload(
+            self.client.apps.versions.upload(
                 external_id=item.app_external_id,
                 version=item.version,
                 entrypoint=item.entrypoint,
@@ -321,7 +321,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
         update: dict[str, Any] = {"lifecycleState": {"set": item.lifecycle_state}}
         if "alias" in item.model_fields_set:
             update["alias"] = {"setNull": True} if item.alias is None else {"set": item.alias}
-        self.client.tool.apps.versions.update(item.app_external_id, item.version, update)
+        self.client.apps.versions.update(item.app_external_id, item.version, update)
 
         return AppVersionResponse(
             app_external_id=item.app_external_id,
@@ -338,13 +338,13 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
         return [self._deploy(item) for item in items]
 
     def retrieve(self, ids: Sequence[AppVersionId]) -> list[AppVersionResponse]:
-        return self.client.tool.apps.versions.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.apps.versions.retrieve(list(ids), ignore_unknown_ids=True)
 
     def delete(self, ids: Sequence[AppVersionId]) -> list[AppVersionId]:
         id_list = list(ids)
         if not id_list:
             return []
-        self.client.tool.apps.versions.delete(id_list)
+        self.client.apps.versions.delete(id_list)
         return id_list
 
     def _iterate(
@@ -353,5 +353,5 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[AppVersionResponse]:
-        for page in self.client.tool.apps.versions.iterate():
+        for page in self.client.apps.versions.iterate():
             yield from page

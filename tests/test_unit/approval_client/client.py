@@ -13,9 +13,7 @@ from typing import Any, BinaryIO, TextIO, TypeVar, cast
 from unittest.mock import MagicMock
 
 import pandas as pd
-from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
-from cognite.client._api.iam import IAMAPI
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     DataSet,
@@ -193,7 +191,6 @@ class ApprovalToolkitClient:
         self._post_methods: dict[str, list[MagicMock]] = defaultdict(list)
 
         # Set the side effect of the MagicMock to the real method
-        self.mock_client.iam.compare_capabilities.side_effect = IAMAPI.compare_capabilities
         self.mock_client.sessions.create.return_value = [
             SessionCreateResponse(
                 id=1234,
@@ -204,13 +201,13 @@ class ApprovalToolkitClient:
             )
         ]
         # Set the token verify to never be missing ACLs.
-        self.mock_client.tool.token.verify_acls.return_value = []
+        self.mock_client.token.verify_acls.return_value = []
         # Set functions to be activated. MagicMock equality is false, so an unconfigured
         # status() would make FunctionIO treat the service as inactive.
-        self.mock_client.tool.functions.status.return_value = FunctionsActivation(status="activated")
+        self.mock_client.functions.status.return_value = FunctionsActivation(status="activated")
 
         # All files are uploaded successfully
-        self.mock_client.tool.filemetadata.await_file_uploaded.return_value = set(), 0.0
+        self.mock_client.filemetadata.await_file_uploaded.return_value = set(), 0.0
 
         def get_upload_url(items: Sequence, ignore_unknown_ids: bool = False) -> list[FileMetadataResponse]:
             responses: list[FileMetadataResponse] = []
@@ -234,7 +231,7 @@ class ApprovalToolkitClient:
                 )
             return responses
 
-        self.mock_client.tool.filemetadata.get_upload_url.side_effect = get_upload_url
+        self.mock_client.filemetadata.get_upload_url.side_effect = get_upload_url
 
         # Use Hybrid project
         return_list = ProjectStatusList([ProjectStatus(url_name=project, data_modeling_status="HYBRID")])
@@ -332,7 +329,7 @@ class ApprovalToolkitClient:
         """
         self._existing_resources[resource_cls.__name__].clear()
 
-    def _create_delete_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
+    def _create_delete_method(self, resource: APIResource, mock_method: str, client: ToolkitClient) -> Callable:
         deleted_resources = self._deleted_resources
         resource_cls = resource.resource_cls
 
@@ -452,7 +449,7 @@ class ApprovalToolkitClient:
         method = available_delete_methods[mock_method]
         return method
 
-    def _create_create_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
+    def _create_create_method(self, resource: APIResource, mock_method: str, client: ToolkitClient) -> Callable:
         created_resources = self.created_resources
         write_resource_cls = resource.write_cls
         resource_cls = resource.resource_cls
@@ -892,7 +889,7 @@ class ApprovalToolkitClient:
         method = available_create_methods[mock_method]
         return method
 
-    def _create_retrieve_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
+    def _create_retrieve_method(self, resource: APIResource, mock_method: str, client: ToolkitClient) -> Callable:
         existing_resources = self._existing_resources
         resource_cls = resource.resource_cls
         read_list_cls = resource.list_cls
@@ -1118,7 +1115,7 @@ class ApprovalToolkitClient:
         method = available_retrieve_methods[mock_method]
         return method
 
-    def _create_inspect_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
+    def _create_inspect_method(self, resource: APIResource, mock_method: str, client: ToolkitClient) -> Callable:
         existing_resources = self._existing_resources
         resource_cls = resource.resource_cls
 
@@ -1150,7 +1147,7 @@ class ApprovalToolkitClient:
         method = available_inspect_methods[mock_method]
         return method
 
-    def _create_post_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
+    def _create_post_method(self, resource: APIResource, mock_method: str, client: ToolkitClient) -> Callable:
         def post_method(
             url: str, json: dict[str, Any], params: dict[str, Any] | None = None, headers: dict[str, Any] | None = None
         ) -> Response:
@@ -1383,6 +1380,7 @@ class ApprovalToolkitClient:
         # These are mocked in the __init__. create_single delegates to create.
         not_mocked.pop(("sessions", "create"), None)
         not_mocked.pop(("sessions", "create_single"), None)
+        not_mocked.pop(("token", "verify_acls"), None)
         return dict(not_mocked)
 
     def auth_create_group_calls(self) -> Iterable[AuthGroupCalls]:

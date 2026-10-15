@@ -71,7 +71,7 @@ class TestAgentRuleSet:
     def _create_rule_with_client(service_availability: ServicesAvailability) -> AgentRuleSet:
         """Create an AgentRuleSet with a mocked client."""
         mock_client = MagicMock()
-        mock_client.tool.agents.service_availability.return_value = service_availability
+        mock_client.agents.service_availability.return_value = service_availability
         return AgentRuleSet(modules=[], client=mock_client)
 
     @pytest.mark.parametrize(

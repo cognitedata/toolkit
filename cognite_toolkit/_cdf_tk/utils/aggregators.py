@@ -169,11 +169,11 @@ class AssetAggregator(MetadataAggregator):
         hierarchy: str | list[str] | tuple[str, ...] | None = None,
         data_set_external_id: str | list[str] | tuple[str, ...] | None = None,
     ) -> int:
-        return self.client.tool.assets.count(filter=self.create_filter(hierarchy, data_set_external_id))
+        return self.client.assets.count(filter=self.create_filter(hierarchy, data_set_external_id))
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
-        results = self.client.tool.assets.unique(("dataSetId",), filter=self.create_filter(hierarchy))
+        results = self.client.assets.unique(("dataSetId",), filter=self.create_filter(hierarchy))
         return self._data_set_external_ids([bucket.value for bucket in results], coerce=False)
 
 
@@ -190,11 +190,11 @@ class EventAggregator(MetadataAggregator):
     def count(
         self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
     ) -> int:
-        return self.client.tool.events.count(filter=self.create_filter(hierarchy, data_set_external_id))
+        return self.client.events.count(filter=self.create_filter(hierarchy, data_set_external_id))
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
-        results = self.client.tool.events.unique(("dataSetId",), filter=self.create_filter(hierarchy))
+        results = self.client.events.unique(("dataSetId",), filter=self.create_filter(hierarchy))
         return self._data_set_external_ids([bucket.value for bucket in results], coerce=False)
 
 
@@ -211,7 +211,7 @@ class FileAggregator(MetadataAggregator):
     def count(
         self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
     ) -> int:
-        return self.client.tool.filemetadata.count(filter=self.create_filter(hierarchy, data_set_external_id))
+        return self.client.filemetadata.count(filter=self.create_filter(hierarchy, data_set_external_id))
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
@@ -219,7 +219,7 @@ class FileAggregator(MetadataAggregator):
         filter_: dict[str, Any] | None = None
         if hierarchy is not None:
             filter_ = {"inAssetSubtree": {"property": ["assetExternalIds"], "values": [hierarchy]}}
-        results = self.client.tool.documents.unique(("sourceFile", "dataSetId"), filter=filter_, limit=1000)
+        results = self.client.documents.unique(("sourceFile", "dataSetId"), filter=filter_, limit=1000)
         return self._data_set_external_ids([bucket.value for bucket in results], coerce=True)
 
 
@@ -236,11 +236,11 @@ class TimeSeriesAggregator(MetadataAggregator):
     def count(
         self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
     ) -> int:
-        return self.client.tool.timeseries.count(filter=self.create_filter(hierarchy, data_set_external_id))
+        return self.client.timeseries.count(filter=self.create_filter(hierarchy, data_set_external_id))
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
-        results = self.client.tool.timeseries.unique(("dataSetId",), filter=self.create_filter(hierarchy))
+        results = self.client.timeseries.unique(("dataSetId",), filter=self.create_filter(hierarchy))
         return self._data_set_external_ids([bucket.value for bucket in results], coerce=True)
 
 
@@ -257,11 +257,11 @@ class SequenceAggregator(MetadataAggregator):
     def count(
         self, hierarchy: str | list[str] | None = None, data_set_external_id: str | list[str] | None = None
     ) -> int:
-        return self.client.tool.sequences.count(filter=self.create_filter(hierarchy, data_set_external_id))
+        return self.client.sequences.count(filter=self.create_filter(hierarchy, data_set_external_id))
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
-        results = self.client.tool.sequences.unique(("dataSetId",), filter=self.create_filter(hierarchy))
+        results = self.client.sequences.unique(("dataSetId",), filter=self.create_filter(hierarchy))
         return self._data_set_external_ids([bucket.value for bucket in results], coerce=True)
 
 

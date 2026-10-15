@@ -8,5 +8,5 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceR
 def dev_space(dev_cluster_client: ToolkitClient) -> str:
     """Fixture to create a space for the tests."""
     space_name = "toolkit_test_space"
-    dev_cluster_client.tool.spaces.create([SpaceRequest(space=space_name)])
+    dev_cluster_client.spaces.create([SpaceRequest(space=space_name)])
     return space_name

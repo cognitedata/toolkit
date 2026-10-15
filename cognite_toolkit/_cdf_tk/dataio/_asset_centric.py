@@ -328,7 +328,7 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         cursor: str | None = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         total_count = 0
         while True:
-            page = self.client.tool.assets.paginate(
+            page = self.client.assets.paginate(
                 aggregated_properties=True,
                 filter=filter_,
                 limit=self.CHUNK_SIZE,
@@ -389,7 +389,7 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         return self._crud.load_resource(item_json)
 
     def retrieve(self, ids: Sequence[int]) -> list[AssetResponse]:
-        return self.client.tool.assets.retrieve(InternalId.from_ids(ids))
+        return self.client.assets.retrieve(InternalId.from_ids(ids))
 
     @classmethod
     def read_chunks(cls, reader: FileReader, selector: AssetCentricSelector) -> Iterable[Page[dict[str, JsonVal]]]:
@@ -501,7 +501,7 @@ class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
         cursor: str | None = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         total_count = 0
         while True:
-            page = self.client.tool.filemetadata.paginate(
+            page = self.client.filemetadata.paginate(
                 filter=filter_,
                 limit=self.CHUNK_SIZE,
                 cursor=cursor,
@@ -529,7 +529,7 @@ class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
             cursor = page.next_cursor
 
     def retrieve(self, ids: Sequence[int]) -> list[FileMetadataResponse]:
-        return self.client.tool.filemetadata.retrieve(InternalId.from_ids(ids))
+        return self.client.filemetadata.retrieve(InternalId.from_ids(ids))
 
     def data_to_json_chunk(
         self, data_chunk: Page[FileMetadataResponse], selector: AssetCentricSelector | None = None
@@ -567,7 +567,7 @@ class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRe
         return TimeSeriesAggregator(self.client)
 
     def retrieve(self, ids: Sequence[int]) -> list[TimeSeriesResponse]:
-        return self.client.tool.timeseries.retrieve(InternalId.from_ids(ids))
+        return self.client.timeseries.retrieve(InternalId.from_ids(ids))
 
     def stream_data(
         self,
@@ -579,7 +579,7 @@ class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRe
         cursor: str | None = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         total_count = 0
         while True:
-            page = self.client.tool.timeseries.paginate(
+            page = self.client.timeseries.paginate(
                 filter=filter_,
                 limit=self.CHUNK_SIZE,
                 cursor=cursor,
@@ -741,7 +741,7 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
         cursor: str | None = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         total_count = 0
         while True:
-            page = self.client.tool.events.paginate(
+            page = self.client.events.paginate(
                 filter=filter_,
                 limit=self.CHUNK_SIZE,
                 cursor=cursor,
@@ -797,7 +797,7 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
         return self._crud.load_resource(item_json)
 
     def retrieve(self, ids: Sequence[int]) -> list[EventResponse]:
-        return self.client.tool.events.retrieve(InternalId.from_ids(ids))
+        return self.client.events.retrieve(InternalId.from_ids(ids))
 
 
 class HierarchyIO(ConfigurableDataIO[AssetCentricSelector, AssetCentricResource]):

@@ -101,18 +101,18 @@ class SimulatorModelIO(ResourceIO[ExternalId, SimulatorModelRequest, SimulatorMo
             yield SimulatorsAcl(actions=acl_actions, scope=scope)
 
     def create(self, items: Sequence[SimulatorModelRequest]) -> list[SimulatorModelResponse]:
-        return self.client.tool.simulators.models.create(items)
+        return self.client.simulators.models.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorModelResponse]:
-        return self.client.tool.simulators.models.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.simulators.models.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[SimulatorModelRequest]) -> list[SimulatorModelResponse]:
-        return self.client.tool.simulators.models.update(items, mode="replace")
+        return self.client.simulators.models.update(items, mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if id_list:
-            self.client.tool.simulators.models.delete(id_list)
+            self.client.simulators.models.delete(id_list)
         return id_list
 
     def _iterate(
@@ -128,7 +128,7 @@ class SimulatorModelIO(ResourceIO[ExternalId, SimulatorModelRequest, SimulatorMo
         if data_set_external_id:
             data_set_id = self.client.lookup.data_sets.id(data_set_external_id, is_dry_run=False)
         while True:
-            page = self.client.tool.simulators.models.paginate(
+            page = self.client.simulators.models.paginate(
                 limit=1000,
                 cursor=cursor,
             )
@@ -224,7 +224,7 @@ class SimulatorModelRevisionIO(
 
     def create(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[SimulatorModelRevisionResponse]:
         file_ids = {InternalId(id=item.file_id): item for item in items}
-        failed_upload, elapsed_time = self.client.tool.filemetadata.await_file_uploaded(
+        failed_upload, elapsed_time = self.client.filemetadata.await_file_uploaded(
             list(file_ids), timeout_seconds=self._file_upload_timeout_seconds
         )
         if failed_upload:
@@ -237,10 +237,10 @@ class SimulatorModelRevisionIO(
                 f"the CDF TOML configuration file. Current value: {self._file_upload_timeout_seconds} seconds."
             )
 
-        return self.client.tool.simulators.model_revisions.create(items)
+        return self.client.simulators.model_revisions.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorModelRevisionResponse]:
-        return self.client.tool.simulators.model_revisions.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.simulators.model_revisions.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[ExternalId]:
         # Simulator model revisions API does not support update
@@ -265,7 +265,7 @@ class SimulatorModelRevisionIO(
         model_external_ids: list[str] | None = None
         if parent_ids:
             model_external_ids = [str(pid) for pid in parent_ids]
-        for items in self.client.tool.simulators.model_revisions.iterate(
+        for items in self.client.simulators.model_revisions.iterate(
             filter=SimulatorModelRevisionFilter(model_external_ids=model_external_ids), limit=None
         ):
             yield from items
@@ -339,13 +339,13 @@ class SimulatorRoutineIO(
         yield from ()
 
     def create(self, items: Sequence[SimulatorRoutineRequest]) -> list[SimulatorRoutineResponse]:
-        return self.client.tool.simulators.routines.create(items)
+        return self.client.simulators.routines.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorRoutineResponse]:
         # Simulator routines do not have a retrieve endpoint, we need to list and filter
         all_items: list[SimulatorRoutineResponse] = []
         id_set = {id_.external_id for id_ in ids}
-        for batch in self.client.tool.simulators.routines.iterate(limit=None):
+        for batch in self.client.simulators.routines.iterate(limit=None):
             for item in batch:
                 if item.external_id in id_set:
                     all_items.append(item)
@@ -354,7 +354,7 @@ class SimulatorRoutineIO(
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if id_list:
-            self.client.tool.simulators.routines.delete(id_list)
+            self.client.simulators.routines.delete(id_list)
         return id_list
 
     def _iterate(
@@ -366,7 +366,7 @@ class SimulatorRoutineIO(
         model_external_ids: list[str] | None = None
         if parent_ids:
             model_external_ids = [str(pid) for pid in parent_ids]
-        for items in self.client.tool.simulators.routines.iterate(
+        for items in self.client.simulators.routines.iterate(
             filter=SimulatorModelRoutineFilter(model_external_ids=model_external_ids), limit=None
         ):
             yield from items
@@ -437,10 +437,10 @@ class SimulatorRoutineRevisionIO(
         yield from ()
 
     def create(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> list[SimulatorRoutineRevisionResponse]:
-        return self.client.tool.simulators.routine_revisions.create(items)
+        return self.client.simulators.routine_revisions.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorRoutineRevisionResponse]:
-        return self.client.tool.simulators.routine_revisions.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.simulators.routine_revisions.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> list[ExternalId]:
         # Simulator routine revisions API does not support update
@@ -465,7 +465,7 @@ class SimulatorRoutineRevisionIO(
         routine_external_ids: list[str] | None = None
         if parent_ids:
             routine_external_ids = [str(pid) for pid in parent_ids]
-        for items in self.client.tool.simulators.routine_revisions.iterate(
+        for items in self.client.simulators.routine_revisions.iterate(
             filter=SimulatorModelRoutineRevisionFilter(routine_external_ids=routine_external_ids), limit=None
         ):
             yield from items
