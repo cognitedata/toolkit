@@ -125,11 +125,21 @@ class TestExternalDataSourceResourceClasses:
 
     def test_request_rejects_invalid_format(self) -> None:
         with pytest.raises(ValidationError):
-            ExternalDataSourceRequest(external_id="fabric-lakehouse-prod", format="invalid")
+            ExternalDataSourceRequest.model_validate(
+                {
+                    "externalId": "fabric-lakehouse-prod",
+                    "format": "invalid",
+                }
+            )
 
     def test_write_credentials_require_client_secret(self) -> None:
         with pytest.raises(ValidationError):
-            OneLakeCredentialsWrite(client_id="id", tenant_id="tenant")
+            OneLakeCredentialsWrite.model_validate(
+                {
+                    "clientId": "id",
+                    "tenantId": "tenant",
+                }
+            )
 
     def test_request_as_id(self) -> None:
         request = ExternalDataSourceRequest(
@@ -158,11 +168,13 @@ class TestExternalDataSourceResourceClasses:
 
     def test_response_rejects_invalid_format(self) -> None:
         with pytest.raises(ValidationError):
-            ExternalDataSourceResponse(
-                external_id="fabric-lakehouse-prod",
-                format="invalid",
-                created_time=1,
-                last_updated_time=1,
+            ExternalDataSourceResponse.model_validate(
+                {
+                    "externalId": "fabric-lakehouse-prod",
+                    "format": "invalid",  #
+                    "createdTime": 1,
+                    "lastUpdatedTime": 1,
+                }
             )
 
     def test_response_as_id(self) -> None:
