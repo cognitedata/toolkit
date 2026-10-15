@@ -9,7 +9,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
     ExternalDataSourceRequestAdapter,
     ExternalDataSourceRequestUnion,
     ExternalDataSourceResponseUnion,
-    OneLakeSettingsWrite,
+    OneLakeExternalDataSourceRequest,
+    SnowflakeExternalDataSourceResponse,
+    UnknownExternalDataSourceRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
@@ -18,7 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
     TransformationsExternalDataSourcesAcl,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._data_organization import DataSetsIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
@@ -95,7 +97,14 @@ class ExternalDataSourceIO(
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExternalDataSourceRequestUnion:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
-        return ExternalDataSourceRequestAdapter.validate_python(resource)
+        loaded = ExternalDataSourceRequestAdapter.validate_python(resource)
+        if isinstance(loaded, UnknownExternalDataSourceRequest):
+            # Without a known format we cannot tell which fields are sensitive, so we refuse to deploy it.
+            raise ToolkitNotSupported(
+                f"External data source format {loaded.format!r} is not supported. "
+                "Please contact support to request support for this format."
+            )
+        return loaded
 
     def dump_resource(
         self, resource: ExternalDataSourceResponseUnion, local: dict[str, Any] | None = None
@@ -114,14 +123,14 @@ class ExternalDataSourceIO(
         dumped.pop("lastUpdatedTime", None)
         if resource.format == "one_lake":
             dumped.pop("format", None)
-        elif credentials := dumped.get("settings", {}).get("credentials"):
-            credentials.pop("publicKey", None)
+        elif isinstance(resource, SnowflakeExternalDataSourceResponse):
+            dumped["settings"]["credentials"].pop("publicKey", None)
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         return dumped
 
     def sensitive_strings(self, item: ExternalDataSourceRequestUnion) -> Iterable[str]:
-        if isinstance(item.settings, OneLakeSettingsWrite) and item.settings.credentials:
+        if isinstance(item, OneLakeExternalDataSourceRequest) and item.settings and item.settings.credentials:
             yield item.settings.credentials.client_secret
 
     def create(self, items: Sequence[ExternalDataSourceRequestUnion]) -> list[ExternalDataSourceResponseUnion]:

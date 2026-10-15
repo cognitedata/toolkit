@@ -23,6 +23,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
     SnowflakeLocationDescription,
     SnowflakeSettingsRead,
     SnowflakeSettingsWrite,
+    UnknownExternalDataSourceRequest,
+    UnknownExternalDataSourceResponse,
 )
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -173,11 +175,12 @@ class TestExternalDataSourceResourceClasses:
         dumped = json.loads(request.model_dump_json(by_alias=True))
         assert dumped["format"] == "one_lake"
 
-    def test_request_rejects_invalid_format(self) -> None:
-        with pytest.raises(ValidationError):
-            ExternalDataSourceRequestAdapter.validate_python(
-                {"externalId": "fabric-lakehouse-prod", "format": "invalid"}
-            )
+    def test_request_unknown_format(self) -> None:
+        request = ExternalDataSourceRequestAdapter.validate_python(
+            {"externalId": "fabric-lakehouse-prod", "format": "databricks"}
+        )
+        assert isinstance(request, UnknownExternalDataSourceRequest)
+        assert request.format == "databricks"
 
     def test_write_credentials_require_client_secret(self) -> None:
         with pytest.raises(ValidationError):
@@ -248,16 +251,22 @@ class TestExternalDataSourceResourceClasses:
         )
         assert response.format == "one_lake"
 
-    def test_response_rejects_invalid_format(self) -> None:
-        with pytest.raises(ValidationError):
-            ExternalDataSourceResponseAdapter.validate_python(
-                {
-                    "externalId": "fabric-lakehouse-prod",
-                    "format": "invalid",
-                    "createdTime": 1,
-                    "lastUpdatedTime": 1,
-                }
-            )
+    def test_response_unknown_format(self) -> None:
+        response = ExternalDataSourceResponseAdapter.validate_python(
+            {
+                "externalId": "fabric-lakehouse-prod",
+                "format": "databricks",
+                "createdTime": 1,
+                "lastUpdatedTime": 1,
+                "settings": {"host": "example"},
+            }
+        )
+        assert isinstance(response, UnknownExternalDataSourceResponse)
+        assert response.as_request_resource().dump() == {
+            "externalId": "fabric-lakehouse-prod",
+            "format": "databricks",
+            "settings": {"host": "example"},
+        }
 
     def test_response_as_id(self) -> None:
         response = OneLakeExternalDataSourceResponse(

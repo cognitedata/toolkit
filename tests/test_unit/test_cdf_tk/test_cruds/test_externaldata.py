@@ -29,7 +29,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import Transform
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployV2Command
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ExternalDataSourceIO
 from cognite_toolkit._cdf_tk.yaml_classes import ExternalDataSourceYAML
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -145,6 +145,11 @@ class TestExternalDataSourceIO:
         loader = ExternalDataSourceIO(MagicMock())
         assert list(loader.sensitive_strings(item)) == ["secret"]
         assert list(loader.sensitive_strings(_make_snowflake_request())) == []
+
+    def test_load_resource_rejects_unknown_format(self) -> None:
+        loader = ExternalDataSourceIO(MagicMock())
+        with pytest.raises(ToolkitNotSupported, match="databricks"):
+            loader.load_resource({"externalId": "x", "format": "databricks"})
 
     def test_dump_resource_without_local_omits_client_secret(self, toolkit_client_cheap: ToolkitClient) -> None:
         loader = ExternalDataSourceIO.create_io(toolkit_client_cheap)
