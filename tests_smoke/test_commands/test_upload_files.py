@@ -293,10 +293,10 @@ def _require_multipart(calls: dict[str, list[int]], endpoint: str, label: str) -
 
 
 def _wait_until_uploaded(client: ToolkitClient, identifier: ExternalId | InstanceId) -> None:
-    found = client.tool.filemetadata.retrieve([identifier], ignore_unknown_ids=True)
+    found = client.filemetadata.retrieve([identifier], ignore_unknown_ids=True)
     if not found:
         raise AssertionError(f"CDF did not return file metadata for {identifier} after cdf data upload dir.")
-    pending, _elapsed = client.tool.filemetadata.await_file_uploaded(
+    pending, _elapsed = client.filemetadata.await_file_uploaded(
         [found[0].as_internal_id()], timeout_seconds=_UPLOAD_TIMEOUT_SECONDS
     )
     if pending:
@@ -310,7 +310,7 @@ def _wait_until_cognite_file_uploaded(client: ToolkitClient, node_id: NodeId) ->
     last_uploaded: bool | None = None
     while time.monotonic() < deadline:
         try:
-            nodes = client.tool.cognite_files.retrieve([node_id])
+            nodes = client.cognite_files.retrieve([node_id])
         except ToolkitAPIError:
             nodes = []
         if nodes and nodes[0].is_uploaded:
@@ -333,7 +333,7 @@ def _issue_logs(upload_dir: Path) -> str:
 
 def _delete_file_metadata(client: ToolkitClient, external_id: str) -> None:
     try:
-        client.tool.filemetadata.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
+        client.filemetadata.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
     except ToolkitAPIError:
         return
 
@@ -341,16 +341,16 @@ def _delete_file_metadata(client: ToolkitClient, external_id: str) -> None:
 def _delete_cognite_file(client: ToolkitClient, space: str, external_id: str) -> None:
     node_id = NodeId(space=space, external_id=external_id)
     try:
-        linked = client.tool.filemetadata.retrieve([InstanceId(instance_id=node_id)], ignore_unknown_ids=True)
+        linked = client.filemetadata.retrieve([InstanceId(instance_id=node_id)], ignore_unknown_ids=True)
     except ToolkitAPIError:
         linked = []
     try:
-        client.tool.cognite_files.delete([node_id])
+        client.cognite_files.delete([node_id])
     except ToolkitAPIError:
         pass
     if not linked:
         return
     try:
-        client.tool.filemetadata.delete([item.as_internal_id() for item in linked], ignore_unknown_ids=True)
+        client.filemetadata.delete([item.as_internal_id() for item in linked], ignore_unknown_ids=True)
     except ToolkitAPIError:
         return

@@ -93,7 +93,7 @@ class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse, In
 
     def prerequisite_warning(self) -> str | None:
         view_id = APMConfigRequest.VIEW_ID
-        views = self.client.tool.views.retrieve([view_id])
+        views = self.client.views.retrieve([view_id])
         if len(views) > 0:
             return None
         return (

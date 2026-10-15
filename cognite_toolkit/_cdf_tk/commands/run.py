@@ -171,9 +171,7 @@ if __name__ == "__main__":
         is_interactive = external_id is None
         external_id = cast(ExternalId, self._get_function(external_id, build_folder).identifier).external_id
         call_args = self._get_call_args(data_source, external_id, build_folder, env_vars.dump(), is_interactive)
-        retrieved_functions = client.tool.functions.retrieve(
-            [ExternalId(external_id=external_id)], ignore_unknown_ids=True
-        )
+        retrieved_functions = client.functions.retrieve([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
         function = retrieved_functions[0] if retrieved_functions else None
         if function is None:
             raise ToolkitMissingResourceError(
@@ -185,7 +183,7 @@ if __name__ == "__main__":
 
         # Todo: Get one shot token using the call_args.authentication
         session = client.sessions.create_one_shot_token_exchange_session()
-        result = client.tool.functions.calls.call(function_id=function.id, nonce=session.nonce, data=call_args.data)
+        result = client.functions.calls.call(function_id=function.id, nonce=session.nonce, data=call_args.data)
 
         table = Table(title=f"Function {external_id!r}, id {function.id!r}")
         table.add_column("Info", justify="left")
@@ -198,7 +196,7 @@ if __name__ == "__main__":
         if not wait:
             return True
 
-        max_time = client.tool.functions.limits().timeout_minutes * 60
+        max_time = client.functions.limits().timeout_minutes * 60
         with Progress() as progress:
             call_task = progress.add_task("Waiting for function call to complete...", total=max_time)
             start_time = time.time()
@@ -207,7 +205,7 @@ if __name__ == "__main__":
             while result.status.casefold() == "running" and duration < max_time:
                 time.sleep(sleep_time)
                 sleep_time = min(sleep_time * 2, 60)
-                results = client.tool.functions.calls.retrieve(
+                results = client.functions.calls.retrieve(
                     function_id=function.id, items=[InternalId(id=result.id)], ignore_unknown_ids=True
                 )
                 if not results:
@@ -232,9 +230,9 @@ if __name__ == "__main__":
         table.add_row("Duration", f"{run_time.total_seconds():,} seconds")
         if result.error is not None:
             table.add_row("Error", result.error)
-        response = client.tool.functions.calls.get_response(function.id, call_id=result.id)
+        response = client.functions.calls.get_response(function.id, call_id=result.id)
         table.add_row("Result", response.model_dump_json(indent=2))
-        logs = client.tool.functions.calls.get_logs(function_id=function.id, call_id=result.id)
+        logs = client.functions.calls.get_logs(function_id=function.id, call_id=result.id)
         table.add_row("Logs", str(logs))
         print(table)
         return True
@@ -735,7 +733,7 @@ class RunTransformationV2Command(ToolkitCommand):
                 session_id=session.id, nonce=session.nonce, cdf_project_name=client.config.project
             )
             try:
-                job = client.tool.transformations.run(ExternalId(external_id=external_id), nonce=nonce)
+                job = client.transformations.run(ExternalId(external_id=external_id), nonce=nonce)
                 print(f"Running transformation {external_id}, status {job.status}...")
             except ToolkitAPIError as e:
                 print(f"[bold red]ERROR:[/] Could not run transformation {external_id}.")
@@ -753,7 +751,7 @@ class RunTransformationV2Command(ToolkitCommand):
     @classmethod
     def _dry_run_transformations(cls, client: ToolkitClient, external_ids: list[str]) -> bool:
         try:
-            transformations = client.tool.transformations.retrieve(ExternalId.from_external_ids(external_ids))
+            transformations = client.transformations.retrieve(ExternalId.from_external_ids(external_ids))
         except ToolkitAPIError as e:
             print("[bold red]ERROR:[/] Could not retrieve transformations.")
             print(e)
@@ -764,7 +762,7 @@ class RunTransformationV2Command(ToolkitCommand):
 
         for transformation in transformations:
             try:
-                result = client.tool.transformations.run_query_preview(transformation.query, convert_to_string=False)
+                result = client.transformations.run_query_preview(transformation.query, convert_to_string=False)
             except ToolkitAPIError as e:
                 print(f"[bold red]ERROR:[/] Could not dry-run transformation {transformation.external_id}.")
                 print(e)
@@ -795,7 +793,7 @@ class RunTransformationV2Command(ToolkitCommand):
             while job.status.casefold() in self._IN_PROGRESS_STATUSES:
                 time.sleep(sleep_time)
                 sleep_time = min(sleep_time * 2, 15)
-                retrieved = client.tool.transformations.jobs.retrieve([job.as_id()])
+                retrieved = client.transformations.jobs.retrieve([job.as_id()])
                 if not retrieved:
                     print(f"[bold red]ERROR:[/] Could not retrieve job {job.id}.")
                     return job
@@ -806,7 +804,7 @@ class RunTransformationV2Command(ToolkitCommand):
     @staticmethod
     def _print_job_metrics(client: ToolkitClient, job: TransformationJobResponse) -> None:
         try:
-            metrics = client.tool.transformations.jobs.list_metrics(job.id)
+            metrics = client.transformations.jobs.list_metrics(job.id)
         except ToolkitAPIError as e:
             print(f"[bold red]ERROR:[/] Could not retrieve metrics for job {job.id}.")
             print(e)
@@ -825,7 +823,7 @@ class RunTransformationV2Command(ToolkitCommand):
 
     @staticmethod
     def _select_transformation_interactive(client: ToolkitClient) -> str:
-        transformations = client.tool.transformations.list(limit=None)
+        transformations = client.transformations.list(limit=None)
         if not transformations:
             raise ToolkitMissingResourceError("No transformations found.")
 
@@ -878,7 +876,7 @@ class RunWorkflowV2Command(ToolkitCommand):
         except ToolkitAPIError as e:
             raise AuthorizationError(f"Could not create oneshot session for workflow {id_!s}: {e!s}") from e
 
-        execution = client.tool.workflows.executions.run(id_, nonce=nonce, input=input_)
+        execution = client.workflows.executions.run(id_, nonce=nonce, input=input_)
         table = Table(title=f"Workflow {id_!s}")
         table.add_column("Info", justify="left")
         table.add_column("Value", justify="left", style="green")
@@ -901,7 +899,7 @@ class RunWorkflowV2Command(ToolkitCommand):
 
     @classmethod
     def _interactive_select_workflow(cls, client: ToolkitClient) -> WorkflowVersionResponse:
-        workflow_versions = client.tool.workflows.versions.list(workflow_external_id=None, limit=None)
+        workflow_versions = client.workflows.versions.list(workflow_external_id=None, limit=None)
 
         versions_by_external_id: dict[str, list[WorkflowVersionResponse]] = defaultdict(list)
         for item in workflow_versions:
@@ -945,7 +943,7 @@ class RunWorkflowV2Command(ToolkitCommand):
         cls, client: ToolkitClient, external_id: str, version: str | None
     ) -> WorkflowVersionResponse:
         if version is not None:
-            workflows = client.tool.workflows.versions.retrieve(
+            workflows = client.workflows.versions.retrieve(
                 [ToolkitWorkflowVersionId(workflow_external_id=external_id, version=version)], ignore_unknown_ids=True
             )
             if len(workflows) == 0:
@@ -955,14 +953,14 @@ class RunWorkflowV2Command(ToolkitCommand):
             # We specifically requested a version, so we know there is only one workflow in the list.
             return workflows[0]
         else:
-            options = client.tool.workflows.versions.list(workflow_external_id=external_id, limit=None)
+            options = client.workflows.versions.list(workflow_external_id=external_id, limit=None)
             if len(options) == 0:
                 raise ToolkitMissingResourceError(f"Could not find workflow with external id {external_id}")
             return max(options, key=lambda item: item.last_updated_time)
 
     @staticmethod
     def _get_trigger_input(client: ToolkitClient, id_: ToolkitWorkflowVersionId) -> dict[str, JsonValue] | None:
-        triggers = client.tool.workflows.triggers.list(
+        triggers = client.workflows.triggers.list(
             workflow_external_id=id_.workflow_external_id, workflow_version=id_.version
         )
         triggers_with_data = [trigger for trigger in triggers if isinstance(trigger.input, dict)]
@@ -1018,7 +1016,7 @@ class RunWorkflowV2Command(ToolkitCommand):
     def _retrieve_execution(
         client: ToolkitClient, execution_id: WorkflowExecutionId
     ) -> WorkflowExecutionDetailedResponse | None:
-        executions = client.tool.workflows.executions.retrieve([execution_id], ignore_unknown_ids=True)
+        executions = client.workflows.executions.retrieve([execution_id], ignore_unknown_ids=True)
         return executions[0] if executions else None
 
     @staticmethod

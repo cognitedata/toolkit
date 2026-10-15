@@ -165,11 +165,11 @@ def toolkit_space(cognite_client: CogniteClient) -> Space:
 def toolkit_raw_database(toolkit_client: ToolkitClient) -> RAWDatabaseResponse:
     client = toolkit_client
     name = "toolkit_integration_test_db"
-    for batch in client.tool.raw.databases.iterate(limit=None):
+    for batch in client.raw.databases.iterate(limit=None):
         for db in batch:
             if db.name == name:
                 return db
-    created = client.tool.raw.databases.create([RAWDatabaseRequest(name=name)])
+    created = client.raw.databases.create([RAWDatabaseRequest(name=name)])
     assert len(created) == 1
     return created[0]
 
@@ -203,10 +203,10 @@ def toolkit_record_container(toolkit_client: ToolkitClient, toolkit_space: Space
             "name": ContainerPropertyDefinition(type=TextProperty()),
         },
     )
-    retrieved = toolkit_client.tool.containers.retrieve([container.as_id()])
+    retrieved = toolkit_client.containers.retrieve([container.as_id()])
     if retrieved:
         return retrieved[0]
-    created = toolkit_client.tool.containers.create([container])
+    created = toolkit_client.containers.create([container])
     assert created, "Failed to create record container"
     return created[0]
 
@@ -299,12 +299,12 @@ def dummy_function(cognite_client: CogniteClient) -> Function:
 def dummy_schedule(toolkit_client: ToolkitClient, dummy_function: Function) -> FunctionScheduleResponse:
     client = toolkit_client
     name = "integration_test_schedule_dummy"
-    if existing_list := client.tool.functions.schedules.list(name=name):
+    if existing_list := client.functions.schedules.list(name=name):
         if len(existing_list) > 1:
-            client.tool.functions.schedules.delete([existing.as_id() for existing in existing_list[1:]])
+            client.functions.schedules.delete([existing.as_id() for existing in existing_list[1:]])
         schedule = existing_list[0]
     else:
-        schedule = client.tool.functions.schedules.create(
+        schedule = client.functions.schedules.create(
             [
                 FunctionScheduleRequest(
                     name=name,
@@ -346,14 +346,12 @@ def raw_data() -> RowWriteList:
 def populated_raw_table(toolkit_client: ToolkitClient, raw_data: RowWriteList) -> RawTableId:
     db_name = "toolkit_test_db"
     table_name = "toolkit_test_profiling_table"
-    existing_dbs = toolkit_client.tool.raw.databases.list(limit=None)
+    existing_dbs = toolkit_client.raw.databases.list(limit=None)
     existing_table_names: set[str] = set()
     if db_name in {db.name for db in existing_dbs}:
-        existing_table_names = {
-            table.name for table in toolkit_client.tool.raw.tables.list(db_name=db_name, limit=None)
-        }
+        existing_table_names = {table.name for table in toolkit_client.raw.tables.list(db_name=db_name, limit=None)}
     if table_name not in existing_table_names:
-        toolkit_client.tool.raw.tables.rows.create(
+        toolkit_client.raw.tables.rows.create(
             [
                 RAWRowRequest(db_name=db_name, table_name=table_name, key=row.key, columns=row.columns or {})
                 for row in raw_data
@@ -378,11 +376,9 @@ def aggregator_two_datasets(toolkit_client: ToolkitClient) -> list[DataSetRespon
         DataSetRequest(external_id="toolkit_aggregators_test_dataset_1", name="Toolkit Aggregators Test Dataset 1"),
         DataSetRequest(external_id="toolkit_aggregators_test_dataset_2", name="Toolkit Aggregators Test Dataset 2"),
     ]
-    retrieved = toolkit_client.tool.datasets.retrieve(
-        [dataset.as_id() for dataset in datasets], ignore_unknown_ids=True
-    )
+    retrieved = toolkit_client.datasets.retrieve([dataset.as_id() for dataset in datasets], ignore_unknown_ids=True)
     if not retrieved:
-        return toolkit_client.tool.datasets.create(datasets)
+        return toolkit_client.datasets.create(datasets)
 
     return retrieved
 
@@ -396,21 +392,21 @@ def aggregator_root_asset(
         external_id="toolkit_aggregators_test_root_asset",
         data_set_id=aggregator_two_datasets[0].id,
     )
-    retrieved = toolkit_client.tool.assets.retrieve([root_asset.as_id()], ignore_unknown_ids=True)
+    retrieved = toolkit_client.assets.retrieve([root_asset.as_id()], ignore_unknown_ids=True)
     if not retrieved:
-        return toolkit_client.tool.assets.create([root_asset])[0]
+        return toolkit_client.assets.create([root_asset])[0]
     return retrieved[0]
 
 
 def _upload_file_content(
     client: ToolkitClient, external_id: str, content: str | bytes, mime_type: str | None = None
 ) -> FileMetadataResponse:
-    links = client.tool.filemetadata.get_upload_url([ExternalId(external_id=external_id)])
+    links = client.filemetadata.get_upload_url([ExternalId(external_id=external_id)])
     link = links[0] if links else None
     if link is None or link.upload_url is None:
         raise RuntimeError(f"No upload URL for file {external_id!r}.")
-    client.tool.filemetadata.upload_file(content, link.upload_url, mime_type or link.mime_type)
-    uploaded = client.tool.filemetadata.retrieve([ExternalId(external_id=external_id)])
+    client.filemetadata.upload_file(content, link.upload_url, mime_type or link.mime_type)
+    uploaded = client.filemetadata.retrieve([ExternalId(external_id=external_id)])
     if not uploaded:
         raise RuntimeError(f"File {external_id!r} was not found after upload.")
     return uploaded[0]
@@ -421,9 +417,9 @@ def create_raw_table_with_data(client: ToolkitClient, table: RAWTableRequest, ro
     existing_tables = loader.retrieve([table.as_id()])
     if not existing_tables:
         loader.create([table])
-    data = client.tool.raw.tables.rows.list(table.db_name, table.name, limit=len(rows))
+    data = client.raw.tables.rows.list(table.db_name, table.name, limit=len(rows))
     if not data:
-        client.tool.raw.tables.rows.create(
+        client.raw.tables.rows.create(
             [
                 RAWRowRequest(db_name=table.db_name, table_name=table.name, key=row.key, columns=row.columns or {})
                 for row in rows
@@ -434,13 +430,13 @@ def create_raw_table_with_data(client: ToolkitClient, table: RAWTableRequest, ro
 def upsert_transformation_with_run(
     toolkit_client: ToolkitClient, transformation: TransformationRequest
 ) -> TransformationResponse:
-    retrieved = toolkit_client.tool.transformations.retrieve(
+    retrieved = toolkit_client.transformations.retrieve(
         [transformation.as_id()], ignore_unknown_ids=True, with_job_details=True
     )
-    created = retrieved[0] if retrieved else toolkit_client.tool.transformations.create([transformation])[0]
+    created = retrieved[0] if retrieved else toolkit_client.transformations.create([transformation])[0]
     if created.last_finished_job is None:
         nonce = toolkit_client.sessions.create_one_shot_token_exchange_session()
-        job = toolkit_client.tool.transformations.run(
+        job = toolkit_client.transformations.run(
             InternalId(id=created.id),
             nonce=NonceCredentials(
                 session_id=nonce.id,
@@ -453,7 +449,7 @@ def upsert_transformation_with_run(
             if time.time() > deadline:
                 raise TimeoutError(f"Transformation job {job.id} did not finish.")
             time.sleep(1)
-            job = toolkit_client.tool.transformations.jobs.retrieve([job.as_id()])[0]
+            job = toolkit_client.transformations.jobs.retrieve([job.as_id()])[0]
         assert job.error is None
     return created
 
@@ -499,7 +495,7 @@ def aggregator_asset_list(
     aggregator_assets: TransformationResponse,
     aggregator_two_datasets: list[DataSetResponse],
 ) -> list[AssetResponse]:
-    return toolkit_client.tool.assets.list(
+    return toolkit_client.assets.list(
         asset_subtree_ids=[aggregator_root_asset.id],
     )
 
@@ -588,7 +584,7 @@ FROM `{aggregator_raw_db}`.`{table_name}`""",
 
     # Upload content for the files
     external_ids = [external_id for row in rows if isinstance(external_id := row.columns["externalId"], str)]
-    filemetadata = toolkit_client.tool.filemetadata.retrieve(ExternalId.from_external_ids(external_ids))
+    filemetadata = toolkit_client.filemetadata.retrieve(ExternalId.from_external_ids(external_ids))
     is_uploaded_by_external_id = {
         file.external_id: file.uploaded for file in filemetadata if file.external_id is not None
     }
@@ -729,8 +725,8 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
         name="Migration Test DataSet",
         description="DataSet for migration integration tests",
     )
-    retrieved_datasets = client.tool.datasets.retrieve([dataset_request.as_id()], ignore_unknown_ids=True)
-    data_set = retrieved_datasets[0] if retrieved_datasets else client.tool.datasets.create([dataset_request])[0]
+    retrieved_datasets = client.datasets.retrieve([dataset_request.as_id()], ignore_unknown_ids=True)
+    data_set = retrieved_datasets[0] if retrieved_datasets else client.datasets.create([dataset_request])[0]
     asset_source = "ToolkitAsset"
     event_source = "ToolkitEvent"
     file_source = "ToolkitFile"
@@ -753,15 +749,15 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
     ]
     existing_assets = {
         asset.external_id: asset
-        for asset in client.tool.assets.retrieve([asset.as_id() for asset in assets], ignore_unknown_ids=True)
+        for asset in client.assets.retrieve([asset.as_id() for asset in assets], ignore_unknown_ids=True)
     }
     to_create = [asset for asset in assets if asset.external_id not in existing_assets]
     to_update = [asset for asset in assets if asset.external_id in existing_assets]
     upserted_assets = {
         asset.external_id: asset
         for asset in [
-            *(client.tool.assets.create(to_create) if to_create else []),
-            *(client.tool.assets.update(to_update, mode="replace") if to_update else []),
+            *(client.assets.create(to_create) if to_create else []),
+            *(client.assets.update(to_update, mode="replace") if to_update else []),
         ]
     }
     created_assets = [upserted_assets[asset.external_id] for asset in assets if asset.external_id is not None]
@@ -775,11 +771,9 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
         asset_ids=[child_asset.id],
         source=event_source,
     )
-    existing_events = client.tool.events.retrieve([event.as_id()], ignore_unknown_ids=True)
+    existing_events = client.events.retrieve([event.as_id()], ignore_unknown_ids=True)
     created_event = (
-        client.tool.events.update([event], mode="replace")[0]
-        if existing_events
-        else client.tool.events.create([event])[0]
+        client.events.update([event], mode="replace")[0] if existing_events else client.events.create([event])[0]
     )
     file = FileMetadataRequest(
         external_id=file_external_id,
@@ -789,8 +783,8 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
         asset_ids=[child_asset.id],
         source=file_source,
     )
-    retrieved_files = client.tool.filemetadata.retrieve([file.as_id()], ignore_unknown_ids=True)
-    created_file = retrieved_files[0] if retrieved_files else client.tool.filemetadata.create([file], overwrite=True)[0]
+    retrieved_files = client.filemetadata.retrieve([file.as_id()], ignore_unknown_ids=True)
+    created_file = retrieved_files[0] if retrieved_files else client.filemetadata.create([file], overwrite=True)[0]
     if not created_file.uploaded:
         if created_file.external_id is None:
             raise RuntimeError(f"File {file_external_id!r} is missing an external ID.")
@@ -808,14 +802,12 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
         data_set_id=data_set.id,
         unit_external_id="temperature:deg_c",
     )
-    retrieved_timeseries = client.tool.timeseries.retrieve([timeseries.as_id()], ignore_unknown_ids=True)
-    created_timeseries = (
-        retrieved_timeseries[0] if retrieved_timeseries else client.tool.timeseries.create([timeseries])[0]
-    )
+    retrieved_timeseries = client.timeseries.retrieve([timeseries.as_id()], ignore_unknown_ids=True)
+    created_timeseries = retrieved_timeseries[0] if retrieved_timeseries else client.timeseries.create([timeseries])[0]
 
-    latest = client.tool.timeseries.datapoints.latest([LatestDatapointRequest(external_id=timeseries_external_id)])
+    latest = client.timeseries.datapoints.latest([LatestDatapointRequest(external_id=timeseries_external_id)])
     if not any(series.datapoints for series in latest):
-        client.tool.timeseries.datapoints.create(
+        client.timeseries.datapoints.create(
             [
                 DatapointsRequest(
                     external_id=timeseries_external_id,
@@ -849,7 +841,7 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
         annotated_resource_id=created_file.id,
     )
 
-    existing_annotations = client.tool.annotations.list(
+    existing_annotations = client.annotations.list(
         filter=AnnotationFilter(
             annotated_resource_type="file",
             annotated_resource_ids=[InternalId(id=created_file.id)],
@@ -864,7 +856,7 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
         None,
     )
     if created_file_annotation is None:
-        created_file_annotation = client.tool.annotations.create([file_annotation])[0]
+        created_file_annotation = client.annotations.create([file_annotation])[0]
     created_asset_annotation = next(
         (
             annotation
@@ -874,10 +866,10 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
         None,
     )
     if created_asset_annotation is None:
-        created_asset_annotation = client.tool.annotations.create([asset_annotation])[0]
+        created_asset_annotation = client.annotations.create([asset_annotation])[0]
 
     # Create destination space
-    client.tool.spaces.create([SpaceRequest(space=dataset_external_id)])
+    client.spaces.create([SpaceRequest(space=dataset_external_id)])
 
     # Populate the InstanceSourceView such that Annotation can look up file and asset information during migration.
     linage_nodes = [
@@ -904,7 +896,7 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
             ("timeseries", created_timeseries, timeseries_external_id),
         ]
     ]
-    client.tool.instances.create(linage_nodes)
+    client.instances.create(linage_nodes)
 
     return HierarchyMinimal(
         root_asset=created_assets[0],
@@ -1016,12 +1008,12 @@ def three_d_file(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> Fil
         mime_type="application/octet-stream",
         source="3d-models",
     )
-    retrieved = client.tool.filemetadata.retrieve([meta.as_id()], ignore_unknown_ids=True)
+    retrieved = client.filemetadata.retrieve([meta.as_id()], ignore_unknown_ids=True)
     read = retrieved[0] if retrieved else None
     if read and read.uploaded is True:
         return read
     if read is None:
-        read = client.tool.filemetadata.create([meta])[0]
+        read = client.filemetadata.create([meta])[0]
     with zipfile.ZipFile(THREE_D_He2_FBX_ZIP, mode="r") as zip_ref:
         file_data = zip_ref.read("he2.fbx")
         read = _upload_file_content(client, "my_simulator_model_revision_file", file_data, read.mime_type)

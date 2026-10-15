@@ -216,23 +216,23 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
                 elapsed_since_delete = time.perf_counter() - self._deleted_time_by_id[item_id]
                 if elapsed_since_delete < self.delete_recreate_limit_seconds:
                     time.sleep(self.delete_recreate_limit_seconds - elapsed_since_delete)
-        return self.client.tool.spaces.create(items)
+        return self.client.spaces.create(items)
 
     def retrieve(self, ids: Sequence[SpaceId]) -> list[SpaceResponse]:
-        return self.client.tool.spaces.retrieve(list(ids))
+        return self.client.spaces.retrieve(list(ids))
 
     def update(self, items: Sequence[SpaceRequest]) -> list[SpaceResponse]:
         return self.create(items)
 
     def delete(self, ids: Sequence[SpaceId]) -> list[SpaceId]:
-        existing = self.client.tool.spaces.retrieve(list(ids))
+        existing = self.client.spaces.retrieve(list(ids))
         is_global = {space.space for space in existing if space.is_global}
         if is_global:
             print(
                 f"  [bold yellow]WARNING:[/] Spaces {list(is_global)} are global and cannot be deleted, skipping delete, for these."
             )
         to_delete = [space_ref for space_ref in ids if space_ref.space not in is_global]
-        self.client.tool.spaces.delete(to_delete)
+        self.client.spaces.delete(to_delete)
         for item_id in to_delete:
             self._deleted_time_by_id[item_id] = time.perf_counter()
         return to_delete
@@ -244,9 +244,9 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[SpaceResponse]:
         if space:
-            yield from self.client.tool.spaces.retrieve([SpaceId(space=space)])
+            yield from self.client.spaces.retrieve([SpaceId(space=space)])
         else:
-            for batch in self.client.tool.spaces.iterate(limit=None):
+            for batch in self.client.spaces.iterate(limit=None):
                 yield from batch
 
     def count(self, ids: Sequence[SpaceId]) -> int:
@@ -265,10 +265,10 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
         print(f"[bold]Deleting existing data in spaces {ids}...[/]")
         nr_of_deleted = 0
         for edge_ids in self._iterate_over_edges(spaces):
-            self.client.tool.instances.delete(edge_ids)
+            self.client.instances.delete(edge_ids)
             nr_of_deleted += len(edge_ids)
         for node_ids in self._iterate_over_nodes(spaces):
-            self.client.tool.instances.delete(node_ids)
+            self.client.instances.delete(node_ids)
             nr_of_deleted += len(node_ids)
         return nr_of_deleted
 
@@ -276,14 +276,14 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
         if not spaces:
             return
         filter_ = InstanceFilter(instance_type="node", space=spaces)
-        for instances in self.client.tool.instances.iterate(filter=filter_, limit=None):
+        for instances in self.client.instances.iterate(filter=filter_, limit=None):
             yield [inst.as_id() for inst in instances]  # type: ignore[misc]
 
     def _iterate_over_edges(self, spaces: list[str]) -> Iterable[list[EdgeId]]:
         if not spaces:
             return
         filter_ = InstanceFilter(instance_type="edge", space=spaces)
-        for instances in self.client.tool.instances.iterate(filter=filter_, limit=None):
+        for instances in self.client.instances.iterate(filter=filter_, limit=None):
             yield [inst.as_id() for inst in instances]  # type: ignore[misc]
 
 
@@ -412,7 +412,7 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
     def _upsert(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
         created: list[ContainerResponse] = []
         for batch in self._compute_deploy_batches(items):
-            created.extend(self.client.tool.containers.create(batch))
+            created.extend(self.client.containers.create(batch))
         return created
 
     def _compute_deploy_batches(self, items: Sequence[ContainerRequest]) -> list[list[ContainerRequest]]:
@@ -444,7 +444,7 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
         return batches
 
     def retrieve(self, ids: Sequence[ContainerId]) -> list[ContainerResponse]:
-        return self.client.tool.containers.retrieve(list(ids))
+        return self.client.containers.retrieve(list(ids))
 
     def update(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
         updated = self._upsert(items)
@@ -509,7 +509,7 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
 
     def delete(self, ids: Sequence[ContainerId]) -> list[ContainerId]:
         id_list = list(ids)
-        self.client.tool.containers.delete(id_list)
+        self.client.containers.delete(id_list)
         return id_list
 
     def _iterate(
@@ -518,27 +518,25 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ContainerResponse]:
-        for batch in self.client.tool.containers.iterate(
-            filter=ContainerFilter(space=space) if space else None, limit=None
-        ):
+        for batch in self.client.containers.iterate(filter=ContainerFilter(space=space) if space else None, limit=None):
             yield from batch
 
     def count(self, ids: Sequence[ContainerId]) -> int:
         # Bug in spec of aggregate requiring view_id to be passed in, so we cannot use it.
         # When this bug is fixed, it will be much faster to use aggregate.
-        existing_containers = self.client.tool.containers.retrieve(list(ids))
+        existing_containers = self.client.containers.retrieve(list(ids))
         return sum(len(batch) for batch in self._iterate_over_nodes(existing_containers)) + sum(
             len(batch) for batch in self._iterate_over_edges(existing_containers)
         )
 
     def drop_data(self, ids: Sequence[ContainerId]) -> int:
         nr_of_deleted = 0
-        existing_containers = self.client.tool.containers.retrieve(list(ids))
+        existing_containers = self.client.containers.retrieve(list(ids))
         for node_ids in self._iterate_over_nodes(existing_containers):
-            self.client.tool.instances.delete(node_ids)
+            self.client.instances.delete(node_ids)
             nr_of_deleted += len(node_ids)
         for edge_ids in self._iterate_over_edges(existing_containers):
-            self.client.tool.instances.delete(edge_ids)
+            self.client.instances.delete(edge_ids)
             nr_of_deleted += len(edge_ids)
         return nr_of_deleted
 
@@ -550,7 +548,7 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             is_container = filters.HasData(
                 containers=[dm.ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
             )
-            for instances in self.client.tool.instances.iterate(
+            for instances in self.client.instances.iterate(
                 filter=InstanceFilter(instance_type="node", filter=is_container.dump()),
                 limit=None,
             ):
@@ -565,7 +563,7 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             is_container = filters.HasData(
                 containers=[dm.ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
             )
-            for instances in self.client.tool.instances.iterate(
+            for instances in self.client.instances.iterate(
                 filter=InstanceFilter(instance_type="edge", filter=is_container.dump()),
                 limit=None,
             ):
@@ -574,7 +572,7 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
     def _lookup_containers(self, container_ids: Sequence[ContainerId]) -> dict[ContainerId, ContainerResponse]:
         ids_to_lookup = [container_id for container_id in container_ids if container_id not in self._container_by_id]
         if ids_to_lookup:
-            retrieved_containers = self.client.tool.containers.retrieve(ids_to_lookup)
+            retrieved_containers = self.client.containers.retrieve(ids_to_lookup)
             for container in retrieved_containers:
                 self._container_by_id[container.as_id()] = container
         if missing_container_ids := set(container_ids) - set(self._container_by_id.keys()):
@@ -833,7 +831,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
         creation_order = self._compute_deploy_batches(items)
         created: list[ViewResponse] = []
         for batch in creation_order:
-            created.extend(self.client.tool.views.create(batch))
+            created.extend(self.client.views.create(batch))
         return created
 
     def _compute_deploy_batches(self, items: Sequence[ViewRequest]) -> list[list[ViewRequest]]:
@@ -875,7 +873,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
         return batches
 
     def retrieve(self, ids: Sequence[ViewId | ViewNoVersionId]) -> list[ViewResponse]:
-        return self.client.tool.views.retrieve(list(ids), include_inherited_properties=False)
+        return self.client.views.retrieve(list(ids), include_inherited_properties=False)
 
     def update(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
         return self.create(items)
@@ -884,8 +882,8 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
         to_delete = list(ids)
         attempt_count = 5
         for _attempt_no in range(attempt_count):
-            self.client.tool.views.delete(to_delete)
-            existing = [view.as_id() for view in self.client.tool.views.retrieve(to_delete)]
+            self.client.views.delete(to_delete)
+            existing = [view.as_id() for view in self.client.views.retrieve(to_delete)]
             if not existing:
                 return list(ids)
             sleep(2)
@@ -904,7 +902,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ViewResponse]:
-        for batch in self.client.tool.views.iterate(filter=ViewFilter(space=space, all_versions=True), limit=None):
+        for batch in self.client.views.iterate(filter=ViewFilter(space=space, all_versions=True), limit=None):
             yield from batch
 
     @classmethod
@@ -915,7 +913,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
         """Looks up views by their IDs and caches them."""
         missing_ids = [view_id for view_id in view_ids if view_id not in self._view_by_id]
         if missing_ids:
-            retrieved_views = self.client.tool.views.retrieve(missing_ids, include_inherited_properties=True)
+            retrieved_views = self.client.views.retrieve(missing_ids, include_inherited_properties=True)
             for view in retrieved_views:
                 self._view_by_id[view.as_id()] = view
         return {view_id: self._view_by_id[view_id] for view_id in view_ids if view_id in self._view_by_id}
@@ -1128,13 +1126,13 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[DataModelRequest]) -> list[DataModelResponse]:
-        return self.client.tool.data_models.create(items)
+        return self.client.data_models.create(items)
 
     def retrieve(self, ids: Sequence[DataModelId]) -> list[DataModelResponse]:
-        return self.client.tool.data_models.retrieve(list(ids))
+        return self.client.data_models.retrieve(list(ids))
 
     def update(self, items: Sequence[DataModelRequest]) -> list[DataModelResponse]:
-        updated = self.client.tool.data_models.create(items)
+        updated = self.client.data_models.create(items)
         # There is a bug in the API not raising an exception if view is removed from a data model.
         # So we check here that the update was fixed.
         updated_by_id = {item.as_id(): item for item in updated}
@@ -1162,7 +1160,7 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
 
     def delete(self, ids: Sequence[DataModelId]) -> list[DataModelId]:
         id_list = list(ids)
-        self.client.tool.data_models.delete(id_list)
+        self.client.data_models.delete(id_list)
         return id_list
 
     def _iterate(
@@ -1171,7 +1169,7 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DataModelResponse]:
-        for batch in self.client.tool.data_models.iterate(
+        for batch in self.client.data_models.iterate(
             filter=DataModelFilter(space=space, include_global=False, all_versions=True), limit=None
         ):
             yield from batch
@@ -1258,7 +1256,7 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
         if sources:
             try:
                 node_id = resource.as_id()
-                res = self.client.tool.instances.retrieve([node_id], source=sources[0])
+                res = self.client.instances.retrieve([node_id], source=sources[0])
             except ToolkitAPIError:
                 ...
             else:
@@ -1281,7 +1279,7 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
     def create(self, items: Sequence[NodeRequest]) -> list[NodeId]:
         created: list[InstanceSlimDefinition] = []
         for batch in self._compute_deploy_batches(items):
-            created.extend(self.client.tool.instances.create(batch))
+            created.extend(self.client.instances.create(batch))
         return [
             NodeId(space=item.space, external_id=item.external_id) for item in created if item.instance_type == "node"
         ]
@@ -1333,14 +1331,14 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
 
         container_refs = [ref for ref in to_resolve if isinstance(ref, ContainerId)]
         if container_refs:
-            for container in self.client.tool.containers.retrieve(container_refs):
+            for container in self.client.containers.retrieve(container_refs):
                 self._constrained_properties_by_source[container.as_id()] = self._constrained_property_names(
                     container.properties
                 )
 
         view_refs = [ref for ref in to_resolve if isinstance(ref, ViewId)]
         if view_refs:
-            for view in self.client.tool.views.retrieve(view_refs, include_inherited_properties=True):
+            for view in self.client.views.retrieve(view_refs, include_inherited_properties=True):
                 self._constrained_properties_by_source[view.as_id()] = self._constrained_property_names(view.properties)
 
     @staticmethod
@@ -1388,7 +1386,7 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
             if self.view_id
             else None
         )
-        results = self.client.tool.instances.retrieve(list(ids), source=source_ref)
+        results = self.client.instances.retrieve(list(ids), source=source_ref)
         return [r for r in results if isinstance(r, NodeResponse)]
 
     def update(self, items: Sequence[NodeRequest]) -> list[NodeId]:
@@ -1396,7 +1394,7 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
 
     def delete(self, ids: Sequence[NodeId]) -> list[NodeId]:
         try:
-            deleted = self.client.tool.instances.delete(list(ids))
+            deleted = self.client.instances.delete(list(ids))
         except ToolkitAPIError as e:
             if "not exist" in str(e) and "space" in str(e).lower():
                 return []
@@ -1421,7 +1419,7 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
             space=[space] if space else None,
             source=source_ref,
         )
-        for batch in self.client.tool.instances.iterate(filter=filter_, limit=None):
+        for batch in self.client.instances.iterate(filter=filter_, limit=None):
             for inst in batch:
                 if isinstance(inst, NodeResponse):
                     yield inst
@@ -1636,7 +1634,7 @@ class GraphQLIO(
                 item_with_dml = item.model_copy(update={"graph_ql_dml": graphql_file_content})
             else:
                 item_with_dml = item
-            created = self.client.tool.graphql_data_models.create([item_with_dml])
+            created = self.client.graphql_data_models.create([item_with_dml])
             created_list.extend(created)
         return created_list
 
@@ -1647,7 +1645,7 @@ class GraphQLIO(
         return safe_read(filepath)
 
     def retrieve(self, ids: Sequence[DataModelId]) -> list[GraphQLDataModelResponse]:
-        return self.client.tool.graphql_data_models.retrieve(list(ids), inline_views=False)
+        return self.client.graphql_data_models.retrieve(list(ids), inline_views=False)
 
     def update(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
         return self.create(items)
@@ -1656,9 +1654,9 @@ class GraphQLIO(
         retrieved = self.retrieve(ids)
         views = {view for dml in retrieved for view in dml.views or []}
         id_list = list(ids)
-        self.client.tool.graphql_data_models.delete(id_list)
+        self.client.graphql_data_models.delete(id_list)
         if views:
-            self.client.tool.views.delete(list(views))
+            self.client.views.delete(list(views))
         return id_list
 
     def _iterate(
@@ -1668,7 +1666,7 @@ class GraphQLIO(
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[GraphQLDataModelResponse]:
         filter_ = DataModelFilter(space=space) if space else None
-        for batch in self.client.tool.graphql_data_models.iterate(filter=filter_, limit=None):
+        for batch in self.client.graphql_data_models.iterate(filter=filter_, limit=None):
             yield from batch
 
     def count(self, ids: Sequence[DataModelId]) -> int:
@@ -1774,7 +1772,7 @@ class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
         if sources:
             try:
                 node_id = resource.as_id()
-                res = self.client.tool.instances.retrieve([node_id], source=sources[0])
+                res = self.client.instances.retrieve([node_id], source=sources[0])
             except ToolkitAPIError:
                 ...
             else:
@@ -1794,13 +1792,13 @@ class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
         return dumped
 
     def create(self, items: Sequence[EdgeRequest]) -> list[EdgeId]:
-        created = self.client.tool.instances.create(list(items))
+        created = self.client.instances.create(list(items))
         return [
             EdgeId(space=item.space, external_id=item.external_id) for item in created if item.instance_type == "edge"
         ]
 
     def retrieve(self, ids: Sequence[EdgeId]) -> list[EdgeResponse]:
-        results = self.client.tool.instances.retrieve(list(ids))
+        results = self.client.instances.retrieve(list(ids))
         return [r for r in results if isinstance(r, EdgeResponse)]
 
     def update(self, items: Sequence[EdgeRequest]) -> list[EdgeId]:
@@ -1808,7 +1806,7 @@ class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
 
     def delete(self, ids: Sequence[EdgeId]) -> list[EdgeId]:
         try:
-            deleted = self.client.tool.instances.delete(list(ids))
+            deleted = self.client.instances.delete(list(ids))
         except ToolkitAPIError as e:
             if "not exist" in str(e) and "space" in str(e).lower():
                 return []
@@ -1827,7 +1825,7 @@ class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
             instance_type="edge",
             space=[space] if space else None,
         )
-        for batch in self.client.tool.instances.iterate(filter=filter_, limit=None):
+        for batch in self.client.instances.iterate(filter=filter_, limit=None):
             for inst in batch:
                 if isinstance(inst, EdgeResponse):
                     yield inst

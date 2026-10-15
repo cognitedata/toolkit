@@ -1042,7 +1042,7 @@ def test_agent_deployment_order(
     env_vars_with_client: EnvironmentVariables,
 ) -> None:
     # Skip the agent runtime/capability consistency checks, which require a real service availability response.
-    toolkit_client_approval.mock_client.tool.agents.service_availability.return_value = None
+    toolkit_client_approval.mock_client.agents.service_availability.return_value = None
     supervisor = """externalId: supervisor
 name: Supervisor
 runtimeVersion: "1.3.0"

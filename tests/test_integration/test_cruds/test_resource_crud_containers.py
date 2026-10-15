@@ -254,7 +254,7 @@ class Test3DModelLoader:
             # Ensure that the model is deleted even if the test fails.
             if created_internal_ids:
                 with suppress(ToolkitAPIError):
-                    toolkit_client.tool.three_d.models_classic.delete(created_internal_ids)
+                    toolkit_client.three_d.models_classic.delete(created_internal_ids)
 
 
 class TestRawTableCRUD:
@@ -265,7 +265,7 @@ class TestRawTableCRUD:
         table_existing = RAWTableRequest(db_name=toolkit_raw_database.name, name="test_drop_existing_table")
         non_existing = RawTableId(db_name=toolkit_raw_database.name, name="test_drop_non_existing_table")
         try:
-            client.tool.raw.tables.create([table_existing])
+            client.raw.tables.create([table_existing])
         except ToolkitAPIError:
             # Assume it is existing
             ...
@@ -275,7 +275,7 @@ class TestRawTableCRUD:
         raw_table_io.drop_data([table_existing.as_id(), non_existing])
 
         try:
-            client.tool.raw.tables.delete([table_existing.as_id()])
+            client.raw.tables.delete([table_existing.as_id()])
         except ToolkitAPIError:
             # The deletion went correctly
             ...

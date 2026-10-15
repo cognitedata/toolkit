@@ -28,7 +28,7 @@ class TestFunctionCallsAPI:
         url = toolkit_config.create_api_url("/functions/10/call")
         respx_mock.post(url).mock(return_value=Response(status_code=201, json=_call_payload()))
 
-        created = client.tool.functions.calls.call(
+        created = client.functions.calls.call(
             function_id=10,
             nonce="session-nonce",
             data={"maxValue": 4},
@@ -46,7 +46,7 @@ class TestFunctionCallsAPI:
         url = toolkit_config.create_api_url("/functions/10/calls/byids")
         respx_mock.post(url).mock(return_value=Response(status_code=200, json={"items": [_call_payload()]}))
 
-        retrieved = client.tool.functions.calls.retrieve(
+        retrieved = client.functions.calls.retrieve(
             10,
             [InternalId(id=1)],
             ignore_unknown_ids=True,
@@ -71,7 +71,7 @@ class TestFunctionCallsAPI:
             ]
         )
 
-        listed = client.tool.functions.calls.list(
+        listed = client.functions.calls.list(
             function_id=10,
             filter=FunctionCallFilter(
                 status="Running",
@@ -112,8 +112,8 @@ class TestFunctionCallsAPI:
             )
         )
 
-        response = client.tool.functions.calls.get_response(function_id=10, call_id=2)
-        logs = client.tool.functions.calls.get_logs(function_id=10, call_id=2)
+        response = client.functions.calls.get_response(function_id=10, call_id=2)
+        logs = client.functions.calls.get_logs(function_id=10, call_id=2)
 
         assert response.dump() == {"functionId": 10, "callId": 2, "response": {"numAssets": 1234}}
         assert [entry.dump() for entry in logs] == [{"timestamp": 1585350274000, "message": "Did do fancy thing"}]

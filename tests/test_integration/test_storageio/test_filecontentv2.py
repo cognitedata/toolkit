@@ -52,7 +52,7 @@ class TestFileContentV2:
             self._wait_for_file_uploaded(toolkit_client, external_id)
 
             # Get the file id for download
-            retrieved = toolkit_client.tool.filemetadata.retrieve(
+            retrieved = toolkit_client.filemetadata.retrieve(
                 [ExternalId(external_id=external_id)], ignore_unknown_ids=True
             )
             file_metadata = retrieved[0] if retrieved else None
@@ -94,12 +94,12 @@ class TestFileContentV2:
 
         finally:
             # Cleanup
-            toolkit_client.tool.filemetadata.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
+            toolkit_client.filemetadata.delete([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
 
     def _wait_for_file_uploaded(self, toolkit_client: ToolkitClient, external_id: str, timeout: float = 30.0) -> None:
         t0 = time.perf_counter()
         while True:
-            retrieved = toolkit_client.tool.filemetadata.retrieve(
+            retrieved = toolkit_client.filemetadata.retrieve(
                 [ExternalId(external_id=external_id)], ignore_unknown_ids=True
             )
             uploaded_file = retrieved[0] if retrieved else None

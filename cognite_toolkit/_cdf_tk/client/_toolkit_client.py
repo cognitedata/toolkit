@@ -59,11 +59,16 @@ from .api.workflows import WorkflowsAPI
 from .config import ToolkitClientConfig
 
 
-class ToolAPI:
-    """This is reimplemented CogniteAPIs in Toolkit"""
-
-    def __init__(self, http_client: HTTPClient, console: Console) -> None:
+class ToolkitClient:
+    def __init__(
+        self,
+        config: ToolkitClientConfig,
+        console: Console | None = None,
+    ) -> None:
+        self.config = config
+        http_client = HTTPClient(config, console=console)
         self.http_client = http_client
+        self.console: Console = console or Console(markup=True)
         self.agents = AgentsAPI(http_client)
         self.skills = SkillsAPI(http_client)
         self.apps = AppsAPI(http_client)
@@ -103,23 +108,9 @@ class ToolAPI:
         self.signal_sinks = SignalSinksAPI(http_client)
         self.signal_subscriptions = SignalSubscriptionsAPI(http_client)
         self.streamlit = StreamlitAPI(http_client)
-
-
-class ToolkitClient:
-    def __init__(
-        self,
-        config: ToolkitClientConfig,
-        console: Console | None = None,
-    ) -> None:
-        self.config = config
-        http_client = HTTPClient(config, console=console)
-        self.http_client = http_client
-        self.console: Console = console or Console(markup=True)
-        self.tool = ToolAPI(http_client, self.console)
-
         self.lookup = LookUpGroup(self)
         self.canvas = IndustrialCanvasAPI(http_client)
-        self.migration = MigrationAPI(self.tool.instances, http_client)
+        self.migration = MigrationAPI(self.instances, http_client)
         self.charts = ChartsAPI(http_client)
         self.project = ProjectAPI(http_client)
         self.principals = PrincipalsAPI(http_client=http_client, project_api=self.project)

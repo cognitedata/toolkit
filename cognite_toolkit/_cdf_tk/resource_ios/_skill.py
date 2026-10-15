@@ -222,17 +222,17 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
         yield base_filepath, resource
 
     def create(self, items: Sequence[SkillRequest]) -> list[SkillResponse]:
-        return self.client.tool.skills.create(items)
+        return self.client.skills.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SkillResponse]:
-        return self.client.tool.skills.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.skills.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[SkillRequest]) -> list[SkillResponse]:
-        return self.client.tool.skills.update(items)
+        return self.client.skills.update(items)
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
-        self.client.tool.skills.delete(id_list, ignore_unknown_ids=True)
+        self.client.skills.delete(id_list, ignore_unknown_ids=True)
         return id_list
 
     def _iterate(
@@ -241,4 +241,4 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[SkillResponse]:
-        return self.client.tool.skills.list(limit=None)
+        return self.client.skills.list(limit=None)

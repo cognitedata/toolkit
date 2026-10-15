@@ -687,7 +687,7 @@ class DeployV2Command(ToolkitCommand):
             view_crud = step.crud_cls.create_io(client)
             view_resource_by_id = self._read_resource_files(view_crud, step.files, options)
             in_scope_view_ids.update(view_resource_by_id.keys())
-        inspect_results = client.tool.containers.inspect(container_ids)
+        inspect_results = client.containers.inspect(container_ids)
         validate_no_out_of_scope_view_references(
             inspect_results,
             list(in_scope_view_ids),
@@ -955,8 +955,8 @@ class DeployV2Command(ToolkitCommand):
                 write_acl.append(dataset_owner)
             is_write_acl_unknown = cls._resources_have_unresolved_data_set(resources)
             return (
-                bool(crud.client.tool.token.verify_acls(read_acl)),
-                bool(crud.client.tool.token.verify_acls(write_acl)),
+                bool(crud.client.token.verify_acls(read_acl)),
+                bool(crud.client.token.verify_acls(write_acl)),
                 is_write_acl_unknown,
             )
         else:
@@ -964,8 +964,8 @@ class DeployV2Command(ToolkitCommand):
             read_write_acls = list(crud.create_acl({"READ", "WRITE"}, minimum_scope))
             if dataset_owner:
                 read_write_acls.append(dataset_owner)
-            if missing := crud.client.tool.token.verify_acls(read_write_acls):
-                raise crud.client.tool.token.create_error(missing, action=f"deploy {crud.display_name}")
+            if missing := crud.client.token.verify_acls(read_write_acls):
+                raise crud.client.token.create_error(missing, action=f"deploy {crud.display_name}")
             return False, False, False
 
     @staticmethod
@@ -991,7 +991,7 @@ class DeployV2Command(ToolkitCommand):
         # We use cache_response=True to avoid making multiple requests for the same dataset ids as this is in a hot-loop.
         return {
             dataset.id
-            for dataset in client.tool.datasets.retrieve([InternalId(id=id_) for id_ in known_ids], cache_response=True)
+            for dataset in client.datasets.retrieve([InternalId(id=id_) for id_ in known_ids], cache_response=True)
             if dataset.write_protected is True
         }
 

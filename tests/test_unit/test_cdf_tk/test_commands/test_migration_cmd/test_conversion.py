@@ -85,7 +85,7 @@ def direct_relation_cache() -> DirectRelationCache:
         }
         client.migration.lookup.files.return_value = {42: NodeId(space="test_space", external_id="file_456_instance")}
         # No native instance ID on the classic file, so resolution falls back to the InstanceSource lookup above.
-        client.tool.filemetadata.retrieve.return_value = []
+        client.filemetadata.retrieve.return_value = []
         client.migration.created_source_system.retrieve.return_value = [
             CreatedSourceSystem(
                 space="test_space",
@@ -133,7 +133,7 @@ class TestDirectRelationCacheFileResolution:
 
     def test_resolves_file_via_native_instance_id_without_instance_source_lookup(self) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.filemetadata.retrieve.return_value = [
+            client.filemetadata.retrieve.return_value = [
                 FileMetadataResponse(
                     id=1,
                     external_id="my_file",
@@ -170,7 +170,7 @@ class TestDirectRelationCacheFileResolution:
 
     def test_falls_back_to_instance_source_lookup_when_file_has_no_native_instance_id(self) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.filemetadata.retrieve.return_value = [
+            client.filemetadata.retrieve.return_value = [
                 FileMetadataResponse(
                     id=2,
                     external_id="classic_file",

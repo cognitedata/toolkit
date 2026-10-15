@@ -37,9 +37,9 @@ _T = TypeVar("_T")
 
 
 def _persistent_timeseries(client: ToolkitClient, request: TimeSeriesRequest) -> TimeSeriesResponse:
-    endpoint = client.tool.timeseries._method_endpoint_map["create"].path
-    retrieved = client.tool.timeseries.retrieve([request.as_id()], ignore_unknown_ids=True)
-    series = retrieved[0] if retrieved else client.tool.timeseries.create([request])[0]
+    endpoint = client.timeseries._method_endpoint_map["create"].path
+    retrieved = client.timeseries.retrieve([request.as_id()], ignore_unknown_ids=True)
+    series = retrieved[0] if retrieved else client.timeseries.create([request])[0]
     if series.is_string != request.is_string:
         raise EndpointAssertionError(
             endpoint,
@@ -92,7 +92,7 @@ def test_datapoints_insert_retrieve_latest_and_delete(
     smoke_numeric_timeseries: TimeSeriesResponse,
     smoke_string_timeseries: TimeSeriesResponse,
 ) -> None:
-    api = toolkit_client.tool.timeseries.datapoints
+    api = toolkit_client.timeseries.datapoints
     if smoke_numeric_timeseries.external_id is None or smoke_string_timeseries.external_id is None:
         raise EndpointAssertionError("/timeseries", "Persistent time series is missing an external ID.")
     numeric_external_id = smoke_numeric_timeseries.external_id

@@ -201,7 +201,7 @@ class TestExternalDataSourceIO:
             loader = ExternalDataSourceIO.create_io(client)
             item = _make_request()
             response = _make_response()
-            api = client.tool.transformations.external_data_sources
+            api = client.transformations.external_data_sources
             api.create.return_value = [response]
             api.list.return_value = [response]
 
@@ -217,7 +217,7 @@ class TestExternalDataSourceIO:
         with monkeypatch_toolkit_client() as client:
             loader = ExternalDataSourceIO.create_io(client)
             response = _make_response()
-            client.tool.transformations.external_data_sources.list.return_value = [response]
+            client.transformations.external_data_sources.list.return_value = [response]
             assert list(loader._iterate()) == [response]
 
     def test_iterate_with_space_returns_nothing(self, toolkit_client_cheap: ToolkitClient) -> None:
@@ -234,7 +234,7 @@ class TestExternalDataSourceIO:
             in_dataset = _make_response(external_id="in-dataset", data_set_id=42)
             other = _make_response(external_id="other", data_set_id=99)
             client.lookup.data_sets.id.return_value = 42
-            client.tool.transformations.external_data_sources.list.return_value = [in_dataset, other]
+            client.transformations.external_data_sources.list.return_value = [in_dataset, other]
             assert list(loader._iterate(data_set_external_id="my_dataset")) == [in_dataset]
 
     def test_iterate_missing_dataset_returns_empty(self) -> None:
@@ -242,4 +242,4 @@ class TestExternalDataSourceIO:
             loader = ExternalDataSourceIO.create_io(client)
             client.lookup.data_sets.id.return_value = None
             assert list(loader._iterate(data_set_external_id="my_dataset")) == []
-            client.tool.transformations.external_data_sources.list.assert_not_called()
+            client.transformations.external_data_sources.list.assert_not_called()

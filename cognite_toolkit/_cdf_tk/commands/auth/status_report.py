@@ -178,7 +178,7 @@ def collect_auth_status(
             return _unauthenticated(environment, exc)
 
     try:
-        inspected = client.tool.token.inspect()
+        inspected = client.token.inspect()
     except (ToolkitAPIError, AuthenticationError, AuthorizationError) as exc:
         return _unauthenticated(environment, exc)
 

@@ -172,7 +172,7 @@ class TestMigrateChart:
             # Replace internal ID with instance ID if possible.
             # Ensure a more consistent snapshot.
             if job.model.timeseries_id and not job.model.timeseries_instance_id:
-                lookup = toolkit_client.tool.timeseries.retrieve([InternalId(id=job.model.timeseries_id)])[0]
+                lookup = toolkit_client.timeseries.retrieve([InternalId(id=job.model.timeseries_id)])[0]
                 if lookup.instance_id:
                     job.model.timeseries_instance_id = lookup.instance_id
 
@@ -225,16 +225,16 @@ def create_migrate_timeseries(
         is_step=False,
         data_set_id=data_set_id,
     )
-    existing = client.tool.timeseries.retrieve([timeseries.as_id()], ignore_unknown_ids=True)
+    existing = client.timeseries.retrieve([timeseries.as_id()], ignore_unknown_ids=True)
     if existing and existing[0].instance_id is not None:
         return existing[0]
     elif existing:
         retrieved = existing[0]
     else:
-        retrieved = client.tool.timeseries.create([timeseries])[0]
+        retrieved = client.timeseries.create([timeseries])[0]
     node_id = NodeId(space=space, external_id=external_id)
     if retrieved.pending_instance_id is None:
-        retrieved = client.tool.timeseries.set_pending_ids(
+        retrieved = client.timeseries.set_pending_ids(
             [PendingInstanceId(pending_instance_id=node_id, external_id=external_id)]
         )[0]
 
@@ -261,5 +261,5 @@ def create_migrate_timeseries(
             ),
         ],
     )
-    client.tool.instances.create([timeseries_node])
+    client.instances.create([timeseries_node])
     return retrieved

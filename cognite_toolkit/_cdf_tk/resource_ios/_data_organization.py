@@ -127,13 +127,13 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSet
         return diff_list_force_hashable(local, cdf)
 
     def create(self, items: Sequence[DataSetRequest]) -> list[DataSetResponse]:
-        return self.client.tool.datasets.create(list(items))
+        return self.client.datasets.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[DataSetResponse]:
-        return self.client.tool.datasets.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.datasets.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[DataSetRequest]) -> list[DataSetResponse]:
-        return self.client.tool.datasets.update(list(items), mode="replace")
+        return self.client.datasets.update(list(items), mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         raise NotImplementedError("CDF does not support deleting data sets.")
@@ -144,7 +144,7 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSet
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DataSetResponse]:
-        for items in self.client.tool.datasets.iterate(limit=None):
+        for items in self.client.datasets.iterate(limit=None):
             yield from items
 
 
@@ -187,21 +187,21 @@ class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse, LabelsYAML]):
             yield LabelsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[LabelRequest]) -> list[LabelResponse]:
-        return self.client.tool.labels.create(list(items))
+        return self.client.labels.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[LabelResponse]:
-        return self.client.tool.labels.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.labels.retrieve(list(ids), ignore_unknown_ids=True)
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         if not ids:
             return []
         try:
-            self.client.tool.labels.delete(list(ids))
+            self.client.labels.delete(list(ids))
         except ToolkitAPIError as e:
             if missing := {ExternalId.model_validate(item) for item in e.missing or []}:
                 if existing := (set(ids) - missing):
                     existing_list = list(existing)
-                    self.client.tool.labels.delete(existing_list)
+                    self.client.labels.delete(existing_list)
                     return existing_list
                 return []
             raise
@@ -216,7 +216,7 @@ class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse, LabelsYAML]):
         filter: ClassicFilter | None = None
         if data_set_external_id is not None:
             filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
-        for items in self.client.tool.labels.iterate(filter=filter, limit=None):
+        for items in self.client.labels.iterate(filter=filter, limit=None):
             yield from items
 
     @classmethod

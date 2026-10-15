@@ -127,4 +127,4 @@ class TestIndustrialCanvasAPI:
         finally:
             if not deleted:
                 ids = canvas.as_ids()
-                toolkit_client.tool.instances.delete(ids)
+                toolkit_client.instances.delete(ids)

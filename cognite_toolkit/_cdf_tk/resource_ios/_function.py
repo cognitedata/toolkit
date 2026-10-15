@@ -281,7 +281,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
 
         if file_id := dumped.pop("fileId", None):
             # The fileId is not part of the write object.
-            retrieved_files = self.client.tool.filemetadata.retrieve([InternalId(id=file_id)], ignore_unknown_ids=True)
+            retrieved_files = self.client.filemetadata.retrieve([InternalId(id=file_id)], ignore_unknown_ids=True)
             function_zip_file = retrieved_files[0] if retrieved_files else None
             if function_zip_file and (data_set_id := function_zip_file.data_set_id):
                 dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
@@ -304,7 +304,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         return dumped
 
     def _is_activated(self, action: str) -> bool:
-        status = self.client.tool.functions.status()
+        status = self.client.functions.status()
         if status.status == "activated":
             return True
         if status.status == "requested":
@@ -320,7 +320,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
                     "Function service has not been activated, activating now, this may take up to 2 hours..."
                 ).get_message()
             )
-            self.client.tool.functions.activate()
+            self.client.functions.activate()
         return False
 
     def create(self, items: Sequence[FunctionRequest]) -> list[FunctionResponse]:
@@ -340,7 +340,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
                     f"Failed to find uploaded file for function {external_id}. This is required to create the function. "
                     "Wait and try again.\nIf the problem persists, please contact Cognite support."
                 )
-            failed_upload, elapsed_time = self.client.tool.filemetadata.await_file_uploaded(
+            failed_upload, elapsed_time = self.client.filemetadata.await_file_uploaded(
                 [file_id], timeout_seconds=self._file_upload_timeout_seconds
             )
             if file_id in failed_upload:
@@ -354,7 +354,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
 
             # Create a copy with the file_id set
             item_to_create = item.model_copy(update={"fileId": file_id.id})
-            result = self.client.tool.functions.create([item_to_create])
+            result = self.client.functions.create([item_to_create])
             if result:
                 created_item = result[0]
                 self._warn_if_cpu_or_memory_changed(created_item, item)
@@ -401,18 +401,18 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
                     name=f"{sanitize_filename(item.name)}.zip",
                     mime_type="application/zip",
                 )
-                _ = self.client.tool.cognite_files.create([cognite_file], replace=True)
-                upload_links = self.client.tool.filemetadata.get_upload_url([cognite_file.as_instance_id()])
+                _ = self.client.cognite_files.create([cognite_file], replace=True)
+                upload_links = self.client.filemetadata.get_upload_url([cognite_file.as_instance_id()])
                 if not upload_links or upload_links[0].upload_url is None:
                     raise ResourceCreationError(
                         f"Failed to get an upload URL for the function code of {external_id!r}."
                     )
-                self.client.tool.filemetadata.upload_file(
+                self.client.filemetadata.upload_file(
                     zip_path.read_bytes(), upload_links[0].upload_url, cognite_file.mime_type
                 )
                 upload_file_id = upload_links[0].id
             else:
-                created_files = self.client.tool.filemetadata.create(
+                created_files = self.client.filemetadata.create(
                     [
                         FileMetadataRequest(
                             name=f"{sanitize_filename(item.name)}.zip",
@@ -427,7 +427,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
                     raise ResourceCreationError(
                         f"Failed to create file metadata for the function code of {external_id!r}."
                     )
-                self.client.tool.filemetadata.upload_file(
+                self.client.filemetadata.upload_file(
                     zip_path.read_bytes(), created_files[0].upload_url, created_files[0].mime_type
                 )
                 upload_file_id = created_files[0].id
@@ -463,14 +463,14 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
     def retrieve(self, ids: Sequence[ExternalId]) -> list[FunctionResponse]:
         if not self._is_activated("retrieve"):
             return []
-        return self.client.tool.functions.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.functions.retrieve(list(ids), ignore_unknown_ids=True)
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         functions = self.retrieve(ids)
 
-        self.client.tool.functions.delete(list(ids), ignore_unknown_ids=True)
+        self.client.functions.delete(list(ids), ignore_unknown_ids=True)
         file_ids = {func.file_id for func in functions if func.file_id}
-        files = self.client.tool.filemetadata.retrieve(
+        files = self.client.filemetadata.retrieve(
             [InternalId(id=file_id) for file_id in file_ids], ignore_unknown_ids=True
         )
         dm_file_nodes: set[NodeId] = set()
@@ -481,11 +481,11 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
             else:
                 classic_file_ids.add(file.id)
         if classic_file_ids:
-            self.client.tool.filemetadata.delete(
+            self.client.filemetadata.delete(
                 [InternalId(id=file_id) for file_id in classic_file_ids], ignore_unknown_ids=True
             )
         if dm_file_nodes:
-            self.client.tool.instances.delete(list(dm_file_nodes))
+            self.client.instances.delete(list(dm_file_nodes))
         return list(ids)
 
     def _iterate(
@@ -494,7 +494,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[FunctionResponse]:
-        for functions in self.client.tool.functions.iterate(limit=None):
+        for functions in self.client.functions.iterate(limit=None):
             yield from functions
 
 
@@ -622,14 +622,14 @@ class FunctionScheduleIO(
         schedules: list[FunctionScheduleResponse] = []
         for func in functions:
             func_external_id = cast(str, func.external_id)
-            function_schedules = self.client.tool.functions.schedules.list()
+            function_schedules = self.client.functions.schedules.list()
             for schedule in function_schedules:
                 if schedule.function_id == func.id:
                     schedule.function_external_id = func_external_id
                     if schedule.name in names_by_function[func_external_id]:
                         # Schedule data is not returned in the list call. Instead, we have to use a
                         # separate request to get the data.
-                        schedule.data = self.client.tool.functions.schedules.input_data(schedule.id).data
+                        schedule.data = self.client.functions.schedules.input_data(schedule.id).data
                         schedules.append(schedule)
         return schedules
 
@@ -658,7 +658,7 @@ class FunctionScheduleIO(
                 }
             )
 
-            result = self.client.tool.functions.schedules.create([to_create])
+            result = self.client.functions.schedules.create([to_create])
             if result:
                 created = result[0]
                 created.function_external_id = id_.function_external_id
@@ -692,7 +692,7 @@ class FunctionScheduleIO(
     def delete(self, ids: Sequence[FunctionScheduleId]) -> list[FunctionScheduleId]:
         schedules = self.retrieve(ids)
         internal_ids = [InternalId(id=schedule.id) for schedule in schedules if schedule.id]
-        self.client.tool.functions.schedules.delete(internal_ids)
+        self.client.functions.schedules.delete(internal_ids)
         return list(ids)
 
     def _iterate(
@@ -702,7 +702,7 @@ class FunctionScheduleIO(
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[FunctionScheduleResponse]:
         if parent_ids is None:
-            for schedules in self.client.tool.functions.schedules.iterate(limit=None):
+            for schedules in self.client.functions.schedules.iterate(limit=None):
                 yield from schedules
         else:
             external_ids = [parent_id.external_id for parent_id in parent_ids if isinstance(parent_id, ExternalId)]
@@ -713,7 +713,7 @@ class FunctionScheduleIO(
                 function_id = self.client.lookup.functions.id(external_id)
                 if function_id is None:
                     continue
-                for schedules in self.client.tool.functions.schedules.iterate(function_id=function_id, limit=None):
+                for schedules in self.client.functions.schedules.iterate(function_id=function_id, limit=None):
                     for schedule in schedules:
                         schedule.function_external_id = external_id
                         yield schedule

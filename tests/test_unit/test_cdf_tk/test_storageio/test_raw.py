@@ -47,7 +47,7 @@ class TestRawStorageIO:
         ).respond(status_code=200)
         selector = RawTableSelector(table=SelectedTable(db_name="test_db", table_name="test_table"))
         with monkeypatch_toolkit_client() as client:
-            client.tool.raw.tables.rows.iterate.return_value = [
+            client.raw.tables.rows.iterate.return_value = [
                 [
                     RAWRowResponse(
                         key=row.key,

@@ -84,9 +84,9 @@ class LookUpAPI(ABC):
             ids_by_external_id = self._id(external_ids)
         except ToolkitAPIError as e:
             if e.code and 400 <= e.code < 500:
-                missing_capabilities = self._client.tool.token.verify_acls([self._read_acl(None)])
+                missing_capabilities = self._client.token.verify_acls([self._read_acl(None)])
                 if missing_capabilities:
-                    raise self._client.tool.token.create_error(
+                    raise self._client.token.create_error(
                         missing_capabilities,
                         f"lookup {self.resource_name} with external_id {external_ids}",
                     )
@@ -147,9 +147,9 @@ class LookUpAPI(ABC):
             found_by_id = self._external_id(ids)
         except ToolkitAPIError as e:
             if e.code and 400 <= e.code < 500:
-                missing_capabilities = self._client.tool.token.verify_acls([self._read_acl(ids)])
+                missing_capabilities = self._client.token.verify_acls([self._read_acl(ids)])
                 if missing_capabilities:
-                    raise self._client.tool.token.create_error(
+                    raise self._client.token.create_error(
                         missing_capabilities, f"lookup {self.resource_name} with id {ids}"
                     )
             # Raise the original error if it's not a 400 or the user has access to read the resource.from
@@ -192,7 +192,7 @@ class DataSetLookUpAPI(LookUpAPI):
     def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         return {
             data_set.external_id: data_set.id
-            for data_set in self._client.tool.datasets.retrieve(
+            for data_set in self._client.datasets.retrieve(
                 items=ExternalId.from_external_ids(external_id), ignore_unknown_ids=True
             )
             if data_set.external_id
@@ -201,7 +201,7 @@ class DataSetLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             data_set.id: data_set.external_id
-            for data_set in self._client.tool.datasets.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
+            for data_set in self._client.datasets.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
             if data_set.external_id
         }
 
@@ -213,7 +213,7 @@ class AssetLookUpAPI(LookUpAPI):
     def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         return {
             asset.external_id: asset.id
-            for asset in self._client.tool.assets.retrieve(
+            for asset in self._client.assets.retrieve(
                 items=ExternalId.from_external_ids(external_id), ignore_unknown_ids=True
             )
             if asset.external_id
@@ -222,7 +222,7 @@ class AssetLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             asset.id: asset.external_id
-            for asset in self._client.tool.assets.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
+            for asset in self._client.assets.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
             if asset.external_id
         }
 
@@ -235,7 +235,7 @@ class TimeSeriesLookUpAPI(LookUpAPI):
     def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         return {
             ts.external_id: ts.id
-            for ts in self._client.tool.timeseries.retrieve(
+            for ts in self._client.timeseries.retrieve(
                 items=ExternalId.from_external_ids(external_id), ignore_unknown_ids=True
             )
             if ts.external_id and ts.id
@@ -244,7 +244,7 @@ class TimeSeriesLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             ts.id: ts.external_id
-            for ts in self._client.tool.timeseries.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
+            for ts in self._client.timeseries.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
             if ts.external_id and ts.id
         }
 
@@ -256,7 +256,7 @@ class FileMetadataLookUpAPI(LookUpAPI):
     def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         return {
             file.external_id: file.id
-            for file in self._client.tool.filemetadata.retrieve(
+            for file in self._client.filemetadata.retrieve(
                 items=ExternalId.from_external_ids(external_id), ignore_unknown_ids=True
             )
             if file.external_id and file.id
@@ -265,7 +265,7 @@ class FileMetadataLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             file.id: file.external_id
-            for file in self._client.tool.filemetadata.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
+            for file in self._client.filemetadata.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
             if file.external_id and file.id
         }
 
@@ -278,7 +278,7 @@ class EventLookUpAPI(LookUpAPI):
     def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         return {
             event.external_id: event.id
-            for event in self._client.tool.events.retrieve(
+            for event in self._client.events.retrieve(
                 items=ExternalId.from_external_ids(external_id), ignore_unknown_ids=True
             )
             if event.external_id and event.id
@@ -287,7 +287,7 @@ class EventLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             event.id: event.external_id
-            for event in self._client.tool.events.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
+            for event in self._client.events.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
             if event.external_id and event.id
         }
 
@@ -300,7 +300,7 @@ class ExtractionPipelineLookUpAPI(LookUpAPI):
     def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         return {
             pipeline.external_id: pipeline.id
-            for pipeline in self._client.tool.extraction_pipelines.retrieve(
+            for pipeline in self._client.extraction_pipelines.retrieve(
                 items=ExternalId.from_external_ids(external_id), ignore_unknown_ids=True
             )
             if pipeline.external_id and pipeline.id
@@ -309,7 +309,7 @@ class ExtractionPipelineLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             pipeline.id: pipeline.external_id
-            for pipeline in self._client.tool.extraction_pipelines.retrieve(
+            for pipeline in self._client.extraction_pipelines.retrieve(
                 items=InternalId.from_ids(id), ignore_unknown_ids=True
             )
             if pipeline.external_id and pipeline.id
@@ -323,7 +323,7 @@ class FunctionLookUpAPI(LookUpAPI):
     def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
         return {
             function.external_id: function.id
-            for function in self._client.tool.functions.retrieve(
+            for function in self._client.functions.retrieve(
                 items=ExternalId.from_external_ids(external_id), ignore_unknown_ids=True
             )
             if function.external_id and function.id
@@ -332,7 +332,7 @@ class FunctionLookUpAPI(LookUpAPI):
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         return {
             function.id: function.external_id
-            for function in self._client.tool.functions.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
+            for function in self._client.functions.retrieve(items=InternalId.from_ids(id), ignore_unknown_ids=True)
             if function.external_id and function.id
         }
 
@@ -366,7 +366,7 @@ class AllLookUpAPI(LookUpAPI, ABC):
 
 class SecurityCategoriesLookUpAPI(AllLookUpAPI):
     def _lookup(self) -> None:
-        categories = self._client.tool.security_categories.list(limit=None)
+        categories = self._client.security_categories.list(limit=None)
         self._cache = {category.name: category.id for category in categories if category.name and category.id}
         self._reverse_cache = {category.id: category.name for category in categories if category.name and category.id}
 
@@ -381,7 +381,7 @@ class SecurityCategoriesLookUpAPI(AllLookUpAPI):
 
 class LocationFiltersLookUpAPI(AllLookUpAPI):
     def _lookup(self) -> None:
-        for location in self._client.tool.location_filters.list(flat=True):
+        for location in self._client.location_filters.list(flat=True):
             if location.external_id and location.id:
                 self._cache[location.external_id] = location.id
                 self._reverse_cache[location.id] = location.external_id

@@ -332,13 +332,13 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             ) from None
 
     def create(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
-        return self.client.tool.agents.create(self.topological_sort(items))
+        return self.client.agents.create(self.topological_sort(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[AgentResponse]:
-        return self.client.tool.agents.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.agents.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
-        return self.client.tool.agents.update(self.topological_sort(items))
+        return self.client.agents.update(self.topological_sort(items))
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         # The agents service rejects deleting an agent that is still referenced as a subagent by
@@ -350,7 +350,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         # Ids that could not be retrieved (e.g. already deleted) are appended at the end.
         ordered_ids.extend(id_ for id_ in ids if id_ not in retrieved_ids)
 
-        self.client.tool.agents.delete(ordered_ids, ignore_unknown_ids=True)
+        self.client.agents.delete(ordered_ids, ignore_unknown_ids=True)
         return ordered_ids
 
     def _iterate(
@@ -359,7 +359,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[AgentResponse]:
-        return self.client.tool.agents.list(limit=None)
+        return self.client.agents.list(limit=None)
 
     def dump_resource(self, resource: AgentResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()

@@ -45,7 +45,7 @@ class RawIO(
         limit: int | None = None,
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page]:
-        for page in self.client.tool.raw.tables.rows.iterate(
+        for page in self.client.raw.tables.rows.iterate(
             db_name=selector.table.db_name,
             table_name=selector.table.table_name,
             limit=limit,

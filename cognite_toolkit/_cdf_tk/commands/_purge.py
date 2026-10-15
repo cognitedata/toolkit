@@ -238,10 +238,10 @@ class NodesToDelete(ToDelete):
             timeseries_ids: set[NodeId] = set()
             files_ids: set[NodeId] = set()
             if not self.delete_datapoints:
-                timeseries = client.tool.timeseries.retrieve(list(tracking_by_node_id), ignore_unknown_ids=True)
+                timeseries = client.timeseries.retrieve(list(tracking_by_node_id), ignore_unknown_ids=True)
                 timeseries_ids = {ts.instance_id for ts in timeseries if ts.instance_id is not None}
             if not self.delete_file_content:
-                files = client.tool.filemetadata.retrieve(list(tracking_by_node_id), ignore_unknown_ids=True)
+                files = client.filemetadata.retrieve(list(tracking_by_node_id), ignore_unknown_ids=True)
                 files_ids = {f.instance_id for f in files if f.instance_id is not None}
             for node_id in timeseries_ids:
                 tracking_id = tracking_by_node_id.get(InstanceId(instance_id=node_id))
@@ -346,7 +346,7 @@ class PurgeCommand(ToolkitCommand):
 
         # TEMPORARY: The GET /models/statistics endpoint requires datamodelsAcl:read with All scope.
         # This check will be removed once DMS limits are available through the limits service.
-        if instance_count > 0 and client.tool.token.verify_acls([DataModelsAcl(actions=["READ"], scope=AllScope())]):
+        if instance_count > 0 and client.token.verify_acls([DataModelsAcl(actions=["READ"], scope=AllScope())]):
             raise AuthorizationError(
                 "Purging spaces containing instances currently requires datamodelsAcl:read with All scope."
             )
@@ -354,9 +354,9 @@ class PurgeCommand(ToolkitCommand):
         if stats.containers > 0:
             container_ids = [
                 ContainerId(space=c.space, external_id=c.external_id)
-                for c in client.tool.containers.list(filter=ContainerFilter(space=selected_space))
+                for c in client.containers.list(filter=ContainerFilter(space=selected_space))
             ]
-            inspect_results = client.tool.containers.inspect(container_ids)
+            inspect_results = client.containers.inspect(container_ids)
             in_scope_view_ids = [
                 view
                 for inspected in inspect_results
@@ -398,15 +398,15 @@ class PurgeCommand(ToolkitCommand):
         # We check for write even in dry-run mode. This is because dry-run is expected to fail
         # if the user cannot perform the purge.
         if include_space or (stats.containers + stats.views + stats.data_models) > 0:
-            if missing := client.tool.token.verify_acls(
+            if missing := client.token.verify_acls(
                 [DataModelsAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=[selected_space]))]
             ):
-                raise client.tool.token.create_error(missing, action="purging data models")
+                raise client.token.create_error(missing, action="purging data models")
         if (stats.nodes + stats.edges) > 0:
-            if missing := client.tool.token.verify_acls(
+            if missing := client.token.verify_acls(
                 [DataModelInstancesAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=[selected_space]))]
             ):
-                raise client.tool.token.create_error(missing, action="purging instances")
+                raise client.token.create_error(missing, action="purging instances")
 
         to_delete = self._create_to_delete_list_purge_space(client, delete_datapoints, delete_file_content, stats)
         if dry_run:
@@ -632,7 +632,7 @@ class PurgeCommand(ToolkitCommand):
             raise ToolkitMissingResourceError(f"DataSet {selected_data_set_external_id!r} does not exist")
         actions: list[Literal["READ", "WRITE"]] = ["READ"] if dry_run else ["READ", "WRITE"]
         if include_data:
-            if missing := client.tool.token.verify_acls(
+            if missing := client.token.verify_acls(
                 [
                     AssetsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
                     EventsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
@@ -646,9 +646,9 @@ class PurgeCommand(ToolkitCommand):
                     ),
                 ]
             ):
-                raise client.tool.token.create_error(missing, action=f"purging {selected_data_set_external_id} dataset")
+                raise client.token.create_error(missing, action=f"purging {selected_data_set_external_id} dataset")
         if include_configurations:
-            if missing := client.tool.token.verify_acls(
+            if missing := client.token.verify_acls(
                 [
                     WorkflowOrchestrationAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
                     TransformationsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
@@ -656,7 +656,7 @@ class PurgeCommand(ToolkitCommand):
                     ExtractionPipelinesAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
                 ]
             ):
-                raise client.tool.token.create_error(missing, action=f"purging {selected_data_set_external_id} dataset")
+                raise client.token.create_error(missing, action=f"purging {selected_data_set_external_id} dataset")
 
         to_delete: list[ToDelete] = self._create_to_delete_list_purge_dataset(
             client,
@@ -906,7 +906,7 @@ class PurgeCommand(ToolkitCommand):
         )
 
     def validate_instance_access(self, client: ToolkitClient, instance_spaces: list[str] | None) -> None:
-        available_scopes = client.tool.token.check_available_scopes(DataModelInstancesAcl, ["READ", "WRITE"])
+        available_scopes = client.token.check_available_scopes(DataModelInstancesAcl, ["READ", "WRITE"])
         space_ids: set[str] = set()
         for scope in available_scopes:
             if isinstance(scope, AllScope):
@@ -917,7 +917,7 @@ class PurgeCommand(ToolkitCommand):
             else:
                 raise RuntimeError("Bug in Toolkit: unexpected scope type returned from check_available_scopes")
         if not space_ids:
-            raise client.tool.token.create_error(
+            raise client.token.create_error(
                 [DataModelInstancesAcl(actions=["READ", "WRITE"], scope=AllScope())],
                 action="purging instances",
             )
@@ -928,7 +928,7 @@ class PurgeCommand(ToolkitCommand):
                 )
             )
         elif missing_ids := set(instance_spaces) - space_ids:
-            raise client.tool.token.create_error(
+            raise client.token.create_error(
                 [DataModelInstancesAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=sorted(missing_ids)))],
                 action="purging instances",
             )
@@ -936,7 +936,7 @@ class PurgeCommand(ToolkitCommand):
 
     def validate_model_access(self, client: ToolkitClient, view: list[str] | None) -> None:
         space = view[0] if isinstance(view, list) and view and isinstance(view[0], str) else None
-        available_scopes = client.tool.token.check_available_scopes(DataModelsAcl, ["READ"])
+        available_scopes = client.token.check_available_scopes(DataModelsAcl, ["READ"])
         space_ids: set[str] = set()
         for scope in available_scopes:
             if isinstance(scope, AllScope):
@@ -946,7 +946,7 @@ class PurgeCommand(ToolkitCommand):
             else:
                 raise RuntimeError("Bug in Toolkit: unexpected scope type returned from check_available_scopes")
         if space is not None and space not in space_ids:
-            raise client.tool.token.create_error(
+            raise client.token.create_error(
                 [DataModelsAcl(actions=["READ"], scope=SpaceIDScope(space_ids=[space]))],
                 action="reading data models",
             )
@@ -957,16 +957,16 @@ class PurgeCommand(ToolkitCommand):
                 )
             )
         elif space is None:
-            raise client.tool.token.create_error(
+            raise client.token.create_error(
                 [DataModelsAcl(actions=["READ"], scope=AllScope())],
                 action="reading data models",
             )
         return
 
     def validate_timeseries_access(self, client: ToolkitClient) -> None:
-        available_scopes = client.tool.token.check_available_scopes(TimeSeriesAcl, ["READ", "WRITE"])
+        available_scopes = client.token.check_available_scopes(TimeSeriesAcl, ["READ", "WRITE"])
         if not available_scopes:
-            error = client.tool.token.create_error(
+            error = client.token.create_error(
                 [TimeSeriesAcl(actions=["READ", "WRITE"], scope=AllScope())],
                 action="unlinking time series",
             )
@@ -992,9 +992,9 @@ class PurgeCommand(ToolkitCommand):
         return
 
     def validate_file_access(self, client: ToolkitClient) -> None:
-        available_scopes = client.tool.token.check_available_scopes(FilesAcl, ["READ", "WRITE"])
+        available_scopes = client.token.check_available_scopes(FilesAcl, ["READ", "WRITE"])
         if not available_scopes:
-            error = client.tool.token.create_error(
+            error = client.token.create_error(
                 [FilesAcl(actions=["READ", "WRITE"], scope=AllScope())],
                 action="unlinking files",
             )
@@ -1076,14 +1076,14 @@ class PurgeCommand(ToolkitCommand):
     ) -> None:
         node_items = {InstanceId(instance_id=item.item): item for item in page.items if isinstance(item.item, NodeId)}
         if node_items:
-            timeseries = client.tool.timeseries.retrieve(list(node_items.keys()), ignore_unknown_ids=True)
+            timeseries = client.timeseries.retrieve(list(node_items.keys()), ignore_unknown_ids=True)
             migrated_timeseries_ids = {
                 InternalId(id=ts.id): InstanceId(instance_id=ts.instance_id)
                 for ts in timeseries
                 if ts.instance_id and ts.pending_instance_id
             }
             if not dry_run and timeseries:
-                client.tool.timeseries.unlink_instance_ids(list(migrated_timeseries_ids.keys()))
+                client.timeseries.unlink_instance_ids(list(migrated_timeseries_ids.keys()))
                 for internal_id, value in migrated_timeseries_ids.items():
                     data_item = node_items[value]
                     logger.log(
@@ -1115,14 +1115,14 @@ class PurgeCommand(ToolkitCommand):
     ) -> None:
         node_items = {InstanceId(instance_id=item.item): item for item in page.items if isinstance(item.item, NodeId)}
         if node_items:
-            files = client.tool.filemetadata.retrieve(list(node_items.keys()), ignore_unknown_ids=True)
+            files = client.filemetadata.retrieve(list(node_items.keys()), ignore_unknown_ids=True)
             migrated_file_ids = {
                 InternalId(id=file.id): InstanceId(instance_id=file.instance_id)
                 for file in files
                 if file.instance_id and file.pending_instance_id
             }
             if not dry_run and files:
-                client.tool.filemetadata.unlink_instance_ids(list(migrated_file_ids.keys()))
+                client.filemetadata.unlink_instance_ids(list(migrated_file_ids.keys()))
                 for internal_id, value in migrated_file_ids.items():
                     data_item = node_items[value]
                     logger.log(

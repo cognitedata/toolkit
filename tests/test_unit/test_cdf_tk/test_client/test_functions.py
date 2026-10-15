@@ -47,7 +47,7 @@ class TestFunctionsAPI:
             )
             respx_mock.post(url).mock(side_effect=responses)
 
-            results = client.tool.functions.create([fun])
+            results = client.functions.create([fun])
         assert len(results) == 1
         result = results[0]
         assert result.external_id == "test_function"
@@ -74,7 +74,7 @@ class TestFunctionsAPI:
             )
 
             with pytest.raises(ToolkitAPIError) as exc_info:
-                client.tool.functions.create([fun])
+                client.functions.create([fun])
         assert console.print.call_count == global_config.max_retries
         assert "Too many requests" in str(exc_info.value)
         assert (
@@ -98,7 +98,7 @@ class TestFunctionsAPI:
             )
 
             with pytest.raises(ToolkitAPIError) as exc_info:
-                client.tool.functions.create([fun])
+                client.functions.create([fun])
         assert console.print.call_count == 0
         assert "Too many requests" in str(exc_info.value)
 
@@ -113,7 +113,7 @@ class TestFunctionsAPI:
         respx_mock.post(url).mock(return_value=Response(status_code=401, json={"error": "Unauthorized"}))
 
         with pytest.raises(ToolkitAPIError) as exc_info:
-            client.tool.functions.create([fun])
+            client.functions.create([fun])
 
         assert "401" in str(exc_info.value)
         assert "Unauthorized" in str(exc_info.value)
@@ -131,7 +131,7 @@ class TestFunctionsAPI:
         respx_mock.post(url).mock(return_value=Response(status_code=200, json={}))
 
         # Should not raise any exception
-        client.tool.functions.delete([ExternalId(external_id="test_function")], ignore_unknown_ids=True)
+        client.functions.delete([ExternalId(external_id="test_function")], ignore_unknown_ids=True)
 
         assert len(respx_mock.calls) == 1
         call = respx_mock.calls[0]
@@ -159,7 +159,7 @@ class TestFunctionsAPI:
             respx_mock.post(url).mock(side_effect=responses)
 
             # Should not raise any exception
-            client.tool.functions.delete([ExternalId(external_id="test_function")], ignore_unknown_ids=True)
+            client.functions.delete([ExternalId(external_id="test_function")], ignore_unknown_ids=True)
         assert console.print.call_count == global_config.max_retries - 1
         assert console.print.call_args.args[1] == (
             "Rate limit exceeded for the '/functions/delete' endpoint. Retrying after 42.0 seconds."
@@ -180,7 +180,7 @@ class TestFunctionsAPI:
 
         respx_mock.get(url).mock(return_value=Response(status_code=200, json=limits_response))
 
-        limits = client.tool.functions.limits()
+        limits = client.functions.limits()
 
         assert limits.timeout_minutes == 10
         assert limits.cpu_cores.min == 0.1
@@ -217,7 +217,7 @@ class TestFunctionsAPI:
             )
         )
 
-        activation = getattr(client.tool.functions, method)()
+        activation = getattr(client.functions, method)()
 
         assert activation.status == "requested"
         assert len(respx_mock.calls) == 1

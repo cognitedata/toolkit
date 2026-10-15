@@ -168,7 +168,7 @@ class TestIdentityProvider:
 class TestAuthStatus:
     def test_collect_reports_method_projects_and_merged_access(self) -> None:
         client = _status_client()
-        client.tool.token.inspect.return_value = _inspect_response()
+        client.token.inspect.return_value = _inspect_response()
         client.project.organization.return_value = _organization("https://login.windows.net/dummy/oauth2/token")
         client.project.status.return_value = ProjectStatusList.model_validate(
             {
@@ -221,7 +221,7 @@ class TestAuthStatus:
 
     def test_invalid_token_is_not_authenticated(self) -> None:
         client = _status_client()
-        client.tool.token.inspect.side_effect = ToolkitAPIError("Invalid token")
+        client.token.inspect.side_effect = ToolkitAPIError("Invalid token")
         report = collect_auth_status(client, _environment())
         assert (report.authenticated, report.method_label, report.failure) == (
             False,
@@ -252,7 +252,7 @@ class TestAuthStatus:
             LOGIN_FLOW="session",
         )
         client = _status_client()
-        client.tool.token.inspect.return_value = _inspect_response()
+        client.token.inspect.return_value = _inspect_response()
         client.project.organization.return_value = _organization("https://auth.cognite.com/oauth2/token")
         client.project.status.return_value = ProjectStatusList.model_validate(
             {"items": [{"urlName": CDF_PROJECT, "dataModelingStatus": "HYBRID"}]}
@@ -317,7 +317,7 @@ class TestAuthStatus:
 
     def test_render_verbose_output(self) -> None:
         client = _status_client()
-        client.tool.token.inspect.return_value = _inspect_response()
+        client.token.inspect.return_value = _inspect_response()
         client.project.organization.return_value = _organization("https://login.windows.net/dummy/oauth2/token")
         client.project.status.return_value = ProjectStatusList.model_validate(
             {"items": [{"urlName": CDF_PROJECT, "dataModelingStatus": "HYBRID"}]}

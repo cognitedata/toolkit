@@ -76,7 +76,7 @@ def deployed_transformation_notification(
         transformation_external_id=deployed_transformation.external_id,
     )
 
-    existing = toolkit_client.tool.transformations.notifications.list(
+    existing = toolkit_client.transformations.notifications.list(
         filter=TransformationNotificationFilter(
             transformation_external_id=deployed_transformation.external_id, destination=notification.destination
         ),
@@ -84,7 +84,7 @@ def deployed_transformation_notification(
     )
     if existing:
         return existing[0]
-    return toolkit_client.tool.transformations.notifications.create([notification])[0]
+    return toolkit_client.transformations.notifications.create([notification])[0]
 
 
 class TestDumpTransformation:
