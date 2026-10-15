@@ -13,29 +13,17 @@ Always sync with optional dependencies before running linters or tests — CI do
 uv sync --all-extras
 ```
 
-Plain `uv sync` omits `pyarrow` (under the `[table]` extra). That changes mypy's view of optional code such as
-`cognite_toolkit/_cdf_tk/utils/fileio/_writers.py`: ignores can look unused locally while CI still needs them,
-or the other way around. Use `uv sync --all-extras` in every clone and worktree.
+Plain `uv sync` omits `pyarrow` (under the `[table]` extra). That changes the type checker's view of optional code
+such as `cognite_toolkit/_cdf_tk/utils/fileio/_writers.py`. Use `uv sync --all-extras` in every clone and worktree.
 
-Run mypy only via the project venv (same invocation as pre-commit):
+Type checking is done by `ty` through pre-commit, using the project venv (`.venv`):
 
 ```bash
-uv run mypy cognite_toolkit/ tests_smoke/ --config-file pyproject.toml
+uv run pre-commit run ty --all-files
 ```
-
-Do not use a global `mypy` from `~/.local/bin` or single-file mypy on `_writers.py` — results differ from CI.
 
 ## Troubleshooting
 
-### mypy: command not found
+### Never use `--no-verify` to bypass pre-commit
 
-If pre-commit fails with `mypy: command not found`, run it explicitly via the project venv:
-
-```bash
-uv run mypy cognite_toolkit/ tests_smoke/ --config-file pyproject.toml
-```
-
-### Never use `--no-verify` to bypass mypy
-
-Do **not** commit with `git commit --no-verify` to bypass a mypy failure. Fix the error instead.
-If the error is on a line that already has a `# type: ignore` comment that CI needs, do not remove it.
+Do **not** commit with `git commit --no-verify` to bypass a type-checking failure. Fix the error instead.
