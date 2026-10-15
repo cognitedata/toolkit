@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from collections.abc import Mapping
 from typing import Any, Literal
 
@@ -55,11 +57,26 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import Wor
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowVersionRequest,
 )
+from tests.constants import REPO_ROOT
 from tests.test_unit.test_cdf_tk.test_client.data import (
     CDFResource,
     get_example_minimum_responses,
     iterate_cdf_resources,
 )
+
+_SERIALIZE_ALL_RESOURCES_SCRIPT = """
+from tests.test_unit.test_cdf_tk.test_client.data import iterate_cdf_resources
+
+for param in iterate_cdf_resources():
+    resource = param.values[0]
+    try:
+        response = resource.response_cls.model_validate(resource.example_data)
+        response.dump()
+        if resource.is_as_request_possible:
+            response.as_request_resource().dump()
+    except Exception as error:
+        print(f"{param.id}: {type(error).__name__}: {error}")
+"""
 
 
 class TestAPIDataClasses:
@@ -81,6 +98,21 @@ class TestAPIDataClasses:
             assert isinstance(str(resource_id), str), "Resource ID string representation failed"
         if resource.is_dump_equal_to_example:
             assert response_instance.dump() == data
+
+    def test_serialization_with_unbuilt_nested_models(self) -> None:
+        # Models defer building their schema to first use, and validating a parent does not build its nested models.
+        # Serializing an unbuilt nested model by type inference (an Any field or a field_serializer returning it)
+        # fails. Run in a fresh interpreter, as other tests in this process may already have built the nested models.
+        result = subprocess.run(
+            [sys.executable, "-c", _SERIALIZE_ALL_RESOURCES_SCRIPT],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == "", f"Failed to serialize:\n{result.stdout}"
 
     @pytest.mark.parametrize("resource", list(iterate_cdf_resources()))
     def test_as_update(self, resource: CDFResource) -> None:

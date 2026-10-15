@@ -12,29 +12,12 @@ from pydantic_core import PydanticUndefined
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, sanitize_filename, yaml_safe_dump
 
 
-class DeferredBuildModel(BaseModel):
-    """Base class that defers building the pydantic schema until the model is first used.
-
-    Building the schemas of all models at import time is expensive and slows down every CLI call.
-    """
-
-    model_config = ConfigDict(defer_build=True)
-
-    def model_post_init(self, __context: Any) -> None:
-        super().model_post_init(__context)
-        # Instances validated as part of a parent model do not trigger a build of their own class.
-        # pydantic-core requires a built serializer when it serializes such an instance by type inference,
-        # for example, through an Any field or a field_serializer that returns the instance.
-        cls = type(self)
-        if not cls.__pydantic_complete__:
-            cls.model_rebuild()
-
-
-class BaseModelObject(DeferredBuildModel):
+class BaseModelObject(BaseModel):
     """Base class for all object. This includes resources and nested objects."""
 
     # We allow extra fields to support forward compatibility.
-    model_config = ConfigDict(alias_generator=to_camel, extra="allow", populate_by_name=True)
+    # Building schemas is deferred to first use, since building all of them at import slows down every CLI call.
+    model_config = ConfigDict(alias_generator=to_camel, extra="allow", populate_by_name=True, defer_build=True)
 
     def model_post_init(self, __context: Any) -> None:
         super().model_post_init(__context)

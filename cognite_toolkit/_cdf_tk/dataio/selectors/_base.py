@@ -2,10 +2,9 @@ from abc import ABC
 from pathlib import Path
 from typing import Annotated, TypeAlias
 
-from pydantic import ConfigDict, Field, PlainValidator
+from pydantic import BaseModel, ConfigDict, Field, PlainValidator
 from pydantic.alias_generators import to_camel
 
-from cognite_toolkit._cdf_tk.client._resource_base import DeferredBuildModel
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.text import to_sentence_case
@@ -21,10 +20,10 @@ def _check_is_sanitized_filename(value: str) -> str:
 DirectoryName: TypeAlias = Annotated[str, PlainValidator(_check_is_sanitized_filename)]
 
 
-class SelectorObject(DeferredBuildModel):
+class SelectorObject(BaseModel):
     """This is used as base class for all selector objects including nested ones."""
 
-    model_config = ConfigDict(frozen=True, alias_generator=to_camel, populate_by_name=True)
+    model_config = ConfigDict(frozen=True, alias_generator=to_camel, populate_by_name=True, defer_build=True)
 
 
 class DataSelector(SelectorObject, ABC):
