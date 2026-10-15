@@ -181,7 +181,12 @@ class TestExternalDataSourceResourceClasses:
 
     def test_write_credentials_require_client_secret(self) -> None:
         with pytest.raises(ValidationError):
-            OneLakeCredentialsWrite(client_id="id", tenant_id="tenant")
+            OneLakeCredentialsWrite.model_validate(
+                {
+                    "clientId": "id",
+                    "tenantId": "tenant",
+                }
+            )
 
     def test_request_as_id(self) -> None:
         request = OneLakeExternalDataSourceRequest(
@@ -221,16 +226,18 @@ class TestExternalDataSourceResourceClasses:
 
     def test_snowflake_request_requires_expiry_time(self) -> None:
         with pytest.raises(ValidationError, match="expiryTime"):
-            SnowflakeExternalDataSourceRequest(
-                external_id="snowflake-prod",
-                settings=SnowflakeSettingsWrite(
-                    credentials=SnowflakeCredentialsWrite(
-                        account_identifier="myorg-myaccount",
-                        user_name="cdf_user",
-                        role_name="CDF_ROLE",
-                    ),
-                    location_description=SnowflakeLocationDescription(warehouse_name="CDF_WH"),
-                ),
+            SnowflakeExternalDataSourceRequest.model_validate(
+                {
+                    "externalId": "snowflake-prod",
+                    "settings": {
+                        "credentials": {
+                            "accountIdentifier": "myorg-myaccount",
+                            "userName": "cdf_user",
+                            "roleName": "CDF_ROLE",
+                        },
+                        "locationDescription": {"warehouseName": "CDF_WH"},
+                    },
+                }
             )
 
     def test_response_default_format(self) -> None:
