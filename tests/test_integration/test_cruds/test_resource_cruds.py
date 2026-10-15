@@ -494,7 +494,7 @@ def container_ephemeral(cognite_client: CogniteClient, toolkit_space: dm.Space) 
 
 @pytest.fixture(scope="module")
 def container_persistent(toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> ContainerResponse:
-    return toolkit_client.tool.containers.create(
+    return toolkit_client.containers.create(
         [
             ContainerRequest(
                 space=toolkit_space.space,
@@ -665,7 +665,7 @@ class TestGroupLoader:
         )
         group_id: InternalId | None = None
         try:
-            created_ts = toolkit_client.tool.timeseries.create([to_delete])[0]
+            created_ts = toolkit_client.timeseries.create([to_delete])[0]
             group = GroupRequest(
                 name="test_dump_cdf_group_with_invalid_reference",
                 source_id="1234-dummy",
@@ -673,11 +673,11 @@ class TestGroupLoader:
                     GroupCapability(acl=TimeSeriesAcl(actions=["READ"], scope=IDScopeLowerCase(ids=[created_ts.id])))
                 ],
             )
-            created_group_list = toolkit_client.tool.groups.create([group])
+            created_group_list = toolkit_client.groups.create([group])
             assert len(created_group_list) == 1
             created_group = created_group_list[0]
             group_id = created_group.as_request_resource().as_id()
-            toolkit_client.tool.timeseries.delete([to_delete.as_id()])
+            toolkit_client.timeseries.delete([to_delete.as_id()])
 
             loader = GroupIO.create_io(toolkit_client)
 
@@ -688,10 +688,10 @@ class TestGroupLoader:
             assert len(capabilities) == 1
             assert capabilities[0] == {"timeSeriesAcl": {"actions": ["READ"], "scope": {"idscope": {"ids": []}}}}
         finally:
-            toolkit_client.tool.timeseries.delete([to_delete.as_id()], ignore_unknown_ids=True)
+            toolkit_client.timeseries.delete([to_delete.as_id()], ignore_unknown_ids=True)
             if group_id:
                 with suppress(CogniteAPIError):
-                    toolkit_client.tool.groups.delete([group_id])
+                    toolkit_client.groups.delete([group_id])
 
 
 class TestWorkflowVersionLoader:
@@ -937,7 +937,7 @@ class TestNodeLoader:
             updated = retry_on_deadlock(lambda: loader.update([updated_node]))
             assert len(updated) == 1
 
-            retrieved = toolkit_client.tool.instances.retrieve(
+            retrieved = toolkit_client.instances.retrieve(
                 [existing_node.as_id()],
                 source=ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
             )
@@ -1067,7 +1067,7 @@ class TestFunctionLoader:
         finally:
             if created:
                 with contextlib.suppress(ToolkitAPIError):
-                    client.tool.functions.delete([ExternalId(external_id=external_id)])
+                    client.functions.delete([ExternalId(external_id=external_id)])
 
                 cognite_client.data_modeling.instances.delete((toolkit_space.space, external_id))
 
@@ -1382,9 +1382,9 @@ def persistent_hosted_extractor_mapping(toolkit_client: ToolkitClient) -> Hosted
         ),
         published=True,
     )
-    if existing := toolkit_client.tool.hosted_extractors.mappings.retrieve([mapping.as_id()], ignore_unknown_ids=True):
+    if existing := toolkit_client.hosted_extractors.mappings.retrieve([mapping.as_id()], ignore_unknown_ids=True):
         return existing[0]
-    created = toolkit_client.tool.hosted_extractors.mappings.create([mapping])
+    created = toolkit_client.hosted_extractors.mappings.create([mapping])
     assert len(created) == 1
     return created[0]
 
@@ -1397,9 +1397,9 @@ def persistent_hosted_extractor_source(toolkit_client: ToolkitClient) -> HostedE
         event_hub_name="my-event-hub",
         authentication=BasicAuthenticationRequest(username="my-username", password="my-password"),
     )
-    if existing := toolkit_client.tool.hosted_extractors.sources.retrieve([source.as_id()], ignore_unknown_ids=True):
+    if existing := toolkit_client.hosted_extractors.sources.retrieve([source.as_id()], ignore_unknown_ids=True):
         return existing[0]
-    created = toolkit_client.tool.hosted_extractors.sources.create([source])
+    created = toolkit_client.hosted_extractors.sources.create([source])
     assert len(created) == 1
     return created[0]
 
@@ -1407,7 +1407,7 @@ def persistent_hosted_extractor_source(toolkit_client: ToolkitClient) -> HostedE
 @pytest.fixture(scope="session")
 def persistent_hosted_extractor_destination(toolkit_client: ToolkitClient) -> HostedExtractorDestinationResponse:
     external_id = "toolkit_test_hosted_extractor_destination_persistent"
-    if existing := toolkit_client.tool.hosted_extractors.destinations.retrieve(
+    if existing := toolkit_client.hosted_extractors.destinations.retrieve(
         [ExternalId(external_id=external_id)], ignore_unknown_ids=True
     ):
         return existing[0]
@@ -1418,7 +1418,7 @@ def persistent_hosted_extractor_destination(toolkit_client: ToolkitClient) -> Ho
         description="Integration test hosted extractor destination",
         credentials=Credentials(nonce=session.nonce),
     )
-    created = toolkit_client.tool.hosted_extractors.destinations.create([destination])
+    created = toolkit_client.hosted_extractors.destinations.create([destination])
     assert len(created) == 1
     return created[0]
 

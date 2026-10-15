@@ -78,7 +78,7 @@ class ResourceViewMappingIO(
 
     def prerequisite_warning(self) -> str | None:
         view_id = RESOURCE_MAPPING_VIEW_ID
-        views = self.client.tool.views.retrieve([view_id])
+        views = self.client.views.retrieve([view_id])
         if len(views) > 0:
             return None
         return f"{self.display_name} requires the {view_id!s} to be deployed. run `cdf migrate prepare` to deploy it."

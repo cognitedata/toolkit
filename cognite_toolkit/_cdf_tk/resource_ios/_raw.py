@@ -94,21 +94,21 @@ class RawDatabaseIO(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDa
         return {"dbName": resource.name}
 
     def create(self, items: Sequence[RAWDatabaseRequest]) -> list[RAWDatabaseResponse]:
-        return self.client.tool.raw.databases.create(items)
+        return self.client.raw.databases.create(items)
 
     def retrieve(self, ids: Sequence[RawDatabaseId]) -> list[RAWDatabaseResponse]:
-        database_list = self.client.tool.raw.databases.list(limit=None)
+        database_list = self.client.raw.databases.list(limit=None)
         target_dbs = {db.name for db in ids}
         return [db for db in database_list if db.name in target_dbs]
 
     def delete(self, ids: Sequence[RawDatabaseId]) -> list[RawDatabaseId]:
         ids_list = list(ids)
         try:
-            self.client.tool.raw.databases.delete(ids_list)
+            self.client.raw.databases.delete(ids_list)
         except ToolkitAPIError as e:
             # Bug in API, missing is returned as failed
             if e.missing and (remaining := [db for db in ids_list if db.name not in e.missing]):
-                self.client.tool.raw.databases.delete(remaining)
+                self.client.raw.databases.delete(remaining)
                 return remaining
             if e.code == 404 and "not found" in e.message and "database" in e.message:
                 return []
@@ -121,14 +121,14 @@ class RawDatabaseIO(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDa
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[RAWDatabaseResponse]:
-        for databases in self.client.tool.raw.databases.iterate(limit=None):
+        for databases in self.client.raw.databases.iterate(limit=None):
             yield from databases
 
     def count(self, ids: Sequence[RawDatabaseId]) -> int:
         nr_of_tables = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.name), key=lambda x: x.name):
             try:
-                tables = self.client.tool.raw.tables.list(db_name=db_name, limit=None)
+                tables = self.client.raw.tables.list(db_name=db_name, limit=None)
             except CogniteAPIError as e:
                 if db_name in {item.get("name") for item in e.missing or []}:
                     continue
@@ -140,13 +140,13 @@ class RawDatabaseIO(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDa
         nr_of_tables = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.name), key=lambda x: x.name):
             try:
-                existing = self.client.tool.raw.tables.list(db_name=db_name, limit=None)
+                existing = self.client.raw.tables.list(db_name=db_name, limit=None)
             except ToolkitAPIError as e:
                 if db_name in {item.get("name") for item in e.missing or []}:
                     continue
                 raise e
             if existing:
-                self.client.tool.raw.tables.delete([table.as_id() for table in existing])
+                self.client.raw.tables.delete([table.as_id() for table in existing])
                 nr_of_tables += len(existing)
         return nr_of_tables
 
@@ -218,14 +218,14 @@ class RawTableIO(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableRespon
         return {"dbName": resource.db_name, "tableName": resource.name}
 
     def create(self, items: Sequence[RAWTableRequest]) -> list[RAWTableResponse]:
-        return self.client.tool.raw.tables.create(items)
+        return self.client.raw.tables.create(items)
 
     def retrieve(self, ids: Sequence[RawTableId]) -> list[RAWTableResponse]:
         retrieved: list[RAWTableResponse] = []
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             expected_tables = {table.name for table in raw_tables}
             try:
-                tables = self.client.tool.raw.tables.list(db_name=db_name, limit=None)
+                tables = self.client.raw.tables.list(db_name=db_name, limit=None)
             except ToolkitAPIError as e:
                 if db_name in {item.get("name") for item in e.missing or []}:
                     continue
@@ -240,7 +240,7 @@ class RawTableIO(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableRespon
             if not tables_to_delete:
                 continue
             try:
-                self.client.tool.raw.tables.delete(tables_to_delete)
+                self.client.raw.tables.delete(tables_to_delete)
             except ToolkitAPIError as e:
                 if e.code != 404:
                     raise e
@@ -248,7 +248,7 @@ class RawTableIO(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableRespon
                 if "not found" in e.message and "database" in e.message:
                     continue
                 if remaining := [t for t in tables_to_delete if t.name not in missing]:
-                    self.client.tool.raw.tables.delete(remaining)
+                    self.client.raw.tables.delete(remaining)
                     tables_to_delete = remaining
                 else:
                     # Table does not exist.
@@ -263,12 +263,12 @@ class RawTableIO(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableRespon
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[RAWTableResponse]:
         if parent_ids is None:
-            dbs = self.client.tool.raw.databases.list(limit=None)
+            dbs = self.client.raw.databases.list(limit=None)
             parent_ids = [RawDatabaseId(name=db.name) for db in dbs]
         for parent_id in parent_ids:
             if not isinstance(parent_id, NameId):
                 continue
-            for tables in self.client.tool.raw.tables.iterate(db_name=parent_id.name, limit=None):
+            for tables in self.client.raw.tables.iterate(db_name=parent_id.name, limit=None):
                 yield from tables
 
     def count(self, ids: Sequence[RawTableId]) -> int:

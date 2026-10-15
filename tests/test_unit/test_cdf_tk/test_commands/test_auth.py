@@ -80,8 +80,8 @@ def _setup_verify_mocks(
     client.config.project = CDF_PROJECT
     client.config.is_private_link = False
 
-    client.tool.token.inspect.return_value = _create_inspect_response()
-    client.tool.token.verify_acls.return_value = []
+    client.token.inspect.return_value = _create_inspect_response()
+    client.token.verify_acls.return_value = []
 
     _user = user_groups
     _all = all_cdf_groups
@@ -89,7 +89,7 @@ def _setup_verify_mocks(
     def groups_list(all_groups: bool = False) -> list[GroupResponse]:
         return _all if all_groups else _user
 
-    client.tool.groups.list.side_effect = groups_list
+    client.groups.list.side_effect = groups_list
 
     status_mock = MagicMock()
     status_mock.this_project.data_modeling_status = data_modeling_status
@@ -99,7 +99,7 @@ def _setup_verify_mocks(
 
     func_status = MagicMock()
     func_status.status = "activated"
-    client.tool.functions.status.return_value = func_status
+    client.functions.status.return_value = func_status
 
 
 class TestAuthCommand:
@@ -167,8 +167,8 @@ class TestAuthCommand:
     def test_auth_verify_no_group_access(self) -> None:
         with monkeypatch_toolkit_client() as client:
             client.config.project = CDF_PROJECT
-            client.tool.token.inspect.return_value = _create_inspect_response()
-            client.tool.token.verify_acls.return_value = [AssetsAcl(actions=["READ"], scope=AllScope())]
+            client.token.inspect.return_value = _create_inspect_response()
+            client.token.verify_acls.return_value = [AssetsAcl(actions=["READ"], scope=AllScope())]
 
             cmd = AuthCommand(print_warning=False)
             with pytest.raises(AuthorizationError) as exc_info:
@@ -197,8 +197,8 @@ class TestAuthCommand:
                 source_id="test-source-id",
                 capabilities=[GroupCapability(acl=acl) for acl in required_acls],
             )
-            client.tool.groups.create.return_value = [updated_group]
-            client.tool.groups.delete.return_value = None
+            client.groups.create.return_value = [updated_group]
+            client.groups.delete.return_value = None
 
             monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.auth.command.Prompt.ask", lambda *a, **k: None)
             with MockQuestionary(
@@ -210,7 +210,7 @@ class TestAuthCommand:
                 result = cmd.verify(client, dry_run=False, no_prompt=False)
 
             assert result.toolkit_group_id is not None
-            client.tool.groups.create.assert_called_once()
+            client.groups.create.assert_called_once()
 
 
 def test_get_capabilities_by_loader_hybrid_project() -> None:
@@ -255,8 +255,8 @@ def test_update_missing_capabilities_dm_only_project() -> None:
         ],
     )
     with monkeypatch_toolkit_client() as client:
-        client.tool.groups.create.return_value = [created_response]
-        client.tool.groups.delete.return_value = None
+        client.groups.create.return_value = [created_response]
+        client.groups.delete.return_value = None
 
         result = AuthCommand()._update_missing_capabilities(
             client,
@@ -268,8 +268,8 @@ def test_update_missing_capabilities_dm_only_project() -> None:
         )
 
     assert result is True
-    client.tool.groups.create.assert_called_once()
-    created_group_request = client.tool.groups.create.call_args[0][0][0]
+    client.groups.create.assert_called_once()
+    created_group_request = client.groups.create.call_args[0][0][0]
     assert len(created_group_request.capabilities) == 1
     assert isinstance(created_group_request.capabilities[0].acl, StreamsAcl)
 
@@ -301,8 +301,8 @@ def test_update_missing_capabilities_drops_source_id_when_members_present() -> N
         ],
     )
     with monkeypatch_toolkit_client() as client:
-        client.tool.groups.create.return_value = [created_response]
-        client.tool.groups.delete.return_value = None
+        client.groups.create.return_value = [created_response]
+        client.groups.delete.return_value = None
 
         result = AuthCommand()._update_missing_capabilities(
             client,
@@ -314,7 +314,7 @@ def test_update_missing_capabilities_drops_source_id_when_members_present() -> N
         )
 
     assert result is True
-    client.tool.groups.create.assert_called_once()
-    created_group_request = client.tool.groups.create.call_args[0][0][0]
+    client.groups.create.assert_called_once()
+    created_group_request = client.groups.create.call_args[0][0][0]
     assert created_group_request.members == ["service-account@example.com"]
     assert created_group_request.source_id is None

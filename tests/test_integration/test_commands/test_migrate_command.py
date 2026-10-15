@@ -292,17 +292,17 @@ def cdm_file(
         external_id="cdm_file_testing_migrate_linked_file",
         name="CDM file testing migrate linked file",
     )
-    exiting = client.tool.cognite_files.retrieve([node.as_id()])
+    exiting = client.cognite_files.retrieve([node.as_id()])
     instance_id = node.as_instance_id()
     if len(exiting) == 1 and exiting[0].is_uploaded:
-        return client.tool.filemetadata.retrieve([instance_id])[0]
+        return client.filemetadata.retrieve([instance_id])[0]
 
-    _ = client.tool.cognite_files.create([node])
+    _ = client.cognite_files.create([node])
 
-    file = client.tool.filemetadata.get_upload_url([node.as_instance_id()])[0]
+    file = client.filemetadata.get_upload_url([node.as_instance_id()])[0]
     upload_url = file.upload_url
     assert upload_url is not None
-    _ = client.tool.filemetadata.upload_file("This is the CDM file content", upload_url, mime_type="text/plain")
+    _ = client.filemetadata.upload_file("This is the CDM file content", upload_url, mime_type="text/plain")
     request = RequestMessage(
         endpoint_url=client.config.create_api_url("/files/update"),
         method="POST",

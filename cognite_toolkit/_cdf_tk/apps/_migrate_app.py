@@ -247,7 +247,7 @@ class MigrateApp(typer.Typer):
             # Interactive model
             selector = AssetInteractiveSelect(client, "migrate")
             data_set = selector.select_data_sets()
-            selected_datasets = client.tool.datasets.retrieve(
+            selected_datasets = client.datasets.retrieve(
                 ExternalId.from_external_ids(data_set), ignore_unknown_ids=True
             )
             if any(
@@ -1815,7 +1815,7 @@ class MigrateApp(typer.Typer):
             verify_threed_dm_migration_enabled(client)
         cmd = MigrationCommand(client=client)
 
-        legacy_site_count = client.tool.events.cardinality(("metadata", "site_id"))
+        legacy_site_count = client.events.cardinality(("metadata", "site_id"))
         if legacy_site_count:
             client.console.print(
                 Panel(

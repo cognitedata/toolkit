@@ -216,18 +216,18 @@ class ExtractionPipelineIO(
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[ExtractionPipelineRequest]) -> list[ExtractionPipelineResponse]:
-        return self.client.tool.extraction_pipelines.create(list(items))
+        return self.client.extraction_pipelines.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ExtractionPipelineResponse]:
-        return self.client.tool.extraction_pipelines.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.extraction_pipelines.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[ExtractionPipelineRequest]) -> list[ExtractionPipelineResponse]:
-        return self.client.tool.extraction_pipelines.update(list(items), mode="replace")
+        return self.client.extraction_pipelines.update(list(items), mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if id_list:
-            self.client.tool.extraction_pipelines.delete(id_list, ignore_unknown_ids=True)
+            self.client.extraction_pipelines.delete(id_list, ignore_unknown_ids=True)
         return id_list
 
     def _iterate(
@@ -239,7 +239,7 @@ class ExtractionPipelineIO(
         filter: ClassicFilter | None = None
         if data_set_external_id is not None:
             filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
-        for pipelines in self.client.tool.extraction_pipelines.iterate(filter=filter, limit=None):
+        for pipelines in self.client.extraction_pipelines.iterate(filter=filter, limit=None):
             yield from pipelines
 
 
@@ -389,13 +389,13 @@ class ExtractionPipelineConfigIO(
         return super().diff_list(local, cdf, json_path)
 
     def _upsert(self, items: Sequence[ExtractionPipelineConfigRequest]) -> list[ExtractionPipelineConfigResponse]:
-        return self.client.tool.extraction_pipelines.configs.create(list(items))
+        return self.client.extraction_pipelines.configs.create(list(items))
 
     def create(self, items: Sequence[ExtractionPipelineConfigRequest]) -> list[ExtractionPipelineConfigResponse]:
         return self._upsert(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ExtractionPipelineConfigResponse]:
-        return self.client.tool.extraction_pipelines.configs.retrieve(
+        return self.client.extraction_pipelines.configs.retrieve(
             [ExtractionPipelineConfigId(external_id=pipeline_id.external_id) for pipeline_id in ids],
             ignore_unknown_ids=True,
         )
@@ -410,7 +410,7 @@ class ExtractionPipelineConfigIO(
         deleted: list[ExternalId] = []
         for id_ in ids:
             try:
-                result = self.client.tool.extraction_pipelines.configs.list(external_id=id_.external_id, limit=None)
+                result = self.client.extraction_pipelines.configs.list(external_id=id_.external_id, limit=None)
             except ToolkitAPIError as e:
                 if e.code == 403 and "not found" in e.message and "extraction pipeline" in e.message.lower():
                     continue
@@ -428,13 +428,13 @@ class ExtractionPipelineConfigIO(
     ) -> Iterable[ExtractionPipelineConfigResponse]:
         if parent_ids is None:
             parent_external_ids: Iterable[ExternalId] = (
-                pipeline.as_id() for pipeline in self.client.tool.extraction_pipelines.list(limit=None)
+                pipeline.as_id() for pipeline in self.client.extraction_pipelines.list(limit=None)
             )
         else:
             parent_external_ids = [pid for pid in parent_ids if isinstance(pid, ExternalId)]
         for parent_id in parent_external_ids:
             try:
-                yield from self.client.tool.extraction_pipelines.configs.retrieve(
+                yield from self.client.extraction_pipelines.configs.retrieve(
                     [ExtractionPipelineConfigId(external_id=parent_id.external_id)]
                 )
             except ToolkitAPIError as e:

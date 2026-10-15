@@ -220,7 +220,7 @@ class ImportTransformationCLI(ToolkitCommand):
     def _lookup_dataset(self, dataset_id: int) -> str | None:
         if dataset_id in self._dataset_external_id_by_id:
             return self._dataset_external_id_by_id[dataset_id]
-        retrieved = self.client.tool.datasets.retrieve([InternalId(id=dataset_id)], ignore_unknown_ids=True)
+        retrieved = self.client.datasets.retrieve([InternalId(id=dataset_id)], ignore_unknown_ids=True)
         dataset = retrieved[0] if retrieved else None
         if dataset is None or dataset.external_id is None:
             return None

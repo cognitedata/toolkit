@@ -52,7 +52,7 @@ class TestFileMetadataAPI:
                 external_id="my_file",
             ),
         ]
-        result = client.tool.filemetadata.set_pending_ids(items)
+        result = client.filemetadata.set_pending_ids(items)
 
         assert len(result) == 1
         assert isinstance(result[0], FileMetadataResponse)
@@ -96,7 +96,7 @@ class TestFileMetadataAPI:
             )
         )
 
-        result = client.tool.filemetadata.unlink_instance_ids(items)
+        result = client.filemetadata.unlink_instance_ids(items)
 
         assert len(result) == 1
         assert isinstance(result[0], FileMetadataResponse)
@@ -129,7 +129,7 @@ class TestFileMetadataAPI:
             )
         )
 
-        result = client.tool.filemetadata.get_multipart_upload_urls(
+        result = client.filemetadata.get_multipart_upload_urls(
             InstanceId(instance_id=NodeId(space="sp_publicwells", external_id="file_wb")),
             parts=2,
         )

@@ -62,9 +62,9 @@ def read_space(toolkit_client: ToolkitClient) -> SpaceResponse:
     """
     client = toolkit_client
     target_space = "smoke_infield_migration_read_space"
-    if spaces := client.tool.spaces.retrieve([SpaceId(space=target_space)]):
+    if spaces := client.spaces.retrieve([SpaceId(space=target_space)]):
         return spaces[0]
-    return client.tool.spaces.create(
+    return client.spaces.create(
         [
             SpaceRequest(
                 name="Smoke Infield Migration Read Space",
@@ -80,9 +80,9 @@ def target_space(toolkit_client: ToolkitClient) -> SpaceResponse:
     """This is the space where InFieldOnCDM will write data to. This is the space we are migrating to."""
     client = toolkit_client
     target_space = "smoke_infield_migration_target_space"
-    if spaces := client.tool.spaces.retrieve([SpaceId(space=target_space)]):
+    if spaces := client.spaces.retrieve([SpaceId(space=target_space)]):
         return spaces[0]
-    return client.tool.spaces.create(
+    return client.spaces.create(
         [
             SpaceRequest(
                 name="Smoke Infield Migration Target Space",
@@ -188,7 +188,7 @@ def infield_legacy(
 
     # Ensure clean state
     # Cleanup
-    deleted = client.tool.instances.delete([item.as_id() for item in instances])
+    deleted = client.instances.delete([item.as_id() for item in instances])
 
     if deleted:
         time.sleep(5)
@@ -197,14 +197,14 @@ def infield_legacy(
     for view_id in sorted_views:
         instance_batch = to_create_by_view_id[view_id]
         try:
-            _ = client.tool.instances.create(instance_batch, replace=True)
+            _ = client.instances.create(instance_batch, replace=True)
         except ToolkitAPIError as e:
             raise AssertionError(
                 f"Failed to create instance batch for view {view_id!s}. Error: {e}. Batch: {[item.as_id() for item in instance_batch]}"
             ) from e
     if edges:
         try:
-            _ = client.tool.instances.create(edges, replace=True)
+            _ = client.instances.create(edges, replace=True)
         except ToolkitAPIError as e:
             raise AssertionError(
                 f"Failed to create instance batch for edges with no view. Error: {e}. Batch: {[item.as_id() for item in edges]}"
@@ -230,18 +230,18 @@ def infield_legacy(
 
     # Ensure that the syncer has created the timeseries and files before updating.
     wait_for_resources(
-        lambda: client.tool.timeseries.retrieve(node_ids["timeseries"], ignore_unknown_ids=False), "timeseries"
+        lambda: client.timeseries.retrieve(node_ids["timeseries"], ignore_unknown_ids=False), "timeseries"
     )
     _update(client, "/timeseries/update", {"items": updates["timeseries"]})
     wait_for_resources(
-        lambda: client.tool.filemetadata.retrieve(node_ids["files"], ignore_unknown_ids=False), "filemetadata"
+        lambda: client.filemetadata.retrieve(node_ids["files"], ignore_unknown_ids=False), "filemetadata"
     )
     _update(client, "/files/update", {"items": updates["files"]})
 
     yield instances
 
     # Cleanup
-    client.tool.instances.delete([item.as_id() for item in instances])
+    client.instances.delete([item.as_id() for item in instances])
 
 
 def _update(client: ToolkitClient, endpoint: str, body: dict[str, Any]) -> None:
@@ -318,7 +318,7 @@ class TestMigrateInfield:
 
         destination_instances: list[dict[str, Any]] = []
         for view_id, node_ids in destination_by_view_id.items():
-            target_nodes = toolkit_client.tool.instances.retrieve(node_ids, source=view_id)
+            target_nodes = toolkit_client.instances.retrieve(node_ids, source=view_id)
             for node in target_nodes:
                 # Excluding "last_updated_time" and "version" as they will change for each run of the test.
                 dumped = node.model_dump(
@@ -363,7 +363,7 @@ class TestMigrateInfield:
 
         # Cleanup for next run.
         destination_node_ids = [node_id for node_ids in destination_by_view_id.values() for node_id in node_ids]
-        toolkit_client.tool.instances.delete(destination_node_ids)
+        toolkit_client.instances.delete(destination_node_ids)
 
         data_regression.check({"instances": destination_instances})
 
@@ -403,11 +403,11 @@ class TestMigrateInfield:
         tag_reference = {"space": target_space, "externalId": "smoke_tag_safety"}
         template_view_id = ViewId(space="cdf_infield", external_id="Template", version="v1")
 
-        tag_nodes = client.tool.instances.retrieve(
+        tag_nodes = client.instances.retrieve(
             [NodeId(space=target_space, external_id="smoke_tag_safety")],
             source=SOLUTION_TAG_VIEW_ID,
         )
-        template_nodes = client.tool.instances.retrieve(
+        template_nodes = client.instances.retrieve(
             [NodeId(space=target_space, external_id="87f1ce17-c510-4359-9bbe-2ec7477b2cfe")],
             source=template_view_id,
         )

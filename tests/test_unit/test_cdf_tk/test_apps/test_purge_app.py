@@ -12,7 +12,7 @@ from tests.test_unit.utils import MockQuestionary
 
 def _mock_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     with monkeypatch_toolkit_client() as client:
-        client.tool.token.verify_acls.return_value = []
+        client.token.verify_acls.return_value = []
         environment = MagicMock()
         environment.get_client.return_value = client
         monkeypatch.setattr(

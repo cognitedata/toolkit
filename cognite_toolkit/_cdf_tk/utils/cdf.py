@@ -210,9 +210,7 @@ def metadata_key_counts(
        GROUP BY key
        ORDER BY key_count DESC;
 """
-    results = client.tool.transformations.run_query_preview(
-        query, convert_to_string=False, limit=None, source_limit=None
-    )
+    results = client.transformations.run_query_preview(query, convert_to_string=False, limit=None, source_limit=None)
     return [(_query_str(item["key"], "key"), _query_int(item["key_count"], "key_count")) for item in results.results]
 
 
@@ -263,9 +261,7 @@ FROM labels
 GROUP BY label
 ORDER BY label_count DESC;
 """
-    results = client.tool.transformations.run_query_preview(
-        query, convert_to_string=False, limit=None, source_limit=None
-    )
+    results = client.transformations.run_query_preview(query, convert_to_string=False, limit=None, source_limit=None)
     return [
         (_query_str(item["label"], "label"), _query_int(item["label_count"], "label_count")) for item in results.results
     ]
@@ -308,9 +304,7 @@ GROUP BY
     sourceType,
     targetType
 """
-    results = client.tool.transformations.run_query_preview(
-        query, convert_to_string=False, limit=None, source_limit=None
-    )
+    results = client.transformations.run_query_preview(query, convert_to_string=False, limit=None, source_limit=None)
     return [
         RelationshipCount(
             _query_str(item["sourceType"], "sourceType"),
@@ -340,9 +334,7 @@ def label_aggregate_count(client: ToolkitClient, data_sets: list[int] | None = N
 FROM
     _cdf.labels{where_clause}"""
 
-    results = client.tool.transformations.run_query_preview(
-        query, convert_to_string=False, limit=None, source_limit=None
-    )
+    results = client.transformations.run_query_preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
         return _query_int(results.results[0]["labelCount"], "labelCount")
     return 0
@@ -449,9 +441,7 @@ FROM (
     LIMIT {max_count}
 ) AS limited_keys"""
 
-    results = client.tool.transformations.run_query_preview(
-        query, convert_to_string=False, limit=None, source_limit=None
-    )
+    results = client.transformations.run_query_preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
         return _query_int(results.results[0]["row_count"], "row_count")
     return 0

@@ -531,14 +531,14 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[TransformationRequest]) -> list[TransformationResponse]:
-        return self._execute_in_batches(items, self.client.tool.transformations.create)
+        return self._execute_in_batches(items, self.client.transformations.create)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[TransformationResponse]:
-        return self.client.tool.transformations.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.transformations.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[TransformationRequest]) -> list[TransformationResponse]:
         def update(transformations: Sequence[TransformationRequest]) -> list[TransformationResponse]:
-            return self.client.tool.transformations.update(list(transformations), mode="replace")
+            return self.client.transformations.update(list(transformations), mode="replace")
 
         return self._execute_in_batches(items, update)
 
@@ -566,7 +566,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
         id_list = list(ids)
         if not id_list:
             return []
-        self.client.tool.transformations.delete(id_list, ignore_unknown_ids=True)
+        self.client.transformations.delete(id_list, ignore_unknown_ids=True)
         return id_list
 
     def _execute_in_batches(
@@ -683,7 +683,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
         filter = TransformationFilter()
         if data_set_external_id is not None:
             filter.data_set_ids = [ExternalId(external_id=data_set_external_id)]
-        for transformations in self.client.tool.transformations.iterate(limit=None, filter=filter):
+        for transformations in self.client.transformations.iterate(limit=None, filter=filter):
             yield from transformations
 
     def sensitive_strings(self, item: TransformationRequest) -> Iterable[str]:
@@ -750,7 +750,7 @@ class TransformationScheduleIO(
 
     def create(self, items: Sequence[TransformationScheduleRequest]) -> list[TransformationScheduleResponse]:
         try:
-            return self.client.tool.transformations.schedules.create(list(items))
+            return self.client.transformations.schedules.create(list(items))
         except ToolkitAPIError as e:
             if not e.duplicated:
                 raise
@@ -759,19 +759,19 @@ class TransformationScheduleIO(
                 f"  [bold yellow]WARNING:[/] {len(e.duplicated)} transformation schedules already exist(s): {existing}"
             )
             new_items = [item for item in items if item.external_id not in existing]
-            return self.client.tool.transformations.schedules.create(new_items)
+            return self.client.transformations.schedules.create(new_items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[TransformationScheduleResponse]:
-        return self.client.tool.transformations.schedules.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.transformations.schedules.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[TransformationScheduleRequest]) -> list[TransformationScheduleResponse]:
-        return self.client.tool.transformations.schedules.update(list(items), mode="replace")
+        return self.client.transformations.schedules.update(list(items), mode="replace")
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if not id_list:
             return []
-        self.client.tool.transformations.schedules.delete(id_list, ignore_unknown_ids=True)
+        self.client.transformations.schedules.delete(id_list, ignore_unknown_ids=True)
         return id_list
 
     def _iterate(
@@ -781,12 +781,12 @@ class TransformationScheduleIO(
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[TransformationScheduleResponse]:
         if not parent_ids:
-            for schedules in self.client.tool.transformations.schedules.iterate(limit=None):
+            for schedules in self.client.transformations.schedules.iterate(limit=None):
                 yield from schedules
         else:
             transformation_external_ids = [parent_id for parent_id in parent_ids if isinstance(parent_id, ExternalId)]
             if transformation_external_ids:
-                yield from self.client.tool.transformations.schedules.retrieve(
+                yield from self.client.transformations.schedules.retrieve(
                     transformation_external_ids, ignore_unknown_ids=True
                 )
 
@@ -864,7 +864,7 @@ class TransformationNotificationIO(
         return sanitize_filename(f"{id.transformation_external_id}_{id.destination}")
 
     def create(self, items: Sequence[TransformationNotificationRequest]) -> list[TransformationNotificationResponse]:
-        return self.client.tool.transformations.notifications.create(list(items))
+        return self.client.transformations.notifications.create(list(items))
 
     def retrieve(self, ids: Sequence[TransformationNotificationId]) -> list[TransformationNotificationResponse]:
         unique_ids: set[ExternalId] = {ExternalId(external_id=id_.transformation_external_id) for id_ in ids}
@@ -882,7 +882,7 @@ class TransformationNotificationIO(
         # be multiple notifications for the same transformationExternalId + destination.
         existing = self.retrieve(ids)
         if existing:
-            self.client.tool.transformations.notifications.delete(InternalId.from_ids([item.id for item in existing]))
+            self.client.transformations.notifications.delete(InternalId.from_ids([item.id for item in existing]))
         return [
             TransformationNotificationId(
                 transformation_external_id=item.transformation_external_id,
@@ -899,19 +899,15 @@ class TransformationNotificationIO(
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[TransformationNotificationResponse]:
         if parent_ids is None:
-            for notifications in self.client.tool.transformations.notifications.iterate(limit=None):
+            for notifications in self.client.transformations.notifications.iterate(limit=None):
                 yield from notifications
         else:
             parent_external_ids = [parent_id for parent_id in parent_ids if isinstance(parent_id, ExternalId)]
             if parent_external_ids:
-                existing_parents = self.client.tool.transformations.retrieve(
-                    parent_external_ids, ignore_unknown_ids=True
-                )
+                existing_parents = self.client.transformations.retrieve(parent_external_ids, ignore_unknown_ids=True)
                 for parent_id in existing_parents:
                     filter = TransformationNotificationFilter(transformation_external_id=parent_id.external_id)
-                    for notifications in self.client.tool.transformations.notifications.iterate(
-                        limit=None, filter=filter
-                    ):
+                    for notifications in self.client.transformations.notifications.iterate(limit=None, filter=filter):
                         for notification in notifications:
                             # This is not set by the API.
                             notification.transformation_external_id = parent_id.external_id

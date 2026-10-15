@@ -434,34 +434,34 @@ class TestVerifyTargetSpaces:
 
     def test_missing_space_is_reported_without_listing_spaces_that_exist(self) -> None:
         client = MagicMock()
-        client.tool.spaces.retrieve.return_value = [self._space("object_space")]
+        client.spaces.retrieve.return_value = [self._space("object_space")]
 
         with pytest.raises(ToolkitMigrationError, match="cad_space"):
             verify_target_spaces_exist(client, ["object_space", "cad_space", "object_space"])
 
-        assert client.tool.spaces.retrieve.call_args == (
+        assert client.spaces.retrieve.call_args == (
             ([SpaceId(space="object_space"), SpaceId(space="cad_space")],),
             {},
         )
 
     def test_existing_project_space_is_accepted(self) -> None:
         client = MagicMock()
-        client.tool.spaces.retrieve.return_value = [self._space("plant_space")]
+        client.spaces.retrieve.return_value = [self._space("plant_space")]
 
         verify_target_spaces_exist(client, ["plant_space", "plant_space"])
 
-        assert client.tool.spaces.retrieve.call_args.args[0] == [SpaceId(space="plant_space")]
+        assert client.spaces.retrieve.call_args.args[0] == [SpaceId(space="plant_space")]
 
     def test_global_space_cannot_be_a_target(self) -> None:
         client = MagicMock()
-        client.tool.spaces.retrieve.return_value = [self._space("cdf_cdm", is_global=True)]
+        client.spaces.retrieve.return_value = [self._space("cdf_cdm", is_global=True)]
 
         with pytest.raises(ToolkitMigrationError, match="system spaces"):
             verify_target_spaces_exist(client, ["cdf_cdm"])
 
     def test_api_4xx_is_returned_unchanged(self) -> None:
         client = MagicMock()
-        client.tool.spaces.retrieve.side_effect = ToolkitAPIError(
+        client.spaces.retrieve.side_effect = ToolkitAPIError(
             "space must match the required pattern",
             code=400,
         )
@@ -471,7 +471,7 @@ class TestVerifyTargetSpaces:
 
     def test_unrelated_api_errors_propagate(self) -> None:
         client = MagicMock()
-        client.tool.spaces.retrieve.side_effect = ToolkitAPIError("unavailable", code=503)
+        client.spaces.retrieve.side_effect = ToolkitAPIError("unavailable", code=503)
 
         with pytest.raises(ToolkitAPIError, match="unavailable"):
             verify_target_spaces_exist(client, ["plant_space"])
@@ -505,7 +505,7 @@ class TestImage360CollectionInstanceIO:
         created_model = ThreeDModelClassicResponse(id=42, name="My collection", created_time=0)
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.three_d.models_classic.create.return_value = [created_model]
+            client.three_d.models_classic.create.return_value = [created_model]
             io = Image360CollectionInstanceIO(client)
             http_client = MagicMock()
             http_client.config.create_api_url.return_value = "https://example.com/models/instances"
@@ -521,7 +521,7 @@ class TestImage360CollectionInstanceIO:
 
         assert len(results) == 2
         assert http_client.request_items_retries.call_count == 2
-        client.tool.three_d.models_classic.create.assert_called_once_with(
+        client.three_d.models_classic.create.assert_called_once_with(
             [ThreeDModelDMSRequest(name="My collection", space="mySpace", type="Image360")]
         )
         patched_node = http_client.request_items_retries.call_args_list[1].kwargs["message"].items[0].item
@@ -551,7 +551,7 @@ class TestImage360CollectionInstanceIO:
             results = io.upload_items(page, http_client)
 
         assert http_client.request_items_retries.call_count == 1
-        client.tool.three_d.models_classic.create.assert_not_called()
+        client.three_d.models_classic.create.assert_not_called()
         assert len(results) == 1
 
     def test_reuses_existing_model3d_without_creating(self) -> None:
@@ -573,5 +573,5 @@ class TestImage360CollectionInstanceIO:
             results = io.upload_items(page, http_client)
 
         assert http_client.request_items_retries.call_count == 1
-        client.tool.three_d.models_classic.create.assert_not_called()
+        client.three_d.models_classic.create.assert_not_called()
         assert len(results) == 1

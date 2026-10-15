@@ -21,9 +21,9 @@ def canvas_event(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> Eve
         type="canvas_test_event",
         subtype="canvas_test_event",
     )
-    if existing := toolkit_client.tool.events.retrieve([event.as_id()]):
+    if existing := toolkit_client.events.retrieve([event.as_id()]):
         return existing[0]
-    created_event = toolkit_client.tool.events.create([event])
+    created_event = toolkit_client.events.create([event])
     assert len(created_event) == 1, f"Expected to create 1 event, but got {len(created_event)}"
     return created_event[0]
 

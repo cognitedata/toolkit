@@ -83,7 +83,7 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
         loaded = SearchConfigRequest._load(resource)
 
         if self._internal_id_by_view is None:
-            all_configs = self.client.tool.search_configurations.list()
+            all_configs = self.client.search_configurations.list()
             self._internal_id_by_view = {config.view: config.id for config in all_configs}
 
         if loaded.view in self._internal_id_by_view:
@@ -104,11 +104,11 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
         """
         Create new search configurations using the create/upsert method
         """
-        return self.client.tool.search_configurations.create(items)
+        return self.client.search_configurations.create(items)
 
     def retrieve(self, ids: Sequence[ViewNoVersionId]) -> list[SearchConfigResponse]:
         """Retrieve search configurations by their IDs"""
-        all_configs = self.client.tool.search_configurations.list()
+        all_configs = self.client.search_configurations.list()
         id_set = set(ids)
         # The API does not support server-side filtering, so we filter in memory.
         return [config for config in all_configs if config.view in id_set]
@@ -117,7 +117,7 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
         """
         Update search configurations using the update/upsert method
         """
-        return self.client.tool.search_configurations.update(items)
+        return self.client.search_configurations.update(items)
 
     def delete(self, ids: Sequence[ViewNoVersionId]) -> list[ViewNoVersionId]:
         """
@@ -136,5 +136,5 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
             # These filters are not supported for SearchConfig
             return iter([])
 
-        all_configs = self.client.tool.search_configurations.list()
+        all_configs = self.client.search_configurations.list()
         return iter(all_configs)

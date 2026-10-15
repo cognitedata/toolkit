@@ -129,7 +129,7 @@ authentication:
             client.sessions.create.return_value = [SessionCreateResponse(id=123, status="READY", nonce="my-nonce")]
             loader = WorkflowTriggerIO(client)
             loader._authentication_by_id["daily-8am-utc"] = credentials
-            client.tool.workflows.triggers.create.return_value = [
+            client.workflows.triggers.create.return_value = [
                 WorkflowTriggerResponse(
                     external_id="daily-8am-utc",
                     trigger_rule=trigger.trigger_rule,
@@ -143,8 +143,8 @@ authentication:
             loader.create([trigger])
 
         client.sessions.create.assert_called_once_with([credentials])
-        client.tool.workflows.triggers.pause.assert_not_called()
-        client.tool.workflows.triggers.resume.assert_not_called()
+        client.workflows.triggers.pause.assert_not_called()
+        client.workflows.triggers.resume.assert_not_called()
 
     @pytest.mark.parametrize(
         ("is_paused", "method_name"),
@@ -171,15 +171,15 @@ authentication:
             io._authentication_by_id["daily-8am-utc"] = ClientCredentialsSessionRequest(
                 client_id="my-client-id", client_secret="my-client-secret"
             )
-            client.tool.workflows.triggers.create.return_value = [response]
+            client.workflows.triggers.create.return_value = [response]
 
             created = io.create([trigger])
 
-        method = getattr(client.tool.workflows.triggers, method_name)
+        method = getattr(client.workflows.triggers, method_name)
         other = "resume" if method_name == "pause" else "pause"
         assert method.call_count == 1
         method.assert_called_with([trigger.as_id()])
-        getattr(client.tool.workflows.triggers, other).assert_not_called()
+        getattr(client.workflows.triggers, other).assert_not_called()
         assert created == [response]
 
     def test_dump_resource_keeps_is_paused(self, toolkit_client_cheap: ToolkitClient) -> None:

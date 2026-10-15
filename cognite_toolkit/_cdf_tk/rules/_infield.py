@@ -77,7 +77,7 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
             return
 
         unique_view_ids = list({ref[2] for ref in card_view_refs} | {ref[2] for ref in field_config_refs})
-        retrieved = self.client.tool.views.retrieve(unique_view_ids, include_inherited_properties=True)
+        retrieved = self.client.views.retrieve(unique_view_ids, include_inherited_properties=True)
         views_by_id: dict[ViewId, ViewResponse] = {v.as_id(): v for v in retrieved}
 
         for resource, card_key, view_id, required in card_view_refs:

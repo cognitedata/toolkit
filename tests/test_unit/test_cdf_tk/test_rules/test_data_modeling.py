@@ -152,9 +152,9 @@ def _client(
     data_models: list[DataModelResponse] | None = None,
 ) -> MagicMock:
     client = MagicMock()
-    client.tool.containers.retrieve.return_value = containers or []
-    client.tool.views.retrieve.return_value = views or []
-    client.tool.data_models.retrieve.return_value = data_models or []
+    client.containers.retrieve.return_value = containers or []
+    client.views.retrieve.return_value = views or []
+    client.data_models.retrieve.return_value = data_models or []
     return client
 
 
@@ -256,7 +256,7 @@ class TestContainerPropertyReferences:
     def test_container_retrieve_error_is_reported(self, tmp_path: Path) -> None:
         view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
         client = _client()
-        client.tool.containers.retrieve.side_effect = ToolkitAPIError("403 Forbidden", code=403)
+        client.containers.retrieve.side_effect = ToolkitAPIError("403 Forbidden", code=403)
         rule = DataModelingRuleSet(modules=[_module([(view_file, ViewIO, VIEW_ID)])], client=client)
 
         results = list(rule.validate())

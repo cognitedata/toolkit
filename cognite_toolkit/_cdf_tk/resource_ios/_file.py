@@ -185,7 +185,7 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
         return dumped
 
     def create(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
-        responses = self.client.tool.filemetadata.create(items, overwrite=True)
+        responses = self.client.filemetadata.create(items, overwrite=True)
         if self.support_upload:
             for response in responses:
                 self._try_upload_file_content(response)
@@ -193,10 +193,10 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
 
     def _try_upload_file_content(self, response: FileMetadataResponse) -> None:
         if response.filepath and response.upload_url:
-            self.client.tool.filemetadata.upload_file(response.filepath, response.upload_url, response.mime_type)
+            self.client.filemetadata.upload_file(response.filepath, response.upload_url, response.mime_type)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[FileMetadataResponse]:
-        return self.client.tool.filemetadata.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.filemetadata.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
         pre_update_hash_by_id: dict[str, str | None] = {}
@@ -208,14 +208,14 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
                 if r.external_id is not None:
                     pre_update_hash_by_id[r.external_id] = (r.metadata or {}).get(self._MetadataKey.FILECONTENT_HASH)
 
-        responses = self.client.tool.filemetadata.update(items, mode="replace")
+        responses = self.client.filemetadata.update(items, mode="replace")
         if self.support_upload:
             for item in items:
                 if not item.external_id:
                     continue
                 local_hash = (item.metadata or {}).get(self._MetadataKey.FILECONTENT_HASH)
                 if item.filepath and local_hash != pre_update_hash_by_id.get(item.external_id):
-                    responses_with_url = self.client.tool.filemetadata.get_upload_url([item.as_id()])
+                    responses_with_url = self.client.filemetadata.get_upload_url([item.as_id()])
                     if len(responses_with_url) != 1:
                         raise RuntimeError(
                             f"Expected to get one upload url for file with external id {item.external_id}, but got {len(responses_with_url)}"
@@ -226,7 +226,7 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)
         if id_list:
-            self.client.tool.filemetadata.delete(id_list, ignore_unknown_ids=True)
+            self.client.filemetadata.delete(id_list, ignore_unknown_ids=True)
         return id_list
 
     def _iterate(
@@ -236,16 +236,14 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[FileMetadataResponse]:
         filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
-        for files in self.client.tool.filemetadata.iterate(filter=filter_, limit=None):
+        for files in self.client.filemetadata.iterate(filter=filter_, limit=None):
             yield from files
 
     def count(self, ids: Sequence[ExternalId]) -> int:
-        return sum(
-            1 for meta in self.client.tool.filemetadata.retrieve(list(ids), ignore_unknown_ids=True) if meta.uploaded
-        )
+        return sum(1 for meta in self.client.filemetadata.retrieve(list(ids), ignore_unknown_ids=True) if meta.uploaded)
 
     def drop_data(self, ids: Sequence[ExternalId]) -> int:
-        existing = self.client.tool.filemetadata.retrieve(list(ids), ignore_unknown_ids=True)
+        existing = self.client.filemetadata.retrieve(list(ids), ignore_unknown_ids=True)
         # File and FileMetadata is tightly coupled, so we need to delete the metadata and recreate it
         # without the source set to delete the file.
         deleted_files = self.delete([meta.as_id() for meta in existing])
@@ -458,7 +456,7 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[CogniteFileRequest]) -> list[NodeId]:
-        created = self.client.tool.cognite_files.create(items)
+        created = self.client.cognite_files.create(items)
         if self.support_upload:
             for item in items:
                 self._try_upload_file_content(item)
@@ -468,15 +466,15 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
 
     def _try_upload_file_content(self, item: CogniteFileRequest) -> None:
         if item.filepath:
-            upload_urls = self.client.tool.filemetadata.get_upload_url([item.as_instance_id()])
+            upload_urls = self.client.filemetadata.get_upload_url([item.as_instance_id()])
             if upload_urls and upload_urls[0].upload_url:
-                self.client.tool.filemetadata.upload_file(item.filepath, upload_urls[0].upload_url, item.mime_type)
+                self.client.filemetadata.upload_file(item.filepath, upload_urls[0].upload_url, item.mime_type)
 
     def retrieve(self, ids: Sequence[NodeId]) -> list[CogniteFileResponse]:
-        return self.client.tool.cognite_files.retrieve(ids)
+        return self.client.cognite_files.retrieve(ids)
 
     def update(self, items: Sequence[CogniteFileRequest]) -> list[NodeId]:
-        created = self.client.tool.cognite_files.create(items)
+        created = self.client.cognite_files.create(items)
         ids = [
             NodeId(space=item.space, external_id=item.external_id) for item in created if item.instance_type == "node"
         ]
@@ -496,7 +494,7 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
         return ids
 
     def delete(self, ids: Sequence[NodeId]) -> list[NodeId]:
-        return self.client.tool.cognite_files.delete(list(ids))
+        return self.client.cognite_files.delete(list(ids))
 
     def _iterate(
         self,

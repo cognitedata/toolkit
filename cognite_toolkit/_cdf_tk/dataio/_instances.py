@@ -242,7 +242,7 @@ class InstanceIO(
                 )
         property_columns: list[SchemaColumn] = []
         if view_id is not None:
-            views = self.client.tool.views.retrieve([view_id.as_id()], include_inherited_properties=True)
+            views = self.client.views.retrieve([view_id.as_id()], include_inherited_properties=True)
             if not views:
                 raise ToolkitValueError(f"View {view_id.as_id()} not found.")
             property_columns = self._get_schema_from_view(views[0])
@@ -313,7 +313,7 @@ class InstanceIO(
                 ids = [f"{item.space}:{item.external_id}" for item in chunk]
                 self.logger.register(ids)
                 retrieved_by_id = {
-                    f"{item.space}:{item.external_id}": item for item in self.client.tool.instances.retrieve(chunk)
+                    f"{item.space}:{item.external_id}": item for item in self.client.instances.retrieve(chunk)
                 }
                 items: list[DataItem[NodeOrEdgeResponse]] = []
                 for item_id in ids:
@@ -411,7 +411,7 @@ class InstanceIO(
 
         included_groups = [group for group in query.with_ if include_root or group != query.root]
         debug_writer = self._logger.writer if isinstance(self._logger, FileWithAggregationLogger) else None
-        for batch in self.client.tool.instances.query_iterate(
+        for batch in self.client.instances.query_iterate(
             query,
             type_results=True,
             exhaust_sub_selections=True,
@@ -445,7 +445,7 @@ class InstanceIO(
         debug_writer = self._logger.writer if isinstance(self._logger, FileWithAggregationLogger) else None
         while cursor is not None or total == 0:
             page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
-            page = self.client.tool.instances.paginate(
+            page = self.client.instances.paginate(
                 instance_filter,
                 limit=page_limit,
                 cursor=cursor,
@@ -503,7 +503,7 @@ class InstanceIO(
                     if aggregate_filter is not None
                     else selector.additional_filter
                 )
-            result = self.client.tool.instances.aggregate(
+            result = self.client.instances.aggregate(
                 ViewId(
                     space=view_id.space,
                     external_id=view_id.external_id,
@@ -662,7 +662,7 @@ class InstanceIO(
         if not selector.view:
             return
         view_crud = ViewIO(self.client, topological_sort_implements=True)
-        views = self.client.tool.views.retrieve([selector.view.as_id()], include_inherited_properties=False)
+        views = self.client.views.retrieve([selector.view.as_id()], include_inherited_properties=False)
         views = [view for view in views if not view.is_global]
         if not views:
             return

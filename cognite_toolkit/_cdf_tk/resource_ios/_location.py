@@ -198,29 +198,29 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
             # These are set if lookup has been deferred
             if item.parent_external_id and item.parent_id == -1:
                 item.parent_id = self.client.lookup.location_filters.id(item.parent_external_id)
-            created.extend(self.client.tool.location_filters.create([item]))
+            created.extend(self.client.location_filters.create([item]))
         return created
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[LocationFilterResponse]:
         # Use flat=True to get all locations in a flat list
-        all_locations = self.client.tool.location_filters.list(flat=True)
+        all_locations = self.client.location_filters.list(flat=True)
         external_id_set = {ext_id.external_id for ext_id in ids}
         return [loc for loc in all_locations if loc.external_id in external_id_set]
 
     def update(self, items: Sequence[LocationFilterRequest]) -> list[LocationFilterResponse]:
-        all_locations = self.client.tool.location_filters.list(flat=True)
+        all_locations = self.client.location_filters.list(flat=True)
         ids = {loc.external_id: loc.id for loc in all_locations}
         # Set the id on each item before updating
         for item in items:
             item.id = ids[item.external_id]
-        return self.client.tool.location_filters.update(items)
+        return self.client.location_filters.update(items)
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         locations = self.retrieve(ids)
         if not locations:
             return []
         internal_ids = [InternalId(id=loc.id) for loc in locations]
-        self.client.tool.location_filters.delete(internal_ids)
+        self.client.location_filters.delete(internal_ids)
         return [ExternalId(external_id=loc.external_id) for loc in locations if loc.external_id is not None]
 
     def _iterate(
@@ -229,7 +229,7 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[LocationFilterResponse]:
-        for chunk in self.client.tool.location_filters.iterate(flat=True):
+        for chunk in self.client.location_filters.iterate(flat=True):
             yield from chunk
 
     @classmethod

@@ -166,4 +166,4 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
     def service_availability(self) -> ServicesAvailability | None:
         if not self.client:
             return None
-        return self.client.tool.agents.service_availability()
+        return self.client.agents.service_availability()

@@ -75,13 +75,13 @@ class TestDownloadFiles:
 
 def _ensure_file_metadata_content(client: ToolkitClient, data_set_id: int, external_id: str, content: str) -> None:
     identifier = ExternalId(external_id=external_id)
-    found = client.tool.filemetadata.retrieve([identifier], ignore_unknown_ids=True)
+    found = client.filemetadata.retrieve([identifier], ignore_unknown_ids=True)
     if found and found[0].uploaded:
         return
     if found:
         upload_url = _upload_url(client, identifier, external_id)
     else:
-        created = client.tool.filemetadata.create(
+        created = client.filemetadata.create(
             [
                 FileMetadataRequest(
                     name=external_id,
@@ -94,35 +94,35 @@ def _ensure_file_metadata_content(client: ToolkitClient, data_set_id: int, exter
         if not created.upload_url:
             raise AssertionError(f"CDF did not return an upload URL for file metadata {external_id}.")
         upload_url = created.upload_url
-    client.tool.filemetadata.upload_file(content, upload_url, _MIME_TYPE)
+    client.filemetadata.upload_file(content, upload_url, _MIME_TYPE)
     _wait_until_uploaded(client, identifier)
 
 
 def _ensure_cognite_file_content(client: ToolkitClient, space: str, external_id: str, content: str) -> None:
     node = CogniteFileRequest(space=space, external_id=external_id, name=external_id, mime_type=_MIME_TYPE)
     try:
-        found = client.tool.cognite_files.retrieve([node.as_id()])
+        found = client.cognite_files.retrieve([node.as_id()])
     except ToolkitAPIError:
         found = []
     if found and found[0].is_uploaded:
         return
     if not found:
-        client.tool.cognite_files.create([node])
+        client.cognite_files.create([node])
     upload_url = _upload_url(client, node.as_instance_id(), external_id)
-    client.tool.filemetadata.upload_file(content, upload_url, _MIME_TYPE)
+    client.filemetadata.upload_file(content, upload_url, _MIME_TYPE)
     _wait_until_uploaded(client, node.as_instance_id())
     _wait_until_cognite_file_uploaded(client, node.as_id())
 
 
 def _upload_url(client: ToolkitClient, identifier: ExternalId | InstanceId, label: str) -> str:
-    linked = client.tool.filemetadata.get_upload_url([identifier])
+    linked = client.filemetadata.get_upload_url([identifier])
     if not linked or not linked[0].upload_url:
         raise AssertionError(f"CDF did not return an upload URL for {label}.")
     return linked[0].upload_url
 
 
 def _file_metadata_documents(client: ToolkitClient, external_ids: list[str]) -> list[DocumentResponse]:
-    found = client.tool.filemetadata.retrieve(
+    found = client.filemetadata.retrieve(
         [ExternalId(external_id=external_id) for external_id in external_ids],
         ignore_unknown_ids=True,
     )
@@ -142,7 +142,7 @@ def _file_metadata_documents(client: ToolkitClient, external_ids: list[str]) -> 
 
 
 def _cognite_file_documents(client: ToolkitClient, space: str, external_ids: list[str]) -> list[DocumentResponse]:
-    found = client.tool.cognite_files.retrieve(
+    found = client.cognite_files.retrieve(
         [NodeId(space=space, external_id=external_id) for external_id in external_ids]
     )
     found_by_external_id = {item.external_id: item for item in found}

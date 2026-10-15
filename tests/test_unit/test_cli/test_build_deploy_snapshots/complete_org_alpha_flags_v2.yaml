@@ -50,6 +50,10 @@ AgentResponse:
     description: Run Python code to analyze time series data.
     name: Run Python code
     type: runPythonCode
+AppResponse:
+- description: Example custom app.
+  externalId: my_app
+  name: My Custom App
 AssetResponse:
 - dataSetId: 9434864499692429728
   description: This is the root asset on Drammen
@@ -550,6 +554,16 @@ SimulatorRoutineRevisionResponse:
         referenceId: ST
       order: 1
       stepType: Get
+SkillResponse:
+- content: "---\nname: my-skill\ndescription: This is a skill that does something\
+    \ useful.\n---\n\n# My Skill\n\nThis is a skill that does something useful. It\
+    \ can be used in various scenarios\nto help users achieve their goals efficiently.\
+    \ The skill is designed to be\nflexible and adaptable, making it suitable for\
+    \ a wide range of applications.\n\n```python\n\ndef hello_world():\n    return\
+    \ \"Hello, World!\"\n\n```\n"
+  description: This is a skill that does something useful.
+  externalId: my_skill
+  name: my-skill
 SpaceResponse:
 - space: sp_instance
 - space: sp_schema

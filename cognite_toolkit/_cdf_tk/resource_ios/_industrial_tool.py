@@ -262,7 +262,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         return fileio.get_ids(fileio.create(file_requests))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[StreamlitResponse]:
-        return self.client.tool.streamlit.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.streamlit.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[StreamlitRequest]) -> list[ExternalId]:
         fileio = FileMetadataIO(self.client)
@@ -296,7 +296,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
                 continue
             if request.filepath is None:
                 raise ResourceUpdateError(f"Cannot update streamlit app {item.external_id}. Missing source file")
-            responses_with_url = self.client.tool.filemetadata.get_upload_url([request.as_id()])
+            responses_with_url = self.client.filemetadata.get_upload_url([request.as_id()])
             if len(responses_with_url) != 1:
                 raise RuntimeError(
                     f"Expected to get one upload url for file with external id {item.external_id}, but got {len(responses_with_url)}"
@@ -306,7 +306,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
                 raise RuntimeError(
                     f"Cannot update streamlit app {item.external_id}. Missing upload url for file content upload."
                 )
-            self.client.tool.filemetadata.upload_file(request.filepath, upload_url=response_with_url.upload_url)
+            self.client.filemetadata.upload_file(request.filepath, upload_url=response_with_url.upload_url)
 
         return updated_ids
 
@@ -314,7 +314,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         id_list = list(ids)
         if not id_list:
             return []
-        self.client.tool.streamlit.delete(id_list)
+        self.client.streamlit.delete(id_list)
         return id_list
 
     def _iterate(
@@ -323,5 +323,5 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[StreamlitResponse]:
-        for page in self.client.tool.streamlit.iterate(limit=None):
+        for page in self.client.streamlit.iterate(limit=None):
             yield from page
