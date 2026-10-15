@@ -2,7 +2,7 @@ import builtins
 from abc import ABC
 from typing import Annotated, Any, Generic, Literal, TypeAlias
 
-from pydantic import BeforeValidator, Field, JsonValue, TypeAdapter, field_serializer, field_validator
+from pydantic import BeforeValidator, ConfigDict, Field, JsonValue, TypeAdapter, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -259,6 +259,8 @@ InstanceResponse: TypeAlias = Annotated[
 NodeOrEdgeRequest: TypeAlias = Annotated[NodeRequest | EdgeRequest, Field(discriminator="instance_type")]
 NodeOrEdgeResponse: TypeAlias = Annotated[NodeResponse | EdgeResponse, Field(discriminator="instance_type")]
 
-NodeOrEdgeRequestAdapter: TypeAdapter[NodeOrEdgeRequest] = TypeAdapter(NodeOrEdgeRequest)
+NodeOrEdgeRequestAdapter: TypeAdapter[NodeOrEdgeRequest] = TypeAdapter(
+    NodeOrEdgeRequest, config=ConfigDict(defer_build=True)
+)
 
-InstanceRequestAdapter: TypeAdapter[InstanceRequest] = TypeAdapter(InstanceRequest)
+InstanceRequestAdapter: TypeAdapter[InstanceRequest] = TypeAdapter(InstanceRequest, config=ConfigDict(defer_build=True))

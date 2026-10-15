@@ -1,10 +1,12 @@
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
 from pydantic.alias_generators import to_camel
 
+from cognite_toolkit._cdf_tk.client._resource_base import DeferredBuildModel
 
-class BaseModelRequest(BaseModel):
+
+class BaseModelRequest(DeferredBuildModel):
     """Base class for all object. This includes resources and nested objects."""
 
     model_config = ConfigDict(alias_generator=to_camel, extra="ignore", populate_by_name=True)

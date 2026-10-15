@@ -204,4 +204,6 @@ ViewResponseProperty = Annotated[
     BeforeValidator(_handle_view_response_property),
 ]
 
-ViewRequestPropertyAdapter: TypeAdapter[ViewRequestProperty] = TypeAdapter(ViewRequestProperty)
+ViewRequestPropertyAdapter: TypeAdapter[ViewRequestProperty] = TypeAdapter(
+    ViewRequestProperty, config=ConfigDict(defer_build=True)
+)

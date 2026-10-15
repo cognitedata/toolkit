@@ -2,16 +2,15 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
 
-from pydantic import BaseModel
 from pydantic.alias_generators import to_camel
 
-from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client._resource_base import DeferredBuildModel, Identifier
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning, ModelSyntaxWarning
 
 
-class BaseModelResource(BaseModel, alias_generator=to_camel, extra="forbid"): ...
+class BaseModelResource(DeferredBuildModel, alias_generator=to_camel, extra="forbid"): ...
 
 
 class ToolkitResource(BaseModelResource):
