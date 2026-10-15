@@ -69,8 +69,19 @@ If the user chose **Stage only**, stop here.
 
 ## 6. Monitor CI
 
-- Launch a **background agent** (`subagent_type="shell"`) to run `gh pr checks --watch --repo cognitedata/toolkit`.
-- When checks complete, report back: **green** (all passing) or **red** (with names of failed checks).
+CI monitoring is **non-blocking**. Never wait on CI in the foreground, never poll with `AwaitShell`, and never sleep.
+
+- Start the watcher with the **Shell** tool, using `block_until_ms: 0` so it runs in the background, and
+  `notify_on_output` with `pattern: "CI_DONE"` and `reason: "CI checks finished"`:
+
+  ```bash
+  gh pr checks --watch --repo cognitedata/toolkit > /dev/null 2>&1; echo "CI_DONE exit=$?"
+  ```
+
+- Then **end the turn immediately**. Tell the user the PR link and that CI is being watched in the background.
+  The user is free to keep working or start other tasks.
+- When the `CI_DONE` notification arrives, run `gh pr checks --repo cognitedata/toolkit` and report back:
+  **green** (all passing) or **red** (with names of failed checks).
 - **If all checks pass**, mark the PR as ready for review: `gh pr ready --repo cognitedata/toolkit`.
 - **If checks fail:**
   - For each failed check, fetch its logs with `gh pr checks --repo cognitedata/toolkit` and
