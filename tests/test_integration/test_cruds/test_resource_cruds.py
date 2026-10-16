@@ -1073,6 +1073,8 @@ class TestFunctionLoader:
 
 
 class TestExtractionPipelineIO:
+    # The RAW table created by the fixture can intermittently not be visible yet against live CDF.
+    @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["ToolkitAPIError"])
     def test_unchanged_no_redeploy(
         self, toolkit_client: ToolkitClient, toolkit_dataset: DataSet, populated_raw_table: RawTableId
     ) -> None:
