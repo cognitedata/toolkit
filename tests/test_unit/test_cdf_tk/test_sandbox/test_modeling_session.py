@@ -5,8 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from cognite_toolkit._cdf_tk.sandbox import AddResource, ModelingSession, RemovePath, SetExtra, SetPath
+from cognite_toolkit._cdf_tk.sandbox._operations import AddResource, RemovePath, SetExtra, SetPath
 from cognite_toolkit._cdf_tk.sandbox._render import render_source_file
+from cognite_toolkit._cdf_tk.sandbox._session import ModelingSession
 from cognite_toolkit._cdf_tk.sandbox._workspace import Workspace
 from tests.constants import REPO_ROOT
 

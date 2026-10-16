@@ -3,8 +3,12 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.sandbox._server import make_server
+from cognite_toolkit._cdf_tk.sandbox._flags import enable_all_flags
+
+enable_all_flags()
+
+from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables  # noqa: E402
+from cognite_toolkit._cdf_tk.sandbox._server import make_server  # noqa: E402
 
 
 def _client_from_args(env_file: Path | None):

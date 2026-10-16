@@ -159,9 +159,7 @@ class CdfStore:
             ids = [crud_cls.get_id(item) for item in scope.identifiers]
             responses = list(crud.retrieve(ids))
         else:
-            responses = list(
-                crud.iterate(data_set_external_id=scope.data_set_external_id, space=scope.space)
-            )
+            responses = list(crud.iterate(data_set_external_id=scope.data_set_external_id, space=scope.space))
         dumped: list[tuple[type[ResourceIO], dict[str, Any], dict[str, str]]] = []
         for response in responses:
             body = crud.dump_resource(response)
@@ -293,9 +291,7 @@ class CdfStore:
                     deployed.to_delete.append(removed_id)
             kinds.append(self._kind_plan(crud_cls, deployed))
         for kind, folder, identifiers in session.unsupported_cdf_resources():
-            kinds.append(
-                KindPlan(kind=kind, folder=folder, unsupported=[str(item) for item in identifiers])
-            )
+            kinds.append(KindPlan(kind=kind, folder=folder, unsupported=[str(item) for item in identifiers]))
         return kinds
 
     def _deployment_steps(self, session: ModelingSession) -> tuple[list[DeploymentStep], list[KindPlan]]:
@@ -316,9 +312,7 @@ class CdfStore:
             plans.append(self._kind_plan(crud_cls, deployed))
         return steps, plans
 
-    def _resources_by_crud(
-        self, session: ModelingSession
-    ) -> dict[type[ResourceIO], dict[Identifier, ReadResource]]:
+    def _resources_by_crud(self, session: ModelingSession) -> dict[type[ResourceIO], dict[Identifier, ReadResource]]:
         session.ensure_built()
         by_crud: dict[type[ResourceIO], dict[Identifier, ReadResource]] = defaultdict(dict)
         for built in session.built_modules():
@@ -383,7 +377,7 @@ def _to_source_format(source_type: ResourceType | None, crud: dict[str, Any]) ->
 def _resolve_placeholders(node: Any, variable_by_placeholder: dict[str, BuildVariable]) -> Any:
     """Turn VARIABLE_xxx placeholders back into resolved variable values."""
     if isinstance(node, dict):
-        resolved: dict[str, Any] = {}
+        resolved: dict[Any, Any] = {}
         for key, value in node.items():
             new_key = key
             if isinstance(key, str):
@@ -412,4 +406,3 @@ def _restore_sidecar_tokens(text: str, variables: list[BuildVariable]) -> str:
         if isinstance(value, str) and value and value in restored:
             restored = restored.replace(value, f"{{{{ {variable.name} }}}}")
     return restored
-

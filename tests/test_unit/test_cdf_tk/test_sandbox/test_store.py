@@ -10,7 +10,7 @@ from urllib.request import Request, urlopen
 import pytest
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
-from cognite_toolkit._cdf_tk.sandbox import RemoveResource, SetPath
+from cognite_toolkit._cdf_tk.sandbox._operations import RemoveResource, SetPath
 from cognite_toolkit._cdf_tk.sandbox._server import make_server
 from cognite_toolkit._cdf_tk.sandbox._workspace import Workspace
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -60,9 +60,7 @@ def cdf_server(toolkit_client_approval: ApprovalToolkitClient) -> Iterator[tuple
     server.server_close()
 
 
-def test_cdf_diff_reports_create_and_unchanged(
-    org_dir: Path, toolkit_client_approval: ApprovalToolkitClient
-) -> None:
+def test_cdf_diff_reports_create_and_unchanged(org_dir: Path, toolkit_client_approval: ApprovalToolkitClient) -> None:
     toolkit_client_approval.append(
         SpaceResponse,
         SpaceResponse(space="sp_schema", is_global=False, created_time=1, last_updated_time=1),
@@ -77,9 +75,7 @@ def test_cdf_diff_reports_create_and_unchanged(
     assert any("Pump" in item for item in container_plan["toCreate"])
 
 
-def test_cdf_deploy_dry_run_does_not_create(
-    org_dir: Path, toolkit_client_approval: ApprovalToolkitClient
-) -> None:
+def test_cdf_deploy_dry_run_does_not_create(org_dir: Path, toolkit_client_approval: ApprovalToolkitClient) -> None:
     workspace = Workspace(client=toolkit_client_approval.client)
     workspace.load(org_dir, org_dir / "config.dev.yaml", [MODULE])
 
@@ -95,9 +91,7 @@ def test_cdf_deploy_requires_confirm(org_dir: Path, toolkit_client_approval: App
         workspace.cdf_deploy(dry_run=False, confirm=False)
 
 
-def test_cdf_load_dumps_space_into_session(
-    org_dir: Path, toolkit_client_approval: ApprovalToolkitClient
-) -> None:
+def test_cdf_load_dumps_space_into_session(org_dir: Path, toolkit_client_approval: ApprovalToolkitClient) -> None:
     toolkit_client_approval.append(
         SpaceResponse,
         SpaceResponse(
@@ -111,9 +105,7 @@ def test_cdf_load_dumps_space_into_session(
     workspace = Workspace(client=toolkit_client_approval.client)
     workspace.load(org_dir, org_dir / "config.dev.yaml", [MODULE])
 
-    loaded = workspace.cdf_load(
-        {"kind": "Space", "folder": "data_modeling", "identifiers": [{"space": "from_cdf"}]}
-    )
+    loaded = workspace.cdf_load({"kind": "Space", "folder": "data_modeling", "identifiers": [{"space": "from_cdf"}]})
     assert loaded["added"] == [{"kind": "Space", "identifier": {"space": "from_cdf"}}]
     written = workspace.get_session().write()
     dumped = next(path for path in written if path.name.endswith("from_cdf.Space.yaml") or "from_cdf" in path.name)
@@ -162,9 +154,7 @@ def test_changes_leave_out_untouched_disk_files(org_dir: Path) -> None:
     assert entry["state"] == "changed"
 
 
-def test_cdf_pull_merges_description(
-    org_dir: Path, toolkit_client_approval: ApprovalToolkitClient
-) -> None:
+def test_cdf_pull_merges_description(org_dir: Path, toolkit_client_approval: ApprovalToolkitClient) -> None:
     toolkit_client_approval.append(
         SpaceResponse,
         SpaceResponse(

@@ -308,7 +308,7 @@ class ModelingSession:
 
         source = SourceFile.create_new(path, target.id, crud_cls, resource, identifier, self._variables[target.id])
         if success_extras:
-            source.read.resources[0].extra_files = success_extras
+            source.read.resources[0].extra_files = [*success_extras]
         target.files.append(source.read)
         self.files.append(source)
         self._journal.added.append(source)
