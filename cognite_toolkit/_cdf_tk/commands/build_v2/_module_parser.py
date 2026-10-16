@@ -273,6 +273,9 @@ class ModuleParser:
                                 ),
                             )
                         )
+                elif value is None:
+                    # An empty key, e.g. `modules:` without any children, carries no variables.
+                    continue
                 else:
                     raise NotImplementedError(f"Unsupported variable type: {type(value)} for variable {subpath}")
         return variables_by_path_and_iteration, invalid_variables
