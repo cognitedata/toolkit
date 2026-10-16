@@ -5,10 +5,15 @@ import pytest
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
     AssetsAcl,
+    EventsAcl,
     GroupCapability,
     GroupResponse,
+    LabelsAcl,
     RelationshipsAcl,
+    SecurityCategoriesAcl,
+    SequencesAcl,
     StreamsAcl,
+    TimeSeriesAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.project import (
     Claim,
@@ -220,6 +225,11 @@ def test_get_capabilities_by_loader_hybrid_project() -> None:
     acl_types_hybrid = {type(c) for c in acls_hybrid}
     assert AssetsAcl in acl_types_hybrid
     assert RelationshipsAcl in acl_types_hybrid
+    assert LabelsAcl in acl_types_hybrid
+    assert SecurityCategoriesAcl in acl_types_hybrid
+    assert TimeSeriesAcl in acl_types_hybrid
+    assert EventsAcl in acl_types_hybrid
+    assert SequencesAcl in acl_types_hybrid
 
 
 def test_get_capabilities_by_loader_dm_only_project() -> None:
@@ -229,6 +239,11 @@ def test_get_capabilities_by_loader_dm_only_project() -> None:
     acl_types_dm_only = {type(c) for c in acl_dm_only}
     assert AssetsAcl not in acl_types_dm_only
     assert RelationshipsAcl not in acl_types_dm_only
+    assert LabelsAcl not in acl_types_dm_only
+    assert SecurityCategoriesAcl not in acl_types_dm_only
+    assert TimeSeriesAcl not in acl_types_dm_only
+    assert EventsAcl not in acl_types_dm_only
+    assert SequencesAcl not in acl_types_dm_only
 
 
 def test_update_missing_capabilities_dm_only_project() -> None:

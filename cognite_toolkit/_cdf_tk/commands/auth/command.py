@@ -60,7 +60,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceDeleteError,
     ToolkitMissingValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios import AssetIO, RelationshipIO
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     LowSeverityWarning,
@@ -72,7 +71,7 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from .data_classes import EnvironmentVariables
 from .data_classes._constants import parse_login_flow
 from .session_command import AuthSessionCommand, confirm_login_flow_overrides_env
-from .utils import prompt_user_environment_variables, resolve_session_cdf_target
+from .utils import DATA_MODELING_ONLY_EXCLUDED_IOS, prompt_user_environment_variables, resolve_session_cdf_target
 
 
 @dataclass
@@ -481,8 +480,9 @@ class AuthCommand(ToolkitCommand):
         required_acls: list[AclType] = []
         io_name_by_acl_type: dict[type[AclType], list[str]] = defaultdict(list)
         for crud_cls in resource_ios.RESOURCE_IO_LIST:
-            if data_modeling_status == "DATA_MODELING_ONLY" and issubclass(crud_cls, AssetIO | RelationshipIO):
-                # Assets and relationships are not supported on DATA_MODELING_ONLY projects.
+            if data_modeling_status == "DATA_MODELING_ONLY" and crud_cls in DATA_MODELING_ONLY_EXCLUDED_IOS:
+                # Legacy resources (assets, relationships, labels, files, security categories,
+                # time series, events, sequences) are not suggested on DATA_MODELING_ONLY projects.
                 continue
 
             crud = crud_cls.create_io(client)
