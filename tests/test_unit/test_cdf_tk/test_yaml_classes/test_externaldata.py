@@ -3,24 +3,41 @@ from pathlib import Path
 from typing import ClassVar
 
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
-    ExternalDataSourceRequest,
-    ExternalDataSourceResponse,
+    ExternalDataSourceRequestAdapter,
+    ExternalDataSourceResponseAdapter,
     OneLakeCredentialsRead,
     OneLakeCredentialsWrite,
+    OneLakeExternalDataSourceRequest,
+    OneLakeExternalDataSourceResponse,
     OneLakeLocationDescription,
     OneLakeSettingsRead,
     OneLakeSettingsWrite,
+    SnowflakeCredentialsRead,
+    SnowflakeCredentialsWrite,
+    SnowflakeExternalDataSourceRequest,
+    SnowflakeExternalDataSourceResponse,
+    SnowflakeLocationDescription,
+    SnowflakeSettingsRead,
+    SnowflakeSettingsWrite,
+    UnknownExternalDataSourceRequest,
+    UnknownExternalDataSourceResponse,
 )
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
-from cognite_toolkit._cdf_tk.yaml_classes import ExternalDataSourceYAML
+from cognite_toolkit._cdf_tk.yaml_classes import (
+    ExternalDataSourceYAML,
+    OneLakeExternalDataSourceYAML,
+    SnowflakeExternalDataSourceYAML,
+)
 from tests.data import COMPLETE_ORG_ALPHA_FLAGS
 from tests.test_unit.utils import find_resources
+
+_YAML = TypeAdapter(ExternalDataSourceYAML)
 
 
 class TestExternalDataSourceYAML:
@@ -40,9 +57,23 @@ class TestExternalDataSourceYAML:
             },
         },
     }
+    VALID_SNOWFLAKE: ClassVar[dict[str, object]] = {
+        "externalId": "snowflake-prod",
+        "format": "snowflake",
+        "expiryTime": 2_000_000_000_000,
+        "settings": {
+            "credentials": {
+                "accountIdentifier": "myorg-myaccount",
+                "userName": "cdf_user",
+                "roleName": "CDF_ROLE",
+            },
+            "locationDescription": {"warehouseName": "CDF_WH"},
+        },
+    }
 
     def test_load_valid_external_data_source(self) -> None:
-        loaded = ExternalDataSourceYAML.model_validate(self.VALID)
+        loaded = _YAML.validate_python(self.VALID)
+        assert isinstance(loaded, OneLakeExternalDataSourceYAML)
         assert loaded.external_id == "fabric-lakehouse-prod"
         assert loaded.settings.credentials.client_secret is not None
         assert loaded.settings.credentials.client_secret.get_secret_value() == "azure-client-secret"
@@ -51,7 +82,7 @@ class TestExternalDataSourceYAML:
         "data", list(find_resources("ExternalDataSource", base=COMPLETE_ORG_ALPHA_FLAGS / MODULES))
     )
     def test_load_valid_external_data_source_file(self, data: dict[str, object]) -> None:
-        loaded = ExternalDataSourceYAML.model_validate(data)
+        loaded = _YAML.validate_python(data)
         dumped = json.loads(loaded.model_dump_json(by_alias=True, exclude_unset=True))
         assert dumped == data
 
@@ -70,15 +101,35 @@ class TestExternalDataSourceYAML:
             },
         }
         with pytest.raises(ValidationError):
-            ExternalDataSourceYAML.model_validate(data)
+            _YAML.validate_python(data)
+
+    def test_load_valid_snowflake_external_data_source(self) -> None:
+        loaded = _YAML.validate_python(self.VALID_SNOWFLAKE)
+        assert isinstance(loaded, SnowflakeExternalDataSourceYAML)
+        assert loaded.format == "snowflake"
+        assert loaded.expiry_time == 2_000_000_000_000
+        assert loaded.settings.credentials.account_identifier == "myorg-myaccount"
+
+    @pytest.mark.parametrize(
+        "field",
+        ["expiryTime", "warehouseName"],
+    )
+    def test_snowflake_requires_expiry_and_warehouse(self, field: str) -> None:
+        data = json.loads(json.dumps(self.VALID_SNOWFLAKE))
+        if field == "expiryTime":
+            data.pop(field)
+        else:
+            data["settings"]["locationDescription"].pop(field)
+        with pytest.raises(ValidationError):
+            _YAML.validate_python(data)
 
     def test_dump_client_secret(self) -> None:
-        loaded = ExternalDataSourceYAML.model_validate(self.VALID)
+        loaded = _YAML.validate_python(self.VALID)
         dumped = json.loads(loaded.model_dump_json(by_alias=True))
         assert dumped["settings"]["credentials"]["clientSecret"] == "azure-client-secret"
 
     def test_as_id(self) -> None:
-        loaded = ExternalDataSourceYAML.model_validate(self.VALID)
+        loaded = _YAML.validate_python(self.VALID)
         assert loaded.as_id() == ExternalId(external_id="fabric-lakehouse-prod")
 
     @pytest.mark.parametrize(
@@ -118,19 +169,18 @@ class TestExternalDataSourceYAML:
 
 class TestExternalDataSourceResourceClasses:
     def test_request_default_format(self) -> None:
-        request = ExternalDataSourceRequest(external_id="fabric-lakehouse-prod")
+        request = ExternalDataSourceRequestAdapter.validate_python({"externalId": "fabric-lakehouse-prod"})
+        assert isinstance(request, OneLakeExternalDataSourceRequest)
         assert request.format == "one_lake"
         dumped = json.loads(request.model_dump_json(by_alias=True))
         assert dumped["format"] == "one_lake"
 
-    def test_request_rejects_invalid_format(self) -> None:
-        with pytest.raises(ValidationError):
-            ExternalDataSourceRequest.model_validate(
-                {
-                    "externalId": "fabric-lakehouse-prod",
-                    "format": "invalid",
-                }
-            )
+    def test_request_unknown_format(self) -> None:
+        request = ExternalDataSourceRequestAdapter.validate_python(
+            {"externalId": "fabric-lakehouse-prod", "format": "databricks"}
+        )
+        assert isinstance(request, UnknownExternalDataSourceRequest)
+        assert request.format == "databricks"
 
     def test_write_credentials_require_client_secret(self) -> None:
         with pytest.raises(ValidationError):
@@ -142,7 +192,7 @@ class TestExternalDataSourceResourceClasses:
             )
 
     def test_request_as_id(self) -> None:
-        request = ExternalDataSourceRequest(
+        request = OneLakeExternalDataSourceRequest(
             external_id="fabric-lakehouse-prod",
             settings=OneLakeSettingsWrite(
                 credentials=OneLakeCredentialsWrite(
@@ -158,27 +208,68 @@ class TestExternalDataSourceResourceClasses:
         )
         assert request.as_id() == ExternalId(external_id="fabric-lakehouse-prod")
 
+    def test_snowflake_request(self) -> None:
+        request = SnowflakeExternalDataSourceRequest(
+            external_id="snowflake-prod",
+            expiry_time=2_000_000_000_000,
+            settings=SnowflakeSettingsWrite(
+                credentials=SnowflakeCredentialsWrite(
+                    account_identifier="myorg-myaccount",
+                    user_name="cdf_user",
+                    role_name="CDF_ROLE",
+                ),
+                location_description=SnowflakeLocationDescription(warehouse_name="CDF_WH"),
+            ),
+        )
+        assert request.dump()["settings"]["credentials"] == {
+            "accountIdentifier": "myorg-myaccount",
+            "userName": "cdf_user",
+            "roleName": "CDF_ROLE",
+        }
+
+    def test_snowflake_request_requires_expiry_time(self) -> None:
+        with pytest.raises(ValidationError, match="expiryTime"):
+            SnowflakeExternalDataSourceRequest.model_validate(
+                {
+                    "externalId": "snowflake-prod",
+                    "settings": {
+                        "credentials": {
+                            "accountIdentifier": "myorg-myaccount",
+                            "userName": "cdf_user",
+                            "roleName": "CDF_ROLE",
+                        },
+                        "locationDescription": {"warehouseName": "CDF_WH"},
+                    },
+                }
+            )
+
     def test_response_default_format(self) -> None:
-        response = ExternalDataSourceResponse(
+        response = OneLakeExternalDataSourceResponse(
             external_id="fabric-lakehouse-prod",
             created_time=1,
             last_updated_time=1,
         )
         assert response.format == "one_lake"
 
-    def test_response_rejects_invalid_format(self) -> None:
-        with pytest.raises(ValidationError):
-            ExternalDataSourceResponse.model_validate(
-                {
-                    "externalId": "fabric-lakehouse-prod",
-                    "format": "invalid",  #
-                    "createdTime": 1,
-                    "lastUpdatedTime": 1,
-                }
-            )
+    def test_response_unknown_format(self) -> None:
+        response = ExternalDataSourceResponseAdapter.validate_python(
+            {
+                "externalId": "fabric-lakehouse-prod",
+                "format": "databricks",
+                "createdTime": 1,
+                "lastUpdatedTime": 1,
+                "settings": {"host": "example"},
+            }
+        )
+        assert isinstance(response, UnknownExternalDataSourceResponse)
+        assert response.as_request_resource().dump() == {
+            "externalId": "fabric-lakehouse-prod",
+            "format": "databricks",
+            "settings": {"host": "example"},
+        }
 
     def test_response_as_id(self) -> None:
-        response = ExternalDataSourceResponse(
+        response = OneLakeExternalDataSourceResponse(
             external_id="fabric-lakehouse-prod",
             format="one_lake",
             created_time=1,
@@ -192,3 +283,21 @@ class TestExternalDataSourceResourceClasses:
             ),
         )
         assert response.as_id() == ExternalId(external_id="fabric-lakehouse-prod")
+
+    def test_snowflake_response(self) -> None:
+        response = SnowflakeExternalDataSourceResponse(
+            external_id="snowflake-prod",
+            expiry_time=2_000_000_000_000,
+            created_time=1,
+            last_updated_time=2,
+            settings=SnowflakeSettingsRead(
+                credentials=SnowflakeCredentialsRead(
+                    account_identifier="myorg-myaccount",
+                    user_name="cdf_user",
+                    role_name="CDF_ROLE",
+                    public_key="public-key",
+                ),
+                location_description=SnowflakeLocationDescription(warehouse_name="CDF_WH"),
+            ),
+        )
+        assert response.settings.credentials.public_key == "public-key"

@@ -97,7 +97,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings import FileExistsWarning, HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.cdf import get_ext_onelake_source_ids
+from cognite_toolkit._cdf_tk.utils.cdf import get_external_data_source_ids
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
@@ -376,7 +376,7 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
             source_id
             for transformation in transformations
             if transformation.query
-            for source_id in get_ext_onelake_source_ids(transformation.query)
+            for source_id in get_external_data_source_ids(transformation.query)
         }
         if source_ids:
             external_data_loader = ExternalDataSourceIO.create_io(self.client)

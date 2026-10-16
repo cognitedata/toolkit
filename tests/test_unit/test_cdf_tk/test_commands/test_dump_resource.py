@@ -20,8 +20,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
-    ExternalDataSourceResponse,
     OneLakeCredentialsRead,
+    OneLakeExternalDataSourceResponse,
     OneLakeLocationDescription,
     OneLakeSettingsRead,
 )
@@ -102,7 +102,7 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import MockQuestionary
 
 
-def _onelake_transformation_and_source() -> tuple[TransformationResponse, ExternalDataSourceResponse]:
+def _onelake_transformation_and_source() -> tuple[TransformationResponse, OneLakeExternalDataSourceResponse]:
     transformation = TransformationResponse(
         id=1,
         external_id="transformationA",
@@ -119,7 +119,7 @@ def _onelake_transformation_and_source() -> tuple[TransformationResponse, Extern
         has_source_oidc_credentials=False,
         has_destination_oidc_credentials=False,
     )
-    external_source = ExternalDataSourceResponse(
+    external_source = OneLakeExternalDataSourceResponse(
         external_id="fabric-prod",
         format="one_lake",
         created_time=1,
@@ -236,7 +236,25 @@ class TestDumpTransformations:
             finder = TransformationFinder(client, ("transformationA",))
             client.transformations.retrieve.return_value = [transformation]
             client.transformations.schedules.retrieve.return_value = []
-            client.transformations.external_data_sources.list.return_value = [external_source]
+            client.transformations.external_data_sources.retrieve.return_value = [external_source]
+
+            batches = list(finder)
+
+        _, external_data_list, loader, _ = batches[2]
+        assert isinstance(loader, ExternalDataSourceIO)
+        assert external_data_list == [external_source]
+
+    def test_dump_transformations_with_ext_snowflake_sources(self) -> None:
+        transformation, external_source = _onelake_transformation_and_source()
+        transformation = transformation.model_copy(
+            update={"query": "select * from ext_snowflake('snowflake-prod', 'db', 'schema', 'table')"}
+        )
+        external_source = external_source.model_copy(update={"external_id": "snowflake-prod"})
+        with monkeypatch_toolkit_client() as client:
+            finder = TransformationFinder(client, ("transformationA",))
+            client.transformations.retrieve.return_value = [transformation]
+            client.transformations.schedules.retrieve.return_value = []
+            client.transformations.external_data_sources.retrieve.return_value = [external_source]
 
             batches = list(finder)
 
