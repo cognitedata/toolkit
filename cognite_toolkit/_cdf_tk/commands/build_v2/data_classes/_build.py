@@ -4,7 +4,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
+from pydantic_core.core_schema import FieldValidationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_Identifier, T_RequestResource
 from cognite_toolkit._cdf_tk.constants import MODULES
@@ -38,9 +39,9 @@ def contains_unresolved_variable(value: object) -> bool:
 class BuildParameters(BaseModel):
     organization_dir: Path
     build_dir: Path = Field(default_factory=lambda: Path.cwd() / "build")
-    config_yaml: Path | None = Field(
-        None,
-        description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory).",
+    config_yamls: list[Path] | None = Field(
+        default=None,
+        description="List of configuration YAML files (typically config.<env>.yaml under the organization directory).",
     )
     user_selected_modules: list[str] | None = Field(
         None,
@@ -74,6 +75,18 @@ class BuildParameters(BaseModel):
         description="Whether to enforce rules during validation. If True, any rule violations will cause the build to fail. If False, rule violations will be reported as warnings.",
     )
 
+    @field_validator("user_selected_modules", mode="after")
+    @classmethod
+    def user_selected_modules_not_compatible_with_multiple_config_yamls(
+        cls, v: list[str] | None, info: FieldValidationInfo
+    ) -> list[str] | None:
+        if v and info.data.get("config_yamls") and len(info.data["config_yamls"]) > 1:
+            raise ValueError(
+                "Cannot specify user_selected_modules when multiple config YAMLs are provided. "
+                "Please specify the modules to build in each config YAML instead."
+            )
+        return v
+
     @property
     def modules_directory(self) -> Path:
         return self.organization_dir / MODULES
@@ -84,7 +97,18 @@ class BuildParameters(BaseModel):
 
     @property
     def config_file_name(self) -> str:
-        return self.config_yaml.name if self.config_yaml else ""
+        return self.config_yamls[0].name if self.config_yamls else ""
+
+
+class ConfigFile(BaseModel):
+    selected_modules: set[RelativeDirPath | str] | None = Field(
+        description="Set of modules to build. Either module names (folder names) or relative paths"
+        " to the organization directory. This can be empty"
+    )
+    variables: dict[str, JsonValue] = Field(description="Variables to be used during the build process.")
+    path: AbsoluteFilePath = Field(
+        description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory that contains the variables)."
+    )
 
 
 class BuildInput(BaseModel):
@@ -98,19 +122,18 @@ class BuildInput(BaseModel):
     yaml_files: list[RelativeFilePath] = Field(
         description="List of all YAML files that are part of the build, with paths relative to the organization directory."
     )
-    selected_modules: set[RelativeDirPath | str] | None = Field(
-        description="Set of modules to build. Either module names (folder names) or relative paths to the organization directory."
-        "If None, no modules are selected."
-    )
-    variables: dict[str, JsonValue] = Field(
-        default_factory=dict, description="Variables to be used during the build process."
+    config_files: list[ConfigFile] | None = Field(
+        None,
+        description="List of configuration YAML files to be used during the build process. Each file corresponds to a set of variables and "
+        "selected modules.",
     )
     validation_type: ValidationType = "prod"
     cdf_project: str
     organization_dir: AbsoluteDirPath
-    config_path: AbsoluteFilePath | None = Field(
-        None,
-        description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory).",
+
+    user_selected_modules: set[RelativeDirPath | str] | None = Field(
+        description="Set of modules to build. Either module names (folder names) or relative paths to the organization directory."
+        "If None, no modules are selected."
     )
 
     @property

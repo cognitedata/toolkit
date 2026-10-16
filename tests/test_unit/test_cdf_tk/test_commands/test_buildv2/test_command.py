@@ -283,7 +283,7 @@ class TestValidateBuildParameters:
                 # Actually Config file is at org/config.name.yaml.
                 # I should just specify list of paths to create.
                 # If I put "org/modules/" it has no suffix so created as dir.
-                BuildParameters(organization_dir=Path("org"), config_yaml=Path("org/config.dev.yaml")),
+                BuildParameters(organization_dir=Path("org"), config_yamls=[Path("org/config.dev.yaml")]),
                 ["cdf", "build", "-o", "org"],
                 "org/config.dev.yaml' not found",
                 id="Config YAML file not found",
@@ -312,7 +312,7 @@ class TestValidateBuildParameters:
             ),
             pytest.param(
                 [f"org/{MODULES}/", "org/config.dev.yaml"],
-                BuildParameters(organization_dir=Path("org"), config_yaml=Path("org/config.dev.yaml")),
+                BuildParameters(organization_dir=Path("org"), config_yamls=[Path("org/config.dev.yaml")]),
                 ["cdf", "build", "-o", "org"],
                 None,
                 id="Success with config",
@@ -363,21 +363,26 @@ class TestReadFileSystem:
         parameters = BuildParameters(
             organization_dir=tmp_path,
             build_dir=Path("build"),
-            config_yaml=config_yaml,
+            config_yamls=[config_yaml],
             user_selected_modules=["module1", "module2"],
         )
         build_files = BuildV2Command._read_file_system(
-            parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
+            parameters.organization_dir, parameters.config_yamls, parameters.user_selected_modules
         )
         assert build_files.model_dump() == {
             "yaml_files": [resource_file.relative_to(tmp_path)],
             # Since user_selected_modules are provided, they should be used instead of config selected modules.
-            "selected_modules": {"module1", "module2"},
-            "variables": {},
+            "user_selected_modules": {"module1", "module2"},
             "validation_type": "dev",
             "cdf_project": "my-project",
             "organization_dir": tmp_path.resolve(),
-            "config_path": config_yaml.resolve(),
+            "config_files": [
+                {
+                    "selected_modules": {"module1", "module2"},
+                    "variables": {},
+                    "path": config_yaml.resolve(),
+                }
+            ],
         }
 
     def test_invalid_config_yaml(self, tmp_path: Path) -> None:
@@ -390,10 +395,10 @@ class TestReadFileSystem:
     - modules/
 """)
         _ = create_resource_file(tmp_path, SpaceIO, SPACE_YAML)
-        parameters = BuildParameters(organization_dir=tmp_path, build_dir=Path("build"), config_yaml=config_yaml)
+        parameters = BuildParameters(organization_dir=tmp_path, build_dir=Path("build"), config_yamls=[config_yaml])
         with pytest.raises(ToolkitValueError) as exc_info:
             BuildV2Command._read_file_system(
-                parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
+                parameters.organization_dir, parameters.config_yamls, parameters.user_selected_modules
             )
 
         assert (

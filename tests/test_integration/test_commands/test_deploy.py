@@ -54,7 +54,7 @@ def test_deploy_complete_org(env_vars: EnvironmentVariables, build_dir: Path) ->
         parameters=BuildParameters(
             organization_dir=data.COMPLETE_ORG,
             build_dir=build_dir,
-            config_yaml=data.COMPLETE_ORG / "config.dev.yaml",
+            config_yamls=[data.COMPLETE_ORG / "config.dev.yaml"],
         ),
     )
 
@@ -96,7 +96,7 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
         parameters=BuildParameters(
             organization_dir=data.COMPLETE_ORG_ALPHA_FLAGS,
             build_dir=build_dir,
-            config_yaml=data.COMPLETE_ORG_ALPHA_FLAGS / "config.dev.yaml",
+            config_yamls=[data.COMPLETE_ORG_ALPHA_FLAGS / "config.dev.yaml"],
         ),
     )
 
