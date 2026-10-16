@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import Field, TypeAdapter, ValidationError
+from pydantic import ConfigDict, Field, TypeAdapter, ValidationError
 
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -82,7 +82,7 @@ Selector = Annotated[
 
 INTERNAL = {ThreeDModelIdSelector, ThreeDModelFilteredSelector}
 DEPRECATED = {FileMetadataTemplateSelector, FileDataModelingTemplateSelector}
-SelectorAdapter: TypeAdapter[Selector] = TypeAdapter(Selector)
+SelectorAdapter: TypeAdapter[Selector] = TypeAdapter(Selector, config=ConfigDict(defer_build=True))
 
 
 def load_selector(manifest_file: Path) -> Selector | ToolkitWarning:
