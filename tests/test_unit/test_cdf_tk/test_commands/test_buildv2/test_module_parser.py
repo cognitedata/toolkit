@@ -500,13 +500,24 @@ class TestParseVariablesEdgeCases:
         assert Path("modules/team/project") in build_variables
         assert build_variables[Path("modules/team/project")][None][0].value == "value1"
 
-    def test_empty_key_is_ignored(self) -> None:
-        variables = {"modules": None}
-        available_paths = {Path(""), Path("modules")}
+    def test_empty_key_on_valid_path_is_ignored(self) -> None:
+        variables = {"modules": {"moduleA": None}}
+        available_paths = {Path(""), Path("modules"), Path("modules/moduleA")}
 
         build_variables, errors = ModuleParser._parse_variables(variables, available_paths, available_paths)
 
         assert errors == []
+        assert not build_variables
+
+    def test_empty_key_on_invalid_path_is_reported(self) -> None:
+        variables = {"moduels": None}
+        available_paths = {Path(""), Path("modules")}
+
+        build_variables, errors = ModuleParser._parse_variables(
+            variables, available_paths, available_paths, config_path=Path("/config.dev.yaml")
+        )
+
+        assert [error.error.code for error in errors] == ["INVALID-VARIABLE-PATH"]
         assert not build_variables
 
     def test_list_of_dicts_with_multiple_variables(self) -> None:
