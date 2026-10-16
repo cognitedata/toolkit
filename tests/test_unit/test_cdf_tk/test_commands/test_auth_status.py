@@ -199,8 +199,7 @@ class TestAuthStatus:
             "asset_hidden_on_data_modeling_only": "AssetIO" not in other_resources,
             "function_read": format_action_access(current_resources["FunctionIO"].read),
             "group_read": format_action_access(current_resources["GroupAllScopedIO"].read),
-            "events_only_on_other": other_resources["EventIO"].read.granted
-            and not current_resources["EventIO"].read.granted,
+            "event_hidden_on_data_modeling_only": "EventIO" not in other_resources,
         } == {
             "authenticated": True,
             "method": "Service principal",
@@ -216,7 +215,7 @@ class TestAuthStatus:
             "asset_hidden_on_data_modeling_only": True,
             "function_read": "functionsAcl all | filesAcl datasetScope [7]",
             "group_read": "all",
-            "events_only_on_other": True,
+            "event_hidden_on_data_modeling_only": True,
         }
 
     def test_invalid_token_is_not_authenticated(self) -> None:
