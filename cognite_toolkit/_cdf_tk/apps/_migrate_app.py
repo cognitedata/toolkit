@@ -444,8 +444,7 @@ class MigrateApp(typer.Typer):
             bool,
             typer.Option(
                 "--continue-on-error",
-                help="If set, the migration will continue even if some items fail to migrate. "
-                "Failed items will be logged.",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -645,8 +644,7 @@ class MigrateApp(typer.Typer):
             bool,
             typer.Option(
                 "--continue-on-error",
-                help="If set, the migration will continue even if some items fail to migrate. "
-                "Failed items will be logged.",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -763,8 +761,7 @@ class MigrateApp(typer.Typer):
             bool,
             typer.Option(
                 "--continue-on-error",
-                help="If set, the migration will continue even if some items fail to migrate. "
-                "Failed items will be logged.",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -928,8 +925,7 @@ class MigrateApp(typer.Typer):
             bool,
             typer.Option(
                 "--continue-on-error",
-                help="If set, the migration will continue even if some items fail to migrate. "
-                "Failed items will be logged.",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -1064,8 +1060,7 @@ class MigrateApp(typer.Typer):
             bool,
             typer.Option(
                 "--continue-on-error",
-                help="If set, the migration will continue even if some items fail to migrate. "
-                "Failed items will be logged.",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -1183,8 +1178,7 @@ class MigrateApp(typer.Typer):
             bool,
             typer.Option(
                 "--continue-on-error",
-                help="If set, the migration will continue even if some items fail to migrate. "
-                "Failed items will be logged.",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -1308,8 +1302,7 @@ class MigrateApp(typer.Typer):
             bool,
             typer.Option(
                 "--continue-on-error",
-                help="If set, the migration will continue even if some items fail to migrate. "
-                "Failed items will be logged.",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -1386,8 +1379,7 @@ class MigrateApp(typer.Typer):
             bool,
             typer.Option(
                 "--continue-on-error",
-                help="If set, the migration will continue even if some items fail to migrate. "
-                "Failed items will be logged.",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -1459,8 +1451,7 @@ class MigrateApp(typer.Typer):
             bool,
             typer.Option(
                 "--continue-on-error",
-                help="If set, the migration will continue even if some items fail to migrate. "
-                "Failed items will be logged.",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -1547,8 +1538,7 @@ class MigrateApp(typer.Typer):
             bool,
             typer.Option(
                 "--continue-on-error",
-                help="If set, the migration will continue even if some items fail to migrate. "
-                "Failed items will be logged.",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -1728,8 +1718,7 @@ class MigrateApp(typer.Typer):
             bool,
             typer.Option(
                 "--continue-on-error",
-                help="If set, the migration will continue even if some items fail to migrate. "
-                "Failed items will be logged.",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -1822,8 +1811,7 @@ class MigrateApp(typer.Typer):
             bool,
             typer.Option(
                 "--continue-on-error",
-                help="If set, the migration will continue even if some items fail to migrate. "
-                "Failed items will be logged.",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
@@ -2052,8 +2040,7 @@ class MigrateApp(typer.Typer):
             bool,
             typer.Option(
                 "--continue-on-error",
-                help="If set, the migration will continue even if some items fail to migrate. "
-                "Failed items will be logged.",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
             ),
         ] = False,
     ) -> None:
