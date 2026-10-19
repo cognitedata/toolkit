@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Sequence
 from itertools import groupby
 from typing import Any, Literal, TypeVar, cast, overload
@@ -51,7 +52,7 @@ def _equals_filter(view_id: ViewId, property_name: str, value: Any) -> dict[str,
     }
 
 
-def _in_filter(view_id: ViewId, property_name: str, values: list[Any]) -> dict[str, Any]:
+def _in_filter(view_id: ViewId, property_name: str, values: builtins.list[Any]) -> dict[str, Any]:
     return {
         "in": {
             "property": view_id.as_property_reference(property_name),
@@ -83,7 +84,7 @@ class InstanceSourceAPI:
         ids: Sequence[AssetCentricId] | None = None,
         *,
         external_ids: Sequence[AssetCentricExternalId] | None = None,
-    ) -> list[InstanceSource]:
+    ) -> builtins.list[InstanceSource]:
         """Retrieve a list of instance sources by their IDs.
 
         Args:
@@ -100,7 +101,7 @@ class InstanceSourceAPI:
         else:
             raise ValueError("Exactly one of 'ids' or 'external_ids' must be provided.")
 
-        results: list[InstanceSource] = []
+        results: builtins.list[InstanceSource] = []
         for chunk in chunker_sequence(selected_ids, self._RETRIEVE_LIMIT):
             query_request = QueryRequest(
                 with_={
@@ -127,7 +128,7 @@ class InstanceSourceAPI:
         ids: Sequence[AssetCentricId | AssetCentricExternalId], id_property: str
     ) -> dict[str, JsonValue]:
         """Create a filter that matches all the AssetCentricIds in the list."""
-        to_or_filters: list[dict[str, JsonValue]] = []
+        to_or_filters: builtins.list[dict[str, JsonValue]] = []
         for resource_type, resource_ids in groupby(
             sorted(ids, key=lambda x: x.resource_type), key=lambda x: x.resource_type
         ):
@@ -140,7 +141,7 @@ class InstanceSourceAPI:
             to_or_filters.append(_and_filter(is_resource, is_id))
         return _or_filter(*to_or_filters)
 
-    def list(self, resource_type: AssetCentricType, limit: int | None = 100) -> list[InstanceSource]:
+    def list(self, resource_type: AssetCentricType, limit: int | None = 100) -> builtins.list[InstanceSource]:
         """List instance sources filtered by resource type."""
         filter_ = InstanceFilter(
             instance_type="node",
@@ -159,9 +160,11 @@ class InstanceSpaceRelocationSourceAPI:
         self._RETRIEVE_LIMIT = 1000
         self._view_id = INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID
 
-    def retrieve(self, source_space: str, external_ids: SequenceNotStr[str]) -> list[InstanceSpaceRelocationSource]:
-        results: list[InstanceSpaceRelocationSource] = []
-        for chunk in chunker_sequence(external_ids, self._RETRIEVE_LIMIT):  # type: ignore[type-var]
+    def retrieve(
+        self, source_space: str, external_ids: SequenceNotStr[str]
+    ) -> builtins.list[InstanceSpaceRelocationSource]:
+        results: builtins.list[InstanceSpaceRelocationSource] = []
+        for chunk in chunker_sequence(list(external_ids), self._RETRIEVE_LIMIT):
             query_request = QueryRequest(
                 with_={
                     "relocated": QueryNodeExpression(
@@ -196,7 +199,9 @@ class ResourceViewMappingsAPI(WrappedInstancesAPI[NodeId, ResourceViewMappingRes
     ) -> PagedResponse[ResourceViewMappingResponse]:
         return PagedResponse[ResourceViewMappingResponse].model_validate_json(response.body)
 
-    def list(self, resource_type: str | None = None, limit: int | None = 100) -> list[ResourceViewMappingResponse]:
+    def list(
+        self, resource_type: str | None = None, limit: int | None = 100
+    ) -> builtins.list[ResourceViewMappingResponse]:
         filter_: dict[str, Any] = {
             "equals": {
                 "property": ["node", "space"],
@@ -224,10 +229,10 @@ class CreatedSourceSystemAPI:
         self._RETRIEVE_LIMIT = 1000
         self._view_id = CREATED_SOURCE_SYSTEM_VIEW_ID
 
-    def retrieve(self, source: SequenceNotStr[str]) -> list[CreatedSourceSystem]:
+    def retrieve(self, source: SequenceNotStr[str]) -> builtins.list[CreatedSourceSystem]:
         """Retrieve one or more created source systems by their source strings."""
-        results: list[CreatedSourceSystem] = []
-        for chunk in chunker_sequence(source, self._RETRIEVE_LIMIT):  # type: ignore[type-var]
+        results: builtins.list[CreatedSourceSystem] = []
+        for chunk in chunker_sequence(list(source), self._RETRIEVE_LIMIT):
             query_request = QueryRequest(
                 with_={
                     "sourceSystem": QueryNodeExpression(
@@ -254,7 +259,7 @@ class CreatedSourceSystemAPI:
             raise ValueError("Cannot create a filter from an empty source list.")
         return _in_filter(self._view_id, "source", list(source))
 
-    def list(self, limit: int | None = None) -> list[CreatedSourceSystem]:
+    def list(self, limit: int | None = None) -> builtins.list[CreatedSourceSystem]:
         """Lists all created source systems."""
         filter_ = InstanceFilter(instance_type="node", source=self._view_id)
         nodes = self._instances_api.list(filter=filter_, limit=limit)
@@ -276,19 +281,19 @@ class SpaceSourceAPI:
     def retrieve(self, data_set_id: int) -> SpaceSource | None: ...
 
     @overload
-    def retrieve(self, data_set_id: Sequence[int]) -> list[SpaceSource]: ...
+    def retrieve(self, data_set_id: Sequence[int]) -> builtins.list[SpaceSource]: ...
 
     @overload
     def retrieve(self, *, data_set_external_id: str) -> SpaceSource | None: ...
 
     @overload
-    def retrieve(self, *, data_set_external_id: SequenceNotStr[str]) -> list[SpaceSource]: ...
+    def retrieve(self, *, data_set_external_id: SequenceNotStr[str]) -> builtins.list[SpaceSource]: ...
 
     def retrieve(
         self,
         data_set_id: int | Sequence[int] | None = None,
         data_set_external_id: str | SequenceNotStr[str] | None = None,
-    ) -> SpaceSource | list[SpaceSource] | None:
+    ) -> SpaceSource | builtins.list[SpaceSource] | None:
         """Retrieve a space source by data set ID or external ID.
 
         This method uses caching to avoid redundant API calls.
@@ -302,8 +307,7 @@ class SpaceSourceAPI:
             )
         elif data_set_external_id is not None:
             return self._retrieve_with_cache(
-                # MyPy is confused by SequenceNotStr
-                value=data_set_external_id,  # type: ignore[arg-type]
+                value=cast(str | Sequence[str], data_set_external_id),
                 property_name="dataSetExternalId",
                 cache=self._cache_by_external_id,
                 is_single=isinstance(data_set_external_id, str),
@@ -317,12 +321,15 @@ class SpaceSourceAPI:
         property_name: str,
         cache: dict[_T, SpaceSource],
         is_single: bool,
-    ) -> SpaceSource | list[SpaceSource] | None:
+    ) -> SpaceSource | builtins.list[SpaceSource] | None:
         """Retrieve space sources with caching support."""
-        values: list[_T] = [value] if is_single else list(value)  # type: ignore[arg-type, list-item]
+        if is_single:
+            values: builtins.list[_T] = [cast(_T, value)]
+        else:
+            values = list(cast(Sequence[_T], value))
 
-        cached_results: list[SpaceSource] = []
-        missing_values: list[_T] = []
+        cached_results: builtins.list[SpaceSource] = []
+        missing_values: builtins.list[_T] = []
         for val in values:
             if val in cache:
                 cached_results.append(cache[val])
@@ -350,9 +357,9 @@ class SpaceSourceAPI:
         self,
         property_name: str,
         values: Sequence[_T],
-    ) -> list[SpaceSource]:
+    ) -> builtins.list[SpaceSource]:
         """Retrieve space sources by filtering on a specific property."""
-        results: list[SpaceSource] = []
+        results: builtins.list[SpaceSource] = []
         for chunk in chunker_sequence(values, self._RETRIEVE_LIMIT):
             query_request = QueryRequest(
                 with_={
@@ -374,7 +381,7 @@ class SpaceSourceAPI:
                 results.append(SpaceSource.model_validate(item))
         return results
 
-    def list(self, limit: int = -1) -> list[SpaceSource]:
+    def list(self, limit: int = -1) -> builtins.list[SpaceSource]:
         """Lists all space sources and populates the cache."""
         effective_limit = None if limit == -1 else limit
         filter_ = InstanceFilter(instance_type="node", source=self._view_id)
@@ -479,8 +486,10 @@ class LookupAPI:
     ) -> dict[_T, _T_Cached] | _T_Cached | None:
         """Generic lookup method for both NodeId and ViewReference by id or external_id."""
         is_single = isinstance(identifier, input_type)
-        # MyPy does not understand that if is_single is True, identifier is _T, else SequenceNotStr[_T].
-        identifiers: list[_T] = [identifier] if is_single else list(identifier)  # type: ignore[arg-type, list-item]
+        if is_single:
+            identifiers: builtins.list[_T] = [identifier]  # type: ignore[list-item]
+        else:
+            identifiers = list(cast(Sequence[_T], identifier))
 
         missing = [id_ for id_ in identifiers if id_ not in cache]
         if missing:

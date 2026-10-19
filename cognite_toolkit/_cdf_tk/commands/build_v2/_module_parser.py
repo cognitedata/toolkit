@@ -6,11 +6,11 @@ from typing import Any, cast
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildInput,
-    ModelSyntaxError,
     ModuleDirectory,
     RelativeDirPath,
     RelativeFilePath,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
     BuildVariable,
@@ -21,55 +21,76 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, MODULES, RESOURCE_FOLDERS_WITH_CODE_BUNDLES
-from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA, ResourceTypes
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA, ResourceTypes
 
 
 class ModuleParser:
-    VARIABLE_ERROR_CODE = "CONFIG_VARIABLE_001"
-
     @classmethod
     def parse(
         cls,
         build: BuildInput,
-        user_selected_modules: set[RelativeDirPath | str],
+        user_selected_modules: set[RelativeDirPath | str] | None,
         source_by_module_id: dict[RelativeDirPath, ModuleDirectory],
         orphan_yaml_files: list[RelativeFilePath],
     ) -> ModuleScanResult:
         module_ids = list(source_by_module_id.keys())
         available_paths = cls._expand_parents(module_ids)
-        selected_modules = cls._select_modules(module_ids, user_selected_modules)
-        selected_paths = cls._expand_parents(selected_modules)
+
+        invalid_variables: list[InvalidBuildVariable] = []
+        module_sources: list[ModuleDirectory] = []
+        all_selected_modules: set[RelativeDirPath | str] = set()
+        if build.config_files is None and user_selected_modules is not None:
+            # Variables are only available when building with config files
+            all_selected_modules.update(user_selected_modules)
+            selected_modules = cls._select_modules(module_ids, user_selected_modules)
+            module_sources.extend(source_by_module_id[module] for module in selected_modules)
+        elif build.config_files is not None:
+            for config_file in build.config_files:
+                # A config file can be missing selected section, which will trigger the use of the CLI-arg
+                # or if not given interactively prompt the user for selection. This is handled in the BuildInput class.
+                # For more than one config file, and error is already raised as then we require selected modules
+                # set for each config file.
+                config_selected_modules = config_file.selected_modules or user_selected_modules
+                if config_selected_modules is None:
+                    raise RuntimeError(
+                        "Bug in Toolkit: No selected modules provided to parse modules for config file "
+                        f"{config_file.path}"
+                    )
+                selected_modules = cls._select_modules(module_ids, config_selected_modules)
+                selected_paths = cls._expand_parents(selected_modules)
+                build_variables, invalid_config_variables = cls._parse_variables(
+                    config_file.variables, available_paths, selected_paths, config_file.path
+                )
+                all_selected_modules.update(config_selected_modules)
+                invalid_variables.extend(invalid_config_variables)
+                for module in selected_modules:
+                    source = source_by_module_id[module]
+                    module_specific_variables = cls._as_module_variables(build_variables, module)
+                    if module_specific_variables:
+                        for iteration, variables in module_specific_variables.items():
+                            module_sources.append(
+                                source.model_copy(update={"variables": variables, "iteration": iteration or 0})
+                            )
+                    else:
+                        module_sources.append(source)
+        else:
+            raise RuntimeError("Bug in Toolkit: No config files or selected modules provided to parse modules.")
 
         module_paths_by_name: dict[str, list[RelativeDirPath]] = defaultdict(list)
         for module_path in module_ids:
             module_paths_by_name[module_path.name].append(module_path)
 
-        build_variables, invalid_variables = cls._parse_variables(
-            build.variables, available_paths, selected_paths, build.config_path
+        non_existing_module_names = cls._get_non_existing_module_names(
+            {name for name in all_selected_modules if isinstance(name, str)}, set(module_paths_by_name.keys())
         )
-
-        module_sources: list[ModuleDirectory] = []
-        for module in selected_modules:
-            source = source_by_module_id[module]
-            module_specific_variables = cls._as_module_variables(build_variables, module)
-
-            if module_specific_variables:
-                for iteration, variables in module_specific_variables.items():
-                    module_sources.append(
-                        source.model_copy(update={"variables": variables, "iteration": iteration or 0})
-                    )
-            else:
-                module_sources.append(source)
 
         return ModuleScanResult(
             module_dir=build.module_dir,
             modules=module_sources,
             invalid_variables=invalid_variables,
-            non_existing_module_names=cls._get_non_existing_module_names(
-                {name for name in user_selected_modules if isinstance(name, str)}, set(module_paths_by_name.keys())
-            ),
+            non_existing_module_names=non_existing_module_names,
             misplaced_modules=cls._get_misplaced_modules(set(module_ids)),
-            ambiguous_selection=cls._get_ambiguous_selection(module_paths_by_name, user_selected_modules),
+            ambiguous_selection=cls._get_ambiguous_selection(module_paths_by_name, all_selected_modules),
             orphan_yaml_files=orphan_yaml_files,
         )
 
@@ -153,8 +174,8 @@ class ModuleParser:
     def get_module_path_from_resource_file_path(resource_file: Path) -> tuple[Path | None, ResourceTypes | None]:
         """Return the module path and resource folder for a given resource file path."""
         for parent in resource_file.parents:
-            if parent.name in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA:
-                # We know that all keys in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA are valid ResourceTypes,
+            if parent.name in RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA:
+                # We know that all keys in RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA are valid ResourceTypes,
                 # so this cast is safe.
                 return parent.parent, cast(ResourceTypes, parent.name)
         return None, None
@@ -225,6 +246,9 @@ class ModuleParser:
             path, iteration, subdict = to_check.pop()
             for key, value in subdict.items():
                 subpath = path / key
+                if value is None:
+                    # An empty key, e.g. `modules:` without any children, is treated as an empty dict.
+                    value = {}
                 if isinstance(value, str | float | int | bool):
                     variables_by_path_and_iteration[path][iteration].append(
                         BuildVariable(id=subpath, value=value, is_selected=path in selected_paths, iteration=iteration)
@@ -239,14 +263,13 @@ class ModuleParser:
                                 value=str(value),
                                 is_selected=path in selected_paths,
                                 iteration=iteration,
-                                error=ModelSyntaxError(
-                                    code=cls.VARIABLE_ERROR_CODE,
+                                error=BuildError(
+                                    code="INVALID-VARIABLE-PATH",
                                     message=f"Invalid variable path: {'.'.join(subpath.parts)}. This does not correspond to the "
                                     f"folder structure inside the {MODULES} directory.",
                                     fix="Ensure that the variable paths correspond to the folder structure inside the modules directory.",
-                                    source_files=[
-                                        cast(AbsoluteFilePath, config_path)
-                                    ],  # We only have variables in the config file, so this cast is safe
+                                    # We only have variables in the config file, so this cast is safe
+                                    source_file=cast(AbsoluteFilePath, config_path),
                                 ),
                             )
                         )
@@ -267,13 +290,12 @@ class ModuleParser:
                                 value=str(value),
                                 is_selected=path in selected_paths,
                                 iteration=iteration,
-                                error=ModelSyntaxError(
-                                    code=cls.VARIABLE_ERROR_CODE,
+                                error=BuildError(
+                                    code="INVALID-VARIABLE-TYPE",
                                     message=f"Invalid variable type in list for variable {'.'.join(subpath.parts)}.",
                                     fix="Ensure that all items in the list are of the same supported type either (str, int, float, bool) or dict.",
-                                    source_files=[
-                                        cast(AbsoluteFilePath, config_path)
-                                    ],  # We only have variables in the config file, so this cast is safe
+                                    # We only have variables in the config file, so this cast is safe
+                                    source_file=cast(AbsoluteFilePath, config_path),
                                 ),
                             )
                         )

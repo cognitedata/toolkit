@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import DataStorage,
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.resource_ios import (
     InFieldCDMLocationConfigIO,
-    SpaceCRUD,
+    SpaceIO,
     ViewIO,
 )
 from cognite_toolkit._cdf_tk.yaml_classes import InFieldCDMLocationConfigYAML
@@ -42,7 +42,7 @@ class TestInFieldCDMLocationConfigCRUD:
                     },
                 },
                 {
-                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
+                    (SpaceIO.__name__, SpaceId(space="sp_instance")),
                     (
                         ViewIO.__name__,
                         ViewId(space="customer_idm_extention", external_id="ActivitiesCard", version="v2"),
@@ -71,7 +71,7 @@ class TestInFieldCDMLocationConfigCRUD:
                     },
                 },
                 {
-                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
+                    (SpaceIO.__name__, SpaceId(space="sp_instance")),
                     (
                         ViewIO.__name__,
                         ViewId(space="customer_idm_extention", external_id="ObservationView", version="v2"),
@@ -92,12 +92,12 @@ class TestInFieldCDMLocationConfigCRUD:
                         },
                     },
                 },
-                {(SpaceCRUD.__name__, SpaceId(space="sp_instance"))},
+                {(SpaceIO.__name__, SpaceId(space="sp_instance"))},
                 id="asset-properties-card-config-is-not-a-view",
             ),
             pytest.param(
                 {"space": "sp_instance", "externalId": "my_location_config"},
-                {(SpaceCRUD.__name__, SpaceId(space="sp_instance"))},
+                {(SpaceIO.__name__, SpaceId(space="sp_instance"))},
                 id="no-data-exploration-config",
             ),
             pytest.param(
@@ -110,7 +110,7 @@ class TestInFieldCDMLocationConfigCRUD:
                     },
                 },
                 {
-                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
+                    (SpaceIO.__name__, SpaceId(space="sp_instance")),
                     (ViewIO.__name__, ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")),
                     (ViewIO.__name__, ViewId(space="cdf_idm", external_id="CogniteOperation", version="v1")),
                 },
@@ -130,10 +130,10 @@ class TestInFieldCDMLocationConfigCRUD:
                     },
                 },
                 {
-                    (SpaceCRUD.__name__, SpaceId(space="sp_instance")),
-                    (SpaceCRUD.__name__, SpaceId(space="migrated_assets")),
-                    (SpaceCRUD.__name__, SpaceId(space="APM_SourceData_3_LOR_NORWAY_cdm")),
-                    (SpaceCRUD.__name__, SpaceId(space="app_data_instance_space_LOR_NORWAY_cdm")),
+                    (SpaceIO.__name__, SpaceId(space="sp_instance")),
+                    (SpaceIO.__name__, SpaceId(space="migrated_assets")),
+                    (SpaceIO.__name__, SpaceId(space="APM_SourceData_3_LOR_NORWAY_cdm")),
+                    (SpaceIO.__name__, SpaceId(space="app_data_instance_space_LOR_NORWAY_cdm")),
                 },
                 id="data-filters-and-data-storage-spaces",
             ),
@@ -162,8 +162,9 @@ class TestInFieldCDMLocationConfigCRUD:
         )
         with monkeypatch_toolkit_client() as client:
             my_console = MagicMock(spec=Console)
+            client.console = my_console
             client.infield.apm_config.list.return_value = [legacy]
-            io = InFieldCDMLocationConfigIO(client, None, my_console)
+            io = InFieldCDMLocationConfigIO(client)
 
             created = io.create([item])
 
@@ -183,7 +184,8 @@ class TestInFieldCDMLocationConfigCRUD:
             client.infield.apm_config.list.side_effect = ToolkitAPIError(
                 "One or more views do not exist: 'APM_Config:APM_Config/1'", code=400
             )
-            io = InFieldCDMLocationConfigIO(client, None, my_console)
+            client.console = my_console
+            io = InFieldCDMLocationConfigIO(client)
 
             io.create([item])
 

@@ -1,5 +1,6 @@
 """Rule Sets API for managing CDF rule sets."""
 
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
@@ -31,10 +32,12 @@ class RuleSetsAPI(CDFResourceAPI[RuleSetResponse]):
     ) -> PagedResponse[RuleSetResponse]:
         return PagedResponse[RuleSetResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[RuleSetRequest]) -> list[RuleSetResponse]:
+    def create(self, items: Sequence[RuleSetRequest]) -> builtins.list[RuleSetResponse]:
         return self._request_item_response(items, "create")
 
-    def retrieve(self, external_ids: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[RuleSetResponse]:
+    def retrieve(
+        self, external_ids: Sequence[ExternalId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[RuleSetResponse]:
         if not external_ids:
             return []
         if ignore_unknown_ids:
@@ -47,8 +50,8 @@ class RuleSetsAPI(CDFResourceAPI[RuleSetResponse]):
     def paginate(self, limit: int = 10, cursor: str | None = None) -> PagedResponse[RuleSetResponse]:
         return self._paginate(cursor=cursor, limit=limit)
 
-    def iterate(self, limit: int | None = 100) -> Iterable[list[RuleSetResponse]]:
+    def iterate(self, limit: int | None = 100) -> Iterable[builtins.list[RuleSetResponse]]:
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = 100) -> list[RuleSetResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[RuleSetResponse]:
         return self._list(limit=limit)

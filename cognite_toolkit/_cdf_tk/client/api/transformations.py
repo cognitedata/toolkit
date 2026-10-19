@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
@@ -46,7 +47,7 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[TransformationRequest]) -> list[TransformationResponse]:
+    def create(self, items: Sequence[TransformationRequest]) -> builtins.list[TransformationResponse]:
         """Create transformations in CDF.
 
         Args:
@@ -58,7 +59,7 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
 
     def retrieve(
         self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False, with_job_details: bool = False
-    ) -> list[TransformationResponse]:
+    ) -> builtins.list[TransformationResponse]:
         """Retrieve transformations from CDF.
 
         Args:
@@ -76,7 +77,7 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
 
     def update(
         self, items: Sequence[TransformationRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[TransformationResponse]:
+    ) -> builtins.list[TransformationResponse]:
         """Update transformations in CDF.
 
         Args:
@@ -122,7 +123,7 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         return TransformationJobResponse.model_validate_json(response.body)
 
-    def run_query(
+    def run_query_preview(
         self,
         query: str,
         convert_to_string: bool,
@@ -200,7 +201,7 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         self,
         filter: TransformationFilter | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[TransformationResponse]]:
+    ) -> Iterable[builtins.list[TransformationResponse]]:
         """Iterate over all transformations in CDF.
 
         Args:
@@ -219,7 +220,7 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         self,
         filter: TransformationFilter | None = None,
         limit: int | None = 100,
-    ) -> list[TransformationResponse]:
+    ) -> builtins.list[TransformationResponse]:
         """List all transformations in CDF.
 
         Args:

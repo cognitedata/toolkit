@@ -1,12 +1,9 @@
-from collections.abc import Hashable, Iterable, Sequence, Sized
-from pathlib import Path
+from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, Literal, final
-
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     SimulatorModelRevisionFilter,
     SimulatorModelRoutineFilter,
@@ -38,6 +35,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ToolkitNotSupported
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.acl_helper import data_set_scope_from_ids
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import SimulatorModelYAML
 from cognite_toolkit._cdf_tk.yaml_classes.simulator_model_revision import SimulatorModelRevisionYAML
@@ -47,9 +45,9 @@ from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine_revision import (
 )
 
 from ._data_organization import DataSetsIO
-from ._file import FileMetadataCRUD
+from ._file import FileMetadataIO
 from ._function import CDF_TOML
-from ._timeseries import TimeSeriesCRUD
+from ._timeseries import TimeSeriesIO
 
 
 @final
@@ -67,7 +65,9 @@ class SimulatorModelIO(ResourceIO[ExternalId, SimulatorModelRequest, SimulatorMo
         return "simulator models"
 
     @classmethod
-    def get_id(cls, item: SimulatorModelRequest | SimulatorModelResponse | dict) -> ExternalId:
+    def get_id(cls, item: SimulatorModelRequest | SimulatorModelResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -88,7 +88,7 @@ class SimulatorModelIO(ResourceIO[ExternalId, SimulatorModelRequest, SimulatorMo
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[SimulatorModelRequest]) -> ScopeDefinition | None:
-        return DataSetScope(ids=list({item.data_set_id for item in items}))
+        return data_set_scope_from_ids(item.data_set_id for item in items)
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
@@ -101,19 +101,19 @@ class SimulatorModelIO(ResourceIO[ExternalId, SimulatorModelRequest, SimulatorMo
             yield SimulatorsAcl(actions=acl_actions, scope=scope)
 
     def create(self, items: Sequence[SimulatorModelRequest]) -> list[SimulatorModelResponse]:
-        return self.client.tool.simulators.models.create(items)
+        return self.client.simulators.models.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorModelResponse]:
-        return self.client.tool.simulators.models.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.simulators.models.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[SimulatorModelRequest]) -> list[SimulatorModelResponse]:
-        return self.client.tool.simulators.models.update(items, mode="replace")
+        return self.client.simulators.models.update(items, mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId | InternalOrExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.simulators.models.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if id_list:
+            self.client.simulators.models.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -128,7 +128,7 @@ class SimulatorModelIO(ResourceIO[ExternalId, SimulatorModelRequest, SimulatorMo
         if data_set_external_id:
             data_set_id = self.client.lookup.data_sets.id(data_set_external_id, is_dry_run=False)
         while True:
-            page = self.client.tool.simulators.models.paginate(
+            page = self.client.simulators.models.paginate(
                 limit=1000,
                 cursor=cursor,
             )
@@ -174,18 +174,16 @@ class SimulatorModelRevisionIO(
     resource_write_cls = SimulatorModelRevisionRequest
     yaml_cls = SimulatorModelRevisionYAML
     kind = "SimulatorModelRevision"
-    dependencies = frozenset({SimulatorModelIO, FileMetadataCRUD})
+    dependencies = frozenset({SimulatorModelIO, FileMetadataIO})
     parent_resource = frozenset({SimulatorModelIO})
     _doc_url = "Simulator-Models/operation/create_simulator_model_revision_simulators_models_revisions_post"
 
     def __init__(
         self,
         client: ToolkitClient,
-        build_path: Path | None,
-        console: Console | None,
         file_upload_timeout_seconds: float = CDF_TOML.cdf.file_upload_timeout_seconds,
     ):
-        super().__init__(client, build_path, console)
+        super().__init__(client)
         self._file_upload_timeout_seconds = file_upload_timeout_seconds
 
     @property
@@ -193,7 +191,11 @@ class SimulatorModelRevisionIO(
         return "simulator model revisions"
 
     @classmethod
-    def get_id(cls, item: SimulatorModelRevisionRequest | SimulatorModelRevisionResponse | dict) -> ExternalId:
+    def get_id(
+        cls, item: SimulatorModelRevisionRequest | SimulatorModelRevisionResponse | ExternalId | dict
+    ) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -222,7 +224,7 @@ class SimulatorModelRevisionIO(
 
     def create(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[SimulatorModelRevisionResponse]:
         file_ids = {InternalId(id=item.file_id): item for item in items}
-        failed_upload, elapsed_time = self.client.tool.filemetadata.await_file_uploaded(
+        failed_upload, elapsed_time = self.client.filemetadata.await_file_uploaded(
             list(file_ids), timeout_seconds=self._file_upload_timeout_seconds
         )
         if failed_upload:
@@ -235,19 +237,19 @@ class SimulatorModelRevisionIO(
                 f"the CDF TOML configuration file. Current value: {self._file_upload_timeout_seconds} seconds."
             )
 
-        return self.client.tool.simulators.model_revisions.create(items)
+        return self.client.simulators.model_revisions.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorModelRevisionResponse]:
-        return self.client.tool.simulators.model_revisions.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.simulators.model_revisions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[SimulatorModelRevisionRequest]) -> Sized:
+    def update(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[ExternalId]:
         # Simulator model revisions API does not support update
         raise ToolkitNotSupported(
             "You cannot update simulator model revisions. They are immutable."
             "You can change the external ID and create a new revision."
         )
 
-    def delete(self, ids: Sequence[ExternalId | InternalOrExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         # Simulator model revisions API does not support delete
         raise ToolkitNotSupported(
             "You cannot delete simulator model revisions. They are immutable."
@@ -263,7 +265,7 @@ class SimulatorModelRevisionIO(
         model_external_ids: list[str] | None = None
         if parent_ids:
             model_external_ids = [str(pid) for pid in parent_ids]
-        for items in self.client.tool.simulators.model_revisions.iterate(
+        for items in self.client.simulators.model_revisions.iterate(
             filter=SimulatorModelRevisionFilter(model_external_ids=model_external_ids), limit=None
         ):
             yield from items
@@ -272,7 +274,7 @@ class SimulatorModelRevisionIO(
     def get_dependencies(cls, resource: SimulatorModelRevisionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield SimulatorModelIO, ExternalId(external_id=resource.model_external_id)
         if resource.file_external_id:
-            yield FileMetadataCRUD, ExternalId(external_id=resource.file_external_id)
+            yield FileMetadataIO, ExternalId(external_id=resource.file_external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SimulatorModelRevisionRequest:
         if file_external_id := resource.pop("fileExternalId", None):
@@ -307,7 +309,9 @@ class SimulatorRoutineIO(
         return "simulator routines"
 
     @classmethod
-    def get_id(cls, item: SimulatorRoutineRequest | SimulatorRoutineResponse | dict) -> ExternalId:
+    def get_id(cls, item: SimulatorRoutineRequest | SimulatorRoutineResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -335,23 +339,23 @@ class SimulatorRoutineIO(
         yield from ()
 
     def create(self, items: Sequence[SimulatorRoutineRequest]) -> list[SimulatorRoutineResponse]:
-        return self.client.tool.simulators.routines.create(items)
+        return self.client.simulators.routines.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorRoutineResponse]:
         # Simulator routines do not have a retrieve endpoint, we need to list and filter
         all_items: list[SimulatorRoutineResponse] = []
         id_set = {id_.external_id for id_ in ids}
-        for batch in self.client.tool.simulators.routines.iterate(limit=None):
+        for batch in self.client.simulators.routines.iterate(limit=None):
             for item in batch:
                 if item.external_id in id_set:
                     all_items.append(item)
         return all_items
 
-    def delete(self, ids: Sequence[ExternalId | InternalOrExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.simulators.routines.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if id_list:
+            self.client.simulators.routines.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -362,7 +366,7 @@ class SimulatorRoutineIO(
         model_external_ids: list[str] | None = None
         if parent_ids:
             model_external_ids = [str(pid) for pid in parent_ids]
-        for items in self.client.tool.simulators.routines.iterate(
+        for items in self.client.simulators.routines.iterate(
             filter=SimulatorModelRoutineFilter(model_external_ids=model_external_ids), limit=None
         ):
             yield from items
@@ -392,7 +396,7 @@ class SimulatorRoutineRevisionIO(
     resource_write_cls = SimulatorRoutineRevisionRequest
     yaml_cls = SimulatorRoutineRevisionYAML
     kind = "SimulatorRoutineRevision"
-    dependencies = frozenset({SimulatorRoutineIO, TimeSeriesCRUD})
+    dependencies = frozenset({SimulatorRoutineIO, TimeSeriesIO})
     parent_resource = frozenset({SimulatorRoutineIO})
     _doc_url = "Simulator-Routines/operation/create_simulator_routine_revision_simulators_routines_revisions_post"
 
@@ -401,7 +405,11 @@ class SimulatorRoutineRevisionIO(
         return "simulator routine revisions"
 
     @classmethod
-    def get_id(cls, item: SimulatorRoutineRevisionRequest | SimulatorRoutineRevisionResponse | dict) -> ExternalId:
+    def get_id(
+        cls, item: SimulatorRoutineRevisionRequest | SimulatorRoutineRevisionResponse | ExternalId | dict
+    ) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -429,19 +437,19 @@ class SimulatorRoutineRevisionIO(
         yield from ()
 
     def create(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> list[SimulatorRoutineRevisionResponse]:
-        return self.client.tool.simulators.routine_revisions.create(items)
+        return self.client.simulators.routine_revisions.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorRoutineRevisionResponse]:
-        return self.client.tool.simulators.routine_revisions.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.simulators.routine_revisions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> Sized:
+    def update(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> list[ExternalId]:
         # Simulator routine revisions API does not support update
         raise ToolkitNotSupported(
             "You cannot update simulator routine revisions. They are immutable."
             "You can change the external ID and create a new revision."
         )
 
-    def delete(self, ids: Sequence[ExternalId | InternalOrExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         # Simulator routine revisions API does not support delete
         raise ToolkitNotSupported(
             "You cannot delete simulator routine revisions. They are immutable."
@@ -457,7 +465,7 @@ class SimulatorRoutineRevisionIO(
         routine_external_ids: list[str] | None = None
         if parent_ids:
             routine_external_ids = [str(pid) for pid in parent_ids]
-        for items in self.client.tool.simulators.routine_revisions.iterate(
+        for items in self.client.simulators.routine_revisions.iterate(
             filter=SimulatorModelRoutineRevisionFilter(routine_external_ids=routine_external_ids), limit=None
         ):
             yield from items
@@ -470,16 +478,16 @@ class SimulatorRoutineRevisionIO(
         config = resource.configuration
         for check in config.logical_check or []:
             if check.timeseries_external_id:
-                yield TimeSeriesCRUD, ExternalId(external_id=check.timeseries_external_id)
+                yield TimeSeriesIO, ExternalId(external_id=check.timeseries_external_id)
         for detection in config.steady_state_detection or []:
             if detection.timeseries_external_id:
-                yield TimeSeriesCRUD, ExternalId(external_id=detection.timeseries_external_id)
+                yield TimeSeriesIO, ExternalId(external_id=detection.timeseries_external_id)
         for intput_ in config.inputs or []:
             if intput_.save_timeseries_external_id:
-                yield TimeSeriesCRUD, ExternalId(external_id=intput_.save_timeseries_external_id)
+                yield TimeSeriesIO, ExternalId(external_id=intput_.save_timeseries_external_id)
         for output in config.outputs or []:
             if output.save_timeseries_external_id:
-                yield TimeSeriesCRUD, ExternalId(external_id=output.save_timeseries_external_id)
+                yield TimeSeriesIO, ExternalId(external_id=output.save_timeseries_external_id)
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]

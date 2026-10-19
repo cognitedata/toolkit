@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import Field, JsonValue
+from pydantic import Field, JsonValue, PrivateAttr
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -21,7 +21,7 @@ class CalculationInput(BaseModelObject):
     # The literal is to show typical values of type.
     type: Literal["ts", "const", "result"] | str | None = None
     value: str | float | int | NodeUntypedId | JsonValue | None = None
-    param: JsonValue | None = None
+    param: str
 
 
 class CalculationStep(BaseModelObject):
@@ -92,9 +92,24 @@ class ChartScheduledCalculationRequest(ChartScheduledCalculation, UpdatableReque
     graph: CalculationGraph
     nonce: str
 
+    _update_target: bool = PrivateAttr(default=False)
+
+    def with_target_update(self) -> "ChartScheduledCalculationRequest":
+        """Return a copy whose update also sends the write target.
+
+        By default, updates omit the target. The API only accepts a target that is unchanged or the linked
+        instance ID of the stored external-ID target.
+        """
+        request = self.model_copy()
+        request._update_target = True
+        return request
+
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
-        # The excluded fields are immutable, i.e., the cannot be updated.
-        return self.model_dump(exclude={"nonce", "period", "offset", "window_size"}, exclude_none=True, by_alias=True)
+        # The excluded fields are immutable and cannot be updated.
+        exclude = {"nonce", "period", "offset", "window_size"}
+        if not self._update_target:
+            exclude |= {"target_timeseries_external_id", "target_timeseries_instance_id"}
+        return self.model_dump(exclude=exclude, exclude_none=True, by_alias=True)
 
 
 class ChartScheduledCalculationListResponse(ChartScheduledCalculation):

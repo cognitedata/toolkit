@@ -13,10 +13,7 @@
 # limitations under the License.
 
 
-from pathlib import Path
 from typing import final
-
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 
@@ -24,32 +21,32 @@ from ._auth import GroupIO, SecurityCategoryIO
 from ._classic import AssetIO
 from ._data_organization import DataSetsIO
 from ._data_product import DataProductIO
-from ._datamodel import SpaceCRUD
+from ._datamodel import SpaceIO
 from ._extraction_pipeline import ExtractionPipelineIO
 from ._location import LocationFilterIO
-from ._raw import RawDatabaseCRUD, RawTableCRUD
-from ._timeseries import TimeSeriesCRUD
+from ._raw import RawDatabaseIO, RawTableIO
+from ._timeseries import TimeSeriesIO
 
 
 @final
-class GroupResourceScopedCRUD(GroupIO):
+class GroupResourceScopedIO(GroupIO):
     dependencies = frozenset(
         {
-            SpaceCRUD,
+            SpaceIO,
             DataSetsIO,
             DataProductIO,
             ExtractionPipelineIO,
-            TimeSeriesCRUD,
+            TimeSeriesIO,
             SecurityCategoryIO,
             LocationFilterIO,
             AssetIO,
-            RawDatabaseCRUD,
-            RawTableCRUD,
+            RawDatabaseIO,
+            RawTableIO,
         }
     )
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None):
-        super().__init__(client, build_dir, console, "resource_scoped_only")
+    def __init__(self, client: ToolkitClient):
+        super().__init__(client, "resource_scoped_only")
 
     @property
     def display_name(self) -> str:

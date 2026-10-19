@@ -3,8 +3,6 @@ from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal, final
 
-from rich.console import Console
-
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -23,7 +21,7 @@ from cognite_toolkit._cdf_tk.utils.file import create_zip_in_memory
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash
 from cognite_toolkit._cdf_tk.yaml_classes import AppVersionYAML, AppYAML
 
-from ._auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedIO
 
 
 @final
@@ -35,7 +33,7 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
     resource_write_cls = AppRequest
     kind = "App"
     yaml_cls = AppYAML
-    dependencies = frozenset({GroupAllScopedCRUD})
+    dependencies = frozenset({GroupAllScopedIO})
     _doc_url = "Apps/operation/appsCreate"
     drop_confirmation_message = (
         "WARNING: Apps are soft-deleted for up to 30 days after deletion. "
@@ -58,18 +56,20 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
             yield AppHostingAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: AppResponse | AppRequest | dict[str, Any]) -> ExternalId:
+    def get_id(cls, item: AppResponse | AppRequest | ExternalId | dict[str, Any]) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, identifier: ExternalId) -> dict[str, Any]:
-        return identifier.dump()
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
-    def as_str(cls, identifier: ExternalId) -> str:
-        return str(identifier)
+    def as_filename(cls, id: ExternalId) -> str:
+        return str(id)
 
     @classmethod
     def get_dependencies(cls, resource: AppYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -90,16 +90,17 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
         return dumped
 
     def create(self, items: Sequence[AppRequest]) -> list[AppResponse]:
-        return self.client.tool.apps.create(list(items))
+        return self.client.apps.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[AppResponse]:
-        return self.client.tool.apps.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.apps.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.apps.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.apps.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -107,7 +108,7 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[AppResponse]:
-        for page in self.client.tool.apps.iterate():
+        for page in self.client.apps.iterate():
             yield from page
 
 
@@ -120,11 +121,11 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
     resource_write_cls = AppVersionRequest
     kind = "AppVersion"
     yaml_cls = AppVersionYAML
-    dependencies = frozenset({AppIO, GroupAllScopedCRUD})
+    dependencies = frozenset({AppIO, GroupAllScopedIO})
     _doc_url = "Apps/operation/appsCreate"
 
-    def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
-        super().__init__(client, build_path, console)
+    def __init__(self, client: ToolkitClient):
+        super().__init__(client)
         self.zip_path_by_version_id: dict[AppVersionId, Path] = {}
 
     @property
@@ -141,7 +142,9 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
             yield AppHostingAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: AppVersionResponse | AppVersionRequest | dict[str, Any]) -> AppVersionId:
+    def get_id(cls, item: AppVersionResponse | AppVersionRequest | AppVersionId | dict[str, Any]) -> AppVersionId:
+        if isinstance(item, AppVersionId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("appExternalId", "version") if k not in item):
                 raise KeyError(*missing)
@@ -151,12 +154,12 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
         return AppVersionId(app_external_id=item.app_external_id, version=item.version)
 
     @classmethod
-    def dump_id(cls, identifier: AppVersionId) -> dict[str, Any]:
-        return identifier.dump()
+    def dump_id(cls, id: AppVersionId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
-    def as_str(cls, identifier: AppVersionId) -> str:
-        return str(identifier)
+    def as_filename(cls, id: AppVersionId) -> str:
+        return str(id)
 
     @classmethod
     def get_dependencies(cls, resource: AppVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -173,7 +176,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
 
         if not app_root.is_dir():
             yield FailedReadExtra(
-                code="MISSING",
+                code="MISSING-REFERENCED-DIRECTORY",
                 error=(
                     f"App directory not found for appExternalId {app_external_id!r}. "
                     f"Expected {app_root.as_posix()} to exist."
@@ -188,7 +191,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
             source_dir = dist_dir
         elif (app_root / "src").is_dir() and (app_root / "package.json").is_file():
             yield FailedReadExtra(
-                code="MISSING",
+                code="MISSING-REFERENCED-DIRECTORY",
                 error=(
                     f"App {app_external_id!r} looks like an unbuilt web project: "
                     f"Run `npm run build` (or your project's build command) in {app_root.as_posix()} "
@@ -201,7 +204,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
             source_dir = app_root
         else:
             yield FailedReadExtra(
-                code="MISSING",
+                code="MISSING-REFERENCED-FILE",
                 error=(
                     f"Could not locate entrypoint {entrypoint!r} for app {app_external_id!r}. "
                     f"Expected {(dist_dir / entrypoint).as_posix()} or "
@@ -214,7 +217,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
         package_json = app_root / "package.json"
         if not package_json.is_file():
             yield FailedReadExtra(
-                code="MISSING",
+                code="MISSING-REFERENCED-FILE",
                 error=(
                     f"App {app_external_id!r} is missing package.json at {app_root.as_posix()}. "
                     f"This file is required to deploy to the App Hosting service."
@@ -226,7 +229,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
         package_lock = app_root / "package-lock.json"
         if not package_lock.is_file():
             yield FailedReadExtra(
-                code="MISSING",
+                code="MISSING-REFERENCED-FILE",
                 error=(
                     f"App {app_external_id!r} is missing package-lock.json at {app_root.as_posix()}. "
                     f"This file is required to deploy to the App Hosting service."
@@ -241,7 +244,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
                 json.loads(manifest_json.read_text(encoding="utf-8"))
             except json.JSONDecodeError as error:
                 yield FailedReadExtra(
-                    code="SYNTAX-ERROR",
+                    code="INVALID-FILE-CONTENT",
                     error=f"App {app_external_id!r} has an invalid manifest.json at {manifest_json.as_posix()}: {error}",
                     source_path=manifest_json,
                 )
@@ -306,7 +309,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
             )
         zip_bytes = zip_path.read_bytes()
         try:
-            self.client.tool.apps.versions.upload(
+            self.client.apps.versions.upload(
                 external_id=item.app_external_id,
                 version=item.version,
                 entrypoint=item.entrypoint,
@@ -318,7 +321,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
         update: dict[str, Any] = {"lifecycleState": {"set": item.lifecycle_state}}
         if "alias" in item.model_fields_set:
             update["alias"] = {"setNull": True} if item.alias is None else {"set": item.alias}
-        self.client.tool.apps.versions.update(item.app_external_id, item.version, update)
+        self.client.apps.versions.update(item.app_external_id, item.version, update)
 
         return AppVersionResponse(
             app_external_id=item.app_external_id,
@@ -335,13 +338,14 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
         return [self._deploy(item) for item in items]
 
     def retrieve(self, ids: Sequence[AppVersionId]) -> list[AppVersionResponse]:
-        return self.client.tool.apps.versions.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.apps.versions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: Sequence[AppVersionId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.apps.versions.delete(ids)
-        return len(ids)
+    def delete(self, ids: Sequence[AppVersionId]) -> list[AppVersionId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.apps.versions.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -349,5 +353,5 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[AppVersionResponse]:
-        for page in self.client.tool.apps.versions.iterate():
+        for page in self.client.apps.versions.iterate():
             yield from page

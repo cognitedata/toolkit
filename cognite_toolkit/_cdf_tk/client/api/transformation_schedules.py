@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
@@ -32,7 +33,7 @@ class TransformationSchedulesAPI(CDFResourceAPI[TransformationScheduleResponse])
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[TransformationScheduleRequest]) -> list[TransformationScheduleResponse]:
+    def create(self, items: Sequence[TransformationScheduleRequest]) -> builtins.list[TransformationScheduleResponse]:
         """Schedule transformations with the specified configurations.
 
         Args:
@@ -44,7 +45,7 @@ class TransformationSchedulesAPI(CDFResourceAPI[TransformationScheduleResponse])
 
     def retrieve(
         self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
-    ) -> list[TransformationScheduleResponse]:
+    ) -> builtins.list[TransformationScheduleResponse]:
         """Retrieve transformation schedules from CDF.
 
         Args:
@@ -61,7 +62,7 @@ class TransformationSchedulesAPI(CDFResourceAPI[TransformationScheduleResponse])
 
     def update(
         self, items: Sequence[TransformationScheduleRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[TransformationScheduleResponse]:
+    ) -> builtins.list[TransformationScheduleResponse]:
         """Update transformation schedules in CDF.
 
         Args:
@@ -104,7 +105,7 @@ class TransformationSchedulesAPI(CDFResourceAPI[TransformationScheduleResponse])
     def iterate(
         self,
         limit: int | None = 100,
-    ) -> Iterable[list[TransformationScheduleResponse]]:
+    ) -> Iterable[builtins.list[TransformationScheduleResponse]]:
         """Iterate over all transformation schedules in CDF.
 
         Args:
@@ -118,7 +119,7 @@ class TransformationSchedulesAPI(CDFResourceAPI[TransformationScheduleResponse])
     def list(
         self,
         limit: int | None = 100,
-    ) -> list[TransformationScheduleResponse]:
+    ) -> builtins.list[TransformationScheduleResponse]:
         """List all transformation schedules in CDF.
 
         Returns:

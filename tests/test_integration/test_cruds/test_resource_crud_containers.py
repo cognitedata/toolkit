@@ -8,17 +8,15 @@ from cognite.client import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import NameId, RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NameId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId, ContainerRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
-    ThreeDModelClassicRequest,
-    ThreeDModelClassicResponse,
-)
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
-from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, RawTableCRUD, TimeSeriesCRUD
-from cognite_toolkit._cdf_tk.resource_ios._three_d_model import ThreeDModelCRUD
+from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, RawTableIO, TimeSeriesIO
+from cognite_toolkit._cdf_tk.resource_ios._three_d_model import ThreeDModelIO
 from tests.test_integration.constants import RUN_UNIQUE_ID
+from tests.test_integration.helpers import load_local_yaml
 
 
 @pytest.fixture(scope="session")
@@ -32,7 +30,9 @@ def integration_space(cognite_client: CogniteClient) -> dm.Space:
 
 
 class TestTimeSeriesLoader:
-    def test_create_populate_count_drop_data(self, toolkit_client: CogniteClient) -> None:
+    def test_create_populate_count_drop_data(
+        self, toolkit_client: ToolkitClient, cognite_client: CogniteClient
+    ) -> None:
         timeseries = TimeSeriesRequest(
             external_id=f"test_create_populate_count_drop_data{RUN_UNIQUE_ID}", is_string=False
         )
@@ -40,7 +40,7 @@ class TestTimeSeriesLoader:
             [{"timestamp": 0, timeseries.external_id: 0}, {"timestamp": 1, timeseries.external_id: 1}]
         ).set_index("timestamp")
         datapoints.index = pd.to_datetime(datapoints.index, unit="s")
-        loader = TimeSeriesCRUD(toolkit_client, None)
+        loader = TimeSeriesIO(toolkit_client)
         ts_ids = [timeseries.as_id()]
 
         try:
@@ -48,7 +48,7 @@ class TestTimeSeriesLoader:
             assert len(created) == 1
 
             assert loader.count(ts_ids) == 0
-            toolkit_client.time_series.data.insert_dataframe(datapoints)
+            cognite_client.time_series.data.insert_dataframe(datapoints)
 
             assert loader.count(ts_ids) == 2
 
@@ -56,11 +56,11 @@ class TestTimeSeriesLoader:
 
             assert loader.count(ts_ids) == 0
 
-            assert loader.delete(ts_ids) == 1
+            assert loader.delete(ts_ids) == ts_ids
 
             assert not loader.retrieve(ts_ids)
         finally:
-            toolkit_client.time_series.delete(external_id=timeseries.external_id, ignore_unknown_ids=True)
+            cognite_client.time_series.delete(external_id=timeseries.external_id, ignore_unknown_ids=True)
 
 
 @pytest.fixture(scope="function")
@@ -89,11 +89,11 @@ def edge_container(cognite_client: CogniteClient, integration_space: dm.Space) -
     return cognite_client.data_modeling.containers.apply(container)
 
 
-class TestContainerLoader:
+class TestContainerIO:
     # The DMS service is fairly unstable, so we need to rerun the tests if they fail.
     @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError", "ToolkitAPIError"])
     def test_populate_count_drop_data_node_container(
-        self, node_container: dm.Container, toolkit_client: ToolkitClient
+        self, node_container: dm.Container, toolkit_client: ToolkitClient, cognite_client: CogniteClient
     ) -> None:
         node = dm.NodeApply(
             space=node_container.space,
@@ -102,12 +102,12 @@ class TestContainerLoader:
         )
         container_id = [ContainerId(space=node_container.space, external_id=node_container.external_id)]
 
-        loader = ContainerCRUD(toolkit_client, None)
+        loader = ContainerIO(toolkit_client)
 
         try:
             assert loader.count(container_id) == 0
 
-            toolkit_client.data_modeling.instances.apply(nodes=[node])
+            cognite_client.data_modeling.instances.apply(nodes=[node])
 
             assert loader.count(container_id) == 1
 
@@ -116,13 +116,15 @@ class TestContainerLoader:
 
             write_container = ContainerRequest.model_validate(node_container.as_write().dump())
             write_container.description = "Updated description"
-            updated = loader.update([write_container])
-            assert len(updated) == 1
+            updated_items = loader.update([write_container])
+            assert len(updated_items) == 1
+            updated_ids = loader.get_ids(updated_items)
+            updated = loader.retrieve(updated_ids)
             if updated[0].description != write_container.description:
                 # The API is not always consistent in returning the updated description,
                 # so we need to retrieve the container to verify the update
                 sleep(1)
-                updated = loader.retrieve(container_id)
+                updated = loader.retrieve(updated_ids)
             assert updated[0].description == write_container.description
         finally:
             loader.drop_data(container_id)
@@ -130,7 +132,7 @@ class TestContainerLoader:
     # The DMS service is fairly unstable, so we need to rerun the tests if they fail.
     @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError", "ToolkitAPIError"])
     def test_populate_count_drop_data_edge_container(
-        self, edge_container: dm.Container, toolkit_client: ToolkitClient
+        self, edge_container: dm.Container, toolkit_client: ToolkitClient, cognite_client: CogniteClient
     ) -> None:
         space = edge_container.space
         nodes = dm.NodeApplyList(
@@ -157,12 +159,12 @@ class TestContainerLoader:
         )
         container_id = [ContainerId(space=edge_container.space, external_id=edge_container.external_id)]
 
-        loader = ContainerCRUD(toolkit_client, None)
+        loader = ContainerIO(toolkit_client)
 
         try:
             assert loader.count(container_id) == 0
 
-            toolkit_client.data_modeling.instances.apply(edges=[edge], nodes=nodes)
+            cognite_client.data_modeling.instances.apply(edges=[edge], nodes=nodes)
 
             assert loader.count(container_id) == 1
 
@@ -171,16 +173,46 @@ class TestContainerLoader:
 
             write_container = ContainerRequest.model_validate(edge_container.as_write().dump())
             write_container.description = "Updated description"
-            updated = loader.update([write_container])
-            assert len(updated) == 1
+            updated_items = loader.update([write_container])
+            assert len(updated_items) == 1
+            updated_ids = loader.get_ids(updated_items)
+            updated = loader.retrieve(updated_ids)
             if updated[0].description != write_container.description:
                 # The API is not always consistent in returning the updated description,
                 # so we need to retrieve the container to verify the update
                 sleep(1)
-                updated = loader.retrieve([write_container.as_id()])
+                updated = loader.retrieve(updated_ids)
             assert updated[0].description == write_container.description
         finally:
-            toolkit_client.data_modeling.instances.delete(nodes=nodes.as_ids(), edges=edge.as_id())
+            cognite_client.data_modeling.instances.delete(nodes=nodes.as_ids(), edges=edge.as_id())
+
+    def test_unchanged_container_not_redeployed(
+        self, integration_space: dm.Space, toolkit_client: ToolkitClient
+    ) -> None:
+        local_yaml_content = f"""
+        space: {integration_space.space}
+        externalId: test_unchanged_container_not_redeployed
+        name: test_unchanged_container_not_redeployed
+        usedFor: node
+        properties:
+          name:
+            type:
+              type: text
+        indexes:
+          nameIndex:
+            indexType: btree
+            properties:
+              - name
+        """
+        io = ContainerIO(toolkit_client)
+        raw_data = load_local_yaml(local_yaml_content, io)
+        container = io.load_resource(raw_data)
+        retrieved = io.retrieve([container.as_id()])
+        if len(retrieved) == 0:
+            created_items = io.create([container])
+            assert len(created_items) == 1
+            retrieved = io.retrieve(io.get_ids(created_items))
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)
 
 
 class Test3DModelLoader:
@@ -192,28 +224,37 @@ class Test3DModelLoader:
             },
         )
 
-        loader = ThreeDModelCRUD(toolkit_client, None)
+        io = ThreeDModelIO(toolkit_client)
 
-        created: list[ThreeDModelClassicResponse] | None = None
+        created_internal_ids: list[InternalId] = []
         try:
-            created = loader.create([model])
+            created_items = io.create([model])
+            assert len(created_items) == 1
+            created = io.retrieve(io.get_ids(created_items))
             assert len(created) == 1
+            created_internal_ids.append(InternalId(id=created[0].id))
 
             # Serialize and deserialize the model to get a copy
             update = created[0].as_request_resource().model_copy(deep=True)
-            update.metadata["new_key"] = "new_value"
+            metadata = update.metadata
+            assert metadata is not None
+            metadata["new_key"] = "new_value"
 
-            updated = loader.update([update])
+            updated_items = io.update([update])
+            assert len(updated_items) == 1
+            updated = io.retrieve(io.get_ids(updated_items))
             assert len(updated) == 1
-            assert updated[0].metadata["new_key"] == "new_value"
+            updated_metadata = updated[0].metadata
+            assert updated_metadata is not None
+            assert updated_metadata["new_key"] == "new_value"
 
-            delete_count = loader.delete([NameId(name=model.name)])
-            assert delete_count == 1
+            deleted = io.delete([NameId(name=model.name)])
+            assert deleted == [NameId(name=model.name)]
         finally:
             # Ensure that the model is deleted even if the test fails.
-            if created is not None:
+            if created_internal_ids:
                 with suppress(ToolkitAPIError):
-                    toolkit_client.tool.three_d.models_classic.delete([created[0].as_id()])
+                    toolkit_client.three_d.models_classic.delete(created_internal_ids)
 
 
 class TestRawTableCRUD:
@@ -224,17 +265,17 @@ class TestRawTableCRUD:
         table_existing = RAWTableRequest(db_name=toolkit_raw_database.name, name="test_drop_existing_table")
         non_existing = RawTableId(db_name=toolkit_raw_database.name, name="test_drop_non_existing_table")
         try:
-            client.tool.raw.tables.create([table_existing])
+            client.raw.tables.create([table_existing])
         except ToolkitAPIError:
             # Assume it is existing
             ...
 
-        raw_table_io = RawTableCRUD(client, None, None)
+        raw_table_io = RawTableIO(client)
 
         raw_table_io.drop_data([table_existing.as_id(), non_existing])
 
         try:
-            client.tool.raw.tables.delete([table_existing.as_id()])
+            client.raw.tables.delete([table_existing.as_id()])
         except ToolkitAPIError:
             # The deletion went correctly
             ...

@@ -11,7 +11,7 @@ class Plugin:
     description: str
 
     def is_enabled(self) -> bool:
-        return CDFToml.load().plugins.get(clean_name(self.name), False)
+        return CDFToml.load_module_context().plugins.get(clean_name(self.name), False)
 
 
 class Plugins(Enum):

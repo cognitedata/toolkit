@@ -8,7 +8,7 @@ from typing import Literal, TypeAlias
 from cognite.client import data_modeling as dm
 
 try:
-    from pyodide.ffi import IN_BROWSER
+    from pyodide.ffi import IN_BROWSER  # ty: ignore[unresolved-import]
 except ModuleNotFoundError:
     IN_BROWSER = False
 # This is the default config located locally in each module.
@@ -26,6 +26,8 @@ COGNITE_IDP_BASE_URL = os.environ.get("COGNITE_IDP_BASE_URL", "https://auth.cogn
 COGNITE_CLI_SESSION_VERSION = 1
 COGNITE_CLI_KEYRING_SERVICE = "cognite-cli-session"
 COGNITE_CLI_ACCESS_TOKEN_LEEWAY_SECONDS = 5 * 60
+
+DEFAULT_CLIENT_TIMEOUT = 60
 
 _RUNNING_IN_BROWSER = IN_BROWSER
 # This is the default config located locally in each module.
@@ -67,7 +69,7 @@ EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
 # YAML files in those subdirectories are code artifacts, not CDF resource definitions.
 RESOURCE_FOLDERS_WITH_CODE_BUNDLES = frozenset({"functions", "apps", "streamlit"})
 # Files to search for variables.
-SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv", ".md"])
+SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv", ".md", ".ttl"])
 YAML_SUFFIX = frozenset([".yaml", ".yml"])
 # Which files to process for template variable replacement
 TEMPLATE_VARS_FILE_SUFFIXES = frozenset([".yaml", ".yml", ".sql", ".json", ".graphql"])
@@ -214,3 +216,7 @@ MISSING_NONCE = "<missingNonce>"
 LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW_DICT = dict(
     space="cdf_360_image_schema", external_id="Image360Collection", version="v1"
 )
+
+LOGS_DIRECTORY = Path("logs")
+
+BUILD_MODULE_ARG = "--modules"

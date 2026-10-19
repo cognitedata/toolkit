@@ -6,7 +6,6 @@ from cognite_toolkit._cdf_tk.commands import AuthCommand
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables, parse_login_flow
 from cognite_toolkit._cdf_tk.commands.auth.data_classes import LOGIN_FLOWS
 from cognite_toolkit._cdf_tk.commands.auth.session_command import AuthSessionCommand
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
 from ._helpers import print_help_if_no_subcommand
 
@@ -17,10 +16,9 @@ class AuthApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.main)
         self.command()(self.init)
         self.command()(self.verify)
-        if FeatureFlag.is_enabled(Flags.V09):
-            self.command()(self.login)
-            self.command()(self.logout)
-            self.command()(self.status)
+        self.command()(self.login)
+        self.command()(self.logout)
+        self.command()(self.status)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands to auth setup"""
@@ -166,7 +164,38 @@ class AuthApp(typer.Typer):
         cmd = AuthCommand()
         cmd.run(AuthSessionCommand().logout)
 
-    def status(self) -> None:
-        """Show the current persisted CogIdP session."""
+    def status(
+        self,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="List capabilities and toolkit resources for the current project.",
+            ),
+        ] = False,
+        all_projects: Annotated[
+            bool,
+            typer.Option(
+                "--all",
+                "-a",
+                help="With --verbose, list capabilities and toolkit resources for every project you can access.",
+            ),
+        ] = False,
+        show_missing: Annotated[
+            bool,
+            typer.Option(
+                "--show-missing",
+                help="With --verbose, include toolkit resources you cannot read or write.",
+            ),
+        ] = False,
+    ) -> None:
+        """Show whether you are authenticated, how, and which CDF projects you can access.
+
+        With --verbose, also lists capabilities and the toolkit resources they grant for the current project.
+        Add --all to include every project. Add --show-missing to include resources you cannot access.
+        """
         cmd = AuthCommand()
-        cmd.run(AuthSessionCommand().status)
+        cmd.run(
+            lambda: AuthSessionCommand().status(verbose=verbose, all_projects=all_projects, show_missing=show_missing)
+        )

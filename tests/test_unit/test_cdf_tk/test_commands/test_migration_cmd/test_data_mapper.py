@@ -202,7 +202,7 @@ class TestAssetCentricToInstanceMapper:
                     version=1,
                 ),
             ]
-            client.tool.views.retrieve.return_value = cognite_core_no_3D.views + cognite_extractor_views
+            client.views.retrieve.return_value = cognite_core_no_3D.views + cognite_extractor_views
 
             mapper = AssetCentricToInstanceMapper(client)
 
@@ -224,7 +224,7 @@ class TestAssetCentricToInstanceMapper:
                 [NodeId(space="cognite_migration", external_id="cdf_asset_mapping")]
             )
             assert client.migration.created_source_system.retrieve.call_count == 1
-            assert client.tool.views.retrieve.call_count == 1
+            assert client.views.retrieve.call_count == 1
 
             assert client.migration.created_source_system.retrieve.call_count == 1
             client.migration.created_source_system.retrieve.assert_called_with(["sap"])
@@ -299,9 +299,6 @@ class TestAssetCentricToInstanceMapper:
                     version=1,
                 )
             ]
-
-            # Return empty list to simulate missing view in Data Modeling
-            client.data_modeling.views.retrieve.return_value = []
 
             mapper = AssetCentricToInstanceMapper(client)
 
@@ -417,7 +414,7 @@ class TestCanvasMapper:
                 NodeId(space="my_space", external_id="file_1"),
             ]
             client.migration.lookup.time_series.return_value = NodeId(space="my_space", external_id="timeseries_1")
-            client.tool.cognite_files.retrieve.return_value = [
+            client.cognite_files.retrieve.return_value = [
                 CogniteFileResponse(
                     space="my_space",
                     external_id="file_1",
@@ -495,7 +492,7 @@ class TestChartMapper:
             assert source.monitoring_jobs
 
             event_node_ids = [NodeId(space=target_space, external_id=f"event_{i}") for i in range(event_count)]
-            client.tool.events.list.return_value = [
+            client.events.list.return_value = [
                 EventResponse(id=i, created_time=1, last_updated_time=1) for i in range(event_count)
             ]
             event_lookup = MagicMock()
@@ -506,7 +503,7 @@ class TestChartMapper:
                 space="cdf_cdm", external_id="CogniteActivity", version="v1"
             )
             client.migration.lookup.events = event_lookup
-            client.tool.timeseries.retrieve.return_value = []
+            client.timeseries.retrieve.return_value = []
 
             mapper = ChartMapper(client)
             mapped_list = mapper.map([DataItem(tracking_id="t", item=source)])
@@ -550,7 +547,7 @@ class TestChartMapper:
                                 CalculationStep(
                                     op="PASSTHROUGH",
                                     version=1.0,
-                                    inputs=[CalculationInput(type="ts", value="OLD_INPUT_TS")],
+                                    inputs=[CalculationInput(type="ts", value="OLD_INPUT_TS", param="series")],
                                     raw=False,
                                     step=0,
                                 )
@@ -651,7 +648,7 @@ class TestChartMapper:
             client.migration.lookup.time_series.consumer_view.return_value = ViewId(
                 space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
             )
-            client.tool.timeseries.retrieve.return_value = []
+            client.timeseries.retrieve.return_value = []
 
             mapper = ChartMapper(client)
             mapped_list = mapper.map([DataItem(tracking_id="t", item=chart)])
@@ -696,7 +693,7 @@ class TestChartMapper:
             client.migration.lookup.time_series.consumer_view.return_value = ViewId(
                 space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
             )
-            client.tool.timeseries.retrieve.return_value = []
+            client.timeseries.retrieve.return_value = []
 
             mapper = ChartMapper(client)
             logger = MagicMock(spec=DataLogger)
@@ -734,7 +731,7 @@ class TestChartMapper:
 
         with monkeypatch_toolkit_client() as client:
             client.migration.lookup.time_series.return_value = None
-            client.tool.timeseries.retrieve.return_value = [
+            client.timeseries.retrieve.return_value = [
                 TimeSeriesResponse(
                     external_id="unmigrated_timeseries",
                     type="numeric",
@@ -1070,9 +1067,9 @@ class TestFDMtoCDMMapper:
         expected: Sequence[InstanceRequest],
     ):
         with monkeypatch_toolkit_client() as client:
-            client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
-            client.tool.timeseries.retrieve.return_value = [self.TIMESERIES_RESPONSE]
-            client.tool.filemetadata.retrieve.return_value = [self.FILE_RESPONSE]
+            client.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
+            client.timeseries.retrieve.return_value = [self.TIMESERIES_RESPONSE]
+            client.filemetadata.retrieve.return_value = [self.FILE_RESPONSE]
 
             mapping = self.VIEW_MAPPING.model_copy(
                 update={"container_mapping": container_mapping, "edge_mapping": edge_mapping}
@@ -1106,7 +1103,7 @@ class TestFDMtoCDMMapper:
             end_node=NodeId(space=self.SOURCE_SPACE, external_id="node2"),
         )
         with monkeypatch_toolkit_client() as client:
-            client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
+            client.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
             mapping = self.VIEW_MAPPING.model_copy(
                 update={
                     "container_mapping": {"textProp": "targetInt"},
@@ -1141,9 +1138,12 @@ class TestFDMtoCDMMapper:
         target_by_root_asset: dict[str, str],
         registered: dict[str, str] | None = None,
         dry_run: bool = False,
+        edge_mapping: dict[EdgeTypeId, str] | None = None,
     ) -> LocationSplitFDMtoCDMMapper:
-        client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
-        mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"textProp": "targetInt"}})
+        client.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
+        mapping = self.VIEW_MAPPING.model_copy(
+            update={"container_mapping": {"textProp": "targetInt"}, "edge_mapping": edge_mapping}
+        )
         instance_id_mapper = LocationSplitInstanceIdMapper(client, self.SOURCE_SPACE)
         if registered is not None:
             for external_id, target_space in registered.items():
@@ -1268,6 +1268,56 @@ class TestFDMtoCDMMapper:
         assert len(mapped_nodes) == 1
         assert mapped_nodes[0].space == expected_space
 
+    def test_location_split_mapper_with_edge_to_edge(self) -> None:
+        """An edge whose other side is an unregistered source-space node must have its target space
+        resolved before ``create_edges_from_edges`` maps it. The edge conversion never prefetches the
+        edge other-side external IDs, so the cache-only ``resolve_target_space`` raises a RuntimeError.
+
+        Correct behavior (asserted here): the other-side node is resolved from the relocation source view,
+        and the edge is created with its end node in the resolved target space.
+        """
+        node = self._location_split_node(
+            "node1", {TEMPLATE_VIEW: {"rootLocation": {"space": "x", "externalId": "ROOT_A"}}}
+        )
+        edge = EdgeResponse(
+            space=self.SOURCE_SPACE,
+            external_id="edge1",
+            last_updated_time=1,
+            created_time=0,
+            version=1,
+            type=NodeId(space="schema_space1", external_id="sourceEdge1"),
+            start_node=NodeId(space=self.SOURCE_SPACE, external_id="node1"),
+            end_node=NodeId(space=self.SOURCE_SPACE, external_id="node2"),
+        )
+        edge_mapping = {
+            EdgeTypeId(
+                type=NodeId(space="schema_space1", external_id="sourceEdge1"), direction="outwards"
+            ): "targetEdge1"
+        }
+        with monkeypatch_toolkit_client() as client:
+            # The unregistered other-side node was migrated to "target_space" per the relocation source view.
+            client.migration.instance_space_relocation_source.retrieve.return_value = [
+                InstanceSpaceRelocationSource(
+                    space="target_space",
+                    external_id="node2",
+                    source_space=self.SOURCE_SPACE,
+                    version=1,
+                    created_time=0,
+                    last_updated_time=0,
+                )
+            ]
+            mapper = self._location_split_mapper(client, {"ROOT_A": "target_space"}, edge_mapping=edge_mapping)
+            mapped_items = mapper.map(
+                [
+                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:node1", item=node),
+                    DataItem(tracking_id=f"{self.SOURCE_SPACE}:edge1", item=edge),
+                ]
+            )
+
+        mapped_edges = [item.item for item in mapped_items if isinstance(item.item, EdgeRequest)]
+        assert len(mapped_edges) == 1
+        assert mapped_edges[0].end_node == NodeId(space="target_space", external_id="node2")
+
     @pytest.mark.parametrize(
         "dry_run, expected_log_calls",
         [
@@ -1298,9 +1348,9 @@ class TestFDMtoCDMMapper:
         )
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.views.retrieve.return_value = [source_view, destination_view]
+            client.views.retrieve.return_value = [source_view, destination_view]
             # The target node referenced by the direct relation does not yet exist in CDF.
-            client.tool.instances.retrieve.return_value = []
+            client.instances.retrieve.return_value = []
 
             mapping = self.VIEW_MAPPING.model_copy(update={"container_mapping": {"sourceDirect": "constrainedDirect"}})
             connection_creator = ConnectionCreator(
@@ -1437,9 +1487,9 @@ class TestFDMtoCDMMapper:
         )
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.views.retrieve.return_value = [source_view, destination_view]
-            client.tool.filemetadata.retrieve.return_value = all_file_responses[:available_file_count]
-            client.tool.instances.retrieve.return_value = []
+            client.views.retrieve.return_value = [source_view, destination_view]
+            client.filemetadata.retrieve.return_value = all_file_responses[:available_file_count]
+            client.instances.retrieve.return_value = []
 
             connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
             mapper = Image360FDMtoCDMMapper(client, connection_creator=connection_creator)
@@ -1477,12 +1527,12 @@ class TestFDMtoCDMMapper:
         )
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.instances.retrieve.return_value = []
+            client.instances.retrieve.return_value = []
             mapper = Image360CollectionMapper(client)
             actual = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:collection1", item=collection_node)])
 
-        client.tool.instances.create.assert_not_called()
-        client.tool.three_d.models_classic.create.assert_not_called()
+        client.instances.create.assert_not_called()
+        client.three_d.models_classic.create.assert_not_called()
 
         assert len(actual) == 1
         collection_request = actual[0].item
@@ -1520,11 +1570,11 @@ class TestFDMtoCDMMapper:
         )
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.instances.retrieve.return_value = [migrated_node]
+            client.instances.retrieve.return_value = [migrated_node]
             mapper = Image360CollectionMapper(client)
             actual = mapper.map([DataItem(tracking_id=f"{self.SOURCE_SPACE}:collection1", item=collection_node)])
 
-        client.tool.three_d.models_classic.create.assert_not_called()
+        client.three_d.models_classic.create.assert_not_called()
         collection_request = actual[0].item
         assert isinstance(collection_request, NodeRequest)
         model_source = next(
@@ -1626,15 +1676,15 @@ class TestFDMtoCDMMapper:
         )
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.views.retrieve.return_value = [
+            client.views.retrieve.return_value = [
                 image_source_view,
                 image_destination_view,
                 station_source_view,
                 station_destination_view,
             ]
-            client.tool.filemetadata.retrieve.return_value = file_responses
-            client.tool.instances.retrieve.return_value = []
-            client.tool.three_d.models_classic.create.return_value = [created_model]
+            client.filemetadata.retrieve.return_value = file_responses
+            client.instances.retrieve.return_value = []
+            client.three_d.models_classic.create.return_value = [created_model]
 
             connection_creator = ConnectionCreator(client, instance_id_mapper=SuffixInstanceIdMapper())
             mapper = Image360FDMtoCDMMapper(
@@ -1848,7 +1898,7 @@ class TestInFieldLegacyToCDMScheduleMapper:
         )
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.views.retrieve.return_value = [dest_view]
+            client.views.retrieve.return_value = [dest_view]
 
             connection_creator = ConnectionCreator(
                 client, instance_id_mapper=SpaceMappingInstanceIdMapper(self.SPACE_MAPPING)
@@ -1908,7 +1958,7 @@ class TestInFieldLegacyToCDMScheduleMapper:
         )
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.views.retrieve.return_value = [dest_view]
+            client.views.retrieve.return_value = [dest_view]
             client.migration.instance_space_relocation_source.retrieve.return_value = [
                 InstanceSpaceRelocationSource(
                     space="target_1",
@@ -1967,7 +2017,7 @@ class TestAssetCentricToRecordMapper:
         container_id = ContainerId(space="my_space", external_id="MissingContainer")
         mapping = _make_record_property_mapping("mapping_x", container_id)
         with monkeypatch_toolkit_client() as client:
-            client.tool.containers.retrieve.return_value = []
+            client.containers.retrieve.return_value = []
             mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_x": mapping})
             with pytest.raises(ToolkitValueError, match="not found in Data Modeling"):
                 mapper.prepare(MagicMock())
@@ -1978,7 +2028,7 @@ class TestAssetCentricToRecordMapper:
         node_container = _make_record_container_response(container_id)
         node_container.used_for = "node"
         with monkeypatch_toolkit_client() as client:
-            client.tool.containers.retrieve.return_value = [node_container]
+            client.containers.retrieve.return_value = [node_container]
             mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_x": mapping})
             with pytest.raises(ToolkitValueError, match="usedFor='record'"):
                 mapper.prepare(MagicMock())
@@ -1996,7 +2046,7 @@ class TestAssetCentricToRecordMapper:
             resource=AssetResponse(id=1, name="asset_1", created_time=0, last_updated_time=1, root_id=0),
         )
         with monkeypatch_toolkit_client() as client:
-            client.tool.containers.retrieve.return_value = [_make_record_container_response(container_id)]
+            client.containers.retrieve.return_value = [_make_record_container_response(container_id)]
             mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_a": mapping})
             mapper.prepare(MagicMock())
             with pytest.raises(ToolkitValueError, match="only supports Event"):
@@ -2017,7 +2067,7 @@ class TestAssetCentricToRecordMapper:
             ),
         )
         with monkeypatch_toolkit_client() as client:
-            client.tool.containers.retrieve.return_value = [_make_record_container_response(container_id)]
+            client.containers.retrieve.return_value = [_make_record_container_response(container_id)]
             mapper = AssetCentricToRecordMapper(client, mappings_by_external_id={"mapping_a": mapping})
             mapper.prepare(MagicMock())
             results = mapper.map([DataItem(tracking_id="t", item=source)])
@@ -2063,7 +2113,7 @@ class TestImage360AnnotationMapper:
         )
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.instances.list.return_value = [node_in, node_out]
+            client.instances.list.return_value = [node_in, node_out]
             mapper = Image360AnnotationMapper(client)
             mapper.prepare(selector)
 

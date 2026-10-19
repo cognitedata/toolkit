@@ -1,34 +1,25 @@
 import json
 import re
-import sys
 import uuid
 from collections.abc import Callable
 from datetime import datetime
 from functools import cached_property
 from pathlib import Path
-from typing import Any, ClassVar, Generic, Literal, TypeAlias, get_args
+from typing import Any, ClassVar, Generic, Literal, Self, TypeAlias, get_args
 
+import tomllib as toml
 from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue, field_validator
 from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND, ResourceTypes
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios import ResourceTypes
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceType
 from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResource
 
-from ._insights import ModelSyntaxError, ModelSyntaxWarning
+from ._insights import BuildError, BuildWarning, ModelSyntaxError, ModelSyntaxWarning
 from ._types import AbsoluteFilePath, RelativeDirPath, RelativeFilePath
 
-if sys.version_info >= (3, 11):
-    from typing import Self
-
-    import tomllib as toml
-else:
-    import tomli as toml
-    from typing_extensions import Self
-
-
-FileSuffix: TypeAlias = Literal[".yaml", ".sql", ".yml", ".json", ".md"]
+FileSuffix: TypeAlias = Literal[".yaml", ".sql", ".yml", ".json", ".md", ".ttl"]
 SUPPORTS_VARIABLE_REPLACEMENT = frozenset(get_args(FileSuffix))
 
 
@@ -68,7 +59,7 @@ class BuildVariable(BaseModel):
         elif file_suffix == ".sql":
             if isinstance(substitution, list):
                 substitution = self._format_list_as_sql_tuple(substitution)
-        elif file_suffix == ".md":
+        elif file_suffix in (".md", ".ttl"):
             if isinstance(substitution, list):
                 substitution = ", ".join(str(item) for item in substitution)
         else:
@@ -144,7 +135,7 @@ class BuildVariable(BaseModel):
 
 
 class InvalidBuildVariable(BuildVariable):
-    error: ModelSyntaxError
+    error: ModelSyntaxError | BuildError
 
 
 class ModuleId(Identifier):
@@ -324,32 +315,19 @@ class ModuleScanResult(BaseModel):
         return list(variables.values())
 
 
-class ResourceType(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    resource_folder: str
-    kind: str
-
-    @property
-    def crud_cls(self) -> type[ResourceIO]:
-        kind = self.kind
-        folder_name = self.resource_folder
-        return RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[folder_name][kind]
-
-    def load_identifier(self, data: dict[str, Any]) -> Identifier:
-        return self.crud_cls.get_id(data)
-
-    def __str__(self) -> str:
-        return f"{self.kind} ({self.resource_folder})"
-
-
 class ReadYAMLFile(BaseModel):
     source_path: AbsoluteFilePath
     unresolved_variables: list[str] = Field(default_factory=list)
 
 
 class FailedReadYAMLFile(ReadYAMLFile):
-    code: Literal["MISSING-SUFFIX", "INVALID-KIND", "READ-ERROR", "YAML-PARSE-ERROR", "EMPTY-FILE"]
+    code: Literal[
+        "MISSING-FILE-SUFFIX",
+        "INVALID-FILE-SUFFIX",
+        "UNREADABLE-FILE",
+        "INVALID-FILE-CONTENT",
+        "EMPTY-FILE",
+    ]
     error: str
 
 
@@ -363,16 +341,17 @@ class ReadResource(BaseModel, Generic[T_Resource]):
 class SuccessfulReadYAMLFile(ReadYAMLFile):
     source_hash: str
     resource_type: ResourceType
+    source_type: ResourceType
     resources: list[ReadResource[ToolkitResource]]
-    syntax_error: ModelSyntaxError | None = None
-    syntax_warnings: list[ModelSyntaxWarning] = Field(default_factory=list)
+    syntax_error: ModelSyntaxError | BuildError | None = None
+    syntax_warnings: list[ModelSyntaxWarning | BuildWarning] = Field(default_factory=list)
     line_count: int
     rules_ignore: set[str] = Field(default_factory=set, description="The set of rules to ignore for this file. ")
 
 
 class IgnoredFile(BaseModel):
     filepath: Path
-    code: Literal["MISSING-SUFFIX"]
+    code: Literal["MISSING-FILE-SUFFIX", "MISSING-SUFFIX"]
     reason: str
     fix: str
 

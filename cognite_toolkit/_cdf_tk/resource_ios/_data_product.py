@@ -7,9 +7,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceI
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, AllScope, ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import DataProductsAcl
-from cognite_toolkit._cdf_tk.resource_ios._auth import GroupAllScopedCRUD
+from cognite_toolkit._cdf_tk.resource_ios._auth import GroupAllScopedIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.resource_ios._datamodel import SpaceCRUD
+from cognite_toolkit._cdf_tk.resource_ios._datamodel import SpaceIO
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductYAML
 
@@ -21,7 +21,7 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
     resource_write_cls = DataProductRequest
     kind = "DataProduct"
     yaml_cls = DataProductYAML
-    dependencies = frozenset({GroupAllScopedCRUD, SpaceCRUD})
+    dependencies = frozenset({GroupAllScopedIO, SpaceIO})
     support_drop = True
     support_update = True
     _doc_url = "Data-Products/operation/createDataProduct"
@@ -31,7 +31,9 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
         return "data products"
 
     @classmethod
-    def get_id(cls, item: DataProductRequest | DataProductResponse | dict) -> ExternalId:
+    def get_id(cls, item: DataProductRequest | DataProductResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if isinstance(item, DataProductRequest):
@@ -45,7 +47,7 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
     @classmethod
     def get_dependencies(cls, resource: DataProductYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.schema_space:
-            yield SpaceCRUD, SpaceId(space=resource.schema_space)
+            yield SpaceIO, SpaceId(space=resource.schema_space)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[DataProductRequest]) -> ScopeDefinition | None:
@@ -80,19 +82,20 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
         return dumped
 
     def create(self, items: Sequence[DataProductRequest]) -> list[DataProductResponse]:
-        return self.client.tool.data_products.create(list(items))
+        return self.client.data_products.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[DataProductResponse]:
-        return self.client.tool.data_products.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.data_products.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[DataProductRequest]) -> list[DataProductResponse]:
-        return self.client.tool.data_products.update(list(items))
+        return self.client.data_products.update(list(items))
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.data_products.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.data_products.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -100,5 +103,5 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DataProductResponse]:
-        for items in self.client.tool.data_products.iterate(limit=None):
+        for items in self.client.data_products.iterate(limit=None):
             yield from items

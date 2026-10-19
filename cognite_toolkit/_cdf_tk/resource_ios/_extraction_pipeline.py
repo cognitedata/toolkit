@@ -24,7 +24,6 @@ from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     ExtractionPipelineConfigId,
-    InternalOrExternalId,
     RawDatabaseId,
     RawTableId,
 )
@@ -61,12 +60,13 @@ from cognite_toolkit._cdf_tk.utils import (
     sanitize_filename,
     stringify_value_by_key_in_yaml,
 )
+from cognite_toolkit._cdf_tk.utils.acl_helper import data_set_scope_from_ids
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import ExtractionPipelineConfigYAML, ExtractionPipelineYAML
 
-from ._auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
-from ._raw import RawDatabaseCRUD, RawTableCRUD
+from ._raw import RawDatabaseIO, RawTableIO
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
@@ -80,9 +80,8 @@ class ExtractionPipelineIO(
     resource_cls = ExtractionPipelineResponse
     resource_write_cls = ExtractionPipelineRequest
     kind = "ExtractionPipeline"
-    dependencies = frozenset({DataSetsIO, RawDatabaseCRUD, RawTableCRUD, GroupAllScopedCRUD})
+    dependencies = frozenset({DataSetsIO, RawDatabaseIO, RawTableIO, GroupAllScopedIO})
     yaml_cls = ExtractionPipelineYAML
-    extra_content_property = "documentation"
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
     @property
@@ -91,7 +90,7 @@ class ExtractionPipelineIO(
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[ExtractionPipelineRequest]) -> ScopeDefinition:
-        return DataSetScope(ids=list({item.data_set_id for item in items}))
+        return data_set_scope_from_ids(item.data_set_id for item in items)
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
@@ -99,7 +98,9 @@ class ExtractionPipelineIO(
             yield ExtractionPipelinesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: ExtractionPipelineRequest | ExtractionPipelineResponse | dict) -> ExternalId:
+    def get_id(cls, item: ExtractionPipelineRequest | ExtractionPipelineResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -119,7 +120,7 @@ class ExtractionPipelineIO(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -130,9 +131,9 @@ class ExtractionPipelineIO(
         for entry in resource.raw_tables or []:
             if entry.db_name and entry.db_name not in seen_databases:
                 seen_databases.add(entry.db_name)
-                yield RawDatabaseCRUD, RawDatabaseId(name=entry.db_name)
+                yield RawDatabaseIO, RawDatabaseId(name=entry.db_name)
             if entry.db_name and entry.table_name:
-                yield RawTableCRUD, RawTableId(db_name=entry.db_name, name=entry.table_name)
+                yield RawTableIO, RawTableId(db_name=entry.db_name, name=entry.table_name)
 
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
@@ -149,7 +150,7 @@ class ExtractionPipelineIO(
         if not documentation_file.is_file():
             yield FailedReadExtra(
                 source_path=documentation_file,
-                code="MISSING",
+                code="MISSING-REFERENCED-FILE",
                 error=f"Documentation file {documentation_file.as_posix()} not found or is not a file",
             )
             return
@@ -215,19 +216,19 @@ class ExtractionPipelineIO(
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[ExtractionPipelineRequest]) -> list[ExtractionPipelineResponse]:
-        return self.client.tool.extraction_pipelines.create(list(items))
+        return self.client.extraction_pipelines.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ExtractionPipelineResponse]:
-        return self.client.tool.extraction_pipelines.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.extraction_pipelines.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[ExtractionPipelineRequest]) -> list[ExtractionPipelineResponse]:
-        return self.client.tool.extraction_pipelines.update(list(items), mode="replace")
+        return self.client.extraction_pipelines.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.extraction_pipelines.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if id_list:
+            self.client.extraction_pipelines.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -238,7 +239,7 @@ class ExtractionPipelineIO(
         filter: ClassicFilter | None = None
         if data_set_external_id is not None:
             filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
-        for pipelines in self.client.tool.extraction_pipelines.iterate(filter=filter, limit=None):
+        for pipelines in self.client.extraction_pipelines.iterate(filter=filter, limit=None):
             yield from pipelines
 
 
@@ -276,7 +277,11 @@ class ExtractionPipelineConfigIO(
             yield ExtractionConfigsAcl(actions=["READ", "WRITE"], scope=scope)
 
     @classmethod
-    def get_id(cls, item: ExtractionPipelineConfigRequest | ExtractionPipelineConfigResponse | dict) -> ExternalId:
+    def get_id(
+        cls, item: ExtractionPipelineConfigRequest | ExtractionPipelineConfigResponse | ExternalId | dict
+    ) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -288,7 +293,7 @@ class ExtractionPipelineConfigIO(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -384,36 +389,36 @@ class ExtractionPipelineConfigIO(
         return super().diff_list(local, cdf, json_path)
 
     def _upsert(self, items: Sequence[ExtractionPipelineConfigRequest]) -> list[ExtractionPipelineConfigResponse]:
-        return self.client.tool.extraction_pipelines.configs.create(list(items))
+        return self.client.extraction_pipelines.configs.create(list(items))
 
     def create(self, items: Sequence[ExtractionPipelineConfigRequest]) -> list[ExtractionPipelineConfigResponse]:
         return self._upsert(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ExtractionPipelineConfigResponse]:
-        return self.client.tool.extraction_pipelines.configs.retrieve(
+        return self.client.extraction_pipelines.configs.retrieve(
             [ExtractionPipelineConfigId(external_id=pipeline_id.external_id) for pipeline_id in ids],
             ignore_unknown_ids=True,
         )
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         """Delete is not supported for extraction pipeline configs.
 
-        Instead, we assume that when the user deletes the extraction pipeline configs, they are also deleting the
-        extraction pipelines which will automatically delete the configs. In this method, we simply count the number
-        of configs that exist for the given ids and return that number as these will be deleted.
+        Deleting the extraction pipeline removes its configs. Returns the pipeline ids that currently have
+        configs, which are removed with the pipeline.
         """
         # Todo; Change to raise ToolkitNotSupportedError in v0.8
-        count = 0
+        deleted: list[ExternalId] = []
         for id_ in ids:
             try:
-                result = self.client.tool.extraction_pipelines.configs.list(external_id=id_.external_id, limit=None)
+                result = self.client.extraction_pipelines.configs.list(external_id=id_.external_id, limit=None)
             except ToolkitAPIError as e:
                 if e.code == 403 and "not found" in e.message and "extraction pipeline" in e.message.lower():
                     continue
                 raise
             else:
-                count += len(result)
-        return count
+                if result:
+                    deleted.append(id_)
+        return deleted
 
     def _iterate(
         self,
@@ -423,13 +428,13 @@ class ExtractionPipelineConfigIO(
     ) -> Iterable[ExtractionPipelineConfigResponse]:
         if parent_ids is None:
             parent_external_ids: Iterable[ExternalId] = (
-                pipeline.as_id() for pipeline in self.client.tool.extraction_pipelines.list(limit=None)
+                pipeline.as_id() for pipeline in self.client.extraction_pipelines.list(limit=None)
             )
         else:
             parent_external_ids = [pid for pid in parent_ids if isinstance(pid, ExternalId)]
         for parent_id in parent_external_ids:
             try:
-                yield from self.client.tool.extraction_pipelines.configs.retrieve(
+                yield from self.client.extraction_pipelines.configs.retrieve(
                     [ExtractionPipelineConfigId(external_id=parent_id.external_id)]
                 )
             except ToolkitAPIError as e:

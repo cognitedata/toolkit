@@ -1,15 +1,15 @@
 import logging
 import random
-import sys
 import time
 from collections import deque
 from collections.abc import Iterable, MutableMapping, Sequence, Set
-from typing import Literal, TypeVar
+from typing import Literal, Self, TypeVar
 
 import httpx2
 from cognite.client import global_config
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client._data_classes import (
     BaseRequestMessage,
     ErrorDetails,
@@ -29,13 +29,6 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
-from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 
 log = logging.getLogger(__name__)
 
@@ -229,6 +222,7 @@ class HTTPClient:
                     f"Rate limit exceeded for the {short_url!r} endpoint. Retrying after {retry_after} seconds."
                 ).print_warning(console=self._console)
             request.status_attempt += 1
+            request.retried_status_codes.append(response.status_code)
             time.sleep(retry_after)
             return request
 
@@ -238,12 +232,13 @@ class HTTPClient:
         should_retry = response.status_code in retry_status_codes or error_details.is_auto_retryable is True
         if request.status_attempt < self._max_retries and should_retry:
             request.status_attempt += 1
+            request.retried_status_codes.append(response.status_code)
             time.sleep(self._backoff_time(request.total_attempts))
             return request
         return None
 
     def _handle_error_single(self, e: Exception, request: RequestMessage) -> RequestMessage | HTTPResult:
-        if isinstance(e, httpx2.ReadTimeout | httpx2.TimeoutException):
+        if isinstance(e, httpx2.ReadTimeout | httpx2.TimeoutException | httpx2.ReadError):
             error_type = "read"
             request.read_attempt += 1
             attempts = request.read_attempt
@@ -451,6 +446,7 @@ class HTTPClient:
             status_attempts = request.status_attempt
             if 500 <= response.status_code < 600:
                 status_attempts += 1
+                request.retried_status_codes.append(response.status_code)
             splits = request.split(status_attempts=status_attempts, error_message=error_details.message)
             if splits[0].tracker and splits[0].tracker.limit_reached():
                 return [
@@ -478,7 +474,7 @@ class HTTPClient:
             ]
 
     def _handle_items_error(self, e: Exception, request: ItemsRequest) -> Sequence[ItemsRequest | ItemsResultMessage]:
-        if isinstance(e, httpx2.ReadTimeout | httpx2.TimeoutException):
+        if isinstance(e, httpx2.ReadTimeout | httpx2.TimeoutException | httpx2.ReadError):
             error_type = "read"
             request.read_attempt += 1
             attempts = request.read_attempt

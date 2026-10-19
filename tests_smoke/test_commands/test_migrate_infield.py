@@ -7,14 +7,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
-from cognite.client import data_modeling as dm
-from cognite.client.data_classes import FileMetadataUpdate, TimeSeriesUpdate
 from pydantic import TypeAdapter
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.apps._migrate_app import MigrateApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import InstanceId, NodeId, SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
@@ -64,9 +62,9 @@ def read_space(toolkit_client: ToolkitClient) -> SpaceResponse:
     """
     client = toolkit_client
     target_space = "smoke_infield_migration_read_space"
-    if spaces := client.tool.spaces.retrieve([SpaceId(space=target_space)]):
+    if spaces := client.spaces.retrieve([SpaceId(space=target_space)]):
         return spaces[0]
-    return client.tool.spaces.create(
+    return client.spaces.create(
         [
             SpaceRequest(
                 name="Smoke Infield Migration Read Space",
@@ -82,9 +80,9 @@ def target_space(toolkit_client: ToolkitClient) -> SpaceResponse:
     """This is the space where InFieldOnCDM will write data to. This is the space we are migrating to."""
     client = toolkit_client
     target_space = "smoke_infield_migration_target_space"
-    if spaces := client.tool.spaces.retrieve([SpaceId(space=target_space)]):
+    if spaces := client.spaces.retrieve([SpaceId(space=target_space)]):
         return spaces[0]
-    return client.tool.spaces.create(
+    return client.spaces.create(
         [
             SpaceRequest(
                 name="Smoke Infield Migration Target Space",
@@ -186,13 +184,11 @@ def infield_legacy(
         source = instance.sources[0]
         if isinstance(source.source, ViewId):
             to_create_by_view_id[source.source].append(instance)
-    sorted_views, _ = ViewIO(toolkit_client, None, None).topological_sort_container_constraints(
-        list(to_create_by_view_id.keys())
-    )
+    sorted_views, _ = ViewIO(toolkit_client).topological_sort_container_constraints(list(to_create_by_view_id.keys()))
 
     # Ensure clean state
     # Cleanup
-    deleted = client.tool.instances.delete([item.as_id() for item in instances])
+    deleted = client.instances.delete([item.as_id() for item in instances])
 
     if deleted:
         time.sleep(5)
@@ -201,14 +197,14 @@ def infield_legacy(
     for view_id in sorted_views:
         instance_batch = to_create_by_view_id[view_id]
         try:
-            _ = client.tool.instances.create(instance_batch, replace=True)
+            _ = client.instances.create(instance_batch, replace=True)
         except ToolkitAPIError as e:
             raise AssertionError(
                 f"Failed to create instance batch for view {view_id!s}. Error: {e}. Batch: {[item.as_id() for item in instance_batch]}"
             ) from e
     if edges:
         try:
-            _ = client.tool.instances.create(edges, replace=True)
+            _ = client.instances.create(edges, replace=True)
         except ToolkitAPIError as e:
             raise AssertionError(
                 f"Failed to create instance batch for edges with no view. Error: {e}. Batch: {[item.as_id() for item in edges]}"
@@ -218,40 +214,44 @@ def infield_legacy(
     #### Create 'migrated' timeseries and files #####
     # These are technically not migrated, but it is the simplest way is to create CogniteTimeSeries/CogniteFile
     # and update the classic with the externalId.from
-    timeseries_updates: list[TimeSeriesUpdate] = []
-    timeseries_nodes_ids: list[InstanceId] = []
-    for ts in timeseries:
-        external_id = cast(str, ts.external_id)
-        node_id = dm.NodeId(space=target_space.space, external_id=external_id)
-        ts_update = TimeSeriesUpdate(
-            instance_id=node_id,
-        ).external_id.set(external_id)
-        timeseries_updates.append(ts_update)
-        timeseries_nodes_ids.append(InstanceId(instance_id=NodeId(space=target_space.space, external_id=external_id)))
-    file_updates: list[FileMetadataUpdate] = []
-    file_nodes_ids: list[InstanceId] = []
-    for file in files:
-        external_id = cast(str, file.external_id)
-        file_update = FileMetadataUpdate(
-            instance_id=dm.NodeId(space=target_space.space, external_id=external_id),
-        ).external_id.set(external_id)
-        file_updates.append(file_update)
-        file_nodes_ids.append(InstanceId(instance_id=NodeId(space=target_space.space, external_id=external_id)))
+    updates: dict[str, list[dict[str, Any]]] = {"timeseries": [], "files": []}
+    node_ids: dict[str, list[InstanceId]] = {"timeseries": [], "files": []}
+    for resource_type, resource_list in [("timeseries", timeseries), ("files", files)]:
+        for resource in resource_list:
+            external_id = cast(str, resource.external_id)
+            instance_id = NodeId(space=target_space.space, external_id=external_id)
+            updates[resource_type].append(
+                {
+                    "instanceId": instance_id.dump(include_instance_type=False),
+                    "update": {"externalId": {"set": external_id}},
+                }
+            )
+            node_ids[resource_type].append(InstanceId(instance_id=instance_id))
 
     # Ensure that the syncer has created the timeseries and files before updating.
     wait_for_resources(
-        lambda: client.tool.timeseries.retrieve(timeseries_nodes_ids, ignore_unknown_ids=False), "timeseries"
+        lambda: client.timeseries.retrieve(node_ids["timeseries"], ignore_unknown_ids=False), "timeseries"
     )
-    _ = client.time_series.update(timeseries_updates)
+    _update(client, "/timeseries/update", {"items": updates["timeseries"]})
     wait_for_resources(
-        lambda: client.tool.filemetadata.retrieve(file_nodes_ids, ignore_unknown_ids=False), "filemetadata"
+        lambda: client.filemetadata.retrieve(node_ids["files"], ignore_unknown_ids=False), "filemetadata"
     )
-    _ = client.files.update(file_updates)
+    _update(client, "/files/update", {"items": updates["files"]})
 
     yield instances
 
     # Cleanup
-    client.tool.instances.delete([item.as_id() for item in instances])
+    client.instances.delete([item.as_id() for item in instances])
+
+
+def _update(client: ToolkitClient, endpoint: str, body: dict[str, Any]) -> None:
+    request = RequestMessage(
+        endpoint_url=client.config.create_api_url(endpoint),
+        method="POST",
+        body_content=body,
+    )
+    result = client.http_client.request_single_retries(request)
+    _ = result.get_success_or_raise(request)
 
 
 def wait_for_resources(api_call: Callable[[], Any], resource_name: str, timeout: float = 30) -> None:
@@ -318,7 +318,7 @@ class TestMigrateInfield:
 
         destination_instances: list[dict[str, Any]] = []
         for view_id, node_ids in destination_by_view_id.items():
-            target_nodes = toolkit_client.tool.instances.retrieve(node_ids, source=view_id)
+            target_nodes = toolkit_client.instances.retrieve(node_ids, source=view_id)
             for node in target_nodes:
                 # Excluding "last_updated_time" and "version" as they will change for each run of the test.
                 dumped = node.model_dump(
@@ -363,7 +363,7 @@ class TestMigrateInfield:
 
         # Cleanup for next run.
         destination_node_ids = [node_id for node_ids in destination_by_view_id.values() for node_id in node_ids]
-        toolkit_client.tool.instances.delete(destination_node_ids)
+        toolkit_client.instances.delete(destination_node_ids)
 
         data_regression.check({"instances": destination_instances})
 
@@ -403,11 +403,11 @@ class TestMigrateInfield:
         tag_reference = {"space": target_space, "externalId": "smoke_tag_safety"}
         template_view_id = ViewId(space="cdf_infield", external_id="Template", version="v1")
 
-        tag_nodes = client.tool.instances.retrieve(
+        tag_nodes = client.instances.retrieve(
             [NodeId(space=target_space, external_id="smoke_tag_safety")],
             source=SOLUTION_TAG_VIEW_ID,
         )
-        template_nodes = client.tool.instances.retrieve(
+        template_nodes = client.instances.retrieve(
             [NodeId(space=target_space, external_id="87f1ce17-c510-4359-9bbe-2ec7477b2cfe")],
             source=template_view_id,
         )
@@ -441,19 +441,28 @@ def load_infield_source_data(
             if isinstance(timeseries_values, str):
                 timeseries_external_ids.add(timeseries_values)
             elif isinstance(timeseries_values, list):
-                timeseries_external_ids.update(timeseries_values)  # type: ignore[arg-type]
+                timeseries_external_ids.update(value for value in timeseries_values if isinstance(value, str))
 
     file_external_ids: set[str] = set()
     for key in ["checklistItem", "observation"]:
         reading = instances[key]
-        if reading.sources and reading.sources[0].properties and "files" in reading.sources[0].properties:
-            file_external_ids.update(reading.sources[0].properties["files"])  # type: ignore[arg-type]
+        sources = reading.sources
+        properties = sources[0].properties if sources else None
+        if properties is None or "files" not in properties:
+            continue
+        files = properties["files"]
+        if isinstance(files, list):
+            file_external_ids.update(value for value in files if isinstance(value, str))
 
     asset_instance = instances["asset"]
+    sources = asset_instance.sources
+    properties = sources[0].properties if sources else None
+    title = properties["title"] if properties is not None else None
+    if not isinstance(title, str):
+        raise ValueError("Infield asset is missing a string title")
     asset_request = AssetRequest(
         external_id=asset_instance.external_id,
-        # MyPy this is validated by the AssetRequest pydantic model.
-        name=asset_instance.sources[0].properties["title"],  # type: ignore[index, arg-type]
+        name=title,
     )
 
     return (

@@ -1,12 +1,16 @@
 from pathlib import Path
+from typing import Literal
 from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.credentials import OAuthClientCredentials
-from cognite.client.data_classes import ClientCredentials, CreatedSession
 
-from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    ClientCredentialsSessionRequest,
+    SessionCreateResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     ScheduleTriggerRule,
     WorkflowTriggerRequest,
@@ -26,11 +30,19 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.resource_ios import WorkflowTriggerIO, WorkflowVersionIO
+from cognite_toolkit._cdf_tk.resource_ios import (
+    FunctionIO,
+    SimulatorRoutineIO,
+    TransformationIO,
+    WorkflowIO,
+    WorkflowTriggerIO,
+    WorkflowVersionIO,
+)
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
+from cognite_toolkit._cdf_tk.yaml_classes import WorkflowVersionYAML
 
 
-class TestWorkflowTriggerLoader:
+class TestWorkflowTriggerIO:
     def test_credentials_missing_raise(self) -> None:
         trigger_content = """externalId: daily-8am-utc
 triggerRule:
@@ -52,7 +64,7 @@ workflowVersion: v1
         )
         with monkeypatch_toolkit_client() as client:
             client.config = config
-            loader = WorkflowTriggerIO.create_loader(client)
+            loader = WorkflowTriggerIO.create_io(client)
 
         with pytest.raises(ToolkitRequiredValueError):
             loader.load_resource_file(trigger_file, {})
@@ -89,7 +101,7 @@ authentication:
             },
         )
         with monkeypatch_toolkit_client() as client:
-            loader = WorkflowTriggerIO(client, None, None)
+            loader = WorkflowTriggerIO(client)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_content
@@ -106,7 +118,7 @@ authentication:
         assert cdf_dumped != local_dumped
 
     def test_create_uses_client_credentials_session(self) -> None:
-        credentials = ClientCredentials(client_id="my-client-id", client_secret="my-client-secret")
+        credentials = ClientCredentialsSessionRequest(client_id="my-client-id", client_secret="my-client-secret")
         trigger = WorkflowTriggerRequest(
             external_id="daily-8am-utc",
             trigger_rule=ScheduleTriggerRule(cron_expression="0 8 * * *"),
@@ -114,10 +126,10 @@ authentication:
             workflow_version="v1",
         )
         with monkeypatch_toolkit_client() as client:
-            client.iam.sessions.create.return_value = CreatedSession(123, "READY", "my-nonce")
-            loader = WorkflowTriggerIO(client, None, None)
+            client.sessions.create.return_value = [SessionCreateResponse(id=123, status="READY", nonce="my-nonce")]
+            loader = WorkflowTriggerIO(client)
             loader._authentication_by_id["daily-8am-utc"] = credentials
-            client.tool.workflows.triggers.create.return_value = [
+            client.workflows.triggers.create.return_value = [
                 WorkflowTriggerResponse(
                     external_id="daily-8am-utc",
                     trigger_rule=trigger.trigger_rule,
@@ -130,10 +142,176 @@ authentication:
             ]
             loader.create([trigger])
 
-        client.iam.sessions.create.assert_called_once_with(credentials, session_type="CLIENT_CREDENTIALS")
+        client.sessions.create.assert_called_once_with([credentials])
+        client.workflows.triggers.pause.assert_not_called()
+        client.workflows.triggers.resume.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("is_paused", "method_name"),
+        [(True, "pause"), (False, "resume")],
+    )
+    def test_create_and_update_apply_pause_state(
+        self, is_paused: bool, method_name: Literal["pause", "resume"], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        response = WorkflowTriggerResponse(
+            external_id="daily-8am-utc",
+            trigger_rule=ScheduleTriggerRule(cron_expression="0 8 * * *"),
+            workflow_external_id="wf_example_repeater",
+            workflow_version="v1",
+            created_time=0,
+            last_updated_time=0,
+            is_paused=not is_paused,
+        )
+        trigger = response.as_request_resource()
+        trigger.is_paused = is_paused
+
+        with monkeypatch_toolkit_client() as client:
+            client.sessions.create.return_value = [SessionCreateResponse(id=123, status="READY", nonce="my-nonce")]
+            io = WorkflowTriggerIO(client)
+            io._authentication_by_id["daily-8am-utc"] = ClientCredentialsSessionRequest(
+                client_id="my-client-id", client_secret="my-client-secret"
+            )
+            client.workflows.triggers.create.return_value = [response]
+
+            created = io.create([trigger])
+
+        method = getattr(client.workflows.triggers, method_name)
+        other = "resume" if method_name == "pause" else "pause"
+        assert method.call_count == 1
+        method.assert_called_with([trigger.as_id()])
+        getattr(client.workflows.triggers, other).assert_not_called()
+        assert created == [response]
+
+    def test_dump_resource_keeps_is_paused(self, toolkit_client_cheap: ToolkitClient) -> None:
+        dumped = WorkflowTriggerIO(toolkit_client_cheap).dump_resource(
+            WorkflowTriggerResponse(
+                external_id="daily-8am-utc",
+                trigger_rule=ScheduleTriggerRule(cron_expression="0 8 * * *"),
+                workflow_external_id="wf_example_repeater",
+                workflow_version="v1",
+                created_time=0,
+                last_updated_time=0,
+                is_paused=True,
+            )
+        )
+        assert dumped == {
+            "externalId": "daily-8am-utc",
+            "triggerRule": {"triggerType": "schedule", "cronExpression": "0 8 * * *"},
+            "workflowExternalId": "wf_example_repeater",
+            "workflowVersion": "v1",
+            "isPaused": True,
+        }
 
 
-class TestWorkflowVersionLoader:
+class TestWorkflowVersionIODependencies:
+    def test_get_dependencies_yields_static_task_references(self) -> None:
+        resource = WorkflowVersionYAML.model_validate(
+            {
+                "workflowExternalId": "wf_main",
+                "version": "v1",
+                "workflowDefinition": {
+                    "tasks": [
+                        {
+                            "externalId": "run_fn",
+                            "type": "function",
+                            "parameters": {"function": {"externalId": "my-function"}},
+                        },
+                        {
+                            "externalId": "run_tr",
+                            "type": "transformation",
+                            "parameters": {"transformation": {"externalId": "my-transformation"}},
+                        },
+                        {
+                            "externalId": "run_sim",
+                            "type": "simulation",
+                            "parameters": {"simulation": {"routineExternalId": "my-routine"}},
+                        },
+                        {
+                            "externalId": "run_sub",
+                            "type": "subworkflow",
+                            "parameters": {
+                                "subworkflow": {"workflowExternalId": "wf_child", "version": "v2"},
+                            },
+                        },
+                    ]
+                },
+            }
+        )
+
+        actual = list(WorkflowVersionIO.get_dependencies(resource))
+
+        assert actual == [
+            (WorkflowIO, ExternalId(external_id="wf_main")),
+            (FunctionIO, ExternalId(external_id="my-function")),
+            (TransformationIO, ExternalId(external_id="my-transformation")),
+            (SimulatorRoutineIO, ExternalId(external_id="my-routine")),
+            (WorkflowVersionIO, WorkflowVersionId(workflow_external_id="wf_child", version="v2")),
+        ]
+
+    def test_get_dependencies_ignores_runtime_task_references(self) -> None:
+        resource = WorkflowVersionYAML.model_validate(
+            {
+                "workflowExternalId": "wf_main",
+                "version": "v1",
+                "workflowDefinition": {
+                    "tasks": [
+                        {
+                            "externalId": "run_fn",
+                            "type": "function",
+                            "parameters": {"function": {"externalId": "${upstream.output.functionId}"}},
+                        },
+                        {
+                            "externalId": "run_tr",
+                            "type": "transformation",
+                            "parameters": {
+                                "transformation": {"externalId": "${upstream.output.transformationId}"},
+                            },
+                        },
+                    ]
+                },
+            }
+        )
+
+        actual = list(WorkflowVersionIO.get_dependencies(resource))
+
+        assert actual == [(WorkflowIO, ExternalId(external_id="wf_main"))]
+
+    def test_get_dependencies_yields_inline_subworkflow_task_references(self) -> None:
+        resource = WorkflowVersionYAML.model_validate(
+            {
+                "workflowExternalId": "wf_main",
+                "version": "v1",
+                "workflowDefinition": {
+                    "tasks": [
+                        {
+                            "externalId": "run_sub",
+                            "type": "subworkflow",
+                            "parameters": {
+                                "subworkflow": {
+                                    "tasks": [
+                                        {
+                                            "externalId": "nested_fn",
+                                            "type": "function",
+                                            "parameters": {"function": {"externalId": "nested-function"}},
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    ],
+                },
+            }
+        )
+
+        actual = list(WorkflowVersionIO.get_dependencies(resource))
+
+        assert actual == [
+            (WorkflowIO, ExternalId(external_id="wf_main")),
+            (FunctionIO, ExternalId(external_id="nested-function")),
+        ]
+
+
+class TestWorkflowVersionIO:
     def test_topological_sort_raises_on_cycle(self) -> None:
         dependencies = {
             "a": "b",
@@ -196,7 +374,7 @@ class TestWorkflowVersionLineageAnnotation:
         original = FeatureFlag.is_enabled
         monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.DATA_PRODUCTS or original(flag))
         with monkeypatch_toolkit_client() as client:
-            loader = WorkflowVersionIO(client, None, None)
+            loader = WorkflowVersionIO(client)
 
         dumped = loader.dump_resource(self._response_with_lineage())
 
@@ -207,7 +385,7 @@ class TestWorkflowVersionLineageAnnotation:
     def test_dump_resource_strips_lineage_annotation_without_alpha_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(FeatureFlag, "is_enabled", lambda _flag: False)
         with monkeypatch_toolkit_client() as client:
-            loader = WorkflowVersionIO(client, None, None)
+            loader = WorkflowVersionIO(client)
 
         dumped = loader.dump_resource(self._response_with_lineage())
 
@@ -215,7 +393,7 @@ class TestWorkflowVersionLineageAnnotation:
 
     def test_diff_list_lineage_sources(self) -> None:
         with monkeypatch_toolkit_client() as client:
-            loader = WorkflowVersionIO(client, None, None)
+            loader = WorkflowVersionIO(client)
 
         local = [{"uri": "cdf://cluster/project/domain/default/files/f1"}]
         cdf = [{"uri": "cdf://cluster/project/domain/default/files/f1"}]

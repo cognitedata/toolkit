@@ -76,7 +76,13 @@ class ItemsRequest(BaseRequestMessage):
         self.tracker.register_failure()
         messages: list[ItemsRequest] = []
         for part in (self.items[:mid], self.items[mid:]):
-            new_request = self.model_copy(update={"items": part, "status_attempt": status_attempts})
+            new_request = self.model_copy(
+                update={
+                    "items": part,
+                    "status_attempt": status_attempts,
+                    "retried_status_codes": self.retried_status_codes.copy(),
+                }
+            )
             new_request.tracker = self.tracker
             new_request.parent_error_message = error_message
             messages.append(new_request)

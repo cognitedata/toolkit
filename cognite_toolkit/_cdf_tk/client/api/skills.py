@@ -6,6 +6,7 @@ https://api-docs.cognite.com/20230101-beta/tag/Skills
 Note: This is a beta API and may change in future releases.
 """
 
+import builtins
 from collections.abc import Iterable, Sequence
 from urllib.parse import urlencode
 
@@ -39,7 +40,7 @@ class SkillsAPI(CDFResourceAPI[SkillResponse]):
     def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[SkillResponse]:
         return PagedResponse[SkillResponse].model_validate_json(response.body)
 
-    def upload(self, items: Sequence[SkillRequest], overwrite: bool = True) -> list[SkillResponse]:
+    def upload(self, items: Sequence[SkillRequest], overwrite: bool = True) -> builtins.list[SkillResponse]:
         """Upload SKILL.md content using the dedicated upload endpoint."""
         for item in items:
             query_string = urlencode({"externalId": item.external_id, "overwrite": str(overwrite).lower()})
@@ -53,15 +54,15 @@ class SkillsAPI(CDFResourceAPI[SkillResponse]):
                 raise ToolkitAPIError(message=result.body, code=result.status_code)
         return self.retrieve([item.as_id() for item in items], ignore_unknown_ids=False)
 
-    def create(self, items: Sequence[SkillRequest], overwrite: bool = True) -> list[SkillResponse]:
+    def create(self, items: Sequence[SkillRequest], overwrite: bool = True) -> builtins.list[SkillResponse]:
         """Create or update skills in CDF."""
         return self.upload(items, overwrite=overwrite)
 
-    def update(self, items: Sequence[SkillRequest], overwrite: bool = True) -> list[SkillResponse]:
+    def update(self, items: Sequence[SkillRequest], overwrite: bool = True) -> builtins.list[SkillResponse]:
         """Update skills in CDF (implemented as upsert)."""
         return self.upload(items, overwrite=overwrite)
 
-    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[SkillResponse]:
+    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> builtins.list[SkillResponse]:
         """Retrieve skills from CDF by external ID."""
         return self._request_item_response(
             items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
@@ -71,10 +72,10 @@ class SkillsAPI(CDFResourceAPI[SkillResponse]):
         """Delete skills from CDF."""
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
-    def iterate(self, limit: int | None = None) -> Iterable[list[SkillResponse]]:
+    def iterate(self, limit: int | None = None) -> Iterable[builtins.list[SkillResponse]]:
         """Iterate over skill summaries in CDF."""
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = None) -> list[SkillResponse]:
+    def list(self, limit: int | None = None) -> builtins.list[SkillResponse]:
         """List skill summaries in CDF."""
         return self._list(limit=limit)

@@ -36,7 +36,11 @@ class DataProductVersionIO(
         return "data product versions"
 
     @classmethod
-    def get_id(cls, item: DataProductVersionRequest | DataProductVersionResponse | dict) -> DataProductVersionId:
+    def get_id(
+        cls, item: DataProductVersionRequest | DataProductVersionResponse | DataProductVersionId | dict
+    ) -> DataProductVersionId:
+        if isinstance(item, DataProductVersionId):
+            return item
         if isinstance(item, dict):
             return DataProductVersionId(
                 data_product_external_id=item["dataProductExternalId"],
@@ -90,23 +94,24 @@ class DataProductVersionIO(
     def create(self, items: Sequence[DataProductVersionRequest]) -> list[DataProductVersionResponse]:
         if not items:
             return []
-        return self.client.tool.data_products.versions.create(list(items))
+        return self.client.data_products.versions.create(list(items))
 
     def retrieve(self, ids: Sequence[DataProductVersionId]) -> list[DataProductVersionResponse]:
         if not ids:
             return []
-        return self.client.tool.data_products.versions.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.data_products.versions.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[DataProductVersionRequest]) -> list[DataProductVersionResponse]:
         if not items:
             return []
-        return self.client.tool.data_products.versions.update(list(items))
+        return self.client.data_products.versions.update(list(items))
 
-    def delete(self, ids: Sequence[DataProductVersionId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.data_products.versions.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[DataProductVersionId]) -> list[DataProductVersionId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.data_products.versions.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -121,8 +126,8 @@ class DataProductVersionIO(
                 if isinstance(pid, (str, ExternalId))
             }
         else:
-            dp_ext_ids = {dp.external_id for dp in self.client.tool.data_products.list(limit=None)}
+            dp_ext_ids = {dp.external_id for dp in self.client.data_products.list(limit=None)}
 
         for dp_ext_id in dp_ext_ids:
-            for versions in self.client.tool.data_products.versions.iterate(dp_ext_id, limit=None):
+            for versions in self.client.data_products.versions.iterate(dp_ext_id, limit=None):
                 yield from versions

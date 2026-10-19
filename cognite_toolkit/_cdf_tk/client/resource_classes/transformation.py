@@ -137,6 +137,7 @@ class Transformation(BaseModelObject):
     ignore_null_fields: bool
     data_set_id: int | None = None
     tags: list[str] | None = None
+    data_domain_external_id: str | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
@@ -144,7 +145,10 @@ class Transformation(BaseModelObject):
 
 class TransformationRequest(Transformation, UpdatableRequestResource):
     container_fields: ClassVar[frozenset[str]] = frozenset({"tags"})
-    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"is_public", "query", "destination", "conflict_mode"})
+    # data_domain_external_id is optional, but the update API rejects {"setNull": true}.
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset(
+        {"is_public", "query", "destination", "conflict_mode", "data_domain_external_id"}
+    )
     query: str | None = None
     conflict_mode: str | None = None
     destination: Destination | None = None
@@ -191,7 +195,9 @@ class Column(BaseModelObject):
 
 class SQLQueryResponse(BaseModelObject):
     schema_: list[Column] = Field(..., alias="schema")
-    results: list[dict[str, str | int | float | bool | None]]
+    results: list[
+        dict[str, str | int | float | bool | None | list[str | int | float | bool | None] | dict[str, Any]]
+    ] = Field(..., alias="results")
 
     @field_validator("schema_", "results", mode="before")
     def _remove_items_wrapper(cls, value: Any) -> Any:

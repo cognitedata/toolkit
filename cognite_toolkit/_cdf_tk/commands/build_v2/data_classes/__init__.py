@@ -7,6 +7,8 @@ from ._build import (
 )
 from ._config import ConfigYAML
 from ._insights import (
+    BuildError,
+    BuildWarning,
     ConsistencyError,
     InsightDefinition,
     InsightList,
@@ -22,18 +24,19 @@ from ._module import (
     Module,
     ModuleDirectory,
     ReadYAMLFile,
-    ResourceType,
     SuccessfulReadYAMLFile,
 )
 from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath, ValidationType
 
 __all__ = [
     "AbsoluteDirPath",
+    "BuildError",
     "BuildFolder",
     "BuildInput",
     "BuildLineage",
     "BuildParameters",
     "BuildVariable",
+    "BuildWarning",
     "BuiltModule",
     "BuiltResource",
     "ConfigYAML",
@@ -51,7 +54,6 @@ __all__ = [
     "RelativeDirPath",
     "RelativeFilePath",
     "ResourceLineageItem",
-    "ResourceType",
     "SuccessfulReadYAMLFile",
     "ValidationType",
 ]

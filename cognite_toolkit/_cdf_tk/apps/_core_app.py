@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.commands import (
 from cognite_toolkit._cdf_tk.commands._base import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConfigYAML
+from cognite_toolkit._cdf_tk.constants import BUILD_MODULE_ARG, LOGS_DIRECTORY
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -38,7 +39,7 @@ class Common:
     override_env: bool
 
 
-CDF_TOML = CDFToml.load(Path.cwd())
+CDF_TOML = CDFToml.load_module_context(Path.cwd())
 TODAY = date.today()
 
 
@@ -54,7 +55,7 @@ def _version_callback(value: bool) -> None:
 
 
 class CoreApp(typer.Typer):
-    def __init__(self, *args, **kwargs) -> None:  # type: ignore
+    def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.common)
         self.command("build")(self.build_v2)
@@ -184,7 +185,7 @@ class CoreApp(typer.Typer):
         selected: Annotated[
             list[str] | None,
             typer.Option(
-                "--modules",
+                BUILD_MODULE_ARG,
                 "-m",
                 help="Specify paths or names to the modules to build",
             ),
@@ -243,14 +244,18 @@ class CoreApp(typer.Typer):
             if config_yaml is None:
                 config_yaml = organization_dir / ConfigYAML.get_filename(build_env_name)
 
+        # Todo when allowing multiple config YAMLS, check if selected is set and multiple config YAMLS are set,
+        # Then raise a BadParameterError, as this is ambiguous. The selected is used to overwrite the selected section
+        # in a config YAML, but if multiple config YAMLS are set, it is ambiguous which one to overwrite. So we should raise an error in that case.
         parameter = BuildParameters(
             organization_dir=organization_dir,
             build_dir=build_dir,
-            config_yaml=config_yaml,
+            config_yamls=[config_yaml] if config_yaml is not None else [],
             user_selected_modules=selected,
             verbose=verbose,
             insight_format=insight_format.value,
             rules_ignore=set(CDF_TOML.rules.ignore),
+            rules_enforce=CDF_TOML.rules.enforce,
         )
 
         cmd.run(
@@ -316,7 +321,7 @@ class CoreApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"deploy_logs_{TODAY!s}"),
+        ] = (LOGS_DIRECTORY / f"deploy_logs_{TODAY!s}"),
         cdf_project: Annotated[
             str | None,
             typer.Option(
@@ -407,7 +412,7 @@ class CoreApp(typer.Typer):
                 "-l",
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
-        ] = Path(f"clean_logs_{TODAY!s}"),
+        ] = (LOGS_DIRECTORY / f"clean_logs_{TODAY!s}"),
         cdf_project: Annotated[
             str | None,
             typer.Option(

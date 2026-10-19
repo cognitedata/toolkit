@@ -46,7 +46,7 @@ def three_sources(toolkit_client: ToolkitClient, toolkit_space: Space) -> list[I
         for i in range(3)
     ]
 
-    toolkit_client.tool.instances.create(nodes)
+    toolkit_client.instances.create(nodes)
 
     ids = [AssetCentricId(resource_type="asset", id_=i) for i in range(3)]
     created = toolkit_client.migration.instance_source.retrieve(ids)
@@ -131,7 +131,7 @@ def created_source_system(toolkit_client: ToolkitClient, toolkit_space: Space) -
         ],
     )
     if not toolkit_client.migration.created_source_system.retrieve([source]):
-        toolkit_client.tool.instances.create([node])
+        toolkit_client.instances.create([node])
     return source
 
 
@@ -167,7 +167,7 @@ def space_source(toolkit_client: ToolkitClient) -> SpaceSource:
     )
     existing = toolkit_client.migration.space_source.retrieve(data_set_id=12345)
     if not existing:
-        toolkit_client.tool.instances.create([node])
+        toolkit_client.instances.create([node])
     retrieved = toolkit_client.migration.space_source.retrieve(data_set_id=12345)
     assert retrieved is not None, "Failed to create and retrieve space source"
     return retrieved
@@ -180,9 +180,9 @@ class TestSpaceSourceAPI:
         assert retrieved.dump() == space_source.dump(), "Failed to retrieve space source by data set ID"
 
     def test_retrieve_data_set_external_id(self, space_source: SpaceSource, toolkit_client: ToolkitClient) -> None:
-        retrieved = toolkit_client.migration.space_source.retrieve(
-            data_set_external_id=space_source.data_set_external_id
-        )
+        data_set_external_id = space_source.data_set_external_id
+        assert data_set_external_id is not None
+        retrieved = toolkit_client.migration.space_source.retrieve(data_set_external_id=data_set_external_id)
 
         assert retrieved is not None
         assert retrieved.dump() == space_source.dump(), "Failed to retrieve space source by classic external ID"

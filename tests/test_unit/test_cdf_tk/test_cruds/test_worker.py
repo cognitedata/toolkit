@@ -33,7 +33,7 @@ class TestDeployV2CommandCategorizeResources:
                 },
             ),
         )
-        loader = WorkflowTriggerIO.create_loader(toolkit_client_approval.mock_client)
+        loader = WorkflowTriggerIO.create_io(toolkit_client_approval.mock_client)
 
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = """externalId: my_trigger
@@ -70,8 +70,10 @@ authentication:
         with patch(
             "cognite_toolkit._cdf_tk.resource_ios._function.FunctionIO.load_resource_file"
         ) as mock_load_resource_file:
-            mock_authorization = toolkit_client_approval.mock_client.tool.token.verify_acls
+            mock_client = toolkit_client_approval.mock_client
+            mock_authorization = mock_client.token.verify_acls
             mock_authorization.return_value = []
+            mock_client.datasets.retrieve.return_value = []
             mock_load_resource_file.return_value = [
                 {
                     "externalId": "my_function",
@@ -80,14 +82,14 @@ authentication:
                     "dataSetExternalId": "my_dataset",
                 }
             ]
-            loader = FunctionIO.create_loader(toolkit_client_approval.mock_client, None)
+            loader = FunctionIO.create_io(toolkit_client_approval.mock_client)
 
             local_file = MagicMock(spec=Path)
             local_file.parent.name = FunctionIO.folder_name
 
             resource_dicts = loader.load_resource_file(local_file, None)
             resource = loader.load_resource(deepcopy(resource_dicts[0]))
-            DeployV2Command._validate_access(loader, [resource], is_dry_run=False)
+            DeployV2Command._validate_access(loader, [resource], mock_client, is_dry_run=False)
             assert mock_authorization.call_count >= 1
 
             capabilities_arg = mock_authorization.call_args_list[0].args[0]

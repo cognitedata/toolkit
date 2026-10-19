@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Hashable, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any, ClassVar, Generic, Literal
 
 from cognite.client.data_classes import Label, LabelDefinition
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregateItem, AssetRequest, AssetResponse
@@ -18,9 +19,10 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     AssetIO,
     DataSetsIO,
     EventIO,
-    FileMetadataCRUD,
+    FileMetadataIO,
     LabelIO,
-    TimeSeriesCRUD,
+    ResourceIO,
+    TimeSeriesIO,
 )
 from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetAggregator,
@@ -90,11 +92,11 @@ class AssetCentricIO(
                 ExternalId(external_id=data_set_external_id)
                 for data_set_external_id in self.client.lookup.data_sets.external_id(list(data_set_ids))
             ]
-            yield from self._configurations(data_set_external_ids, DataSetsIO.create_loader(self.client))
+            yield from self._configurations(data_set_external_ids, DataSetsIO.create_io(self.client))
 
         yield from self._configurations(
             [ExternalId(external_id=label) for label in self._downloaded_labels_by_selector[selector]],
-            LabelIO.create_loader(self.client),
+            LabelIO.create_io(self.client),
         )
 
     def _get_classic_filter(self, selector: AssetCentricSelector) -> ClassicFilter:
@@ -129,18 +131,17 @@ class AssetCentricIO(
     @classmethod
     def _configurations(
         cls,
-        ids: Sequence[Hashable],
-        loader: DataSetsIO | LabelIO,
+        ids: Sequence[T_Identifier],
+        loader: ResourceIO[T_Identifier, Any, Any, Any],
     ) -> Iterable[StorageIOConfig]:
         if not ids:
             return
 
-        items = loader.retrieve(ids)  # type: ignore[arg-type]
+        items = loader.retrieve(ids)
         yield StorageIOConfig(
             kind=loader.kind,
             folder_name=loader.folder_name,
-            # We know that the items will be labels for LabelLoader and data sets for DataSetsLoader
-            value=[loader.dump_resource(item) for item in items],  # type: ignore[arg-type]
+            value=[loader.dump_resource(item) for item in items],
         )
 
     def _create_identifier(self, internal_id: int) -> str:
@@ -181,10 +182,10 @@ class AssetCentricIO(
     def json_to_row(
         self, item_json: dict[str, JsonVal], selector: AssetCentricSelector | None = None
     ) -> dict[str, JsonVal]:
-        if "metadata" in item_json and isinstance(item_json["metadata"], dict):
-            metadata = item_json.pop("metadata")
-            # MyPy does understand that metadata is a dict here due to the check above.
-            for key, value in metadata.items():  # type: ignore[union-attr]
+        metadata = item_json.get("metadata")
+        if isinstance(metadata, dict):
+            del item_json["metadata"]
+            for key, value in metadata.items():
                 item_json[f"metadata.{key}"] = value
         return item_json
 
@@ -267,7 +268,7 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
-        self._crud = AssetIO.create_loader(self.client)
+        self._crud = AssetIO.create_io(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:
@@ -327,7 +328,7 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         cursor: str | None = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         total_count = 0
         while True:
-            page = self.client.tool.assets.paginate(
+            page = self.client.assets.paginate(
                 aggregated_properties=True,
                 filter=filter_,
                 limit=self.CHUNK_SIZE,
@@ -388,7 +389,7 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         return self._crud.load_resource(item_json)
 
     def retrieve(self, ids: Sequence[int]) -> list[AssetResponse]:
-        return self.client.tool.assets.retrieve(InternalId.from_ids(ids))
+        return self.client.assets.retrieve(InternalId.from_ids(ids))
 
     @classmethod
     def read_chunks(cls, reader: FileReader, selector: AssetCentricSelector) -> Iterable[Page[dict[str, JsonVal]]]:
@@ -400,7 +401,10 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         while current_depth <= max_depth:
             for line_number, item in reader.read_chunks_with_line_numbers():
                 try:
-                    depth = int(item["depth"])  # type: ignore[arg-type]
+                    raw_depth = item["depth"]
+                    if not isinstance(raw_depth, str | int | float):
+                        raise TypeError
+                    depth = int(float(raw_depth))
                 except (TypeError, ValueError, KeyError):
                     if current_depth == 0:
                         # If depth is not set, we yield it at depth 0
@@ -434,7 +438,7 @@ class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
-        self._crud = FileMetadataCRUD.create_loader(self.client)
+        self._crud = FileMetadataIO.create_io(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:
@@ -497,7 +501,7 @@ class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
         cursor: str | None = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         total_count = 0
         while True:
-            page = self.client.tool.filemetadata.paginate(
+            page = self.client.filemetadata.paginate(
                 filter=filter_,
                 limit=self.CHUNK_SIZE,
                 cursor=cursor,
@@ -525,7 +529,7 @@ class FileMetadataDataIO(AssetCentricIO[FileMetadataResponse]):
             cursor = page.next_cursor
 
     def retrieve(self, ids: Sequence[int]) -> list[FileMetadataResponse]:
-        return self.client.tool.filemetadata.retrieve(InternalId.from_ids(ids))
+        return self.client.filemetadata.retrieve(InternalId.from_ids(ids))
 
     def data_to_json_chunk(
         self, data_chunk: Page[FileMetadataResponse], selector: AssetCentricSelector | None = None
@@ -556,14 +560,14 @@ class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRe
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
-        self._crud = TimeSeriesCRUD.create_loader(self.client)
+        self._crud = TimeSeriesIO.create_io(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return TimeSeriesAggregator(self.client)
 
     def retrieve(self, ids: Sequence[int]) -> list[TimeSeriesResponse]:
-        return self.client.tool.timeseries.retrieve(InternalId.from_ids(ids))
+        return self.client.timeseries.retrieve(InternalId.from_ids(ids))
 
     def stream_data(
         self,
@@ -575,7 +579,7 @@ class TimeSeriesDataIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRe
         cursor: str | None = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         total_count = 0
         while True:
-            page = self.client.tool.timeseries.paginate(
+            page = self.client.timeseries.paginate(
                 filter=filter_,
                 limit=self.CHUNK_SIZE,
                 cursor=cursor,
@@ -683,7 +687,7 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
-        self._crud = EventIO.create_loader(self.client)
+        self._crud = EventIO.create_io(self.client)
         self._metadata_keys: dict[AssetCentricSelector | None, set[str]] = {}
 
     def _get_aggregator(self) -> AssetCentricAggregator:
@@ -737,7 +741,7 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
         cursor: str | None = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         total_count = 0
         while True:
-            page = self.client.tool.events.paginate(
+            page = self.client.events.paginate(
                 filter=filter_,
                 limit=self.CHUNK_SIZE,
                 cursor=cursor,
@@ -793,7 +797,7 @@ class EventDataIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
         return self._crud.load_resource(item_json)
 
     def retrieve(self, ids: Sequence[int]) -> list[EventResponse]:
-        return self.client.tool.events.retrieve(InternalId.from_ids(ids))
+        return self.client.events.retrieve(InternalId.from_ids(ids))
 
 
 class HierarchyIO(ConfigurableDataIO[AssetCentricSelector, AssetCentricResource]):

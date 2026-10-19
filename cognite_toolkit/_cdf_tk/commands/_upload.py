@@ -22,6 +22,8 @@ from cognite_toolkit._cdf_tk.dataio import (
     FileContentIO,
     FileMetadataContentIO,
     Page,
+    T_DataRequest,
+    T_DataResponse,
     T_Selector,
     TableDataIO,
     UploadableDataIO,
@@ -38,7 +40,6 @@ from cognite_toolkit._cdf_tk.dataio.logger import (
 from cognite_toolkit._cdf_tk.dataio.selectors import Selector, load_selector
 from cognite_toolkit._cdf_tk.dataio.selectors._instances import InstanceSpaceSelector, InstanceViewSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRepeatedUploadFailureError, ToolkitValueError
-from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.resource_ios import ViewIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.tracker import Tracker
@@ -155,7 +156,7 @@ class UploadCommand(ToolkitCommand):
                     )
                 selector_by_view_id[view_ref] = selector
 
-        view_dependencies, cyclic_views = ViewIO.create_loader(client).topological_sort_container_constraints(
+        view_dependencies, cyclic_views = ViewIO.create_io(client).topological_sort_container_constraints(
             list(selector_by_view_id.keys())
         )
         if cyclic_views:
@@ -348,9 +349,9 @@ class UploadCommand(ToolkitCommand):
     @classmethod
     def _upload_items(
         cls,
-        data_chunk: Page[T_ResourceRequest],
+        data_chunk: Page[T_DataRequest],
         upload_client: HTTPClient,
-        io: UploadableDataIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
+        io: UploadableDataIO[T_Selector, T_DataResponse, T_DataRequest],
         selector: T_Selector,
         dry_run: bool,
         console: Console,

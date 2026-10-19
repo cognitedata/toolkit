@@ -2,10 +2,10 @@
 
 import itertools
 import re
-import sys
 from collections.abc import Iterator, MutableSequence
 from functools import lru_cache
 from pathlib import Path
+from typing import Self
 
 from packaging.version import Version
 from packaging.version import parse as parse_version
@@ -18,10 +18,6 @@ from cognite_toolkit._cdf_tk.constants import DOCKER_IMAGE_NAME
 from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_read, safe_write
 from cognite_toolkit._version import __version__
 
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 class Change:
     """A change is a single migration step that can be applied to a project."""

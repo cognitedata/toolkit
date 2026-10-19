@@ -41,7 +41,7 @@ class AnnotationIO(DataIO[AssetCentricSelector, AnnotationResponse]):
                     annotation_type=annotation_type,
                 )
                 remaining = limit - total if limit is not None else None
-                for page_items in self.client.tool.annotations.iterate(filter=annotation_filter, limit=remaining):
+                for page_items in self.client.annotations.iterate(filter=annotation_filter, limit=remaining):
                     for chunk in chunker_sequence(page_items, self.CHUNK_SIZE):
                         items = [
                             DataItem(

@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 
 
 class LandingApp(typer.Typer):
-    def __init__(self, *args, **kwargs) -> None:  # type: ignore
+    def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
         super().__init__(*args, **kwargs)
 
     def main_init(

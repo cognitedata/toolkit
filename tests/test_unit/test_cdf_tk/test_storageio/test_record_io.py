@@ -12,7 +12,6 @@ from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.dataio import DataItem, Page, RecordIO
 from cognite_toolkit._cdf_tk.dataio.selectors import RecordContainerSelector
 from cognite_toolkit._cdf_tk.dataio.selectors._records import SelectedContainer, SelectedStream
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 
 def _make_selector(initialize_cursor: str = "365d-ago") -> RecordContainerSelector:
@@ -76,22 +75,21 @@ class TestRecordIO:
             assert len(items) == record_count
             return httpx2.Response(status_code=200, json={"items": items})
 
-        with HTTPClient(toolkit_config) as http_client:
-            with respx.mock() as mock_router:
-                mock_router.get(stream_url).mock(
-                    return_value=httpx2.Response(
-                        status_code=200,
-                        json={
-                            "externalId": "my_stream",
-                            "createdTime": 0,
-                            "createdFromTemplate": "BasicLiveData",
-                            "type": "Mutable",
-                        },
-                    )
+        with HTTPClient(toolkit_config) as http_client, respx.mock() as mock_router:
+            mock_router.get(stream_url).mock(
+                return_value=httpx2.Response(
+                    status_code=200,
+                    json={
+                        "externalId": "my_stream",
+                        "createdTime": 0,
+                        "createdFromTemplate": "BasicLiveData",
+                        "type": "Mutable",
+                    },
                 )
-                mock_router.post(expected_url).mock(side_effect=record_callback)
-                io = RecordIO(client)
-                results = io.upload_items(page, http_client, selector=selector)
+            )
+            mock_router.post(expected_url).mock(side_effect=record_callback)
+            io = RecordIO(client)
+            results = io.upload_items(page, http_client, selector=selector)
 
         success_ids = [item_id for res in results if isinstance(res, ItemsSuccessResponse) for item_id in res.ids]
         assert len(success_ids) == record_count
@@ -202,7 +200,6 @@ class TestRecordIO:
         request_body = json.loads(route.calls[0].request.content)
         assert request_body["limit"] == 5
 
-    @pytest.mark.skipif(not Flags.EXTEND_UPLOAD.is_enabled(), reason="Alpha feature is not enabled")
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_download_upload_round_trip(
         self,

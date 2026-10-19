@@ -10,8 +10,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse, SubagentConfig
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, FunctionIO, SkillIO
+from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, FunctionIO
 from cognite_toolkit._cdf_tk.resource_ios._agent import AgentIO
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
@@ -21,7 +20,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import AgentYAML
 class TestAgentIODumpResource:
     def test_dump_resource_ignores_empty_skills_when_omitted_locally(self) -> None:
         client = ToolkitClientMock()
-        io = AgentIO(client, None, None)
+        io = AgentIO(client)
         local = {
             "externalId": "my_agent",
             "name": "My Agent",
@@ -45,7 +44,7 @@ class TestAgentIODumpResource:
 
     def test_dump_resource_ignores_empty_subagents_when_omitted_locally(self) -> None:
         client = ToolkitClientMock()
-        io = AgentIO(client, None, None)
+        io = AgentIO(client)
         local = {
             "externalId": "my_agent",
             "name": "My Agent",
@@ -69,7 +68,7 @@ class TestAgentIODumpResource:
 
     def test_dump_resource_ignores_empty_example_questions_when_omitted_locally(self) -> None:
         client = ToolkitClientMock()
-        io = AgentIO(client, None, None)
+        io = AgentIO(client)
         local = {
             "externalId": "my_agent",
             "name": "My Agent",
@@ -119,16 +118,10 @@ class TestAgentIODependencies:
             (AgentIO, ExternalId(external_id="rca-specialist")),
         ]
 
-    def test_skill_is_in_class_dependencies(self) -> None:
-        if FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
-            assert SkillIO in AgentIO.dependencies
-        else:
-            assert SkillIO not in AgentIO.dependencies
-
 
 class TestAgentIODiffList:
     def test_diff_list_subagents_matches_by_agent_external_id(self) -> None:
-        io = AgentIO(ToolkitClientMock(), None, None)
+        io = AgentIO(ToolkitClientMock())
         local = [
             {"agentExternalId": "weather-specialist"},
             {"agentExternalId": "rca-specialist"},
@@ -144,7 +137,7 @@ class TestAgentIODiffList:
         assert added == []
 
     def test_diff_list_subagents_reports_cdf_only_subagents(self) -> None:
-        io = AgentIO(ToolkitClientMock(), None, None)
+        io = AgentIO(ToolkitClientMock())
         local = [{"agentExternalId": "weather-specialist"}]
         cdf = [
             {"agentExternalId": "weather-specialist"},
@@ -157,7 +150,7 @@ class TestAgentIODiffList:
         assert added == [1]
 
     def test_diff_list_subagents_reports_no_match_when_external_ids_differ(self) -> None:
-        io = AgentIO(ToolkitClientMock(), None, None)
+        io = AgentIO(ToolkitClientMock())
         local = [{"agentExternalId": "weather-specialist"}]
         cdf = [{"agentExternalId": "rca-specialist"}]
 
@@ -167,7 +160,7 @@ class TestAgentIODiffList:
         assert added == [0]
 
     def test_diff_list_example_questions_matches_by_question(self) -> None:
-        io = AgentIO(ToolkitClientMock(), None, None)
+        io = AgentIO(ToolkitClientMock())
         local = [
             {"question": "What can you do?"},
             {
@@ -189,7 +182,7 @@ class TestAgentIODiffList:
         assert added == []
 
     def test_diff_list_example_questions_reports_cdf_only_questions(self) -> None:
-        io = AgentIO(ToolkitClientMock(), None, None)
+        io = AgentIO(ToolkitClientMock())
         local = [{"question": "What can you do?"}]
         cdf = [
             {"question": "What can you do?"},
@@ -247,12 +240,12 @@ class TestAgentIODelete:
             }
         )
         client = ToolkitClientMock()
-        client.tool.agents.retrieve.return_value = [supervisor, subagent]
-        io = AgentIO(client, None, None)
+        client.agents.retrieve.return_value = [supervisor, subagent]
+        io = AgentIO(client)
 
         io.delete([ExternalId(external_id="weather-specialist"), ExternalId(external_id="supervisor")])
 
-        deleted_ids = client.tool.agents.delete.call_args[0][0]
+        deleted_ids = client.agents.delete.call_args[0][0]
         assert deleted_ids == [
             ExternalId(external_id="supervisor"),
             ExternalId(external_id="weather-specialist"),
@@ -364,13 +357,12 @@ class TestAgentIOExtraFiles:
 
         assert len(extras) == 1
         extra = extras[0]
-        assert extra.model_dump(exclude_unset=True)["code"] == "MISSING"
+        assert extra.model_dump(exclude_unset=True)["code"] == "MISSING-REFERENCED-FILE"
 
-    @pytest.mark.skipif(not Flags.V09.is_enabled(), reason="We only split files in v0.9+")
     def test_split_resource_writes_markdown_and_tools(
         self, tmp_path: Path, toolkit_client_cheap: ToolkitClient
     ) -> None:
-        io = AgentIO(toolkit_client_cheap, None, None)
+        io = AgentIO(toolkit_client_cheap)
         base = tmp_path / "my_agent.Agent.yaml"
         python_code = "print('hello')\n"
         _python_tool = {

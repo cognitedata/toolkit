@@ -2,9 +2,6 @@ from collections.abc import Iterable, Mapping
 from types import MappingProxyType
 from typing import Any, ClassVar, Literal, cast
 
-from cognite.client import data_modeling as sdk_dm
-from cognite.client.data_classes.aggregations import Count
-
 from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import (
@@ -16,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes import data_modeling as dm
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    CountAggregate,
     NodeOrEdgeRequest,
     NodeOrEdgeResponse,
     QueryEdgeExpression,
@@ -28,12 +26,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import (
     EdgeResponse,
+    InstanceResponse,
     NodeOrEdgeRequestAdapter,
     NodeResponse,
 )
 from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, SpaceCRUD, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, SpaceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
@@ -87,7 +86,17 @@ class InstanceIO(
         self._remove_existing_version = remove_existing_version
         # Cache for view to read-only properties mapping
         self._view_readonly_properties_cache: dict[ViewId, set[str]] = {}
-        self._view_crud = ViewIO.create_loader(self.client)
+        self._view_crud = ViewIO.create_io(self.client)
+
+    @staticmethod
+    def _exclude_deleted(items: Iterable[InstanceResponse]) -> list[InstanceResponse]:
+        """Drop soft-deleted instances returned by ``/models/instances/sync``.
+
+        Sync replays deletions. A tombstone can share an external ID with the node that replaced it
+        and omit direct relations, which come back as empty lists. Uploading that tombstone
+        overwrites the live instance.
+        """
+        return [item for item in items if item.deleted_time is None]
 
     def emit_registered_page(self, page: "Page[NodeOrEdgeResponse]") -> "Page[NodeOrEdgeResponse]":
         ids = [item.tracking_id for item in page.items if not isinstance(item.item, EdgeResponse)]
@@ -153,6 +162,16 @@ class InstanceIO(
         if len(leaf_filters) == 1:
             return leaf_filters[0]
         return {"and": leaf_filters}
+
+    @staticmethod
+    def _space_aggregate_filter(
+        instance_type: Literal["node", "edge"], spaces: list[str] | None
+    ) -> dict[str, Any] | None:
+        if not spaces:
+            return None
+        if len(spaces) == 1:
+            return {"equals": {"property": [instance_type, "space"], "value": spaces[0]}}
+        return {"in": {"property": [instance_type, "space"], "values": spaces}}
 
     def _filter_readonly_properties(self, instance: NodeOrEdgeRequest) -> None:
         """Filter out read-only properties from the instance.
@@ -223,7 +242,7 @@ class InstanceIO(
                 )
         property_columns: list[SchemaColumn] = []
         if view_id is not None:
-            views = self.client.tool.views.retrieve([view_id.as_id()], include_inherited_properties=True)
+            views = self.client.views.retrieve([view_id.as_id()], include_inherited_properties=True)
             if not views:
                 raise ToolkitValueError(f"View {view_id.as_id()} not found.")
             property_columns = self._get_schema_from_view(views[0])
@@ -231,9 +250,7 @@ class InstanceIO(
         return instance_columns + property_columns
 
     def _get_instance_type_and_view_id(self, selector: InstanceSelector) -> tuple[str, SelectedView | None]:
-        if isinstance(selector, InstanceViewSelector):
-            return selector.instance_type, selector.view
-        elif isinstance(selector, InstanceSpaceSelector):
+        if isinstance(selector, InstanceViewSelector) or isinstance(selector, InstanceSpaceSelector):
             return selector.instance_type, selector.view
         else:
             raise NotImplementedError(f"{type(selector).__name__} does not support downloading to table-format.")
@@ -296,7 +313,7 @@ class InstanceIO(
                 ids = [f"{item.space}:{item.external_id}" for item in chunk]
                 self.logger.register(ids)
                 retrieved_by_id = {
-                    f"{item.space}:{item.external_id}": item for item in self.client.tool.instances.retrieve(chunk)
+                    f"{item.space}:{item.external_id}": item for item in self.client.instances.retrieve(chunk)
                 }
                 items: list[DataItem[NodeOrEdgeResponse]] = []
                 for item_id in ids:
@@ -394,7 +411,7 @@ class InstanceIO(
 
         included_groups = [group for group in query.with_ if include_root or group != query.root]
         debug_writer = self._logger.writer if isinstance(self._logger, FileWithAggregationLogger) else None
-        for batch in self.client.tool.instances.query_iterate(
+        for batch in self.client.instances.query_iterate(
             query,
             type_results=True,
             exhaust_sub_selections=True,
@@ -405,7 +422,7 @@ class InstanceIO(
             wrapped_items = [
                 DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
                 for group in included_groups
-                for item in batch.items.get(group, [])
+                for item in self._exclude_deleted(batch.items.get(group, []))
             ]
             next_cursor = batch.root_cursor
             yield Page(
@@ -428,7 +445,7 @@ class InstanceIO(
         debug_writer = self._logger.writer if isinstance(self._logger, FileWithAggregationLogger) else None
         while cursor is not None or total == 0:
             page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
-            page = self.client.tool.instances.paginate(
+            page = self.client.instances.paginate(
                 instance_filter,
                 limit=page_limit,
                 cursor=cursor,
@@ -438,7 +455,8 @@ class InstanceIO(
             total += len(page.items)
             if page:
                 wrapped_items = [
-                    DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item) for item in page.items
+                    DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
+                    for item in self._exclude_deleted(page.items)
                 ]
                 yield Page(
                     worker_id="main",
@@ -478,18 +496,29 @@ class InstanceIO(
             isinstance(selector, InstanceSpaceSelector) and selector.view
         ):
             view_id = cast(SelectedView, selector.view)
-            aggregate_kwargs: dict[str, Any] = {
-                "view": sdk_dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
-                "aggregates": Count("externalId"),
-                "instance_type": selector.instance_type,
-                "space": selector.get_instance_spaces(),
-            }
+            aggregate_filter = self._space_aggregate_filter(selector.instance_type, selector.get_instance_spaces())
             if isinstance(selector, InstanceViewSelector) and selector.additional_filter is not None:
-                aggregate_kwargs["filter"] = selector.additional_filter
-            result = self.client.data_modeling.instances.aggregate(**aggregate_kwargs)
-            return int(result.value or 0)
+                aggregate_filter = (
+                    {"and": [selector.additional_filter, aggregate_filter]}
+                    if aggregate_filter is not None
+                    else selector.additional_filter
+                )
+            result = self.client.instances.aggregate(
+                ViewId(
+                    space=view_id.space,
+                    external_id=view_id.external_id,
+                    version=view_id.version or "",
+                ),
+                aggregates=[CountAggregate(property="externalId")],
+                instance_type=selector.instance_type,
+                filter=aggregate_filter,
+            )
+            if not result.items or not result.items[0].aggregates:
+                return 0
+            return int(result.items[0].aggregates[0].value or 0)
         elif isinstance(selector, InstanceSpaceSelector):
-            statistics = self.client.data_modeling.statistics.spaces.retrieve(space=selector.instance_space)
+            statistics_list = self.client.statistics.spaces.retrieve([SpaceId(space=selector.instance_space)])
+            statistics = statistics_list[0] if statistics_list else None
             if statistics is None:
                 return None
             if selector.instance_type == "node":
@@ -533,7 +562,9 @@ class InstanceIO(
                 for source in value:
                     if not isinstance(source, dict):
                         continue
-                    row.update(source.get("properties", {}))  # type: ignore[arg-type]
+                    properties = source.get("properties")
+                    if isinstance(properties, dict):
+                        row.update(properties)
             elif key == "instanceType":
                 # This is stored in the manifest
                 continue
@@ -616,22 +647,22 @@ class InstanceIO(
         spaces = list(set((selector.get_instance_spaces() or []) + (selector.get_schema_spaces() or [])))
         if not spaces:
             return
-        space_crud = SpaceCRUD.create_loader(self.client)
+        space_crud = SpaceIO.create_io(self.client)
         retrieved_spaces = space_crud.retrieve([SpaceId(space=space) for space in spaces])
         retrieved_spaces = [space for space in retrieved_spaces if not space.is_global]
         if not retrieved_spaces:
             return
         for space in retrieved_spaces:
             yield StorageIOConfig(
-                kind=SpaceCRUD.kind,
-                folder_name=SpaceCRUD.folder_name,
+                kind=SpaceIO.kind,
+                folder_name=SpaceIO.folder_name,
                 value=space_crud.dump_resource(space),
                 filename=sanitize_filename(space.space),
             )
         if not selector.view:
             return
-        view_crud = ViewIO(self.client, None, None, topological_sort_implements=True)
-        views = self.client.tool.views.retrieve([selector.view.as_id()], include_inherited_properties=False)
+        view_crud = ViewIO(self.client, topological_sort_implements=True)
+        views = self.client.views.retrieve([selector.view.as_id()], include_inherited_properties=False)
         views = [view for view in views if not view.is_global]
         if not views:
             return
@@ -648,15 +679,15 @@ class InstanceIO(
         container_ids = list({container for view in views for container in view.mapped_containers})
         if not container_ids:
             return
-        container_crud = ContainerCRUD.create_loader(self.client)
+        container_crud = ContainerIO.create_io(self.client)
         containers = container_crud.retrieve(container_ids)
         containers = [container for container in containers if not container.is_global]
         if not containers:
             return
         for container in containers:
             yield StorageIOConfig(
-                kind=ContainerCRUD.kind,
-                folder_name=ContainerCRUD.folder_name,
+                kind=ContainerIO.kind,
+                folder_name=ContainerIO.folder_name,
                 value=container_crud.dump_resource(container),
                 filename=sanitize_filename(f"{container.space}_{container.external_id}"),
             )

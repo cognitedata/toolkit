@@ -1,19 +1,14 @@
 import ast
 import re
-import sys
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
 import pytest
+import tomllib
 
 from tests.constants import REPO_ROOT
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
 
 CDF_TK_PATH = REPO_ROOT / "cognite_toolkit" / "_cdf_tk"
 
@@ -92,11 +87,7 @@ def test_no_private_third_party_imports() -> None:
                     return imp.lineno, f"imports private name '{name}' from '{imp.module}'"
         return None
 
-    _assert_import_violations(
-        check,
-        "private imports from third-party packages",
-        expected_total=1,
-    )
+    _assert_import_violations(check, "private imports from third-party packages")
 
 
 def test_no_cognite_sdk_imports() -> None:
@@ -108,11 +99,16 @@ def test_no_cognite_sdk_imports() -> None:
     """
 
     def check(imp: ImportInfo) -> Violation | None:
-        if imp.module == "cognite.client" or imp.module.startswith("cognite.client."):
+        if (
+            (imp.module == "cognite.client" or imp.module.startswith("cognite.client."))
+            and not imp.module.startswith(
+                "cognite.client.credentials"  # We allow credential imports as we use the auth from the Cognite SDK in Toolkit.
+            )
+        ):
             return imp.lineno, imp.format()
         return None
 
-    _assert_import_violations(check, "cognite.client imports", expected_total=90)
+    _assert_import_violations(check, "cognite.client imports", expected_total=36)
 
 
 def test_utils_module_independent() -> None:

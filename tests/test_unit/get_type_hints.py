@@ -72,7 +72,7 @@ class _TypeHints:
         return type_hint_by_name
 
     @classmethod
-    def _type_checking(cls) -> dict[str, type]:
+    def _type_checking(cls) -> dict[str, object]:
         """
         When calling the get_type_hints function, it imports the module with the function TYPE_CHECKING is set to False.
 
@@ -118,6 +118,8 @@ class _TypeHints:
         except (TypeError, NameError):
             # Python 3.10 Type Hint
             if annotation.startswith("Sequence[") and annotation.endswith("]"):
-                return typing.Sequence[cls._create_type_hint_3_10(annotation[9:-1], resource_module_vars, local_vars)]  # type: ignore[misc]
+                item_type = cls._create_type_hint_3_10(annotation[9:-1], resource_module_vars, local_vars)
+                sequence_type = typing.Sequence
+                return sequence_type[item_type]
             else:
                 raise

@@ -1,11 +1,12 @@
-import sys
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Iterable, Sequence, Sized
+from collections.abc import Hashable, Iterable, Sequence
+from functools import cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
+from types import GenericAlias
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar, cast
 
-from pydantic import BaseModel, ConfigDict, Field
-from rich.console import Console
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from typing_extensions import TypeForm
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import (
@@ -14,122 +15,16 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     T_RequestResource,
     T_ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
-from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
-from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, ResourceType
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
 
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
+from typing import Self
 
-
-class Loader(ABC):
-    """This is the base class for all loaders
-
-    Args:
-        client (ToolkitClient): The client to use for interacting with the CDF API.
-        build_dir (Path): The path to the build directory
-
-    Class attributes:
-        folder_name: The name of the folder in the build directory where the files are located. This should be set in all subclasses.
-        kind: The stem of the resource type
-        dependencies: A set of loaders that must be loaded before this loader.
-        sub_folder_name: The name of the default subfolder name in the resource directory. This is used, for example,
-            when dumping data models to put containers and views into sub directories.
-        extra_kinds: These are kinds of extras. For example, in the functions folders, CogniteFile and FileMetadata is allowed
-            as these contain function code.
-    """
-
-    folder_name: str
-    kind: str
-    dependencies: "frozenset[type[ResourceIO]]" = frozenset()
-    _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
-    _doc_url: str = ""
-    sub_folder_name: str | None = None
-    extra_kinds: frozenset[str] = frozenset()
-
-    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None) -> None:
-        self.client = client
-        self.resource_build_path: Path | None = None
-        if build_dir is not None and build_dir.name == self.folder_name:
-            raise ValueError(f"Build directory cannot be the same as the resource folder name: {self.folder_name}")
-        elif build_dir is not None:
-            self.resource_build_path = build_dir / self.folder_name
-        self.console = console or client.console
-
-    @classmethod
-    def as_resource_type(cls) -> "ResourceType":
-        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ResourceType
-
-        return ResourceType(kind=cls.kind, resource_folder=cls.folder_name)
-
-    @classmethod
-    def create_loader(
-        cls,
-        client: ToolkitClient,
-        build_dir: Path | None = None,
-        console: Console | None = None,
-    ) -> Self:
-        return cls(client, build_dir, console)
-
-    @property
-    def display_name(self) -> str:
-        return self.folder_name
-
-    @classmethod
-    def doc_url(cls) -> str:
-        return cls._doc_base_url + cls._doc_url
-
-    def find_files(self, dir_or_file: Path | None = None) -> list[Path]:
-        """Find all files that are supported by this loader in the given directory or file.
-
-        Args:
-            dir_or_file (Path): The directory or file to search in. If no path is given,
-                the build directory is used.
-
-        Returns:
-            list[Path]: A sorted list of all files that are supported by this loader.
-
-        """
-        dir_or_file = dir_or_file or self.resource_build_path
-        if dir_or_file is None:
-            raise ValueError("No 'dir_or_file' or 'build_path' is set.")
-        if dir_or_file.is_file():
-            if not self.is_supported_file(dir_or_file):
-                raise ValueError("Invalid file type")
-            return [dir_or_file]
-        elif dir_or_file.is_dir():
-            return sorted([file for file in dir_or_file.rglob("*") if self.is_supported_file(file)])
-        else:
-            return []
-
-    @classmethod
-    def any_supported_files(cls, directory: Path) -> bool:
-        return any(cls.is_supported_file(file) for file in directory.glob("**/*"))
-
-    @classmethod
-    def is_supported_file(cls, file: Path) -> bool:
-        """Check if hte file is supported by this loader.
-
-        Args:
-            file: The filepath to check.
-
-        Returns:
-            bool: True if the file is supported, False otherwise.
-
-        """
-        return file.suffix in YAML_SUFFIX and file.stem.casefold().endswith(cls.kind.casefold())
-
-
-T_Loader = TypeVar("T_Loader", bound=Loader)
 T_YamlResource = TypeVar("T_YamlResource")
 
 
@@ -138,7 +33,12 @@ class ReadExtra(BaseModel):
 
 
 class FailedReadExtra(ReadExtra):
-    code: Literal["MISSING", "SYNTAX-ERROR"]
+    code: Literal[
+        "MISSING-REFERENCED-FILE",
+        "MISSING-REFERENCED-DIRECTORY",
+        "INVALID-FILE-CONTENT",
+        "SYNTAX-ERROR",
+    ]
     error: str
 
 
@@ -165,14 +65,157 @@ class SuccessExtra(ReadExtra):
     )
 
 
+class ResourceType(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    resource_folder: str
+    kind: str
+
+    @property
+    def crud_cls(self) -> "type[ResourceIO]":
+        from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_IO_BY_TYPE
+
+        return RESOURCE_IO_BY_TYPE[self]
+
+    def load_identifier(self, data: dict[str, Any]) -> Identifier:
+        return self.crud_cls.get_id(data)
+
+    def __str__(self) -> str:
+        return f"{self.kind} ({self.resource_folder})"
+
+
+class BaseResourceIO(ABC, Generic[T_Identifier, T_YamlResource]):
+    """This is the base class for all resources that can be built.
+
+    This means it contains the serialization/deserialization of the resources, but not the CRUD interface
+    for interacting with the CDF API.
+
+    Class attributes:
+        yaml_cls: The File format for this resource. This is used to validate the user input.
+        folder_name: The name of the folder in the build directory where the files are located. This should be set in all subclasses.
+        kind: The stem of the resource type
+        sub_folder_name: The name of the default subfolder name in the resource directory. This is used, for example,
+            when dumping data models to put containers and views into subdirectories.
+        extra_kinds: These are kinds of extras. For example, in the functions folders, CogniteFile and FileMetadata is allowed
+            as these contain function code.
+    """
+
+    yaml_cls: TypeForm[T_YamlResource]
+    folder_name: str
+    kind: str
+
+    sub_folder_name: str | None = None
+    extra_kinds: frozenset[str] = frozenset()
+
+    # The methods that must be implemented in the subclass
+    @classmethod
+    @abstractmethod
+    def get_id(cls, item: dict) -> T_Identifier:
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def as_crud_type(cls) -> ResourceType:
+        """Returns the ResourceType for this resource that can be written to CDF.
+
+        Note this is not necessarily the same as the ResourceType for the file format. For example,
+        a DataCatalog DataSet is a dataset.
+        """
+        raise NotImplementedError
+
+    @classmethod
+    def validate_object(
+        cls, resource: dict[str, Any], extra: Literal["allow", "ignore", "forbid"] = "forbid"
+    ) -> T_YamlResource:
+        """Validates the resource against the yaml_cls. This is used to validate the user input."""
+        return cls._get_yaml_cls().validate_python(resource, extra=extra)
+
+    @classmethod
+    def validate_list(
+        cls, resource: list[dict[str, Any]], extra: Literal["allow", "ignore", "forbid"] = "forbid"
+    ) -> list[T_YamlResource]:
+        """Validates the resource against the yaml_cls. This is used to validate the user input."""
+        return cls._get_list_wrapped_yaml_cls().validate_python(resource, extra=extra)
+
+    @classmethod
+    @cache
+    def _get_yaml_cls(
+        cls,
+    ) -> TypeAdapter[T_YamlResource]:
+        """Returns a TypeAdapter for the yaml_cls. This is used to validate the user input."""
+        return TypeAdapter[T_YamlResource](cls.yaml_cls)
+
+    @classmethod
+    @cache
+    def _get_list_wrapped_yaml_cls(
+        cls,
+    ) -> TypeAdapter[list[T_YamlResource]]:
+        """Returns a TypeAdapter for a list of yaml_cls. This is used to validate the user input."""
+        # yaml_cls is a class attribute, so the list type has to be built at runtime.
+        return TypeAdapter[list[T_YamlResource]](GenericAlias(list, (cls.yaml_cls,)))
+
+    @classmethod
+    @abstractmethod
+    def get_dependencies(cls, resource: T_YamlResource) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        """Returns dependencies for a given resource.
+        This is used to determine the order of deployment and to check for missing dependencies.
+
+        Args:
+            resource: The resource to get dependencies for.
+
+        """
+        raise NotImplementedError(f"get_dependencies must be implemented for {cls.__name__}.")
+
+    @classmethod
+    def safe_read(cls, filepath: Path | str) -> str:
+        """Reads the file and returns the content. This is intended to be overwritten in subclasses that require special
+        handling of the files content. For example, Data Models need to quote the value on the version key to ensure
+        it is parsed as a string."""
+        return safe_read(filepath, encoding=BUILD_FOLDER_ENCODING)
+
+    @classmethod
+    def as_resource_type(cls) -> ResourceType:
+        return ResourceType(kind=cls.kind, resource_folder=cls.folder_name)
+
+    @classmethod
+    def get_extra_files(cls, filepath: Path, identifier: T_Identifier, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        yield from ()
+
+    @classmethod
+    def substitute_variables_content(cls, content: str, variables: "list[BuildVariable]") -> str:
+        """Variable substitution in the content of a file. This is used in the build command.
+
+        This is overwritten in the TransformationIO to handle substitution in the query field.
+        """
+        # To avoid circular import
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
+
+        return BuildVariable.substitute(content, variables, ".yaml")
+
+
+class ResourceFileIO(BaseResourceIO[T_Identifier, T_YamlResource]):
+    @classmethod
+    @abstractmethod
+    def to_crud_type(cls, raw: dict[str, Any]) -> dict[str, Any]:
+        """Converts the raw resource to the CRUD type. This is used to convert the resource from the build format to
+        the CRUD format. For example, a DataCatalog DataSet is a dataset and this does the conversion."""
+        raise NotImplementedError(f"to_crud_type must be implemented for {cls.__name__}.")
+
+    @classmethod
+    @abstractmethod
+    def from_crud_type(cls, crud: dict[str, Any]) -> dict[str, Any]:
+        """Converts the CRUD resource to the raw type. This is used to convert the resource from the CRUD format to
+        the build format. For example, a DataCatalog DataSet is a dataset and this does the conversion."""
+        raise NotImplementedError(f"from_crud_type must be implemented for {cls.__name__}.")
+
+
 class ResourceIO(
-    Loader,
-    ABC,
+    BaseResourceIO[T_Identifier, T_YamlResource],
     Generic[T_Identifier, T_RequestResource, T_ResponseResource, T_YamlResource],
 ):
-    """This is the base class for all resource CRUD.
+    """This is the base class for all resources input/output to CDF and file.
 
-    A resource loader consists of the following
+    A resource IO consists of the following
         - A CRUD (Create, Retrieve, Update, Delete) interface for interacting with the CDF API.
         - Serialization/Deserialization of the resources between YAML and the cognite-sdk data classes used in the
           CRUD interface.
@@ -180,9 +223,15 @@ class ResourceIO(
     All resources supported by the cognite_toolkit should implement a CRUD.
 
     Class attributes:
-        resource_write_cls: The API write data class for the resource.
-        resource_cls: The API read data class for the resource.
+        resource_write_cls: The API write data class for the resource. Annotated unions are allowed.
+        resource_cls: The API read data class for the resource. Annotated unions are allowed.
         yaml_cls: The File format for this resource. This is used to validate the user input.
+        folder_name: The name of the folder in the build directory where the files are located. This should be set in all subclasses.
+        kind: The stem of the resource type
+        sub_folder_name: The name of the default subfolder name in the resource directory. This is used, for example,
+            when dumping data models to put containers and views into subdirectories.
+        extra_kinds: These are kinds of extras. For example, in the functions folders, CogniteFile and FileMetadata is allowed
+            as these contain function code.
         support_drop: Whether the resource supports the drop flag.
         support_update: Whether the resource supports the update operation.
         dependencies: A set of other resource resource_ios that must be loaded before this crud.
@@ -190,11 +239,13 @@ class ResourceIO(
             to determine if the iterate method should return any resources when filtering by parent ids.
     """
 
-    # Must be set in the subclass
-    resource_write_cls: type[T_RequestResource]
-    resource_cls: type[T_ResponseResource]
-    yaml_cls: type[ToolkitResource]
+    # Must be set in the subclass. TypeForm allows Annotated unions, which hosted extractor sources use.
+    resource_write_cls: TypeForm[T_RequestResource]
+    resource_cls: TypeForm[T_ResponseResource]
+
     # Optional to set in the subclass
+    _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
+    _doc_url: str = ""
     support_deploy = True
     support_drop = True
     support_update = True
@@ -206,15 +257,18 @@ class ResourceIO(
     # the resource type does not have a parent resource.
     parent_resource: "frozenset[type[ResourceIO]]" = frozenset()
 
-    # This is used for resources that support extra files. For example, the Transformation resources
-    # supports having the query in a separate .sql file. This is the property were the extra content should be placed,
-    # for example, the Transformation resource has the query property that is used to store the query content.
-    extra_content_property: str | None = None
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+        self.console = client.console
+
+    @classmethod
+    def as_crud_type(cls) -> ResourceType:
+        return ResourceType(kind=cls.kind, resource_folder=cls.folder_name)
 
     # The methods that must be implemented in the subclass
     @classmethod
     @abstractmethod
-    def get_id(cls, item: T_RequestResource | T_ResponseResource | dict) -> T_Identifier:
+    def get_id(cls, item: T_RequestResource | T_ResponseResource | T_Identifier | dict) -> T_Identifier:
         raise NotImplementedError
 
     @classmethod
@@ -240,18 +294,18 @@ class ResourceIO(
         raise NotImplementedError(f"create_acl must be implemented for {cls.__name__} ")
 
     @abstractmethod
-    def create(self, items: Sequence[T_RequestResource]) -> Sized:
+    def create(self, items: Sequence[T_RequestResource]) -> Sequence[T_Identifier] | Sequence[T_ResponseResource]:
         raise NotImplementedError
 
     @abstractmethod
     def retrieve(self, ids: Sequence[T_Identifier]) -> Sequence[T_ResponseResource]:
         raise NotImplementedError
 
-    def update(self, items: Sequence[T_RequestResource]) -> Sized:
+    def update(self, items: Sequence[T_RequestResource]) -> Sequence[T_Identifier] | Sequence[T_ResponseResource]:
         raise NotImplementedError(f"Update is not supported for {type(self).__name__}.")
 
     @abstractmethod
-    def delete(self, ids: Sequence[T_Identifier]) -> int:
+    def delete(self, ids: Sequence[T_Identifier]) -> Sequence[T_Identifier]:
         raise NotImplementedError
 
     def iterate(
@@ -265,9 +319,9 @@ class ResourceIO(
         if parent_ids is not None and not self.parent_resource:
             return []
         if space is not None:
-            from ._datamodel import SpaceCRUD
+            from ._datamodel import SpaceIO
 
-            if SpaceCRUD not in self.dependencies:
+            if SpaceIO not in self.dependencies:
                 return []
         if data_set_external_id is not None:
             from ._data_organization import DataSetsIO
@@ -294,66 +348,6 @@ class ResourceIO(
         """
         return None
 
-    @classmethod
-    @abstractmethod
-    def get_dependencies(cls, resource: T_YamlResource) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
-        """Returns dependencies for a given resource.
-        This is used to determine the order of deployment and to check for missing dependencies.
-
-        Args:
-            resource: The resource to get dependencies for.
-
-        """
-        raise NotImplementedError(f"get_dependencies must be implemented for {cls.__name__}.")
-
-    @classmethod
-    def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
-        """Check the item for any issues.
-
-        This is intended to be overwritten in subclasses that require special checking of the item.
-
-        Example, it is used in the WorkflowVersionLoader to check that all tasks dependsOn tasks that are in the same
-        workflow.
-
-        Args:
-            item (dict): The item to check.
-            filepath (Path): The path to the file where the item is located.
-            element_no (int): The element number in the file. This is used to provide better error messages.
-                None if the item is an object and not a list.
-
-        Returns:
-            list[ToolkitWarning]: A list of warnings.
-        """
-        return []
-
-    @classmethod
-    def get_internal_id(cls, item: T_ResponseResource | dict) -> int:
-        raise NotImplementedError(f"{cls.__name__} does not have an internal id.")
-
-    @classmethod
-    def _split_ids(cls, ids: T_Identifier | int | Sequence[T_Identifier | int] | None) -> tuple[list[int], list[str]]:
-        # Used by subclasses to split the ids into external and internal ids
-        if ids is None:
-            return [], []
-        if isinstance(ids, int):
-            return [ids], []
-        if isinstance(ids, str):
-            return [], [ids]
-        if isinstance(ids, ExternalId):
-            return [], [ids.external_id]
-        if isinstance(ids, Sequence):
-            return [id for id in ids if isinstance(id, int)], [
-                id if isinstance(id, str) else id.external_id for id in ids if isinstance(id, str | ExternalId)
-            ]
-        raise ValueError(f"Invalid ids: {ids}")
-
-    @classmethod
-    def safe_read(cls, filepath: Path | str) -> str:
-        """Reads the file and returns the content. This is intended to be overwritten in subclasses that require special
-        handling of the files content. For example, Data Models need to quote the value on the version key to ensure
-        it is parsed as a string."""
-        return safe_read(filepath, encoding=BUILD_FOLDER_ENCODING)
-
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
@@ -371,7 +365,9 @@ class ResourceIO(
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> T_RequestResource:
         """Loads the resource from a dictionary. Can be overwritten in subclasses."""
-        return self.resource_write_cls._load(resource)
+        # Subclasses that store an Annotated union override this and load through a TypeAdapter.
+        write_cls = cast(type[T_RequestResource], self.resource_write_cls)
+        return write_cls._load(resource)
 
     def dump_resource(self, resource: T_ResponseResource, local: dict[str, Any] | None = None) -> dict[str, Any]:
         """Dumps the resource to a dictionary that matches the write format.
@@ -438,33 +434,70 @@ class ResourceIO(
         return
         yield
 
-    # Helper methods
     @classmethod
-    def get_ids(cls, items: Sequence[T_RequestResource | T_ResponseResource | dict]) -> list[T_Identifier]:
+    def create_io(cls, client: ToolkitClient) -> Self:
+        return cls(client)
+
+        # Helper methods
+
+    @property
+    def display_name(self) -> str:
+        return self.folder_name
+
+    @classmethod
+    def doc_url(cls) -> str:
+        return cls._doc_base_url + cls._doc_url
+
+    def find_files(self, dir_or_file: Path) -> list[Path]:
+        """Find all files that are supported by this loader in the given directory or file.
+
+        Args:
+            dir_or_file (Path): The directory or file to search in. If no path is given,
+                the build directory is used.
+
+        Returns:
+            list[Path]: A sorted list of all files that are supported by this loader.
+
+        """
+        dir_or_file = dir_or_file
+        if dir_or_file is None:
+            raise ValueError("No 'dir_or_file' or 'build_path' is set.")
+        if dir_or_file.is_file():
+            if not self.is_supported_file(dir_or_file):
+                raise ValueError("Invalid file type")
+            return [dir_or_file]
+        elif dir_or_file.is_dir():
+            return sorted([file for file in dir_or_file.rglob("*") if self.is_supported_file(file)])
+        else:
+            return []
+
+    @classmethod
+    def is_supported_file(cls, file: Path) -> bool:
+        """Check if hte file is supported by this loader.
+
+        Args:
+            file: The filepath to check.
+
+        Returns:
+            bool: True if the file is supported, False otherwise.
+
+        """
+        return file.suffix in YAML_SUFFIX and file.stem.casefold().endswith(cls.kind.casefold())
+
+    @classmethod
+    def get_ids(
+        cls, items: Sequence[T_RequestResource | T_ResponseResource | T_Identifier | dict]
+    ) -> list[T_Identifier]:
         return [cls.get_id(item) for item in items]
 
     @classmethod
-    def as_str(cls, id: T_Identifier) -> str:
+    def as_filename(cls, id: T_Identifier) -> str:
+        """Converts the identifier to a filename. This is used to create the filename for the resource in the build"""
         if isinstance(id, str):
             return sanitize_filename(id)
         raise NotImplementedError(
-            f"Bug in CogniteToolkit 'as_str' is not implemented for {cls.__name__.removesuffix('Loader')}."
+            f"Bug in CogniteToolkit 'as_filename' is not implemented for {cls.__name__.removesuffix('Loader')}."
         )
-
-    @classmethod
-    def get_extra_files(cls, filepath: Path, identifier: T_Identifier, item: dict[str, Any]) -> Iterable[ReadExtra]:
-        yield from ()
-
-    @classmethod
-    def substitute_variables_content(cls, content: str, variables: "list[BuildVariable]") -> str:
-        """Variable substitution in the content of a file. This is used in the build command.
-
-        This is overwritten in the TransformationIO to handle substitution in the query field.
-        """
-        # To avoid circular import
-        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
-
-        return BuildVariable.substitute(content, variables, ".yaml")
 
     def load_resource_files(
         self,

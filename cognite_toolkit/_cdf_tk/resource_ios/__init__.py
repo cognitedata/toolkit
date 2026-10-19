@@ -19,29 +19,29 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
 from ._agent import AgentIO
 from ._app import AppIO, AppVersionIO
-from ._auth import GroupAllScopedCRUD, GroupIO, SecurityCategoryIO
-from ._base_ios import Loader, ResourceContainerIO, ResourceIO
+from ._auth import GroupAllScopedIO, GroupIO, SecurityCategoryIO
+from ._base_ios import BaseResourceIO, ResourceContainerIO, ResourceFileIO, ResourceIO, ResourceType
 from ._classic import AssetIO, EventIO, SequenceIO, SequenceRowIO
 from ._configuration import SearchConfigIO
-from ._data_organization import DataSetsIO, LabelIO
+from ._data_organization import CatalogDataSetsIO, DataSetsIO, LabelIO
 from ._data_product import DataProductIO
 from ._data_product_version import DataProductVersionIO
 from ._datamodel import (
-    ContainerCRUD,
+    ContainerIO,
     DataModelIO,
-    EdgeCRUD,
-    GraphQLCRUD,
-    NodeCRUD,
-    SpaceCRUD,
+    EdgeIO,
+    GraphQLIO,
+    NodeIO,
+    SpaceIO,
     ViewIO,
 )
 from ._externaldata import ExternalDataSourceIO
 from ._extraction_pipeline import ExtractionPipelineConfigIO, ExtractionPipelineIO
 from ._fieldops import InFieldCDMLocationConfigIO, InFieldLocationConfigIO, InfieldV1IO
-from ._file import CogniteFileCRUD, FileMetadataCRUD
+from ._file import CogniteFileIO, FileMetadataIO
 from ._function import FunctionIO, FunctionScheduleIO
 from ._function_app import FunctionAppIO
-from ._group_scoped import GroupResourceScopedCRUD
+from ._group_scoped import GroupResourceScopedIO
 from ._hosted_extractors import (
     HostedExtractorDestinationIO,
     HostedExtractorJobIO,
@@ -49,11 +49,13 @@ from ._hosted_extractors import (
     HostedExtractorSourceIO,
 )
 from ._industrial_tool import StreamlitIO
+from ._integrations import IntegrationConfigsIO, IntegrationsIO
 from ._location import LocationFilterIO
 from ._migration import ResourceViewMappingIO
-from ._raw import RawDatabaseCRUD, RawTableCRUD
+from ._raw import RawDatabaseIO, RawTableIO
 from ._relationship import RelationshipIO
 from ._rulesets import RuleSetIO, RuleSetVersionIO
+from ._sap_writeback import SAPEndpointIO, SAPInstanceIO, SchemaMappingIO
 from ._signal_sink import SignalSinkIO
 from ._signal_subscription import SignalSubscriptionIO
 from ._simulators import (
@@ -64,8 +66,8 @@ from ._simulators import (
 )
 from ._skill import SkillIO
 from ._streams import StreamIO
-from ._three_d_model import ThreeDModelCRUD
-from ._timeseries import DatapointSubscriptionIO, TimeSeriesCRUD
+from ._three_d_model import ThreeDModelIO
+from ._timeseries import DatapointSubscriptionIO, TimeSeriesIO
 from ._transformation import (
     TransformationIO,
     TransformationNotificationIO,
@@ -73,17 +75,14 @@ from ._transformation import (
 )
 from ._workflow import WorkflowIO, WorkflowTriggerIO, WorkflowVersionIO
 
-_EXCLUDED_CRUDS: set[type[ResourceIO]] = set()
+_EXCLUDED_CRUDS: set[type[BaseResourceIO]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
-    _EXCLUDED_CRUDS.add(GraphQLCRUD)
+    _EXCLUDED_CRUDS.add(GraphQLIO)
 if not FeatureFlag.is_enabled(Flags.INFIELD):
     _EXCLUDED_CRUDS.add(InfieldV1IO)
     _EXCLUDED_CRUDS.add(InFieldLocationConfigIO)
 if not FeatureFlag.is_enabled(Flags.MIGRATE):
     _EXCLUDED_CRUDS.add(ResourceViewMappingIO)
-if not FeatureFlag.is_enabled(Flags.SIGNALS):
-    _EXCLUDED_CRUDS.add(SignalSinkIO)
-    _EXCLUDED_CRUDS.add(SignalSubscriptionIO)
 if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
     _EXCLUDED_CRUDS.add(DataProductIO)
     _EXCLUDED_CRUDS.add(DataProductVersionIO)
@@ -92,59 +91,64 @@ if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
 if not FeatureFlag.is_enabled(Flags.CUSTOM_APPS):
     _EXCLUDED_CRUDS.add(AppIO)
     _EXCLUDED_CRUDS.add(AppVersionIO)
-if not FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
-    _EXCLUDED_CRUDS.add(SkillIO)
-if not FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES):
-    _EXCLUDED_CRUDS.add(ExternalDataSourceIO)
 if not FeatureFlag.is_enabled(Flags.FUNCTION_APPS):
     _EXCLUDED_CRUDS.add(FunctionAppIO)
+if not FeatureFlag.is_enabled(Flags.CATALOG_DATASET):
+    _EXCLUDED_CRUDS.add(CatalogDataSetsIO)
 
-CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[Loader]]] = defaultdict(list)
-CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
-for _loader in itertools.chain(
+RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[BaseResourceIO]]] = defaultdict(list)
+RESOURCE_IO_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
+RESOURCE_BASE_IO_BY_FOLDER_NAME: defaultdict[str, list[type[BaseResourceIO]]] = defaultdict(list)
+for _io_cls in itertools.chain(
     ResourceIO.__subclasses__(),
     ResourceContainerIO.__subclasses__(),
     GroupIO.__subclasses__(),
+    BaseResourceIO.__subclasses__(),
+    ResourceFileIO.__subclasses__(),
 ):
-    if _loader in [ResourceIO, ResourceContainerIO, GroupIO]:
+    if _io_cls in [ResourceIO, ResourceContainerIO, GroupIO, BaseResourceIO, ResourceFileIO]:
         # Skipping base classes
         continue
     # MyPy bug: https://github.com/python/mypy/issues/4717
-    CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA[_loader.folder_name].append(_loader)  # type: ignore[attr-defined, arg-type]
+    RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA[_io_cls.folder_name].append(_io_cls)  # type: ignore[attr-defined, arg-type]
 
-    if _loader not in _EXCLUDED_CRUDS:
-        CRUDS_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[attr-defined, arg-type]
-del _loader  # cleanup module namespace
+    if _io_cls not in _EXCLUDED_CRUDS:
+        if issubclass(_io_cls, ResourceIO):
+            RESOURCE_IO_BY_FOLDER_NAME[_io_cls.folder_name].append(_io_cls)
+        RESOURCE_BASE_IO_BY_FOLDER_NAME[_io_cls.folder_name].append(_io_cls)  # type: ignore[attr-defined, arg-type]
+del _io_cls  # cleanup module namespace
 
 
-# For backwards compatibility
-CRUDS_BY_FOLDER_NAME["data_models"] = CRUDS_BY_FOLDER_NAME["data_modeling"]  # Todo: Remove in v1.0
-CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA["data_models"] = CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA["data_modeling"]
-RESOURCE_CRUD_BY_FOLDER_NAME = {
-    folder_name: cruds
-    for folder_name, loaders in CRUDS_BY_FOLDER_NAME.items()
-    if (cruds := [crud for crud in loaders if issubclass(crud, ResourceIO)])
+# For backwards compatibility. Todo: Remove in v1.0
+RESOURCE_IO_BY_FOLDER_NAME["data_models"] = RESOURCE_IO_BY_FOLDER_NAME["data_modeling"]
+RESOURCE_BASE_IO_BY_FOLDER_NAME["data_models"] = RESOURCE_BASE_IO_BY_FOLDER_NAME["data_modeling"]
+RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["data_models"] = RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA[
+    "data_modeling"
+]
+
+RESOURCE_BUILD_IO_BY_TYPE = {
+    ResourceType(resource_folder=folder_name, kind=crud.kind): crud
+    for folder_name, cruds in RESOURCE_BASE_IO_BY_FOLDER_NAME.items()
+    for crud in cruds
+}
+RESOURCE_IO_BY_TYPE = {
+    ResourceType(resource_folder=folder_name, kind=crud.kind): crud
+    for folder_name, cruds in RESOURCE_IO_BY_FOLDER_NAME.items()
+    for crud in cruds
 }
 
-RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND: dict[str, dict[str, type[ResourceIO]]] = {
-    folder_name: {crud.kind: crud for crud in cruds if issubclass(crud, ResourceIO)}
-    for folder_name, cruds in RESOURCE_CRUD_BY_FOLDER_NAME.items()
-}
+# Skip the data_models alias so each loader is listed once.
+RESOURCE_BUILD_IO_LIST: list[type[BaseResourceIO]] = list(
+    itertools.chain.from_iterable(
+        cruds for folder_name, cruds in RESOURCE_BASE_IO_BY_FOLDER_NAME.items() if folder_name != "data_models"
+    )
+)
+RESOURCE_IO_LIST = [io_cls for io_cls in RESOURCE_BUILD_IO_LIST if issubclass(io_cls, ResourceIO)]
 
-CRUD_LIST = list(itertools.chain.from_iterable(CRUDS_BY_FOLDER_NAME.values()))
-RESOURCE_CRUD_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceIO)]
-RESOURCE_CRUD_CONTAINER_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceContainerIO)]
-KINDS_BY_FOLDER_NAME: dict[str, set[str]] = {}
-for crud in CRUD_LIST:
-    if crud.folder_name not in KINDS_BY_FOLDER_NAME:
-        KINDS_BY_FOLDER_NAME[crud.folder_name] = set()
-    KINDS_BY_FOLDER_NAME[crud.folder_name].add(crud.kind)
-del crud  # cleanup module namespace
 
 ResourceTypes: TypeAlias = Literal[
     "3dmodels",
     "agents",
-    "skills",
     "apps",
     "auth",
     "cdf_applications",
@@ -154,6 +158,7 @@ ResourceTypes: TypeAlias = Literal[
     "data_products",
     "data_sets",
     "hosted_extractors",
+    "integrations",
     "locations",
     "migration",
     "transformations",
@@ -163,6 +168,7 @@ ResourceTypes: TypeAlias = Literal[
     "functions",
     "raw",
     "rulesets",
+    "SAPwritebacks",
     "signals",
     "simulators",
     "streams",
@@ -171,66 +177,68 @@ ResourceTypes: TypeAlias = Literal[
 ]
 
 
-def get_crud(resource_dir: str, kind: str) -> type[Loader]:
-    for loader in CRUDS_BY_FOLDER_NAME[resource_dir]:
-        if loader.kind == kind:
-            return loader
+def get_resource_build_io(resource_dir: str, kind: str) -> type[BaseResourceIO]:
+    if io_cls := RESOURCE_BUILD_IO_BY_TYPE.get(ResourceType(resource_folder=resource_dir, kind=kind)):
+        return io_cls
     # Fall back to alpha-inclusive registry (e.g. for deserializing built resources
     # when a CRUD is excluded by feature flags or test patching).
-    for loader in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA[resource_dir]:
+    for loader in RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA[resource_dir]:
         if loader.kind == kind:
             return loader
     raise ValueError(f"Loader not found for {resource_dir} and {kind}")
 
 
 __all__ = [
-    "CRUDS_BY_FOLDER_NAME",
-    "CRUD_LIST",
-    "KINDS_BY_FOLDER_NAME",
-    "RESOURCE_CRUD_BY_FOLDER_NAME",
-    "RESOURCE_CRUD_CONTAINER_LIST",
-    "RESOURCE_CRUD_LIST",
-    "_EXCLUDED_CRUDS",
+    "RESOURCE_BUILD_IO_LIST",
+    "RESOURCE_IO_BY_FOLDER_NAME",
+    "RESOURCE_IO_LIST",
     "AgentIO",
     "AppIO",
     "AppVersionIO",
     "AssetIO",
-    "CogniteFileCRUD",
-    "ContainerCRUD",
+    "BaseResourceIO",
+    "CogniteFileIO",
+    "ContainerIO",
     "DataModelIO",
     "DataProductIO",
     "DataProductVersionIO",
     "DataSetsIO",
     "DatapointSubscriptionIO",
-    "EdgeCRUD",
+    "EdgeIO",
     "EventIO",
     "ExternalDataSourceIO",
     "ExtractionPipelineConfigIO",
     "ExtractionPipelineIO",
-    "FileMetadataCRUD",
+    "FileMetadataIO",
     "FunctionAppIO",
     "FunctionIO",
     "FunctionScheduleIO",
-    "GroupAllScopedCRUD",
+    "GroupAllScopedIO",
     "GroupIO",
-    "GroupResourceScopedCRUD",
+    "GroupResourceScopedIO",
     "HostedExtractorDestinationIO",
     "HostedExtractorJobIO",
     "HostedExtractorMappingIO",
     "HostedExtractorSourceIO",
     "InFieldCDMLocationConfigIO",
     "InFieldLocationConfigIO",
+    "IntegrationConfigsIO",
+    "IntegrationsIO",
     "LabelIO",
     "LocationFilterIO",
-    "NodeCRUD",
-    "RawDatabaseCRUD",
-    "RawTableCRUD",
+    "NodeIO",
+    "RawDatabaseIO",
+    "RawTableIO",
     "RelationshipIO",
     "ResourceContainerIO",
     "ResourceIO",
+    "ResourceType",
     "ResourceTypes",
     "RuleSetIO",
     "RuleSetVersionIO",
+    "SAPEndpointIO",
+    "SAPInstanceIO",
+    "SchemaMappingIO",
     "SearchConfigIO",
     "SecurityCategoryIO",
     "SequenceIO",
@@ -242,11 +250,11 @@ __all__ = [
     "SimulatorRoutineIO",
     "SimulatorRoutineRevisionIO",
     "SkillIO",
-    "SpaceCRUD",
+    "SpaceIO",
     "StreamIO",
     "StreamlitIO",
-    "ThreeDModelCRUD",
-    "TimeSeriesCRUD",
+    "ThreeDModelIO",
+    "TimeSeriesIO",
     "TransformationIO",
     "TransformationNotificationIO",
     "TransformationScheduleIO",
@@ -254,5 +262,5 @@ __all__ = [
     "WorkflowIO",
     "WorkflowTriggerIO",
     "WorkflowVersionIO",
-    "get_crud",
+    "get_resource_build_io",
 ]

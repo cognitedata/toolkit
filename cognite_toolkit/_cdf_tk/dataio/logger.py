@@ -173,7 +173,7 @@ class FileWithAggregationLogger(DataLogger):
 
     def _log_unlocked(self, entry: LogEntryV2 | Sequence[LogEntryV2]) -> None:
         """Internal method to log entries without acquiring the lock."""
-        entries = list(entry) if isinstance(entry, Sequence) else [entry]
+        entries = [entry] if isinstance(entry, LogEntryV2) else list(entry)
         self._update_aggregation_unlocked(entries)
         self._batch.extend(entries)
         if len(self._batch) >= self.BATCH_SIZE or (

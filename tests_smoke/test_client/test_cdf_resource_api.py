@@ -1,10 +1,12 @@
 import io
+import textwrap
 import time
 import types
 import zipfile
 from collections.abc import Callable, Hashable, Iterable, Set
 from pathlib import Path
 from typing import Annotated, Any, cast, get_args, get_origin
+from uuid import uuid4
 
 import pytest
 
@@ -19,34 +21,46 @@ from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
 from cognite_toolkit._cdf_tk.client.api.data_product_versions import DataProductVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.datapoint_subscription import DatapointSubscriptionsAPI
+from cognite_toolkit._cdf_tk.client.api.datapoints import DatapointsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
+from cognite_toolkit._cdf_tk.client.api.function_calls import FunctionCallsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from cognite_toolkit._cdf_tk.client.api.infield import APMConfigAPI, InFieldCDMConfigAPI
 from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI, WrappedInstancesAPI
+from cognite_toolkit._cdf_tk.client.api.integrations import (
+    IntegrationActionsAPI,
+    IntegrationConfigurationAPI,
+    IntegrationErrorsAPI,
+    IntegrationTasksAPI,
+)
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.migration import ResourceViewMappingsAPI
 from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
-from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawTablesAPI
+from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawRowsAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.ruleset_versions import RuleSetVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.rulesets import RuleSetsAPI
+from cognite_toolkit._cdf_tk.client.api.sap_writeback import SAPEndpointsAPI, SAPInstancesAPI, SAPWritebackAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.sequence_rows import SequenceRowsAPI
+from cognite_toolkit._cdf_tk.client.api.sessions import SessionAPI
 from cognite_toolkit._cdf_tk.client.api.signal_subscriptions import SignalSubscriptionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_routines import SimulatorRoutinesAPI
+from cognite_toolkit._cdf_tk.client.api.statistics import SpaceStatisticsAPI, StatisticsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import (
     ThreeDClassicAssetMappingAPI,
     ThreeDClassicModelsAPI,
     ThreeDClassicRevisionsAPI,
     ThreeDDMAssetMappingAPI,
+    ThreeDNodesAPI,
 )
 from cognite_toolkit._cdf_tk.client.api.transformation_externaldata import TransformationExternalDataSourcesAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_jobs import TransformationJobsAPI
@@ -58,17 +72,20 @@ from cognite_toolkit._cdf_tk.client.api.workflow_executions import WorkflowExecu
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse, ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage, SuccessResponse, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
+    ExternalId,
     ExtractionPipelineConfigId,
     InternalId,
     InternalUnwrappedId,
+    SpaceId,
     ThreeDModelRevisionId,
-    WorkflowExecutionId,
     WorkflowVersionId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     AnnotationFilter,
+    EpochTimestampRange,
+    FunctionCallFilter,
     SequenceRowFilter,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
@@ -92,6 +109,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartDat
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerResponse,
+    CountAggregate,
     DataModelResponse,
     EdgeRequest,
     EdgeResponse,
@@ -121,6 +139,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config 
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
     FunctionScheduleResponse,
@@ -151,6 +170,19 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfigRequest,
     InFieldCDMLocationConfigResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.integration import (
+    AvailableIntegrationAction,
+    GeneralIntegrationError,
+    IntegrationActionRequest,
+    IntegrationCheckinRequest,
+    IntegrationConfigRequest,
+    IntegrationExtractor,
+    IntegrationRequest,
+    IntegrationResponse,
+    IntegrationStartupRequest,
+    IntegrationTask,
+    IntegrationTaskEvent,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
@@ -159,6 +191,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWDatabaseResponse,
+    RAWRowRequest,
     RAWTableRequest,
     RAWTableResponse,
 )
@@ -172,6 +205,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
     RuleSetVersionRequest,
     RuleSetVersionResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.sap_writeback import (
+    SAPEndpointResponse,
+    SAPInstanceResponse,
+    SchemaMappingResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigRequest, SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryRequest,
@@ -183,6 +221,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sequence import (
     SequenceResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    OneshotTokenExchangeSessionRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_sink import SignalSinkRequest, SignalSinkResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import (
     SignalSubscriptionRequest,
@@ -241,6 +282,7 @@ from tests_smoke.constants import (
     TIMESERIES_EXTERNAL_ID,
 )
 from tests_smoke.exceptions import EndpointAssertionError
+from tests_smoke.utils import retry_api_call
 
 NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
     {
@@ -252,8 +294,10 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # Do not support delete.
         DataSetsAPI,
         # RAW tables depend on existing RAW databases, so they are tested together.
+        # RAW rows depend on an existing table and use path parameters for the database and table.
         RawDatabasesAPI,
         RawTablesAPI,
+        RawRowsAPI,
         # Job depends on source and destination, so tested together.
         HostedExtractorJobsAPI,
         # Edge depend on nodes
@@ -301,8 +345,13 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         DataProductVersionsAPI,
         # Datapoints subscription has a special update method
         DatapointSubscriptionsAPI,
+        # Statistics are read-only and have no items to create, update, or delete.
+        StatisticsAPI,
+        SpaceStatisticsAPI,
         # No create methods
         PrincipalsAPI,
+        # Create payload is not a response resource, and delete is revoke.
+        SessionAPI,
         PrincipalLoginSessionsAPI,
         UserProfilesAPI,
         # Search/list/aggregate only; no request examples for generic CRUDL.
@@ -322,6 +371,23 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         AlertChannelsAPI,
         # Do not have secret in the response, so cannot be recreated from the response.
         TransformationExternalDataSourcesAPI,
+        # We do not have an SAP instance to test against, so we cannot create an SAPInstance and without
+        # an SAPInstance we cannot create an SAPEndpoint. Thus, we cannot test these endpoints at all.
+        SAPInstancesAPI,
+        SAPEndpointsAPI,
+        # Creating a request sends it to SAP and requires an existing endpoint.
+        SAPWritebackAPI,
+        # Tasks, actions, configuration, and errors are scoped to an existing integration.
+        IntegrationTasksAPI,
+        IntegrationActionsAPI,
+        IntegrationConfigurationAPI,
+        IntegrationErrorsAPI,
+        # Needs a function deployed to test against
+        FunctionCallsAPI,
+        # Needs a 3D model processed
+        ThreeDNodesAPI,
+        # Datapoints API requires a timeseries to exists.
+        DatapointsAPI,
     }
 )
 
@@ -334,7 +400,7 @@ def crud_cdf_resource_apis() -> Iterable[tuple]:
         base_cls = next(
             (
                 base
-                for base in api_cls.__orig_bases__  # type: ignore[attr-defined]
+                for base in getattr(api_cls, "__orig_bases__", ())
                 if get_origin(base) in (CDFResourceAPI, WrappedInstancesAPI)
             ),
             None,
@@ -745,6 +811,34 @@ ex:Oslo_Facility
                 },
             }
         ],
+        SAPInstanceResponse: [
+            {
+                "externalId": "smoke-test-sap-instance",
+                "gatewayUrl": "https://sap.example.com",
+                "client": 100,
+                "username": "smoke-test",
+                "password": "smoke-test",
+            }
+        ],
+        SAPEndpointResponse: [
+            {
+                "externalId": "smoke-test-sap-endpoint",
+                "endpointType": "notification",
+                "instanceId": "smoke-test-sap-instance",
+            }
+        ],
+        SchemaMappingResponse: [
+            {
+                "externalId": "smoke-test-schema-mapping",
+                "expression": '{ "SAPFieldA": input.CDFFieldA }',
+            }
+        ],
+        IntegrationResponse: [
+            {
+                "externalId": "smoke-test-integration",
+                "extractor": {"externalId": "toolkit-smoke"},
+            }
+        ],
         DataModelResponse: [
             {
                 "externalId": "smoke_test_data_model",
@@ -776,13 +870,137 @@ def smoke_extraction_pipeline(
         data_set_id=smoke_dataset.id,
     )
 
-    retrieved = toolkit_client.tool.extraction_pipelines.retrieve([pipeline.as_id()], ignore_unknown_ids=True)
+    retrieved = toolkit_client.extraction_pipelines.retrieve([pipeline.as_id()], ignore_unknown_ids=True)
     if len(retrieved) == 0:
-        yield toolkit_client.tool.extraction_pipelines.create([pipeline])[0]
+        yield toolkit_client.extraction_pipelines.create([pipeline])[0]
     else:
         yield retrieved[0]
 
-    toolkit_client.tool.extraction_pipelines.delete([pipeline.as_id()], ignore_unknown_ids=True)
+    toolkit_client.extraction_pipelines.delete([pipeline.as_id()], ignore_unknown_ids=True)
+
+
+FUNCTION_LOG_LINE = "Print statements will be shown in the logs."
+PERSISTENT_FUNCTION_EXTERNAL_ID = "smoke-test-persistent-function"
+PERSISTENT_FUNCTION_FILE_EXTERNAL_ID = "smoke-test-persistent-function-code"
+
+
+def _wait_until_function_ready(
+    client: ToolkitClient,
+    function_id: ExternalId,
+    timeout_seconds: float = 600.0,
+    poll_interval: float = 10.0,
+) -> FunctionResponse:
+    """Poll until a function is Ready. Used when the persistent function is first deployed."""
+    endpoint = client.functions._method_endpoint_map["retrieve"]
+    start_time = time.monotonic()
+    status: str | None = None
+    while (time.monotonic() - start_time) < timeout_seconds:
+        try:
+            retrieved = client.functions.retrieve([function_id])
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(endpoint.path, f"Retrieving function status failed: {e!s}") from e
+        if len(retrieved) != 1:
+            raise EndpointAssertionError(endpoint.path, f"Expected 1 function, got {len(retrieved)}")
+        function = retrieved[0]
+        status = function.status
+        if status == "Ready":
+            return function
+        if status in {"Failed", "Retired"}:
+            error_message = function.error.message if function.error is not None else None
+            raise EndpointAssertionError(
+                endpoint.path, f"Function deployment failed with status {status}: {error_message}"
+            )
+        time.sleep(poll_interval)
+    raise EndpointAssertionError(
+        endpoint.path,
+        f"Function did not become Ready within {timeout_seconds:.0f}s. Last status: {status}.",
+    )
+
+
+def _persistent_function_file(client: ToolkitClient) -> FileMetadataResponse:
+    metadata = FileMetadataRequest(
+        name="Smoke test persistent function code",
+        external_id=PERSISTENT_FUNCTION_FILE_EXTERNAL_ID,
+        mime_type="application/zip",
+    )
+    file_response = client.filemetadata.retrieve([metadata.as_id()], ignore_unknown_ids=True)
+    if file_response:
+        if not file_response[0].uploaded:
+            raise EndpointAssertionError(
+                "/filemetadata",
+                "The persistent function file exists but is not uploaded.",
+            )
+        return file_response[0]
+
+    code = textwrap.dedent(
+        f"""\
+        from cognite.client import CogniteClient
+
+
+        def handle(client: CogniteClient, data: dict, function_call_info: dict) -> dict:
+            print("{FUNCTION_LOG_LINE}")
+            print("Running with the following configuration:")
+            return {{
+                "data": data,
+                "functionInfo": function_call_info,
+            }}
+        """
+    )
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("handler.py", code)
+    created = client.filemetadata.create([metadata])
+    if len(created) != 1:
+        raise EndpointAssertionError("/filemetadata", f"Expected 1 created file metadata, got {len(created)}")
+    file = created[0]
+    if file.upload_url is None:
+        raise EndpointAssertionError("/filemetadata", "No upload URL returned for the persistent function file.")
+    response = client.http_client.request_single_retries(
+        RequestMessage(
+            endpoint_url=file.upload_url,
+            method="PUT",
+            content_type="application/zip",
+            data_content=zip_buffer.getvalue(),
+        )
+    )
+    if not isinstance(response, SuccessResponse):
+        raise EndpointAssertionError(
+            "/filemetadata",
+            f"Failed to upload persistent function code. {response!s}",
+        )
+    return file
+
+
+@pytest.fixture(scope="session")
+def persistent_function(toolkit_client: ToolkitClient) -> FunctionResponse:
+    """Return the long-lived smoke function, creating it only on the first run."""
+    function_id = ExternalId(external_id=PERSISTENT_FUNCTION_EXTERNAL_ID)
+    retrieved = toolkit_client.functions.retrieve([function_id], ignore_unknown_ids=True)
+    if retrieved:
+        function = retrieved[0]
+        if function.status == "Ready":
+            return function
+        if function.status in {"Failed", "Retired"}:
+            error_message = function.error.message if function.error is not None else None
+            raise EndpointAssertionError(
+                "/functions",
+                f"Persistent function {PERSISTENT_FUNCTION_EXTERNAL_ID} is {function.status}: {error_message}",
+            )
+        return _wait_until_function_ready(toolkit_client, function_id)
+
+    file = _persistent_function_file(toolkit_client)
+    request = FunctionRequest(
+        name=PERSISTENT_FUNCTION_EXTERNAL_ID,
+        external_id=PERSISTENT_FUNCTION_EXTERNAL_ID,
+        file_id=file.id,
+    )
+    try:
+        created = toolkit_client.functions.create([request])
+    except ToolkitAPIError as e:
+        raise EndpointAssertionError("/functions", f"Creating persistent function failed: {e!s}") from e
+    if len(created) != 1:
+        raise EndpointAssertionError("/functions", f"Expected 1 created persistent function, got {len(created)}")
+    return _wait_until_function_ready(toolkit_client, function_id)
 
 
 @pytest.fixture(scope="module")
@@ -793,7 +1011,7 @@ def function_code(toolkit_client: ToolkitClient) -> FileMetadataResponse:
         mime_type="application/zip",
     )
 
-    file_response = toolkit_client.tool.filemetadata.retrieve([metadata.as_id()], ignore_unknown_ids=True)
+    file_response = toolkit_client.filemetadata.retrieve([metadata.as_id()], ignore_unknown_ids=True)
     if file_response:
         if not file_response[0].uploaded:
             raise EndpointAssertionError(
@@ -818,7 +1036,7 @@ def function_code(toolkit_client: ToolkitClient) -> FileMetadataResponse:
         zf.writestr("handler.py", code)
     zip_content = zip_buffer.getvalue()
 
-    created = toolkit_client.tool.filemetadata.create([metadata])
+    created = toolkit_client.filemetadata.create([metadata])
     if len(created) != 1:
         raise EndpointAssertionError("/filemetadata", f"Expected 1 created file metadata, got {len(created)}")
     file = created[0]
@@ -843,18 +1061,18 @@ def function_code(toolkit_client: ToolkitClient) -> FileMetadataResponse:
 @pytest.fixture(scope="session")
 def smoke_asset(toolkit_client: ToolkitClient) -> AssetResponse:
     asset_request = AssetRequest(name="smoke-test-asset", external_id=ASSET_EXTERNAL_ID)
-    retrieved = toolkit_client.tool.assets.retrieve([asset_request.as_id()], ignore_unknown_ids=True)
+    retrieved = toolkit_client.assets.retrieve([asset_request.as_id()], ignore_unknown_ids=True)
     if len(retrieved) == 0:
-        return toolkit_client.tool.assets.create([asset_request])[0]
+        return toolkit_client.assets.create([asset_request])[0]
     return retrieved[0]
 
 
 @pytest.fixture(scope="session")
 def smoke_event(toolkit_client: ToolkitClient) -> EventResponse:
     event_request = EventRequest(external_id=EVENT_EXTERNAL_ID, source="smoke-test")
-    retrieved = toolkit_client.tool.events.retrieve([event_request.as_id()], ignore_unknown_ids=True)
+    retrieved = toolkit_client.events.retrieve([event_request.as_id()], ignore_unknown_ids=True)
     if len(retrieved) == 0:
-        return toolkit_client.tool.events.create([event_request])[0]
+        return toolkit_client.events.create([event_request])[0]
     return retrieved[0]
 
 
@@ -863,9 +1081,9 @@ def smoke_sequence(toolkit_client: ToolkitClient) -> SequenceResponse:
     sequence_request = SequenceRequest(
         external_id=SEQUENCE_EXTERNAL_ID, columns=[SequenceColumnRequest(external_id=SEQUENCE_COLUMN_ID)]
     )
-    retrieved = toolkit_client.tool.sequences.retrieve([sequence_request.as_id()], ignore_unknown_ids=True)
+    retrieved = toolkit_client.sequences.retrieve([sequence_request.as_id()], ignore_unknown_ids=True)
     if len(retrieved) == 0:
-        return toolkit_client.tool.sequences.create([sequence_request])[0]
+        return toolkit_client.sequences.create([sequence_request])[0]
     return retrieved[0]
 
 
@@ -878,9 +1096,9 @@ def smoke_timeseries(toolkit_client: ToolkitClient, smoke_dataset: DataSetRespon
         is_string=False,
         is_step=True,
     )
-    retrieved = client.tool.timeseries.retrieve([timeseries_request.as_id()], ignore_unknown_ids=True)
+    retrieved = client.timeseries.retrieve([timeseries_request.as_id()], ignore_unknown_ids=True)
     if len(retrieved) == 0:
-        return toolkit_client.tool.timeseries.create([timeseries_request])[0]
+        return toolkit_client.timeseries.create([timeseries_request])[0]
     return retrieved[0]
 
 
@@ -929,7 +1147,7 @@ class TestCDFResourceAPI:
         self,
         example_data: dict[str, Any],
         response_cls: type[ResponseResource],
-        api_cls: type[CDFResourceAPI],
+        api_cls: Callable[[HTTPClient], CDFResourceAPI],
         toolkit_client: ToolkitClient,
         smoke_dataset: DataSetResponse,
     ) -> None:
@@ -959,32 +1177,36 @@ class TestCDFResourceAPI:
             # If the request does not have enough info to create an identifier yet, we set id to None
             id = None
 
-        # We now that all subclasses only need http_client as argument, even though
-        # CDFResourceAPI also require endpoint map (and disable gzip).
-        api = api_cls(toolkit_client.http_client)  # type: ignore[call-arg]
+        # Subclasses are constructed with the HTTP client. The base class also requires an endpoint map.
+        api = api_cls(toolkit_client.http_client)
         methods = api._method_endpoint_map
 
         try:
-            if hasattr(api, "create"):
+            create = getattr(api, "create", None)
+            if create is not None:
                 create_endpoint = methods["create"] if "create" in methods else methods["upsert"]
-                id = self.assert_endpoint_method(lambda: api.create([request]), "create", create_endpoint, id)
-            if hasattr(api, "retrieve"):
+                id = self.assert_endpoint_method(lambda: create([request]), "create", create_endpoint, id)
+            retrieve = getattr(api, "retrieve", None)
+            if retrieve is not None:
                 retrieve_endpoint = methods["retrieve"]
-                self.assert_endpoint_method(lambda: api.retrieve([id]), "retrieve", retrieve_endpoint, id)
-            if hasattr(api, "update"):
+                self.assert_endpoint_method(lambda: retrieve([id]), "retrieve", retrieve_endpoint, id)
+            update = getattr(api, "update", None)
+            if update is not None:
                 updated_endpoint = methods["update"] if "update" in methods else methods["upsert"]
-                self.assert_endpoint_method(lambda: api.update([request]), "update", updated_endpoint, id)
-            if hasattr(api, "list"):
+                self.assert_endpoint_method(lambda: update([request]), "update", updated_endpoint, id)
+            list_ = getattr(api, "list", None)
+            if list_ is not None:
                 list_endpoint = methods["list"]
                 try:
-                    listed_items = self.wait_until_has_value(lambda: list(api.list(limit=1)))
+                    listed_items = self.wait_until_has_value(lambda: list(list_(limit=1)))
                 except TypeError:
-                    listed_items = api.list()
+                    listed_items = list_()
                 if len(listed_items) == 0:
                     raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed item, got 0")
         finally:
-            if hasattr(api, "delete") and id is not None:
-                api.delete([id])
+            delete = getattr(api, "delete", None)
+            if delete is not None and id is not None:
+                delete([id])
 
     def wait_until_has_value(
         self,
@@ -1003,11 +1225,62 @@ class TestCDFResourceAPI:
             result = list_func()
         return result
 
-    def cancel_running_executions(
+    def wait_until_function_call_finished(
         self,
         client: ToolkitClient,
+        function_id: int,
+        call_id: InternalId,
+        timeout_seconds: float = 180.0,
+        poll_interval: float = 5.0,
+    ) -> FunctionCallResponse:
+        """Poll until a function call leaves the Running status."""
+        endpoint = client.functions.calls._method_endpoint_map["retrieve"]
+        start_time = time.monotonic()
+        while (time.monotonic() - start_time) < timeout_seconds:
+            try:
+                retrieved = client.functions.calls.retrieve(function_id, [call_id])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(endpoint.path, f"Retrieving function call failed: {e!s}") from e
+            if len(retrieved) != 1:
+                raise EndpointAssertionError(endpoint.path, f"Expected 1 function call, got {len(retrieved)}")
+            function_call = retrieved[0]
+            if function_call.status != "Running":
+                return function_call
+            time.sleep(poll_interval)
+        raise EndpointAssertionError(
+            endpoint.path,
+            f"Function call {call_id.id} stayed Running for {timeout_seconds:.0f}s.",
+        )
+
+    def wait_for_function_log_line(
+        self,
+        client: ToolkitClient,
+        function_id: int,
+        call_id: int,
+        expected_message: str,
+        timeout_seconds: float = 30.0,
+        poll_interval: float = 5.0,
+    ) -> list[str]:
+        """Poll call logs until the expected line is present."""
+        logs_path = f"/functions/{function_id}/calls/{call_id}/logs"
+        start_time = time.monotonic()
+        messages: list[str] = []
+        while (time.monotonic() - start_time) < timeout_seconds:
+            try:
+                logs = client.functions.calls.get_logs(function_id, call_id)
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(logs_path, f"Retrieving function call logs failed: {e!s}") from e
+            messages = [entry.message or "" for entry in logs]
+            if any(expected_message in message for message in messages):
+                return messages
+            time.sleep(poll_interval)
+        raise EndpointAssertionError(logs_path, f"Expected log line {expected_message!r}, got {messages}")
+
+    @classmethod
+    def cancel_running_executions(
+        cls,
+        client: ToolkitClient,
         workflow_version_id: WorkflowVersionId,
-        execution_ids: list[WorkflowExecutionId] | None = None,
         timeout_seconds: float = 60.0,
         poll_interval: float = 1.0,
     ) -> None:
@@ -1017,54 +1290,25 @@ class TestCDFResourceAPI:
         status is eventually consistent and can miss a just-retried run, so known
         execution IDs are retrieved directly and non-terminal statuses are cancelled.
         """
-        terminal_statuses = frozenset({"COMPLETED", "FAILED", "TERMINATED", "TIMED_OUT"})
-        known_ids = list(execution_ids or [])
-
-        def _is_active(status: str) -> bool:
-            return status.upper() not in terminal_statuses
-
-        def _active_ids() -> list[WorkflowExecutionId]:
-            by_id = {item.id: item for item in known_ids}
-            listed = client.tool.workflows.executions.list(
-                workflow_version_ids=[workflow_version_id],
-                limit=1000,
-            )
-            for item in listed:
-                if _is_active(str(item.status)):
-                    by_id[item.id] = item.as_id()
-
-            active: list[WorkflowExecutionId] = []
-            for execution_id in by_id.values():
-                retrieved = client.tool.workflows.executions.retrieve([execution_id], ignore_unknown_ids=True)
-                if retrieved and _is_active(str(retrieved[0].status)):
-                    active.append(execution_id)
-            return active
-
-        # Do not treat a single empty list as done; list can lag behind retrieve.
-        empty_checks = 0
         start_time = time.monotonic()
         while (time.monotonic() - start_time) < timeout_seconds:
-            active_ids = _active_ids()
-            if not active_ids:
-                empty_checks += 1
-                if empty_checks >= 2:
-                    return
-                time.sleep(poll_interval)
-                continue
-            empty_checks = 0
+            running_executions = client.workflows.executions.list(
+                workflow_version_ids=[workflow_version_id], statuses=["RUNNING"]
+            )
+            if not running_executions:
+                return
             try:
-                client.tool.workflows.executions.cancel(active_ids, reason="smoke test cleanup")
+                client.workflows.executions.cancel(
+                    [execution.as_id() for execution in running_executions], reason="smoke test cleanup"
+                )
             except ToolkitAPIError:
                 pass
             time.sleep(poll_interval)
 
-        still_active = _active_ids()
-        if still_active:
-            ids = ", ".join(item.id for item in still_active)
-            raise EndpointAssertionError(
-                "/workflows/executions/{executionId}/cancel",
-                f"Timed out waiting for executions to stop running: {ids}",
-            )
+        raise EndpointAssertionError(
+            "/workflows/executions/{executionId}/cancel",
+            "Timed out waiting for executions to stop running.",
+        )
 
     def test_all_cdf_resource_apis_registered(self) -> None:
         """Test that all CDFResourceAPI subclasses are registered in ToolkitClient."""
@@ -1095,30 +1339,30 @@ class TestCDFResourceAPI:
             model_id = cast(
                 InternalId,
                 self.assert_endpoint_method(
-                    lambda: toolkit_client.tool.three_d.models_classic.create([model_request]),
+                    lambda: toolkit_client.three_d.models_classic.create([model_request]),
                     "create",
-                    toolkit_client.tool.three_d.models_classic._method_endpoint_map["create"],
+                    toolkit_client.three_d.models_classic._method_endpoint_map["create"],
                 ),
             )
 
             self.assert_endpoint_method(
-                lambda: toolkit_client.tool.three_d.models_classic.retrieve([model_id]),
+                lambda: toolkit_client.three_d.models_classic.retrieve([model_id]),
                 "retrieve",
-                toolkit_client.tool.three_d.models_classic._method_endpoint_map["retrieve"],
+                toolkit_client.three_d.models_classic._method_endpoint_map["retrieve"],
                 model_id,
             )
             # Need to set ID for update.
             model_request.id = model_id.id
             self.assert_endpoint_method(
-                lambda: toolkit_client.tool.three_d.models_classic.update([model_request]),
+                lambda: toolkit_client.three_d.models_classic.update([model_request]),
                 "update",
-                toolkit_client.tool.three_d.models_classic._method_endpoint_map["update"],
+                toolkit_client.three_d.models_classic._method_endpoint_map["update"],
                 model_id,
             )
 
-            list_endpoint = toolkit_client.tool.three_d.models_classic._method_endpoint_map["list"]
+            list_endpoint = toolkit_client.three_d.models_classic._method_endpoint_map["list"]
             try:
-                listed_models = list(toolkit_client.tool.three_d.models_classic.list(limit=1))
+                listed_models = list(toolkit_client.three_d.models_classic.list(limit=1))
             except ToolkitAPIError as e:
                 raise EndpointAssertionError(list_endpoint.path, f"List method failed with error: {e!s}") from e
             if len(listed_models) == 0:
@@ -1129,38 +1373,38 @@ class TestCDFResourceAPI:
             revision_id = cast(
                 ThreeDModelRevisionId,
                 self.assert_endpoint_method(
-                    lambda: toolkit_client.tool.three_d.revisions_classic.create([revision_request]),
+                    lambda: toolkit_client.three_d.revisions_classic.create([revision_request]),
                     "create",
-                    toolkit_client.tool.three_d.revisions_classic._method_endpoint_map["create"],
+                    toolkit_client.three_d.revisions_classic._method_endpoint_map["create"],
                 ),
             )
 
             # Need to set ID for update
             revision_request.id = revision_id.id
             self.assert_endpoint_method(
-                lambda: toolkit_client.tool.three_d.revisions_classic.update([revision_request]),
+                lambda: toolkit_client.three_d.revisions_classic.update([revision_request]),
                 "update",
-                toolkit_client.tool.three_d.revisions_classic._method_endpoint_map["update"],
+                toolkit_client.three_d.revisions_classic._method_endpoint_map["update"],
                 revision_id,
             )
 
             try:
-                listed_revisions = toolkit_client.tool.three_d.revisions_classic.list(model_id=model_id.id, limit=1)
+                listed_revisions = toolkit_client.three_d.revisions_classic.list(model_id=model_id.id, limit=1)
             except ToolkitAPIError as e:
                 raise EndpointAssertionError(
-                    toolkit_client.tool.three_d.revisions_classic._method_endpoint_map["list"].path,
+                    toolkit_client.three_d.revisions_classic._method_endpoint_map["list"].path,
                     f"List method failed with error: {e!s}",
                 ) from e
             if len(list(listed_revisions)) == 0:
                 raise EndpointAssertionError(
-                    toolkit_client.tool.three_d.revisions_classic._method_endpoint_map["list"].path,
+                    toolkit_client.three_d.revisions_classic._method_endpoint_map["list"].path,
                     "Expected at least 1 listed revision, got 0",
                 )
         finally:
             if revision_id is not None:
-                toolkit_client.tool.three_d.revisions_classic.delete([revision_id])
+                toolkit_client.three_d.revisions_classic.delete([revision_id])
             if model_id is not None:
-                toolkit_client.tool.three_d.models_classic.delete([model_id])
+                toolkit_client.three_d.models_classic.delete([model_id])
 
     def test_raw_tables_and_databases_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
@@ -1172,9 +1416,9 @@ class TestCDFResourceAPI:
 
         try:
             # Create database
-            db_endpoints = client.tool.raw.databases._method_endpoint_map
+            db_endpoints = client.raw.databases._method_endpoint_map
             db_create = db_endpoints["create"]
-            created_db = client.tool.raw.databases.create([db])
+            created_db = client.raw.databases.create([db])
             if len(created_db) != 1:
                 raise EndpointAssertionError(db_create.path, f"Expected 1 created database, got {len(created_db)}")
             if created_db[0].name != db.name:
@@ -1182,14 +1426,14 @@ class TestCDFResourceAPI:
 
             # List databases
             db_list = db_endpoints["list"]
-            listed_dbs = list(client.tool.raw.databases.list(limit=1))
+            listed_dbs = list(client.raw.databases.list(limit=1))
             if len(listed_dbs) == 0:
                 raise EndpointAssertionError(db_list.path, "Expected at least 1 listed database, got 0")
 
             # Create table
-            table_endpoints = client.tool.raw.tables._method_endpoint_map
+            table_endpoints = client.raw.tables._method_endpoint_map
             table_create = table_endpoints["create"]
-            created_table = client.tool.raw.tables.create([table])
+            created_table = client.raw.tables.create([table])
             if len(created_table) != 1:
                 raise EndpointAssertionError(table_create.path, f"Expected 1 created table, got {len(created_table)}")
             if created_table[0].name != table.name:
@@ -1197,7 +1441,7 @@ class TestCDFResourceAPI:
 
             # List tables
             table_list = table_endpoints["list"]
-            listed_tables = list(client.tool.raw.tables.list(limit=1, db_name=db.name))
+            listed_tables = list(client.raw.tables.list(limit=1, db_name=db.name))
             if len(listed_tables) == 0:
                 raise EndpointAssertionError(table_list.path, "Expected at least 1 listed table, got 0")
             if listed_tables[0].db_name != db.name:
@@ -1207,13 +1451,71 @@ class TestCDFResourceAPI:
         finally:
             # Clean up
             try:
-                client.tool.raw.tables.delete([table.as_id()])
+                client.raw.tables.delete([table.as_id()])
             except ToolkitAPIError:
                 pass
             try:
-                client.tool.raw.databases.delete([db.as_id()])
+                client.raw.databases.delete([db.as_id()])
             except ToolkitAPIError:
                 pass
+
+    def test_raw_rows_crudl(self, toolkit_client: ToolkitClient) -> None:
+        """Insert, retrieve, list, and delete one row in a long-lived RAW table.
+
+        The database and table are created on the first run through ``ensure_parent`` and kept afterwards.
+        """
+        client = toolkit_client
+        row = RAWRowRequest(
+            db_name="smoke-persistent-raw-db",
+            table_name="smoke-persistent-raw-table",
+            key="smoke-test-row",
+            columns={"source": "smoke-test"},
+        )
+        row_id = row.as_id()
+        rows = client.raw.tables.rows
+        created = False
+        try:
+            create_endpoint = rows._method_endpoint_map["create"]
+            try:
+                rows.create([row], ensure_parent=True)
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(create_endpoint.path, f"Creating raw row failed: {e!s}") from e
+            created = True
+
+            retrieve_endpoint = rows._method_endpoint_map["retrieve"]
+            try:
+                retrieved = rows.retrieve([row_id])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(retrieve_endpoint.path, f"Retrieving raw row failed: {e!s}") from e
+            if len(retrieved) != 1 or retrieved[0].key != row.key or retrieved[0].columns != row.columns:
+                raise EndpointAssertionError(
+                    retrieve_endpoint.path, "Retrieved raw row does not match the inserted row."
+                )
+            if retrieved[0].db_name != row.db_name or retrieved[0].table_name != row.table_name:
+                raise EndpointAssertionError(
+                    retrieve_endpoint.path, "Retrieved raw row database or table does not match."
+                )
+
+            list_endpoint = rows._method_endpoint_map["list"]
+            try:
+                listed = rows.list(db_name=row.db_name, table_name=row.table_name, limit=100)
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(list_endpoint.path, f"Listing raw rows failed: {e!s}") from e
+            if not any(item.key == row.key and item.columns == row.columns for item in listed):
+                raise EndpointAssertionError(list_endpoint.path, "Inserted raw row was not found when listing rows.")
+
+            delete_endpoint = rows._method_endpoint_map["delete"]
+            try:
+                rows.delete([row_id])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(delete_endpoint.path, f"Deleting raw row failed: {e!s}") from e
+            created = False
+        finally:
+            if created:
+                try:
+                    rows.delete([row_id])
+                except ToolkitAPIError:
+                    pass
 
     def test_datasets_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
@@ -1221,29 +1523,29 @@ class TestCDFResourceAPI:
         dataset_request = DataSetRequest.model_validate(dataset_example)
         identifier = dataset_request.as_id()
         # Retrieve
-        retrieved = client.tool.datasets.retrieve([identifier], ignore_unknown_ids=True)
+        retrieved = client.datasets.retrieve([identifier], ignore_unknown_ids=True)
         if len(retrieved) == 0:
-            create_endpoint = client.tool.datasets._method_endpoint_map["create"]
+            create_endpoint = client.datasets._method_endpoint_map["create"]
             self.assert_endpoint_method(
-                lambda: client.tool.datasets.create([dataset_request]), "create", create_endpoint, identifier
+                lambda: client.datasets.create([dataset_request]), "create", create_endpoint, identifier
             )
-            retrieved = client.tool.datasets.retrieve([identifier])
+            retrieved = client.datasets.retrieve([identifier])
 
-        retrieve_endpoint = client.tool.datasets._method_endpoint_map["retrieve"]
+        retrieve_endpoint = client.datasets._method_endpoint_map["retrieve"]
         if len(retrieved) != 1:
             raise EndpointAssertionError(retrieve_endpoint.path, f"Expected 1 retrieved dataset, got {len(retrieved)}")
         if retrieved[0].external_id != dataset_request.external_id:
             raise EndpointAssertionError(
                 retrieve_endpoint.path, "Retrieved dataset external ID does not match requested external ID."
             )
-        update_endpoint = client.tool.datasets._method_endpoint_map["update"]
+        update_endpoint = client.datasets._method_endpoint_map["update"]
         self.assert_endpoint_method(
-            lambda: client.tool.datasets.update([dataset_request]), "update", update_endpoint, identifier
+            lambda: client.datasets.update([dataset_request]), "update", update_endpoint, identifier
         )
 
         # List datasets
-        ds_list = client.tool.datasets._method_endpoint_map["list"]
-        listed_ds = list(client.tool.datasets.list(limit=1))
+        ds_list = client.datasets._method_endpoint_map["list"]
+        listed_ds = list(client.datasets.list(limit=1))
         if len(listed_ds) == 0:
             raise EndpointAssertionError(ds_list.path, "Expected at least 1 listed dataset, got 0")
 
@@ -1287,14 +1589,12 @@ class TestCDFResourceAPI:
         app_request = AppRequest.model_validate(app_example)
         app_id = app_request.as_id()
 
-        retrieved = client.tool.apps.retrieve([app_id], ignore_unknown_ids=True)
+        retrieved = client.apps.retrieve([app_id], ignore_unknown_ids=True)
         if len(retrieved) == 0:
-            create_endpoint = client.tool.apps._method_endpoint_map["create"]
-            self.assert_endpoint_method(
-                lambda: client.tool.apps.create([app_request]), "create", create_endpoint, app_id
-            )
-            retrieved = client.tool.apps.retrieve([app_id])
-        retrieve_endpoint = client.tool.apps._method_endpoint_map["retrieve"]
+            create_endpoint = client.apps._method_endpoint_map["create"]
+            self.assert_endpoint_method(lambda: client.apps.create([app_request]), "create", create_endpoint, app_id)
+            retrieved = client.apps.retrieve([app_id])
+        retrieve_endpoint = client.apps._method_endpoint_map["retrieve"]
         if len(retrieved) != 1:
             raise EndpointAssertionError(retrieve_endpoint.path, f"Expected 1 retrieved app, got {len(retrieved)}")
         if retrieved[0].external_id != app_request.external_id:
@@ -1302,8 +1602,8 @@ class TestCDFResourceAPI:
                 retrieve_endpoint.path, "Retrieved app external ID does not match requested external ID."
             )
 
-        list_endpoint = client.tool.apps._method_endpoint_map["list"]
-        listed_apps = client.tool.apps.list()
+        list_endpoint = client.apps._method_endpoint_map["list"]
+        listed_apps = client.apps.list()
         if len(listed_apps) == 0:
             raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed app, got 0")
 
@@ -1326,52 +1626,52 @@ class TestCDFResourceAPI:
 
         try:
             # Create source
-            source_create_endpoint = client.tool.hosted_extractors.sources._method_endpoint_map["create"]
+            source_create_endpoint = client.hosted_extractors.sources._method_endpoint_map["create"]
             self.assert_endpoint_method(
-                lambda: client.tool.hosted_extractors.sources.create([source_request]),
+                lambda: client.hosted_extractors.sources.create([source_request]),
                 "create",
                 source_create_endpoint,
                 source_id,
             )
 
             # Create destination
-            destination_create_endpoint = client.tool.hosted_extractors.destinations._method_endpoint_map["create"]
+            destination_create_endpoint = client.hosted_extractors.destinations._method_endpoint_map["create"]
             self.assert_endpoint_method(
-                lambda: client.tool.hosted_extractors.destinations.create([dest_request]),
+                lambda: client.hosted_extractors.destinations.create([dest_request]),
                 "create",
                 destination_create_endpoint,
                 dest_id,
             )
 
             # Create job (dependent on source and destination)
-            job_create_endpoint = client.tool.hosted_extractors.jobs._method_endpoint_map["create"]
+            job_create_endpoint = client.hosted_extractors.jobs._method_endpoint_map["create"]
             self.assert_endpoint_method(
-                lambda: client.tool.hosted_extractors.jobs.create([job_request]), "create", job_create_endpoint, job_id
+                lambda: client.hosted_extractors.jobs.create([job_request]), "create", job_create_endpoint, job_id
             )
 
             # Retrieve job
-            job_retrieve_endpoint = client.tool.hosted_extractors.jobs._method_endpoint_map["retrieve"]
+            job_retrieve_endpoint = client.hosted_extractors.jobs._method_endpoint_map["retrieve"]
             self.assert_endpoint_method(
-                lambda: client.tool.hosted_extractors.jobs.retrieve([job_id]), "retrieve", job_retrieve_endpoint, job_id
+                lambda: client.hosted_extractors.jobs.retrieve([job_id]), "retrieve", job_retrieve_endpoint, job_id
             )
 
             # List jobs
-            job_list_endpoint = client.tool.hosted_extractors.jobs._method_endpoint_map["list"]
-            listed_jobs = list(client.tool.hosted_extractors.jobs.list(limit=1))
+            job_list_endpoint = client.hosted_extractors.jobs._method_endpoint_map["list"]
+            listed_jobs = list(client.hosted_extractors.jobs.list(limit=1))
             if len(listed_jobs) == 0:
                 raise EndpointAssertionError(job_list_endpoint.path, "Expected at least 1 listed job, got 0")
 
             # Update job
-            job_update_endpoint = client.tool.hosted_extractors.jobs._method_endpoint_map["update"]
+            job_update_endpoint = client.hosted_extractors.jobs._method_endpoint_map["update"]
             self.assert_endpoint_method(
-                lambda: client.tool.hosted_extractors.jobs.update([job_request]), "update", job_update_endpoint, job_id
+                lambda: client.hosted_extractors.jobs.update([job_request]), "update", job_update_endpoint, job_id
             )
 
         finally:
             # Clean up
-            client.tool.hosted_extractors.jobs.delete([job_id], ignore_unknown_ids=True)
-            client.tool.hosted_extractors.destinations.delete([dest_id], ignore_unknown_ids=True)
-            client.tool.hosted_extractors.sources.delete([source_id], ignore_unknown_ids=True, force=True)
+            client.hosted_extractors.jobs.delete([job_id], ignore_unknown_ids=True)
+            client.hosted_extractors.destinations.delete([dest_id], ignore_unknown_ids=True)
+            client.hosted_extractors.sources.delete([source_id], ignore_unknown_ids=True, force=True)
 
     def test_instances_crudl(self, toolkit_client: ToolkitClient, smoke_view: ViewResponse) -> None:
         client = toolkit_client
@@ -1386,9 +1686,9 @@ class TestCDFResourceAPI:
 
         try:
             # Create node
-            create_endpoint = client.tool.instances._method_endpoint_map["upsert"]
+            create_endpoint = client.instances._method_endpoint_map["upsert"]
             try:
-                created_node = client.tool.instances.create([node_request])
+                created_node = client.instances.create([node_request])
             except ToolkitAPIError:
                 raise EndpointAssertionError(create_endpoint.path, "Creating node instance failed.")
             if len(created_node) != 1:
@@ -1398,7 +1698,7 @@ class TestCDFResourceAPI:
 
             # Create edge (dependent on node)
             try:
-                created_edge = client.tool.instances.create([edge_request])
+                created_edge = client.instances.create([edge_request])
             except ToolkitAPIError:
                 raise EndpointAssertionError(create_endpoint.path, "Creating edge instance failed.")
             if len(created_edge) != 1:
@@ -1407,33 +1707,44 @@ class TestCDFResourceAPI:
                 raise EndpointAssertionError(create_endpoint.path, "Created edge ID does not match requested edge ID.")
 
             # Retrieve edge
-            retrieve_endpoint = client.tool.instances._method_endpoint_map["retrieve"]
+            retrieve_endpoint = client.instances._method_endpoint_map["retrieve"]
             self.assert_endpoint_method(
-                lambda: client.tool.instances.retrieve([edge_id]), "retrieve", retrieve_endpoint, edge_id
+                lambda: client.instances.retrieve([edge_id]), "retrieve", retrieve_endpoint, edge_id
             )
 
             # Retrieve node
             self.assert_endpoint_method(
-                lambda: client.tool.instances.retrieve([node_id]), "retrieve", retrieve_endpoint, node_id
+                lambda: client.instances.retrieve([node_id]), "retrieve", retrieve_endpoint, node_id
             )
 
             # List instances
-            list_endpoint = client.tool.instances._method_endpoint_map["list"]
-            listed = list(client.tool.instances.list(limit=2))
+            list_endpoint = client.instances._method_endpoint_map["list"]
+            listed = list(client.instances.list(limit=2))
             if len(listed) <= 1:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 2 listed instances, got 0")
 
             # Search instances
-            search_endpoint = client.tool.instances._method_endpoint_map["search"]
+            search_endpoint = client.instances._method_endpoint_map["search"]
             try:
-                _ = client.tool.instances.search(view=smoke_view.as_id(), limit=2)
+                _ = client.instances.search(view=smoke_view.as_id(), limit=2)
             except ToolkitAPIError as e:
                 raise EndpointAssertionError(search_endpoint.path, f"Searching instances failed: {e!s}") from e
 
+            # Aggregate instances
+            aggregate_endpoint = client.instances._method_endpoint_map["aggregate"]
+            try:
+                _ = client.instances.aggregate(
+                    smoke_view.as_id(),
+                    aggregates=[CountAggregate(property="name")],
+                    limit=2,
+                )
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(aggregate_endpoint.path, f"Aggregating instances failed: {e!s}") from e
+
         finally:
             # Clean up
-            client.tool.instances.delete([edge_id])
-            client.tool.instances.delete([node_id])
+            client.instances.delete([edge_id])
+            client.instances.delete([node_id])
 
     def test_extraction_pipeline_config_crudl(
         self, toolkit_client: ToolkitClient, smoke_extraction_pipeline: ExtractionPipelineResponse
@@ -1443,18 +1754,18 @@ class TestCDFResourceAPI:
         example = get_examples_minimum_requests(ExtractionPipelineConfigResponse)[0]
         request = ExtractionPipelineConfigRequest.model_validate(example)
 
-        method_map = client.tool.extraction_pipelines.configs._method_endpoint_map
+        method_map = client.extraction_pipelines.configs._method_endpoint_map
         config_id = cast(
             ExtractionPipelineConfigId,
             self.assert_endpoint_method(
-                lambda: client.tool.extraction_pipelines.configs.create([request]),
+                lambda: client.extraction_pipelines.configs.create([request]),
                 "create",
                 method_map["create"],
             ),
         )
 
         self.assert_endpoint_method(
-            lambda: client.tool.extraction_pipelines.configs.retrieve([config_id]),
+            lambda: client.extraction_pipelines.configs.retrieve([config_id]),
             "retrieve",
             method_map["retrieve"],
             config_id,
@@ -1462,7 +1773,7 @@ class TestCDFResourceAPI:
 
         # List configs
         try:
-            listed_configs = client.tool.extraction_pipelines.configs.list(
+            listed_configs = client.extraction_pipelines.configs.list(
                 external_id=smoke_extraction_pipeline.external_id, limit=1
             )
         except ToolkitAPIError as e:
@@ -1473,6 +1784,121 @@ class TestCDFResourceAPI:
             raise EndpointAssertionError(
                 method_map["list"].path, "Expected at 1 listed extraction pipeline config, got 0"
             )
+
+    @pytest.mark.skip(
+        reason="The endpoint /integrations/checkin returns 422: errors[0].general.externalId: Field required. Which is inconsistent with the docs."
+    )
+    def test_integration_tasks_actions_configuration_and_errors(self, toolkit_client: ToolkitClient) -> None:
+        external_id = f"smoke-test-integration-{uuid4().hex[:8]}"
+        action_external_id = f"{external_id}-action"
+        client = toolkit_client.integrations
+        integration_id = None
+        try:
+            created = client.create(
+                [
+                    IntegrationRequest(
+                        external_id=external_id,
+                        extractor=IntegrationExtractor(external_id="toolkit-smoke"),
+                    )
+                ]
+            )
+            if len(created) != 1:
+                raise EndpointAssertionError("/integrations", f"Expected 1 created integration, got {len(created)}")
+            integration_id = created[0].as_id()
+
+            config = client.configuration.create(
+                [IntegrationConfigRequest(external_id=external_id, config="smoke: true")]
+            )
+            if len(config) != 1 or config[0].config != "smoke: true":
+                raise EndpointAssertionError("/integrations/config", "Creating a config revision failed")
+            retrieved_config = client.configuration.retrieve([config[0].as_id()])
+            if len(retrieved_config) != 1 or retrieved_config[0].revision != config[0].revision:
+                raise EndpointAssertionError("/integrations/config", "Retrieving the config revision failed")
+            listed_configs = client.configuration.list(integration_external_id=external_id, limit=10)
+            if not any(item.revision == config[0].revision for item in listed_configs):
+                raise EndpointAssertionError("/integrations/config/revisions", "Created revision was not listed")
+
+            started = client.startup(
+                IntegrationStartupRequest(
+                    external_id=external_id,
+                    extractor=IntegrationExtractor(external_id="toolkit-smoke", version="1.0.0"),
+                    tasks=[IntegrationTask(type="continuous", name="smoke-task")],
+                    available_actions=[AvailableIntegrationAction(name="smoke-restart", type="custom")],
+                )
+            )
+            if started.external_id != external_id:
+                raise EndpointAssertionError("/integrations/startup", "Startup response external ID did not match")
+
+            now = int(time.time() * 1000)
+            checked_in = client.checkin(
+                IntegrationCheckinRequest(
+                    external_id=external_id,
+                    task_events=[IntegrationTaskEvent(type="started", name="smoke-task", timestamp=now)],
+                    errors=[
+                        GeneralIntegrationError(
+                            level="warning",
+                            description="smoke test",
+                            start_time=now,
+                            task="smoke-task",
+                        )
+                    ],
+                )
+            )
+            if checked_in.external_id != external_id:
+                raise EndpointAssertionError("/integrations/checkin", "Check-in response external ID did not match")
+
+            history = self.wait_until_has_value(
+                lambda: [
+                    item
+                    for item in client.tasks.list(integration_external_id=external_id, task_name="smoke-task", limit=10)
+                    if item.task_name == "smoke-task"
+                ]
+            )
+            if len(history) != 1:
+                raise EndpointAssertionError("/integrations/history", "Expected the started task in history")
+
+            synced = client.tasks.sync(external_id, include_errors=True, include_task_updates=True, limit=10)
+            if not synced.next_cursor:
+                raise EndpointAssertionError("/integrations/sync", "Sync did not return a cursor")
+
+            actions = client.actions.create(
+                [
+                    IntegrationActionRequest(
+                        external_id=action_external_id,
+                        action_name="smoke-restart",
+                        integration_external_id=external_id,
+                    )
+                ]
+            )
+            if len(actions) != 1:
+                raise EndpointAssertionError("/integrations/actions", f"Expected 1 created action, got {len(actions)}")
+            retrieved_actions = client.actions.retrieve([actions[0].as_id()])
+            if len(retrieved_actions) != 1 or retrieved_actions[0].external_id != action_external_id:
+                raise EndpointAssertionError("/integrations/actions/byids", "Retrieving the action failed")
+            listed_actions = client.actions.list(integration_external_id=external_id, limit=10)
+            if not any(item.external_id == action_external_id for item in listed_actions):
+                raise EndpointAssertionError("/integrations/actions", "Created action was not listed")
+            cancelled = client.actions.cancel([actions[0].as_id()])
+            if len(cancelled) != 1 or cancelled[0].status not in {"cancel_pending", "canceled"}:
+                raise EndpointAssertionError("/integrations/actions/cancel", "Cancelling the action failed")
+
+            errors = self.wait_until_has_value(
+                lambda: [
+                    item
+                    for item in client.errors.list(integration_external_id=external_id, task="smoke-task", limit=10)
+                    if item.description == "smoke test"
+                ]
+            )
+            if len(errors) != 1:
+                raise EndpointAssertionError("/integrations/errors", "Expected the reported error")
+        except ToolkitAPIError as error:
+            raise EndpointAssertionError("/integrations", str(error)) from error
+        finally:
+            if integration_id is not None:
+                try:
+                    client.delete([integration_id])
+                except ToolkitAPIError:
+                    pass
 
     def test_workflow_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
@@ -1489,31 +1915,30 @@ class TestCDFResourceAPI:
         workflow_trigger_request = WorkflowTriggerRequest.model_validate(workflow_trigger)
         workflow_trigger_id = workflow_trigger_request.as_id()
         workflow_trigger_request.authentication = NonceCredentials(
-            nonce=toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
+            nonce=toolkit_client.sessions.create_one_shot_token_exchange_session().nonce
         )
-        execution_id: WorkflowExecutionId | None = None
 
         try:
             # Create workflow
-            create_endpoint = client.tool.workflows._method_endpoint_map["upsert"]
+            create_endpoint = client.workflows._method_endpoint_map["upsert"]
             self.assert_endpoint_method(
-                lambda: client.tool.workflows.create([workflow_request]),
+                lambda: client.workflows.create([workflow_request]),
                 "create",
                 create_endpoint,
                 workflow_id,
             )
 
             # Create workflow version
-            version_create_endpoint = client.tool.workflows.versions._method_endpoint_map["upsert"]
+            version_create_endpoint = client.workflows.versions._method_endpoint_map["upsert"]
             self.assert_endpoint_method(
-                lambda: client.tool.workflows.versions.create([workflow_version_request]),
+                lambda: client.workflows.versions.create([workflow_version_request]),
                 "create",
                 version_create_endpoint,
                 workflow_version_id,
             )
             # Create workflow trigger
-            trigger_create_endpoint = client.tool.workflows.triggers._method_endpoint_map["upsert"]
-            created_triggers = client.tool.workflows.triggers.create([workflow_trigger_request])
+            trigger_create_endpoint = client.workflows.triggers._method_endpoint_map["upsert"]
+            created_triggers = client.workflows.triggers.create([workflow_trigger_request])
             if len(created_triggers) != 1:
                 raise EndpointAssertionError(
                     trigger_create_endpoint.path, f"Expected 1 created workflow trigger, got {len(created_triggers)}"
@@ -1524,26 +1949,26 @@ class TestCDFResourceAPI:
                 )
 
             # Retrieve workflow version
-            version_retrieve_endpoint = client.tool.workflows.versions._method_endpoint_map["retrieve"]
+            version_retrieve_endpoint = client.workflows.versions._method_endpoint_map["retrieve"]
             self.assert_endpoint_method(
-                lambda: client.tool.workflows.versions.retrieve([workflow_version_id]),
+                lambda: client.workflows.versions.retrieve([workflow_version_id]),
                 "retrieve",
                 version_retrieve_endpoint,
                 workflow_version_id,
             )
 
             # List workflow versions
-            version_list_endpoint = client.tool.workflows.versions._method_endpoint_map["list"]
+            version_list_endpoint = client.workflows.versions._method_endpoint_map["list"]
             listed_versions = list(
-                client.tool.workflows.versions.list(workflow_external_id=workflow_request.external_id, limit=1)
+                client.workflows.versions.list(workflow_external_id=workflow_request.external_id, limit=1)
             )
             if len(listed_versions) == 0:
                 raise EndpointAssertionError(
                     version_list_endpoint.path, "Expected at least 1 listed workflow version, got 0"
                 )
             # List workflow triggers
-            trigger_list_endpoint = client.tool.workflows.triggers._method_endpoint_map["list"]
-            listed_triggers = list(client.tool.workflows.triggers.list(limit=1))
+            trigger_list_endpoint = client.workflows.triggers._method_endpoint_map["list"]
+            listed_triggers = list(client.workflows.triggers.list(limit=1))
             if len(listed_triggers) == 0:
                 raise EndpointAssertionError(
                     trigger_list_endpoint.path, "Expected at least 1 listed workflow trigger, got 0"
@@ -1554,17 +1979,15 @@ class TestCDFResourceAPI:
                 f"/workflows/{workflow_version_id.workflow_external_id}/versions/{workflow_version_id.version}/run"
             )
             try:
-                execution = client.tool.workflows.executions.run(
+                execution = client.workflows.executions.run(
                     workflow_version_id,
-                    nonce=toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce,
+                    nonce=toolkit_client.sessions.create_one_shot_token_exchange_session().nonce,
                 )
             except ToolkitAPIError as e:
                 raise EndpointAssertionError(run_path, f"run method failed with error: {e!s}") from e
-            execution_id = execution.as_id()
-
-            retrieve_endpoint = client.tool.workflows.executions._method_endpoint_map["retrieve"]
+            retrieve_endpoint = client.workflows.executions._method_endpoint_map["retrieve"]
             try:
-                retrieved_executions = client.tool.workflows.executions.retrieve([execution.as_id()])
+                retrieved_executions = client.workflows.executions.retrieve([execution.as_id()])
             except ToolkitAPIError as e:
                 raise EndpointAssertionError(retrieve_endpoint.path, f"retrieve method failed with error: {e!s}") from e
             if len(retrieved_executions) != 1:
@@ -1578,9 +2001,9 @@ class TestCDFResourceAPI:
                     retrieve_endpoint.path, "Expected a detailed workflow execution in the retrieve response."
                 )
 
-            list_endpoint = client.tool.workflows.executions._method_endpoint_map["list"]
+            list_endpoint = client.workflows.executions._method_endpoint_map["list"]
             try:
-                listed_executions = client.tool.workflows.executions.list(
+                listed_executions = client.workflows.executions.list(
                     workflow_version_ids=[workflow_version_id], limit=1
                 )
             except ToolkitAPIError as e:
@@ -1590,9 +2013,9 @@ class TestCDFResourceAPI:
 
             cancel_path = f"/workflows/executions/{execution.id}/cancel"
             try:
-                canceled = client.tool.workflows.executions.cancel([execution.as_id()], reason="smoke test")
+                canceled = client.workflows.executions.cancel([execution.as_id()], reason="smoke test")
             except ToolkitAPIError as e:
-                current = client.tool.workflows.executions.retrieve([execution.as_id()], ignore_unknown_ids=True)
+                current = client.workflows.executions.retrieve([execution.as_id()], ignore_unknown_ids=True)
                 if current and current[0].status == "RUNNING":
                     raise EndpointAssertionError(cancel_path, f"cancel method failed with error: {e!s}") from e
             else:
@@ -1601,9 +2024,9 @@ class TestCDFResourceAPI:
 
                 retry_path = f"/workflows/executions/{execution.id}/retry"
                 try:
-                    retried = client.tool.workflows.executions.retry(
+                    retried = client.workflows.executions.retry(
                         [execution.as_id()],
-                        nonce=toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce,
+                        nonce=toolkit_client.sessions.create_one_shot_token_exchange_session().nonce,
                     )
                 except ToolkitAPIError as e:
                     raise EndpointAssertionError(retry_path, f"retry method failed with error: {e!s}") from e
@@ -1612,13 +2035,10 @@ class TestCDFResourceAPI:
 
         finally:
             # Triggers can start new runs; remove them before cancelling executions.
-            try:
-                client.tool.workflows.triggers.delete([workflow_trigger_id])
-            except ToolkitAPIError:
-                pass
-            self.cancel_running_executions(client, workflow_version_id, [execution_id] if execution_id else None)
-            client.tool.workflows.versions.delete([workflow_version_id])
-            client.tool.workflows.delete([workflow_id])
+            client.workflows.triggers.delete([workflow_trigger_id])
+            self.cancel_running_executions(client, workflow_version_id)
+            client.workflows.versions.delete([workflow_version_id])
+            retry_api_call(lambda: client.workflows.delete([workflow_id]), timeout_seconds=10.0)
 
     def test_rulesets_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
@@ -1633,7 +2053,7 @@ class TestCDFResourceAPI:
 
         try:
             # Probe: skip if Rule Sets API is not enabled on the project
-            client.tool.rulesets.list(limit=1)
+            client.rulesets.list(limit=1)
         except ToolkitAPIError as e:
             if "403" in str(e) and "Rule Sets API is not enabled" in str(e):
                 pytest.skip("Rule Sets API is not enabled for this project")
@@ -1641,60 +2061,58 @@ class TestCDFResourceAPI:
 
         try:
             # Create rule set
-            create_endpoint = client.tool.rulesets._method_endpoint_map["create"]
+            create_endpoint = client.rulesets._method_endpoint_map["create"]
             self.assert_endpoint_method(
-                lambda: client.tool.rulesets.create([ruleset_request]),
+                lambda: client.rulesets.create([ruleset_request]),
                 "create",
                 create_endpoint,
                 ruleset_id,
             )
 
             # Create rule set version
-            version_create_endpoint = client.tool.rulesets.versions._method_endpoint_map["create"]
+            version_create_endpoint = client.rulesets.versions._method_endpoint_map["create"]
             self.assert_endpoint_method(
-                lambda: client.tool.rulesets.versions.create([ruleset_version_request]),
+                lambda: client.rulesets.versions.create([ruleset_version_request]),
                 "create",
                 version_create_endpoint,
                 ruleset_version_id,
             )
 
             # Retrieve rule set
-            retrieve_endpoint = client.tool.rulesets._method_endpoint_map["retrieve"]
+            retrieve_endpoint = client.rulesets._method_endpoint_map["retrieve"]
             self.assert_endpoint_method(
-                lambda: client.tool.rulesets.retrieve([ruleset_id], ignore_unknown_ids=True),
+                lambda: client.rulesets.retrieve([ruleset_id], ignore_unknown_ids=True),
                 "retrieve",
                 retrieve_endpoint,
                 ruleset_id,
             )
 
             # Retrieve rule set version
-            version_retrieve_endpoint = client.tool.rulesets.versions._method_endpoint_map["retrieve"]
+            version_retrieve_endpoint = client.rulesets.versions._method_endpoint_map["retrieve"]
             self.assert_endpoint_method(
-                lambda: client.tool.rulesets.versions.retrieve([ruleset_version_id], ignore_unknown_ids=True),
+                lambda: client.rulesets.versions.retrieve([ruleset_version_id], ignore_unknown_ids=True),
                 "retrieve",
                 version_retrieve_endpoint,
                 ruleset_version_id,
             )
 
             # List rule set versions
-            version_list_endpoint = client.tool.rulesets.versions._method_endpoint_map["list"]
-            listed_versions = client.tool.rulesets.versions.list(
-                rule_set_external_id=ruleset_request.external_id, limit=1
-            )
+            version_list_endpoint = client.rulesets.versions._method_endpoint_map["list"]
+            listed_versions = client.rulesets.versions.list(rule_set_external_id=ruleset_request.external_id, limit=1)
             if len(listed_versions) == 0:
                 raise EndpointAssertionError(
                     version_list_endpoint.path, "Expected at least 1 listed rule set version, got 0"
                 )
 
             # List rule sets
-            list_endpoint = client.tool.rulesets._method_endpoint_map["list"]
-            listed_rulesets = client.tool.rulesets.list(limit=1)
+            list_endpoint = client.rulesets._method_endpoint_map["list"]
+            listed_rulesets = client.rulesets.list(limit=1)
             if len(listed_rulesets) == 0:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed rule set, got 0")
         finally:
             # Clean up
-            client.tool.rulesets.versions.delete([ruleset_version_id])
-            client.tool.rulesets.delete([ruleset_id])
+            client.rulesets.versions.delete([ruleset_version_id])
+            client.rulesets.delete([ruleset_id])
 
     def test_security_categories_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
@@ -1703,31 +2121,32 @@ class TestCDFResourceAPI:
         security_category_request = SecurityCategoryRequest.model_validate(security_category_example)
 
         # Cleanup any existing security categories with the same name
-        existing_list = client.tool.security_categories.list(limit=None)
+        existing_list = client.security_categories.list(limit=None)
         to_delete: list[InternalUnwrappedId] = []
         for existing in existing_list:
             if existing.name == security_category_request.name:
                 to_delete.append(existing.as_id())
         if to_delete:
-            client.tool.security_categories.delete(to_delete)
+            client.security_categories.delete(to_delete)
 
         try:
             # Create security category
-            create_endpoint = client.tool.security_categories._method_endpoint_map["create"]
+            create_endpoint = client.security_categories._method_endpoint_map["create"]
             created_id = self.assert_endpoint_method(
-                lambda: client.tool.security_categories.create([security_category_request]),
+                lambda: client.security_categories.create([security_category_request]),
                 "create",
                 create_endpoint,
             )
 
             # List security categories
-            list_endpoint = client.tool.security_categories._method_endpoint_map["list"]
-            listed = list(client.tool.security_categories.list(limit=1))
+            list_endpoint = client.security_categories._method_endpoint_map["list"]
+            listed = list(client.security_categories.list(limit=1))
             if len(listed) == 0:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed security category, got 0")
         finally:
             # Clean up
-            client.tool.security_categories.delete([created_id])  # type: ignore[list-item]
+            if isinstance(created_id, InternalUnwrappedId):
+                client.security_categories.delete([created_id])
 
     def test_infield_cdm_location_config_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
@@ -1851,9 +2270,9 @@ class TestCDFResourceAPI:
 
         try:
             # Create file
-            create_endpoint = client.tool.cognite_files._method_endpoint_map["upsert"]
+            create_endpoint = client.cognite_files._method_endpoint_map["upsert"]
             try:
-                created = client.tool.cognite_files.create([file_request])
+                created = client.cognite_files.create([file_request])
             except ToolkitAPIError:
                 raise EndpointAssertionError(create_endpoint.path, "Creating file instance failed.")
             if len(created) != 1:
@@ -1862,19 +2281,19 @@ class TestCDFResourceAPI:
                 raise EndpointAssertionError(create_endpoint.path, "Created file ID does not match requested ID.")
 
             # Retrieve file
-            retrieve_endpoint = client.tool.cognite_files._method_endpoint_map["retrieve"]
+            retrieve_endpoint = client.cognite_files._method_endpoint_map["retrieve"]
             self.assert_endpoint_method(
-                lambda: client.tool.cognite_files.retrieve([file_id]), "retrieve", retrieve_endpoint, file_id
+                lambda: client.cognite_files.retrieve([file_id]), "retrieve", retrieve_endpoint, file_id
             )
 
             # List files
-            list_endpoint = client.tool.cognite_files._method_endpoint_map["list"]
-            listed_files = list(client.tool.cognite_files.list(limit=1))
+            list_endpoint = client.cognite_files._method_endpoint_map["list"]
+            listed_files = list(client.cognite_files.list(limit=1))
             if len(listed_files) == 0:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed file, got 0")
         finally:
             # Clean up
-            client.tool.cognite_files.delete([file_id])
+            client.cognite_files.delete([file_id])
 
     def test_location_filter_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
@@ -1884,9 +2303,9 @@ class TestCDFResourceAPI:
         location_filter_id: InternalId | None = None
         try:
             # Create location filter
-            create_endpoint = client.tool.location_filters._method_endpoint_map["create"]
+            create_endpoint = client.location_filters._method_endpoint_map["create"]
             try:
-                created = client.tool.location_filters.create([request])
+                created = client.location_filters.create([request])
             except ToolkitAPIError:
                 raise EndpointAssertionError(create_endpoint.path, "Creating location filter instance failed.")
             if len(created) != 1:
@@ -1898,32 +2317,32 @@ class TestCDFResourceAPI:
             request = created[0].as_request_resource()
             location_filter_id = request.as_id()
             # Retrieve location filter
-            retrieve_endpoint = client.tool.location_filters._method_endpoint_map["retrieve"]
+            retrieve_endpoint = client.location_filters._method_endpoint_map["retrieve"]
             self.assert_endpoint_method(
-                lambda: client.tool.location_filters.retrieve([location_filter_id]),
+                lambda: client.location_filters.retrieve([location_filter_id]),
                 "retrieve",
                 retrieve_endpoint,
                 id=location_filter_id,
             )
 
             # Update location filter
-            update_endpoint = client.tool.location_filters._method_endpoint_map["update"]
+            update_endpoint = client.location_filters._method_endpoint_map["update"]
             self.assert_endpoint_method(
-                lambda: client.tool.location_filters.update([request]),
+                lambda: client.location_filters.update([request]),
                 "update",
                 update_endpoint,
                 id=location_filter_id,
             )
 
             # List location filters
-            list_endpoint = client.tool.location_filters._method_endpoint_map["list"]
-            listed = client.tool.location_filters.list()
+            list_endpoint = client.location_filters._method_endpoint_map["list"]
+            listed = client.location_filters.list()
             if len(listed) == 0:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed location filter, got 0")
         finally:
             # Clean up
             if location_filter_id is not None:
-                client.tool.location_filters.delete([location_filter_id])
+                client.location_filters.delete([location_filter_id])
 
     def test_function_crudls(self, toolkit_client: ToolkitClient, function_code: FileMetadataResponse) -> None:
         client = toolkit_client
@@ -1940,9 +2359,9 @@ class TestCDFResourceAPI:
 
         try:
             # Create function
-            create_endpoint = client.tool.functions._method_endpoint_map["create"]
+            create_endpoint = client.functions._method_endpoint_map["create"]
             try:
-                created_list = client.tool.functions.create([function_request])
+                created_list = client.functions.create([function_request])
             except ToolkitAPIError:
                 raise EndpointAssertionError(create_endpoint.path, "Creating function instance failed.")
             if len(created_list) != 1:
@@ -1954,27 +2373,25 @@ class TestCDFResourceAPI:
             created = created_list[0]
 
             # Retrieve function
-            retrieve_endpoint = client.tool.functions._method_endpoint_map["retrieve"]
+            retrieve_endpoint = client.functions._method_endpoint_map["retrieve"]
             self.assert_endpoint_method(
-                lambda: client.tool.functions.retrieve([function_id]),
+                lambda: client.functions.retrieve([function_id]),
                 "retrieve",
                 retrieve_endpoint,
                 function_id,
             )
             # List functions
-            list_endpoint = client.tool.functions._method_endpoint_map["list"]
-            listed = list(client.tool.functions.list(limit=1))
+            list_endpoint = client.functions._method_endpoint_map["list"]
+            listed = list(client.functions.list(limit=1))
             if len(listed) == 0:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed function, got 0")
 
             # Create function schedule (dependent on function)
             function_schedule_request.function_id = created.id
-            function_schedule_request.nonce = toolkit_client.iam.sessions.create(
-                session_type="ONESHOT_TOKEN_EXCHANGE"
-            ).nonce
-            schedule_create_endpoint = client.tool.functions.schedules._method_endpoint_map["create"]
+            function_schedule_request.nonce = toolkit_client.sessions.create_one_shot_token_exchange_session().nonce
+            schedule_create_endpoint = client.functions.schedules._method_endpoint_map["create"]
             try:
-                created_schedule_list = client.tool.functions.schedules.create([function_schedule_request])
+                created_schedule_list = client.functions.schedules.create([function_schedule_request])
             except ToolkitAPIError:
                 raise EndpointAssertionError(
                     schedule_create_endpoint.path, "Creating function schedule instance failed."
@@ -1987,16 +2404,16 @@ class TestCDFResourceAPI:
             created_schedule = created_schedule_list[0]
             schedule_id = created_schedule.as_request_resource().as_id()
             self.assert_endpoint_method(
-                lambda: client.tool.functions.schedules.retrieve([schedule_id]),
+                lambda: client.functions.schedules.retrieve([schedule_id]),
                 "retrieve",
-                client.tool.functions.schedules._method_endpoint_map["retrieve"],
+                client.functions.schedules._method_endpoint_map["retrieve"],
                 schedule_id,
             )
 
             # List function schedules
-            schedule_list_endpoint = client.tool.functions.schedules._method_endpoint_map["list"]
+            schedule_list_endpoint = client.functions.schedules._method_endpoint_map["list"]
             try:
-                listed_schedules = client.tool.functions.schedules.list(function_id=created.id, limit=1)
+                listed_schedules = client.functions.schedules.list(function_id=created.id, limit=1)
             except ToolkitAPIError:
                 raise EndpointAssertionError(schedule_list_endpoint.path, "Listing function schedules failed.")
             if len(listed_schedules) == 0:
@@ -2006,8 +2423,64 @@ class TestCDFResourceAPI:
         finally:
             # Clean up
             if schedule_id is not None:
-                client.tool.functions.schedules.delete([schedule_id])
-            client.tool.functions.delete([function_id], ignore_unknown_ids=True)
+                client.functions.schedules.delete([schedule_id])
+            client.functions.delete([function_id], ignore_unknown_ids=True)
+
+    def test_persistent_function_calls(
+        self, toolkit_client: ToolkitClient, persistent_function: FunctionResponse
+    ) -> None:
+        client = toolkit_client
+        function_id = persistent_function.id
+        call_path = f"/functions/{function_id}/call"
+        try:
+            function_call = client.functions.calls.call(
+                function_id=function_id,
+                nonce=toolkit_client.sessions.create_one_shot_token_exchange_session().nonce,
+                data={"smoke": True},
+            )
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(call_path, f"Calling function failed: {e!s}") from e
+
+        call_retrieve_endpoint = client.functions.calls._method_endpoint_map["retrieve"]
+        call_identifier = InternalId(id=function_call.id)
+        try:
+            retrieved_calls = client.functions.calls.retrieve(function_id, [call_identifier])
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(call_retrieve_endpoint.path, f"Retrieving function call failed: {e!s}") from e
+        if len(retrieved_calls) != 1 or retrieved_calls[0].id != function_call.id:
+            raise EndpointAssertionError(
+                call_retrieve_endpoint.path,
+                f"Expected to retrieve function call {function_call.id}, got {len(retrieved_calls)}",
+            )
+
+        finished_call = self.wait_until_function_call_finished(client, function_id, call_identifier)
+        logs_path = f"/functions/{function_id}/calls/{function_call.id}/logs"
+        if finished_call.status != "Completed":
+            try:
+                failed_logs = client.functions.calls.get_logs(function_id, function_call.id)
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(logs_path, f"Retrieving function call logs failed: {e!s}") from e
+            log_text = "\n".join(entry.message or "" for entry in failed_logs)
+            raise EndpointAssertionError(
+                call_path,
+                f"Function call finished with status {finished_call.status}: {finished_call.error}\n{log_text}",
+            )
+        self.wait_for_function_log_line(client, function_id, function_call.id, FUNCTION_LOG_LINE)
+
+        call_list_endpoint = client.functions.calls._method_endpoint_map["list"]
+        try:
+            listed_calls = client.functions.calls.list(
+                function_id=function_id,
+                filter=FunctionCallFilter(start_time=EpochTimestampRange(min_=function_call.start_time)),
+                limit=25,
+            )
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(call_list_endpoint.path, f"Listing function calls failed: {e!s}") from e
+        if not any(item.id == function_call.id for item in listed_calls):
+            raise EndpointAssertionError(
+                call_list_endpoint.path,
+                f"Expected listed calls to include {function_call.id}, got {[item.id for item in listed_calls]}",
+            )
 
     def test_search_config_crudls(self, toolkit_client: ToolkitClient) -> None:
         # Search Config does not support delete.
@@ -2017,9 +2490,9 @@ class TestCDFResourceAPI:
         search_config_id = search_config_request.as_id()
 
         # List existing search config
-        list_endpoint = client.tool.search_configurations._method_endpoint_map["list"]
+        list_endpoint = client.search_configurations._method_endpoint_map["list"]
         try:
-            listed_configs = list(client.tool.search_configurations.list())
+            listed_configs = list(client.search_configurations.list())
         except ToolkitAPIError:
             raise EndpointAssertionError(list_endpoint.path, "Listing search configs failed.")
         for config in listed_configs:
@@ -2027,9 +2500,9 @@ class TestCDFResourceAPI:
                 search_config_request.id = config.id
 
         # Update existing or create new search config
-        create_endpoint = client.tool.search_configurations._method_endpoint_map["upsert"]
+        create_endpoint = client.search_configurations._method_endpoint_map["upsert"]
         try:
-            created = client.tool.search_configurations.create([search_config_request])
+            created = client.search_configurations.create([search_config_request])
         except ToolkitAPIError:
             raise EndpointAssertionError(create_endpoint.path, "Creating search config instance failed.")
         if len(created) != 1:
@@ -2047,16 +2520,16 @@ class TestCDFResourceAPI:
 
         try:
             # Create sequence rows
-            create_endpoint = client.tool.sequences.rows._method_endpoint_map["create"]
+            create_endpoint = client.sequences.rows._method_endpoint_map["create"]
             try:
-                client.tool.sequences.rows.create([sequence_rows_request])
+                client.sequences.rows.create([sequence_rows_request])
             except ToolkitAPIError:
                 raise EndpointAssertionError(create_endpoint.path, "Creating sequence rows instance failed.")
 
             # Retrieve latest
-            latest_endpoint = client.tool.sequences.rows._latest_endpoint
+            latest_endpoint = client.sequences.rows._latest_endpoint
             try:
-                latest = client.tool.sequences.rows.latest(external_id=sequence_id.external_id)
+                latest = client.sequences.rows.latest(external_id=sequence_id.external_id)
             except ToolkitAPIError:
                 raise EndpointAssertionError(latest_endpoint.path, "Retrieving latest sequence rows failed.")
             if latest.external_id != sequence_id.external_id:
@@ -2065,9 +2538,9 @@ class TestCDFResourceAPI:
                 )
 
             # List sequence rows
-            list_endpoint = client.tool.sequences.rows._method_endpoint_map["list"]
+            list_endpoint = client.sequences.rows._method_endpoint_map["list"]
             try:
-                listed_rows = client.tool.sequences.rows.list(
+                listed_rows = client.sequences.rows.list(
                     SequenceRowFilter(external_id=sequence_id.external_id), limit=1
                 )
             except ToolkitAPIError:
@@ -2076,7 +2549,7 @@ class TestCDFResourceAPI:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed sequence row, got 0")
         finally:
             # Clean up
-            client.tool.sequences.rows.delete([sequence_id])
+            client.sequences.rows.delete([sequence_id])
 
     def test_transformation_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
@@ -2091,7 +2564,7 @@ class TestCDFResourceAPI:
         schedule_id: InternalId | None = None
         notification_id: InternalId | None = None
 
-        session = toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
+        session = toolkit_client.sessions.create_one_shot_token_exchange_session()
         credentials = TransformationNonceCredentials(
             session_id=session.id,
             nonce=session.nonce,
@@ -2102,60 +2575,60 @@ class TestCDFResourceAPI:
 
         # Clean up any existing transformation with the same ID
         try:
-            client.tool.transformations.delete([transformation_id], ignore_unknown_ids=True)
+            client.transformations.delete([transformation_id], ignore_unknown_ids=True)
         except ToolkitAPIError:
             pass
 
         try:
             # Create transformation
-            created_endpoint = client.tool.transformations._method_endpoint_map["create"]
+            created_endpoint = client.transformations._method_endpoint_map["create"]
             self.assert_endpoint_method(
-                lambda: client.tool.transformations.create([transformation_request]),
+                lambda: client.transformations.create([transformation_request]),
                 "create",
                 created_endpoint,
                 transformation_id,
             )
 
             # Retrieve transformation
-            retrieve_endpoint = client.tool.transformations._method_endpoint_map["retrieve"]
+            retrieve_endpoint = client.transformations._method_endpoint_map["retrieve"]
             self.assert_endpoint_method(
-                lambda: client.tool.transformations.retrieve([transformation_id]),
+                lambda: client.transformations.retrieve([transformation_id]),
                 "retrieve",
                 retrieve_endpoint,
                 transformation_id,
             )
 
             # List transformations
-            list_endpoint = client.tool.transformations._method_endpoint_map["list"]
+            list_endpoint = client.transformations._method_endpoint_map["list"]
             try:
-                listed = list(client.tool.transformations.list(limit=1))
+                listed = list(client.transformations.list(limit=1))
             except ToolkitAPIError:
                 raise EndpointAssertionError(list_endpoint.path, "Listing transformations failed.")
             if len(listed) == 0:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed transformation, got 0")
 
             ### Jobs ###
-            jobs_list_endpoint = client.tool.transformations.jobs._method_endpoint_map["list"]
+            jobs_list_endpoint = client.transformations.jobs._method_endpoint_map["list"]
             try:
-                client.tool.transformations.jobs.list(transformation_external_id=transformation_id.external_id, limit=1)
+                client.transformations.jobs.list(transformation_external_id=transformation_id.external_id, limit=1)
             except ToolkitAPIError:
                 raise EndpointAssertionError(jobs_list_endpoint.path, "Listing transformation jobs failed.")
 
             ### Schedules ###
             # Create transformation schedule (dependent on transformation)
-            schedule_create_endpoint = client.tool.transformations.schedules._method_endpoint_map["create"]
+            schedule_create_endpoint = client.transformations.schedules._method_endpoint_map["create"]
             self.assert_endpoint_method(
-                lambda: client.tool.transformations.schedules.create([schedule_request]),
+                lambda: client.transformations.schedules.create([schedule_request]),
                 "create",
                 schedule_create_endpoint,
                 transformation_id,
             )
             # Retrieve transformation schedule
-            schedule_retrieve_endpoint = client.tool.transformations.schedules._method_endpoint_map["retrieve"]
+            schedule_retrieve_endpoint = client.transformations.schedules._method_endpoint_map["retrieve"]
             schedule_id = cast(
                 InternalId,
                 self.assert_endpoint_method(
-                    lambda: client.tool.transformations.schedules.retrieve([schedule_request.as_id()]),
+                    lambda: client.transformations.schedules.retrieve([schedule_request.as_id()]),
                     "retrieve",
                     schedule_retrieve_endpoint,
                     schedule_request.as_id(),
@@ -2163,9 +2636,9 @@ class TestCDFResourceAPI:
             )
 
             # List transformation schedules
-            schedule_list_endpoint = client.tool.transformations.schedules._method_endpoint_map["list"]
+            schedule_list_endpoint = client.transformations.schedules._method_endpoint_map["list"]
             try:
-                listed_schedules = client.tool.transformations.schedules.list(limit=1)
+                listed_schedules = client.transformations.schedules.list(limit=1)
             except ToolkitAPIError:
                 raise EndpointAssertionError(schedule_list_endpoint.path, "Listing transformation schedules failed.")
             if len(listed_schedules) == 0:
@@ -2176,20 +2649,20 @@ class TestCDFResourceAPI:
             ### Notifications ###
 
             # Create transformation notification (dependent on transformation)
-            notification_create_endpoint = client.tool.transformations.notifications._method_endpoint_map["create"]
+            notification_create_endpoint = client.transformations.notifications._method_endpoint_map["create"]
             notification_id = cast(
                 InternalId,
                 self.assert_endpoint_method(
-                    lambda: client.tool.transformations.notifications.create([notification_request]),
+                    lambda: client.transformations.notifications.create([notification_request]),
                     "create",
                     notification_create_endpoint,
                 ),
             )
 
             # List transformation notifications
-            notification_list_endpoint = client.tool.transformations.notifications._method_endpoint_map["list"]
+            notification_list_endpoint = client.transformations.notifications._method_endpoint_map["list"]
             try:
-                listed_notifications = client.tool.transformations.notifications.list(limit=1)
+                listed_notifications = client.transformations.notifications.list(limit=1)
             except ToolkitAPIError:
                 raise EndpointAssertionError(
                     notification_list_endpoint.path, "Listing transformation notifications failed."
@@ -2201,10 +2674,10 @@ class TestCDFResourceAPI:
         finally:
             # Clean up
             if notification_id is not None:
-                client.tool.transformations.notifications.delete([notification_id])
+                client.transformations.notifications.delete([notification_id])
             if schedule_id is not None:
-                client.tool.transformations.schedules.delete([schedule_id], ignore_unknown_ids=True)
-            client.tool.transformations.delete([transformation_id], ignore_unknown_ids=True)
+                client.transformations.schedules.delete([schedule_id], ignore_unknown_ids=True)
+            client.transformations.delete([transformation_id], ignore_unknown_ids=True)
 
     def test_transformation_external_data_source_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
@@ -2215,9 +2688,9 @@ class TestCDFResourceAPI:
 
         try:
             # Create external data source
-            create_endpoint = client.tool.transformations.external_data_sources._method_endpoint_map["create"]
+            create_endpoint = client.transformations.external_data_sources._method_endpoint_map["create"]
             try:
-                created = client.tool.transformations.external_data_sources.create([data_source_request])
+                created = client.transformations.external_data_sources.create([data_source_request])
             except ToolkitAPIError as e:
                 if e.code != 500:
                     raise EndpointAssertionError(
@@ -2234,9 +2707,9 @@ class TestCDFResourceAPI:
                     create_endpoint.path, "Created external data source ID does not match requested ID."
                 )
             # List external data sources
-            list_endpoint = client.tool.transformations.external_data_sources._method_endpoint_map["list"]
+            list_endpoint = client.transformations.external_data_sources._method_endpoint_map["list"]
             try:
-                listed = list(client.tool.transformations.external_data_sources.list(limit=1))
+                listed = list(client.transformations.external_data_sources.list(limit=1))
             except ToolkitAPIError:
                 raise EndpointAssertionError(list_endpoint.path, "Listing external data sources failed.")
             if len(listed) == 0:
@@ -2245,7 +2718,7 @@ class TestCDFResourceAPI:
                 )
         finally:
             # Clean up
-            client.tool.transformations.external_data_sources.delete([data_source_id], ignore_unknown_ids=True)
+            client.transformations.external_data_sources.delete([data_source_id], ignore_unknown_ids=True)
 
     def test_datapoints_subscription_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
@@ -2254,13 +2727,13 @@ class TestCDFResourceAPI:
         subscription_request = DatapointSubscriptionRequest.model_validate(subscription_example)
         subscription_id = subscription_request.as_id()
 
-        client.tool.datapoint_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
+        client.datapoint_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
 
         try:
-            endpoint_map = client.tool.datapoint_subscriptions._method_endpoint_map
+            endpoint_map = client.datapoint_subscriptions._method_endpoint_map
             # Create datapoints subscription
             self.assert_endpoint_method(
-                lambda: client.tool.datapoint_subscriptions.create([subscription_request]),
+                lambda: client.datapoint_subscriptions.create([subscription_request]),
                 "create",
                 endpoint_map["create"],
                 subscription_id,
@@ -2268,7 +2741,7 @@ class TestCDFResourceAPI:
 
             # Retrieve datapoints subscription
             self.assert_endpoint_method(
-                lambda: client.tool.datapoint_subscriptions.retrieve([subscription_id]),
+                lambda: client.datapoint_subscriptions.retrieve([subscription_id]),
                 "retrieve",
                 endpoint_map["retrieve"],
                 subscription_id,
@@ -2276,29 +2749,95 @@ class TestCDFResourceAPI:
 
             # Update datapoints subscription
             self.assert_endpoint_method(
-                lambda: client.tool.datapoint_subscriptions.update([subscription_request.as_update()]),
+                lambda: client.datapoint_subscriptions.update([subscription_request.as_update()]),
                 "update",
                 endpoint_map["update"],
                 subscription_id,
             )
             # List members
             try:
-                _ = client.tool.datapoint_subscriptions.list_members(subscription_request.external_id, limit=None)
+                _ = client.datapoint_subscriptions.list_members(subscription_request.external_id, limit=None)
             except ToolkitAPIError:
                 raise EndpointAssertionError(
-                    client.tool.datapoint_subscriptions._list_members.path,
+                    client.datapoint_subscriptions._list_members.path,
                     "Listing datapoints subscription members failed.",
                 )
 
             # List datapoints subscriptions
-            listed_subscriptions = list(client.tool.datapoint_subscriptions.list(limit=1))
+            listed_subscriptions = list(client.datapoint_subscriptions.list(limit=1))
             if len(listed_subscriptions) == 0:
                 raise EndpointAssertionError(
                     endpoint_map["list"].path, "Expected at least 1 listed datapoints subscription, got 0"
                 )
         finally:
             # Clean up
-            client.tool.datapoint_subscriptions.delete([subscription_id])
+            client.datapoint_subscriptions.delete([subscription_id])
+
+    def test_session_create_retrieve_list_revoke(self, toolkit_client: ToolkitClient) -> None:
+        sessions = toolkit_client.sessions
+        endpoints = sessions._method_endpoint_map
+        session_id: InternalId | None = None
+        revoked = False
+        try:
+            try:
+                created = sessions.create([OneshotTokenExchangeSessionRequest()])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(
+                    endpoints["create"].path, f"Creating one-shot session failed: {e!s}"
+                ) from e
+            if len(created) != 1:
+                raise EndpointAssertionError(
+                    endpoints["create"].path, f"Expected 1 created session, got {len(created)}"
+                )
+            created_session = created[0]
+            if created_session.type != "ONESHOT_TOKEN_EXCHANGE" or not created_session.nonce:
+                raise EndpointAssertionError(
+                    endpoints["create"].path,
+                    "Created session is missing one-shot type or nonce.",
+                )
+            session_id = created_session.as_id()
+
+            try:
+                retrieved = sessions.retrieve([session_id])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(
+                    endpoints["retrieve"].path, f"Retrieving session {session_id.id} failed: {e!s}"
+                ) from e
+            if len(retrieved) != 1 or retrieved[0].id != session_id.id:
+                raise EndpointAssertionError(
+                    endpoints["retrieve"].path,
+                    f"Expected to retrieve session {session_id.id}, got {len(retrieved)}",
+                )
+            if retrieved[0].type != "ONESHOT_TOKEN_EXCHANGE":
+                raise EndpointAssertionError(
+                    endpoints["retrieve"].path,
+                    f"Expected one-shot session, got {retrieved[0].type}",
+                )
+
+            try:
+                listed = sessions.list(limit=1000)
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(endpoints["list"].path, f"Listing sessions failed: {e!s}") from e
+            if not listed:
+                raise EndpointAssertionError(
+                    endpoints["list"].path, f"Created session {session_id.id} was not returned by list"
+                )
+
+            try:
+                revoked_sessions = sessions.revoke([session_id])
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(
+                    endpoints["delete"].path, f"Revoking session {session_id.id} failed: {e!s}"
+                ) from e
+            revoked = True
+            if len(revoked_sessions) != 1 or revoked_sessions[0].id != session_id.id:
+                raise EndpointAssertionError(
+                    endpoints["delete"].path,
+                    f"Expected to revoke session {session_id.id}, got {len(revoked_sessions)}",
+                )
+        finally:
+            if session_id is not None and not revoked:
+                sessions.revoke([session_id])
 
     def test_principals_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
@@ -2386,9 +2925,46 @@ class TestCDFResourceAPI:
             ) from None
         # We only care about a 200 response, not whether we got a hit.
 
+    def test_statistics(self, toolkit_client: ToolkitClient) -> None:
+        """Smoke-test project and space statistics endpoints (read-only)."""
+        client = toolkit_client
+        project_endpoint = client.statistics._method_endpoint_map["retrieve"]
+        try:
+            _ = client.statistics.retrieve()
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(project_endpoint.path, f"Retrieving project statistics failed: {e!s}") from e
+
+        spaces = client.statistics.spaces
+        list_endpoint = spaces._method_endpoint_map["list"]
+        listed_space = None
+        start_time = time.monotonic()
+        while listed_space is None and (time.monotonic() - start_time) < 30.0:
+            try:
+                listed = spaces.list()
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(list_endpoint.path, f"Listing space statistics failed: {e!s}") from e
+            listed_space = next((item for item in listed if item.space == SMOKE_SPACE), None)
+            if listed_space is None:
+                time.sleep(1.0)
+        if listed_space is None:
+            raise EndpointAssertionError(list_endpoint.path, f"Expected space {SMOKE_SPACE} in listed statistics.")
+
+        retrieve_endpoint = spaces._method_endpoint_map["retrieve"]
+        try:
+            retrieved = spaces.retrieve([SpaceId(space=SMOKE_SPACE)])
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                retrieve_endpoint.path, f"Retrieving statistics for space {SMOKE_SPACE} failed: {e!s}"
+            ) from e
+        if len(retrieved) != 1 or retrieved[0].space != SMOKE_SPACE:
+            raise EndpointAssertionError(
+                retrieve_endpoint.path,
+                f"Expected statistics for space {SMOKE_SPACE}, got {[item.space for item in retrieved]}.",
+            )
+
     def test_documents_list_search_aggregate(self, toolkit_client: ToolkitClient) -> None:
         """Smoke-test Documents API list, search, and aggregate helpers (read-only)."""
-        client = toolkit_client.tool
+        client = toolkit_client
         documents = client.documents
         endpoints = documents._method_endpoint_map
         list_endpoint = endpoints["list"]
@@ -2427,18 +3003,50 @@ class TestCDFResourceAPI:
                 "The documents cardinality has been fixed. It now returns the cardinality and not the total.",
             )
 
+    def test_classic_resource_aggregates(self, toolkit_client: ToolkitClient) -> None:
+        """Smoke-test asset, event, time series, file, and sequence aggregate endpoints (read-only)."""
+        client = toolkit_client
+        checks: list[tuple[str, Callable[[], object]]] = [
+            ("/assets/aggregate", lambda: client.assets.count()),
+            ("/assets/aggregate", lambda: client.assets.cardinality(("name",))),
+            ("/assets/aggregate", lambda: client.assets.cardinality(("metadata",))),
+            ("/assets/aggregate", lambda: client.assets.unique(("name",))),
+            ("/assets/aggregate", lambda: client.assets.unique(("metadata",))),
+            ("/events/aggregate", lambda: client.events.count()),
+            ("/events/aggregate", lambda: client.events.cardinality(("source",))),
+            ("/events/aggregate", lambda: client.events.cardinality(("metadata",))),
+            ("/events/aggregate", lambda: client.events.unique(("source",))),
+            ("/events/aggregate", lambda: client.events.unique(("metadata",))),
+            ("/timeseries/aggregate", lambda: client.timeseries.count()),
+            ("/timeseries/aggregate", lambda: client.timeseries.cardinality(("unit",))),
+            ("/timeseries/aggregate", lambda: client.timeseries.cardinality(("metadata",))),
+            ("/timeseries/aggregate", lambda: client.timeseries.unique(("unit",))),
+            ("/timeseries/aggregate", lambda: client.timeseries.unique(("metadata",))),
+            ("/files/aggregate", lambda: client.filemetadata.count()),
+            ("/sequences/aggregate", lambda: client.sequences.count()),
+            ("/sequences/aggregate", lambda: client.sequences.cardinality(("name",))),
+            ("/sequences/aggregate", lambda: client.sequences.cardinality(("metadata",))),
+            ("/sequences/aggregate", lambda: client.sequences.unique(("name",))),
+            ("/sequences/aggregate", lambda: client.sequences.unique(("metadata",))),
+        ]
+        for path, call in checks:
+            try:
+                _ = call()
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(path, f"Aggregate call failed: {e!s}") from e
+
     @pytest.mark.parametrize(
         "property_",
         [pytest.param(option, id=str(option)) for option in DOCUMENT_PROPERTY_OPTIONS],
     )
     def test_document_cardinality_properties(
-        self, property_: tuple[DocumentPropertyPath, ...], toolkit_client: ToolkitClient
+        self, property_: DocumentPropertyPath, toolkit_client: ToolkitClient
     ) -> None:
         """Every DocumentPropertyPath variant is accepted by documents.cardinality (read-only aggregate)."""
-        documents = toolkit_client.tool.documents
+        documents = toolkit_client.documents
         aggregate_path = documents._method_endpoint_map["aggregate"].path
         try:
-            _ = documents.cardinality(property_)  # type:ignore[arg-type]
+            _ = documents.cardinality(property_)
         except ToolkitAPIError as e:
             raise EndpointAssertionError(
                 aggregate_path,
@@ -2455,41 +3063,41 @@ class TestCDFResourceAPI:
         try:
             # Create annotation
             annotation_id = self.assert_endpoint_method(
-                lambda: client.tool.annotations.create([annotation_request]),
+                lambda: client.annotations.create([annotation_request]),
                 "create",
-                client.tool.annotations._method_endpoint_map["create"],
+                client.annotations._method_endpoint_map["create"],
             )
             if not isinstance(annotation_id, InternalId):
                 raise EndpointAssertionError(
-                    client.tool.annotations._method_endpoint_map["create"].path,
+                    client.annotations._method_endpoint_map["create"].path,
                     "Expected created annotation ID to be of type InternalId.",
                 )
             annotation_request.id = annotation_id.id
 
             # Retrieve annotation
-            retrieve_endpoint = client.tool.annotations._method_endpoint_map["retrieve"]
+            retrieve_endpoint = client.annotations._method_endpoint_map["retrieve"]
             self.assert_endpoint_method(
-                lambda: client.tool.annotations.retrieve([annotation_id]),
+                lambda: client.annotations.retrieve([annotation_id]),
                 "retrieve",
                 retrieve_endpoint,
                 annotation_id,
             )
 
             # List annotations
-            list_endpoint = client.tool.annotations._method_endpoint_map["list"]
+            list_endpoint = client.annotations._method_endpoint_map["list"]
             filter = AnnotationFilter(
                 annotated_resource_type="file",
                 annotated_resource_ids=[InternalId(id=function_code.id)],
             )
             try:
-                listed_annotations = list(client.tool.annotations.list(filter=filter, limit=1))
+                listed_annotations = list(client.annotations.list(filter=filter, limit=1))
             except ToolkitAPIError:
                 raise EndpointAssertionError(list_endpoint.path, "Listing annotations failed.")
             if len(listed_annotations) == 0:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed annotation, got 0")
         finally:
             # Clean up
-            client.tool.annotations.delete([annotation_request.as_id()])
+            client.annotations.delete([annotation_request.as_id()])
 
     # TODO: Reinstate when signal subscription delete API bug is fixed (ignoreUnknownIds returns 404).
     @pytest.mark.skip(reason="Signal subscription delete ignores ignoreUnknownIds (CDF bug, reported)")
@@ -2511,25 +3119,25 @@ class TestCDFResourceAPI:
         try:
             # Clean up stale resources from previous runs
             # TODO: Remove when signal subscription delete API bug is fixed (ignoreUnknownIds returns 404).
-            client.tool.signal_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
-            client.tool.signal_sinks.delete([sink_id], ignore_unknown_ids=True)
+            client.signal_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
+            client.signal_sinks.delete([sink_id], ignore_unknown_ids=True)
 
             # Create workflow (subscription filter references it)
-            client.tool.workflows.create([workflow_request])
+            client.workflows.create([workflow_request])
 
             # Create sink (subscription depends on it)
-            sink_endpoints = client.tool.signal_sinks._method_endpoint_map
+            sink_endpoints = client.signal_sinks._method_endpoint_map
             self.assert_endpoint_method(
-                lambda: client.tool.signal_sinks.create([sink_request]),
+                lambda: client.signal_sinks.create([sink_request]),
                 "create",
                 sink_endpoints["create"],
                 sink_id,
             )
 
             # Create subscription
-            sub_endpoints = client.tool.signal_subscriptions._method_endpoint_map
+            sub_endpoints = client.signal_subscriptions._method_endpoint_map
             self.assert_endpoint_method(
-                lambda: client.tool.signal_subscriptions.create([subscription_request]),
+                lambda: client.signal_subscriptions.create([subscription_request]),
                 "create",
                 sub_endpoints["create"],
                 subscription_id,
@@ -2537,7 +3145,7 @@ class TestCDFResourceAPI:
 
             # Update subscription
             self.assert_endpoint_method(
-                lambda: client.tool.signal_subscriptions.update([subscription_request]),
+                lambda: client.signal_subscriptions.update([subscription_request]),
                 "update",
                 sub_endpoints["update"],
                 subscription_id,
@@ -2545,13 +3153,13 @@ class TestCDFResourceAPI:
 
             # List subscriptions
             list_endpoint = sub_endpoints["list"]
-            listed = client.tool.signal_subscriptions.list(limit=1)
+            listed = client.signal_subscriptions.list(limit=1)
             if len(listed) == 0:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed subscription, got 0")
         finally:
-            client.tool.signal_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
-            client.tool.signal_sinks.delete([sink_id], ignore_unknown_ids=True)
-            client.tool.workflows.delete([workflow_id])
+            client.signal_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
+            client.signal_sinks.delete([sink_id], ignore_unknown_ids=True)
+            client.workflows.delete([workflow_id])
 
     def test_chart_monitoring_job(
         self,
@@ -2571,7 +3179,7 @@ class TestCDFResourceAPI:
             channel_id=channels[0].id,
             model=ChartMonitoringJobModel(timeseries_external_id=smoke_timeseries.external_id, lower_threshold=1.0),
             source_id=smoke_chart.external_id,
-            nonce=client.iam.sessions.create().nonce,
+            nonce=client.sessions.create_one_shot_token_exchange_session().nonce,
         )
         job_id = request.as_id()
         try:
@@ -2595,7 +3203,10 @@ class TestCDFResourceAPI:
             )
 
             upsert_request = request.model_copy(
-                update={"name": "upsert_name", "nonce": client.iam.sessions.create().nonce}
+                update={
+                    "name": "upsert_name",
+                    "nonce": client.sessions.create_one_shot_token_exchange_session().nonce,
+                }
             )
             try:
                 upserted = client.charts.monitoring_jobs.upsert([upsert_request])
@@ -2653,9 +3264,9 @@ class TestCDFResourceAPI:
             is_step=True,
         )
         output_ts_id = output_ts_request.as_id()
-        retrieved_output = client.tool.timeseries.retrieve([output_ts_id], ignore_unknown_ids=True)
+        retrieved_output = client.timeseries.retrieve([output_ts_id], ignore_unknown_ids=True)
         if len(retrieved_output) == 0:
-            client.tool.timeseries.create([output_ts_request])
+            client.timeseries.create([output_ts_request])
 
         period_ms = 5 * MINUTE_MS
         graph = CalculationGraph(
@@ -2664,7 +3275,7 @@ class TestCDFResourceAPI:
                 CalculationStep(
                     op="PASSTHROUGH",
                     version=1.0,
-                    inputs=[CalculationInput(type="ts", value=source_ts_external_id)],
+                    inputs=[CalculationInput(type="ts", value=source_ts_external_id, param="series")],
                     raw=True,
                     step=0,
                 )
@@ -2677,7 +3288,7 @@ class TestCDFResourceAPI:
             window_size=period_ms,
             target_timeseries_external_id=output_ts_request.external_id,
             graph=graph,
-            nonce=client.iam.sessions.create().nonce,
+            nonce=client.sessions.create_one_shot_token_exchange_session().nonce,
         )
         calc_id = request.as_id()
         try:
@@ -2736,7 +3347,7 @@ class TestCDFResourceAPI:
     def test_upload_large_file(
         self, toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse, tmp_path: Path
     ) -> None:
-        api = toolkit_client.tool.filemetadata
+        api = toolkit_client.filemetadata
 
         # Create a 10 MB file (each part must be at least 5MB for multipart upload)
         content_to_repeat = b"This is a smoke test"

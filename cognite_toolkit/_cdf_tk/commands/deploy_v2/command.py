@@ -4,7 +4,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence, Set
 from copy import deepcopy
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, Generic, Literal, TypeAlias, cast
@@ -15,6 +15,8 @@ from rich.console import Console, Group, RenderableType
 from rich.markup import escape
 from rich.padding import Padding
 from rich.progress import Progress
+from rich.table import Table
+from rich.text import Text
 from yaml import YAMLError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -25,7 +27,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     T_ResponseResource,
 )
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, RawTableId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, InternalId, RawTableId, SpaceId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, DataSetsAcl, DataSetScope, IDScope
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._utils import (
     confirm_by_typing_project_name,
@@ -34,11 +37,11 @@ from cognite_toolkit._cdf_tk.commands._utils import (
     validate_soft_delete_capacity,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ResourceType
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList
-from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
+from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
-from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable
+from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable, Selector
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ResourceDeleteError,
@@ -53,16 +56,16 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitWrongResourceError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
-    RESOURCE_CRUD_BY_FOLDER_NAME,
-    ContainerCRUD,
-    EdgeCRUD,
-    NodeCRUD,
-    RawTableCRUD,
+    RESOURCE_IO_BY_FOLDER_NAME,
+    ContainerIO,
+    EdgeIO,
+    NodeIO,
+    RawTableIO,
     ResourceContainerIO,
     ResourceIO,
-    SpaceCRUD,
+    ResourceType,
+    SpaceIO,
     ViewIO,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -123,7 +126,7 @@ class ReadBuildDirectory:
         for resource_dir in self.resource_directories:
             for invalid_file in resource_dir.invalid_files:
                 yield LowSeverityWarning(
-                    f"File {invalid_file.name!r} in {resource_dir.directory.name!r} does not match any known resource kind, skipping."
+                    f"File {invalid_file.name!r} in {resource_dir.directory.name!r} does not match any known resource type, skipping."
                 )
 
     def skipped_cruds(self) -> set[type[ResourceIO]]:
@@ -207,7 +210,12 @@ class DeploymentResult:
     unchanged_count: int
     is_missing_write_acl: bool
     is_missing_read_acl: bool = False
+    is_write_acl_unknown: bool = False
     skipped: list[Skipped] = field(default_factory=list)
+    created_ids: list[Identifier] = field(default_factory=list)
+    updated_ids: list[Identifier] = field(default_factory=list)
+    deleted_ids: list[Identifier] = field(default_factory=list)
+    unchanged_ids: list[Identifier] = field(default_factory=list)
 
     @property
     def skipped_count(self) -> int:
@@ -224,7 +232,12 @@ class DeploymentResult:
         self.unchanged_count += other.unchanged_count
         self.is_missing_write_acl = self.is_missing_write_acl or other.is_missing_write_acl
         self.is_missing_read_acl = self.is_missing_read_acl or other.is_missing_read_acl
+        self.is_write_acl_unknown = self.is_write_acl_unknown or other.is_write_acl_unknown
         self.skipped.extend(other.skipped)
+        self.created_ids.extend(other.created_ids)
+        self.updated_ids.extend(other.updated_ids)
+        self.deleted_ids.extend(other.deleted_ids)
+        self.unchanged_ids.extend(other.unchanged_ids)
         return self
 
 
@@ -245,8 +258,9 @@ class DeployV2Command(ToolkitCommand):
         build_dir = self.read_build_directory(user_build_dir, options.include, build_lineage)
 
         if client is None:
-            # We check above that if client is None, then env_vars is not None, so this is safe.
-            client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)  # type: ignore[union-attr]
+            if env_vars is None:
+                raise ToolkitValueError("Either env_vars or client must be provided.")
+            client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
         self._validate_cdf_project(build_dir, options.operation, options.cdf_project, client.config.project)
         plan = self._display_setup(options.operation, build_dir, client.config.project, client.console, options.verbose)
@@ -283,7 +297,7 @@ class DeployV2Command(ToolkitCommand):
 
             self._display_deprecation_warning(raw_files, client.console)
             UploadCommand.upload_data(
-                raw_files,  # type: ignore[arg-type]
+                cast(Mapping[Selector, list[Path]], raw_files),
                 user_build_dir,
                 client,
                 options.dry_run,
@@ -307,7 +321,7 @@ class DeployV2Command(ToolkitCommand):
         """Read insights.csv/json from the build directory and map them to resources via lineage.
 
         Returns None if lineage or the insights file is missing, or if the file cannot be read.
-        Insights are matched to resources by comparing the relative source_files stored in the
+        Insights are matched to resources by comparing the relative source_file stored in the
         insights file with each resource's source path in the lineage.
         """
         if build_lineage is None:
@@ -331,10 +345,8 @@ class DeployV2Command(ToolkitCommand):
 
         insights_by_resource: InsightsByResource = defaultdict(list)
         for insight in insights:
-            for source_file in insight.source_files:
-                if source_file in resources_by_source_path:
-                    for resource_type, identifier in resources_by_source_path[source_file]:
-                        insights_by_resource[(resource_type, identifier)].append(insight)
+            for resource_type, identifier in resources_by_source_path.get(insight.source_file, []):
+                insights_by_resource[(resource_type, identifier)].append(insight)
         return dict(insights_by_resource) or None
 
     @classmethod
@@ -353,7 +365,7 @@ class DeployV2Command(ToolkitCommand):
         """
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(f"Build directory {build_dir!s} does not exist.")
-        available_resource_types = set(RESOURCE_CRUD_BY_FOLDER_NAME.keys())
+        available_resource_types = set(RESOURCE_IO_BY_FOLDER_NAME.keys())
         if include and (invalid := set(include) - available_resource_types):
             raise ToolkitValidationError(
                 f"Invalid resource types specified: {humanize_collection(invalid)}, available types: {humanize_collection(available_resource_types)}"
@@ -371,11 +383,11 @@ class DeployV2Command(ToolkitCommand):
         for resource_dir in build_dir.iterdir():
             if not resource_dir.is_dir():
                 continue
-            if resource_dir.name not in RESOURCE_CRUD_BY_FOLDER_NAME:
+            if resource_dir.name not in RESOURCE_IO_BY_FOLDER_NAME:
                 invalid_resource_dirs.append(resource_dir)
                 continue
             resources = ResourceDirectory(resource_dir)
-            cruds = RESOURCE_CRUD_BY_FOLDER_NAME[resource_dir.name]
+            cruds = RESOURCE_IO_BY_FOLDER_NAME[resource_dir.name]
             for yaml_file in resource_dir.glob("*.yaml"):
                 matched = False
                 stem = yaml_file.stem.casefold()
@@ -641,18 +653,19 @@ class DeployV2Command(ToolkitCommand):
         """
         total = 0
         for step in plan:
-            if step.crud_cls not in (SpaceCRUD, NodeCRUD, EdgeCRUD):
+            if step.crud_cls not in (SpaceIO, NodeIO, EdgeIO):
                 continue
-            crud = cast(ResourceContainerIO[Any, Any, Any, Any], step.crud_cls.create_loader(client))
+            crud = cast(ResourceContainerIO[Any, Any, Any, Any], step.crud_cls.create_io(client))
             resource_by_id = self._read_resource_files(crud, step.files, options)
             if not resource_by_id:
                 continue
             existing = crud.retrieve(list(resource_by_id.keys()))
             if not existing:
                 continue
-            if step.crud_cls is SpaceCRUD:
+            if step.crud_cls is SpaceIO:
                 space_ids = [s.space for s in existing]
-                for space_stats in client.data_modeling.statistics.spaces.retrieve(space_ids) or []:
+                space_statistics = client.statistics.spaces.retrieve([SpaceId(space=space) for space in space_ids])
+                for space_stats in space_statistics:
                     total += space_stats.nodes + space_stats.edges
             else:
                 total += len(existing)
@@ -667,9 +680,9 @@ class DeployV2Command(ToolkitCommand):
         """Raise ToolkitValueError if any container in the plan is referenced by views outside the build directory."""
         container_ids: list[ContainerId] = []
         for step in plan:
-            if step.crud_cls is not ContainerCRUD:
+            if step.crud_cls is not ContainerIO:
                 continue
-            crud = step.crud_cls.create_loader(client)
+            crud = step.crud_cls.create_io(client)
             resource_by_id = self._read_resource_files(crud, step.files, options)
             if not resource_by_id:
                 continue
@@ -681,10 +694,10 @@ class DeployV2Command(ToolkitCommand):
         for step in plan:
             if step.crud_cls is not ViewIO:
                 continue
-            view_crud = step.crud_cls.create_loader(client)
+            view_crud = step.crud_cls.create_io(client)
             view_resource_by_id = self._read_resource_files(view_crud, step.files, options)
             in_scope_view_ids.update(view_resource_by_id.keys())
-        inspect_results = client.tool.containers.inspect(container_ids)
+        inspect_results = client.containers.inspect(container_ids)
         validate_no_out_of_scope_view_references(
             inspect_results,
             list(in_scope_view_ids),
@@ -704,7 +717,7 @@ class DeployV2Command(ToolkitCommand):
         """Show safety gates before any --drop-data deletion. Returns False if the user aborts."""
         instance_count = self._count_dms_instances_in_plan(client, plan, options)
         if instance_count > 0:
-            project_instance_statistics = client.data_modeling.statistics.project().instances
+            project_instance_statistics = client.statistics.retrieve().instances
             validate_soft_delete_capacity(
                 project_instance_statistics.soft_deleted_instances,
                 project_instance_statistics.soft_deleted_instances_limit,
@@ -762,7 +775,7 @@ class DeployV2Command(ToolkitCommand):
             total_files = sum(len(step.files) for step in plan)
             task_id = progress.add_task(f"Starting {options.operation}", total=total_files)
             for step in plan:
-                crud = step.crud_cls.create_loader(client)
+                crud = step.crud_cls.create_io(client)
                 resource_name = crud.display_name
                 progress.update(task_id, description=f"Reading {resource_name}")
 
@@ -783,8 +796,8 @@ class DeployV2Command(ToolkitCommand):
                 resource_count = len(resource_by_id)
                 request_resources = [resource.request for resource in resource_by_id.values()]
 
-                is_missing_read, is_missing_write = cls._validate_access(
-                    crud, request_resources, is_dry_run=options.dry_run
+                is_missing_read, is_missing_write, is_write_acl_unknown = cls._validate_access(
+                    crud, request_resources, client, is_dry_run=options.dry_run
                 )
                 if is_missing_read:
                     progress.update(task_id, description=f"Missing READ access for {resource_name}, skipping")
@@ -798,6 +811,7 @@ class DeployV2Command(ToolkitCommand):
                             unchanged_count=0,
                             is_missing_write_acl=is_missing_write,
                             is_missing_read_acl=is_missing_read,
+                            is_write_acl_unknown=is_write_acl_unknown,
                             skipped=[
                                 Skipped(
                                     id=crud.get_id(resource.request),
@@ -836,7 +850,9 @@ class DeployV2Command(ToolkitCommand):
                 )
 
                 if options.dry_run:
-                    result = cls.deploy_dry_run(crud, resources_to_deploy, is_missing_write, options)
+                    result = cls.deploy_dry_run(
+                        crud, resources_to_deploy, is_missing_write, is_write_acl_unknown, options
+                    )
                     progress.update(task_id, description=f"Would have {options.operation}ed {resource_name} to CDF")
                 else:
                     if resources_to_deploy.to_delete and crud.drop_confirmation_message:
@@ -913,31 +929,81 @@ class DeployV2Command(ToolkitCommand):
         cls,
         crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
         resources: list[T_RequestResource],
+        client: ToolkitClient,
         is_dry_run: bool,
-    ) -> tuple[bool, bool]:
+    ) -> tuple[bool, bool, bool]:
         """Validate that the user has access to the resources they are deploying.
 
         Note if not in dry-run mode, this will raise an error if the user is missing any required ACLs.
 
         Returns:
-            A tuple of two booleans: (is_missing_read_acl, is_missing_write_acl)
+            A tuple of (is_missing_read_acl, is_missing_write_acl, is_write_acl_unknown). The last flag is
+            only set in dry-run when resources reference datasets that are not yet in CDF (``DRY_RUN_ID``),
+            so write-protected dataset ownership cannot be verified.
         """
         minimum_scope = crud.get_minimum_scope(resources)
         if minimum_scope is None:
-            return False, False
+            return False, False, False
+
+        data_set_ids: list[int] | None = None
+        if isinstance(minimum_scope, DataSetScope):
+            data_set_ids = minimum_scope.ids
+        elif isinstance(minimum_scope, AllScope):
+            # If the minimum scope is AllScope, then at least one of the resources are unscoped. But there
+            # can still be resources that are scoped to a dataset, so we check for those and add the ownership ACLs
+            # for those datasets if they are write-protected.
+            data_set_ids = cls._get_data_set_ids(resources)
+
+        dataset_owner: DataSetsAcl | None = None
+        if write_protected_ids := cls._write_protected_datasets(client, data_set_ids or []):
+            dataset_owner = DataSetsAcl(actions=["OWNER"], scope=IDScope(ids=list(write_protected_ids)))
 
         if is_dry_run:
             read_acl = list(crud.create_acl({"READ"}, minimum_scope))
             write_acl = list(crud.create_acl({"WRITE"}, minimum_scope))
-            if not Flags.V09.is_enabled() and (missing_read := crud.client.tool.token.verify_acls(read_acl)):
-                raise crud.client.tool.token.create_error(missing_read, action=f"deploy {crud.display_name}")
-            return bool(crud.client.tool.token.verify_acls(read_acl)), bool(
-                crud.client.tool.token.verify_acls(write_acl)
+            if dataset_owner:
+                write_acl.append(dataset_owner)
+            is_write_acl_unknown = cls._resources_have_unresolved_data_set(resources)
+            return (
+                bool(crud.client.token.verify_acls(read_acl)),
+                bool(crud.client.token.verify_acls(write_acl)),
+                is_write_acl_unknown,
             )
-        # Is not dry run
-        elif missing := crud.client.tool.token.verify_acls(list(crud.create_acl({"READ", "WRITE"}, minimum_scope))):
-            raise crud.client.tool.token.create_error(missing, action=f"deploy {crud.display_name}")
-        return False, False
+        else:
+            # Is not dry run
+            read_write_acls = list(crud.create_acl({"READ", "WRITE"}, minimum_scope))
+            if dataset_owner:
+                read_write_acls.append(dataset_owner)
+            if missing := crud.client.token.verify_acls(read_write_acls):
+                raise crud.client.token.create_error(missing, action=f"deploy {crud.display_name}")
+            return False, False, False
+
+    @staticmethod
+    def _resources_have_unresolved_data_set(resources: list[T_RequestResource]) -> bool:
+        return any(hasattr(resource, "data_set_id") and resource.data_set_id == DRY_RUN_ID for resource in resources)
+
+    @classmethod
+    def _get_data_set_ids(cls, resources: list[T_RequestResource]) -> list[int]:
+        """Return the list of dataset ids that are referenced by the given resources."""
+        data_set_ids: set[int] = set()
+        for resource in resources:
+            data_set_id = getattr(resource, "data_set_id", None)
+            if isinstance(data_set_id, int) and data_set_id != DRY_RUN_ID:
+                data_set_ids.add(data_set_id)
+        return list(data_set_ids)
+
+    @classmethod
+    def _write_protected_datasets(cls, client: ToolkitClient, ids: list[int]) -> set[int]:
+        """Return the set of dataset ids that are write-protected for the given client."""
+        known_ids = [id_ for id_ in ids if id_ != DRY_RUN_ID]
+        if not known_ids:
+            return set()
+        # We use cache_response=True to avoid making multiple requests for the same dataset ids as this is in a hot-loop.
+        return {
+            dataset.id
+            for dataset in client.datasets.retrieve([InternalId(id=id_) for id_ in known_ids], cache_response=True)
+            if dataset.write_protected is True
+        }
 
     @classmethod
     def categorize_resources(
@@ -974,7 +1040,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code="NOT-EXISTING",
+                            code="NONEXISTENT-RESOURCE",
                             source_file=resource.source_files[0],
                             reason=f"Will not delete {identifier!s} does not exist in CDF",
                         )
@@ -984,7 +1050,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code="HAS-DATA",
+                            code="NONEMPTY-RESOURCE",
                             source_file=resource.source_files[0],
                             reason=f"{identifier!s} has data and --drop-data flag is not set, skipping deletion to avoid data loss",
                         )
@@ -994,7 +1060,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code="DELETE-NOT-SUPPORTED",
+                            code="UNSUPPORTED-RESOURCE-DELETION",
                             source_file=resource.source_files[0],
                             reason=f"{crud.display_name.capitalize()!s} does not support deletion, skipping",
                         )
@@ -1015,7 +1081,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code="HAS-DATA",
+                            code="NONEMPTY-RESOURCE",
                             source_file=resource.source_files[0],
                             reason=(f"{identifier!s} contains data and does not support updates."),
                         )
@@ -1044,31 +1110,43 @@ class DeployV2Command(ToolkitCommand):
         crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
         is_missing_write_acl: bool,
+        is_write_acl_unknown: bool,
         options: DeployOptions,
     ) -> DeploymentResult:
-        created = len(resources.to_create)
-        updated = len(resources.to_update)
-        deleted = len(resources.to_delete)
-        unchanged = len(resources.unchanged)
+        created_ids, updated_ids, deleted_ids, unchanged_ids = cls._collect_resource_ids(crud, resources)
 
         is_container = isinstance(crud, ResourceContainerIO)
         if options.drop and crud.support_drop and (not is_container or options.drop_data):
             # If drop/drop_data arguments are passed, then we will delete and recreate resources.
-            created += unchanged + updated
-            deleted += unchanged + updated
-            unchanged = 0
-            updated = 0
+            recreated = [*unchanged_ids, *updated_ids]
+            created_ids = [*created_ids, *recreated]
+            deleted_ids = [*deleted_ids, *recreated]
+            updated_ids = []
+            unchanged_ids = []
 
         return DeploymentResult(
             resource_name=crud.display_name,
             is_dry_run=True,
-            created_count=created,
-            updated_count=updated,
-            deleted_count=deleted,
-            unchanged_count=unchanged,
+            created_count=len(created_ids),
+            updated_count=len(updated_ids),
+            deleted_count=len(deleted_ids),
+            unchanged_count=len(unchanged_ids),
             skipped=resources.skipped,
             is_missing_write_acl=is_missing_write_acl,
+            is_write_acl_unknown=is_write_acl_unknown,
+            created_ids=created_ids,
+            updated_ids=updated_ids,
+            deleted_ids=deleted_ids,
+            unchanged_ids=unchanged_ids,
         )
+
+    @staticmethod
+    def _format_able_to_deploy(result: DeploymentResult) -> str:
+        if result.is_missing_write_acl:
+            return "[red]No[/]"
+        if result.is_write_acl_unknown:
+            return "[yellow]Unknown[/]"
+        return "[green]Yes[/]"
 
     @classmethod
     def deploy_resources(
@@ -1079,7 +1157,8 @@ class DeployV2Command(ToolkitCommand):
         deploy_dir: Path | None = None,
         insights_by_resource: InsightsByResource | None = None,
     ) -> DeploymentResult:
-        deleted, created, updated = 0, 0, 0
+        deleted: Sequence[T_Identifier] = []
+        created, updated = 0, 0
         action: Literal["create", "delete", "update", "upsert"] | None = None
         try:
             if resources.to_delete:
@@ -1093,7 +1172,7 @@ class DeployV2Command(ToolkitCommand):
                 to_create_ids = {crud.get_id(item) for item in resources.to_create}  # type: ignore[arg-type]
                 to_upsert = [*resources.to_create, *resources.to_update]
                 upserted = crud.create(to_upsert)  # type: ignore[arg-type]
-                created = sum(1 for view in upserted if crud.get_id(view) in to_create_ids)
+                created = sum(1 for item in upserted if crud.get_id(item) in to_create_ids)  # type: ignore[arg-type]
                 updated = len(upserted) - created
             else:
                 if resources.to_create:
@@ -1107,16 +1186,37 @@ class DeployV2Command(ToolkitCommand):
         except ValidationError as error:
             cls._handle_validation_error(error, action, crud, resources.to_create + resources.to_update, deploy_dir)
 
+        created_ids, updated_ids, deleted_ids, unchanged_ids = cls._collect_resource_ids(crud, resources)
         return DeploymentResult(
             resource_name=crud.display_name,
             is_dry_run=False,
             created_count=created,
             updated_count=updated,
-            deleted_count=deleted,
-            unchanged_count=len(resources.unchanged),
+            deleted_count=len(deleted),
+            unchanged_count=len(unchanged_ids),
             skipped=resources.skipped,
             is_missing_write_acl=False,
+            created_ids=created_ids,
+            updated_ids=updated_ids,
+            deleted_ids=deleted_ids,
+            unchanged_ids=unchanged_ids,
         )
+
+    @classmethod
+    def _collect_resource_ids(
+        cls,
+        crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
+        resources: ResourceToDeploy[T_Identifier, T_RequestResource],
+    ) -> tuple[list[Identifier], list[Identifier], list[Identifier], list[Identifier]]:
+        created_ids: list[Identifier] = []
+        created_ids.extend(crud.get_id(resource) for resource in resources.to_create)
+        updated_ids: list[Identifier] = []
+        updated_ids.extend(crud.get_id(resource) for resource in resources.to_update)
+        deleted_ids: list[Identifier] = []
+        deleted_ids.extend(resources.to_delete)
+        unchanged_ids: list[Identifier] = []
+        unchanged_ids.extend(resources.unchanged)
+        return created_ids, updated_ids, deleted_ids, unchanged_ids
 
     @classmethod
     def _handle_deploy_error(
@@ -1137,7 +1237,7 @@ class DeployV2Command(ToolkitCommand):
         suffix = ""
         if deploy_dir:
             deploy_dir.mkdir(parents=True, exist_ok=True)
-            filepath = deploy_dir / f"{sanitize_filename(datetime.now(timezone.utc).isoformat())}.json"
+            filepath = deploy_dir / f"{sanitize_filename(datetime.now(UTC).isoformat())}.json"
             suffix = (
                 f"\nThe request body and response has been written to {filepath.as_posix()} for debugging purposes."
             )
@@ -1194,7 +1294,7 @@ class DeployV2Command(ToolkitCommand):
             lines: list[RenderableType] = [
                 f"[bold]{escape(insight.message)}[/]",
                 f"[dim]Code:[/] {escape(insight.code)}",
-                f"[dim]Source:[/] {escape(insight.display_source_files_cwd)}",
+                f"[dim]Source:[/] {escape(insight.display_source_file_cwd)}",
             ]
             if insight.fix:
                 lines.append(
@@ -1245,7 +1345,7 @@ class DeployV2Command(ToolkitCommand):
         suffix = ""
         if deploy_dir:
             deploy_dir.mkdir(parents=True, exist_ok=True)
-            filepath = deploy_dir / f"{sanitize_filename(datetime.now(timezone.utc).isoformat())}.json"
+            filepath = deploy_dir / f"{sanitize_filename(datetime.now(UTC).isoformat())}.json"
             suffix = f"\nThe error details has been written to {filepath.as_posix()} for debugging purposes."
             json_str = json.dumps(list(error.errors()), indent=2, sort_keys=False)
             for resource in resources:
@@ -1355,7 +1455,7 @@ class DeployV2Command(ToolkitCommand):
                 str(result.total_count),
             ]
             if is_dry_run:
-                row.append("[red]No[/]" if result.is_missing_write_acl else "[green]Yes[/]")
+                row.append(cls._format_able_to_deploy(result))
             table.add_row(*row)
             total += result
 
@@ -1371,7 +1471,7 @@ class DeployV2Command(ToolkitCommand):
                 f"[bold]{total.total_count}[/]",
             ]
             if is_dry_run:
-                last_row.append("[red]No[/]" if total.is_missing_write_acl else "[green]Yes[/]")
+                last_row.append(cls._format_able_to_deploy(total))
             table.add_row(*last_row)
 
         sections: list[RenderableType] = [ToolkitPanelSection(content=[table.as_panel_detail()])]
@@ -1383,26 +1483,107 @@ class DeployV2Command(ToolkitCommand):
                     description=(
                         f"{HINT_LEAD_TEXT}A total of {total.skipped_count} resources were skipped during {operation}. "
                         f"The most common reasons were: {', '.join(f'{code} ({count} occurrences)' for code, count in most_common)}. "
-                        f"Use --verbose to see all skipped resources."
+                        "Use --verbose to list each resource and its outcome."
                     )
-                )
-            )
-        elif verbose and total.skipped:
-            sections.append(
-                ToolkitPanelSection(
-                    title="Skipped resources",
-                    content=[
-                        hanging_indent(
-                            "○",
-                            f"[bold]{skip.id}[/] {skip.source_file.as_posix()} [{skip.code}] {skip.reason}",
-                            marker_style="dim",
-                        )
-                        for skip in total.skipped
-                    ],
                 )
             )
 
         console.print(ToolkitPanel(Group(*sections), title=panel_title))
+        if verbose:
+            cls._print_verbose_resources(results, is_dry_run, console)
+
+    # Outcome order puts the long unchanged list last so creates, updates, deletes, and skips stay visible.
+    _VERBOSE_OUTCOMES: tuple[tuple[str, str, str], ...] = (
+        ("created", "green", "+"),
+        ("updated", "yellow", "~"),
+        ("deleted", "red", "-"),
+        ("skipped", "yellow", "!"),
+        ("unchanged", "dim", "·"),
+    )
+
+    @classmethod
+    def _print_verbose_resources(cls, results: Sequence[DeploymentResult], is_dry_run: bool, console: Console) -> None:
+        blocks: list[RenderableType] = []
+        for result in results:
+            section = cls._verbose_resource_section(result, is_dry_run)
+            if section is None:
+                continue
+            if blocks:
+                blocks.append("")
+            blocks.append(section)
+        if not blocks:
+            return
+        title = "Resources"
+        if is_dry_run:
+            title += " [dim](dry run)[/]"
+        console.print(ToolkitPanel(Group(*blocks), title=title, expand=True))
+
+    @classmethod
+    def _verbose_resource_section(cls, result: DeploymentResult, is_dry_run: bool) -> ToolkitPanelSection | None:
+        content = cls._verbose_outcome_rows(result, is_dry_run)
+        if not content:
+            return None
+        style = "red" if result.is_missing_read_acl else "cyan"
+        return ToolkitPanelSection(title=f"[{style}]{escape(result.resource_name)}[/]", content=content)
+
+    @classmethod
+    def _verbose_outcome_rows(cls, result: DeploymentResult, is_dry_run: bool) -> list[RenderableType]:
+        ids_by_status: dict[str, Sequence[Identifier]] = {
+            "created": result.created_ids,
+            "updated": result.updated_ids,
+            "deleted": result.deleted_ids,
+            "unchanged": result.unchanged_ids,
+        }
+        rows: list[RenderableType] = []
+        for status, style, marker in cls._VERBOSE_OUTCOMES:
+            label = cls._verbose_status_label(status, is_dry_run)
+            if status == "skipped":
+                if result.skipped:
+                    rows.append(cls._verbose_status_grid(label, style, marker, len(result.skipped), Text("")))
+                    rows.extend(cls._skipped_rows(result.skipped))
+                continue
+            identifiers = ids_by_status[status]
+            if identifiers:
+                rows.append(cls._verbose_identifier_row(label, style, marker, identifiers))
+        return rows
+
+    @staticmethod
+    def _verbose_status_label(status: str, is_dry_run: bool) -> str:
+        if is_dry_run and status in {"created", "updated", "deleted"}:
+            return f"would {status.removesuffix('d')}"
+        return status
+
+    @classmethod
+    def _verbose_identifier_row(
+        cls, label: str, style: str, marker: str, identifiers: Sequence[Identifier]
+    ) -> RenderableType:
+        text = Text(overflow="fold")
+        for index, identifier in enumerate(sorted(str(identifier) for identifier in identifiers)):
+            if index:
+                text.append(" · ", style="dim")
+            text.append(identifier)
+        return cls._verbose_status_grid(label, style, marker, len(identifiers), text)
+
+    @staticmethod
+    def _verbose_status_grid(label: str, style: str, marker: str, count: int, detail: RenderableType) -> Table:
+        grid = Table.grid(padding=(0, 1), expand=True)
+        grid.add_column(width=15, no_wrap=True, overflow="ellipsis")
+        grid.add_column(width=6, justify="right", style="dim", no_wrap=True)
+        grid.add_column(ratio=1, overflow="fold")
+        grid.add_row(f"[{style}]{marker} {label}[/]", str(count), detail)
+        return grid
+
+    @classmethod
+    def _skipped_rows(cls, skipped: Sequence[Skipped[Identifier]]) -> list[RenderableType]:
+        return [
+            hanging_indent(
+                "!",
+                f"[bold]{escape(str(skip.id))}[/] {escape(skip.source_file.as_posix())} "
+                f"[{escape(skip.code)}] {escape(skip.reason)}",
+                marker_style="yellow",
+            )
+            for skip in sorted(skipped, key=lambda item: (item.code, str(item.id)))
+        ]
 
     @classmethod
     def _track_deployment_result(
@@ -1447,8 +1628,8 @@ class DeployV2Command(ToolkitCommand):
         for module in build_lineage.module_lineage:
             for resource in module.resource_lineage:
                 if (
-                    resource.type.resource_folder == RawTableCRUD.folder_name
-                    and resource.type.kind == RawTableCRUD.kind
+                    resource.type.resource_folder == RawTableIO.folder_name
+                    and resource.type.kind == RawTableIO.kind
                     and isinstance(resource.identifier, RawTableId)
                 ):
                     for file_type in ["csv", "parquet"]:
@@ -1484,13 +1665,13 @@ class DeployV2Command(ToolkitCommand):
                 pass
         elif data_file.suffix == ".parquet":
             try:
+                import pyarrow as pa
                 import pyarrow.parquet as pq
-                from pyarrow.lib import ArrowException
 
                 names = pq.read_schema(data_file).names
                 if names and names[0] == "key":
                     return "key"
-            except (ImportError, OSError, ArrowException):
+            except (ImportError, OSError, pa.ArrowException):
                 pass
         return None
 

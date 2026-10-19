@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.commands import BuildV2Command, ResourcesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.resource_ios import SpaceCRUD
+from cognite_toolkit._cdf_tk.resource_ios import SpaceIO
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 from tests.test_unit.utils import MockQuestionary
 
@@ -43,7 +43,7 @@ def _make_org_module(tmp_path: Path, name: str = "test_module") -> tuple[Path, P
     """
     organization_dir = tmp_path / "my_org"
     module_dir = organization_dir / MODULES / name
-    seed = module_dir / SpaceCRUD.folder_name / f"seed.{SpaceCRUD.kind}.yaml"
+    seed = module_dir / SpaceIO.folder_name / f"seed.{SpaceIO.kind}.yaml"
     seed.parent.mkdir(parents=True, exist_ok=True)
     seed.write_text("space: seed\nname: seed\n")
     return organization_dir, module_dir
@@ -145,8 +145,8 @@ class TestResourcesCreateCommand:
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
         organization_dir, modules_dir = _make_org_module(tmp_path)
 
-        def return_space_crud(*args: object) -> type[SpaceCRUD]:
-            return SpaceCRUD
+        def return_space_crud(*args: object) -> type[SpaceIO]:
+            return SpaceIO
 
         with MockQuestionary(ResourcesCommand.__module__, monkeypatch, [return_space_crud]):
             cmd.create(
@@ -228,10 +228,10 @@ class TestResourcesCreateCommand:
         """Test that interactive selection shows folder_name.kind format."""
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
 
-        def capture_and_select(choices: list[Choice]) -> type[SpaceCRUD]:
+        def capture_and_select(choices: list[Choice]) -> type[SpaceIO]:
             titles = [c.title for c in choices]
             assert all("." in t for t in titles), f"Expected qualified names, got: {titles}"
-            return SpaceCRUD
+            return SpaceIO
 
         organization_dir, _ = _make_org_module(tmp_path)
 
@@ -247,10 +247,10 @@ class TestResourcesCreateCommand:
         """Test that interactive selection contains no duplicate entries."""
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
 
-        def capture_and_select(choices: list[Choice]) -> type[SpaceCRUD]:
+        def capture_and_select(choices: list[Choice]) -> type[SpaceIO]:
             titles = [c.title for c in choices]
             assert len(titles) == len(set(titles)), f"Duplicate choices found: {titles}"
-            return SpaceCRUD
+            return SpaceIO
 
         organization_dir, _ = _make_org_module(tmp_path)
 

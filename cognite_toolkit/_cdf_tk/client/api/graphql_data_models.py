@@ -3,6 +3,7 @@
 This API provides a wrapper around the legacy DML API for managing GraphQL data models.
 """
 
+import builtins
 import json
 from collections.abc import Iterable, Sequence
 from typing import Any
@@ -35,7 +36,7 @@ class DMLError(BaseModel):
 
 
 class UpsertResponseData(BaseModel):
-    errors: list[DMLError] | None = None
+    errors: builtins.list[DMLError] | None = None
     result: GraphQLDataModelResponse | None = None
 
 
@@ -46,13 +47,13 @@ class GraphQLUpsertResponse(BaseModel):
 class GraphQLErrors(BaseModel):
     model_config = ConfigDict(extra="allow")
     message: str | None = None
-    locations: list[dict[str, int]] | None = None
+    locations: builtins.list[dict[str, int]] | None = None
     extensions: dict[str, JsonValue] | None = None
 
 
 class GraphQLResponse(BaseModel):
     data: GraphQLUpsertResponse | None = None
-    errors: list[GraphQLErrors] | None = None
+    errors: builtins.list[GraphQLErrors] | None = None
 
 
 class GraphQLDataModelsAPI(CDFResourceAPI[GraphQLDataModelResponse]):
@@ -102,7 +103,7 @@ class GraphQLDataModelsAPI(CDFResourceAPI[GraphQLDataModelResponse]):
             raise ToolkitAPIError(f"DML validation failed: {humanize_collection(messages)}")
         return parsed.data
 
-    def create(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
+    def create(self, items: Sequence[GraphQLDataModelRequest]) -> builtins.list[GraphQLDataModelResponse]:
         """Apply (create or update) GraphQL data models in CDF.
 
         Args:
@@ -111,7 +112,7 @@ class GraphQLDataModelsAPI(CDFResourceAPI[GraphQLDataModelResponse]):
         Returns:
             List of applied GraphQLDataModelResponse objects.
         """
-        results: list[GraphQLDataModelResponse] = []
+        results: builtins.list[GraphQLDataModelResponse] = []
         for item in items:
             payload = {
                 "query": UPSERT_BODY,
@@ -124,7 +125,9 @@ class GraphQLDataModelsAPI(CDFResourceAPI[GraphQLDataModelResponse]):
             results.append(upsert.result)
         return results
 
-    def retrieve(self, items: Sequence[DataModelId], inline_views: bool = False) -> list[GraphQLDataModelResponse]:
+    def retrieve(
+        self, items: Sequence[DataModelId], inline_views: bool = False
+    ) -> builtins.list[GraphQLDataModelResponse]:
         """Retrieve GraphQL data models from CDF.
 
         Args:
@@ -170,7 +173,7 @@ class GraphQLDataModelsAPI(CDFResourceAPI[GraphQLDataModelResponse]):
         self,
         filter: DataModelFilter | None = None,
         limit: int | None = None,
-    ) -> Iterable[list[GraphQLDataModelResponse]]:
+    ) -> Iterable[builtins.list[GraphQLDataModelResponse]]:
         """Iterate over all GraphQL data models in CDF.
 
         Args:
@@ -189,7 +192,7 @@ class GraphQLDataModelsAPI(CDFResourceAPI[GraphQLDataModelResponse]):
         self,
         filter: DataModelFilter | None = None,
         limit: int | None = None,
-    ) -> list[GraphQLDataModelResponse]:
+    ) -> builtins.list[GraphQLDataModelResponse]:
         """List all GraphQL data models in CDF.
 
         Args:

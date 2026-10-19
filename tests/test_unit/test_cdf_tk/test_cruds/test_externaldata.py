@@ -80,17 +80,17 @@ def _make_response(**kwargs: object) -> ExternalDataSourceResponse:
 class TestExternalDataSourceIO:
     def test_sensitive_strings(self) -> None:
         item = _make_request()
-        loader = ExternalDataSourceIO(MagicMock(), None, None)
+        loader = ExternalDataSourceIO(MagicMock())
         assert list(loader.sensitive_strings(item)) == ["secret"]
 
     def test_dump_resource_without_local_omits_client_secret(self, toolkit_client_cheap: ToolkitClient) -> None:
-        loader = ExternalDataSourceIO.create_loader(toolkit_client_cheap)
+        loader = ExternalDataSourceIO.create_io(toolkit_client_cheap)
         dumped = loader.dump_resource(_make_response())
         credentials = dumped.get("settings", {}).get("credentials", {})
         assert "clientSecret" not in credentials
 
     def test_dump_resource_with_local_returns_identifier(self, toolkit_client_cheap: ToolkitClient) -> None:
-        loader = ExternalDataSourceIO.create_loader(toolkit_client_cheap)
+        loader = ExternalDataSourceIO.create_io(toolkit_client_cheap)
         local = {
             "externalId": "fabric-lakehouse-prod",
             "settings": {
@@ -107,7 +107,7 @@ class TestExternalDataSourceIO:
     def test_prepare_resources_create(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = _YAML
-        loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
+        loader = ExternalDataSourceIO.create_io(toolkit_client_approval.mock_client)
         resource_dict = loader.load_resource_file(local_file, {})
         assert len(resource_dict) == 1
         resource = loader.load_resource(deepcopy(resource_dict[0]))
@@ -127,7 +127,7 @@ class TestExternalDataSourceIO:
 
     def test_prepare_resources_existing_recreates(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
         toolkit_client_approval.append(ExternalDataSourceResponse, _make_response())
-        loader = ExternalDataSourceIO.create_loader(toolkit_client_approval.mock_client)
+        loader = ExternalDataSourceIO.create_io(toolkit_client_approval.mock_client)
         assert to_deploy_status(_YAML, loader) == {"create": 1, "change": 0, "delete": 1, "unchanged": 0}
 
     def test_get_dependencies_dataset(self) -> None:
@@ -169,7 +169,7 @@ class TestExternalDataSourceIO:
         assert ExternalDataSourceIO.dump_id(ExternalId(external_id="fabric-prod")) == {"externalId": "fabric-prod"}
 
     def test_as_str(self) -> None:
-        assert ExternalDataSourceIO.as_str(ExternalId(external_id="fabric/prod")) == "fabric_prod"
+        assert ExternalDataSourceIO.as_filename(ExternalId(external_id="fabric/prod")) == "fabric_prod"
 
     def test_get_minimum_scope(self) -> None:
         scope = ExternalDataSourceIO.get_minimum_scope([_make_request(data_set_id=123)])
@@ -182,7 +182,7 @@ class TestExternalDataSourceIO:
 
     def test_load_resource_with_dataset(self) -> None:
         with monkeypatch_toolkit_client() as client:
-            loader = ExternalDataSourceIO.create_loader(client)
+            loader = ExternalDataSourceIO.create_io(client)
             client.lookup.data_sets.id.return_value = 42
             loaded = loader.load_resource(
                 {
@@ -198,46 +198,48 @@ class TestExternalDataSourceIO:
 
     def test_create_retrieve_delete(self) -> None:
         with monkeypatch_toolkit_client() as client:
-            loader = ExternalDataSourceIO.create_loader(client)
+            loader = ExternalDataSourceIO.create_io(client)
             item = _make_request()
             response = _make_response()
-            api = client.tool.transformations.external_data_sources
+            api = client.transformations.external_data_sources
             api.create.return_value = [response]
             api.list.return_value = [response]
 
             assert loader.create([item]) == [response]
             assert loader.retrieve([ExternalId(external_id="fabric-lakehouse-prod")]) == [response]
             assert loader.retrieve([]) == []
-            assert loader.delete([ExternalId(external_id="fabric-lakehouse-prod")]) == 1
-            assert loader.delete([]) == 0
+            assert loader.delete([ExternalId(external_id="fabric-lakehouse-prod")]) == [
+                ExternalId(external_id="fabric-lakehouse-prod")
+            ]
+            assert loader.delete([]) == []
 
     def test_iterate_all(self) -> None:
         with monkeypatch_toolkit_client() as client:
-            loader = ExternalDataSourceIO.create_loader(client)
+            loader = ExternalDataSourceIO.create_io(client)
             response = _make_response()
-            client.tool.transformations.external_data_sources.list.return_value = [response]
+            client.transformations.external_data_sources.list.return_value = [response]
             assert list(loader._iterate()) == [response]
 
     def test_iterate_with_space_returns_nothing(self, toolkit_client_cheap: ToolkitClient) -> None:
-        loader = ExternalDataSourceIO.create_loader(toolkit_client_cheap)
+        loader = ExternalDataSourceIO.create_io(toolkit_client_cheap)
         assert list(loader._iterate(space="sp")) == []
 
     def test_iterate_with_parent_ids_returns_nothing(self, toolkit_client_cheap: ToolkitClient) -> None:
-        loader = ExternalDataSourceIO.create_loader(toolkit_client_cheap)
+        loader = ExternalDataSourceIO.create_io(toolkit_client_cheap)
         assert list(loader._iterate(parent_ids=[ExternalId(external_id="parent")])) == []
 
     def test_iterate_filters_by_dataset(self) -> None:
         with monkeypatch_toolkit_client() as client:
-            loader = ExternalDataSourceIO.create_loader(client)
+            loader = ExternalDataSourceIO.create_io(client)
             in_dataset = _make_response(external_id="in-dataset", data_set_id=42)
             other = _make_response(external_id="other", data_set_id=99)
             client.lookup.data_sets.id.return_value = 42
-            client.tool.transformations.external_data_sources.list.return_value = [in_dataset, other]
+            client.transformations.external_data_sources.list.return_value = [in_dataset, other]
             assert list(loader._iterate(data_set_external_id="my_dataset")) == [in_dataset]
 
     def test_iterate_missing_dataset_returns_empty(self) -> None:
         with monkeypatch_toolkit_client() as client:
-            loader = ExternalDataSourceIO.create_loader(client)
+            loader = ExternalDataSourceIO.create_io(client)
             client.lookup.data_sets.id.return_value = None
             assert list(loader._iterate(data_set_external_id="my_dataset")) == []
-            client.tool.transformations.external_data_sources.list.assert_not_called()
+            client.transformations.external_data_sources.list.assert_not_called()

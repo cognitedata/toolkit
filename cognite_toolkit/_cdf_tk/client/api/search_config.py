@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
@@ -41,7 +42,7 @@ class SearchConfigurationsAPI(CDFResourceAPI[SearchConfigResponse]):
     ) -> PagedResponse[SearchConfigResponse]:
         return PagedResponse[SearchConfigResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[SearchConfigRequest]) -> list[SearchConfigResponse]:
+    def create(self, items: Sequence[SearchConfigRequest]) -> builtins.list[SearchConfigResponse]:
         """Create or update a search configurations.
 
         Args:
@@ -51,7 +52,7 @@ class SearchConfigurationsAPI(CDFResourceAPI[SearchConfigResponse]):
             The created or updated search configurations.
         """
         endpoint = self._method_endpoint_map["upsert"]
-        results: list[SearchConfigResponse] = []
+        results: builtins.list[SearchConfigResponse] = []
         for item in items:
             request = RequestMessage(
                 endpoint_url=self._make_url(endpoint.path),
@@ -63,7 +64,7 @@ class SearchConfigurationsAPI(CDFResourceAPI[SearchConfigResponse]):
             results.append(SearchConfigResponse.model_validate_json(response.body))
         return results
 
-    def update(self, items: Sequence[SearchConfigRequest]) -> list[SearchConfigResponse]:
+    def update(self, items: Sequence[SearchConfigRequest]) -> builtins.list[SearchConfigResponse]:
         """Update a search configurations.
 
         Args:
@@ -82,7 +83,7 @@ class SearchConfigurationsAPI(CDFResourceAPI[SearchConfigResponse]):
         """
         return self._paginate(cursor=None, limit=100)
 
-    def iterate(self) -> Iterable[list[SearchConfigResponse]]:
+    def iterate(self) -> Iterable[builtins.list[SearchConfigResponse]]:
         """Iterate over all search configurations.
 
         Returns:
@@ -90,7 +91,7 @@ class SearchConfigurationsAPI(CDFResourceAPI[SearchConfigResponse]):
         """
         return self._iterate(limit=None)
 
-    def list(self) -> list[SearchConfigResponse]:
+    def list(self) -> builtins.list[SearchConfigResponse]:
         """List all search configurations.
 
 

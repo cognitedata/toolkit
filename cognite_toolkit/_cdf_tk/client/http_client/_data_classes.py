@@ -1,4 +1,5 @@
 import gzip
+import os
 from abc import ABC, abstractmethod
 from collections.abc import Set
 from typing import TYPE_CHECKING, Any, Literal
@@ -9,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, model
 from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
+from cognite_toolkit._cdf_tk.constants import DEFAULT_CLIENT_TIMEOUT
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
 if TYPE_CHECKING:
@@ -25,19 +27,33 @@ class HTTPResult(HTTPBaseModel):
         if isinstance(self, SuccessResponse):
             return self
         elif isinstance(self, FailedResponse):
+            message = f"Request failed with status code {self.status_code}: {self.error.full_message}"
+            if request.read_attempt > 1:
+                message += self._create_timeout_hint()
             raise ToolkitAPIError(
-                f"Request failed with status code {self.status_code}: {self.error.full_message}",
-                missing=self.error.missing,  # type: ignore[arg-type]
-                duplicated=self.error.duplicated,  # type: ignore[arg-type]
+                message,
+                missing=self.error.missing,
+                duplicated=self.error.duplicated,
                 code=self.error.code,
                 request=request,
                 response=self,
                 x_request_id=self.error.x_request_id,
             )
         elif isinstance(self, FailedRequest):
-            raise ToolkitAPIError(f"Request failed with error: {self.error}", request=request)
+            message = f"Request failed with error: {self.error}"
+            if request.read_attempt > 1:
+                message += self._create_timeout_hint()
+            raise ToolkitAPIError(message, request=request)
         else:
             raise ToolkitAPIError("Unknown HTTPResult2 type")
+
+    @staticmethod
+    def _create_timeout_hint() -> str:
+        return (
+            "\n You can try to increase the timeout by setting the 'CDF_CLIENT_TIMEOUT' "
+            "environment variable. Timeout is currently set to "
+            f"{os.environ.get('CDF_CLIENT_TIMEOUT', DEFAULT_CLIENT_TIMEOUT)}s"
+        )
 
     def as_item_response(self, item_id: str) -> "ItemsResultMessage":
         # Avoid circular import
@@ -90,8 +106,10 @@ class ErrorDetails(HTTPBaseModel):
 
     code: int
     message: str
-    missing: list[JsonValue] | None = None
-    duplicated: list[JsonValue] | None = None
+    missing: list[dict[str, JsonValue]] | None = None
+    duplicated: list[dict[str, JsonValue]] | None = None
+    # tasks-api puts Pydantic validation errors here (APISyntacticalError). Standard CDF errors omit it.
+    detail: list[JsonValue] | None = None
     is_auto_retryable: bool | None = None
     x_request_id: str | None = None
 
@@ -99,6 +117,8 @@ class ErrorDetails(HTTPBaseModel):
     def full_message(self) -> str:
         """The error message with missing/duplicated referenced resources and the request ID appended, if present."""
         parts = [self.message] if self.message else []
+        if self.detail:
+            parts.append(f"Detail: {self.detail}")
         if self.missing:
             parts.append(f"Missing: {self.missing}")
         if self.duplicated:
@@ -132,6 +152,7 @@ class BaseRequestMessage(HTTPBaseModel, ABC):
     connect_attempt: int = 0
     read_attempt: int = 0
     status_attempt: int = 0
+    retried_status_codes: list[int] = Field(default_factory=list)
     api_version: str | None = None
     disable_gzip: bool = False
     content_length: int | None = None

@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 )
 
 
-def to_deploy_status(definition_yaml: str | MagicMock, loader: ResourceIO) -> dict[str, int]:
+def to_deploy_status(definition_yaml: str | Path | MagicMock, loader: ResourceIO) -> dict[str, int]:
     """This is a helper function to test that a YAML definiition of a resource is
     correctly categorized into create, change, delete, or unchanged."""
     if isinstance(definition_yaml, str):
@@ -22,14 +22,18 @@ def to_deploy_status(definition_yaml: str | MagicMock, loader: ResourceIO) -> di
     assert len(resource_dict) == 1
     resource = loader.load_resource(deepcopy(resource_dict[0]))
     resource_id = loader.get_id(resource)
-    existing_list = loader.retrieve([resource_id])
-    if not existing_list:
-        existing_list = loader.create([resource])
+    retrieved = loader.retrieve([resource_id])
+    if not retrieved:
+        created = loader.create([resource])
+        retrieved = loader.retrieve(loader.get_ids(created))
+    if not retrieved:
+        raise RuntimeError(f"{type(loader).__name__} did not return a resource for {resource_id}")
+    existing = retrieved[0]
 
     result = DeployV2Command.categorize_resources(
         loader,
         resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [filepath])},
-        cdf_by_id={resource_id: existing_list[0]},
+        cdf_by_id={resource_id: existing},
     )
     return {
         "create": len(result.to_create),

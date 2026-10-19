@@ -56,7 +56,9 @@ class ExternalDataSourceIO(
             yield TransformationsExternalDataSourcesAcl(actions=sorted(acl_actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: ExternalDataSourceRequest | ExternalDataSourceResponse | dict) -> ExternalId:
+    def get_id(cls, item: ExternalDataSourceRequest | ExternalDataSourceResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             external_id = item.get("externalId") or item.get("external_id")
             if external_id is None:
@@ -71,7 +73,7 @@ class ExternalDataSourceIO(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -110,7 +112,7 @@ class ExternalDataSourceIO(
             yield item.settings.credentials.client_secret
 
     def create(self, items: Sequence[ExternalDataSourceRequest]) -> list[ExternalDataSourceResponse]:
-        return self.client.tool.transformations.external_data_sources.create(list(items))
+        return self.client.transformations.external_data_sources.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ExternalDataSourceResponse]:
         if not ids:
@@ -118,15 +120,16 @@ class ExternalDataSourceIO(
         id_set = {id_.external_id for id_ in ids}
         return [
             source
-            for source in self.client.tool.transformations.external_data_sources.list(limit=None)
+            for source in self.client.transformations.external_data_sources.list(limit=None)
             if source.external_id in id_set
         ]
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.transformations.external_data_sources.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.transformations.external_data_sources.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -137,11 +140,11 @@ class ExternalDataSourceIO(
         if space or parent_ids:
             return
         if data_set_external_id is None:
-            yield from self.client.tool.transformations.external_data_sources.list(limit=None)
+            yield from self.client.transformations.external_data_sources.list(limit=None)
             return
         data_set_id = self.client.lookup.data_sets.id(data_set_external_id)
         if data_set_id is None:
             return
-        for source in self.client.tool.transformations.external_data_sources.list(limit=None):
+        for source in self.client.transformations.external_data_sources.list(limit=None):
             if source.data_set_id == data_set_id:
                 yield source

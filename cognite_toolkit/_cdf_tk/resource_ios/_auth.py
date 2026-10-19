@@ -16,12 +16,9 @@
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities as cap
 from rich import print
-from rich.console import Console
 from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -39,12 +36,26 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceI
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
+    AssetRootIDScope,
     CurrentUserScope,
+    DataProductScope,
+    DataSetsAcl,
+    DataSetScope,
+    ExtractionPipelinesAcl,
+    ExtractionPipelineScope,
     GroupRequest,
     GroupResponse,
     GroupsAcl,
+    IDScope,
+    IDScopeLowerCase,
+    LocationFiltersAcl,
+    RawAcl,
+    Scope,
     ScopeDefinition,
     SecurityCategoriesAcl,
+    SpaceIDScope,
+    TableScope,
+    TimeSeriesAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryRequest,
@@ -65,7 +76,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.capabilities import UnknownCapability
 
 
 @dataclass
-class _ReplaceMethod:
+class ReplaceMethod:
     """This is a small helper class used in the
     lookup and replace in the ACL scoped ids"""
 
@@ -80,33 +91,30 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
     resource_cls = GroupResponse
     resource_write_cls = GroupRequest
     yaml_cls = GroupYAML
-    resource_scopes: frozenset[type[cap.Capability.Scope] | type[yaml_cap.Scope]] = frozenset(
+    resource_scopes: frozenset[type[Scope]] = frozenset(
         {
-            cap.IDScope,
-            cap.SpaceIDScope,
-            cap.DataSetScope,
-            cap.TableScope,
-            cap.AssetRootIDScope,
-            cap.ExtractionPipelineScope,
-            cap.IDScopeLowerCase,
-            # Not yet added to the SDK, so we use the toolkit's own yaml scope class here instead.
-            yaml_cap.DataProductScope,
+            IDScope,
+            SpaceIDScope,
+            DataSetScope,
+            TableScope,
+            AssetRootIDScope,
+            ExtractionPipelineScope,
+            IDScopeLowerCase,
+            DataProductScope,
         }
     )
-    resource_scope_names = frozenset({scope._scope_name for scope in resource_scopes})
+    resource_scope_names = frozenset({scope.model_fields["scope_name"].default for scope in resource_scopes})
     _doc_url = "Groups/operation/createGroups"
 
     def __init__(
         self,
         client: ToolkitClient,
-        build_dir: Path | None,
-        console: Console | None,
         target_scopes: Literal[
             "all_scoped_only",
             "resource_scoped_only",
         ] = "all_scoped_only",
     ):
-        super().__init__(client, build_dir, console)
+        super().__init__(client)
         self.target_scopes = target_scopes
 
     @property
@@ -128,7 +136,9 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             yield GroupsAcl(actions=sorted(acl_actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: GroupRequest | GroupResponse | dict) -> NameId:
+    def get_id(cls, item: GroupRequest | GroupResponse | NameId | dict) -> NameId:
+        if isinstance(item, NameId):
+            return item
         if isinstance(item, dict):
             return NameId(name=item["name"])
         return NameId(name=item.name)
@@ -138,7 +148,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: NameId) -> str:
+    def as_filename(cls, id: NameId) -> str:
         return sanitize_filename(id.name)
 
     @classmethod
@@ -146,11 +156,11 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         from ._classic import AssetIO
         from ._data_organization import DataSetsIO
         from ._data_product import DataProductIO
-        from ._datamodel import SpaceCRUD
+        from ._datamodel import SpaceIO
         from ._extraction_pipeline import ExtractionPipelineIO
         from ._location import LocationFilterIO
-        from ._raw import RawDatabaseCRUD, RawTableCRUD
-        from ._timeseries import TimeSeriesCRUD
+        from ._raw import RawDatabaseIO, RawTableIO
+        from ._timeseries import TimeSeriesIO
 
         for capability in resource.capabilities or []:
             if isinstance(capability, UnknownCapability) and isinstance(
@@ -161,7 +171,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             scope = capability.scope
             if isinstance(scope, yaml_cap.SpaceIDScope):
                 for space_id in scope.space_ids:
-                    yield SpaceCRUD, SpaceId(space=space_id)
+                    yield SpaceIO, SpaceId(space=space_id)
             elif isinstance(scope, yaml_cap.DataProductScope):
                 for data_product_external_id in scope.external_ids:
                     yield DataProductIO, ExternalId(external_id=data_product_external_id)
@@ -170,9 +180,9 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                     yield DataSetsIO, ExternalId(external_id=data_set_id)
             elif isinstance(scope, yaml_cap.TableScope):
                 for db_name, tables in scope.dbs_to_tables.items():
-                    yield RawDatabaseCRUD, RawDatabaseId(name=db_name)
+                    yield RawDatabaseIO, RawDatabaseId(name=db_name)
                     for table in tables:
-                        yield RawTableCRUD, RawTableId(db_name=db_name, name=table)
+                        yield RawTableIO, RawTableId(db_name=db_name, name=table)
             elif isinstance(scope, yaml_cap.ExtractionPipelineScope):
                 for extraction_pipeline_id in scope.ids:
                     yield ExtractionPipelineIO, ExternalId(external_id=extraction_pipeline_id)
@@ -186,20 +196,20 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                 elif isinstance(capability, yaml_cap.ExtractionPipelinesAcl):
                     loader = ExtractionPipelineIO
                 elif isinstance(capability, yaml_cap.TimeSeriesAcl):
-                    loader = TimeSeriesCRUD
+                    loader = TimeSeriesIO
                 elif isinstance(capability, yaml_cap.SecurityCategoriesAcl):
                     loader = SecurityCategoryIO
                 elif isinstance(capability, yaml_cap.LocationFiltersAcl):
                     loader = LocationFilterIO
                 if loader is not None:
                     for id_ in scope.ids:
-                        if loader in {TimeSeriesCRUD, LocationFilterIO, DataSetsIO, ExtractionPipelineIO}:
+                        if loader in {TimeSeriesIO, LocationFilterIO, DataSetsIO, ExtractionPipelineIO}:
                             yield loader, ExternalId(external_id=id_)
                         elif loader is SecurityCategoryIO:
                             yield loader, NameId(name=id_)
 
     def _substitute_scope_ids(self, group: dict[str, Any], is_dry_run: bool, reverse: bool = False) -> dict[str, Any]:
-        replace_method_by_acl = self._create_replace_method_by_acl_and_scope()
+        replace_method_by_acl = self.create_replace_method_by_acl_and_scope()
 
         for capability in group.get("capabilities", []):
             for acl, values in capability.items():
@@ -231,52 +241,66 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                         ]
         return group
 
-    def _create_replace_method_by_acl_and_scope(self) -> dict[tuple[str, str] | str, _ReplaceMethod]:
+    def create_replace_method_by_acl_and_scope(self) -> dict[tuple[str, str] | str, ReplaceMethod]:
         source = {
-            (cap.DataSetsAcl, cap.DataSetsAcl.Scope.ID): _ReplaceMethod(
+            (DataSetsAcl, IDScope): ReplaceMethod(
                 self.client.lookup.data_sets.id,
                 self.client.lookup.data_sets.external_id,
                 id_name="ids",
             ),
-            (cap.ExtractionPipelinesAcl, cap.ExtractionPipelinesAcl.Scope.ID): _ReplaceMethod(
+            (ExtractionPipelinesAcl, IDScope): ReplaceMethod(
                 self.client.lookup.extraction_pipelines.id,
                 self.client.lookup.extraction_pipelines.external_id,
                 id_name="ids",
             ),
-            (cap.LocationFiltersAcl, cap.LocationFiltersAcl.Scope.ID): _ReplaceMethod(
+            # Following the docs, it is 'idscope' for DataSetsAcls and ExtractionPipelinesAcls,
+            # but our users have deployed with 'idScope' with those ACLs, so we support both to ensure.
+            (DataSetsAcl, IDScopeLowerCase): ReplaceMethod(
+                self.client.lookup.data_sets.id,
+                self.client.lookup.data_sets.external_id,
+                id_name="ids",
+            ),
+            (ExtractionPipelinesAcl, IDScopeLowerCase): ReplaceMethod(
+                self.client.lookup.extraction_pipelines.id,
+                self.client.lookup.extraction_pipelines.external_id,
+                id_name="ids",
+            ),
+            (LocationFiltersAcl, IDScope): ReplaceMethod(
                 self.client.lookup.location_filters.id,
                 self.client.lookup.location_filters.external_id,
                 id_name="ids",
             ),
-            (cap.SecurityCategoriesAcl, cap.SecurityCategoriesAcl.Scope.ID): _ReplaceMethod(
+            (SecurityCategoriesAcl, IDScopeLowerCase): ReplaceMethod(
                 self.client.lookup.security_categories.id,
                 self.client.lookup.security_categories.external_id,
                 id_name="ids",
             ),
-            (cap.TimeSeriesAcl, cap.TimeSeriesAcl.Scope.ID): _ReplaceMethod(
+            (TimeSeriesAcl, IDScopeLowerCase): ReplaceMethod(
                 self.client.lookup.time_series.id,
                 self.client.lookup.time_series.external_id,
                 id_name="ids",
             ),
-            cap.DataSetScope: _ReplaceMethod(
+            DataSetScope: ReplaceMethod(
                 self.client.lookup.data_sets.id,
                 self.client.lookup.data_sets.external_id,
                 id_name="ids",
             ),
-            cap.ExtractionPipelineScope: _ReplaceMethod(
+            ExtractionPipelineScope: ReplaceMethod(
                 self.client.lookup.extraction_pipelines.id,
                 self.client.lookup.extraction_pipelines.external_id,
                 id_name="ids",
             ),
-            cap.AssetRootIDScope: _ReplaceMethod(
+            AssetRootIDScope: ReplaceMethod(
                 self.client.lookup.assets.id,
                 self.client.lookup.assets.external_id,
                 id_name="rootIds",
             ),
         }
-        # Trick to avoid writing _capability_name and _scope_name for each entry.
+        # Trick to avoid writing _acl_name and _scope_name for each entry.
         return {
-            (key[0]._capability_name, key[1]._scope_name) if isinstance(key, tuple) else key._scope_name: method  # type: ignore[attr-defined]
+            (key[0].model_fields["acl_name"].default, key[1].model_fields["scope_name"].default)
+            if isinstance(key, tuple)
+            else key.model_fields["scope_name"].default: method  # type: ignore[attr-defined]
             for key, method in source.items()
         }
 
@@ -294,6 +318,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             raise ToolkitWrongResourceError()
 
         substituted = self._substitute_scope_ids(resource, is_dry_run)
+
         return GroupRequest._load(substituted)
 
     def dump_resource(self, resource: GroupResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -318,10 +343,10 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         # Note the extra keyword 'tables' in the API response.
         for capability in dumped.get("capabilities", []):
             for acl, content in capability.items():
-                if acl != cap.RawAcl._capability_name:
+                if acl != RawAcl.model_fields["acl_name"].default:
                     continue
                 if scope := content.get("scope", {}):
-                    if table_scope := scope.get(cap.TableScope._scope_name, {}):
+                    if table_scope := scope.get(TableScope.model_fields["scope_name"].default, {}):
                         db_to_tables = table_scope.get("dbsToTables", {})
                         if not db_to_tables:
                             continue
@@ -339,7 +364,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
     def update(self, items: Sequence[GroupRequest]) -> list[GroupResponse]:
         # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
-        old_groups = self.client.tool.groups.list(all_groups=True)
+        old_groups = self.client.groups.list(all_groups=True)
         created = self._create_with_fallback(items, action="update")
         created_names = {g.name for g in created}
         to_delete = [group for group in old_groups if group.name in created_names]
@@ -351,7 +376,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         self, items: Sequence[GroupRequest], action: Literal["create", "update"]
     ) -> list[GroupResponse]:
         try:
-            return self.client.tool.groups.create(items)
+            return self.client.groups.create(items)
         except ToolkitAPIError as e:
             if not (e.code == 400 and "buffer" in e.message.lower() and len(items) > 1):
                 raise e
@@ -359,7 +384,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             created_list: list[GroupResponse] = []
             for item in items:
                 try:
-                    created = self.client.tool.groups.create([item])
+                    created = self.client.groups.create([item])
                 except ToolkitAPIError as e:
                     HighSeverityWarning(f"Failed to {action} group {item.name}. Error: {escape(str(e))}").print_warning(
                         include_timestamp=True, console=self.console
@@ -370,28 +395,29 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
     def retrieve(self, ids: Sequence[NameId]) -> list[GroupResponse]:
         names = {id.name for id in ids}
-        remote = self.client.tool.groups.list(all_groups=True)
+        remote = self.client.groups.list(all_groups=True)
         return [g for g in remote if g.name in names]
 
-    def delete(self, ids: Sequence[NameId]) -> int:
+    def delete(self, ids: Sequence[NameId]) -> list[NameId]:
         return self._delete(self.retrieve(ids), check_own_principal=True)
 
-    def _delete(self, delete_candidates: list[GroupResponse], check_own_principal: bool = True) -> int:
+    def _delete(self, delete_candidates: list[GroupResponse], check_own_principal: bool = True) -> list[NameId]:
         if check_own_principal:
             print_fun = self.console.print if self.console else print
             try:
                 # Let's prevent that we delete groups we belong to
-                my_groups = self.client.tool.groups.list()
+                my_groups = self.client.groups.list()
             except ToolkitAPIError as e:
                 print_fun(
                     f"[bold red]ERROR:[/] Failed to retrieve the current service principal's groups. Aborting group deletion.\n{e}"
                 )
-                return 0
+                return []
             my_source_ids = {g.source_id for g in my_groups if g.source_id}
         else:
             my_source_ids = set()
 
         to_delete: list[int] = []
+        to_delete_groups: list[GroupResponse] = []
         counts_by_name: dict[str, int] = defaultdict(int)
         for group in delete_candidates:
             if group.source_id in my_source_ids:
@@ -401,6 +427,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                 ).print_warning(console=self.console)
             else:
                 to_delete.append(group.id)
+                to_delete_groups.append(group)
                 counts_by_name[group.name] += 1
         if duplicates := {name for name, count in counts_by_name.items() if count > 1}:
             MediumSeverityWarning(
@@ -410,13 +437,13 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         failed_deletes = []
         error_str = ""
         try:
-            self.client.tool.groups.delete([InternalId(id=id_) for id_ in to_delete])
+            self.client.groups.delete([InternalId(id=id_) for id_ in to_delete])
         except ToolkitAPIError as e:
             if e.missing:
                 # Fallback to delete one by one
                 for delete_item_id in to_delete:
                     try:
-                        self.client.tool.groups.delete([InternalId(id=delete_item_id)])
+                        self.client.groups.delete([InternalId(id=delete_item_id)])
                     except ToolkitAPIError as inner_e:
                         if inner_e.missing:
                             # If the error is that the group is already deleted, we can ignore it.
@@ -432,7 +459,8 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                 "These must be deleted manually in the Fusion UI."
                 f"Error: {escape(error_str)}"
             ).print_warning(include_timestamp=True, console=self.console)
-        return len(to_delete) - len(failed_deletes)
+        failed = set(failed_deletes)
+        return [NameId(name=group.name) for group in to_delete_groups if group.id not in failed]
 
     def _iterate(
         self,
@@ -440,7 +468,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[GroupResponse]:
-        yield from self.client.tool.groups.list(all_groups=True)
+        yield from self.client.groups.list(all_groups=True)
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
@@ -456,9 +484,9 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
 
 @final
-class GroupAllScopedCRUD(GroupIO):
-    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None):
-        super().__init__(client, build_dir, console, "all_scoped_only")
+class GroupAllScopedIO(GroupIO):
+    def __init__(self, client: ToolkitClient):
+        super().__init__(client, "all_scoped_only")
 
     @property
     def display_name(self) -> str:
@@ -472,7 +500,7 @@ class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCat
     kind = "SecurityCategory"
     yaml_cls = SecurityCategoriesYAML
     folder_name = "auth"
-    dependencies = frozenset({GroupAllScopedCRUD})
+    dependencies = frozenset({GroupAllScopedIO})
     _doc_url = "Security-categories/operation/createSecurityCategories"
     support_update = False
 
@@ -481,7 +509,9 @@ class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCat
         return "security categories"
 
     @classmethod
-    def get_id(cls, item: SecurityCategoryRequest | SecurityCategoryResponse | dict) -> NameId:
+    def get_id(cls, item: SecurityCategoryRequest | SecurityCategoryResponse | NameId | dict) -> NameId:
+        if isinstance(item, NameId):
+            return item
         if isinstance(item, dict):
             return NameId(name=item["name"])
         return NameId(name=item.name)
@@ -509,18 +539,18 @@ class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCat
         return []
 
     def create(self, items: Sequence[SecurityCategoryRequest]) -> list[SecurityCategoryResponse]:
-        return self.client.tool.security_categories.create(items)
+        return self.client.security_categories.create(items)
 
     def retrieve(self, ids: Sequence[NameId]) -> list[SecurityCategoryResponse]:
         names = {id.name for id in ids}
-        categories = self.client.tool.security_categories.list(limit=None)
+        categories = self.client.security_categories.list(limit=None)
         return [c for c in categories if c.name in names]
 
-    def delete(self, ids: Sequence[NameId]) -> int:
+    def delete(self, ids: Sequence[NameId]) -> list[NameId]:
         retrieved = self.retrieve(ids)
         if retrieved:
-            self.client.tool.security_categories.delete([InternalUnwrappedId(id=cat.id) for cat in retrieved])
-        return len(retrieved)
+            self.client.security_categories.delete([InternalUnwrappedId(id=cat.id) for cat in retrieved])
+        return [NameId(name=cat.name) for cat in retrieved]
 
     def _iterate(
         self,
@@ -528,5 +558,5 @@ class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCat
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[SecurityCategoryResponse]:
-        for items in self.client.tool.security_categories.iterate(limit=None):
+        for items in self.client.security_categories.iterate(limit=None):
             yield from items

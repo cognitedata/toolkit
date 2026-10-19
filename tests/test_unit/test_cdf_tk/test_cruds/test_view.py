@@ -23,10 +23,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
-    ContainerCRUD,
-    SpaceCRUD,
+    ContainerIO,
+    SpaceIO,
     ViewIO,
 )
 from cognite_toolkit._cdf_tk.resource_ios._streams import StreamIO
@@ -34,16 +33,6 @@ from cognite_toolkit._cdf_tk.yaml_classes.containers import ContainerYAML
 from cognite_toolkit._cdf_tk.yaml_classes.views import ViewYAML
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.utils import to_deploy_status
-
-
-@pytest.fixture
-def enable_record_views(monkeypatch: pytest.MonkeyPatch) -> None:
-    original = FeatureFlag.is_enabled
-
-    def is_enabled(flag: Flags) -> bool:
-        return flag is Flags.RECORD_VIEWS or original(flag)
-
-    monkeypatch.setattr(FeatureFlag, "is_enabled", is_enabled)
 
 
 def _record_view_response() -> ViewResponse:
@@ -124,7 +113,7 @@ def _create_test_view(external_id: str, container: ContainerResponse) -> ViewRes
 
 class TestViewLoader:
     def test_unchanged_view_int_version(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        loader = ViewIO.create_loader(toolkit_client_approval.mock_client)
+        loader = ViewIO.create_io(toolkit_client_approval.mock_client)
         raw_file = """- space: sp_space
   externalId: my_view
   version: 1"""
@@ -229,7 +218,7 @@ class TestViewLoader:
         test_description: str,
     ) -> None:
         """Test various dependency patterns: transitive chains, independent chains, and diamond dependencies."""
-        loader = ViewIO.create_loader(toolkit_client_approval.mock_client)
+        loader = ViewIO.create_io(toolkit_client_approval.mock_client)
         toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views)
         toolkit_client_approval.append(ContainerResponse, cognite_core_containers_no_3D)
 
@@ -255,7 +244,7 @@ class TestViewLoader:
     ) -> None:
         """Test that views with cyclical dependencies are returned separately from the sorted views."""
 
-        loader = ViewIO.create_loader(toolkit_client_approval.mock_client)
+        loader = ViewIO.create_io(toolkit_client_approval.mock_client)
 
         # Create three containers that form a cycle: A -> B -> C -> A
         container_a = _create_test_container(
@@ -332,7 +321,7 @@ class TestViewLoader:
         expected_readonly_props: set[str],
     ) -> None:
         """Test that get_readonly_properties identifies readonly properties from containers."""
-        loader = ViewIO.create_loader(toolkit_client_approval.mock_client)
+        loader = ViewIO.create_io(toolkit_client_approval.mock_client)
         toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views)
 
         readonly_props = loader.get_readonly_properties(view_id)
@@ -340,30 +329,18 @@ class TestViewLoader:
 
 
 class TestRecordViewSupport:
-    def test_record_view_response_round_trip(self, enable_record_views: None) -> None:
+    def test_record_view_response_round_trip(self) -> None:
         view = _record_view_response()
         request = view.as_request_resource()
         assert request.stream_id == ["my_stream"]
         assert request.dump()["streamId"] == ["my_stream"]
 
-    def test_dump_resource_preserves_stream_id(
-        self, toolkit_client_cheap: ToolkitClient, enable_record_views: None
-    ) -> None:
-        loader = ViewIO.create_loader(toolkit_client_cheap)
+    def test_dump_resource_preserves_stream_id(self, toolkit_client_cheap: ToolkitClient) -> None:
+        loader = ViewIO.create_io(toolkit_client_cheap)
         dumped = loader.dump_resource(_record_view_response())
         assert dumped["streamId"] == ["my_stream"]
 
-    def test_dump_resource_strips_stream_id_without_alpha_flag(
-        self, toolkit_client_cheap: ToolkitClient, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda _flag: False)
-        loader = ViewIO.create_loader(toolkit_client_cheap)
-        dumped = loader.dump_resource(_record_view_response())
-        assert "streamId" not in dumped
-
-    def test_views_api_sends_alpha_cdf_version_when_record_views_enabled(
-        self, toolkit_config, enable_record_views: None, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_views_api_sends_alpha_cdf_version(self, toolkit_config, respx_mock: respx.MockRouter) -> None:
         api = ViewsAPI(HTTPClient(toolkit_config))
         request = ViewRequest(
             space="my_space",
@@ -400,9 +377,7 @@ class TestRecordViewSupport:
 
         assert respx_mock.calls[-1].request.headers["cdf-version"] == "alpha"
 
-    def test_data_models_api_sends_alpha_cdf_version_when_record_views_enabled(
-        self, toolkit_config, enable_record_views: None, respx_mock: respx.MockRouter
-    ) -> None:
+    def test_data_models_api_sends_alpha_cdf_version(self, toolkit_config, respx_mock: respx.MockRouter) -> None:
         api = DataModelsAPI(HTTPClient(toolkit_config))
         request = DataModelRequest(
             space="my_space",
@@ -458,9 +433,9 @@ class TestContainerCRUDGetDependencies:
             }
         )
 
-        deps = list(ContainerCRUD.get_dependencies(container))
+        deps = list(ContainerIO.get_dependencies(container))
         assert len(deps) == 1
-        assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
+        assert deps[0] == (SpaceIO, SpaceId(space="my_space"))
 
     def test_container_with_direct_node_relation(self) -> None:
         """Test Container with DirectNodeRelation dependency."""
@@ -479,10 +454,10 @@ class TestContainerCRUDGetDependencies:
             }
         )
 
-        deps = list(ContainerCRUD.get_dependencies(container))
+        deps = list(ContainerIO.get_dependencies(container))
         assert len(deps) == 2
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
-        assert (ContainerCRUD, ContainerId(space="other_space", external_id="other_container")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
+        assert (ContainerIO, ContainerId(space="other_space", external_id="other_container")) in deps
 
     def test_container_with_requires_constraint(self) -> None:
         """Test Container with RequiresConstraintDefinition dependency."""
@@ -500,10 +475,10 @@ class TestContainerCRUDGetDependencies:
             }
         )
 
-        deps = list(ContainerCRUD.get_dependencies(container))
+        deps = list(ContainerIO.get_dependencies(container))
         assert len(deps) == 2
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
-        assert (ContainerCRUD, ContainerId(space="other_space", external_id="required_container")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
+        assert (ContainerIO, ContainerId(space="other_space", external_id="required_container")) in deps
 
 
 class TestViewCRUDGetDependencies:
@@ -522,7 +497,7 @@ class TestViewCRUDGetDependencies:
 
         deps = list(ViewIO.get_dependencies(view))
         assert len(deps) == 1
-        assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
+        assert deps[0] == (SpaceIO, SpaceId(space="my_space"))
 
     def test_view_with_container_property(self) -> None:
         """Test View with ContainerViewProperty dependency."""
@@ -542,8 +517,8 @@ class TestViewCRUDGetDependencies:
 
         deps = list(ViewIO.get_dependencies(view))
         assert len(deps) == 2
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
-        assert (ContainerCRUD, ContainerId(space="container_space", external_id="my_container")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
+        assert (ContainerIO, ContainerId(space="container_space", external_id="my_container")) in deps
 
     def test_view_with_implements(self) -> None:
         """Test View with implements dependency."""
@@ -558,7 +533,7 @@ class TestViewCRUDGetDependencies:
 
         deps = list(ViewIO.get_dependencies(view))
         assert len(deps) == 2
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
         assert (ViewIO, ViewId(space="my_space", external_id="base_view", version="1")) in deps
 
     def test_view_with_edge_connection(self) -> None:
@@ -586,7 +561,7 @@ class TestViewCRUDGetDependencies:
 
         deps = list(ViewIO.get_dependencies(view))
         assert len(deps) == 2
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
         assert (ViewIO, ViewId(space="source_space", external_id="source_view", version="1")) in deps
 
     def test_view_with_reverse_direct_relation_view_through(self) -> None:
@@ -621,11 +596,11 @@ class TestViewCRUDGetDependencies:
 
         deps = list(ViewIO.get_dependencies(view))
         assert len(deps) == 3
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
         assert (ViewIO, ViewId(space="source_space", external_id="source_view", version="1")) in deps
         assert (ViewIO, ViewId(space="through_space", external_id="through_view", version="1")) in deps
 
-    def test_view_with_stream_id(self, enable_record_views: None) -> None:
+    def test_view_with_stream_id(self) -> None:
         """Test View with stream dependency for record-backed views."""
         view = ViewYAML.model_validate(
             {
@@ -638,17 +613,5 @@ class TestViewCRUDGetDependencies:
 
         deps = list(ViewIO.get_dependencies(view))
         assert len(deps) == 2
-        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (SpaceIO, SpaceId(space="my_space")) in deps
         assert (StreamIO, ExternalId(external_id="my_stream")) in deps
-
-    def test_view_with_stream_id_requires_alpha_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda _flag: False)
-        with pytest.raises(ValueError, match="record_views alpha flag"):
-            ViewYAML.model_validate(
-                {
-                    "space": "my_space",
-                    "externalId": "my_record_view",
-                    "version": "1",
-                    "streamId": ["my_stream"],
-                }
-            )

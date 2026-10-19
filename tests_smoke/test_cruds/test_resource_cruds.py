@@ -6,7 +6,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_CRUD_LIST, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_IO_LIST, ResourceIO
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 
@@ -23,7 +23,7 @@ def _simulator_on_orangefield(exc: ToolkitAPIError, config: ToolkitClientConfig)
         exc.code == 404
         and exc.request
         and "simulator" in exc.request.endpoint_url
-        and config.cdf_cluster == "orangefield"
+        and config.attempt_to_get_cdf_cluster() == "orangefield"
     ):
         return True
     return False
@@ -40,7 +40,7 @@ def _resource_io_generic_args(resource_io_cls: type[ResourceIO]) -> tuple[type, 
 
 
 class TestResourceCRUD:
-    @pytest.mark.parametrize("resource_io_cls", RESOURCE_CRUD_LIST)
+    @pytest.mark.parametrize("resource_io_cls", RESOURCE_IO_LIST)
     def test_retrieve_non_existing_works(
         self, toolkit_client: ToolkitClient, resource_io_cls: type[ResourceIO]
     ) -> None:
@@ -49,13 +49,15 @@ class TestResourceCRUD:
         classes = _resource_io_generic_args(resource_io_cls)
         assert classes, f"{resource_io_cls} does not have ResourceIO generic parameters"
         assert len(classes) == 4, f"{resource_io_cls} should have 4 generic parameters, but has {len(classes)}"
-        identifier_cls: type[Identifier] = classes[0]
+        identifier_cls = classes[0]
+        if not (isinstance(identifier_cls, type) and issubclass(identifier_cls, Identifier)):
+            raise AssertionError(f"{resource_io_cls} identifier parameter is not an Identifier")
 
         non_existing_id = FakeCogniteResourceGenerator(
             seed=37, sample_from_string=string.ascii_letters, min_string_length=3, max_string_length=20
         ).create_instance(identifier_cls)
 
-        resource_io = resource_io_cls.create_loader(toolkit_client)
+        resource_io = resource_io_cls.create_io(toolkit_client)
 
         try:
             retrieved = resource_io.retrieve([non_existing_id])

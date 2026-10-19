@@ -4,6 +4,7 @@ from typing import Any, Literal, final
 
 from pydantic import ValidationError
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
@@ -39,12 +40,18 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
     _doc_base_url = ""
     _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Skills/operation/skill_create_ai_skills_post/"
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
         self._source_file_by_external_id: dict[str, Path] = {}
 
+    @property
+    def display_name(self) -> str:
+        return "agent skills"
+
     @classmethod
-    def get_id(cls, item: SkillRequest | SkillResponse | dict) -> ExternalId:
+    def get_id(cls, item: SkillRequest | SkillResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             external_id = item.get("externalId") or item.get("external_id")
             if external_id is None:
@@ -57,7 +64,7 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -106,7 +113,7 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
         if skill_md_path is None:
             yield FailedReadExtra(
                 source_path=filepath,
-                code="MISSING",
+                code="MISSING-REFERENCED-FILE",
                 error=(
                     f"Missing skill content for {prefix!r} in {filepath.as_posix()}. "
                     f"No 'content' field found and no <prefix>.md file found. Expected one of: "
@@ -121,7 +128,7 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
         except (ValidationError, ValueError) as e:
             yield FailedReadExtra(
                 source_path=skill_md_path,
-                code="SYNTAX-ERROR",
+                code="INVALID-FILE-CONTENT",
                 error=f"\nInvalid markdown in {skill_md_path.parent.name}/{skill_md_path.name}.\n{e}",
             )
             return
@@ -184,10 +191,22 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
             "description": markdown.description,
             "content": markdown.content,
         }
-        return self.resource_write_cls._load(request_payload)
+        return super().load_resource(request_payload, is_dry_run=is_dry_run)
 
     def dump_resource(self, resource: SkillResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        return resource.as_request_resource().dump()
+        dumped = resource.as_request_resource().dump()
+        if local is None:
+            return dumped
+        # Name and description are defined in the frontmatter of the content, not in the local YAML.
+        dumped.pop("name", None)
+        dumped.pop("description", None)
+        local_content = local.get("content")
+        cdf_content = dumped.get("content")
+        # The API strips whitespace from the content (valid content cannot start with any), so ignore trailing
+        # whitespace when comparing.
+        if isinstance(local_content, str) and isinstance(cdf_content, str) and local_content.rstrip() == cdf_content:
+            dumped["content"] = local_content
+        return dumped
 
     def split_resource(
         self, base_filepath: Path, resource: dict[str, Any]
@@ -203,17 +222,18 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
         yield base_filepath, resource
 
     def create(self, items: Sequence[SkillRequest]) -> list[SkillResponse]:
-        return self.client.tool.skills.create(items)
+        return self.client.skills.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SkillResponse]:
-        return self.client.tool.skills.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.skills.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[SkillRequest]) -> list[SkillResponse]:
-        return self.client.tool.skills.update(items)
+        return self.client.skills.update(items)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        self.client.tool.skills.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        self.client.skills.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -221,4 +241,4 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[SkillResponse]:
-        return self.client.tool.skills.list(limit=None)
+        return self.client.skills.list(limit=None)

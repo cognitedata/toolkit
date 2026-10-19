@@ -6,6 +6,17 @@ from typing import IO, Any, Literal
 
 import httpx2
 
+from cognite_toolkit._cdf_tk.client.api._classic_aggregate import files_aggregate_count
+from cognite_toolkit._cdf_tk.client.api._classic_list import (
+    ObjectIds,
+    TimeRange,
+    classic_list_body,
+    dump_model,
+    int_ids,
+    object_ids,
+    str_ids,
+    time_range,
+)
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -17,7 +28,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceId, InternalId, InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter, GeoLocationFilter, LabelFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
     DownloadResponse,
     FileMetadataRequest,
@@ -66,12 +77,16 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                 "update": Endpoint(method="POST", path="/files/update", item_limit=1000, concurrency_max_workers=1),
                 "delete": Endpoint(method="POST", path="/files/delete", item_limit=1000, concurrency_max_workers=1),
                 "list": Endpoint(method="POST", path="/files/list", item_limit=1000),
+                "aggregate": Endpoint(method="POST", path="/files/aggregate", item_limit=1000),
             },
             api_version="alpha",
         )
         self._create_multipart = Endpoint(method="POST", path="/files", item_limit=1, concurrency_max_workers=1)
         self._download_link = Endpoint(method="POST", path="/files/downloadlink", item_limit=10)
+        # Creates a new classic file and returns multipart URLs. Body is the file object, not wrapped in "items".
         self._multipart_file_upload_link = Endpoint(method="POST", path="/files/initmultipartupload", item_limit=1)
+        # Returns multipart URLs for a file that already exists (externalId or instanceId). Body is {"items": [...]}.
+        self._multipart_upload_link = Endpoint(method="POST", path="/files/multiuploadlink", item_limit=1)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
@@ -81,7 +96,9 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[FileMetadataRequest], overwrite: bool = False) -> list[FileMetadataResponse]:
+    def create(
+        self, items: Sequence[FileMetadataRequest], overwrite: bool = False
+    ) -> builtins.list[FileMetadataResponse]:
         """Upload file metadata to CDF.
 
         Args:
@@ -95,7 +112,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         # - It only allow one item per request that is not wrapped in a "items" field.
         # - It uses a query parameter for "overwrite" instead of including it in the body
         endpoint = self._method_endpoint_map["create"]
-        results: list[FileMetadataResponse] = []
+        results: builtins.list[FileMetadataResponse] = []
         for item in items:
             request = RequestMessage(
                 endpoint_url=self._make_url(endpoint.path),
@@ -132,7 +149,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
 
     def retrieve(
         self, items: Sequence[InternalId | ExternalId | InstanceId], ignore_unknown_ids: bool = False
-    ) -> list[FileMetadataResponse]:
+    ) -> builtins.list[FileMetadataResponse]:
         """Retrieve file metadata from CDF.
 
         Args:
@@ -147,7 +164,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
 
     def update(
         self, items: Sequence[FileMetadataRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[FileMetadataResponse]:
+    ) -> builtins.list[FileMetadataResponse]:
         """Update file metadata in CDF.
 
         Args:
@@ -170,78 +187,266 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
 
     def paginate(
         self,
-        filter: ClassicFilter | None = None,
+        filter: ClassicFilter | dict[str, Any] | None = None,
         directory_prefix: str | None = None,
         uploaded: bool | None = None,
         limit: int = 100,
         cursor: str | None = None,
+        *,
+        name: str | None = None,
+        mime_type: str | None = None,
+        metadata: dict[str, str] | None = None,
+        asset_ids: int | Sequence[int] | None = None,
+        asset_external_ids: str | Sequence[str] | None = None,
+        root_asset_ids: ObjectIds | None = None,
+        root_asset_external_ids: str | Sequence[str] | None = None,
+        data_set_ids: ObjectIds | None = None,
+        data_set_external_ids: str | Sequence[str] | None = None,
+        asset_subtree_ids: ObjectIds | None = None,
+        asset_subtree_external_ids: str | Sequence[str] | None = None,
+        source: str | None = None,
+        created_time: TimeRange | None = None,
+        last_updated_time: TimeRange | None = None,
+        uploaded_time: TimeRange | None = None,
+        source_created_time: TimeRange | None = None,
+        source_modified_time: TimeRange | None = None,
+        external_id_prefix: str | None = None,
+        labels: LabelFilter | dict[str, Any] | None = None,
+        geo_location: GeoLocationFilter | dict[str, Any] | None = None,
+        partition: str | None = None,
     ) -> PagedResponse[FileMetadataResponse]:
-        """Iterate over file metadata in CDF.
+        """Fetch one page of file metadata.
 
-        Args:
-            filter: Filter by data set IDs and/or asset subtree IDs.
-            directory_prefix: Filter by directory prefix.
-            uploaded: Filter by upload status.
-            limit: Maximum number of items to return per page.
-            cursor: Cursor for pagination.
+        Takes the same filter arguments as :meth:`list`.
 
-        Returns:
-            PagedResponse of FileMetadataResponse objects.
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Files/operation/advancedListFiles>`_.
         """
-        filter_: dict[str, Any] = filter.dump() if filter else {}
-        if directory_prefix is not None:
-            filter_["directoryPrefix"] = directory_prefix
-        if uploaded is not None:
-            filter_["uploaded"] = uploaded
-
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body={"filter": filter_ or None},
+            body=self._list_body(
+                filter=filter,
+                directory_prefix=directory_prefix,
+                uploaded=uploaded,
+                name=name,
+                mime_type=mime_type,
+                metadata=metadata,
+                asset_ids=asset_ids,
+                asset_external_ids=asset_external_ids,
+                root_asset_ids=root_asset_ids,
+                root_asset_external_ids=root_asset_external_ids,
+                data_set_ids=data_set_ids,
+                data_set_external_ids=data_set_external_ids,
+                asset_subtree_ids=asset_subtree_ids,
+                asset_subtree_external_ids=asset_subtree_external_ids,
+                source=source,
+                created_time=created_time,
+                last_updated_time=last_updated_time,
+                uploaded_time=uploaded_time,
+                source_created_time=source_created_time,
+                source_modified_time=source_modified_time,
+                external_id_prefix=external_id_prefix,
+                labels=labels,
+                geo_location=geo_location,
+                partition=partition,
+            ),
         )
 
     def iterate(
         self,
-        filter: ClassicFilter | None = None,
+        filter: ClassicFilter | dict[str, Any] | None = None,
         directory_prefix: str | None = None,
         uploaded: bool | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[FileMetadataResponse]]:
+        *,
+        name: str | None = None,
+        mime_type: str | None = None,
+        metadata: dict[str, str] | None = None,
+        asset_ids: int | Sequence[int] | None = None,
+        asset_external_ids: str | Sequence[str] | None = None,
+        root_asset_ids: ObjectIds | None = None,
+        root_asset_external_ids: str | Sequence[str] | None = None,
+        data_set_ids: ObjectIds | None = None,
+        data_set_external_ids: str | Sequence[str] | None = None,
+        asset_subtree_ids: ObjectIds | None = None,
+        asset_subtree_external_ids: str | Sequence[str] | None = None,
+        source: str | None = None,
+        created_time: TimeRange | None = None,
+        last_updated_time: TimeRange | None = None,
+        uploaded_time: TimeRange | None = None,
+        source_created_time: TimeRange | None = None,
+        source_modified_time: TimeRange | None = None,
+        external_id_prefix: str | None = None,
+        labels: LabelFilter | dict[str, Any] | None = None,
+        geo_location: GeoLocationFilter | dict[str, Any] | None = None,
+        partition: str | None = None,
+    ) -> Iterable[builtins.list[FileMetadataResponse]]:
         """Iterate over file metadata in CDF.
 
-        Args:
-            filter: Filter by data set IDs and/or asset subtree IDs.
-            directory_prefix: Filter by directory prefix.
-            uploaded: Filter by upload status.
-            limit: Maximum number of items to return per page.
+        Takes the same filter arguments as :meth:`list`. ``limit`` is the maximum number of
+        files to return in total; ``None`` reads every matching file.
 
-        Returns:
-            Iterable of lists of FileMetadataResponse objects.
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Files/operation/advancedListFiles>`_.
         """
-        filter_: dict[str, Any] = filter.dump() if filter else {}
-        if directory_prefix is not None:
-            filter_["directoryPrefix"] = directory_prefix
-        if uploaded is not None:
-            filter_["uploaded"] = uploaded
-
         return self._iterate(
             limit=limit,
-            body={"filter": filter_ or None},
+            body=self._list_body(
+                filter=filter,
+                directory_prefix=directory_prefix,
+                uploaded=uploaded,
+                name=name,
+                mime_type=mime_type,
+                metadata=metadata,
+                asset_ids=asset_ids,
+                asset_external_ids=asset_external_ids,
+                root_asset_ids=root_asset_ids,
+                root_asset_external_ids=root_asset_external_ids,
+                data_set_ids=data_set_ids,
+                data_set_external_ids=data_set_external_ids,
+                asset_subtree_ids=asset_subtree_ids,
+                asset_subtree_external_ids=asset_subtree_external_ids,
+                source=source,
+                created_time=created_time,
+                last_updated_time=last_updated_time,
+                uploaded_time=uploaded_time,
+                source_created_time=source_created_time,
+                source_modified_time=source_modified_time,
+                external_id_prefix=external_id_prefix,
+                labels=labels,
+                geo_location=geo_location,
+                partition=partition,
+            ),
         )
 
     def list(
         self,
         limit: int | None = 100,
-    ) -> list[FileMetadataResponse]:
-        """List all file metadata in CDF.
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        name: str | None = None,
+        directory_prefix: str | None = None,
+        mime_type: str | None = None,
+        metadata: dict[str, str] | None = None,
+        asset_ids: int | Sequence[int] | None = None,
+        asset_external_ids: str | Sequence[str] | None = None,
+        root_asset_ids: ObjectIds | None = None,
+        root_asset_external_ids: str | Sequence[str] | None = None,
+        data_set_ids: ObjectIds | None = None,
+        data_set_external_ids: str | Sequence[str] | None = None,
+        asset_subtree_ids: ObjectIds | None = None,
+        asset_subtree_external_ids: str | Sequence[str] | None = None,
+        source: str | None = None,
+        created_time: TimeRange | None = None,
+        last_updated_time: TimeRange | None = None,
+        uploaded_time: TimeRange | None = None,
+        source_created_time: TimeRange | None = None,
+        source_modified_time: TimeRange | None = None,
+        external_id_prefix: str | None = None,
+        uploaded: bool | None = None,
+        labels: LabelFilter | dict[str, Any] | None = None,
+        geo_location: GeoLocationFilter | dict[str, Any] | None = None,
+        partition: str | None = None,
+    ) -> builtins.list[FileMetadataResponse]:
+        """List file metadata in CDF.
 
-        Args:
-            limit: Maximum number of items to return. None for all items.
+        ``filter`` is a strict filter. Individual arguments override the same field on ``filter``.
+        ``partition`` is an ``"M/N"`` string. ``root_asset_ids`` accepts an internal id, external id,
+        or :class:`InternalId` / :class:`ExternalId` object. The files list endpoint has no advanced filter or sort.
 
-        Returns:
-            List of FileMetadataResponse objects.
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Files/operation/advancedListFiles>`_.
         """
-        return self._list(limit=limit)
+        return self._list(
+            limit=limit,
+            body=self._list_body(
+                filter=filter,
+                name=name,
+                directory_prefix=directory_prefix,
+                mime_type=mime_type,
+                metadata=metadata,
+                asset_ids=asset_ids,
+                asset_external_ids=asset_external_ids,
+                root_asset_ids=root_asset_ids,
+                root_asset_external_ids=root_asset_external_ids,
+                data_set_ids=data_set_ids,
+                data_set_external_ids=data_set_external_ids,
+                asset_subtree_ids=asset_subtree_ids,
+                asset_subtree_external_ids=asset_subtree_external_ids,
+                source=source,
+                created_time=created_time,
+                last_updated_time=last_updated_time,
+                uploaded_time=uploaded_time,
+                source_created_time=source_created_time,
+                source_modified_time=source_modified_time,
+                external_id_prefix=external_id_prefix,
+                uploaded=uploaded,
+                labels=labels,
+                geo_location=geo_location,
+                partition=partition,
+            ),
+        )
+
+    @staticmethod
+    def _list_body(
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        name: str | None = None,
+        directory_prefix: str | None = None,
+        mime_type: str | None = None,
+        metadata: dict[str, str] | None = None,
+        asset_ids: int | Sequence[int] | None = None,
+        asset_external_ids: str | Sequence[str] | None = None,
+        root_asset_ids: ObjectIds | None = None,
+        root_asset_external_ids: str | Sequence[str] | None = None,
+        data_set_ids: ObjectIds | None = None,
+        data_set_external_ids: str | Sequence[str] | None = None,
+        asset_subtree_ids: ObjectIds | None = None,
+        asset_subtree_external_ids: str | Sequence[str] | None = None,
+        source: str | None = None,
+        created_time: TimeRange | None = None,
+        last_updated_time: TimeRange | None = None,
+        uploaded_time: TimeRange | None = None,
+        source_created_time: TimeRange | None = None,
+        source_modified_time: TimeRange | None = None,
+        external_id_prefix: str | None = None,
+        uploaded: bool | None = None,
+        labels: LabelFilter | dict[str, Any] | None = None,
+        geo_location: GeoLocationFilter | dict[str, Any] | None = None,
+        partition: str | None = None,
+    ) -> dict[str, Any]:
+        return classic_list_body(
+            filter=filter,
+            fields={
+                "name": name,
+                "directoryPrefix": directory_prefix,
+                "mimeType": mime_type,
+                "metadata": metadata,
+                "assetIds": int_ids(asset_ids),
+                "assetExternalIds": str_ids(asset_external_ids),
+                "rootAssetIds": object_ids(root_asset_ids, root_asset_external_ids),
+                "dataSetIds": object_ids(data_set_ids, data_set_external_ids),
+                "assetSubtreeIds": object_ids(asset_subtree_ids, asset_subtree_external_ids),
+                "source": source,
+                "createdTime": time_range(created_time),
+                "lastUpdatedTime": time_range(last_updated_time),
+                "uploadedTime": time_range(uploaded_time),
+                "sourceCreatedTime": time_range(source_created_time),
+                "sourceModifiedTime": time_range(source_modified_time),
+                "externalIdPrefix": external_id_prefix,
+                "uploaded": uploaded,
+                "labels": dump_model(labels),
+                "geoLocation": dump_model(geo_location),
+            },
+            partition=partition,
+        )
+
+    def count(self, *, filter: ClassicFilter | dict[str, Any] | None = None) -> int:
+        """Count files matching an optional filter.
+
+        The files aggregate endpoint returns only ``count``.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Files/operation/aggregateFiles>`_.
+        """
+        return files_aggregate_count(self, filter=filter)
 
     def set_pending_ids(self, items: Sequence[PendingInstanceId]) -> builtins.list[FileMetadataResponse]:
         """Set pending instance IDs for one or more file metadata entries.
@@ -406,7 +611,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             List of updated FileMetadataResponse objects.
 
         """
-        results: list[FileMetadataResponse] = []
+        results: builtins.list[FileMetadataResponse] = []
         for item in items:
             # The API only supports one
             request = RequestMessage(
@@ -424,9 +629,13 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         return results
 
     def get_multipart_upload_urls(self, item: ExternalId | InstanceId, parts: int) -> FileMetadataResponse:
-        """Get URLs to upload a file in multiple parts to CDF for one file metadata entry."""
+        """Get multipart upload URLs for one file that already exists in CDF.
+
+        ``POST /files/initmultipartupload`` creates a new classic file and rejects an ``items`` body.
+        An existing classic file or CogniteFile must use ``POST /files/multiuploadlink``.
+        """
         self._validate_parts_parameter(parts)
-        endpoint = self._multipart_file_upload_link
+        endpoint = self._multipart_upload_link
         request = RequestMessage(
             endpoint_url=self._http_client.config.create_api_url(endpoint.path),
             method="POST",
@@ -455,7 +664,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         Returns:
                 List of DownloadResponse objects containing the download URLs.
         """
-        results: list[DownloadResponse] = []
+        results: builtins.list[DownloadResponse] = []
         for chunk in chunker_sequence(items, self._download_link.item_limit):
             request = RequestMessage(
                 endpoint_url=self._http_client.config.create_api_url(self._download_link.path),

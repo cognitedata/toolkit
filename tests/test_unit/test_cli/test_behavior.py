@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 from typing import cast
@@ -55,10 +56,11 @@ from cognite_toolkit._cdf_tk.commands import (
     PullV2Command,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConsistencyError
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildError, BuildParameters
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO, LocationFilterIO, WorkflowVersionIO
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from tests.constants import CDF_PROJECT, chdir
@@ -93,7 +95,7 @@ def test_inject_custom_environmental_variables(
         parameters=BuildParameters(
             organization_dir=buildable_modules,
             build_dir=build_tmp_path,
-            config_yaml=config_path,
+            config_yamls=[config_path],
             user_selected_modules=["cdf_common"],
         ),
     )
@@ -356,6 +358,72 @@ def test_pull_group(
     assert reloaded.dump() == cdf_group.as_request_resource().dump()
 
 
+@pytest.mark.skipif(not Flags.CATALOG_DATASET.is_enabled(), reason="CATALOG_DATA not enabled")
+def test_pull_catalog_data_set(
+    default_config_dev_yaml: str,
+    env_vars_with_client: EnvironmentVariables,
+    toolkit_client_approval: ApprovalToolkitClient,
+    tmp_path: Path,
+) -> None:
+    org_dir = tmp_path / "my-org"
+    local_file = """externalId: my_catalog
+name: My catalog
+description: Original description
+writeProtected: false
+rawTables:
+- databaseName: src_db
+  tableName: src_tbl
+archived: false
+consoleGoverned: false
+consoleOwners:
+- name: Alice
+  email: alice@example.com
+"""
+    local_path = org_dir / "modules" / "my-module" / "data_sets" / "my_catalog.CatalogDataSet.yaml"
+    local_path.parent.mkdir(parents=True)
+    local_path.write_text(local_file)
+    (org_dir / "config.dev.yaml").write_text(default_config_dev_yaml, encoding="utf-8")
+
+    toolkit_client_approval.append(
+        DataSetResponse,
+        DataSetResponse(
+            external_id="my_catalog",
+            name="My catalog",
+            description="Updated description",
+            write_protected=False,
+            metadata={
+                "rawTables": json.dumps([{"databaseName": "src_db", "tableName": "updated_tbl"}]),
+                "archived": json.dumps(True),
+                "consoleGoverned": json.dumps(True),
+                "consoleOwners": json.dumps([{"name": "Bob", "email": "bob@example.com"}]),
+            },
+            id=42,
+            created_time=1,
+            last_updated_time=2,
+        ),
+    )
+
+    PullV2Command(skip_tracking=True, silent=True).pull(
+        user_selected_modules=["my-module"],
+        organization_dir=org_dir,
+        config_yaml=org_dir / "config.dev.yaml",
+        dry_run=False,
+        verbose=False,
+        env_vars=env_vars_with_client,
+    )
+
+    assert yaml.safe_load(local_path.read_text()) == {
+        "externalId": "my_catalog",
+        "name": "My catalog",
+        "description": "Updated description",
+        "writeProtected": False,
+        "rawTables": [{"databaseName": "src_db", "tableName": "updated_tbl"}],
+        "archived": True,
+        "consoleGoverned": True,
+        "consoleOwners": [{"name": "Bob", "email": "bob@example.com"}],
+    }
+
+
 def test_dump_datamodel(
     build_tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,
@@ -455,49 +523,41 @@ def test_dump_datamodel(
     assert len(view_files) == 2
     loaded_views = [ViewRequest.model_validate(yaml.safe_load(f.read_text())) for f in view_files]
     child_loaded = next(v for v in loaded_views if v.external_id == "my_view")
-    assert child_loaded.implements[0] == parent_view.as_id()
+    implements = child_loaded.implements
+    assert implements is not None
+    assert implements[0] == parent_view.as_id()
     # The parent property should have been removed from the child view.
-    assert len(child_loaded.properties) == 1
+    properties = child_loaded.properties
+    assert properties is not None
+    assert len(properties) == 1
 
 
 def test_dump_datamodel_skip_global(
     tmp_path: Path, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
 ) -> None:
     output_dir = tmp_path / "tmp_dump"
-    default_space_args = dict(is_global=False, last_updated_time=0, created_time=0)
-    default_view_args = dict(
-        last_updated_time=1,
-        created_time=1,
-        writable=True,
-        queryable=True,
-        used_for="node",
-        is_global=False,
-    )
-    default_prop_args = dict(
-        nullable=True,
-        immutable=False,
-        auto_increment=False,
-        constraint_state=ConstraintOrIndexState(),
-    )
-    default_container_args = dict(
+    local_space = SpaceResponse(space="my_space", is_global=False, last_updated_time=0, created_time=0)
+    global_space = SpaceResponse(space="cdf_cdm", is_global=True, last_updated_time=0, created_time=0)
+    toolkit_client_approval.append(SpaceResponse, [local_space, global_space])
+    local_container_ref = ContainerId(space=local_space.space, external_id="MyAsset")
+    local_container = ContainerResponse(
+        space=local_space.space,
+        external_id="MyAsset",
+        properties={},
         is_global=False,
         last_updated_time=0,
         created_time=0,
         used_for="node",
-    )
-    local_space = SpaceResponse(space="my_space", **default_space_args)
-    global_space = SpaceResponse(space="cdf_cdm", **{**default_space_args, "is_global": True})
-    toolkit_client_approval.append(SpaceResponse, [local_space, global_space])
-    local_container_ref = ContainerId(space=local_space.space, external_id="MyAsset")
-    local_container = ContainerResponse(
-        space=local_space.space, external_id="MyAsset", properties={}, **default_container_args
     )
     global_container_ref = ContainerId(space=global_space.space, external_id="CogniteAsset")
     global_container = ContainerResponse(
         space=global_space.space,
         external_id="CogniteAsset",
         properties={},
-        **{**default_container_args, "is_global": True},
+        is_global=True,
+        last_updated_time=0,
+        created_time=0,
+        used_for="node",
     )
     toolkit_client_approval.append(ContainerResponse, [local_container, global_container])
     local_view = ViewResponse(
@@ -509,11 +569,19 @@ def test_dump_datamodel_skip_global(
                 container=local_container_ref,
                 container_property_identifier="prop1",
                 type=TextProperty(),
-                **default_prop_args,
+                nullable=True,
+                immutable=False,
+                auto_increment=False,
+                constraint_state=ConstraintOrIndexState(),
             ),
         },
         mapped_containers=[local_container_ref],
-        **{**default_view_args, "is_global": False},
+        last_updated_time=1,
+        created_time=1,
+        writable=True,
+        queryable=True,
+        used_for="node",
+        is_global=False,
     )
     global_view = ViewResponse(
         space=global_space.space,
@@ -524,11 +592,19 @@ def test_dump_datamodel_skip_global(
                 container=global_container_ref,
                 container_property_identifier="prop1",
                 type=TextProperty(),
-                **default_prop_args,
+                nullable=True,
+                immutable=False,
+                auto_increment=False,
+                constraint_state=ConstraintOrIndexState(),
             ),
         },
         mapped_containers=[global_container_ref],
-        **{**default_view_args, "is_global": True},
+        last_updated_time=1,
+        created_time=1,
+        writable=True,
+        queryable=True,
+        used_for="node",
+        is_global=True,
     )
     toolkit_client_approval.append(ViewResponse, [local_view, global_view])
     data_model = DataModelResponse(
@@ -573,7 +649,7 @@ def test_build_custom_project(
         parameters=BuildParameters(
             organization_dir=PROJECT_NO_COGNITE_MODULES,
             build_dir=build_tmp_path,
-            config_yaml=PROJECT_NO_COGNITE_MODULES / "config.dev.yaml",
+            config_yamls=[PROJECT_NO_COGNITE_MODULES / "config.dev.yaml"],
         ),
     )
 
@@ -594,7 +670,7 @@ def test_build_project_selecting_parent_path(
         parameters=BuildParameters(
             organization_dir=PROJECT_FOR_TEST,
             build_dir=build_tmp_path,
-            config_yaml=PROJECT_FOR_TEST / "config.dev.yaml",
+            config_yamls=[PROJECT_FOR_TEST / "config.dev.yaml"],
         ),
     )
 
@@ -630,8 +706,10 @@ def test_deploy_group_with_unknown_acl(
     assert len(groups) == 1
     group = cast(GroupRequest, groups[0])
     assert group.name == "my_group_with_unknown_acl"
-    assert len(group.capabilities) == 1
-    assert group.capabilities[0].dump() == {
+    capabilities = group.capabilities
+    assert capabilities is not None
+    assert len(capabilities) == 1
+    assert capabilities[0].dump() == {
         "someUnknownAcl": {
             "actions": ["UTTERLY_UNKNOWN"],
             "scope": {"unknownScope": {"with": ["some", {"strange": "structure"}]}},
@@ -646,7 +724,7 @@ def test_build_project_with_only_top_level_variables(
         parameters=BuildParameters(
             organization_dir=PROJECT_NO_COGNITE_MODULES,
             build_dir=build_tmp_path,
-            config_yaml=PROJECT_NO_COGNITE_MODULES / "config.top_level_variables.yaml",
+            config_yamls=[PROJECT_NO_COGNITE_MODULES / "config.top_level_variables.yaml"],
         ),
     )
 
@@ -716,7 +794,7 @@ def test_build_deploy_location_filter_with_same_filename_in_different_modules(
         parameters=BuildParameters(
             organization_dir=NAUGHTY_PROJECT,
             build_dir=build_tmp_path,
-            config_yaml=None,
+            config_yamls=None,
             user_selected_modules=["modules/multi_locations"],
         ),
     )
@@ -754,7 +832,7 @@ def test_build_deploy_keep_special_characters(
     build_dir.mkdir(parents=True, exist_ok=True)
     expected_query = "SELECT * FROM my_éñcüd€d£d_table WHERE column = 'value'"
 
-    my_cdf_toml = cdf_toml.CDFToml.load(use_singleton=False)
+    my_cdf_toml = cdf_toml.CDFToml.load_module_context(use_singleton=False)
     my_cdf_toml.cdf.file_encoding = encoding
     monkeypatch.setattr(cdf_toml, "_CDF_TOML", my_cdf_toml)
     BuildV2Command(silent=True, skip_tracking=True).build(
@@ -762,7 +840,7 @@ def test_build_deploy_keep_special_characters(
         parameters=BuildParameters(
             organization_dir=NAUGHTY_PROJECT,
             build_dir=build_dir,
-            config_yaml=None,
+            config_yamls=None,
             user_selected_modules=["encoding_issue"],
         ),
     )
@@ -832,7 +910,7 @@ dataModelingType: DATA_MODELING_ONLY
         parameters=BuildParameters(
             organization_dir=org,
             build_dir=build_tmp_path,
-            config_yaml=None,
+            config_yamls=None,
             user_selected_modules=["my_first", "my_second"],
         ),
     )
@@ -928,7 +1006,7 @@ def test_workflow_deployment_order(
         parameters=BuildParameters(
             organization_dir=org,
             build_dir=build_tmp_path,
-            config_yaml=None,
+            config_yamls=None,
             user_selected_modules=["my_workflow_module"],
         ),
     )
@@ -964,7 +1042,7 @@ def test_agent_deployment_order(
     env_vars_with_client: EnvironmentVariables,
 ) -> None:
     # Skip the agent runtime/capability consistency checks, which require a real service availability response.
-    toolkit_client_approval.mock_client.tool.agents.service_availability.return_value = None
+    toolkit_client_approval.mock_client.agents.service_availability.return_value = None
     supervisor = """externalId: supervisor
 name: Supervisor
 runtimeVersion: "1.3.0"
@@ -990,7 +1068,7 @@ runtimeVersion: "1.3.0"
         parameters=BuildParameters(
             organization_dir=org,
             build_dir=build_tmp_path,
-            config_yaml=None,
+            config_yamls=None,
             user_selected_modules=["my_agent_module"],
         ),
     )
@@ -1047,15 +1125,52 @@ capabilities:
         parameters=BuildParameters(
             organization_dir=my_org,
             build_dir=tmp_path / "build",
-            config_yaml=my_org / "config.dev.yaml",
+            config_yamls=[my_org / "config.dev.yaml"],
         ),
     )
-    insights = [insight for insight in folder.all_insights if insight.code == "UNKNOWN-REFERENCE"]
+    insights = [insight for insight in folder.all_insights if insight.code == "MISSING-REFERENCED-RESOURCE"]
     assert len(insights) == 1
     insight = insights[0]
-    assert isinstance(insight, ConsistencyError)
-    assert insight.message == "Unknown reference to spaces with id 'my_non_existent_space'"
+    assert isinstance(insight, BuildError)
+    assert insight.message.startswith("The space 'my_non_existent_space' does not exist locally or in CDF.")
     assert insight.source_file == yaml_filepath
+    assert (insight.line, insight.column) == (12, 11)
+
+
+def test_unresolved_variable_does_not_cause_unknown_reference(
+    default_config_dev_yaml: str,
+    env_vars_with_client: EnvironmentVariables,
+    tmp_path: Path,
+) -> None:
+    group_yaml = """name: scoped_group
+sourceId: '1234567890123456789'
+capabilities:
+- dataModelsAcl:
+    actions:
+    - READ
+    scope:
+      spaceIdScope:
+        spaceIds:
+        - '{{ my_unresolved_space }}'
+"""
+
+    my_org = tmp_path / "my_org"
+    yaml_filepath = my_org / "modules" / "my_module" / "auth" / "scoped_group.Group.yaml"
+    yaml_filepath.parent.mkdir(parents=True, exist_ok=True)
+    yaml_filepath.write_text(group_yaml, encoding="utf-8")
+    (my_org / "config.dev.yaml").write_text(default_config_dev_yaml, encoding="utf-8")
+
+    folder = BuildV2Command(silent=True, skip_tracking=True).build(
+        client=env_vars_with_client.get_client(),
+        parameters=BuildParameters(
+            organization_dir=my_org,
+            build_dir=tmp_path / "build",
+            config_yamls=[my_org / "config.dev.yaml"],
+        ),
+    )
+    codes = {insight.code for insight in folder.all_insights}
+    assert "UNRESOLVED-VARIABLE" in codes
+    assert "MISSING-REFERENCED-RESOURCE" not in codes
 
 
 def test_warning_missing_dependency_with_unknown_capability(
@@ -1069,7 +1184,7 @@ def test_warning_missing_dependency_with_unknown_capability(
     that model validation still succeeds (``validated`` is set).  ``get_dependencies`` skips
     ``UnknownCapability`` instances, but the valid siblings (e.g. ``dataModelsAcl`` with a
     ``spaceIdScope``) are still processed — so a missing space is caught and an
-    UNKNOWN-REFERENCE insight is emitted.  A MODEL-SYNTAX-WARNING is also produced via
+    MISSING-REFERENCED-RESOURCE insight is emitted.  An UNRECOGNIZED-VALUE is also produced via
     ``get_build_warnings()`` to tell the user about the unrecognised capability.
     """
     group_yaml = """name: scoped_group_unknown_cap
@@ -1105,17 +1220,17 @@ capabilities:
         parameters=BuildParameters(
             organization_dir=my_org,
             build_dir=tmp_path / "build",
-            config_yaml=my_org / "config.dev.yaml",
+            config_yamls=[my_org / "config.dev.yaml"],
         ),
     )
-    # The unknown capability should produce a MODEL-SYNTAX-WARNING (not an error — the YAML
+    # The unknown capability should produce an UNRECOGNIZED-VALUE (not an error — the YAML
     # is still valid from the build perspective; CDF may or may not accept it at deploy time).
-    syntax_warnings = [i for i in folder.all_insights if i.code == "MODEL-SYNTAX-WARNING"]
-    assert len(syntax_warnings) >= 1, "Expected a MODEL-SYNTAX-WARNING for the unknown capability"
+    syntax_warnings = [i for i in folder.all_insights if i.code == "UNRECOGNIZED-VALUE"]
+    assert len(syntax_warnings) >= 1, "Expected an UNRECOGNIZED-VALUE for the unknown capability"
 
     # The space reference in the VALID sibling capability must still be checked against CDF.
-    unknown_refs = [i for i in folder.all_insights if i.code == "UNKNOWN-REFERENCE"]
+    unknown_refs = [i for i in folder.all_insights if i.code == "MISSING-REFERENCED-RESOURCE"]
     assert len(unknown_refs) == 1, (
-        "Expected UNKNOWN-REFERENCE for 'my_non_existent_space' even when group has an unknown capability"
+        "Expected MISSING-REFERENCED-RESOURCE for 'my_non_existent_space' even when group has an unknown capability"
     )
     assert "my_non_existent_space" in unknown_refs[0].message

@@ -178,7 +178,7 @@ CDF_URL=https://bluefield.cognitedata.com
 IDP_TOKEN_URL=https://login.microsoftonline.com/my_tenant.onmicrosoft.com/oauth2/v2.0/token
 IDP_AUDIENCE=https://bluefield.cognitedata.com
 IDP_SCOPES=https://bluefield.cognitedata.com/.default
-CDF_CLIENT_TIMEOUT=30
+CDF_CLIENT_TIMEOUT=60
 CDF_CLIENT_MAX_WORKERS=5
 """
         )

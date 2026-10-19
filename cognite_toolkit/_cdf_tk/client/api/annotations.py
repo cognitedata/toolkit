@@ -4,6 +4,7 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Annotations/operation/annotationsCreate
 """
 
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
@@ -34,7 +35,7 @@ class AnnotationsAPI(CDFResourceAPI[AnnotationResponse]):
     ) -> PagedResponse[AnnotationResponse]:
         return PagedResponse[AnnotationResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[AnnotationRequest]) -> list[AnnotationResponse]:
+    def create(self, items: Sequence[AnnotationRequest]) -> builtins.list[AnnotationResponse]:
         """Create annotations in CDF.
 
         Args:
@@ -45,7 +46,7 @@ class AnnotationsAPI(CDFResourceAPI[AnnotationResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[InternalId]) -> list[AnnotationResponse]:
+    def retrieve(self, items: Sequence[InternalId]) -> builtins.list[AnnotationResponse]:
         """Retrieve annotations from CDF by ID.
 
         Args:
@@ -58,7 +59,7 @@ class AnnotationsAPI(CDFResourceAPI[AnnotationResponse]):
 
     def update(
         self, items: Sequence[AnnotationRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[AnnotationResponse]:
+    ) -> builtins.list[AnnotationResponse]:
         """Update annotations in CDF.
 
         Args:
@@ -100,7 +101,7 @@ class AnnotationsAPI(CDFResourceAPI[AnnotationResponse]):
         self,
         filter: AnnotationFilter,
         limit: int | None = None,
-    ) -> Iterable[list[AnnotationResponse]]:
+    ) -> Iterable[builtins.list[AnnotationResponse]]:
         """Iterate over all annotations in CDF.
 
         Args:
@@ -116,7 +117,7 @@ class AnnotationsAPI(CDFResourceAPI[AnnotationResponse]):
         self,
         filter: AnnotationFilter,
         limit: int | None = None,
-    ) -> list[AnnotationResponse]:
+    ) -> builtins.list[AnnotationResponse]:
         """List all annotations in CDF.
 
         Args:

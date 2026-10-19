@@ -19,6 +19,9 @@ def _built_resource(identifier: Identifier, variables: list[BuildVariable] | Non
     resource.identifier = identifier
     resource.variables = variables or []
     resource.extra_files = []
+    # MagicMock would otherwise invent source_type. These cases are CRUD files, so pull should not
+    # look up a ResourceFileIO and convert with from_crud_type.
+    resource.source_type = None
     return resource
 
 
@@ -201,7 +204,7 @@ class TestPullV2Command:
             to_write=to_write,
             resources=resources,
             environment_variables={},
-            resource_io=loader_type.create_loader(toolkit_client_cheap),
+            resource_io=loader_type.create_io(toolkit_client_cheap),
             source_file=source_file,
         )
         assert not extra_files, "This tests does not support testing extra files"

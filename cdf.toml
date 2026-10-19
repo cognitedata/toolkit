@@ -7,6 +7,7 @@ file_upload_timeout_seconds = 90
 
 [rules]
 ignore = []
+enforce = false
 
 [alpha_flags]
 alpha-rules = true
@@ -15,15 +16,11 @@ import-cmd = true
 infield = true
 migrate = true
 create = true
-extend-download = true
-extend-upload = true
 data-products = true
 entity-matching = false
 custom-apps = true
-external-data-sources = true
-signals = false
 api = true
-v09 = true
+catalog-dataset = true
 
 [plugins]
 run = true

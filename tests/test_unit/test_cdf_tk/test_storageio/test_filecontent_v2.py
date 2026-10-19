@@ -1,6 +1,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsResultMessage,
@@ -58,12 +60,12 @@ class TestFileMetadataContentIO:
             destination.write_bytes(destination.name.encode())
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.filemetadata.retrieve.return_value = [file_one, file_two]
-            client.tool.filemetadata.get_download_url.side_effect = lambda ids: [
+            client.filemetadata.retrieve.return_value = [file_one, file_two]
+            client.filemetadata.get_download_url.side_effect = lambda ids: [
                 DownloadResponse(id=identifier.id, download_url=f"https://example.com/{identifier.id}")
                 for identifier in ids
             ]
-            client.tool.filemetadata.download_file.side_effect = download_file
+            client.filemetadata.download_file.side_effect = download_file
 
             io = FileMetadataContentIO(client, config_directory=tmp_path, file_directory=file_directory)
             pages = list(io.stream_data(selector))
@@ -131,7 +133,7 @@ my_text_file,my_text_file.txt,{text_file.relative_to(tmp_path)}\n
 
     def _upload_files(self, selector: FileMetadataContentSelectorV2, tmp_path: Path) -> list[ItemsResultMessage]:
         with monkeypatch_toolkit_client() as client:
-            client.tool.filemetadata.create.return_value = [
+            client.filemetadata.create.return_value = [
                 FileMetadataResponse(
                     name="dummy",
                     created_time=1,
@@ -141,7 +143,7 @@ my_text_file,my_text_file.txt,{text_file.relative_to(tmp_path)}\n
                     id=37,
                 )
             ]
-            client.tool.filemetadata.upload_file.return_value = SuccessResponse(status_code=200, body="", content=b"")
+            client.filemetadata.upload_file.return_value = SuccessResponse(status_code=200, body="", content=b"")
 
             io = FileMetadataContentIO(client, overwrite=True, config_directory=tmp_path)
             files = selector.find_data_files(tmp_path, tmp_path / selector.as_filename())
@@ -175,7 +177,7 @@ class TestCogniteFileContentIO:
         selector.dump_to_file(tmp_path)
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.cognite_files.create.return_value = [
+            client.cognite_files.create.return_value = [
                 InstanceSlimDefinition(
                     instance_type="node",
                     version=1,
@@ -186,7 +188,7 @@ class TestCogniteFileContentIO:
                     last_updated_time=1,
                 )
             ]
-            client.tool.filemetadata.get_upload_url.return_value = [
+            client.filemetadata.get_upload_url.return_value = [
                 FileMetadataResponse(
                     name="dummy",
                     created_time=1,
@@ -196,7 +198,7 @@ class TestCogniteFileContentIO:
                     id=37,
                 )
             ]
-            client.tool.filemetadata.upload_file.return_value = SuccessResponse(status_code=200, body="", content=b"")
+            client.filemetadata.upload_file.return_value = SuccessResponse(status_code=200, body="", content=b"")
 
             io = CogniteFileContentIO(client, overwrite=True, config_directory=tmp_path)
             files = selector.find_data_files(tmp_path, tmp_path / selector.as_filename())
@@ -224,7 +226,7 @@ class TestCogniteFileContentIO:
         csv_path.write_text(csv_file)
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.cognite_files.create.return_value = [
+            client.cognite_files.create.return_value = [
                 InstanceSlimDefinition(
                     instance_type="node",
                     version=1,
@@ -235,7 +237,7 @@ class TestCogniteFileContentIO:
                     last_updated_time=1,
                 )
             ]
-            client.tool.filemetadata.get_upload_url.return_value = [
+            client.filemetadata.get_upload_url.return_value = [
                 FileMetadataResponse(
                     name="dummy",
                     created_time=1,
@@ -245,7 +247,7 @@ class TestCogniteFileContentIO:
                     id=38,
                 )
             ]
-            client.tool.filemetadata.upload_file.return_value = SuccessResponse(status_code=200, body="", content=b"")
+            client.filemetadata.upload_file.return_value = SuccessResponse(status_code=200, body="", content=b"")
 
             io = CogniteFileContentIO(client, overwrite=True, config_directory=tmp_path)
             files = selector.find_data_files(tmp_path, tmp_path / selector.as_filename())
@@ -253,6 +255,61 @@ class TestCogniteFileContentIO:
             requests = (io.json_chunk_to_data(page) for page in chunks)
             result_pages = [io.upload_items(page, MagicMock(spec=HTTPClient), selector) for page in requests]
 
+        assert result_pages[0] == [
+            ItemsSuccessResponse(ids=[f"{csv_path.name}:row-1"], status_code=200, body="", content=b""),
+        ]
+
+    def test_upload_large_csv_file_uses_multipart(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.dataio._file_contentv2.IDEAL_FILE_SIZE", 8)
+        file_directory = tmp_path / "target"
+        file_directory.mkdir()
+        text_file = file_directory / "row1.pdf"
+        text_file.write_bytes(b"0123456789abcdef")
+
+        selector = CogniteFileFilesSelectorV2()
+        selector.dump_to_file(tmp_path)
+        relative_path = text_file.relative_to(tmp_path).as_posix()
+        csv_file = f"space,externalId,name,mimeType,{FILEPATH}\nmy-space,r1,row-1,application/pdf,{relative_path}\n"
+        csv_path = tmp_path / f"{selector.as_filestem()}.csv"
+        csv_path.write_text(csv_file)
+
+        with monkeypatch_toolkit_client() as client:
+            client.cognite_files.create.return_value = [
+                InstanceSlimDefinition(
+                    instance_type="node",
+                    version=1,
+                    was_modified=True,
+                    space="my-space",
+                    external_id="r1",
+                    created_time=1,
+                    last_updated_time=1,
+                )
+            ]
+            client.filemetadata.get_multipart_upload_urls.return_value = FileMetadataResponse(
+                name="dummy",
+                created_time=1,
+                last_updated_time=1,
+                uploaded=False,
+                id=38,
+                upload_id="upload-1",
+                upload_urls=["https://upload.example/1", "https://upload.example/2"],
+            )
+            client.filemetadata.upload_file_multiparts.return_value = [
+                SuccessResponse(status_code=200, body="", content=b""),
+            ]
+
+            io = CogniteFileContentIO(client, overwrite=True, config_directory=tmp_path)
+            files = selector.find_data_files(tmp_path, tmp_path / selector.as_filename())
+            chunks = io.read_chunks(MultiFileReader(files), selector)
+            requests = (io.json_chunk_to_data(page) for page in chunks)
+            result_pages = [io.upload_items(page, MagicMock(spec=HTTPClient), selector) for page in requests]
+
+        client.filemetadata.get_upload_url.assert_not_called()
+        client.filemetadata.get_multipart_upload_urls.assert_called_once()
+        assert client.filemetadata.get_multipart_upload_urls.call_args.args[1] == 2
+        client.filemetadata.upload_file_multiparts.assert_called_once_with(
+            text_file, ["https://upload.example/1", "https://upload.example/2"]
+        )
         assert result_pages[0] == [
             ItemsSuccessResponse(ids=[f"{csv_path.name}:row-1"], status_code=200, body="", content=b""),
         ]

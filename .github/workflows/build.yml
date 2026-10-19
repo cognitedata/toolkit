@@ -34,6 +34,19 @@ jobs:
             pre-commit-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
       - name: Linting and static code checks
         run: uv run pre-commit run --show-diff-on-failure --color=always --all-files
+  lint-dependencies:
+    runs-on: ubuntu-latest
+    name: Lint dependencies
+    if: github.event.pull_request.draft == false
+    steps:
+        - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        - name: Install the latest version of uv
+          uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+          with:
+            python-version: ${{ env.PYTHON_VERSION }}
+        - name: Run deptry
+          run: uvx deptry cognite_toolkit/
+
   test-no-alpha:
     name: Run tests without alpha features
     if: github.event.pull_request.draft == false
@@ -69,10 +82,10 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
+          - "3.15"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6

@@ -119,16 +119,21 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
         template_filter = {
             "and": [template_filter, {"equals": {"property": ["node", "space"], "value": instance_space}}]
         }
+    # /sync uses an index while backfilling a hasData filter only in twoPhase, and only a
+    # cursorable index can be a backfillSort. rootLocation, order, asset, until, status, and
+    # exceptionDates are not cursorable, so the backfill stays on the built-in id index.
     return InstanceQuerySelector(
         endpoint="sync",
         query=QueryRequest(
             with_={
                 "template": QueryNodeExpression(
                     limit=1,
+                    mode="twoPhase",
                     nodes=QueryNodeTableExpression(filter=template_filter),
                 ),
                 "templateEdges": QueryEdgeExpression(
                     limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
+                    mode="twoPhase",
                     edges=QueryEdgeTableExpression(
                         from_="template",
                         chain_to="source",
@@ -143,6 +148,7 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
                 ),
                 "templateItem": QueryNodeExpression(
                     limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
+                    mode="twoPhase",
                     nodes=QueryNodeTableExpression(
                         from_="templateEdges",
                         chain_to="destination",
@@ -151,6 +157,7 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
                 ),
                 "templateItemEdges": QueryEdgeExpression(
                     limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
+                    mode="twoPhase",
                     edges=QueryEdgeTableExpression(
                         from_="templateItem",
                         chain_to="source",
@@ -165,6 +172,7 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
                 ),
                 "schedules": QueryNodeExpression(
                     limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
+                    mode="twoPhase",
                     nodes=QueryNodeTableExpression(
                         from_="templateItemEdges",
                         chain_to="destination",

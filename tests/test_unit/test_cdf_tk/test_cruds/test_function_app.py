@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from cognite_toolkit._cdf_tk.client.resource_classes.function_app import FunctionAppRequest, FunctionAppResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
-from cognite_toolkit._cdf_tk.resource_ios import FunctionAppIO, FunctionIO, get_crud
+from cognite_toolkit._cdf_tk.resource_ios import FunctionAppIO, FunctionIO, get_resource_build_io
 from cognite_toolkit._cdf_tk.yaml_classes import FunctionAppsYAML
 
 
@@ -41,7 +41,7 @@ def test_function_app_response_has_alpha_wire_status_and_owner() -> None:
 def test_function_app_load_resource_normalizes_null_metadata(tmp_path: Path) -> None:
     resource_file = tmp_path / "app.FunctionApp.yaml"
     resource_file.write_text("externalId: app\nname: App\nmetadata: null\nsecrets:\n  password: secret\n")
-    loader = FunctionAppIO.create_loader(MagicMock(), tmp_path.parent)
+    loader = FunctionAppIO.create_io(MagicMock())
 
     loaded = loader.load_resource_file(resource_file)
 
@@ -222,7 +222,7 @@ def test_function_app_rejects_symlinked_code_directory(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("method, argument", [("create", []), ("retrieve", []), ("delete", []), ("iterate", None)])
 def test_function_app_deployment_stubs_are_typed(method: str, argument: list[object] | None) -> None:
-    loader = FunctionAppIO.create_loader(MagicMock(), None)
+    loader = FunctionAppIO.create_io(MagicMock())
     with pytest.raises(ToolkitNotSupported, match="alpha resource supports build only"):
         if argument is None:
             list(loader.iterate())
@@ -240,23 +240,26 @@ def test_function_and_function_app_share_folder_without_misattributing_sidecars(
     function_sidecar.write_text("externalId: classic-code\nname: code\n")
     app_sidecar.write_text("externalId: app-code\nname: code\n")
 
-    function = FunctionIO.create_loader(MagicMock(), tmp_path.parent)
-    app = FunctionAppIO.create_loader(MagicMock(), tmp_path.parent)
+    function = FunctionIO.create_io(MagicMock())
+    app = FunctionAppIO.create_io(MagicMock())
     function.load_resource_file(function_yaml)
     app.load_resource_file(app_yaml)
 
     # Sidecars are only associated by the corresponding resource filename stem.
     assert function.filemetadata_path_by_external_id["function"] == function_sidecar
     assert app._code_bundle.filemetadata_path_by_external_id["app"] == app_sidecar
-    assert get_crud("functions", "Function") is FunctionIO
-    assert get_crud("functions", "FunctionApp") is FunctionAppIO
+    assert get_resource_build_io("functions", "Function") is FunctionIO
+    assert get_resource_build_io("functions", "FunctionApp") is FunctionAppIO
 
 
 def test_function_app_is_available_to_alpha_deserialization_only() -> None:
-    from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME, CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA
+    from cognite_toolkit._cdf_tk.resource_ios import (
+        RESOURCE_BASE_IO_BY_FOLDER_NAME,
+        RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA,
+    )
 
-    assert FunctionAppIO in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA["functions"]
-    assert (FunctionAppIO in CRUDS_BY_FOLDER_NAME["functions"]) is (
+    assert FunctionAppIO in RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA["functions"]
+    assert (FunctionAppIO in RESOURCE_BASE_IO_BY_FOLDER_NAME["functions"]) is (
         FunctionAppIO
         not in __import__("cognite_toolkit._cdf_tk.resource_ios", fromlist=["_EXCLUDED_CRUDS"])._EXCLUDED_CRUDS
     )

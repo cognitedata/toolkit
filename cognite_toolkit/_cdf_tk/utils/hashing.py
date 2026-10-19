@@ -36,14 +36,26 @@ def calculate_directory_hash(
     return calculated
 
 
-def calculate_secure_hash(item: dict[str, Any], shorten: bool = False) -> str:
+def calculate_secure_hash(item: dict[str, Any] | str, shorten: bool = False) -> str:
     """Calculate a secure hash of a dictionary"""
     sha256_hash = hashlib.sha512(usedforsecurity=True)
-    sha256_hash.update(json.dumps(item, sort_keys=True).encode("utf-8"))
+    if isinstance(item, dict):
+        sha256_hash.update(json.dumps(item, sort_keys=True).encode("utf-8"))
+    else:
+        sha256_hash.update(item.encode("utf-8"))
     calculated_hash = sha256_hash.hexdigest()
     if shorten:
         return calculated_hash[:8]
     return calculated_hash
+
+
+def calculate_hash_multi_file(filepaths: list[Path], shorten: bool = False) -> str:
+    if not filepaths:
+        return ""
+    byte_array: list[bytes] = []
+    for config_file in filepaths:
+        byte_array.append(config_file.read_bytes().replace(b"\r\n", b"\n"))
+    return calculate_hash(b"".join(byte_array), shorten=shorten)
 
 
 def calculate_hash(content: str | bytes | Path, shorten: bool = False) -> str:

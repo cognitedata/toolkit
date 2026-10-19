@@ -11,10 +11,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.agent import (
     ServicesAvailability,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId, ResourceType
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
-from cognite_toolkit._cdf_tk.resource_ios import AgentIO
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
+from cognite_toolkit._cdf_tk.resource_ios import AgentIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._agents import AgentRuleSet
 
 
@@ -56,13 +55,13 @@ class TestAgentRuleSet:
             identifier=ExternalId(external_id=external_id),
             source_hash="test-hash",
             type=ResourceType(resource_folder=AgentIO.folder_name, kind=AgentIO.kind),
-            source_path=AbsoluteFilePath(source_path.resolve()),
-            build_path=AbsoluteFilePath(build_path.resolve()),
+            source_path=source_path.resolve(),
+            build_path=build_path.resolve(),
             crud_cls=AgentIO,
             dependencies=set(),
             has_syntax_error=False,
             module_id=ModuleId(
-                id=RelativeDirPath(Path("modules/my")),
+                id=Path("modules/my"),
                 path=source_path.parent.resolve(),
             ),
         )
@@ -71,7 +70,7 @@ class TestAgentRuleSet:
     def _create_rule_with_client(service_availability: ServicesAvailability) -> AgentRuleSet:
         """Create an AgentRuleSet with a mocked client."""
         mock_client = MagicMock()
-        mock_client.tool.agents.service_availability.return_value = service_availability
+        mock_client.agents.service_availability.return_value = service_availability
         return AgentRuleSet(modules=[], client=mock_client)
 
     @pytest.mark.parametrize(
@@ -98,7 +97,7 @@ class TestAgentRuleSet:
     @pytest.mark.parametrize(
         "model, with_client, expected_codes",
         [
-            pytest.param("gcp/claude-5-opus", True, ["AGENT-MODEL"], id="unknown-model"),
+            pytest.param("gcp/claude-5-opus", True, ["INVALID-VALUE"], id="unknown-model"),
             pytest.param("azure/gpt-4.1", True, [], id="known-model"),
             pytest.param(None, True, [], id="unset-model-is-allowed"),
             pytest.param("some-brand-new-model", False, [], id="no-client-allows-any-model"),
@@ -121,7 +120,7 @@ class TestAgentRuleSet:
         rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet(modules=[])
         errors = list(rule._validate_agent(resource))
         assert [error.code for error in errors] == expected_codes
-        assert all(isinstance(error, ConsistencyError) for error in errors)
+        assert all(isinstance(error, BuildError) for error in errors)
 
     def test_validate_agent_too_many_tools(self, tmp_path: Path, service_availability: ServicesAvailability) -> None:
         yaml_file = tmp_path / "agents" / "agent.yaml"
@@ -142,19 +141,19 @@ class TestAgentRuleSet:
         rule = self._create_rule_with_client(service_availability)
         errors = list(rule._validate_agent(resource))
         assert len(errors) == 1
-        assert errors[0].code == "AGENT-TOOLS-LIMIT"
+        assert errors[0].code == "EXCEEDED-LIMIT"
 
     @pytest.mark.parametrize(
         "runtime_version, extra_fields, with_client, expected_codes",
         [
             pytest.param("1.0.0", {}, True, [], id="known-runtime-version-no-gated-fields"),
-            pytest.param("9.9.9", {}, True, ["AGENT-UNKNOWN-RUNTIME"], id="unknown-runtime-version"),
+            pytest.param("9.9.9", {}, True, ["INVALID-VALUE"], id="unknown-runtime-version"),
             pytest.param("9.9.9", {}, False, [], id="no-client-allows-any-runtime-version"),
             pytest.param(
                 "1.0.0",
                 {"subagents": [{"agentExternalId": "specialist"}]},
                 True,
-                ["AGENT-RUNTIME-UNSUPPORTED-CAPABILITY"],
+                ["INVALID-FIELD"],
                 id="subagents-unsupported-runtime-version",
             ),
             pytest.param(
@@ -168,14 +167,14 @@ class TestAgentRuleSet:
                 "1.0.0",
                 {"skills": ["my_skill"]},
                 True,
-                ["AGENT-RUNTIME-UNSUPPORTED-CAPABILITY"],
+                ["INVALID-FIELD"],
                 id="skills-unsupported-runtime-version",
             ),
             pytest.param(
                 None,
                 {"subagents": [{"agentExternalId": "specialist"}]},
                 True,
-                ["AGENT-RUNTIME-UNSUPPORTED-CAPABILITY"],
+                ["INVALID-FIELD"],
                 id="unset-runtime-version-falls-back-to-unsupported-default",
             ),
             pytest.param(

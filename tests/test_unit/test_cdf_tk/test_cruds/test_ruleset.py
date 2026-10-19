@@ -42,7 +42,7 @@ ex:Oslo_Facility
 class TestRuleSetVersionCRUDLoadResourceFile:
     def test_load_inline_rules(self) -> None:
         client = ToolkitClientMock()
-        crud = RuleSetVersionIO(client, None)
+        crud = RuleSetVersionIO(client)
 
         with tempfile.TemporaryDirectory() as tmp:
             yaml_path = Path(tmp) / "my_rules.RuleSetVersion.yaml"
@@ -64,7 +64,7 @@ class TestRuleSetVersionCRUDLoadResourceFile:
     def test_load_rules_from_ttl_by_convention(self) -> None:
         """When rules is missing, look for .ttl by convention ({stem}.ttl or {rule_set_external_id}.ttl)."""
         client = ToolkitClientMock()
-        crud = RuleSetVersionIO(client, None)
+        crud = RuleSetVersionIO(client)
 
         with tempfile.TemporaryDirectory() as tmp:
             yaml_path = Path(tmp) / "my_rules.RuleSetVersion.yaml"
@@ -87,7 +87,7 @@ class TestRuleSetVersionCRUDLoadResourceFile:
     def test_load_ttl_by_stem_convention(self) -> None:
         """Prefer {stem}.ttl when both conventions match."""
         client = ToolkitClientMock()
-        crud = RuleSetVersionIO(client, None)
+        crud = RuleSetVersionIO(client)
 
         with tempfile.TemporaryDirectory() as tmp:
             yaml_path = Path(tmp) / "my_rules.RuleSetVersion.yaml"
@@ -101,7 +101,7 @@ class TestRuleSetVersionCRUDLoadResourceFile:
 
     def test_load_no_rules_no_ttl_raises(self) -> None:
         client = ToolkitClientMock()
-        crud = RuleSetVersionIO(client, None)
+        crud = RuleSetVersionIO(client)
 
         with tempfile.TemporaryDirectory() as tmp:
             yaml_path = Path(tmp) / "my_rules.RuleSetVersion.yaml"
@@ -121,7 +121,7 @@ class TestRuleSetVersionCRUDLoadResourceFile:
 class TestRuleSetVersionCRUDSplitResource:
     def test_split_writes_ttl_when_not_exists(self) -> None:
         client = ToolkitClientMock()
-        crud = RuleSetVersionIO(client, None)
+        crud = RuleSetVersionIO(client)
 
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp) / "my_rules.RuleSetVersion"
@@ -140,7 +140,7 @@ class TestRuleSetVersionCRUDSplitResource:
 
     def test_split_keeps_inline_when_ttl_exists(self) -> None:
         client = ToolkitClientMock()
-        crud = RuleSetVersionIO(client, None)
+        crud = RuleSetVersionIO(client)
 
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp) / "my_rules.RuleSetVersion"
@@ -160,7 +160,7 @@ class TestRuleSetVersionIODumpResource:
     def test_dump_resource_includes_rule_set_external_id_for_deploy_diff(self) -> None:
         """Regression test for CDF-27981: deploy must not delete+recreate unchanged versions."""
         client = ToolkitClientMock()
-        io = RuleSetVersionIO(client, None)
+        io = RuleSetVersionIO(client)
 
         rules = [_TURTLE_CONTENT]
         resource = RuleSetVersionResponse(

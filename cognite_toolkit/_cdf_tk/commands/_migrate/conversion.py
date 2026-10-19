@@ -3,9 +3,9 @@ from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from functools import cache
-from typing import Any, ClassVar, Generic, cast
+from typing import Any, ClassVar, Generic
 
-from pydantic import JsonValue
+from pydantic import JsonValue, ValidationError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import (
@@ -112,7 +112,7 @@ class DirectRelationCache:
 
     def __init__(self, client: ToolkitClient) -> None:
         self._client = client
-        self._cache_map: dict[tuple[str, str] | str, dict[str, NodeId] | dict[int, NodeId]] = {}
+        self._cache_map: dict[tuple[str, str] | str, dict[int | str, NodeId]] = {}
         # Constructing the cache map to be accessed by both table name and property id
         for table_name, properties in [
             (self.TableName.ASSET_ID, self.ASSET_ID_PROPERTIES),
@@ -121,7 +121,7 @@ class DirectRelationCache:
             (self.TableName.ASSET_EXTERNAL_ID, self.ASSET_EXTERNAL_ID_PROPERTIES),
             (self.TableName.FILE_EXTERNAL_ID, self.FILE_EXTERNAL_ID_PROPERTIES),
         ]:
-            cache: dict[str, NodeId] | dict[int, NodeId] = {}
+            cache: dict[int | str, NodeId] = {}
             self._cache_map[table_name] = cache
             for key in properties:
                 self._cache_map[key] = cache
@@ -163,7 +163,7 @@ class DirectRelationCache:
             self._update_cache(self._client.migration.lookup.assets(id=list(asset_ids)), self.TableName.ASSET_ID)
         if source_ids:
             # SourceSystems are not cached in the client, so we have to handle the caching ourselves.
-            cache = cast(dict[str, NodeId], self._cache_map[self.TableName.SOURCE_NAME])
+            cache = self._cache_map[self.TableName.SOURCE_NAME]
             missing: dict[str, str] = {}
             for source_id in source_ids:
                 if source_id.casefold() not in cache:
@@ -201,9 +201,9 @@ class DirectRelationCache:
                 *(InternalId(id=id_) for id_ in unresolved_ids),
                 *(ExternalId(external_id=ext_id) for ext_id in unresolved_external_ids),
             ]
-            id_cache = cast(dict[int, NodeId], self._cache_map[self.TableName.FILE_ID])
-            external_id_cache = cast(dict[str, NodeId], self._cache_map[self.TableName.FILE_EXTERNAL_ID])
-            for file in self._client.tool.filemetadata.retrieve(items, ignore_unknown_ids=True):
+            id_cache = self._cache_map[self.TableName.FILE_ID]
+            external_id_cache = self._cache_map[self.TableName.FILE_EXTERNAL_ID]
+            for file in self._client.filemetadata.retrieve(items, ignore_unknown_ids=True):
                 if file.instance_id is None:
                     continue
                 id_cache[file.id] = file.instance_id
@@ -241,11 +241,11 @@ class DirectRelationCache:
     def _update_cache(self, instance_id_by_id: dict[int, NodeId] | dict[str, NodeId], table_name: str) -> None:
         cache = self._cache_map[table_name]
         for identifier, instance_id in instance_id_by_id.items():
-            cache[identifier] = NodeId(space=instance_id.space, external_id=instance_id.external_id)  # type: ignore[index]
+            cache[identifier] = NodeId(space=instance_id.space, external_id=instance_id.external_id)
 
     def get_cache(self, resource_type: AssetCentricTypeExtended, property_id: str) -> Mapping[str | int, NodeId] | None:
         """Get the cache for the given resource type and property ID."""
-        return self._cache_map.get((resource_type, property_id))  # type: ignore[return-value]
+        return self._cache_map.get((resource_type, property_id))
 
 
 def asset_centric_to_dm(
@@ -343,7 +343,9 @@ def asset_centric_to_dm(
             space=instance_id.space,
             external_id=instance_id.external_id,
             sources=sources,
-            **edge_properties,  # type: ignore[arg-type]
+            start_node=edge_properties["start_node"],
+            end_node=edge_properties["end_node"],
+            type=edge_properties["type"],
         )
     elif isinstance(instance_id, NodeId):
         instance = NodeRequest(space=instance_id.space, external_id=instance_id.external_id, sources=sources)
@@ -539,10 +541,9 @@ def create_edge_properties(
             continue
         edge_prop_id = prop_id.removeprefix("edge.")
         if edge_prop_id in ("startNode", "endNode", "type"):
-            value: NodeId | Any
             # DirectRelation lookup.
             try:
-                value = convert_to_primary_property(
+                converted = convert_to_primary_property(
                     flatten_dump[prop_json_path],
                     DirectNodeRelation(),
                     False,
@@ -551,6 +552,26 @@ def create_edge_properties(
             except (ValueError, TypeError, NotImplementedError) as e:
                 issue.failed_conversions.append(
                     FailedConversion(property_id=prop_json_path, value=flatten_dump[prop_json_path], error=str(e))
+                )
+                continue
+            if isinstance(converted, NodeId):
+                value = converted
+            elif isinstance(converted, dict):
+                # Direct-relation conversion returns the node id as an API dump.
+                try:
+                    value = NodeId.model_validate(converted)
+                except ValidationError as e:
+                    issue.failed_conversions.append(
+                        FailedConversion(property_id=prop_json_path, value=flatten_dump[prop_json_path], error=str(e))
+                    )
+                    continue
+            else:
+                issue.failed_conversions.append(
+                    FailedConversion(
+                        property_id=prop_json_path,
+                        value=flatten_dump[prop_json_path],
+                        error="Expected a node reference",
+                    )
                 )
                 continue
         elif edge_prop_id.endswith(".externalId"):
@@ -566,7 +587,7 @@ def create_edge_properties(
                 InvalidPropertyDataType(property_id=prop_id, expected_type="EdgeProperty")
             )
             continue
-        edge_properties[edge_prop_id.replace("Node", "_node")] = value  # type: ignore[assignment]
+        edge_properties[edge_prop_id.replace("Node", "_node")] = value
 
     return edge_properties
 
@@ -703,7 +724,8 @@ class LocationSplitInstanceIdMapper(InstanceIdMapper):
         """
         unresolved_external_ids = [
             external_id
-            for external_id in dict.fromkeys(external_ids)
+            # dict.fromkeys() is used to deduplicate while preserving order.
+            for external_id in dict.fromkeys(external_ids).keys()
             if external_id not in self._target_space_by_external_id
             and external_id not in self._unresolvable_external_ids
         ]
@@ -842,7 +864,7 @@ class ConnectionCreator:
         if view_ids is not None:
             missing_views = set(view_ids) - set(self.view_by_id.keys())
             if missing_views:
-                retrieved_views = self._client.tool.views.retrieve(list(missing_views))
+                retrieved_views = self._client.views.retrieve(list(missing_views))
                 for view in retrieved_views:
                     self.view_by_id[view.as_id()] = view
 
@@ -880,7 +902,7 @@ class ConnectionCreator:
         if timeseries_refs:
             missing_timeseries_refs = timeseries_refs - set(self._timeseries_reference_cache.keys())
             if missing_timeseries_refs:
-                missing_ts = self._client.tool.timeseries.retrieve(
+                missing_ts = self._client.timeseries.retrieve(
                     ExternalId.from_external_ids(missing_timeseries_refs), ignore_unknown_ids=True
                 )
                 for ts in missing_ts:
@@ -889,7 +911,7 @@ class ConnectionCreator:
         if file_refs:
             missing_file_refs = file_refs - set(self._file_reference_cache.keys())
             if missing_file_refs:
-                missing_refs = self._client.tool.filemetadata.retrieve(
+                missing_refs = self._client.filemetadata.retrieve(
                     ExternalId.from_external_ids(missing_file_refs), ignore_unknown_ids=True
                 )
                 for file in missing_refs:
@@ -1126,7 +1148,7 @@ class ConnectionCreator:
                 issues.append(str(error))
                 continue
             try:
-                other_side = self.map_instance(edge.other_side)
+                other_side = self._instance_id_mapper.map_instance_id(edge.other_side)
             except InstanceMappingError as error:
                 issues.append(str(error))
                 continue

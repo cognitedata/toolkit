@@ -16,16 +16,30 @@ from cognite_toolkit._cdf_tk.commands import (
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.resource_ios import (
-    RESOURCE_CRUD_BY_FOLDER_NAME,
-    RESOURCE_CRUD_LIST,
+    RESOURCE_IO_BY_FOLDER_NAME,
+    RESOURCE_IO_LIST,
     ExternalDataSourceIO,
     HostedExtractorDestinationIO,
     HostedExtractorSourceIO,
+    SAPEndpointIO,
+    SAPInstanceIO,
 )
 from cognite_toolkit._cdf_tk.resource_ios._data_product import DataProductIO
 from cognite_toolkit._cdf_tk.resource_ios._data_product_version import DataProductVersionIO
 from cognite_toolkit._cdf_tk.resource_ios._rulesets import RuleSetIO, RuleSetVersionIO
+from cognite_toolkit._cdf_tk.resource_ios._signal_sink import SignalSinkIO
+from cognite_toolkit._cdf_tk.resource_ios._signal_subscription import SignalSubscriptionIO
 from tests import data
+
+SKIPPED_ALPHA_CRUDS = {
+    DataProductIO,  # Data Products and Rule Sets APIs are not yet available on the test server.
+    DataProductVersionIO,
+    RuleSetIO,
+    RuleSetVersionIO,
+    ExternalDataSourceIO,  # External data sources reject dummy OneLake credentials (400 Invalid body).
+    SignalSinkIO,  # Signal sinks of type user require an existing user profile, which does not exist on the test server.
+    SignalSubscriptionIO,
+}
 
 
 @pytest.mark.skipif(
@@ -40,7 +54,7 @@ def test_deploy_complete_org(env_vars: EnvironmentVariables, build_dir: Path) ->
         parameters=BuildParameters(
             organization_dir=data.COMPLETE_ORG,
             build_dir=build_dir,
-            config_yaml=data.COMPLETE_ORG / "config.dev.yaml",
+            config_yamls=[data.COMPLETE_ORG / "config.dev.yaml"],
         ),
     )
 
@@ -82,27 +96,29 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
         parameters=BuildParameters(
             organization_dir=data.COMPLETE_ORG_ALPHA_FLAGS,
             build_dir=build_dir,
-            config_yaml=data.COMPLETE_ORG_ALPHA_FLAGS / "config.dev.yaml",
+            config_yamls=[data.COMPLETE_ORG_ALPHA_FLAGS / "config.dev.yaml"],
         ),
     )
 
     deploy_command = DeployV2Command(silent=False, skip_tracking=True)
     client_id = os.environ["IDP_CLIENT_ID"]
     client_secret = os.environ["IDP_CLIENT_SECRET"]
-    # Data Products and Rule Sets APIs are not yet available on the test server.
-    # External data sources reject dummy OneLake credentials (400 Invalid body).
-    _skip_cruds = {DataProductIO, DataProductVersionIO, RuleSetIO, RuleSetVersionIO, ExternalDataSourceIO}
     with (
         patch.dict(
             os.environ,
             {"EVENTHUB_CLIENT_ID": client_id, "EVENTHUB_CLIENT_SECRET": client_secret},
         ),
         patch.dict(
-            "cognite_toolkit._cdf_tk.commands.deploy_v2.command.RESOURCE_CRUD_BY_FOLDER_NAME",
-            {f: [c for c in cs if c not in _skip_cruds] for f, cs in RESOURCE_CRUD_BY_FOLDER_NAME.items()},
+            "cognite_toolkit._cdf_tk.commands.deploy_v2.command.RESOURCE_IO_BY_FOLDER_NAME",
+            {f: [c for c in cs if c not in SKIPPED_ALPHA_CRUDS] for f, cs in RESOURCE_IO_BY_FOLDER_NAME.items()},
             clear=True,
         ),
     ):
+        # Delete SAP Instance as we do not have a SAP instance to test against. This is a workaround to avoid the test failing.
+        next(build_dir.glob(f"{SAPInstanceIO.folder_name}/*{SAPInstanceIO.kind}.yaml")).unlink()
+        # We cannot create a SAP endpoint without a SAP instance. This is a workaround to avoid the test failing.
+        next(build_dir.glob(f"{SAPEndpointIO.folder_name}/*{SAPEndpointIO.kind}.yaml")).unlink()
+
         deploy_command.deploy(
             env_vars=env_vars,
             user_build_dir=build_dir,
@@ -127,17 +143,15 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
     client = env_vars.get_client()
     print("Looking for changed resources ...")
     options = DeployOptions(environment_variables=env_vars.dump(), verbose=True)
-    for loader_cls in RESOURCE_CRUD_LIST:
+    for loader_cls in RESOURCE_IO_LIST:
         if loader_cls in {HostedExtractorSourceIO, HostedExtractorDestinationIO}:
             # These resources we have no way of knowing if they have changed. So they are always redeployed.
             continue
-        if loader_cls in {DataProductIO, DataProductVersionIO, RuleSetIO, RuleSetVersionIO, ExternalDataSourceIO}:
-            # Data Products and Rule Sets APIs are not yet available on the test server.
-            # External data sources reject dummy OneLake credentials (400 Invalid body).
+        if loader_cls in SKIPPED_ALPHA_CRUDS:
             continue
-        loader = loader_cls.create_loader(client, build_dir)
+        loader = loader_cls.create_io(client)
 
-        files = loader.find_files()
+        files = loader.find_files(build_dir / loader.folder_name)
         if not files:
             continue
         resource_by_id = DeployV2Command._read_resource_files(loader, files, options)

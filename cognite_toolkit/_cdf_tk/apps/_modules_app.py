@@ -14,7 +14,7 @@ from cognite_toolkit._version import __version__
 
 from ._helpers import print_help_if_no_subcommand
 
-CDF_TOML = CDFToml.load(Path.cwd())
+CDF_TOML = CDFToml.load_module_context(Path.cwd())
 
 
 class ModulesListFormats(str, Enum):
@@ -23,7 +23,7 @@ class ModulesListFormats(str, Enum):
 
 
 class ModulesApp(typer.Typer):
-    def __init__(self, *args, **kwargs) -> None:  # type: ignore
+    def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.main)
         self.command()(self.init)
@@ -197,7 +197,7 @@ class ModulesApp(typer.Typer):
             typer.Option(
                 "--env",
                 "-e",
-                hidden=Flags.V09.is_enabled(),
+                hidden=True,
                 help="Build environment to use.",
             ),
         ] = CDF_TOML.cdf.default_env or "dev",
@@ -207,7 +207,6 @@ class ModulesApp(typer.Typer):
                 "--config-yaml",
                 "-c",
                 exists=True,
-                hidden=not Flags.V09.is_enabled(),
                 file_okay=True,
                 dir_okay=False,
                 help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
@@ -260,7 +259,7 @@ class ModulesApp(typer.Typer):
             typer.Option(
                 "--env",
                 help="Build environment to use.",
-                hidden=Flags.V09.is_enabled(),
+                hidden=True,
             ),
         ] = CDF_TOML.cdf.default_env,
         config_yaml: Annotated[
@@ -269,7 +268,6 @@ class ModulesApp(typer.Typer):
                 "--config-yaml",
                 "-c",
                 exists=True,
-                hidden=not Flags.V09.is_enabled(),
                 file_okay=True,
                 dir_okay=False,
                 help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",

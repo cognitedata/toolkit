@@ -1,0 +1,251 @@
+from collections.abc import Iterable
+from pathlib import Path
+from typing import get_args
+
+import pytest
+
+from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
+from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
+from cognite_toolkit._cdf_tk.yaml_classes import TransformationYAML
+from cognite_toolkit._cdf_tk.yaml_classes.transformation_destination import Destination, DestinationType
+from tests.test_unit.utils import find_resources
+
+
+def transformation_destination_cases() -> Iterable:
+    transformation_destination = [
+        {
+            "DataModelSource": {
+                "externalId": "tr_first_transformation",
+                "name": "example:first:transformation",
+                "ignoreNullFields": True,
+                "destination": {
+                    "type": "instances",
+                    "dataModel": {
+                        "externalId": "my_data_model",
+                        "version": "1",
+                        "space": "my_space",
+                        "destinationType": "my_view",
+                    },
+                    "instanceSpace": "my_instance_space",
+                },
+            }
+        },
+        {
+            "DataModelSource": {
+                "externalId": "tr_first_transformation",
+                "name": "example:first:transformation",
+                "ignoreNullFields": True,
+                "destination": {
+                    "type": "instances",
+                    "dataModel": {
+                        "externalId": "my_data_model",
+                        "version": "1",
+                        "space": "my_space",
+                        "destinationType": "my_view",
+                    },
+                },
+            }
+        },
+        {
+            "ViewDataSource": {
+                "externalId": "tr_first_transformation",
+                "name": "example:first:transformation",
+                "ignoreNullFields": True,
+                "destination": {
+                    "type": "nodes",
+                    "view": {"externalId": "my_view", "version": "1", "space": "my_space"},
+                    "edgeType": {"externalId": "my_edge_type", "space": "my_space"},
+                    "autoCreate": {"directRelations": False},
+                },
+            }
+        },
+        {
+            "DataModelSourceWithAutoCreate": {
+                "externalId": "tr_first_transformation",
+                "name": "example:first:transformation",
+                "ignoreNullFields": True,
+                "destination": {
+                    "type": "instances",
+                    "dataModel": {
+                        "externalId": "my_data_model",
+                        "version": "1",
+                        "space": "my_space",
+                        "destinationType": "my_view",
+                    },
+                    "autoCreate": {"directRelations": False, "startNodes": False},
+                },
+            }
+        },
+        {
+            "RawDataSource": {
+                "externalId": "tr_first_transformation",
+                "name": "example:first:transformation",
+                "ignoreNullFields": True,
+                "destination": {"type": "raw", "database": "my_database", "table": "my_table"},
+            }
+        },
+        {
+            "SequenceRowDataSource": {
+                "externalId": "tr_first_transformation",
+                "name": "example:first:transformation",
+                "ignoreNullFields": True,
+                "destination": {"type": "sequence_rows", "externalId": "my_sequence"},
+            }
+        },
+    ]
+    yield from (pytest.param(next(iter(des.values())), id=next(iter(des.keys()))) for des in transformation_destination)
+
+    yield pytest.param(
+        {
+            "externalId": "MyTransformation",
+            "name": "MyTransformation",
+            "ignoreNullFields": True,
+            "authentication": {
+                "read": {
+                    "clientId": "my_client_id",
+                    "clientSecret": "my_client_secret",
+                    "cdfProjectName": "my_project",
+                    "tokenUri": "https://api.cognitedata.com/api/v1/oauth/token",
+                    "scopes": "read:data",
+                    "audience": "https://api.cognitedata.com/",
+                },
+                "write": {
+                    "clientId": "my_client_id",
+                    "clientSecret": "my_client_secret",
+                    "cdfProjectName": "my_project",
+                    "scopes": "write:data",
+                    "tokenUri": "https://api.cognitedata.com/api/v1/oauth/token",
+                    "audience": "https://api.cognitedata.com/",
+                },
+            },
+        },
+        id="Full authentication with read and write (based on real use case)",
+    )
+
+
+def invalid_transformation_test_cases() -> Iterable:
+    yield pytest.param(
+        {"name": "my_transformation", "ignoreNullFields": True},
+        {"Missing required field: 'externalId'"},
+        id="Missing externalId",
+    )
+    yield pytest.param(
+        {
+            "conflictMode": "upsert",
+            "dataSetExternalId": "ops:001:monitor",
+            "destination": {"type": "raw", "database": "ops:001:monitor:rawtable", "table": "rawtable"},
+            "authentication.write": {
+                "cdfProjectName": "my_project",
+                "clientId": "my_client_id",
+                "clientSecret": "my_client_secret",
+                "scopes": ["USER_MANAGEMENT", "DATASETS_WRITE"],
+                "tokenUri": "https://api.cognitedata.com/api/v1/oauth/token",
+            },
+            "externalId": "cdf_ops:raw:upsert:001:monitor",
+            "ignoreNullFields": True,
+            "isPublic": True,
+            "name": "cdf_ops:raw:upsert:001:monitor",
+            "authentication.read": {
+                "cdfProjectName": "my_project",
+                "clientId": "my_client_id",
+                "clientSecret": "my_client_secret",
+                "scopes": ["USER_MANAGEMENT", "DATASETS_READ"],
+                "tokenUri": "https://api.cognitedata.com/api/v1/oauth/token",
+            },
+        },
+        {"Unrecognized field: 'authentication.read'", "Unrecognized field: 'authentication.write'"},
+        id="Invalid authentication - base on real use case",
+    )
+    yield pytest.param(
+        {
+            "externalId": "tr_invalid_type",
+            "name": "Invalid ignore_null_fields",
+            "ignoreNullFields": "yes",
+        },
+        {"Invalid value for ignoreNullFields: Input should be a valid boolean. Got 'yes' of type str."},
+        id="Invalid ignore_null_fields type",
+    )
+    yield pytest.param(
+        {
+            "externalId": "tr_too_many_tags",
+            "name": "Too many tags",
+            "ignoreNullFields": True,
+            "tags": ["a", "b", "c", "d", "e", "f"],
+        },
+        {"Invalid value for tags: List should have at most 5 items after validation, not 6"},
+        id="Too many tags in transformation",
+    )
+    yield pytest.param(
+        {
+            "externalId": "tr_invalid_conflict",
+            "name": "Invalid conflict_mode",
+            "ignoreNullFields": True,
+            "conflictMode": "replace",
+        },
+        {
+            "Unrecognized value for conflictMode: Expected one of 'abort', 'delete', 'update' or 'upsert'. Got 'replace'."
+        },
+        id="Invalid conflict_mode value",
+    )
+    yield pytest.param(
+        {
+            "externalId": "tr_invalid_auth",
+            "name": "Invalid authentication",
+            "ignoreNullFields": True,
+            "authentication": {"invalid_key": "value"},
+        },
+        {
+            "Missing required fields in authentication: 'clientId' and 'clientSecret'",
+            "Unrecognized field in authentication: 'invalid_key'. ",
+        },
+        id="Invalid authentication type",
+    )
+
+
+class TestTransformationYAML:
+    @pytest.mark.parametrize("data", list(find_resources("transformation")))
+    def test_load_valid_transformation_file(self, data: dict[str, object]) -> None:
+        loaded = TransformationYAML.model_validate(data)
+
+        dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
+        if "authentication" in dumped:
+            assert isinstance(data["authentication"], dict)
+            # Secret is not dumped as per design, so we add it back for comparison
+            dumped["authentication"]["clientSecret"] = data["authentication"]["clientSecret"]
+        assert dumped == data
+
+    @pytest.mark.parametrize("data", transformation_destination_cases())
+    def test_load_valid_transformation_destination_parameters(self, data: dict[str, object]) -> None:
+        loaded = TransformationYAML.model_validate(data)
+
+        dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
+        if "authentication" in dumped:
+            # Secret is not dumped as per design, so we add it back for comparison
+            auth = dumped["authentication"]
+            orig_auth = data["authentication"]
+            assert isinstance(orig_auth, dict)
+            if "read" in auth or "write" in auth:
+                for key in ("read", "write"):
+                    if key in auth:
+                        auth[key]["clientSecret"] = orig_auth[key]["clientSecret"]
+            else:
+                auth["clientSecret"] = orig_auth["clientSecret"]
+        assert dumped == data
+
+    @pytest.mark.parametrize("data, expected_errors", list(invalid_transformation_test_cases()))
+    def test_invalid_transformation_error_messages(self, data: dict | list, expected_errors: set[str]) -> None:
+        """Test the validate_resource_yaml function for GroupYAML."""
+        warning_list = validate_resource_yaml_pydantic(data, TransformationYAML, Path("some_file.yaml"))
+        assert len(warning_list) == 1
+        format_warning = warning_list[0]
+        assert isinstance(format_warning, ResourceFormatWarning)
+
+        assert set(format_warning.errors) == expected_errors
+
+    def test_all_destinations_in_union(self) -> None:
+        """Test that all destination types are included in the union."""
+        expected_subclasses = set(get_concrete_subclasses(Destination))
+        subclasses = set(get_args(DestinationType.__args__[0]))
+
+        assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"

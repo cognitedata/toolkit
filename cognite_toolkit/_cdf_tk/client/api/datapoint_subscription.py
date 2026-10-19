@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -31,7 +32,7 @@ class DatapointSubscriptionsAPI(CDFResourceAPI[DatapointSubscriptionResponse]):
     ) -> PagedResponse[DatapointSubscriptionResponse]:
         return PagedResponse[DatapointSubscriptionResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[DatapointSubscriptionRequest]) -> list[DatapointSubscriptionResponse]:
+    def create(self, items: Sequence[DatapointSubscriptionRequest]) -> builtins.list[DatapointSubscriptionResponse]:
         """Create datapoint subscriptions in CDF.
 
         Args:
@@ -43,7 +44,7 @@ class DatapointSubscriptionsAPI(CDFResourceAPI[DatapointSubscriptionResponse]):
 
     def retrieve(
         self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
-    ) -> list[DatapointSubscriptionResponse]:
+    ) -> builtins.list[DatapointSubscriptionResponse]:
         """Retrieve datapoint subscriptions from CDF.
 
         Args:
@@ -56,7 +57,9 @@ class DatapointSubscriptionsAPI(CDFResourceAPI[DatapointSubscriptionResponse]):
             items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
         )
 
-    def update(self, items: Sequence[DatapointSubscriptionUpdateRequest]) -> list[DatapointSubscriptionResponse]:
+    def update(
+        self, items: Sequence[DatapointSubscriptionUpdateRequest]
+    ) -> builtins.list[DatapointSubscriptionResponse]:
         """Update datapoint subscriptions in CDF.
 
         Args:
@@ -76,7 +79,9 @@ class DatapointSubscriptionsAPI(CDFResourceAPI[DatapointSubscriptionResponse]):
         """
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
-    def list_members(self, external_id: str, limit: int | None = 100) -> list[DatapointSubscriptionTimeSeriesId]:
+    def list_members(
+        self, external_id: str, limit: int | None = 100
+    ) -> builtins.list[DatapointSubscriptionTimeSeriesId]:
         """List time series IDs subscribed to by a datapoint subscription.
 
         Args:
@@ -89,7 +94,7 @@ class DatapointSubscriptionsAPI(CDFResourceAPI[DatapointSubscriptionResponse]):
         cursor: str | None = None
         total: int = 0
         endpoint = self._list_members
-        result: list[DatapointSubscriptionTimeSeriesId] = []
+        result: builtins.list[DatapointSubscriptionTimeSeriesId] = []
         while cursor is not None or total == 0:
             page_limit = endpoint.item_limit if limit is None else min(limit - total, endpoint.item_limit)
             parameters: dict[str, Any] = {"externalId": external_id, "limit": page_limit}
@@ -122,7 +127,7 @@ class DatapointSubscriptionsAPI(CDFResourceAPI[DatapointSubscriptionResponse]):
         """
         return self._paginate(cursor=cursor, limit=limit)
 
-    def iterate(self, limit: int | None = 100) -> Iterable[list[DatapointSubscriptionResponse]]:
+    def iterate(self, limit: int | None = 100) -> Iterable[builtins.list[DatapointSubscriptionResponse]]:
         """Iterate over all datapoint subscriptions in CDF.
 
         Args:
@@ -133,7 +138,7 @@ class DatapointSubscriptionsAPI(CDFResourceAPI[DatapointSubscriptionResponse]):
         """
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = 100) -> list[DatapointSubscriptionResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[DatapointSubscriptionResponse]:
         """List all datapoint subscriptions in CDF.
 
         Returns:

@@ -47,8 +47,8 @@ class TestLoadYamlInjectVariables:
 
 def test_calculate_hash_on_folder() -> None:
     folder = CALC_HASH_DATA
-    hash1 = calculate_directory_hash(folder)
-    hash2 = calculate_directory_hash(folder)
+    hash1 = calculate_directory_hash(folder, exclude_prefixes={"__pycache__"}, ignore_files={".pyc"})
+    hash2 = calculate_directory_hash(folder, exclude_prefixes={"__pycache__"}, ignore_files={".pyc"})
 
     print(hash1)
 
@@ -59,7 +59,7 @@ def test_calculate_hash_on_folder() -> None:
     tempdir = Path(tempfile.mkdtemp())
     shutil.rmtree(tempdir)
     shutil.copytree(folder, tempdir)
-    hash3 = calculate_directory_hash(tempdir)
+    hash3 = calculate_directory_hash(tempdir, exclude_prefixes={"__pycache__"}, ignore_files={".pyc"})
     shutil.rmtree(tempdir)
 
     assert hash1 == hash3

@@ -1,0 +1,9 @@
+externalId: pump.integration
+name: Pump extractor
+description: OPC-UA integration for the pump line
+extractor:
+  externalId: cognite-opcua
+  version: "2.1.0"
+metadata:
+  plant: oslo
+allowedNotSeenMinutes: 15

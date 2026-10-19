@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.client.api.hosted_extractor_sources import HostedEx
 from cognite_toolkit._cdf_tk.client.api.labels import LabelsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI
 from cognite_toolkit._cdf_tk.client.api.relationships import RelationshipsAPI
+from cognite_toolkit._cdf_tk.client.api.sap_writeback import SAPEndpointsAPI, SAPInstancesAPI, SchemaMappingsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.sequences import SequencesAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_model_revisions import SimulatorModelRevisionsAPI
@@ -68,6 +69,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import (
+    DatapointsRequest,
+    NumericDatapointsResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
@@ -100,6 +105,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping im
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
     KafkaSourceRequest,
     KafkaSourceResponse,
+    MQTTBrokerSourceRequest,
+    MQTTBrokerSourceResponse,
     MQTTSourceRequest,
     MQTTSourceResponse,
     RESTSourceRequest,
@@ -118,6 +125,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWDatabaseResponse,
+    RAWRowRequest,
+    RAWRowResponse,
     RAWTableRequest,
     RAWTableResponse,
 )
@@ -126,6 +135,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.relationship import Relatio
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     ResourceViewMappingRequest,
     ResourceViewMappingResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.sap_writeback import (
+    SAPEndpointRequest,
+    SAPEndpointResponse,
+    SAPInstanceRequest,
+    SAPInstanceResponse,
+    SchemaMappingRequest,
+    SchemaMappingResponse,
+    WritebackRequestRequest,
+    WritebackRequestResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import (
     SearchConfigRequest,
@@ -269,6 +288,13 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "dbName": "example_db",
             "name": "example_table",
             "createdTime": 1622547800000,
+        },
+        RAWRowResponse: {
+            "dbName": "example_db",
+            "tableName": "example_table",
+            "key": "row_001",
+            "columns": {"col": "value"},
+            "lastUpdatedTime": 1622547800000,
         },
         SimulatorModelResponse: {
             "id": 111,
@@ -453,6 +479,15 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
+        MQTTBrokerSourceResponse: {
+            "type": "mqtt_broker",
+            "externalId": "mqtt_broker_001",
+            "host": "broker.cognitedata.com",
+            "port": 8883,
+            "authentication": {"type": "basic", "username": "generated-user"},
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
         RESTSourceResponse: {
             "type": "rest",
             "externalId": "rest_source_001",
@@ -586,6 +621,14 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
                 {"rowNumber": 0, "values": ["value1", 123]},
                 {"rowNumber": 1, "values": ["value2", 456]},
             ],
+        },
+        NumericDatapointsResponse: {
+            "id": 456,
+            "externalId": "ts_001",
+            "isString": False,
+            "type": "numeric",
+            "isStep": False,
+            "datapoints": [{"timestamp": 1622547800000, "value": 1.5}],
         },
         SearchConfigResponse: {
             "id": 789,
@@ -768,7 +811,7 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
                     {
                         "op": "PASSTHROUGH",
                         "version": 1.0,
-                        "inputs": [{"type": "ts", "value": "ts_001"}],
+                        "inputs": [{"type": "ts", "value": "ts_001", "param": "series"}],
                         "raw": False,
                         "step": 0,
                     }
@@ -794,6 +837,37 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
         AppResponse: {
             "externalId": "my-app",
             "name": "My App",
+        },
+        SAPInstanceResponse: {
+            "externalId": "sap_instance_001",
+            "gatewayUrl": "https://sap.example.com",
+            "client": 100,
+            "username": "sap-user",
+            # Password is required to create an instance and is not returned by the API.
+            "password": "secret",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        SAPEndpointResponse: {
+            "externalId": "sap_endpoint_001",
+            "endpointType": "notification",
+            "instanceId": "sap_instance_001",
+            "mappingId": "schema_mapping_001",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        SchemaMappingResponse: {
+            "externalId": "schema_mapping_001",
+            "expression": '{ "SAPFieldA": input.CDFFieldA }',
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        WritebackRequestResponse: {
+            "requestId": "request-001",
+            "status": "pending",
+            "request": [{"key": "observation-1", "payload": {"NotificationText": "Test"}}],
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
         },
     }
     try:
@@ -886,6 +960,16 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             # a path parameter and thus custom endpoint mocking.
         ),
         id="RAWTable",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RAWRowResponse,
+            request_cls=RAWRowRequest,
+            example_data=get_example_minimum_responses(RAWRowResponse),
+            is_dump_equal_to_example=False,
+            # Database and table name are path parameters and are excluded from the response dump.
+        ),
+        id="RAWRow",
     )
     yield pytest.param(
         CDFResource(
@@ -1040,6 +1124,15 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     )
     yield pytest.param(
         CDFResource(
+            response_cls=MQTTBrokerSourceResponse,
+            request_cls=MQTTBrokerSourceRequest,
+            example_data=get_example_minimum_responses(MQTTBrokerSourceResponse),
+            api_class=HostedExtractorSourcesAPI,
+        ),
+        id="HostedExtractorMQTTBrokerSource",
+    )
+    yield pytest.param(
+        CDFResource(
             response_cls=RESTSourceResponse,
             request_cls=RESTSourceRequest,
             example_data=get_example_minimum_responses(RESTSourceResponse),
@@ -1150,6 +1243,14 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(SequenceRowsResponse),
         ),
         id="SequenceRows",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=NumericDatapointsResponse,
+            request_cls=DatapointsRequest,
+            example_data=get_example_minimum_responses(NumericDatapointsResponse),
+        ),
+        id="Datapoints",
     )
     yield pytest.param(
         CDFResource(
@@ -1277,4 +1378,41 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(RecordResponse),
         ),
         id="Record",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SAPInstanceResponse,
+            request_cls=SAPInstanceRequest,
+            example_data=get_example_minimum_responses(SAPInstanceResponse),
+            api_class=SAPInstancesAPI,
+        ),
+        id="SAPInstance",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SAPEndpointResponse,
+            request_cls=SAPEndpointRequest,
+            example_data=get_example_minimum_responses(SAPEndpointResponse),
+            api_class=SAPEndpointsAPI,
+        ),
+        id="SAPEndpoint",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SchemaMappingResponse,
+            request_cls=SchemaMappingRequest,
+            example_data=get_example_minimum_responses(SchemaMappingResponse),
+            api_class=SchemaMappingsAPI,
+        ),
+        id="SchemaMapping",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=WritebackRequestResponse,
+            request_cls=WritebackRequestRequest,
+            example_data=get_example_minimum_responses(WritebackRequestResponse),
+            is_as_request_possible=False,
+            # The request ID is assigned by the API, and the create payload is not returned.
+        ),
+        id="WritebackRequest",
     )
