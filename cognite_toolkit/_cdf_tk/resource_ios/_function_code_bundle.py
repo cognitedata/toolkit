@@ -1,9 +1,10 @@
 import subprocess
-import tomllib
 from collections.abc import Iterable
 from pathlib import Path
-from tomllib import TOMLDecodeError
 from typing import Any
+
+import tomllib
+from tomllib import TOMLDecodeError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import InstanceId, InternalId
