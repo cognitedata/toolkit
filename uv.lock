@@ -334,8 +334,6 @@ table = [
 [package.dev-dependencies]
 dev = [
     { name = "marko" },
-    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pandas" },
     { name = "pre-commit" },
     { name = "pytest" },
@@ -383,7 +381,6 @@ provides-extras = ["table", "sql", "run-function-app"]
 [package.metadata.requires-dev]
 dev = [
     { name = "marko", specifier = ">=2.1.2" },
-    { name = "numpy", specifier = ">=2.2" },
     { name = "pandas", specifier = ">=2.2" },
     { name = "pre-commit", specifier = ">=4.0.0" },
     { name = "pytest", specifier = ">=8.0.0" },
