@@ -1,8 +1,6 @@
-import os
 import re
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
 from zipfile import ZipFile
 
 import pytest
@@ -192,8 +190,7 @@ class TestLoadYamlInjectVariables:
         ],
     )
     def test_pem_certificate_injected_from_env(self, env_value: str) -> None:
-        with patch.dict(os.environ, {"MQTT_CERT": env_value}):
-            loaded = load_yaml_inject_variables(self.YAML, dict(os.environ), required_return_type="dict")
+        loaded = load_yaml_inject_variables(self.YAML, {"MQTT_CERT": env_value}, required_return_type="dict")
 
         cert = loaded["authCertificate"]["certificate"]
         assert "\\n" not in cert, "Literal backslash-n in PEM -> invalid certificate"
