@@ -954,10 +954,6 @@ class TestVerboseResourceOutcomes:
             DeploymentResult(
                 resource_name="spaces",
                 is_dry_run=True,
-                created_count=1,
-                deleted_count=1,
-                updated_count=1,
-                unchanged_count=1,
                 is_missing_write_acl=False,
                 created_ids=[SpaceId(space="new_space")],
                 updated_ids=[SpaceId(space="edited_space")],
@@ -1093,7 +1089,7 @@ class TestVerboseResourceOutcomes:
     def test_deploy_resources_records_ids(self) -> None:
         crud = MagicMock()
         crud.display_name = "spaces"
-        crud.get_id.side_effect = lambda resource: resource
+        crud.get_ids.side_effect = lambda resources: [r for r in resources]
         created = SpaceId(space="new")
         updated = SpaceId(space="edited")
         deleted = SpaceId(space="old")
@@ -1115,15 +1111,9 @@ class TestVerboseResourceOutcomes:
             "updated_ids": result.updated_ids,
             "deleted_ids": result.deleted_ids,
             "unchanged_ids": result.unchanged_ids,
-            "created_count": result.created_count,
-            "updated_count": result.updated_count,
-            "deleted_count": result.deleted_count,
         } == {
             "created_ids": [created],
             "updated_ids": [updated],
             "deleted_ids": [deleted],
             "unchanged_ids": [unchanged],
-            "created_count": 1,
-            "updated_count": 1,
-            "deleted_count": 1,
         }
