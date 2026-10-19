@@ -21,6 +21,7 @@ entity-matching = false
 custom-apps = true
 api = true
 catalog-dataset = true
+multi-configs = true
 
 [plugins]
 run = true
