@@ -30,7 +30,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     InternalValidatorException,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, ResourceIO, ResourceType, ViewIO
 from cognite_toolkit._cdf_tk.rules._data_modeling import DataModelingRuleSet
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
@@ -128,7 +127,7 @@ def _write(tmp_path: Path, name: str, content: str) -> Path:
     return path
 
 
-def _module(resources: list[tuple[Path, type[ResourceIO], ContainerId | ViewId]]) -> BuiltModule:
+def _module(resources: list[tuple[Path, type[ResourceIO], ContainerId | ViewId | DataModelId]]) -> BuiltModule:
     module_id = ModuleId(id=Path("modules/my"), path=resources[0][0].parent.resolve())
     built = [
         BuiltResource(

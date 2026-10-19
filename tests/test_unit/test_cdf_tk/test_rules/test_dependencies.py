@@ -7,7 +7,6 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import InternalValidatorException
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
 from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ResourceIO, ResourceType, TimeSeriesIO
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 
@@ -45,11 +44,8 @@ class TestDependencyRuleSetCdfApiError:
         rule = DependencyRuleSet(modules=[module], client=client)
 
         results = list(rule.validate())
-
-        assert [(type(result), result.source, result.message) for result in results] == [
-            (
-                InternalValidatorException,
-                "DataSet",
-                "Failed to verify existence of dataset in CDF: 403 Forbidden",
-            )
-        ]
+        assert len(results) == 1
+        result = results[0]
+        assert isinstance(result, InternalValidatorException)
+        assert result.source == "DataSet"
+        assert result.message == "Failed to verify existence of dataset in CDF: 403 Forbidden"
