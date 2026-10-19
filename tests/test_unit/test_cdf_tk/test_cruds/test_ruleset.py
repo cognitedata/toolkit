@@ -234,7 +234,8 @@ class TestRuleSetsAPIRetrieve:
                 return httpx2.Response(status_code=400, json=error_body)
             return httpx2.Response(status_code=200, json={"items": [rule_set]})
 
-        respx_mock.post(toolkit_config.create_api_url("/rulesets/byids")).mock(side_effect=side_effect)
+        # Respx is made for httpx and not httpx2, even though httpx2 is a drop-in replacement.
+        respx_mock.post(toolkit_config.create_api_url("/rulesets/byids")).mock(side_effect=side_effect)  # ty: ignore[invalid-argument-type]
 
         result = api.retrieve(
             [ExternalId(external_id="exists"), ExternalId(external_id="missing_one")],
