@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
@@ -30,7 +31,9 @@ class TransformationNotificationsAPI(CDFResourceAPI[TransformationNotificationRe
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalId]:
         return ResponseItems[InternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[TransformationNotificationRequest]) -> list[TransformationNotificationResponse]:
+    def create(
+        self, items: Sequence[TransformationNotificationRequest]
+    ) -> builtins.list[TransformationNotificationResponse]:
         """Subscribe for notifications on transformation errors.
 
         Args:
@@ -74,7 +77,7 @@ class TransformationNotificationsAPI(CDFResourceAPI[TransformationNotificationRe
         self,
         filter: TransformationNotificationFilter | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[TransformationNotificationResponse]]:
+    ) -> Iterable[builtins.list[TransformationNotificationResponse]]:
         """Iterate over all transformation notification subscriptions in CDF.
 
         Args:
@@ -89,7 +92,7 @@ class TransformationNotificationsAPI(CDFResourceAPI[TransformationNotificationRe
         self,
         filter: TransformationNotificationFilter | None = None,
         limit: int | None = 100,
-    ) -> list[TransformationNotificationResponse]:
+    ) -> builtins.list[TransformationNotificationResponse]:
         """List all transformation notification subscriptions in CDF.
 
         Returns:

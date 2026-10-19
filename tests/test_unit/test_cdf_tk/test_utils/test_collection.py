@@ -5,7 +5,10 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import MigrationMapping, MigrationMappingList
-from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence, flatten_dict_json_path
+from cognite_toolkit._cdf_tk.utils.collection import (
+    chunker_sequence,
+    flatten_dict_json_path,
+)
 
 
 class TestChunkSequence:

@@ -1,8 +1,8 @@
 import re
 from typing import Literal
 
-from pydantic import Field, field_validator, model_serializer
-from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler, ValidationInfo
+from pydantic import Field, field_validator
+from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId
 from cognite_toolkit._cdf_tk.constants import (
@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.constants import (
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
 from .base import ToolkitResource
-from .container_field_definitions import ConstraintDefinition, ContainerPropertyDefinition, IndexDefinition
+from .container_field_definitions import ConstraintType, ContainerPropertyDefinition, IndexType
 
 KEY_PATTERN = re.compile(CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN)
 
@@ -50,11 +50,11 @@ class ContainerYAML(ToolkitResource):
     properties: dict[str, ContainerPropertyDefinition] = Field(
         description="Set of properties to apply to the container."
     )
-    constraints: dict[str, ConstraintDefinition] | None = Field(
+    constraints: dict[str, ConstraintType] | None = Field(
         default=None,
         description="Set of constraints to apply to the container.",
     )
-    indexes: dict[str, IndexDefinition] | None = Field(
+    indexes: dict[str, IndexType] | None = Field(
         default=None,
         description="Set of indexes to apply to the container.",
         max_length=10,
@@ -85,15 +85,6 @@ class ContainerYAML(ToolkitResource):
                     f"'{key}' is a reserved property identifier. Reserved identifiers are: {humanize_collection(FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER)}"
                 )
         return val
-
-    @model_serializer(mode="wrap")
-    def serialize_container(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
-        serialized_data = handler(self)
-        if self.constraints:
-            serialized_data["constraints"] = {k: v.model_dump(**vars(info)) for k, v in self.constraints.items()}
-        if self.indexes:
-            serialized_data["indexes"] = {k: v.model_dump(**vars(info)) for k, v in self.indexes.items()}
-        return serialized_data
 
     @field_validator("indexes", "constraints", mode="after")
     @classmethod

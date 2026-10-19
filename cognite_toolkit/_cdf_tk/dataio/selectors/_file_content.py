@@ -1,4 +1,3 @@
-import hashlib
 import json
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -146,14 +145,3 @@ class FileInstanceID(FileIdentifierDefinition):
 
 
 FileIdentifier = Annotated[FileInstanceID | FileExternalID | FileInternalID, Field(discriminator="id_type")]
-
-
-class FileIdentifierSelector(FileContentSelector):
-    type: Literal["fileIdentifier"] = "fileIdentifier"
-    file_directory: str = "file_content"
-    use_metadata_directory: bool = True
-    identifiers: tuple[FileIdentifier, ...]
-
-    def __str__(self) -> str:
-        hash_ = hashlib.md5(",".join(sorted(str(self.identifiers))).encode()).hexdigest()[:8]
-        return f"file_{len(self.identifiers)}_identifiers_{hash_}"

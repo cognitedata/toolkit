@@ -2,6 +2,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
+from cognite.client import CogniteClient
 from cognite.client.data_classes import DataSet, TimeSeries, TimeSeriesWrite
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -12,7 +13,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors._datapoints import ExternalIdColum
 
 
 @pytest.fixture(scope="session")
-def two_timeseries(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> tuple[TimeSeries, TimeSeries]:
+def two_timeseries(cognite_client: CogniteClient, toolkit_dataset: DataSet) -> tuple[TimeSeries, TimeSeries]:
     ts = TimeSeriesWrite(
         name="Test TimeSeries for Datapoints IO",
         external_id="test_timeseries_datapoints_io",
@@ -27,20 +28,28 @@ def two_timeseries(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> t
         is_string=True,
         data_set_id=toolkit_dataset.id,
     )
-    retrieved1 = toolkit_client.time_series.retrieve(external_id=ts.external_id)
-    retrieved2 = toolkit_client.time_series.retrieve(external_id=ts2.external_id)
+    retrieved1 = cognite_client.time_series.retrieve(external_id=ts.external_id)
+    retrieved2 = cognite_client.time_series.retrieve(external_id=ts2.external_id)
     if retrieved1 is None:
-        retrieved1 = toolkit_client.time_series.create(ts)
+        retrieved1 = cognite_client.time_series.create(ts)
     if retrieved2 is None:
-        retrieved2 = toolkit_client.time_series.create(ts2)
+        retrieved2 = cognite_client.time_series.create(ts2)
     return retrieved1, retrieved2
 
 
 class TestUploadCommand:
     def test_upload_datapoints(
-        self, toolkit_client: ToolkitClient, two_timeseries: tuple[TimeSeries, TimeSeries], tmp_path: Path
+        self,
+        toolkit_client: ToolkitClient,
+        cognite_client: CogniteClient,
+        two_timeseries: tuple[TimeSeries, TimeSeries],
+        tmp_path: Path,
     ) -> None:
         ts1, ts2 = two_timeseries
+        ts1_external_id = ts1.external_id
+        ts2_external_id = ts2.external_id
+        assert ts1_external_id is not None
+        assert ts2_external_id is not None
         assert ts1.is_string is False
         assert ts2.is_string is True
         selector = DataPointsFileSelector(
@@ -48,7 +57,7 @@ class TestUploadCommand:
             columns=(
                 ExternalIdColumn(
                     column="value",
-                    external_id=ts1.external_id,
+                    external_id=ts1_external_id,
                     dtype="numeric",
                 ),
                 InternalIdColumn(
@@ -75,30 +84,42 @@ class TestUploadCommand:
             verbose=True,
         )
 
-        datapoints = toolkit_client.time_series.data.retrieve_arrays(
-            external_id=ts1.external_id,
+        datapoints = cognite_client.time_series.data.retrieve_arrays(
+            external_id=ts1_external_id,
             start=datetime.fromisoformat("2024-01-01T00:00:00Z"),
             end=datetime.fromisoformat("2024-01-01T00:00:10Z"),
         )
+        assert datapoints is not None
         assert len(datapoints) == 10, f"Expected 10 datapoints, got {len(datapoints)}"
-        datapoints2 = toolkit_client.time_series.data.retrieve_arrays(
-            external_id=ts2.external_id,
+        datapoints2 = cognite_client.time_series.data.retrieve_arrays(
+            external_id=ts2_external_id,
             start=datetime.fromisoformat("2024-01-01T00:00:00Z"),
             end=datetime.fromisoformat("2024-01-01T00:00:10Z"),
         )
+        assert datapoints2 is not None
         assert len(datapoints2) == 10, f"Expected 10 datapoints, got {len(datapoints2)}"
 
     def test_upload_download_datapoints(
-        self, toolkit_client: ToolkitClient, two_timeseries: tuple[TimeSeries, TimeSeries], tmp_path: Path
+        self,
+        toolkit_client: ToolkitClient,
+        cognite_client: CogniteClient,
+        two_timeseries: tuple[TimeSeries, TimeSeries],
+        tmp_path: Path,
     ) -> None:
         ts1, _ = two_timeseries
         client = toolkit_client
+        ts1_external_id = ts1.external_id
+        data_set_id = ts1.data_set_id
+        assert ts1_external_id is not None
+        assert data_set_id is not None
         assert ts1.is_string is False
+        data_set_external_id = client.lookup.data_sets.external_id(data_set_id)
+        assert data_set_external_id is not None
 
         upload_dir = tmp_path / "upload"
         upload_dir.mkdir(parents=True, exist_ok=True)
         selector = DataPointsDataSetSelector(
-            data_set_external_id=client.lookup.data_sets.external_id(ts1.data_set_id),
+            data_set_external_id=data_set_external_id,
             start=int(datetime.fromisoformat("1989-01-01T00:00:00Z").timestamp() * 1000),
             end=int(datetime.fromisoformat("1989-01-02T00:00:00Z").timestamp() * 1000),
             download_dir_name="datapoints",
@@ -109,7 +130,7 @@ class TestUploadCommand:
         rows: list[str] = []
         for i in range(10):
             timestamp_ms = int(datetime.fromisoformat(f"1989-01-01T00:00:{i:02d}Z").timestamp() * 1000)
-            rows.append(f"{ts1.external_id},{timestamp_ms},{i * 5}.0")
+            rows.append(f"{ts1_external_id},{timestamp_ms},{i * 5}.0")
         csv_content += "\n" + "\n".join(rows)
         csv_file.write_text(csv_content)
         upload_cmd = UploadCommand(silent=True, skip_tracking=True)
@@ -121,13 +142,15 @@ class TestUploadCommand:
             verbose=True,
         )
 
-        aggregate_result = client.time_series.data.retrieve(
-            external_id=ts1.external_id,
+        aggregate_result = cognite_client.time_series.data.retrieve(
+            external_id=ts1_external_id,
             start=datetime.fromisoformat("1989-01-01T00:00:00Z"),
             end=datetime.fromisoformat("1989-01-02T00:00:00Z"),
             aggregates="count",
             granularity="1d",
         )
+        assert aggregate_result is not None
+        assert aggregate_result.count is not None
         assert aggregate_result.count[0] == 10, f"Expected 10 datapoints, got {aggregate_result.count[0]}"
 
         io = DatapointsIO(client)

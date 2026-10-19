@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceId, InternalId
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_hash, humanize_collection
@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.utils.file import (
 )
 from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML
 
-from ._file import CogniteFileCRUD, FileMetadataCRUD
+from ._file import CogniteFileIO, FileMetadataIO
 
 
 class FunctionCodeBundle:
@@ -62,8 +62,8 @@ class FunctionCodeBundle:
         return hash_value
 
     def map_sidecar_paths(self, filepath: Path, filestem: str, external_ids: Iterable[str]) -> None:
-        filemetadata = filepath.parent / f"{filestem}.{FileMetadataCRUD.kind}.yaml"
-        cognitefile = filepath.parent / f"{filestem}.{CogniteFileCRUD.kind}.yaml"
+        filemetadata = filepath.parent / f"{filestem}.{FileMetadataIO.kind}.yaml"
+        cognitefile = filepath.parent / f"{filestem}.{CogniteFileIO.kind}.yaml"
         for external_id in external_ids:
             if filemetadata.exists():
                 self.filemetadata_path_by_external_id[external_id] = filemetadata
@@ -85,7 +85,7 @@ class FunctionCodeBundle:
             return
         if not function_rootdir.is_dir():
             yield FailedReadExtra(
-                code="MISSING",
+                code="MISSING-REFERENCED-DIRECTORY",
                 error=f"Cannot find function code for function {external_id!r} in {filepath.as_posix()}. Expected function code directory {function_rootdir.as_posix()} to exist. ",
                 source_path=function_rootdir,
             )
@@ -108,24 +108,19 @@ class FunctionCodeBundle:
         )
         name = item.get("name")
         if not isinstance(name, str):
-            yield FailedReadExtra(
-                source_path=function_rootdir,
-                code="MISSING",
-                error=f"Cannot find function name for function {external_id!r} in {filepath.as_posix()}. This is required and is necessary for creating the function code.",
-            )
             return
         filename = sanitize_filename(name)
         if data_set_external_id := item.get("dataSetExternalId"):
             yield SuccessExtra(
                 source_path=function_rootdir,
                 source_hash=source_hash,
-                suffix=f".{FileMetadataCRUD.kind}.yaml",
+                suffix=f".{FileMetadataIO.kind}.yaml",
                 content=yaml_safe_dump(
                     FileMetadataYAML(
                         name=f"{filename}.zip",
-                        externalId=external_id,
-                        dataSetExternalId=data_set_external_id,
-                        mimeType="application/zip",
+                        external_id=external_id,
+                        data_set_external_id=data_set_external_id,
+                        mime_type="application/zip",
                     ).model_dump(by_alias=True, exclude_unset=True)
                 ),
                 description="metadata for function code",
@@ -136,24 +131,18 @@ class FunctionCodeBundle:
             yield SuccessExtra(
                 source_path=function_rootdir,
                 source_hash=source_hash,
-                suffix=f".{CogniteFileCRUD.kind}.yaml",
+                suffix=f".{CogniteFileIO.kind}.yaml",
                 content=yaml_safe_dump(
                     CogniteFileYAML(
                         space=space,
-                        externalId=external_id,
+                        external_id=external_id,
                         name=name,
-                        mimeType="application/zip",
+                        mime_type="application/zip",
                     ).model_dump(by_alias=True, exclude_unset=True)
                 ),
                 description="metadata for function code",
                 resource_field=None,
                 write_to_build=True,
-            )
-        else:
-            yield FailedReadExtra(
-                source_path=function_rootdir,
-                code="MISSING",
-                error=f"Failed to create function code metadata for function {external_id!r} in {filepath.as_posix()}. This is required for creating the function code. The function must have either a dataSetExternalId or a space specified.",
             )
 
     def as_file_by_external_id(self, external_ids: Iterable[str]) -> tuple[dict[Path, str], dict[Path, str]]:
@@ -178,16 +167,22 @@ class FunctionCodeBundle:
     ) -> dict[str, InternalId]:
         file_id_by_external_id: dict[str, InternalId] = {}
         if filemetadata_files:
-            fileio = FileMetadataCRUD(self.client, None, None)
+            fileio = FileMetadataIO(self.client)
             file_request = fileio.load_resource_files(list(filemetadata_files))
-            fileresponse = fileio.create(file_request)
-            file_id_by_external_id.update(zip(filemetadata_files.values(), (InternalId(id=f.id) for f in fileresponse)))
+            created = fileio.create(file_request)
+            by_external_id = {response.external_id: response for response in created if response.external_id}
+            file_id_by_external_id.update(
+                {
+                    external_id: InternalId(id=by_external_id[external_id].id)
+                    for external_id in filemetadata_files.values()
+                }
+            )
         if cognite_files:
-            cognitefileio = CogniteFileCRUD(self.client, None, None)
+            cognitefileio = CogniteFileIO(self.client)
             cognitefile_request = cognitefileio.load_resource_files(list(cognite_files))
-            cognitefile_response = cognitefileio.create(cognitefile_request)
-            dm_fileresponse = self.client.tool.filemetadata.retrieve(
-                [node.as_instance_id() for node in cognitefile_response]
+            created_node_ids = cognitefileio.create(cognitefile_request)
+            dm_fileresponse = self.client.filemetadata.retrieve(
+                [InstanceId(instance_id=node_id) for node_id in created_node_ids]
             )
             file_id_by_external_id.update(zip(cognite_files.values(), (InternalId(id=f.id) for f in dm_fileresponse)))
         return file_id_by_external_id

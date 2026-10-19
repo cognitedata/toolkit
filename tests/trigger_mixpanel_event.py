@@ -117,7 +117,7 @@ def track_test_command() -> None:
 
     with chdir(REPO_ROOT):
         # To ensure that cdf.toml is loaded correctly
-        _ = CDFToml.load()
+        _ = CDFToml.load_module_context()
         tracker = Tracker()
         client = get_toolkit_client(".env")
 

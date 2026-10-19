@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
@@ -35,7 +36,7 @@ class ExtractionPipelinesAPI(CDFResourceAPI[ExtractionPipelineResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[ExtractionPipelineRequest]) -> list[ExtractionPipelineResponse]:
+    def create(self, items: Sequence[ExtractionPipelineRequest]) -> builtins.list[ExtractionPipelineResponse]:
         """Create extraction pipelines in CDF.
 
         Args:
@@ -47,7 +48,7 @@ class ExtractionPipelinesAPI(CDFResourceAPI[ExtractionPipelineResponse]):
 
     def retrieve(
         self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
-    ) -> list[ExtractionPipelineResponse]:
+    ) -> builtins.list[ExtractionPipelineResponse]:
         """Retrieve extraction pipelines from CDF.
 
         Args:
@@ -62,7 +63,7 @@ class ExtractionPipelinesAPI(CDFResourceAPI[ExtractionPipelineResponse]):
 
     def update(
         self, items: Sequence[ExtractionPipelineRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[ExtractionPipelineResponse]:
+    ) -> builtins.list[ExtractionPipelineResponse]:
         """Update extraction pipelines in CDF.
 
         Args:
@@ -113,7 +114,7 @@ class ExtractionPipelinesAPI(CDFResourceAPI[ExtractionPipelineResponse]):
 
     def iterate(
         self, filter: ClassicFilter | None = None, external_id_prefix: str | None = None, limit: int | None = 100
-    ) -> Iterable[list[ExtractionPipelineResponse]]:
+    ) -> Iterable[builtins.list[ExtractionPipelineResponse]]:
         """Iterate over all extraction pipelines in CDF.
 
         Args:
@@ -136,7 +137,7 @@ class ExtractionPipelinesAPI(CDFResourceAPI[ExtractionPipelineResponse]):
     def list(
         self,
         limit: int | None = 100,
-    ) -> list[ExtractionPipelineResponse]:
+    ) -> builtins.list[ExtractionPipelineResponse]:
         """List all extraction pipelines in CDF.
 
         Returns:

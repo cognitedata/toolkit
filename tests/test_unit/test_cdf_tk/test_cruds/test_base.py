@@ -8,7 +8,6 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 from cognite.client.data_classes import (
-    CreatedSession,
     FileMetadata,
     TransformationSchedule,
 )
@@ -21,28 +20,28 @@ from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersi
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionCreateResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
-    CRUD_LIST,
-    CRUDS_BY_FOLDER_NAME,
-    CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA,
-    RESOURCE_CRUD_LIST,
+    RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA,
+    RESOURCE_IO_BY_FOLDER_NAME,
+    RESOURCE_IO_LIST,
     FunctionIO,
     FunctionScheduleIO,
-    GroupResourceScopedCRUD,
+    GroupResourceScopedIO,
     HostedExtractorDestinationIO,
     HostedExtractorSourceIO,
-    Loader,
     LocationFilterIO,
     ResourceIO,
     ResourceTypes,
     TransformationIO,
     WorkflowTriggerIO,
 )
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from tests.test_unit.test_cdf_tk.constants import SNAPSHOTS_DIR_ALL
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
@@ -50,13 +49,13 @@ SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
 
 
 class TestFormatConsistency:
-    @pytest.mark.parametrize("Loader", RESOURCE_CRUD_LIST)
+    @pytest.mark.parametrize("Loader", RESOURCE_IO_LIST)
     def test_fake_resource_generator(
         self, Loader: type[ResourceIO], toolkit_client_cheap: ToolkitClient, monkeypatch: MonkeyPatch
     ):
         fakegenerator = FakeCogniteResourceGenerator(seed=1337)
 
-        loader = Loader.create_loader(toolkit_client_cheap)
+        loader = Loader.create_io(toolkit_client_cheap)
         instance = fakegenerator.create_instance(loader.resource_write_cls)
 
         if get_origin(loader.resource_write_cls) is typing.Annotated:
@@ -66,7 +65,7 @@ class TestFormatConsistency:
         else:
             assert isinstance(instance, loader.resource_write_cls)
 
-    @pytest.mark.parametrize("Loader", RESOURCE_CRUD_LIST)
+    @pytest.mark.parametrize("Loader", RESOURCE_IO_LIST)
     def test_loader_takes_dict(
         self,
         Loader: type[ResourceIO],
@@ -74,7 +73,7 @@ class TestFormatConsistency:
         monkeypatch: MonkeyPatch,
         tmp_path: Path,
     ) -> None:
-        loader = Loader.create_loader(toolkit_client_cheap, tmp_path)
+        loader = Loader.create_io(toolkit_client_cheap)
 
         if loader.resource_cls in [
             TransformationResponse,
@@ -88,7 +87,7 @@ class TestFormatConsistency:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
-        elif Loader in [GroupResourceScopedCRUD]:
+        elif Loader in [GroupResourceScopedIO]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
         elif Loader in [LocationFilterIO]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires special handling")
@@ -111,7 +110,7 @@ class TestFormatConsistency:
         assert isinstance(loaded, list)
         assert len(loaded) == 1
 
-    @pytest.mark.parametrize("Loader", RESOURCE_CRUD_LIST)
+    @pytest.mark.parametrize("Loader", RESOURCE_IO_LIST)
     def test_loader_takes_list(
         self,
         Loader: type[ResourceIO],
@@ -119,7 +118,7 @@ class TestFormatConsistency:
         monkeypatch: MonkeyPatch,
         tmp_path: Path,
     ) -> None:
-        loader = Loader.create_loader(toolkit_client_cheap, tmp_path)
+        loader = Loader.create_io(toolkit_client_cheap)
 
         if loader.resource_cls in [
             TransformationResponse,
@@ -133,7 +132,7 @@ class TestFormatConsistency:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
-        elif Loader in [GroupResourceScopedCRUD]:
+        elif Loader in [GroupResourceScopedIO]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
         elif Loader in [LocationFilterIO]:
             # TODO: https://cognitedata.atlassian.net/browse/CDF-22363
@@ -161,16 +160,25 @@ class TestFormatConsistency:
         loaded = loader.load_resource_file(filepath=file, environment_variables={})
         assert isinstance(loaded, list)
 
-    @pytest.mark.parametrize(
-        "Loader", [loader for loader in CRUD_LIST if loader.folder_name != "robotics"]
-    )  # Robotics does not have a public doc_url
-    def test_loader_has_doc_url(self, Loader: type[Loader], toolkit_client_cheap: ToolkitClient):
-        loader = Loader.create_loader(toolkit_client_cheap)
+    @pytest.mark.parametrize("Loader", RESOURCE_IO_LIST)  # Robotics does not have a public doc_url
+    def test_loader_has_doc_url(self, Loader: type[ResourceIO], toolkit_client_cheap: ToolkitClient):
+        loader = Loader.create_io(toolkit_client_cheap)
         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
+
+    def test_all_io_suffix_io(self) -> None:
+        """Checks that all classes that subclass ResourceIO have a name that ends with IO."""
+        ill_formed_subclasses = [
+            subclass.__name__
+            for subclass in get_concrete_subclasses(ResourceIO)
+            if not subclass.__name__.endswith("IO")
+        ]
+        assert not ill_formed_subclasses, (
+            f"Found subclasses of ResourceIO that do not end with 'IO': {ill_formed_subclasses}"
+        )
 
 
 def test_resource_types_is_up_to_date() -> None:
-    expected = set(CRUDS_BY_FOLDER_NAME.keys())
+    expected = set(RESOURCE_IO_BY_FOLDER_NAME.keys())
     actual = set(ResourceTypes.__args__)
 
     missing = expected - actual
@@ -180,17 +188,11 @@ def test_resource_types_is_up_to_date() -> None:
         extra.discard("cdf_applications")
     if not FeatureFlag.is_enabled(Flags.MIGRATE):
         extra.discard("migration")
-    if not FeatureFlag.is_enabled(Flags.SIGNALS):
-        extra.discard("signals")
     if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
         extra.discard("data_products")
         extra.discard("rulesets")
     if not FeatureFlag.is_enabled(Flags.CUSTOM_APPS):
         extra.discard("apps")
-    if not FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
-        extra.discard("skills")
-    if not FeatureFlag.is_enabled(Flags.SIGNALS):
-        extra.discard("signals")
     assert not missing, f"Missing {missing=}"
     assert not extra, f"Extra {extra=}"
 
@@ -346,7 +348,7 @@ authentication:
 class TestResourceCRUDs:
     def test_unique_kind_by_folder(self):
         kind = defaultdict(list)
-        for crud in RESOURCE_CRUD_LIST:
+        for crud in RESOURCE_IO_LIST:
             # Todo: Remove in v1.0
             if crud.folder_name == "data_modeling":
                 continue
@@ -366,8 +368,8 @@ class TestResourceCRUDs:
         # Avoid returning an external .sql file for TransformationIO.
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
         with monkeypatch_toolkit_client() as client:
-            client.iam.sessions.create.return_value = CreatedSession(123, "READY", "my-nonce")
-            loader = loader_cls.create_loader(client, build_dir=tmp_path)
+            client.sessions.create.return_value = [SessionCreateResponse(id=123, status="READY", nonce="my-nonce")]
+            loader = loader_cls.create_io(client)
 
         file = MagicMock(spec=Path)
         file.read_text.return_value = local_file
@@ -385,14 +387,14 @@ class TestResourceCRUDs:
         "loader_cls",
         [
             loader_cls
-            for loader_cls in RESOURCE_CRUD_LIST
+            for loader_cls in RESOURCE_IO_LIST
             if loader_cls not in {HostedExtractorSourceIO, HostedExtractorDestinationIO}
         ],
     )
     def test_dump_resource_with_local_id(
         self, loader_cls: type[ResourceIO], toolkit_client_with_lookup: ToolkitClient
     ) -> None:
-        loader = loader_cls.create_loader(toolkit_client_with_lookup)
+        loader = loader_cls.create_io(toolkit_client_with_lookup)
         resource = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_cls)
         local_dict = loader.dump_id(loader.get_id(resource))
 
@@ -404,7 +406,7 @@ class TestResourceCRUDs:
         assert isinstance(dumped, dict)
 
     def test_yaml_cls_is_set(self) -> None:
-        missing = [loader_cls.__name__ for loader_cls in RESOURCE_CRUD_LIST if loader_cls.yaml_cls is None]
+        missing = [loader_cls.__name__ for loader_cls in RESOURCE_IO_LIST if loader_cls.yaml_cls is None]
 
         assert not missing, f"The following loaders are missing yaml_cls: {missing}"
 
@@ -412,14 +414,17 @@ class TestResourceCRUDs:
 class TestLoaders:
     def test_unique_display_names(self, env_vars_with_client_cheap: EnvironmentVariables):
         name_by_count = Counter(
-            [loader_cls.create_loader(env_vars_with_client_cheap.get_client()).display_name for loader_cls in CRUD_LIST]
+            [
+                loader_cls.create_io(env_vars_with_client_cheap.get_client()).display_name
+                for loader_cls in RESOURCE_IO_LIST
+            ]
         )
 
         duplicates = {name: count for name, count in name_by_count.items() if count > 1}
 
         # Todo: Remove in v1.0
-        for loader in CRUDS_BY_FOLDER_NAME["data_modeling"]:
-            duplicates.pop(loader.create_loader(env_vars_with_client_cheap.get_client()).display_name, None)
+        for loader in RESOURCE_IO_BY_FOLDER_NAME["data_modeling"]:
+            duplicates.pop(loader.create_io(env_vars_with_client_cheap.get_client()).display_name, None)
 
         assert not duplicates, f"Duplicate display names: {duplicates}"
 
@@ -428,8 +433,10 @@ class TestConstants:
     @pytest.mark.parametrize(
         "folder_names",
         [
-            pytest.param(set(CRUDS_BY_FOLDER_NAME.keys()), id="CRUDS_BY_FOLDER_NAME"),
-            pytest.param(set(CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA.keys()), id="CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA"),
+            pytest.param(set(RESOURCE_IO_BY_FOLDER_NAME.keys()), id="CRUDS_BY_FOLDER_NAME"),
+            pytest.param(
+                set(RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA.keys()), id="CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA"
+            ),
         ],
     )
     def test_resource_key_is_a_resource_type(self, folder_names: set[str]) -> None:

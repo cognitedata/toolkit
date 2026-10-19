@@ -41,6 +41,7 @@ class SignalSubscriptionIO(
     yaml_cls = SignalSubscriptionYAML
     dependencies = frozenset({SignalSinkIO, WorkflowIO, HostedExtractorDestinationIO, HostedExtractorSourceIO})
     support_update = True
+    _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Signals/operation/createSignalSubscriptions"
 
     @property
@@ -65,7 +66,9 @@ class SignalSubscriptionIO(
                 yield HostedExtractorDestinationIO, ExternalId(external_id=resource.filter.destination_external_id)
 
     @classmethod
-    def get_id(cls, item: SignalSubscriptionRequest | SignalSubscriptionResponse | dict) -> ExternalId:
+    def get_id(cls, item: SignalSubscriptionRequest | SignalSubscriptionResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -84,14 +87,14 @@ class SignalSubscriptionIO(
             yield SubscribeSignalsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[SignalSubscriptionRequest]) -> list[SignalSubscriptionResponse]:
-        return self.client.tool.signal_subscriptions.create(list(items))
+        return self.client.signal_subscriptions.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SignalSubscriptionResponse]:
         if not ids:
             return []
         remaining = {id_.external_id for id_ in ids}
         found: list[SignalSubscriptionResponse] = []
-        for page in self.client.tool.signal_subscriptions.iterate(limit=None):
+        for page in self.client.signal_subscriptions.iterate(limit=None):
             for item in page:
                 if item.external_id in remaining:
                     found.append(item)
@@ -101,11 +104,12 @@ class SignalSubscriptionIO(
         return found
 
     def update(self, items: Sequence[SignalSubscriptionRequest]) -> list[SignalSubscriptionResponse]:
-        return self.client.tool.signal_subscriptions.update(list(items))
+        return self.client.signal_subscriptions.update(list(items))
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        self.client.tool.signal_subscriptions.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        self.client.signal_subscriptions.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -115,5 +119,5 @@ class SignalSubscriptionIO(
     ) -> Iterable[SignalSubscriptionResponse]:
         if data_set_external_id or space or parent_ids:
             return
-        for page in self.client.tool.signal_subscriptions.iterate():
+        for page in self.client.signal_subscriptions.iterate():
             yield from page

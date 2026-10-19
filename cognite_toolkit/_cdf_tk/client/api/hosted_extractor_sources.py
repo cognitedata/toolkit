@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
@@ -5,7 +6,12 @@ from pydantic import JsonValue, TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import (
+    HTTPClient,
+    ItemsSuccessResponse,
+    SuccessResponse,
+    ToolkitAPIError,
+)
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
     HostedExtractorSourceRequestUnion,
@@ -25,6 +31,7 @@ class HostedExtractorSourcesAPI(CDFResourceAPI[HostedExtractorSourceResponseUnio
                 "delete": Endpoint(method="POST", path="/hostedextractors/sources/delete", item_limit=100),
                 "list": Endpoint(method="GET", path="/hostedextractors/sources", item_limit=100),
             },
+            api_version="beta",
         )
 
     def _validate_page_response(
@@ -34,13 +41,20 @@ class HostedExtractorSourcesAPI(CDFResourceAPI[HostedExtractorSourceResponseUnio
             data = response.body_json
         else:
             data = TypeAdapter(dict[str, JsonValue]).validate_json(response.body)
-        items = [HostedExtractorSourceResponse.validate_python(item) for item in data.get("items", [])]
-        return PagedResponse[HostedExtractorSourceResponseUnion](items=items, nextCursor=data.get("nextCursor"))
+        raw_items = data.get("items", [])
+        if not isinstance(raw_items, list):
+            raise ToolkitAPIError("Expected 'items' to be a list in hosted extractor sources response")
+        items = [HostedExtractorSourceResponse.validate_python(item) for item in raw_items]
+        raw_cursor = data.get("nextCursor")
+        next_cursor = raw_cursor if isinstance(raw_cursor, str) else None
+        return PagedResponse[HostedExtractorSourceResponseUnion](items=items, nextCursor=next_cursor)
 
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[ExternalId]:
         return ResponseItems[ExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
+    def create(
+        self, items: Sequence[HostedExtractorSourceRequestUnion]
+    ) -> builtins.list[HostedExtractorSourceResponseUnion]:
         """Create hosted extractor sources in CDF.
 
         Args:
@@ -52,7 +66,7 @@ class HostedExtractorSourcesAPI(CDFResourceAPI[HostedExtractorSourceResponseUnio
 
     def retrieve(
         self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
-    ) -> list[HostedExtractorSourceResponseUnion]:
+    ) -> builtins.list[HostedExtractorSourceResponseUnion]:
         """Retrieve hosted extractor sources from CDF.
 
         Args:
@@ -67,7 +81,7 @@ class HostedExtractorSourcesAPI(CDFResourceAPI[HostedExtractorSourceResponseUnio
 
     def update(
         self, items: Sequence[HostedExtractorSourceRequestUnion], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[HostedExtractorSourceResponseUnion]:
+    ) -> builtins.list[HostedExtractorSourceResponseUnion]:
         """Update hosted extractor sources in CDF.
 
         Args:
@@ -111,7 +125,7 @@ class HostedExtractorSourcesAPI(CDFResourceAPI[HostedExtractorSourceResponseUnio
     def iterate(
         self,
         limit: int | None = 100,
-    ) -> Iterable[list[HostedExtractorSourceResponseUnion]]:
+    ) -> Iterable[builtins.list[HostedExtractorSourceResponseUnion]]:
         """Iterate over hosted extractor sources in CDF.
 
         Args:
@@ -122,7 +136,7 @@ class HostedExtractorSourcesAPI(CDFResourceAPI[HostedExtractorSourceResponseUnio
         """
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = 100) -> list[HostedExtractorSourceResponseUnion]:
+    def list(self, limit: int | None = 100) -> builtins.list[HostedExtractorSourceResponseUnion]:
         """List all hosted extractor sources in CDF.
 
         Args:

@@ -6,7 +6,6 @@ from typing import Any, get_args
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FILEPATH
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     AssetCentricMigrationSelector,
     Image360AnnotationSelector,
@@ -41,7 +40,6 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     DataSelector,
     DataSetSelector,
     FileDataModelingTemplateSelector,
-    FileIdentifierSelector,
     FileMetadataFilesSelectorV2,
     FileMetadataTemplateSelector,
     FileMetadataTemplateSelectorV2,
@@ -248,37 +246,6 @@ def example_selector_data() -> Iterable[tuple]:
         FileContentIO,
         FileContentIO.KIND,
         id="FileDataModelingTemplateSelector",
-    )
-    yield pytest.param(
-        {
-            "type": "fileIdentifier",
-            "kind": "FileContent",
-            "file_directory": "path/to/files",
-            "identifiers": [
-                {
-                    "idType": "internalId",
-                    "id": 12345,
-                    FILEPATH: "file1.csv",
-                },
-                {
-                    "idType": "externalId",
-                    "externalId": "file_ext_id",
-                    FILEPATH: "file2.csv",
-                },
-                {
-                    "idType": "instanceId",
-                    "instanceId": {
-                        "space": "my_space",
-                        "externalId": "my_instance",
-                    },
-                    FILEPATH: "file3.csv",
-                },
-            ],
-        },
-        FileIdentifierSelector,
-        FileContentIO,
-        FileContentIO.KIND,
-        id="FileIdentifierSelector",
     )
     yield pytest.param(
         {

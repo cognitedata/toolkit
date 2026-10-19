@@ -1,19 +1,16 @@
 import json
-from collections import Counter
+from collections.abc import Iterator, Sequence
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
-from cognite.client.data_classes.functions import FunctionsStatus
-from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse, AskDocument
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
@@ -29,7 +26,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
     OneLakeSettingsRead,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import DownloadResponse, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse, FunctionsActivation
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationResponse,
@@ -46,6 +44,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping im
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import MQTTSourceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.sap_writeback import (
+    SAPEndpointResponse,
+    SAPInstanceResponse,
+    SchemaMappingResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
@@ -66,43 +69,37 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     HostedExtractorFinder,
     LocationFilterFinder,
     ResourceViewMappingFinder,
+    SAPWritebackFinder,
     SearchConfigFinder,
     SpaceFinder,
     StreamlitFinder,
     TransformationFinder,
     WorkflowFinder,
 )
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     AgentIO,
     DataSetsIO,
     ExternalDataSourceIO,
     ExtractionPipelineIO,
     FunctionIO,
-    GroupAllScopedCRUD,
+    GroupAllScopedIO,
     HostedExtractorDestinationIO,
     HostedExtractorJobIO,
     HostedExtractorMappingIO,
     HostedExtractorSourceIO,
     LocationFilterIO,
     ResourceViewMappingIO,
+    SAPEndpointIO,
+    SAPInstanceIO,
+    SchemaMappingIO,
     SearchConfigIO,
-    SpaceCRUD,
+    SpaceIO,
     StreamlitIO,
     TransformationIO,
 )
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import MockQuestionary
-
-
-def _enable_external_data_sources(monkeypatch: MonkeyPatch) -> None:
-    original = FeatureFlag.is_enabled
-    monkeypatch.setattr(
-        FeatureFlag,
-        "is_enabled",
-        lambda flag: flag is Flags.EXTERNAL_DATA_SOURCES or original(flag),
-    )
 
 
 def _onelake_transformation_and_source() -> tuple[TransformationResponse, ExternalDataSourceResponse]:
@@ -206,7 +203,7 @@ class TestTransformationFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(TransformationFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.transformations.list.return_value = three_transformations
+            client.transformations.list.return_value = three_transformations
             finder = TransformationFinder(client, None)
             selected = finder._interactive_select()
 
@@ -216,8 +213,8 @@ class TestTransformationFinder:
 class TestDumpTransformations:
     def test_dump_transformations(self, three_transformations: list[TransformationResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.transformations.retrieve.return_value = three_transformations[1:]
-            client.tool.transformations.schedules.retrieve.return_value = []
+            client.transformations.retrieve.return_value = three_transformations[1:]
+            client.transformations.schedules.retrieve.return_value = []
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -226,21 +223,20 @@ class TestDumpTransformations:
                 clean=False,
                 verbose=False,
             )
-            loader = TransformationIO(client, None, None)
+            loader = TransformationIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
         items = [read_yaml_file(filepath) for filepath in filepaths]
         assert items == [loader.dump_resource(t) for t in three_transformations[1:]]
 
-    def test_dump_transformations_with_ext_onelake_sources(self, monkeypatch: MonkeyPatch) -> None:
-        _enable_external_data_sources(monkeypatch)
+    def test_dump_transformations_with_ext_onelake_sources(self) -> None:
         transformation, external_source = _onelake_transformation_and_source()
         with monkeypatch_toolkit_client() as client:
             finder = TransformationFinder(client, ("transformationA",))
-            client.tool.transformations.retrieve.return_value = [transformation]
-            client.tool.transformations.schedules.retrieve.return_value = []
-            client.tool.transformations.external_data_sources.list.return_value = [external_source]
+            client.transformations.retrieve.return_value = [transformation]
+            client.transformations.schedules.retrieve.return_value = []
+            client.transformations.external_data_sources.list.return_value = [external_source]
 
             batches = list(finder)
 
@@ -281,8 +277,8 @@ class TestWorkflowFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(WorkflowFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.workflows.list.return_value = three_workflows
-            client.tool.workflows.versions.list.side_effect = lambda workflow_external_id, limit=None: [
+            client.workflows.list.return_value = three_workflows
+            client.workflows.versions.list.side_effect = lambda workflow_external_id, limit=None: [
                 v for v in versions if v.workflow_external_id == workflow_external_id
             ]
             finder = WorkflowFinder(client, None)
@@ -310,8 +306,8 @@ class TestWorkflowFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(WorkflowFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.workflows.list.return_value = three_workflows
-            client.tool.workflows.versions.list.side_effect = lambda workflow_external_id, limit=None: [
+            client.workflows.list.return_value = three_workflows
+            client.workflows.versions.list.side_effect = lambda workflow_external_id, limit=None: [
                 v for v in versions if v.workflow_external_id == workflow_external_id
             ]
             finder = WorkflowFinder(client, None)
@@ -320,46 +316,55 @@ class TestWorkflowFinder:
         assert selected == (WorkflowVersionId(workflow_external_id="workflowA", version="v2"),)
 
 
-@pytest.fixture()
-def three_data_models() -> list[DataModelResponse]:
-    """Three data models in one space. The first two are different versions of the same model."""
-    default_args = dict(
-        is_global=False,
-        last_updated_time=1,
-        created_time=1,
-        description=None,
-        name=None,
-    )
-    return [
-        DataModelResponse(
-            space="my_space",
-            external_id="my_model",
-            version="v1",
-            views=[ViewId(space="my_space", external_id="firstView", version="v1")],
-            **default_args,
-        ),
-        DataModelResponse(
-            space="my_space",
-            external_id="my_model",
-            version="v2",
-            views=[
-                ViewId(space="my_space", external_id="firstView", version="v2"),
-                ViewId(space="my_space2", external_id="secondView", version="v2"),
-            ],
-            **default_args,
-        ),
-        DataModelResponse(
-            space="my_space",
-            external_id="other_model",
-            version="v1",
-            views=[ViewId(space="my_space", external_id="otherView", version="v1")],
-            **default_args,
-        ),
-    ]
-
-
 class TestDataModelFinder:
-    def test_select_data_model(self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch) -> None:
+    def test_select_multiple_data_models(self, monkeypatch: MonkeyPatch) -> None:
+        default_args = dict(
+            is_global=False,
+            last_updated_time=1,
+            created_time=1,
+            description=None,
+            name=None,
+            views=[],
+        )
+        models = [
+            DataModelResponse(
+                space="my_space", external_id="first_model", version="v1", **{**default_args, "name": "First"}
+            ),
+            DataModelResponse(space="other_space", external_id="second_model", version="v1", **default_args),
+        ]
+        captured: dict[str, object] = {}
+
+        def checkbox(*_args: object, **kwargs: object) -> MagicMock:
+            captured.update(kwargs)
+            question = MagicMock()
+            question.unsafe_ask.return_value = [model.as_id() for model in models]
+            return question
+
+        monkeypatch.setattr(f"{DataModelFinder.__module__}.questionary.checkbox", checkbox)
+        with monkeypatch_toolkit_client() as client:
+            client.data_models.list.return_value = models
+            finder = DataModelFinder(client, None)
+            result = finder._interactive_select()
+
+        validate = captured["validate"]
+        choices = captured["choices"]
+        assert isinstance(choices, list)
+        assert callable(validate)
+        assert {
+            "use_search_filter": captured["use_search_filter"],
+            "titles": [choice.title for choice in choices],
+            "empty": validate([]),
+            "selected": validate([models[0].as_id()]),
+            "result": result,
+        } == {
+            "use_search_filter": True,
+            "titles": ["First (my_space:first_model/v1)", "other_space:second_model/v1"],
+            "empty": "You must select at least one data model.",
+            "selected": True,
+            "result": tuple(model.as_id() for model in models),
+        }
+
+    def test_dump_multiple_data_models(self, tmp_path: Path) -> None:
         default_args = dict(
             is_global=False,
             last_updated_time=1,
@@ -370,45 +375,25 @@ class TestDataModelFinder:
         )
         models = [
             DataModelResponse(space="my_space", external_id="first_model", version="v1", **default_args),
-            DataModelResponse(space="my_space2", external_id="second_model", version="v1", **default_args),
+            DataModelResponse(space="other_space", external_id="second_model", version="v1", **default_args),
         ]
-        toolkit_client_approval.append(DataModelResponse, models)
-        selected = models[1].as_id()
-        finder = DataModelFinder(toolkit_client_approval.mock_client, None)
-        answers = ["my_space2", selected, False]
-        with MockQuestionary(DataModelFinder.__module__, monkeypatch, answers):
-            result = finder._interactive_select()
+        spaces = [
+            SpaceResponse(space=model.space, is_global=False, last_updated_time=1, created_time=1) for model in models
+        ]
+        with monkeypatch_toolkit_client() as client:
+            client.data_models.retrieve.return_value = models
+            client.views.retrieve.return_value = []
+            client.containers.retrieve.return_value = []
+            client.spaces.retrieve.return_value = spaces
+            DumpResourceCommand(silent=True).dump_to_yamls(
+                DataModelFinder(client, tuple(model.as_id() for model in models)),
+                output_dir=tmp_path,
+                clean=False,
+                verbose=False,
+            )
 
-        assert result == selected
-        assert finder.data_model.as_id() == selected
-
-    def test_select_data_model_multiple_versions(
-        self, three_data_models: list[DataModelResponse], monkeypatch: MonkeyPatch
-    ) -> None:
-        def select_data_model(choices: list[Choice]) -> dm.DataModelId:
-            assert len(choices) == 2
-            return choices[0].value
-
-        def select_version_of_model(choices: list[Choice]) -> str:
-            assert len(choices) == 2
-
-            return choices[0].value
-
-        answers = [select_data_model, True, select_version_of_model]
-
-        with (
-            monkeypatch_toolkit_client() as client,
-            MockQuestionary(DataModelFinder.__module__, monkeypatch, answers),
-        ):
-            # Last two are different models
-            client.tool.data_models.list.return_value = three_data_models[1:]
-            # First two are different versions of the same model
-            client.tool.data_models.retrieve.return_value = three_data_models[:2]
-
-            finder = DataModelFinder(client, None)
-            selected = finder._interactive_select()
-
-        assert selected == three_data_models[0].as_id()
+        dumped = sorted(path.name for path in tmp_path.glob("**/*.DataModel.yaml"))
+        assert dumped == ["first_model.DataModel.yaml", "second_model.DataModel.yaml"]
 
 
 @pytest.fixture()
@@ -434,7 +419,7 @@ class TestLocationFilterFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(LocationFilterFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.location_filters.list.return_value = three_location_filters
+            client.location_filters.list.return_value = three_location_filters
             finder = LocationFilterFinder(client, None)
             selected = finder._interactive_select()
 
@@ -444,7 +429,7 @@ class TestLocationFilterFinder:
 class TestDumpLocationFilter:
     def test_dump_location_filter(self, three_location_filters: list[LocationFilterResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.location_filters.list.return_value = three_location_filters
+            client.location_filters.list.return_value = three_location_filters
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
                 LocationFilterFinder(client, ("filterB", "filterC")),
@@ -452,7 +437,7 @@ class TestDumpLocationFilter:
                 clean=False,
                 verbose=False,
             )
-            loader = LocationFilterIO(client, None, None)
+            loader = LocationFilterIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -485,13 +470,9 @@ def three_agents() -> list[AgentResponse]:
 
 
 class TestDumpAgents:
-    @pytest.mark.skipif(
-        not Flags.V09.is_enabled(),
-        reason="This test requires v0.9 as it splits the agent dump into two files: tool and agent",
-    )
     def test_dump_agents(self, three_agents: list[AgentResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.agents.retrieve.return_value = three_agents[1:2]
+            client.agents.retrieve.return_value = three_agents[1:2]
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
                 AgentFinder(client, tuple([agent.external_id for agent in three_agents[1:2]])),
@@ -499,7 +480,7 @@ class TestDumpAgents:
                 clean=False,
                 verbose=False,
             )
-            loader = AgentIO(client, None, None)
+            loader = AgentIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 1
@@ -521,7 +502,7 @@ class TestDumpAgents:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(AgentFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.agents.list.return_value = three_agents
+            client.agents.list.return_value = three_agents
             finder = AgentFinder(client, None)
             selected = finder._interactive_select()
 
@@ -557,7 +538,7 @@ class TestExtractionPipelineFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(ExtractionPipelineFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.extraction_pipelines.list.return_value = three_extraction_pipelines
+            client.extraction_pipelines.list.return_value = three_extraction_pipelines
             finder = ExtractionPipelineFinder(client, None)
             selected = finder._interactive_select()
 
@@ -596,7 +577,7 @@ class TestDumpExtractionPipeline:
                 clean=False,
                 verbose=False,
             )
-            loader = ExtractionPipelineIO(client, None, None)
+            loader = ExtractionPipelineIO(client)
 
             filepaths = list(loader.find_files(tmp_path))
             items = sorted(
@@ -638,7 +619,7 @@ class TestHostedExtractorFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(HostedExtractorFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.hosted_extractors.sources.list.return_value = three_hosted_extractor_sources
+            client.hosted_extractors.sources.list.return_value = three_hosted_extractor_sources
             finder = HostedExtractorFinder(client, None)
             selected = finder._interactive_select()
 
@@ -682,10 +663,10 @@ class TestDumpHostedExtractor:
             ),
         ]
         with monkeypatch_toolkit_client() as client:
-            client.tool.hosted_extractors.sources.retrieve.return_value = selected_sources
-            client.tool.hosted_extractors.jobs.list.return_value = jobs
-            client.tool.hosted_extractors.destinations.retrieve.return_value = destinations
-            client.tool.hosted_extractors.mappings.retrieve.return_value = mappings
+            client.hosted_extractors.sources.retrieve.return_value = selected_sources
+            client.hosted_extractors.jobs.list.return_value = jobs
+            client.hosted_extractors.destinations.retrieve.return_value = destinations
+            client.hosted_extractors.mappings.retrieve.return_value = mappings
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -694,10 +675,10 @@ class TestDumpHostedExtractor:
                 clean=False,
                 verbose=False,
             )
-            source_loader = HostedExtractorSourceIO(client, None, None)
-            job_loader = HostedExtractorJobIO(client, None, None)
-            dest_loader = HostedExtractorDestinationIO(client, None, None)
-            mapping_loader = HostedExtractorMappingIO(client, None, None)
+            source_loader = HostedExtractorSourceIO(client)
+            job_loader = HostedExtractorJobIO(client)
+            dest_loader = HostedExtractorDestinationIO(client)
+            mapping_loader = HostedExtractorMappingIO(client)
 
             source_items = [read_yaml_file(path) for path in source_loader.find_files(tmp_path)]
             job_items = [read_yaml_file(path) for path in job_loader.find_files(tmp_path)]
@@ -721,22 +702,8 @@ class TestDumpHostedExtractor:
             last_updated_time=1,
         )
         with monkeypatch_toolkit_client() as client:
-            dumped = HostedExtractorSourceIO.create_loader(client).dump_resource(source)
+            dumped = HostedExtractorSourceIO.create_io(client).dump_resource(source)
         assert dumped == {"type": "mqtt5", "externalId": "sourceA", "host": "localhost"}
-
-    def test_dump_source_with_local_returns_identifier(self) -> None:
-        source = MQTTSourceResponse(
-            type="mqtt5",
-            external_id="sourceA",
-            host="localhost",
-            created_time=1,
-            last_updated_time=1,
-        )
-        with monkeypatch_toolkit_client() as client:
-            dumped = HostedExtractorSourceIO.create_loader(client).dump_resource(
-                source, local={"externalId": "sourceA"}
-            )
-        assert dumped == {"externalId": "sourceA"}
 
     def test_dump_destination_without_local_translates_dataset(self) -> None:
         destination = HostedExtractorDestinationResponse(
@@ -747,7 +714,7 @@ class TestDumpHostedExtractor:
         )
         with monkeypatch_toolkit_client() as client:
             client.lookup.data_sets.external_id.return_value = "ds_files"
-            dumped = HostedExtractorDestinationIO.create_loader(client).dump_resource(destination)
+            dumped = HostedExtractorDestinationIO.create_io(client).dump_resource(destination)
         assert dumped == {"externalId": "destA", "targetDataSetExternalId": "ds_files"}
 
 
@@ -790,7 +757,7 @@ class TestGroupFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(GroupFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.groups.list.return_value = three_groups
+            client.groups.list.return_value = three_groups
             finder = GroupFinder(client, None)
             selected = finder._interactive_select()
 
@@ -800,7 +767,7 @@ class TestGroupFinder:
 class TestDumpGroups:
     def test_dump_groups(self, three_groups: list[GroupResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.groups.list.return_value = three_groups
+            client.groups.list.return_value = three_groups
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -809,7 +776,7 @@ class TestDumpGroups:
                 clean=False,
                 verbose=False,
             )
-            loader = GroupAllScopedCRUD(client, None, None)
+            loader = GroupAllScopedIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -848,16 +815,45 @@ def three_functions() -> list[FunctionResponse]:
     ]
 
 
+class _DownloadStream:
+    def __init__(self, body: bytes) -> None:
+        self.status_code = 200
+        self.text = ""
+        self._body = body
+
+    def __enter__(self) -> "_DownloadStream":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+    def iter_bytes(self) -> Iterator[bytes]:
+        yield self._body
+
+
+def _mock_file_bytes(client: MagicMock, content: bytes) -> None:
+    client.filemetadata.retrieve.return_value = [
+        FileMetadataResponse(
+            id=1,
+            name="file",
+            external_id="file",
+            uploaded=True,
+            created_time=1,
+            last_updated_time=1,
+        )
+    ]
+    client.filemetadata.get_download_url.return_value = [
+        DownloadResponse(id=1, download_url="https://example.test/file")
+    ]
+
+
 class TestDumpFunctions:
     def test_dump_functions(self, three_functions: list[FunctionResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.functions.retrieve.return_value = three_functions[1:]
-            client.functions.status.return_value = FunctionsStatus("activated")
-            client.files.retrieve.return_value = None
-            client.files.download_bytes.side_effect = CogniteAPIError(
-                "File ids not found",
-                code=400,
-            )
+            client.functions.retrieve.return_value = three_functions[1:]
+            client.functions.status.return_value = FunctionsActivation(status="activated")
+            client.filemetadata.retrieve.return_value = []
+            client.filemetadata.get_download_url.return_value = []
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -866,7 +862,7 @@ class TestDumpFunctions:
                 clean=False,
                 verbose=False,
             )
-            loader = FunctionIO(client, None, None)
+            loader = FunctionIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -887,7 +883,7 @@ class TestDumpFunctions:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(FunctionFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.functions.list.return_value = three_functions
+            client.functions.list.return_value = three_functions
             finder = FunctionFinder(client, None)
             selected = finder._interactive_select()
 
@@ -915,7 +911,7 @@ class TestDataSetFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataSetFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.datasets.list.return_value = three_datasets
+            client.datasets.list.return_value = three_datasets
             finder = DataSetFinder(client, None)
             selected = finder._interactive_select()
 
@@ -925,7 +921,7 @@ class TestDataSetFinder:
 class TestDumpDataSets:
     def test_dump_datasets(self, three_datasets: list[DataSetResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.datasets.retrieve.return_value = three_datasets[1:]
+            client.datasets.retrieve.return_value = three_datasets[1:]
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -934,7 +930,7 @@ class TestDumpDataSets:
                 clean=False,
                 verbose=False,
             )
-            loader = DataSetsIO(client, None, None)
+            loader = DataSetsIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -996,11 +992,7 @@ class TestDumpStreamlitApps:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(StreamlitFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.streamlit.list.return_value = three_streamlit_apps
-            counts_by_creator = Counter([app.creator for app in three_streamlit_apps])
-            client.documents.aggregate_unique_values.return_value = UniqueResultList(
-                [UniqueResult(count=count, values=[creator]) for creator, count in counts_by_creator.items()]
-            )
+            client.streamlit.list.return_value = three_streamlit_apps
             finder = StreamlitFinder(client, None)
             selected = finder._interactive_select()
 
@@ -1008,22 +1000,29 @@ class TestDumpStreamlitApps:
 
     def test_dump_streamlit_app(self, three_streamlit_apps: list[StreamlitResponse], tmp_path: Path) -> None:
         app_b = three_streamlit_apps[1]
-        with monkeypatch_toolkit_client() as client:
-            client.tool.streamlit.retrieve.return_value = [app_b]
-            client.files.download_bytes.return_value = json.dumps(
-                {
-                    "entrypoint": "main.py",
-                    "files": {
-                        "main.py": {
-                            "content": {
-                                "text": 'import streamlit as st\nfrom cognite.client import CogniteClient\n\nst.title("An example app in CDF")\nclient = CogniteClient()\n\n\n@st.cache_data\ndef get_assets():\n    assets = client.assets.list(limit=1000).to_pandas()\n    assets = assets.fillna(0)\n    return assets\n\n\nst.write(get_assets())\n',
-                                "$case": "text",
-                            }
+        content = json.dumps(
+            {
+                "entrypoint": "main.py",
+                "files": {
+                    "main.py": {
+                        "content": {
+                            "text": 'import streamlit as st\nfrom cognite.client import CogniteClient\n\nst.title("An example app in CDF")\nclient = CogniteClient()\n\n\n@st.cache_data\ndef get_assets():\n    assets = client.assets.list(limit=1000).to_pandas()\n    assets = assets.fillna(0)\n    return assets\n\n\nst.write(get_assets())\n',
+                            "$case": "text",
                         }
-                    },
-                    "requirements": ["pyodide-http==0.2.1", "cognite-sdk==7.51.1"],
-                }
-            ).encode("utf-8")
+                    }
+                },
+                "requirements": ["pyodide-http==0.2.1", "cognite-sdk==7.51.1"],
+            }
+        ).encode("utf-8")
+        with (
+            monkeypatch_toolkit_client() as client,
+            patch(
+                "cognite_toolkit._cdf_tk.commands.dump_resource.httpx2.stream",
+                return_value=_DownloadStream(content),
+            ),
+        ):
+            client.streamlit.retrieve.return_value = [app_b]
+            _mock_file_bytes(client, content)
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -1032,7 +1031,7 @@ class TestDumpStreamlitApps:
                 clean=False,
                 verbose=False,
             )
-            loader = StreamlitIO(client, None, None)
+            loader = StreamlitIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 1
@@ -1112,14 +1111,16 @@ class TestDumpStreamlitApps:
         app = three_streamlit_apps[1]
         with monkeypatch_toolkit_client() as client:
             if content is None:
-                client.files.download_bytes.side_effect = CogniteAPIError(
-                    message=f"Files ids not found: {app.external_id}", code=400, missing=[app.external_id]
-                )
+                client.filemetadata.retrieve.return_value = []
             else:
-                client.files.download_bytes.return_value = content.encode("utf-8")
-
-            finder = StreamlitFinder(client, (app.external_id,))
-            finder.dump_code(app, tmp_path, console)
+                _mock_file_bytes(client, content.encode("utf-8"))
+            download = patch(
+                "cognite_toolkit._cdf_tk.commands.dump_resource.httpx2.stream",
+                return_value=_DownloadStream(b"" if content is None else content.encode("utf-8")),
+            )
+            with download:
+                finder = StreamlitFinder(client, (app.external_id,))
+                finder.dump_code(app, tmp_path, console)
 
             assert console.print.call_count == 1
             severity, actual_message = console.print.call_args.args
@@ -1203,7 +1204,6 @@ class TestSpaceFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary("cognite_toolkit._cdf_tk.utils.interactive_select", monkeypatch, answers),
         ):
-            client.data_modeling.spaces.list.return_value = three_spaces
             monkeypatch.setattr(
                 "cognite_toolkit._cdf_tk.utils.interactive_select.DataModelingSelect.stats_by_space",
                 mock_stats_by_space,
@@ -1220,7 +1220,7 @@ class TestDumpSpaces:
         adapted_spaces = [SpaceResponse.model_validate(space.dump()) for space in three_spaces]
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.spaces.retrieve.return_value = adapted_spaces[1:]
+            client.spaces.retrieve.return_value = adapted_spaces[1:]
             identifier: tuple[str, ...] = "spaceB", "spaceC"
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -1229,7 +1229,7 @@ class TestDumpSpaces:
                 clean=False,
                 verbose=False,
             )
-            loader = SpaceCRUD(client, None, None)
+            loader = SpaceIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -1276,7 +1276,7 @@ class TestSearchConfigFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(SearchConfigFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.search_configurations.list.return_value = three_search_configs
+            client.search_configurations.list.return_value = three_search_configs
             finder = SearchConfigFinder(client, None)
             selected = finder._interactive_select()
 
@@ -1289,7 +1289,7 @@ class TestSearchConfigFinder:
 class TestDumpSearchConfigs:
     def test_dump_search_configs(self, three_search_configs: list[SearchConfigResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.tool.search_configurations.list.return_value = three_search_configs[1:]
+            client.search_configurations.list.return_value = three_search_configs[1:]
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -1304,7 +1304,7 @@ class TestDumpSearchConfigs:
                 clean=False,
                 verbose=False,
             )
-            loader = SearchConfigIO(client, None, None)
+            loader = SearchConfigIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -1383,7 +1383,7 @@ class TestDumpResourceViewMappings:
                 clean=False,
                 verbose=False,
             )
-            loader = ResourceViewMappingIO(client, None, None)
+            loader = ResourceViewMappingIO(client)
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
@@ -1392,3 +1392,134 @@ class TestDumpResourceViewMappings:
             [loader.dump_resource(m) for m in three_resource_view_mappings[1:]], key=lambda d: d["externalId"]
         )
         assert items == expected
+
+
+@pytest.fixture()
+def three_sap_endpoints() -> list[SAPEndpointResponse]:
+    return [
+        SAPEndpointResponse(
+            external_id="endpointA",
+            endpoint_type="notification",
+            instance_id="instanceA",
+            mapping_id="mappingA",
+            created_time=1,
+            last_updated_time=1,
+        ),
+        SAPEndpointResponse(
+            external_id="endpointB",
+            endpoint_type="attachment",
+            instance_id="instanceB",
+            mapping_id="mappingB",
+            created_time=1,
+            last_updated_time=1,
+        ),
+        SAPEndpointResponse(
+            external_id="endpointC",
+            endpoint_type="notification",
+            instance_id="instanceB",
+            created_time=1,
+            last_updated_time=1,
+        ),
+    ]
+
+
+class TestSAPWritebackFinder:
+    def test_select_sap_endpoints(
+        self, three_sap_endpoints: list[SAPEndpointResponse], monkeypatch: MonkeyPatch
+    ) -> None:
+        def select_endpoints(choices: list[Choice]) -> list[str]:
+            assert len(choices) == len(three_sap_endpoints)
+            return [choices[1].value, choices[2].value]
+
+        answers = [select_endpoints]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(SAPWritebackFinder.__module__, monkeypatch, answers),
+        ):
+            client.sap_writeback.endpoints.list.return_value = three_sap_endpoints
+            finder = SAPWritebackFinder(client, None)
+            selected = finder._interactive_select()
+
+        assert selected == ("endpointB", "endpointC")
+
+
+class TestDumpSAPWriteback:
+    def test_dump_sap_writeback_with_related_resources(
+        self, three_sap_endpoints: list[SAPEndpointResponse], tmp_path: Path
+    ) -> None:
+        selected_endpoints = three_sap_endpoints[1:]
+        instances = [
+            SAPInstanceResponse(
+                external_id="instanceA",
+                gateway_url="https://sap-a.example",
+                client=100,
+                username="user-a",
+                created_time=1,
+                last_updated_time=1,
+            ),
+            SAPInstanceResponse(
+                external_id="instanceB",
+                gateway_url="https://sap-b.example",
+                client=200,
+                username="user-b",
+                created_time=1,
+                last_updated_time=1,
+            ),
+        ]
+        mappings = [
+            SchemaMappingResponse(
+                external_id="mappingA",
+                expression="endpointA",
+                created_time=1,
+                last_updated_time=1,
+            ),
+            SchemaMappingResponse(
+                external_id="mappingB",
+                expression="endpointB",
+                created_time=1,
+                last_updated_time=1,
+            ),
+        ]
+
+        def retrieve_by_external_id(
+            items: Sequence[SAPEndpointResponse | SAPInstanceResponse | SchemaMappingResponse],
+            ids: Sequence[ExternalId],
+        ) -> list[SAPEndpointResponse | SAPInstanceResponse | SchemaMappingResponse]:
+            wanted = {identifier.external_id for identifier in ids}
+            return [item for item in items if item.external_id in wanted]
+
+        with monkeypatch_toolkit_client() as client:
+            client.sap_writeback.endpoints.retrieve.side_effect = lambda ids, ignore_unknown_ids=False: (
+                retrieve_by_external_id(three_sap_endpoints, ids)
+            )
+            client.sap_writeback.instances.retrieve.side_effect = lambda ids, ignore_unknown_ids=False: (
+                retrieve_by_external_id(instances, ids)
+            )
+            client.sap_writeback.mappings.retrieve.side_effect = lambda ids, ignore_unknown_ids=False: (
+                retrieve_by_external_id(mappings, ids)
+            )
+
+            cmd = DumpResourceCommand(silent=True)
+            cmd.dump_to_yamls(
+                SAPWritebackFinder(client, ("endpointB", "endpointC")),
+                output_dir=tmp_path,
+                clean=False,
+                verbose=False,
+            )
+            endpoint_loader = SAPEndpointIO(client)
+            instance_loader = SAPInstanceIO(client)
+            mapping_loader = SchemaMappingIO(client)
+            endpoint_items = [read_yaml_file(path) for path in endpoint_loader.find_files(tmp_path)]
+            instance_items = [read_yaml_file(path) for path in instance_loader.find_files(tmp_path)]
+            mapping_items = [read_yaml_file(path) for path in mapping_loader.find_files(tmp_path)]
+
+        assert {
+            "endpoints": sorted(endpoint_items, key=lambda item: item["externalId"]),
+            "instances": sorted(instance_items, key=lambda item: item["externalId"]),
+            "mappings": sorted(mapping_items, key=lambda item: item["externalId"]),
+        } == {
+            "endpoints": [endpoint_loader.dump_resource(endpoint) for endpoint in selected_endpoints],
+            "instances": [instance_loader.dump_resource(instances[1])],
+            "mappings": [mapping_loader.dump_resource(mappings[1])],
+        }

@@ -14,7 +14,7 @@ class NodeId(BaseModelResource):
     space: str = Field(min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)
 
 
-class FileMetadataYAML(ToolkitResource):
+class FileMetadataYAML(ToolkitResource, populate_by_name=True):
     external_id: str = Field(
         description="The external ID provided by the client.",
         max_length=255,

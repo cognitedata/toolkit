@@ -1,7 +1,9 @@
 from pathlib import Path
 
+import click
 import pytest
-from cognite.client import data_modeling as dm
+import typer
+from cognite.client import CogniteClient
 from cognite.client.data_classes.data_modeling import SpaceApply
 
 from cognite_toolkit._cdf_tk.apps._dump_app import DumpConfigApp
@@ -10,31 +12,32 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataMo
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, DataModelIO, GraphQLCRUD, SpaceCRUD, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, GraphQLIO, SpaceIO, ViewIO
 from tests.data import NAUGHTY_PROJECT
 
 
 @pytest.fixture()
-def deployed_misbehaving_grandparent(toolkit_client: ToolkitClient) -> dm.DataModelId:
-    loader = GraphQLCRUD.create_loader(toolkit_client)
+def deployed_misbehaving_grandparent(toolkit_client: ToolkitClient, cognite_client: CogniteClient) -> DataModelId:
+    loader = GraphQLIO.create_io(toolkit_client)
     filepaths = loader.find_files(NAUGHTY_PROJECT / MODULES / "difficult_graphql")
     assert len(filepaths) == 1
     model_list = loader.load_resource_file(filepaths[0])
     assert len(model_list) == 1
     model = loader.load_resource(model_list[0])
-    toolkit_client.data_modeling.spaces.apply(SpaceApply(space=model.space))
+    cognite_client.data_modeling.spaces.apply(SpaceApply(space=model.space))
 
     retrieved = loader.retrieve([loader.get_id(model)])
     if not retrieved:
-        return loader.create([model])[0].as_id()
+        return loader.get_id(loader.create([model])[0])
     return retrieved[0].as_id()
 
 
 class TestDumpResource:
     def test_dump_model_without_version(self, toolkit_client: ToolkitClient, tmp_path: Path) -> None:
+        data_model_id = ["cdf_cdm:CogniteCore/v1"]
         DumpConfigApp().dump_datamodel_cmd(
-            None,
-            ["cdf_cdm", "CogniteCore"],
+            typer.Context(click.Command("dump-datamodel")),
+            data_model_id,
             tmp_path,
         )
 
@@ -56,12 +59,12 @@ class TestDumpResource:
         assert data_model_folder.exists()
         assert sum(1 for _ in data_model_folder.glob(f"*{DataModelIO.kind}.yaml")) == 1
         assert sum(1 for _ in data_model_folder.glob(f"**/*{ViewIO.kind}.yaml")) == 34
-        assert sum(1 for _ in data_model_folder.glob(f"**/*{ContainerCRUD.kind}.yaml")) == 30
-        assert sum(1 for _ in data_model_folder.glob(f"**/*{SpaceCRUD.kind}.yaml")) == 2
+        assert sum(1 for _ in data_model_folder.glob(f"**/*{ContainerIO.kind}.yaml")) == 30
+        assert sum(1 for _ in data_model_folder.glob(f"**/*{SpaceIO.kind}.yaml")) == 2
 
     @pytest.mark.skip("Failing likely due to changes in the SchemaService validation.")
     def test_dump_misbehaving_grandparent(
-        self, deployed_misbehaving_grandparent: dm.DataModelId, toolkit_client: ToolkitClient, tmp_path: Path
+        self, deployed_misbehaving_grandparent: DataModelId, toolkit_client: ToolkitClient, tmp_path: Path
     ) -> None:
         output_dir = tmp_path / "output"
         cmd = DumpResourceCommand(silent=True)
@@ -74,7 +77,7 @@ class TestDumpResource:
 
         data_model_folder = output_dir / DataModelIO.folder_name
         assert data_model_folder.exists()
-        view_loader = ViewIO.create_loader(toolkit_client)
+        view_loader = ViewIO.create_io(toolkit_client)
         views_by_id = {
             view_loader.get_id(item).external_id: view_loader.load_resource(item)
             for filepath in view_loader.find_files(output_dir)
@@ -83,4 +86,6 @@ class TestDumpResource:
 
         assert "NumericProperty" in views_by_id
         view = views_by_id["NumericProperty"]
-        assert [parent.external_id for parent in view.implements] == ["Property", "ScalarProperty"]
+        implements = view.implements
+        assert implements is not None
+        assert [parent.external_id for parent in implements] == ["Property", "ScalarProperty"]

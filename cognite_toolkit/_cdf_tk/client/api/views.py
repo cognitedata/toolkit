@@ -4,6 +4,7 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Views/operation/ApplyViews
 """
 
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
@@ -15,7 +16,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewRequest,
     ViewResponse,
 )
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
 
 class ViewsAPI(CDFResourceAPI[ViewResponse]):
@@ -25,7 +25,7 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
     """
 
     def __init__(self, http_client: HTTPClient) -> None:
-        api_version = "alpha" if FeatureFlag.is_enabled(Flags.RECORD_VIEWS) else None
+        api_version = "alpha"
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
@@ -40,7 +40,7 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
     def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[ViewResponse]:
         return PagedResponse[ViewResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
+    def create(self, items: Sequence[ViewRequest]) -> builtins.list[ViewResponse]:
         """Apply (create or update) views in CDF.
 
         Args:
@@ -51,7 +51,7 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
         """
         return self._request_item_response(items, "upsert")
 
-    def update(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
+    def update(self, items: Sequence[ViewRequest]) -> builtins.list[ViewResponse]:
         """Apply (create or update) views in CDF.
 
         Args:
@@ -63,7 +63,7 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
 
     def retrieve(
         self, items: Sequence[ViewNoVersionId], include_inherited_properties: bool = True
-    ) -> list[ViewResponse]:
+    ) -> builtins.list[ViewResponse]:
         """Retrieve views from CDF.
 
         Args:
@@ -73,15 +73,15 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
         Returns:
             List of retrieved ViewResponse objects.
         """
-        view_ids: list[ViewId] = []
-        no_version_ids: list[ViewNoVersionId] = []
+        view_ids: builtins.list[ViewId] = []
+        no_version_ids: builtins.list[ViewNoVersionId] = []
         for view_id in items:
             if isinstance(view_id, ViewId):
                 view_ids.append(view_id)
             else:
                 no_version_ids.append(view_id)
 
-        results: list[ViewResponse] = []
+        results: builtins.list[ViewResponse] = []
         # The API does not support mixing ViewId and ViewNoVersionId in the same request.
         if view_ids:
             results.extend(
@@ -134,7 +134,7 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
         self,
         filter: ViewFilter | None = None,
         limit: int | None = None,
-    ) -> Iterable[list[ViewResponse]]:
+    ) -> Iterable[builtins.list[ViewResponse]]:
         """Iterate over all views in CDF.
 
         Args:
@@ -153,7 +153,7 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
         self,
         filter: ViewFilter | None = None,
         limit: int | None = None,
-    ) -> list[ViewResponse]:
+    ) -> builtins.list[ViewResponse]:
         """List all views in CDF.
 
         Args:

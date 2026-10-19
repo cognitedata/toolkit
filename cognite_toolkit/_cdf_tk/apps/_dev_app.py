@@ -14,7 +14,7 @@ from ._entity_matching_app import EntityMatchingApp
 from ._helpers import print_help_if_no_subcommand
 from ._run import RunApp
 
-CDF_TOML = CDFToml.load(Path.cwd())
+CDF_TOML = CDFToml.load_module_context(Path.cwd())
 
 
 class DevApp(typer.Typer):

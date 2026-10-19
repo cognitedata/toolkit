@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Sequence
 
 from cognite_toolkit._cdf_tk.client.api.instances import MultiWrappedInstancesAPI, WrappedInstancesAPI
@@ -71,12 +72,14 @@ class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, In
             root=self._LOCATION_REF,
         )
 
-    def _validate_query_response(self, query_response: QueryResponseUntyped) -> list[InFieldLocationConfigResponse]:
+    def _validate_query_response(
+        self, query_response: QueryResponseUntyped
+    ) -> builtins.list[InFieldLocationConfigResponse]:
         exploration_config_results = (
             DataExplorationConfig.model_validate(item) for item in query_response.items.get(self._EXPLORATION_REF, [])
         )
         exploration_config_map = {(item.space, item.external_id): item for item in exploration_config_results}
-        results: list[InFieldLocationConfigResponse] = []
+        results: builtins.list[InFieldLocationConfigResponse] = []
         for item in query_response.items.get(self._LOCATION_REF, []):
             location_config = InFieldLocationConfigResponse.model_validate(item)
             exploration_config = location_config.data_exploration_config
@@ -100,7 +103,7 @@ class InFieldCDMConfigAPI(WrappedInstancesAPI[NodeId, InFieldCDMLocationConfigRe
     ) -> PagedResponse[InFieldCDMLocationConfigResponse]:
         return PagedResponse[InFieldCDMLocationConfigResponse].model_validate_json(response.body)
 
-    def list(self, limit: int | None = 100) -> list[InFieldCDMLocationConfigResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[InFieldCDMLocationConfigResponse]:
         """List all in-field CDM configs.
 
         Args:
@@ -123,7 +126,7 @@ class APMConfigAPI(WrappedInstancesAPI[NodeId, APMConfigResponse]):
     ) -> PagedResponse[APMConfigResponse]:
         return PagedResponse[APMConfigResponse].model_validate_json(response.body)
 
-    def list(self, limit: int | None = 100) -> list[APMConfigResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[APMConfigResponse]:
         """List all APM configs.
 
         Args:

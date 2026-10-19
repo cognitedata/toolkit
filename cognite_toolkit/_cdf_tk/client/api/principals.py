@@ -4,6 +4,7 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Principals
 """
 
+import builtins
 from collections.abc import Iterable, Sequence
 
 from pydantic import TypeAdapter
@@ -46,7 +47,7 @@ class PrincipalLoginSessionsAPI(CDFResourceAPI[LoginSession]):
     def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[LoginSession]:
         return PagedResponse[LoginSession].model_validate_json(response.body)
 
-    def revoke(self, items: list[PrincipalLoginId]) -> None:
+    def revoke(self, items: builtins.list[PrincipalLoginId]) -> None:
         """Revoke login sessions for a principal.
 
         Args:
@@ -75,7 +76,7 @@ class PrincipalLoginSessionsAPI(CDFResourceAPI[LoginSession]):
 
     def iterate(
         self, principal_id: str, limit: int | None = 10, cursor: str | None = None
-    ) -> Iterable[list[LoginSession]]:
+    ) -> Iterable[builtins.list[LoginSession]]:
         """Iterate through all login sessions for a principal."""
         endpoint_path = self._method_endpoint_map["list"].path.format(
             org=self._project_api.get_organization_id(), principal=principal_id
@@ -85,7 +86,7 @@ class PrincipalLoginSessionsAPI(CDFResourceAPI[LoginSession]):
                 item.principal = principal_id
             yield items
 
-    def list(self, principal_id: str, limit: int | None = 10) -> list[LoginSession]:
+    def list(self, principal_id: str, limit: int | None = 10) -> builtins.list[LoginSession]:
         """List login sessions for a principal.
 
         Args:
@@ -143,7 +144,9 @@ class PrincipalsAPI(CDFResourceAPI[Principal]):
         response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         return TypeAdapter(Principal).validate_json(response.body)
 
-    def retrieve(self, items: Sequence[PrincipalId | ExternalId], ignore_unknown_ids: bool = False) -> list[Principal]:
+    def retrieve(
+        self, items: Sequence[PrincipalId | ExternalId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[Principal]:
         """Retrieve principals by their IDs or external IDs.
 
         Args:
@@ -155,14 +158,14 @@ class PrincipalsAPI(CDFResourceAPI[Principal]):
             items, "retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}, endpoint=path
         )
 
-    def _create_list_parameters(self, types: list[PrincipalType] | None) -> dict[str, PrimitiveType] | None:
+    def _create_list_parameters(self, types: builtins.list[PrincipalType] | None) -> dict[str, PrimitiveType] | None:
         """Create the query parameters for the list endpoint."""
         if types is None:
             return None
         return {"types": ",".join(types)}
 
     def paginate(
-        self, types: list[PrincipalType] | None = None, limit: int = 10, cursor: str | None = None
+        self, types: builtins.list[PrincipalType] | None = None, limit: int = 10, cursor: str | None = None
     ) -> PagedResponse[Principal]:
         """Paginate through all principals in the organization.
 
@@ -176,15 +179,15 @@ class PrincipalsAPI(CDFResourceAPI[Principal]):
         return self._paginate(limit, cursor, params=self._create_list_parameters(types), endpoint_path=path)
 
     def iterate(
-        self, types: list[PrincipalType] | None = None, limit: int | None = 10, cursor: str | None = None
-    ) -> Iterable[list[Principal]]:
+        self, types: builtins.list[PrincipalType] | None = None, limit: int | None = 10, cursor: str | None = None
+    ) -> Iterable[builtins.list[Principal]]:
         """Iterate through all principals in the organization."""
         endpoint_path = self._method_endpoint_map["list"].path.format(org=self._project_api.get_organization_id())
         return self._iterate(
             params=self._create_list_parameters(types), endpoint_path=endpoint_path, limit=limit, cursor=cursor
         )
 
-    def list(self, types: list[PrincipalType] | None = None, limit: int = 10) -> list[Principal]:
+    def list(self, types: builtins.list[PrincipalType] | None = None, limit: int = 10) -> builtins.list[Principal]:
         """List principals in the organization.
 
         Args:

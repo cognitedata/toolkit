@@ -46,25 +46,9 @@ class Flags(Enum):
         visible=True,
         description="Enables the migrate command",
     )
-    RECORDS_MIGRATE = FlagMetadata(
-        visible=False,
-        description="Enables the 'events-to-records' migration command",
-    )
     CREATE = FlagMetadata(
         visible=True,
         description="Enables support for the resources create command under dev plugin",
-    )
-    EXTEND_DOWNLOAD = FlagMetadata(
-        visible=True,
-        description="Enables extended download to support downloading file content, datapoints and records",
-    )
-    EXTEND_UPLOAD = FlagMetadata(
-        visible=True,
-        description="Enables extended upload to support uploading individual files and records",
-    )
-    SIGNALS = FlagMetadata(
-        visible=True,
-        description="Enables support for signal resources",
     )
     FUNCTION_REQUIREMENTS_VALIDATION = FlagMetadata(
         visible=True,
@@ -86,25 +70,13 @@ class Flags(Enum):
         visible=True,
         description="Enables support for custom app resources (App Hosting API deployment)",
     )
-    AGENT_SKILLS = FlagMetadata(
-        visible=True,
-        description="Enables support for agent skill resources",
-    )
-    EXTERNAL_DATA_SOURCES = FlagMetadata(
-        visible=True,
-        description="Enables support for transformation external data sources (OneLake / Fabric)",
-    )
-    RECORD_VIEWS = FlagMetadata(
-        visible=True,
-        description="Enables support for record-backed views (streamId on views)",
-    )
-    V09 = FlagMetadata(
-        visible=False,
-        description="Enables persisted CogIdP auth session commands (login, logout, status)",
-    )
     INFIELD_LOCATION_SPLIT = FlagMetadata(
         visible=True,
         description="Enables location-split InField data migration in order to untangle shared legacy instance spaces",
+    )
+    CATALOG_DATASET = FlagMetadata(
+        visible=True,
+        description="Enables support for catalog dataset resources",
     )
     API = FlagMetadata(
         visible=True,
@@ -123,7 +95,7 @@ class FeatureFlag:
     @staticmethod
     @lru_cache(typed=True)
     def is_enabled(flag: Flags) -> bool:
-        return CDFToml.load().alpha_flags.get(clean_name(flag.name), False)
+        return CDFToml.load_module_context().alpha_flags.get(clean_name(flag.name), False)
 
     @staticmethod
     def flush() -> None:

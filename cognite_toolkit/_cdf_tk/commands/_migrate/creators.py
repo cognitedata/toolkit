@@ -7,10 +7,7 @@ from functools import cached_property
 from typing import Any, Generic, cast
 
 from cognite.client.data_classes import filters
-from cognite.client.data_classes.aggregations import UniqueResult
-from cognite.client.data_classes.assets import AssetProperty
 from cognite.client.data_classes.documents import SourceFileProperty
-from cognite.client.data_classes.events import EventProperty
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -23,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     RootLocationConfiguration,
     RootLocationFeatureToggles,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.classic_aggregate import ClassicAggregateUniqueBucket
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
     NodeId,
@@ -32,6 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.documents import DocumentUniqueBucket
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     INFIELD_ON_CDM_DATA_MODEL,
     DataStorage,
@@ -47,9 +46,9 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.resource_ios import (
     InFieldCDMLocationConfigIO,
     LocationFilterIO,
-    NodeCRUD,
+    NodeIO,
     ResourceIO,
-    SpaceCRUD,
+    SpaceIO,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -110,7 +109,7 @@ class InstanceSpaceCreator(MigrationCreator):
 
     def create_resources(self) -> Iterable[ToCreateResources]:
         if self.data_set_external_ids is not None:
-            self.datasets = self.client.tool.datasets.retrieve(ExternalId.from_external_ids(self.data_set_external_ids))
+            self.datasets = self.client.datasets.retrieve(ExternalId.from_external_ids(self.data_set_external_ids))
 
         if missing_external_ids := [ds.id for ds in self.datasets if ds.external_id is None]:
             raise ToolkitRequiredValueError(
@@ -155,7 +154,7 @@ class InstanceSpaceCreator(MigrationCreator):
             )
         yield ToCreateResources(
             resources=created_resources,
-            crud_cls=SpaceCRUD,
+            crud_cls=SpaceIO,
             display_name="Instance Space",
             store_linage=lambda: self.store_lineage(linage_nodes),
         )
@@ -203,7 +202,7 @@ class InstanceSpaceCreator(MigrationCreator):
         return result
 
     def store_lineage(self, lineage_nodes: Sequence[NodeRequest]) -> int:
-        res = self.client.tool.instances.create(lineage_nodes)
+        res = self.client.instances.create(lineage_nodes)
         return len(res)
 
 
@@ -255,7 +254,7 @@ class SourceSystemCreator(MigrationCreator):
             )
         yield ToCreateResources(
             resources=to_create,
-            crud_cls=NodeCRUD,
+            crud_cls=NodeIO,
             display_name="Source System",
             store_linage=lambda: len(to_create),
         )
@@ -264,11 +263,11 @@ class SourceSystemCreator(MigrationCreator):
         all_existing = self.client.migration.created_source_system.list(limit=None)
         return {node.source: NodeId(space=node.space, external_id=node.external_id) for node in all_existing}
 
-    def _lookup_sources(self) -> Iterable[UniqueResult]:
-        yield from self.client.assets.aggregate_unique_values(AssetProperty.source, filter=self._simple_filter)
-        yield from self.client.events.aggregate_unique_values(property=EventProperty.source, filter=self._simple_filter)
-        yield from self.client.documents.aggregate_unique_values(
-            SourceFileProperty.source, filter=self._advanced_filter, limit=1000
+    def _lookup_sources(self) -> Iterable[ClassicAggregateUniqueBucket | DocumentUniqueBucket]:
+        yield from self.client.assets.unique(("source",), filter=self._simple_filter)
+        yield from self.client.events.unique(("source",), filter=self._simple_filter)
+        yield from self.client.documents.unique(
+            ("sourceFile", "source"), filter=self._advanced_filter.dump(), limit=1000
         )
 
     @cached_property
@@ -372,7 +371,7 @@ class InfieldCDMConfigCreator(MigrationCreator):
 
         yield ToCreateResources(
             resources=all_spaces,
-            crud_cls=SpaceCRUD,
+            crud_cls=SpaceIO,
             display_name="Instance Spaces",
         )
         yield ToCreateResources(
@@ -405,7 +404,7 @@ class InfieldCDMConfigCreator(MigrationCreator):
             if space_id is not None
         }
         origin_space_ids = [SpaceId(space=space_name) for space_name in origin_space_names]
-        origin_spaces = {s.space: s for s in self.client.tool.spaces.retrieve(origin_space_ids)}
+        origin_spaces = {s.space: s for s in self.client.spaces.retrieve(origin_space_ids)}
 
         for index, root_location_config in enumerate(config.feature_configuration.root_location_configurations or []):
             identifier = root_location_config.external_id or root_location_config.asset_external_id or f"index {index}"
@@ -559,9 +558,9 @@ class InfieldCDMConfigCreator(MigrationCreator):
         if config.template_admins:
             # Todo Fetch and update groups. Jira ticket: CDF-27033
             # list[str] is a valid JsonValue
-            access_management["templateAdmins"] = config.template_admins  # type: ignore[assignment]
+            access_management["templateAdmins"] = cast(JsonValue, config.template_admins)
         if config.checklist_admins:
-            access_management["checklistAdmins"] = config.checklist_admins  # type: ignore[assignment]
+            access_management["checklistAdmins"] = cast(JsonValue, config.checklist_admins)
 
         app_instance_space = build_infield_instance_space_name(
             config.app_data_instance_space,

@@ -1,21 +1,32 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Literal, Protocol
 
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, DataSetScope, ScopeDefinition, SpaceIDScope
+from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 
 
 class DataSetItem(Protocol):
     data_set_id: int | None
 
 
+def data_set_scope_from_ids(data_set_ids: Iterable[int | None]) -> ScopeDefinition:
+    ids: set[int] = set()
+    for data_set_id in data_set_ids:
+        if data_set_id is None:
+            return AllScope()
+        ids.add(data_set_id)
+    if not ids:
+        return DataSetScope(ids=[])
+    known_ids = {data_set_id for data_set_id in ids if data_set_id != DRY_RUN_ID}
+    if not known_ids:
+        # Dry-run placeholder IDs are not valid CDF dataset IDs (used when the dataset is only in the module).
+        return DataSetScope(ids=[])
+    return DataSetScope(ids=sorted(known_ids))
+
+
 def dataset_scoped_resource(items: Sequence[DataSetItem]) -> ScopeDefinition:
     """Items must have a ``data_set_id: int | None`` attribute."""
-    data_set_ids: set[int] = set()
-    for item in items:
-        if item.data_set_id is None:
-            return AllScope()
-        data_set_ids.add(item.data_set_id)
-    return DataSetScope(ids=list(data_set_ids))
+    return data_set_scope_from_ids(item.data_set_id for item in items)
 
 
 class SpaceItem(Protocol):

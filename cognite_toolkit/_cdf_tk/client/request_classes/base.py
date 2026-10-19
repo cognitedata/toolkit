@@ -7,7 +7,7 @@ from pydantic.alias_generators import to_camel
 class BaseModelRequest(BaseModel):
     """Base class for all object. This includes resources and nested objects."""
 
-    model_config = ConfigDict(alias_generator=to_camel, extra="ignore", populate_by_name=True)
+    model_config = ConfigDict(alias_generator=to_camel, extra="ignore", populate_by_name=True, defer_build=True)
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         """Dump the object to a dictionary.

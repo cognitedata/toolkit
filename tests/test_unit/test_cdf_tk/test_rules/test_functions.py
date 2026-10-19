@@ -7,10 +7,9 @@ import yaml
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits, ResourceLimit
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId, ResourceType
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
-from cognite_toolkit._cdf_tk.resource_ios import FunctionIO
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
+from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._functions import FunctionRuleSet
 from cognite_toolkit._cdf_tk.utils import PipValidationResult
 
@@ -43,13 +42,13 @@ class TestFunctionLimitsRule:
             identifier=ExternalId(external_id=external_id),
             source_hash="test-hash",
             type=ResourceType(resource_folder=FunctionIO.folder_name, kind=FunctionIO.kind),
-            source_path=AbsoluteFilePath(source_path.resolve()),
-            build_path=AbsoluteFilePath(build_path.resolve()),
+            source_path=source_path.resolve(),
+            build_path=build_path.resolve(),
             crud_cls=FunctionIO,
             dependencies=set(),
             has_syntax_error=False,
             module_id=ModuleId(
-                id=RelativeDirPath(Path("modules/my")),
+                id=Path("modules/my"),
                 path=source_path.parent.resolve(),
             ),
         )
@@ -58,7 +57,7 @@ class TestFunctionLimitsRule:
     def _create_rule_with_client(function_limits: FunctionLimits) -> FunctionRuleSet:
         """Create a FunctionLimitsRule with mocked client."""
         mock_client = MagicMock()
-        mock_client.tool.functions.limits.return_value = function_limits
+        mock_client.functions.limits.return_value = function_limits
         rule = FunctionRuleSet(modules=[], client=mock_client)
         return rule
 
@@ -67,6 +66,7 @@ class TestFunctionLimitsRule:
         rule = self._create_rule_with_client(function_limits)
         status = rule.get_status()
         assert status.code == "ready"
+        assert status.message is not None
         assert "validate function limits" in status.message.lower()
 
     def test_get_status_without_client(self) -> None:
@@ -74,6 +74,7 @@ class TestFunctionLimitsRule:
         rule = FunctionRuleSet(modules=[])
         status = rule.get_status()
         assert status.code == "reduced"
+        assert status.message is not None
         assert "requirement" in status.message.lower()
 
     def test_validate_function_cpu_exceeds_max(self, tmp_path: Path, function_limits: FunctionLimits) -> None:
@@ -84,6 +85,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "cpu": 3.0,
             },
         )
@@ -91,7 +93,7 @@ class TestFunctionLimitsRule:
         rule = self._create_rule_with_client(function_limits)
         errors = list(rule._validate_function(resource))
         assert len(errors) == 1
-        assert isinstance(errors[0], ConsistencyError)
+        assert isinstance(errors[0], BuildError)
         assert "CPU cores" in errors[0].message
         assert "3.0" in errors[0].message
 
@@ -103,6 +105,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "cpu": 0.05,
             },
         )
@@ -120,6 +123,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "memory": 5.0,
             },
         )
@@ -137,6 +141,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "memory": 0.1,
             },
         )
@@ -153,6 +158,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "cpu": 1.0,
                 "memory": 2.0,
             },
@@ -170,6 +176,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "runtime": "py314",
             },
         )
@@ -177,7 +184,7 @@ class TestFunctionLimitsRule:
         rule = self._create_rule_with_client(function_limits)
         errors = list(rule._validate_function(resource))
         assert len(errors) == 1
-        assert errors[0].code == "FUNCTION-UNKNOWN-RUNTIME"
+        assert errors[0].code == "INVALID-VALUE"
         assert "py314" in errors[0].message
 
     def test_validate_function_supported_runtime(self, tmp_path: Path, function_limits: FunctionLimits) -> None:
@@ -188,6 +195,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "runtime": "py312",
             },
         )
@@ -204,6 +212,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
             },
         )
         resource = self._create_built_resource(yaml_file, yaml_file)
@@ -219,6 +228,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "cpu": 3.0,
                 "memory": 5.0,
             },
@@ -238,6 +248,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
                 "cpu": 5.0,
             },
         )
@@ -246,7 +257,7 @@ class TestFunctionLimitsRule:
         errors = list(rule._validate_function(resource))
         assert len(errors) == 1
         error = errors[0]
-        assert error.code == "FUNCTION-CPU-OUT-OF-RANGE"
+        assert error.code == "EXCEEDED-LIMIT"
         assert error.message is not None
         assert error.fix is not None
 
@@ -266,6 +277,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
             },
         )
         # Create the function code directory with requirements.txt
@@ -281,7 +293,7 @@ class TestFunctionLimitsRule:
         errors = list(rule._validate_function(resource))
 
         assert len(errors) == 1
-        assert errors[0].code == "FUNCTION-INVALID-REQUIREMENTS"
+        assert errors[0].code == "INVALID-FUNCTION-REQUIREMENTS"
         mock_validate_pip.assert_called_once()
 
     @patch("cognite_toolkit._cdf_tk.rules._functions.validate_requirements_with_pip")
@@ -295,6 +307,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
             },
         )
         # Don't create the function directory or requirements.txt
@@ -317,6 +330,7 @@ class TestFunctionLimitsRule:
             {
                 "externalId": "my_function",
                 "name": "My Function",
+                "dataSetExternalId": "my_dataset",
             },
         )
         # Create the function code directory with requirements.txt

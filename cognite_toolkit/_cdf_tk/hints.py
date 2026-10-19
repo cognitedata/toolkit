@@ -7,12 +7,11 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 
-from .constants import COGNITE_MODULES, CUSTOM_MODULES, HINT_LEAD_TEXT, MODULES, ROOT_MODULES, URL
+from .constants import COGNITE_MODULES, CUSTOM_MODULES, HINT_LEAD_TEXT, MODULES, ROOT_MODULES
 from .exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError
-from .resource_ios import CRUDS_BY_FOLDER_NAME
 from .tk_warnings import MediumSeverityWarning
 
-CDF_TOML = CDFToml.load(Path.cwd())
+CDF_TOML = CDFToml.load_module_context(Path.cwd())
 
 
 class Hint:
@@ -34,14 +33,6 @@ class Hint:
     @classmethod
     def link(cls, url: str, text: str | None = None) -> str:
         return f"[blue][link={url}]{text or url}[/link][/blue]"
-
-
-class ModuleDefinition(Hint):
-    @classmethod
-    def _short(cls) -> str:
-        return (
-            f"Available resource directories are {sorted(CRUDS_BY_FOLDER_NAME)}. {cls.link(URL.configs)} to learn more."
-        )
 
 
 def verify_module_directory(organization_dir: Path, build_env_name: str | None) -> None:
@@ -139,7 +130,7 @@ def verify_module_directory(organization_dir: Path, build_env_name: str | None) 
             suggestion.append(f"-o {candidate_rel}")
 
         print(f"{Hint._lead_text} Did you mean to use the command: '{' '.join(suggestion)}'?")
-        cdf_toml = CDFToml.load()
+        cdf_toml = CDFToml.load_module_context()
         if not cdf_toml.cdf.has_user_set_default_org:
             print(
                 f"{Hint._lead_text} You can specify a 'default_organization_dir = ...' in the 'cdf' section of your "

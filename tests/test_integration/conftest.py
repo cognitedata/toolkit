@@ -1,39 +1,21 @@
 import os
 import shutil
+import time
 import zipfile
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
 from unittest.mock import MagicMock, patch
 
 import pytest
 from cognite.client import CogniteClient, global_config
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
-    Annotation,
-    AnnotationFilter,
-    AnnotationWrite,
-    Asset,
-    AssetList,
-    AssetWrite,
-    AssetWriteList,
     DataSet,
-    DataSetList,
     DataSetWrite,
-    DataSetWriteList,
-    Event,
-    EventWrite,
-    FileMetadata,
-    FileMetadataWrite,
     Function,
     RowWrite,
     RowWriteList,
-    TimeSeries,
-    TimeSeriesWrite,
-    Transformation,
-    TransformationDestination,
-    TransformationJob,
-    TransformationWrite,
 )
 from cognite.client.data_classes.data_modeling import Space, SpaceApply
 from dotenv import load_dotenv
@@ -42,7 +24,16 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPResult, RequestMessage, SuccessResponse
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
+    AnnotationRequest,
+    AnnotationResponse,
+    AssetLinkData,
+    BoundingBox,
+    FileLinkData,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerPropertyDefinition,
     ContainerRequest,
@@ -52,6 +43,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     SpaceRequest,
     TextProperty,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import (
+    Datapoint,
+    DatapointsRequest,
+    LatestDatapointRequest,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
     FunctionScheduleResponse,
@@ -59,6 +58,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWDatabaseResponse,
+    RAWRowRequest,
     RAWTableRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
@@ -67,9 +67,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamResponse,
     StreamTemplate,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    AssetCentricDataSource,
+    NonceCredentials,
+    TransformationRequest,
+    TransformationResponse,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.resource_ios import RawDatabaseCRUD, RawTableCRUD
+from cognite_toolkit._cdf_tk.resource_ios import RawDatabaseIO, RawTableIO
 from cognite_toolkit._cdf_tk.utils.cdf import ThrottlerState, raw_row_count
 from tests.constants import REPO_ROOT
 from tests.data import THREE_D_He2_FBX_ZIP
@@ -158,11 +165,11 @@ def toolkit_space(cognite_client: CogniteClient) -> Space:
 def toolkit_raw_database(toolkit_client: ToolkitClient) -> RAWDatabaseResponse:
     client = toolkit_client
     name = "toolkit_integration_test_db"
-    for batch in client.tool.raw.databases.iterate(limit=None):
+    for batch in client.raw.databases.iterate(limit=None):
         for db in batch:
             if db.name == name:
                 return db
-    created = client.tool.raw.databases.create([RAWDatabaseRequest(name=name)])
+    created = client.raw.databases.create([RAWDatabaseRequest(name=name)])
     assert len(created) == 1
     return created[0]
 
@@ -196,10 +203,10 @@ def toolkit_record_container(toolkit_client: ToolkitClient, toolkit_space: Space
             "name": ContainerPropertyDefinition(type=TextProperty()),
         },
     )
-    retrieved = toolkit_client.tool.containers.retrieve([container.as_id()])
+    retrieved = toolkit_client.containers.retrieve([container.as_id()])
     if retrieved:
         return retrieved[0]
-    created = toolkit_client.tool.containers.create([container])
+    created = toolkit_client.containers.create([container])
     assert created, "Failed to create record container"
     return created[0]
 
@@ -217,7 +224,7 @@ def toolkit_dataset(cognite_client: CogniteClient) -> DataSet:
 
 
 @pytest.fixture
-def build_dir() -> Path:
+def build_dir() -> Iterator[Path]:
     pidid = os.getpid()
     build_path = TMP_FOLDER / f"build-{pidid}"
     build_path.mkdir(exist_ok=True, parents=True)
@@ -263,7 +270,12 @@ def dummy_function(cognite_client: CogniteClient) -> Function:
     if existing := cognite_client.functions.retrieve(external_id=external_id):
         return existing
 
-    def handle(client: CogniteClient, data: dict, function_call_info: dict) -> str:
+    async def handle(
+        client: CogniteClient | None = None,
+        data: dict[str, object] | None = None,
+        secrets: dict[str, str] | None = None,
+        function_call_info: dict[str, object] | None = None,
+    ) -> dict[str, object]:
         """
         [requirements]
         cognite-sdk>=7.37.0
@@ -287,12 +299,12 @@ def dummy_function(cognite_client: CogniteClient) -> Function:
 def dummy_schedule(toolkit_client: ToolkitClient, dummy_function: Function) -> FunctionScheduleResponse:
     client = toolkit_client
     name = "integration_test_schedule_dummy"
-    if existing_list := client.tool.functions.schedules.list(name=name):
+    if existing_list := client.functions.schedules.list(name=name):
         if len(existing_list) > 1:
-            client.tool.functions.schedules.delete([existing.as_id() for existing in existing_list[1:]])
+            client.functions.schedules.delete([existing.as_id() for existing in existing_list[1:]])
         schedule = existing_list[0]
     else:
-        schedule = client.tool.functions.schedules.create(
+        schedule = client.functions.schedules.create(
             [
                 FunctionScheduleRequest(
                     name=name,
@@ -334,20 +346,24 @@ def raw_data() -> RowWriteList:
 def populated_raw_table(toolkit_client: ToolkitClient, raw_data: RowWriteList) -> RawTableId:
     db_name = "toolkit_test_db"
     table_name = "toolkit_test_profiling_table"
-    existing_dbs = toolkit_client.tool.raw.databases.list(limit=None)
+    existing_dbs = toolkit_client.raw.databases.list(limit=None)
     existing_table_names: set[str] = set()
     if db_name in {db.name for db in existing_dbs}:
-        existing_table_names = {
-            table.name for table in toolkit_client.tool.raw.tables.list(db_name=db_name, limit=None)
-        }
+        existing_table_names = {table.name for table in toolkit_client.raw.tables.list(db_name=db_name, limit=None)}
     if table_name not in existing_table_names:
-        toolkit_client.raw.rows.insert(db_name, table_name, raw_data, ensure_parent=True)
+        toolkit_client.raw.tables.rows.create(
+            [
+                RAWRowRequest(db_name=db_name, table_name=table_name, key=row.key, columns=row.columns or {})
+                for row in raw_data
+            ],
+            ensure_parent=True,
+        )
     return RawTableId(db_name=db_name, name=table_name)
 
 
 @pytest.fixture(scope="session")
 def aggregator_raw_db(toolkit_client: ToolkitClient) -> str:
-    loader = RawDatabaseCRUD.create_loader(toolkit_client)
+    loader = RawDatabaseIO.create_io(toolkit_client)
     db_name = "toolkit_aggregators_test_db"
     if not loader.retrieve([RawDatabaseId(name=db_name)]):
         loader.create([RAWDatabaseRequest(name=db_name)])
@@ -355,76 +371,93 @@ def aggregator_raw_db(toolkit_client: ToolkitClient) -> str:
 
 
 @pytest.fixture(scope="session")
-def aggregator_two_datasets(toolkit_client: ToolkitClient) -> DataSetList:
-    datasets = DataSetWriteList(
-        [
-            DataSetWrite(external_id="toolkit_aggregators_test_dataset_1", name="Toolkit Aggregators Test Dataset 1"),
-            DataSetWrite(external_id="toolkit_aggregators_test_dataset_2", name="Toolkit Aggregators Test Dataset 2"),
-        ]
-    )
-    retrieved = toolkit_client.data_sets.retrieve_multiple(
-        external_ids=datasets.as_external_ids(), ignore_unknown_ids=True
-    )
+def aggregator_two_datasets(toolkit_client: ToolkitClient) -> list[DataSetResponse]:
+    datasets = [
+        DataSetRequest(external_id="toolkit_aggregators_test_dataset_1", name="Toolkit Aggregators Test Dataset 1"),
+        DataSetRequest(external_id="toolkit_aggregators_test_dataset_2", name="Toolkit Aggregators Test Dataset 2"),
+    ]
+    retrieved = toolkit_client.datasets.retrieve([dataset.as_id() for dataset in datasets], ignore_unknown_ids=True)
     if not retrieved:
-        return toolkit_client.data_sets.create(datasets)
+        return toolkit_client.datasets.create(datasets)
 
     return retrieved
 
 
 @pytest.fixture(scope="session")
-def aggregator_root_asset(toolkit_client: ToolkitClient, aggregator_two_datasets: DataSetList) -> Asset:
-    root_asset = AssetWrite(
+def aggregator_root_asset(
+    toolkit_client: ToolkitClient, aggregator_two_datasets: list[DataSetResponse]
+) -> AssetResponse:
+    root_asset = AssetRequest(
         name="Toolkit Aggregators Test Root Asset",
         external_id="toolkit_aggregators_test_root_asset",
         data_set_id=aggregator_two_datasets[0].id,
     )
-    retrieved = toolkit_client.assets.retrieve(external_id=root_asset.external_id)
-    if retrieved is None:
-        return toolkit_client.assets.create(root_asset)
-    return retrieved
+    retrieved = toolkit_client.assets.retrieve([root_asset.as_id()], ignore_unknown_ids=True)
+    if not retrieved:
+        return toolkit_client.assets.create([root_asset])[0]
+    return retrieved[0]
+
+
+def _upload_file_content(
+    client: ToolkitClient, external_id: str, content: str | bytes, mime_type: str | None = None
+) -> FileMetadataResponse:
+    links = client.filemetadata.get_upload_url([ExternalId(external_id=external_id)])
+    link = links[0] if links else None
+    if link is None or link.upload_url is None:
+        raise RuntimeError(f"No upload URL for file {external_id!r}.")
+    client.filemetadata.upload_file(content, link.upload_url, mime_type or link.mime_type)
+    uploaded = client.filemetadata.retrieve([ExternalId(external_id=external_id)])
+    if not uploaded:
+        raise RuntimeError(f"File {external_id!r} was not found after upload.")
+    return uploaded[0]
 
 
 def create_raw_table_with_data(client: ToolkitClient, table: RAWTableRequest, rows: list[RowWrite]) -> None:
-    loader = RawTableCRUD.create_loader(client)
+    loader = RawTableIO.create_io(client)
     existing_tables = loader.retrieve([table.as_id()])
     if not existing_tables:
         loader.create([table])
-    data = client.raw.rows.list(table.db_name, table.name, limit=len(rows))
+    data = client.raw.tables.rows.list(table.db_name, table.name, limit=len(rows))
     if not data:
-        client.raw.rows.insert(table.db_name, table.name, rows)
+        client.raw.tables.rows.create(
+            [
+                RAWRowRequest(db_name=table.db_name, table_name=table.name, key=row.key, columns=row.columns or {})
+                for row in rows
+            ]
+        )
 
 
 def upsert_transformation_with_run(
-    toolkit_client: ToolkitClient, transformation: TransformationWrite
-) -> Transformation:
-    retrieved = toolkit_client.transformations.retrieve(external_id=transformation.external_id)
-    if retrieved is None:
-        created = toolkit_client.transformations.create(transformation)
-    else:
-        created = retrieved
+    toolkit_client: ToolkitClient, transformation: TransformationRequest
+) -> TransformationResponse:
+    retrieved = toolkit_client.transformations.retrieve(
+        [transformation.as_id()], ignore_unknown_ids=True, with_job_details=True
+    )
+    created = retrieved[0] if retrieved else toolkit_client.transformations.create([transformation])[0]
     if created.last_finished_job is None:
-        nonce = toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
-        response = toolkit_client.post(
-            url=f"/api/v1/projects/{toolkit_client.config.project}/transformations/run",
-            json={
-                "id": created.id,
-                "nonce": {
-                    "sessionId": nonce.id,
-                    "nonce": nonce.nonce,
-                    "cdfProjectName": toolkit_client.config.project,
-                },
-            },
+        nonce = toolkit_client.sessions.create_one_shot_token_exchange_session()
+        job = toolkit_client.transformations.run(
+            InternalId(id=created.id),
+            nonce=NonceCredentials(
+                session_id=nonce.id,
+                nonce=nonce.nonce,
+                cdf_project_name=toolkit_client.config.project,
+            ),
         )
-        job = TransformationJob._load(response.json(), cognite_client=toolkit_client)
-        job.wait()
+        deadline = time.time() + 600
+        while job.status in {"Created", "Running"}:
+            if time.time() > deadline:
+                raise TimeoutError(f"Transformation job {job.id} did not finish.")
+            time.sleep(1)
+            job = toolkit_client.transformations.jobs.retrieve([job.as_id()])[0]
         assert job.error is None
     return created
 
 
 @pytest.fixture(scope="session")
 def aggregator_assets(
-    toolkit_client: ToolkitClient, aggregator_raw_db: str, aggregator_root_asset: Asset
-) -> Transformation:
+    toolkit_client: ToolkitClient, aggregator_raw_db: str, aggregator_root_asset: AssetResponse
+) -> TransformationResponse:
     table_name = ASSET_TABLE
     rows = [
         RowWrite(
@@ -443,10 +476,10 @@ def aggregator_assets(
         rows,
     )
 
-    transformation = TransformationWrite(
+    transformation = TransformationRequest(
         external_id=ASSET_TRANSFORMATION,
         name="Toolkit Aggregators Test Asset Transformation",
-        destination=TransformationDestination("assets"),
+        destination=AssetCentricDataSource(type="assets"),
         query=f"""SELECT name as name, externalId as externalId, dataset_id('{ASSET_DATASET}') as dataSetId, parentExternalId as parentExternalId
 FROM `{aggregator_raw_db}`.`{table_name}`""",
         ignore_null_fields=True,
@@ -458,10 +491,10 @@ FROM `{aggregator_raw_db}`.`{table_name}`""",
 @pytest.fixture(scope="session")
 def aggregator_asset_list(
     toolkit_client: ToolkitClient,
-    aggregator_root_asset: Asset,
-    aggregator_assets: Transformation,
-    aggregator_two_datasets: DataSetList,
-) -> AssetList:
+    aggregator_root_asset: AssetResponse,
+    aggregator_assets: TransformationResponse,
+    aggregator_two_datasets: list[DataSetResponse],
+) -> list[AssetResponse]:
     return toolkit_client.assets.list(
         asset_subtree_ids=[aggregator_root_asset.id],
     )
@@ -471,9 +504,9 @@ def aggregator_asset_list(
 def aggregator_events(
     toolkit_client: ToolkitClient,
     aggregator_raw_db: str,
-    aggregator_asset_list: AssetList,
-    aggregator_two_datasets: DataSetList,
-) -> Transformation:
+    aggregator_asset_list: list[AssetResponse],
+    aggregator_two_datasets: list[DataSetResponse],
+) -> TransformationResponse:
     table_name = EVENT_TABLE
     assets = aggregator_asset_list
     rows = [
@@ -494,10 +527,10 @@ def aggregator_events(
         RAWTableRequest(db_name=aggregator_raw_db, name=table_name),
         rows,
     )
-    transformation = TransformationWrite(
+    transformation = TransformationRequest(
         external_id=EVENT_TRANSFORMATION,
         name="Toolkit Aggregators Test Event Transformation",
-        destination=TransformationDestination("events"),
+        destination=AssetCentricDataSource(type="events"),
         query=f"""SELECT externalId as externalId, name as name, timestamp_millis(startTime) as startTime, timestamp_millis(endTime) as endTime,
 assetIds as assetIds, dataset_id('{EVENT_DATASET}') as dataSetId
 FROM `{aggregator_raw_db}`.`{table_name}`""",
@@ -511,9 +544,9 @@ FROM `{aggregator_raw_db}`.`{table_name}`""",
 def aggregator_files(
     toolkit_client: ToolkitClient,
     aggregator_raw_db: str,
-    aggregator_two_datasets: DataSetList,
-    aggregator_asset_list: AssetList,
-) -> Transformation:
+    aggregator_two_datasets: list[DataSetResponse],
+    aggregator_asset_list: list[AssetResponse],
+) -> TransformationResponse:
     table_name = FILE_TABLE
     assets = aggregator_asset_list
     rows = [
@@ -538,10 +571,10 @@ def aggregator_files(
         RAWTableRequest(db_name=aggregator_raw_db, name=table_name),
         rows,
     )
-    transformation = TransformationWrite(
+    transformation = TransformationRequest(
         external_id=FILE_TRANSFORMATION,
         name="Toolkit Aggregators Test File Transformation",
-        destination=TransformationDestination("files"),
+        destination=AssetCentricDataSource(type="files"),
         query=f"""SELECT externalId as externalId, name as name, assetIds as assetIds,
 dataset_id('{FILE_DATASET}') as dataSetId, mimeType as mimeType
 FROM `{aggregator_raw_db}`.`{table_name}`""",
@@ -550,17 +583,15 @@ FROM `{aggregator_raw_db}`.`{table_name}`""",
     created = upsert_transformation_with_run(toolkit_client, transformation)
 
     # Upload content for the files
-    external_ids = [row.columns["externalId"] for row in rows]
-    filemetadata = toolkit_client.files.retrieve_multiple(external_ids=external_ids)
+    external_ids = [external_id for row in rows if isinstance(external_id := row.columns["externalId"], str)]
+    filemetadata = toolkit_client.filemetadata.retrieve(ExternalId.from_external_ids(external_ids))
     is_uploaded_by_external_id = {
         file.external_id: file.uploaded for file in filemetadata if file.external_id is not None
     }
-    for row in rows:
-        external_id = row.columns["externalId"]
+    for external_id in external_ids:
         if is_uploaded_by_external_id.get(external_id):
             continue
-        file_content = f"Content of {external_id}"
-        toolkit_client.files.upload_content_bytes(file_content, external_id=external_id)
+        _upload_file_content(toolkit_client, external_id, f"Content of {external_id}")
 
     return created
 
@@ -569,9 +600,9 @@ FROM `{aggregator_raw_db}`.`{table_name}`""",
 def aggregator_time_series(
     toolkit_client: ToolkitClient,
     aggregator_raw_db: str,
-    aggregator_two_datasets: DataSetList,
-    aggregator_asset_list: AssetList,
-) -> Transformation:
+    aggregator_two_datasets: list[DataSetResponse],
+    aggregator_asset_list: list[AssetResponse],
+) -> TransformationResponse:
     table_name = TIMESERIES_TABLE
     assets = aggregator_asset_list
     rows = [
@@ -592,10 +623,10 @@ def aggregator_time_series(
         RAWTableRequest(db_name=aggregator_raw_db, name=table_name),
         rows,
     )
-    transformation = TransformationWrite(
+    transformation = TransformationRequest(
         external_id=TIMESERIES_TRANSFORMATION,
         name="Toolkit Aggregators Test Time Series Transformation",
-        destination=TransformationDestination("timeseries"),
+        destination=AssetCentricDataSource(type="timeseries"),
         query=f"""SELECT externalId as externalId, name as name, assetId as assetId, isString as isString, isStep as isStep,
 dataset_id('{TIMESERIES_DATASET}') as dataSetId
 FROM `{aggregator_raw_db}`.`{table_name}`""",
@@ -609,9 +640,9 @@ FROM `{aggregator_raw_db}`.`{table_name}`""",
 def aggregator_sequences(
     toolkit_client: ToolkitClient,
     aggregator_raw_db: str,
-    aggregator_two_datasets: DataSetList,
-    aggregator_asset_list: AssetList,
-) -> Transformation:
+    aggregator_two_datasets: list[DataSetResponse],
+    aggregator_asset_list: list[AssetResponse],
+) -> TransformationResponse:
     table_name = SEQUENCE_TABLE
     assets = aggregator_asset_list
     rows = [
@@ -633,10 +664,10 @@ def aggregator_sequences(
         RAWTableRequest(db_name=aggregator_raw_db, name=table_name),
         rows,
     )
-    transformation = TransformationWrite(
+    transformation = TransformationRequest(
         external_id=SEQUENCE_TRANSFORMATION,
         name="Toolkit Aggregators Test Sequence Transformation",
-        destination=TransformationDestination("sequences"),
+        destination=AssetCentricDataSource(type="sequences"),
         query=f"""SELECT externalId as externalId, name as name, assetId as assetId, columns as columns, dataset_id('{SEQUENCE_DATASET}') as dataSetId
 FROM `{aggregator_raw_db}`.`{table_name}`""",
         ignore_null_fields=True,
@@ -648,10 +679,9 @@ FROM `{aggregator_raw_db}`.`{table_name}`""",
 @pytest.fixture()
 def disable_throttler(
     toolkit_client: ToolkitClient,
-) -> None:
+) -> Iterator[None]:
     def no_op(*args, **kwargs) -> None:
         """No operation function to replace the write_last_call_epoc function."""
-        pass
 
     always_enabled = MagicMock(spec=ThrottlerState)
     # We mock the TrottlerState the mock object will always pass the throttling check.
@@ -664,54 +694,76 @@ def disable_throttler(
 
 @dataclass
 class HierarchyMinimal:
-    root_asset: Asset
-    child_asset: Asset
-    event: Event
-    file: FileMetadata
-    timeseries: TimeSeries
-    dataset: DataSet
-    file_annotation: Annotation
-    asset_annotation: Annotation
+    root_asset: AssetResponse
+    child_asset: AssetResponse
+    event: EventResponse
+    file: FileMetadataResponse
+    timeseries: TimeSeriesResponse
+    dataset: DataSetResponse
+    file_annotation: AnnotationResponse
+    asset_annotation: AnnotationResponse
+
+    @property
+    def data_set_external_id(self) -> str:
+        external_id = self.dataset.external_id
+        if external_id is None:
+            raise ValueError("Migration test dataset is missing an external_id")
+        return external_id
 
 
 @pytest.fixture(scope="session")
 def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinimal:
     root = "migration_test_root_asset"
+    child_external_id = "migration_test_child_asset_1"
+    event_external_id = "migration_test_event"
+    file_external_id = "migration_test_file"
+    timeseries_external_id = "migration_test_timeseries"
+    dataset_external_id = "migration_test_dataset"
     client = toolkit_client
-    dataset_write = DataSetWrite(
-        external_id="migration_test_dataset",
+    dataset_request = DataSetRequest(
+        external_id=dataset_external_id,
         name="Migration Test DataSet",
         description="DataSet for migration integration tests",
     )
-    data_set = client.data_sets.retrieve(external_id=dataset_write.external_id)
-    if data_set is None:
-        data_set = client.data_sets.create(dataset_write)
+    retrieved_datasets = client.datasets.retrieve([dataset_request.as_id()], ignore_unknown_ids=True)
+    data_set = retrieved_datasets[0] if retrieved_datasets else client.datasets.create([dataset_request])[0]
     asset_source = "ToolkitAsset"
     event_source = "ToolkitEvent"
     file_source = "ToolkitFile"
-    assets = AssetWriteList(
-        [
-            AssetWrite(
-                name="Migration Test Root Asset",
-                external_id=root,
-                description="Root asset for migration integration tests",
-                data_set_id=data_set.id,
-                source=asset_source,
-            ),
-            AssetWrite(
-                name="Migration Test Child Asset 1",
-                external_id="migration_test_child_asset_1",
-                description="Child asset 1 for migration integration tests",
-                parent_external_id=root,
-                data_set_id=data_set.id,
-                source=asset_source,
-            ),
+    assets = [
+        AssetRequest(
+            name="Migration Test Root Asset",
+            external_id=root,
+            description="Root asset for migration integration tests",
+            data_set_id=data_set.id,
+            source=asset_source,
+        ),
+        AssetRequest(
+            name="Migration Test Child Asset 1",
+            external_id=child_external_id,
+            description="Child asset 1 for migration integration tests",
+            parent_external_id=root,
+            data_set_id=data_set.id,
+            source=asset_source,
+        ),
+    ]
+    existing_assets = {
+        asset.external_id: asset
+        for asset in client.assets.retrieve([asset.as_id() for asset in assets], ignore_unknown_ids=True)
+    }
+    to_create = [asset for asset in assets if asset.external_id not in existing_assets]
+    to_update = [asset for asset in assets if asset.external_id in existing_assets]
+    upserted_assets = {
+        asset.external_id: asset
+        for asset in [
+            *(client.assets.create(to_create) if to_create else []),
+            *(client.assets.update(to_update, mode="replace") if to_update else []),
         ]
-    )
-    created_assets = client.assets.upsert(assets, mode="replace")
+    }
+    created_assets = [upserted_assets[asset.external_id] for asset in assets if asset.external_id is not None]
     child_asset = created_assets[1]
-    event = EventWrite(
-        external_id="migration_test_event",
+    event = EventRequest(
+        external_id=event_external_id,
         data_set_id=data_set.id,
         start_time=1_600_000_000_000,
         end_time=1_600_000_000_500,
@@ -719,24 +771,30 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
         asset_ids=[child_asset.id],
         source=event_source,
     )
-    created_event = client.events.upsert(event, mode="replace")
-    file = FileMetadataWrite(
-        external_id="migration_test_file",
+    existing_events = client.events.retrieve([event.as_id()], ignore_unknown_ids=True)
+    created_event = (
+        client.events.update([event], mode="replace")[0] if existing_events else client.events.create([event])[0]
+    )
+    file = FileMetadataRequest(
+        external_id=file_external_id,
         name="migration_test_file.txt",
         mime_type="text/plain",
         data_set_id=data_set.id,
         asset_ids=[child_asset.id],
         source=file_source,
     )
-    created_file = client.files.retrieve(external_id=file.external_id)
-    if created_file is None:
-        created_file, _ = client.files.create(file, overwrite=True)
+    retrieved_files = client.filemetadata.retrieve([file.as_id()], ignore_unknown_ids=True)
+    created_file = retrieved_files[0] if retrieved_files else client.filemetadata.create([file], overwrite=True)[0]
     if not created_file.uploaded:
-        client.files.upload_content_bytes("This is a test file.", external_id=created_file.external_id)
+        if created_file.external_id is None:
+            raise RuntimeError(f"File {file_external_id!r} is missing an external ID.")
+        created_file = _upload_file_content(
+            client, created_file.external_id, "This is a test file.", created_file.mime_type
+        )
 
-    timeseries = TimeSeriesWrite(
+    timeseries = TimeSeriesRequest(
         name="Migration Test Time Series",
-        external_id="migration_test_timeseries",
+        external_id=timeseries_external_id,
         unit="C",
         is_step=False,
         is_string=False,
@@ -744,21 +802,26 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
         data_set_id=data_set.id,
         unit_external_id="temperature:deg_c",
     )
-    created_timeseries = client.time_series.retrieve(external_id=timeseries.external_id)
-    if created_timeseries is None:
-        created_timeseries = client.time_series.create(timeseries)
+    retrieved_timeseries = client.timeseries.retrieve([timeseries.as_id()], ignore_unknown_ids=True)
+    created_timeseries = retrieved_timeseries[0] if retrieved_timeseries else client.timeseries.create([timeseries])[0]
 
-    if not client.time_series.data.retrieve_latest(external_id=timeseries.external_id):
-        client.time_series.data.insert(
-            external_id=timeseries.external_id,
-            datapoints=[(1_600_000_000_000, 20.0), (1_600_000_000_500, 21.5)],
+    latest = client.timeseries.datapoints.latest([LatestDatapointRequest(external_id=timeseries_external_id)])
+    if not any(series.datapoints for series in latest):
+        client.timeseries.datapoints.create(
+            [
+                DatapointsRequest(
+                    external_id=timeseries_external_id,
+                    datapoints=[
+                        Datapoint(timestamp=1_600_000_000_000, value=20.0),
+                        Datapoint(timestamp=1_600_000_000_500, value=21.5),
+                    ],
+                )
+            ]
         )
-    file_annotation = AnnotationWrite(
+    text_region = BoundingBox(x_min=0, y_min=0, x_max=0.1, y_max=0.1)
+    file_annotation = AnnotationRequest(
         annotation_type="diagrams.FileLink",
-        data={
-            "fileRef": {"id": created_file.id},
-            "textRegion": {"xMin": 0, "yMin": 0, "xMax": 0.1, "yMax": 0.1},
-        },
+        data=FileLinkData(file_ref=InternalId(id=created_file.id), text_region=text_region),
         status="approved",
         creating_app="toolkit",
         creating_app_version="1.0.0",
@@ -767,12 +830,9 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
         annotated_resource_id=created_file.id,
     )
 
-    asset_annotation = AnnotationWrite(
+    asset_annotation = AnnotationRequest(
         annotation_type="diagrams.AssetLink",
-        data={
-            "assetRef": {"id": child_asset.id},
-            "textRegion": {"xMin": 0, "yMin": 0, "xMax": 0.1, "yMax": 0.1},
-        },
+        data=AssetLinkData(asset_ref=InternalId(id=child_asset.id), text_region=text_region),
         status="approved",
         creating_app="toolkit",
         creating_app_version="1.0.0",
@@ -782,27 +842,40 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
     )
 
     existing_annotations = client.annotations.list(
-        filter=AnnotationFilter(annotated_resource_ids=[{"id": created_file.id}], annotated_resource_type="file")
+        filter=AnnotationFilter(
+            annotated_resource_type="file",
+            annotated_resource_ids=[InternalId(id=created_file.id)],
+        )
     )
     created_file_annotation = next(
-        (a for a in existing_annotations if a.annotation_type == file_annotation.annotation_type), None
+        (
+            annotation
+            for annotation in existing_annotations
+            if annotation.annotation_type == file_annotation.annotation_type
+        ),
+        None,
     )
     if created_file_annotation is None:
-        created_file_annotation = client.annotations.create(file_annotation)
+        created_file_annotation = client.annotations.create([file_annotation])[0]
     created_asset_annotation = next(
-        (a for a in existing_annotations if a.annotation_type == asset_annotation.annotation_type), None
+        (
+            annotation
+            for annotation in existing_annotations
+            if annotation.annotation_type == asset_annotation.annotation_type
+        ),
+        None,
     )
     if created_asset_annotation is None:
-        created_asset_annotation = client.annotations.create(asset_annotation)
+        created_asset_annotation = client.annotations.create([asset_annotation])[0]
 
     # Create destination space
-    client.tool.spaces.create([SpaceRequest(space=data_set.external_id)])
+    client.spaces.create([SpaceRequest(space=dataset_external_id)])
 
     # Populate the InstanceSourceView such that Annotation can look up file and asset information during migration.
     linage_nodes = [
         NodeRequest(
-            space=data_set.external_id,
-            external_id=resource.external_id,
+            space=dataset_external_id,
+            external_id=external_id,
             sources=[
                 InstanceSource(
                     source=INSTANCE_SOURCE_VIEW_ID,
@@ -810,20 +883,20 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
                         "resourceType": resource_type,
                         "id": resource.id,
                         "dataSetId": data_set.id,
-                        "classicExternalId": resource.external_id,
+                        "classicExternalId": external_id,
                     },
                 )
             ],
         )
-        for resource_type, resource in [
-            ("asset", created_assets[0]),
-            ("asset", created_assets[1]),
-            ("event", created_event),
-            ("file", created_file),
-            ("timeseries", created_timeseries),
+        for resource_type, resource, external_id in [
+            ("asset", created_assets[0], root),
+            ("asset", created_assets[1], child_external_id),
+            ("event", created_event, event_external_id),
+            ("file", created_file, file_external_id),
+            ("timeseries", created_timeseries, timeseries_external_id),
         ]
     ]
-    client.tool.instances.create(linage_nodes)
+    client.instances.create(linage_nodes)
 
     return HierarchyMinimal(
         root_asset=created_assets[0],
@@ -925,9 +998,9 @@ def simulator_integration(simulator: str, toolkit_dataset: DataSet, toolkit_clie
 
 
 @pytest.fixture(scope="session")
-def three_d_file(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> FileMetadata:
+def three_d_file(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> FileMetadataResponse:
     client = toolkit_client
-    meta = FileMetadataWrite(
+    meta = FileMetadataRequest(
         name="he2.fbx",
         data_set_id=toolkit_dataset.id,
         external_id="my_simulator_model_revision_file",
@@ -935,14 +1008,15 @@ def three_d_file(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> Fil
         mime_type="application/octet-stream",
         source="3d-models",
     )
-    read = cast(FileMetadata | None, client.files.retrieve(external_id=meta.external_id))
+    retrieved = client.filemetadata.retrieve([meta.as_id()], ignore_unknown_ids=True)
+    read = retrieved[0] if retrieved else None
     if read and read.uploaded is True:
         return read
     if read is None:
-        read, _ = client.files.create(meta)
+        read = client.filemetadata.create([meta])[0]
     with zipfile.ZipFile(THREE_D_He2_FBX_ZIP, mode="r") as zip_ref:
         file_data = zip_ref.read("he2.fbx")
-        read = client.files.upload_content_bytes(file_data, external_id=meta.external_id)
+        read = _upload_file_content(client, "my_simulator_model_revision_file", file_data, read.mime_type)
     assert read.uploaded is True
     return read
 

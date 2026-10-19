@@ -24,9 +24,10 @@ from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataMo
 from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
-from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI
+from cognite_toolkit._cdf_tk.client.api.raw import RawRowsAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.records import RecordsAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
+from cognite_toolkit._cdf_tk.client.api.sessions import SessionAPI
 from cognite_toolkit._cdf_tk.client.api.skills import SkillsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import ThreeDClassicModelsAPI
@@ -37,7 +38,15 @@ from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
-from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId, ExternalId, PrincipalId, ViewId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    AppVersionId,
+    ExternalId,
+    InternalId,
+    PrincipalId,
+    RawRowId,
+    ViewId,
+    WorkflowVersionId,
+)
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.alert_channel import AlertChannelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
@@ -50,7 +59,20 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation
     ChartScheduledCalculationRequest,
     ChartScheduledCalculationResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeResponse, NodeResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    AvgAggregate,
+    CountAggregate,
+    EdgeResponse,
+    HistogramAggregate,
+    HistogramBucket,
+    InstanceAggregateRequest,
+    InstanceAggregateResponse,
+    InstanceAggregateResult,
+    InstanceAggregateValue,
+    NodeResponse,
+    QueryTargetUnit,
+    QueryUnitReference,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import DocumentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
@@ -67,9 +89,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
     ServiceAccountPrincipal,
     UserPrincipal,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWRowRequest, RAWRowResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordResponse, RecordSyncResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    ClientCredentialsSessionRequest,
+    OneshotTokenExchangeSessionRequest,
+    SessionCreateResponse,
+    SessionResponse,
+    TokenExchangeSessionRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -282,6 +311,65 @@ class TestCDFResourceAPI:
         page = api.paginate(db_name=instance.db_name, limit=10)
         assert len(page.items) == 1
         assert page.items[0] == instance
+
+    def test_raw_rows_api(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        config = toolkit_config
+        api = RawRowsAPI(HTTPClient(config))
+        row = {
+            "key": "row/1",
+            "columns": {"col": "value", "count": 2},
+            "lastUpdatedTime": 1622547800000,
+        }
+        db_name = "example_db"
+        table_name = "example_table"
+        request = RAWRowRequest(
+            db_name=db_name, table_name=table_name, key="row/1", columns={"col": "value", "count": 2}
+        )
+        collection = config.create_api_url(f"/raw/dbs/{db_name}/tables/{table_name}/rows")
+
+        respx_mock.post(collection).mock(return_value=httpx2.Response(status_code=200))
+        api.create([request], ensure_parent=True)
+        assert _request_json(respx_mock.calls[-1].request) == {
+            "items": [{"key": "row/1", "columns": {"col": "value", "count": 2}}]
+        }
+        assert dict(respx_mock.calls[-1].request.url.params) == {"ensureParent": "true"}
+
+        respx_mock.post(f"{collection}/delete").mock(return_value=httpx2.Response(status_code=200))
+        api.delete([request.as_id()])
+        assert _request_json(respx_mock.calls[-1].request) == {"items": [{"key": "row/1"}]}
+
+        encoded_key = "row%2F1"
+        respx_mock.get(f"{collection}/{encoded_key}").mock(return_value=httpx2.Response(status_code=200, json=row))
+        retrieved = api.retrieve([RawRowId(key="row/1", db_name=db_name, table_name=table_name)])
+        assert retrieved == [
+            RAWRowResponse(
+                db_name=db_name,
+                table_name=table_name,
+                key="row/1",
+                columns={"col": "value", "count": 2},
+                last_updated_time=1622547800000,
+            )
+        ]
+
+        respx_mock.get(collection).mock(return_value=httpx2.Response(status_code=200, json={"items": [row]}))
+        listed = api.list(
+            db_name,
+            table_name,
+            limit=10,
+            columns=["col", "count"],
+            min_last_updated_time=1,
+            max_last_updated_time=2,
+        )
+        assert listed == retrieved
+        assert dict(respx_mock.calls[-1].request.url.params) == {
+            "columns": "col,count",
+            "minLastUpdatedTime": "1",
+            "maxLastUpdatedTime": "2",
+            "limit": "10",
+        }
+
+        with pytest.raises(ValueError, match="db_name and table_name"):
+            api.create([RAWRowRequest(db_name="", table_name=table_name, key="k", columns={})])
 
     def test_metadataapi_crud_iterate(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         resource = get_example_minimum_responses(FileMetadataResponse)
@@ -1127,6 +1215,28 @@ class TestCDFResourceAPI:
         assert len(searched) == 1
         assert searched[0].dump() == example
 
+        # Test aggregate (POST /models/instances/aggregate)
+        aggregate_url = config.create_api_url("/models/instances/aggregate")
+        respx_mock.post(aggregate_url).mock(
+            return_value=httpx2.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "instanceType": "node",
+                            "aggregates": [{"aggregate": "count", "property": "externalId", "value": 1}],
+                        }
+                    ]
+                },
+            )
+        )
+        aggregated = api.aggregate(
+            ViewId(space="my_space", external_id="Asset", version="v1"),
+            aggregates=[CountAggregate(property="externalId")],
+            limit=10,
+        )
+        assert [value.value for item in aggregated.items for value in item.aggregates] == [1]
+
     def test_instances_api_search_payload(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
     ) -> None:
@@ -1164,6 +1274,143 @@ class TestCDFResourceAPI:
             api.search(view=view, limit=0)
         with pytest.raises(ValueError, match="Limit must be between 1 and 1000"):
             api.search(view=view, limit=1001)
+
+    def test_instances_api_aggregate_payload(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_config
+        api = InstancesAPI(HTTPClient(config))
+        aggregate_url = config.create_api_url("/models/instances/aggregate")
+        captured: dict[str, Any] = {}
+        response_body = {
+            "items": [
+                {
+                    "instanceType": "node",
+                    "group": {"name": "PumpName1"},
+                    "aggregates": [
+                        {"aggregate": "avg", "property": "duration", "value": 0.2},
+                        {
+                            "aggregate": "histogram",
+                            "property": "duration",
+                            "interval": 10.0,
+                            "buckets": [{"start": 0.0, "count": 2}],
+                        },
+                    ],
+                }
+            ]
+        }
+
+        def aggregate_callback(request: httpx2.Request) -> httpx2.Response:
+            raw = request.content
+            if len(raw) >= 2 and raw[:2] == b"\x1f\x8b":
+                raw = gzip.decompress(raw)
+            captured.update(json.loads(raw))
+            return httpx2.Response(status_code=200, json=response_body)
+
+        respx_mock.post(aggregate_url).mock(side_effect=aggregate_callback)
+        view = ViewId(space="my_space", external_id="Asset", version="v1")
+        filter_ = {"equals": {"property": ["node", "space"], "value": "my_space"}}
+        result = api.aggregate(
+            view,
+            "pump",
+            filter=filter_,
+            instance_type="node",
+            limit=25,
+            properties=["name", "description"],
+            aggregates=[
+                AvgAggregate(property="duration"),
+                HistogramAggregate(property="duration", interval=10),
+            ],
+            group_by=["name"],
+            operator="AND",
+            target_units=[QueryTargetUnit(property="duration", unit=QueryUnitReference(external_id="minutes"))],
+            include_typing=False,
+        )
+
+        assert captured == {
+            "query": "pump",
+            "view": view.dump(include_type=True),
+            "filter": filter_,
+            "instanceType": "node",
+            "limit": 25,
+            "properties": ["name", "description"],
+            "aggregates": [
+                {"avg": {"property": "duration"}},
+                {"histogram": {"property": "duration", "interval": 10.0}},
+            ],
+            "groupBy": ["name"],
+            "operator": "AND",
+            "targetUnits": [{"property": "duration", "unit": {"externalId": "minutes"}}],
+            "includeTyping": False,
+        }
+        assert result == InstanceAggregateResponse(
+            items=[
+                InstanceAggregateResult(
+                    instance_type="node",
+                    group={"name": "PumpName1"},
+                    aggregates=[
+                        InstanceAggregateValue(aggregate="avg", property="duration", value=0.2),
+                        InstanceAggregateValue(
+                            aggregate="histogram",
+                            property="duration",
+                            interval=10.0,
+                            buckets=[HistogramBucket(start=0.0, count=2)],
+                        ),
+                    ],
+                )
+            ]
+        )
+
+    def test_instances_api_aggregate_request_ignores_other_parameters(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_config
+        api = InstancesAPI(HTTPClient(config))
+        aggregate_url = config.create_api_url("/models/instances/aggregate")
+        captured: dict[str, Any] = {}
+
+        def aggregate_callback(request: httpx2.Request) -> httpx2.Response:
+            raw = request.content
+            if len(raw) >= 2 and raw[:2] == b"\x1f\x8b":
+                raw = gzip.decompress(raw)
+            captured.update(json.loads(raw))
+            return httpx2.Response(status_code=200, json={"items": []})
+
+        respx_mock.post(aggregate_url).mock(side_effect=aggregate_callback)
+        aggregate_request = InstanceAggregateRequest.model_validate(
+            {
+                "view": {"space": "my_space", "externalId": "Asset", "version": "v1"},
+                "query": "from-request",
+                "aggregates": [{"count": {"property": "externalId"}}],
+                "limit": 10,
+                "instanceType": "edge",
+            }
+        )
+        result = api.aggregate(
+            aggregate_request,
+            "ignored",
+            filter={"equals": {"property": ["node", "space"], "value": "ignored"}},
+            limit=0,
+            aggregates=[AvgAggregate(property="other")],
+        )
+
+        assert {
+            "items": result.items,
+            "body": captured,
+            "aggregate": type(aggregate_request.aggregates[0]) if aggregate_request.aggregates else None,
+        } == {
+            "items": [],
+            "body": aggregate_request.dump(),
+            "aggregate": CountAggregate,
+        }
+
+    def test_instances_api_aggregate_limit_validation(self, toolkit_config: ToolkitClientConfig) -> None:
+        api = InstancesAPI(HTTPClient(toolkit_config))
+        view = ViewId(space="my_space", external_id="Asset", version="v1")
+        with pytest.raises(ValueError, match="Limit must be between 1 and 1000"):
+            api.aggregate(view, limit=0)
+        with pytest.raises(ValueError, match="Limit must be between 1 and 1000"):
+            api.aggregate(view, limit=1001)
 
     def test_records_api_retrieve_sync(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         config = toolkit_config
@@ -1465,6 +1712,79 @@ description: Smoke test skill
         assert retrieve_route.called
         assert len(created) == 1
         assert created[0].external_id == "smoke-test-skill"
+
+    def test_session_api_create_retrieve_revoke_and_list(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        config = toolkit_config
+        api = SessionAPI(HTTPClient(config))
+        created_items = [
+            {"id": 1, "type": "CLIENT_CREDENTIALS", "status": "READY", "nonce": "nonce-1", "clientId": "client"},
+            {"id": 2, "type": "TOKEN_EXCHANGE", "status": "READY", "nonce": "nonce-2"},
+            {"id": 3, "type": "ONESHOT_TOKEN_EXCHANGE", "status": "READY", "nonce": "nonce-3"},
+        ]
+        create_calls = {"count": 0}
+
+        def create_response(request: httpx2.Request) -> httpx2.Response:
+            index = create_calls["count"]
+            create_calls["count"] += 1
+            return httpx2.Response(status_code=200, json={"items": [created_items[index]]})
+
+        respx_mock.post(config.create_api_url("/sessions")).mock(side_effect=create_response)
+        created = api.create(
+            [
+                ClientCredentialsSessionRequest(client_id="client", client_secret="secret"),
+                TokenExchangeSessionRequest(),
+                OneshotTokenExchangeSessionRequest(),
+            ]
+        )
+        create_bodies = [_request_json(call.request) for call in respx_mock.calls]
+
+        assert create_bodies == [
+            {"items": [{"clientId": "client", "clientSecret": "secret"}]},
+            {"items": [{"tokenExchange": True}]},
+            {"items": [{"oneshotTokenExchange": True}]},
+        ]
+        assert [item.dump() for item in created] == created_items
+        assert all(isinstance(item, SessionCreateResponse) for item in created)
+
+        listed_session = {
+            "id": 1,
+            "type": "CLIENT_CREDENTIALS",
+            "status": "ACTIVE",
+            "creationTime": 1730204346000,
+            "expirationTime": 1730204347000,
+            "clientId": "client",
+        }
+        respx_mock.post(config.create_api_url("/sessions/byids")).mock(
+            return_value=httpx2.Response(status_code=200, json={"items": [listed_session]})
+        )
+        retrieved = api.retrieve([InternalId(id=1)])
+        assert retrieved[0].dump() == listed_session
+        assert isinstance(retrieved[0], SessionResponse)
+        assert _request_json(respx_mock.calls[-1].request) == {"items": [{"id": 1}]}
+
+        respx_mock.post(config.create_api_url("/sessions/revoke")).mock(
+            return_value=httpx2.Response(status_code=200, json={"items": [{"id": 1}]})
+        )
+        revoked = api.revoke([retrieved[0].as_id()])
+        assert revoked[0] == SessionResponse(id=1)
+        assert _request_json(respx_mock.calls[-1].request) == {"items": [{"id": 1}]}
+
+        respx_mock.get(config.create_api_url("/sessions")).mock(
+            return_value=httpx2.Response(status_code=200, json={"items": [listed_session]})
+        )
+        listed = api.list(status="ACTIVE", limit=25)
+        assert listed[0].dump() == listed_session
+        assert isinstance(listed[0], SessionResponse)
+        assert dict(respx_mock.calls[-1].request.url.params) == {"status": "ACTIVE", "limit": "25"}
+
+
+def _request_json(request: httpx2.Request) -> JsonValue:
+    raw = request.content
+    if raw[:2] == b"\x1f\x8b":
+        raw = gzip.decompress(raw)
+    return json.loads(raw)
 
 
 def test_task_move_type_to_field_handles_none_validation_data() -> None:

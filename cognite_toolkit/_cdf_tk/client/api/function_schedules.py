@@ -4,6 +4,7 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Function-schedules/operation/postFunctionSchedules
 """
 
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -39,7 +40,7 @@ class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
     ) -> PagedResponse[FunctionScheduleResponse]:
         return PagedResponse[FunctionScheduleResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[FunctionScheduleRequest]) -> list[FunctionScheduleResponse]:
+    def create(self, items: Sequence[FunctionScheduleRequest]) -> builtins.list[FunctionScheduleResponse]:
         """Create function schedules in CDF.
 
         Args:
@@ -50,7 +51,9 @@ class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[InternalId], ignore_unknown_ids: bool = False) -> list[FunctionScheduleResponse]:
+    def retrieve(
+        self, items: Sequence[InternalId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[FunctionScheduleResponse]:
         """Retrieve function schedules from CDF by ID.
 
         Args:
@@ -121,7 +124,7 @@ class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
         self,
         function_id: int | None = None,
         limit: int | None = None,
-    ) -> Iterable[list[FunctionScheduleResponse]]:
+    ) -> Iterable[builtins.list[FunctionScheduleResponse]]:
         """Iterate over all function schedules in CDF.
 
         Args:
@@ -134,7 +137,7 @@ class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
 
     def list(
         self, function_id: int | None = None, name: str | None = None, limit: int | None = None
-    ) -> list[FunctionScheduleResponse]:
+    ) -> builtins.list[FunctionScheduleResponse]:
         """List all function schedules in CDF.
 
         Args:

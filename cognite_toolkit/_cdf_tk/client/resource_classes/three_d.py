@@ -1,5 +1,4 @@
-import sys
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal, Self
 
 from pydantic import Field
 
@@ -12,11 +11,6 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeUntypedId, ThreeDModelRevisionId
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 
 class RevisionStatus(BaseModelObject):
@@ -226,3 +220,29 @@ class AssetMappingDMResponse(ResponseResource[AssetMappingDMRequestId]):
         return AssetMappingDMRequestId.model_validate(
             {**self.dump(), "modelId": self.model_id, "revisionId": self.revision_id}
         )
+
+
+class BoundingBox3D(BaseModelObject):
+    """Bounding box of the subtree rooted at a 3D node.
+
+    Null on the node when the subtree has no geometries.
+    """
+
+    max: list[float] = Field(min_length=3, max_length=3)
+    min: list[float] = Field(min_length=3, max_length=3)
+
+
+class ThreeDNodeResponse(BaseModelObject):
+    """A node in a 3D model revision hierarchy."""
+
+    id: int
+    tree_index: int
+    parent_id: int | None = None
+    depth: int
+    name: str
+    subtree_size: int
+    properties: dict[str, dict[str, str]] | None = None
+    bounding_box: BoundingBox3D | None = None
+    # Path parameters. The nodes API does not return them.
+    model_id: int = Field(-1, exclude=True)
+    revision_id: int = Field(-1, exclude=True)

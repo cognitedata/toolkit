@@ -1,7 +1,7 @@
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar
 
 import yaml
 from pydantic import (
@@ -30,7 +30,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.resource_ios import ResourceIO, get_crud
+from cognite_toolkit._cdf_tk.resource_ios import ResourceType, get_resource_build_io
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     calculate_hash,
@@ -38,9 +38,10 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_content,
     safe_read,
 )
+from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash_multi_file
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
-from ._module import BuildVariable, ResourceType
+from ._module import BuildVariable
 from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath
 
 
@@ -86,7 +87,7 @@ class ResourceLineageItem(_BaseLineageModel):
         content = BuildVariable.substitute(
             safe_read(organization_path / self.source_file), self.variables, self.source_file.suffix
         )
-        resource_io = cast(type[ResourceIO], get_crud(self.type.resource_folder, self.type.kind))
+        resource_io = get_resource_build_io(self.type.resource_folder, self.type.kind)
         raw = load_yaml_inject_variables(
             content,
             environment_variables,
@@ -142,6 +143,7 @@ class ModuleLineageItem(_BaseLineageModel):
         return (
             self.insights_summary.get(ModelSyntaxError.__name__, 0) == 0
             and self.insights_summary.get(ConsistencyError.__name__, 0) == 0
+            and self.insights_summary.get("Error", 0) == 0
             and bool(self.resource_lineage)
         )
 
@@ -155,6 +157,8 @@ class ModuleLineageItem(_BaseLineageModel):
             return "FAILED: ModelSyntaxError"
         elif self.insights_summary.get(ConsistencyError.__name__, 0) > 0:
             return "FAILED: ConsistencyError"
+        elif self.insights_summary.get("Error", 0) > 0:
+            return "FAILED: Error"
         else:
             return "FAILED: Unknown reason"
 
@@ -224,7 +228,7 @@ class BuildLineage(_BaseLineageModel):
 
     @classmethod
     def from_build(
-        cls, build: BuildFolder, cdf_project: str | None = None, config_yaml: Path | None = None
+        cls, build: BuildFolder, cdf_project: str | None = None, config_yamls: list[Path] | None = None
     ) -> "BuildLineage":
         """Construct lineage from build output folder."""
 
@@ -251,7 +255,7 @@ class BuildLineage(_BaseLineageModel):
             modules_summary=modules_summary,
             insights_summary=insights_summary,
             cdf_project=cdf_project,
-            config_hash=calculate_hash(config_yaml, shorten=True) if config_yaml is not None else None,
+            config_hash=calculate_hash_multi_file(config_yamls, shorten=True) if config_yamls else None,
         )
 
     def to_yaml(self) -> str:

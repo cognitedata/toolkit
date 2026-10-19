@@ -37,7 +37,7 @@ class InstancesAPICommand(ToolkitCommand):
         """
         view_id = parse_view_str(view)
         parsed_filter = self._parse_filter(filter)
-        instances = client.tool.instances.search(
+        instances = client.instances.search(
             view=view_id,
             filter=parsed_filter,
             limit=limit,

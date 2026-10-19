@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Annotated, Any
 
+import questionary
 import typer
 
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
@@ -23,6 +24,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     LocationFilterFinder,
     NodeFinder,
     ResourceViewMappingFinder,
+    SAPWritebackFinder,
     SearchConfigFinder,
     SpaceFinder,
     StreamlitFinder,
@@ -31,6 +33,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.utils.cli_args import parse_data_model_str
 
 from ._helpers import print_help_if_no_subcommand
 
@@ -39,25 +42,26 @@ class DumpApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.dump_main)
-        self.command("datamodel")(DumpConfigApp.dump_datamodel_cmd)
-        self.command("workflow")(DumpConfigApp.dump_workflow)
-        self.command("transformation")(DumpConfigApp.dump_transformation)
-        self.command("group")(DumpConfigApp.dump_group)
-        self.command("node")(DumpConfigApp.dump_node)
+        self.command("datamodels")(DumpConfigApp.dump_datamodel_cmd)
+        self.command("workflows")(DumpConfigApp.dump_workflow)
+        self.command("transformations")(DumpConfigApp.dump_transformation)
+        self.command("groups")(DumpConfigApp.dump_group)
+        self.command("nodes")(DumpConfigApp.dump_node)
         self.command("spaces")(DumpConfigApp.dump_spaces)
 
-        self.command("location-filter")(DumpConfigApp.dump_location_filters)
-        self.command("extraction-pipeline")(DumpConfigApp.dump_extraction_pipeline)
-        self.command("hosted-extractor")(DumpConfigApp.dump_hosted_extractor)
+        self.command("location-filters")(DumpConfigApp.dump_location_filters)
+        self.command("extraction-pipelines")(DumpConfigApp.dump_extraction_pipeline)
+        self.command("hosted-extractors")(DumpConfigApp.dump_hosted_extractor)
         self.command("functions")(DumpConfigApp.dump_functions)
         self.command("datasets")(DumpConfigApp.dump_datasets)
         self.command("streamlit")(DumpConfigApp.dump_streamlit)
 
         self.command("agents")(DumpConfigApp.dump_agents)
 
-        self.command("search-config")(DumpConfigApp.dump_search_config)
+        self.command("search-configs")(DumpConfigApp.dump_search_config)
+        self.command("sap-writebacks")(DumpConfigApp.dump_sap_writeback)
         if Flags.MIGRATE.is_enabled():
-            self.command("resource-view-mapping")(DumpConfigApp.dump_resource_view_mapping)
+            self.command("resource-view-mappings")(DumpConfigApp.dump_resource_view_mapping)
 
     @staticmethod
     def dump_main(ctx: typer.Context) -> None:
@@ -70,22 +74,23 @@ class DumpConfigApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.dump_config_main)
 
-        self.command("datamodel")(self.dump_datamodel_cmd)
-        self.command("workflow")(self.dump_workflow)
-        self.command("transformation")(self.dump_transformation)
-        self.command("group")(self.dump_group)
-        self.command("node")(self.dump_node)
+        self.command("datamodels")(self.dump_datamodel_cmd)
+        self.command("workflows")(self.dump_workflow)
+        self.command("transformations")(self.dump_transformation)
+        self.command("groups")(self.dump_group)
+        self.command("nodes")(self.dump_node)
         self.command("spaces")(self.dump_spaces)
         self.command("location-filters")(self.dump_location_filters)
-        self.command("extraction-pipeline")(self.dump_extraction_pipeline)
-        self.command("hosted-extractor")(self.dump_hosted_extractor)
+        self.command("extraction-pipelines")(self.dump_extraction_pipeline)
+        self.command("hosted-extractors")(self.dump_hosted_extractor)
         self.command("datasets")(DumpConfigApp.dump_datasets)
         self.command("functions")(self.dump_functions)
         self.command("streamlit")(DumpConfigApp.dump_streamlit)
         self.command("agents")(self.dump_agents)
-        self.command("search-config")(self.dump_search_config)
+        self.command("search-configs")(self.dump_search_config)
+        self.command("sap-writebacks")(self.dump_sap_writeback)
         if Flags.MIGRATE.is_enabled():
-            self.command("resource-view-mapping")(self.dump_resource_view_mapping)
+            self.command("resource-view-mappings")(self.dump_resource_view_mapping)
 
     @staticmethod
     def dump_config_main(ctx: typer.Context) -> None:
@@ -98,9 +103,9 @@ class DumpConfigApp(typer.Typer):
         data_model_id: Annotated[
             list[str] | None,
             typer.Argument(
-                help="Data model ID to dump. Format: space external_id version. Example: 'my_space my_external_id v1'. "
-                "Note that version is optional and defaults to the latest published version. If nothing is provided,"
-                "an interactive prompt will be shown to select the data model.",
+                help="Data model ID(s) to dump. Format: space:externalId/version. "
+                "Example: 'my_space:my_external_id/v1'. You can provide multiple IDs separated by spaces. "
+                "If nothing is provided, an interactive prompt will be shown to select the data model(s).",
             ),
         ] = None,
         output_dir: Annotated[
@@ -139,18 +144,13 @@ class DumpConfigApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
-        selected_data_model: DataModelNoVersionId | None = None
+        selected_data_model: DataModelNoVersionId | tuple[DataModelId, ...] | None = None
         if data_model_id is not None:
-            if len(data_model_id) < 2:
-                raise ToolkitRequiredValueError(
-                    "Data model ID must have at least 2 parts: space, external_id, and, optionally, version."
-                )
-            elif len(data_model_id) == 2:
-                selected_data_model = DataModelNoVersionId(space=data_model_id[0], external_id=data_model_id[1])
-            else:
-                selected_data_model = DataModelId(
-                    space=data_model_id[0], external_id=data_model_id[1], version=data_model_id[2]
-                )
+            selected_data_model = tuple(parse_data_model_str(model_id) for model_id in data_model_id)
+        else:
+            include_global = questionary.confirm(
+                "Include global data models in options?", default=include_global
+            ).unsafe_ask()
         client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = DumpResourceCommand(client=client)
@@ -814,6 +814,55 @@ class DumpConfigApp(typer.Typer):
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 SearchConfigFinder(client, tuple([selected_view_id]) if selected_view_id else None),
+                output_dir=output_dir,
+                clean=clean,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def dump_sap_writeback(
+        ctx: typer.Context,
+        external_id: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="The external ID(s) of the SAP endpoint(s) you want to dump. "
+                "Related SAP instances and schema mappings are included. "
+                "If nothing is provided, an interactive prompt will be shown to select the SAP endpoints.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the SAP writeback files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the SAP writeback resources.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected SAP endpoints, plus related SAP instances and schema mappings, as yaml to the folder specified, defaults to /tmp."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DumpResourceCommand(client=client)
+        cmd.run(
+            lambda: cmd.dump_to_yamls(
+                SAPWritebackFinder(client, tuple(external_id) if external_id else None),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,

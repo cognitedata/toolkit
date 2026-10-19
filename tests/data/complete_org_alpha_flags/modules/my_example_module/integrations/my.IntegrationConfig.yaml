@@ -1,0 +1,5 @@
+externalId: pump.integration
+description: OPC-UA connection settings
+config:
+  endpoint: opc.tcp://plant.example.com:4840
+  publishingInterval: 1000

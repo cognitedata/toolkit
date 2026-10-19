@@ -1,10 +1,9 @@
 """Base classes for Cognite Client resources and identifiers."""
 
-import sys
 import types
 from abc import ABC, abstractmethod
 from functools import total_ordering
-from typing import Annotated, Any, ClassVar, Generic, Literal, TypeVar, Union, get_args, get_origin
+from typing import Annotated, Any, ClassVar, Generic, Literal, Self, TypeVar, Union, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
@@ -12,17 +11,13 @@ from pydantic_core import PydanticUndefined
 
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, sanitize_filename, yaml_safe_dump
 
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
 
 class BaseModelObject(BaseModel):
     """Base class for all object. This includes resources and nested objects."""
 
     # We allow extra fields to support forward compatibility.
-    model_config = ConfigDict(alias_generator=to_camel, extra="allow", populate_by_name=True)
+    # Building schemas is deferred to first use, since building all of them at import slows down every CLI call.
+    model_config = ConfigDict(alias_generator=to_camel, extra="allow", populate_by_name=True, defer_build=True)
 
     def model_post_init(self, __context: Any) -> None:
         super().model_post_init(__context)

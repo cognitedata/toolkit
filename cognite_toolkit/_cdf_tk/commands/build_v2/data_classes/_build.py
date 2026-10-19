@@ -1,35 +1,47 @@
 import builtins
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
+from pydantic_core.core_schema import FieldValidationInfo
 
-from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_RequestResource
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_Identifier, T_RequestResource
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ResourceIO, SuccessExtra
-from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
+    FailedReadExtra,
+    ResourceIO,
+    ResourceType,
+    SuccessExtra,
+)
+from cognite_toolkit._cdf_tk.utils.file import find_unique_variable_position
 
 from ._insights import (
-    ConsistencyError,
-    FileReadError,
-    IgnoredFileWarning,
+    BuildError,
+    BuildWarning,
     Insight,
     InsightList,
     InternalValidatorException,
     ModelSyntaxError,
     ModelSyntaxWarning,
 )
-from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId, ResourceType
+from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
+
+UNRESOLVED_VARIABLE_PATTERN = re.compile(r"\{\{.*?\}\}")
+
+
+def contains_unresolved_variable(value: object) -> bool:
+    return UNRESOLVED_VARIABLE_PATTERN.search(str(value)) is not None
 
 
 class BuildParameters(BaseModel):
     organization_dir: Path
     build_dir: Path = Field(default_factory=lambda: Path.cwd() / "build")
-    config_yaml: Path | None = Field(
-        None,
-        description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory).",
+    config_yamls: list[Path] | None = Field(
+        default=None,
+        description="List of configuration YAML files (typically config.<env>.yaml under the organization directory).",
     )
     user_selected_modules: list[str] | None = Field(
         None,
@@ -58,6 +70,22 @@ class BuildParameters(BaseModel):
         default_factory=set,
         description="Set of rule codes to ignore during validation.",
     )
+    rules_enforce: bool = Field(
+        default=False,
+        description="Whether to enforce rules during validation. If True, any rule violations will cause the build to fail. If False, rule violations will be reported as warnings.",
+    )
+
+    @field_validator("user_selected_modules", mode="after")
+    @classmethod
+    def user_selected_modules_not_compatible_with_multiple_config_yamls(
+        cls, v: list[str] | None, info: FieldValidationInfo
+    ) -> list[str] | None:
+        if v and info.data.get("config_yamls") and len(info.data["config_yamls"]) > 1:
+            raise ValueError(
+                "Cannot specify user_selected_modules when multiple config YAMLs are provided. "
+                "Please specify the modules to build in each config YAML instead."
+            )
+        return v
 
     @property
     def modules_directory(self) -> Path:
@@ -69,7 +97,18 @@ class BuildParameters(BaseModel):
 
     @property
     def config_file_name(self) -> str:
-        return self.config_yaml.name if self.config_yaml else ""
+        return self.config_yamls[0].name if self.config_yamls else ""
+
+
+class ConfigFile(BaseModel):
+    selected_modules: set[RelativeDirPath | str] | None = Field(
+        description="Set of modules to build. Either module names (folder names) or relative paths"
+        " to the organization directory. This can be empty"
+    )
+    variables: dict[str, JsonValue] = Field(description="Variables to be used during the build process.")
+    path: AbsoluteFilePath = Field(
+        description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory that contains the variables)."
+    )
 
 
 class BuildInput(BaseModel):
@@ -83,19 +122,18 @@ class BuildInput(BaseModel):
     yaml_files: list[RelativeFilePath] = Field(
         description="List of all YAML files that are part of the build, with paths relative to the organization directory."
     )
-    selected_modules: set[RelativeDirPath | str] | None = Field(
-        description="Set of modules to build. Either module names (folder names) or relative paths to the organization directory."
-        "If None, no modules are selected."
-    )
-    variables: dict[str, JsonValue] = Field(
-        default_factory=dict, description="Variables to be used during the build process."
+    config_files: list[ConfigFile] | None = Field(
+        None,
+        description="List of configuration YAML files to be used during the build process. Each file corresponds to a set of variables and "
+        "selected modules.",
     )
     validation_type: ValidationType = "prod"
     cdf_project: str
     organization_dir: AbsoluteDirPath
-    config_path: AbsoluteFilePath | None = Field(
-        None,
-        description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory).",
+
+    user_selected_modules: set[RelativeDirPath | str] | None = Field(
+        description="Set of modules to build. Either module names (folder names) or relative paths to the organization directory."
+        "If None, no modules are selected."
     )
 
     @property
@@ -110,6 +148,11 @@ class BuiltResource(BaseModel):
     identifier: Identifier
     source_hash: str
     type: ResourceType
+    source_type: ResourceType | None = Field(
+        default=None,
+        description="File format of the source resource. When the source is a ResourceFileIO this differs from type, "
+        "which is the CRUD type written to CDF. For example, a CatalogDataSet is deployed as a DataSet.",
+    )
     source_path: AbsoluteFilePath
     build_path: AbsoluteFilePath
     crud_cls: builtins.type[ResourceIO]
@@ -134,8 +177,8 @@ class BuiltModule(BaseModel):
     module_id: ModuleId
     resources: list[BuiltResource] = Field(default_factory=list)
     insights: list[Insight] = Field(default_factory=list)
-    syntax_errors_by_source: dict[Path, ModelSyntaxError] = Field(default_factory=dict)
-    syntax_warnings_by_source: dict[Path, list[ModelSyntaxWarning]] = Field(default_factory=dict)
+    syntax_errors_by_source: dict[Path, ModelSyntaxError | BuildError] = Field(default_factory=dict)
+    syntax_warnings_by_source: dict[Path, list[ModelSyntaxWarning | BuildWarning]] = Field(default_factory=dict)
     unresolved_variables_by_source: dict[Path, list[str]] = Field(default_factory=dict)
     failed_files: list[FailedReadYAMLFile] = Field(default_factory=list)
     ignored_files: list[IgnoredFile] = Field(default_factory=list)
@@ -154,8 +197,8 @@ class BuiltModule(BaseModel):
         return self.files_built
 
     def load_local_resources(
-        self, crud: ResourceIO[Any, T_RequestResource, Any, Any]
-    ) -> dict[Identifier, tuple[BuiltResource, T_RequestResource]]:
+        self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any]
+    ) -> dict[T_Identifier, tuple[BuiltResource, T_RequestResource]]:
         """Reload this module's built resources for the given CRUD, the same way ``cdf deploy`` does.
 
         Only resources matching the CRUD's resource type and without syntax/read errors are considered.
@@ -170,7 +213,7 @@ class BuiltModule(BaseModel):
             return {}
 
         build_paths = {resource.build_path for resource in resource_by_id.values()}
-        local_by_id: dict[Identifier, tuple[BuiltResource, T_RequestResource]] = {}
+        local_by_id: dict[T_Identifier, tuple[BuiltResource, T_RequestResource]] = {}
         for build_path in build_paths:
             for raw in crud.load_resource_file(build_path):
                 request = crud.load_resource(raw)
@@ -186,10 +229,10 @@ class BuiltModule(BaseModel):
         for resource in self.resources:
             for failed_extra in resource.failed_extra:
                 insights.append(
-                    FileReadError(
-                        message=f"In {failed_extra.source_path.as_posix()!r}: {failed_extra.error}",
+                    BuildError(
+                        message=failed_extra.error,
                         code=failed_extra.code,
-                        source_files=[resource.source_path],
+                        source_file=resource.source_path,
                     )
                 )
         for path, error in self.syntax_errors_by_source.items():
@@ -197,34 +240,48 @@ class BuiltModule(BaseModel):
         for path, warnings in self.syntax_warnings_by_source.items():
             insights.extend(warnings)
         for path, variables in self.unresolved_variables_by_source.items():
-            quoted_variables = humanize_collection([f"{variable!r}" for variable in variables])
-            insights.append(
-                ConsistencyError(
-                    code="UNRESOLVED-VARIABLES",
-                    message=f"Unresolved variable{'s' if len(variables) > 1 else ''} {quoted_variables}",
-                    fix="Make sure to define the variables in the 'config.<env>.yaml' file and that they are "
-                    "correctly placed in the variables section matching the file path",
-                    source_files=[path],
-                )
-            )
+            insights.extend(self._unresolved_variable_insights(path, variables))
         for failed_file in self.failed_files:
+            if failed_file.code == "INVALID-FILE-CONTENT" and failed_file.unresolved_variables:
+                # An unresolved placeholder such as `key: {{ variable }}` is not valid YAML. The unresolved
+                # variables are the root cause and are already reported as their own insight.
+                continue
             insights.append(
-                FileReadError(
+                BuildError(
                     code=failed_file.code,
-                    message=f"In {failed_file.source_path.as_posix()!r}: {failed_file.error}",
-                    source_files=[failed_file.source_path],
+                    message=failed_file.error,
+                    source_file=failed_file.source_path,
                 )
             )
         for ignored_file in self.ignored_files:
             insights.append(
-                IgnoredFileWarning(
+                BuildWarning(
                     code=ignored_file.code,
                     message=ignored_file.reason,
                     fix=ignored_file.fix,
-                    source_files=[ignored_file.filepath],
+                    source_file=ignored_file.filepath,
                 )
             )
 
+        return insights
+
+    @classmethod
+    def _unresolved_variable_insights(cls, path: Path, variables: list[str]) -> list[Insight]:
+        """One insight per variable, such that all files missing the same variable are grouped when displayed."""
+        insights: list[Insight] = []
+        for variable in variables:
+            position = find_unique_variable_position(path, variable)
+            insights.append(
+                BuildError(
+                    code="UNRESOLVED-VARIABLE",
+                    message=f"Unresolved variable {{{{ {variable} }}}}",
+                    fix="Make sure to define the variable in the 'config.<env>.yaml' file and that it is "
+                    "correctly placed in the variables section matching the file path",
+                    source_file=path,
+                    line=position.line if position else None,
+                    column=position.column if position else None,
+                )
+            )
         return insights
 
     def __hash__(self) -> int:

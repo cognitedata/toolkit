@@ -1,0 +1,334 @@
+from collections.abc import Iterable
+from pathlib import Path
+from typing import get_args
+
+import pytest
+
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionRequest
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
+from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
+from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import Task, TaskDefinition, WorkflowVersionYAML
+from tests.test_unit.utils import find_resources
+
+
+@pytest.fixture
+def enable_data_products(monkeypatch: pytest.MonkeyPatch) -> None:
+    original = FeatureFlag.is_enabled
+
+    def is_enabled(flag: Flags) -> bool:
+        return flag is Flags.DATA_PRODUCTS or original(flag)
+
+    monkeypatch.setattr(FeatureFlag, "is_enabled", is_enabled)
+
+
+def invalid_workflow_version_test_cases() -> Iterable:
+    yield pytest.param(
+        {},
+        {
+            "Missing required field: 'workflowExternalId'",
+            "Missing required field: 'version'",
+            "Missing required field: 'workflowDefinition'",
+        },
+        id="Missing all required top-level fields",
+    )
+    yield pytest.param(
+        {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {"description": "desc", "tasks": []},
+            "foo": 123,
+        },
+        {
+            "Unrecognized field: 'foo'",
+            "Invalid value at workflowDefinition.tasks: List should have at least 1 item after validation, not 0",
+        },
+        id="Extra field at top level",
+    )
+    yield pytest.param(
+        {"workflowExternalId": "wf1", "version": "v1", "workflowDefinition": {"description": "desc", "tasks": [{}]}},
+        # Note that when we do not have 'type', we cannot determine which task type it is, so we only get the error about missing 'type'.
+        {
+            "Invalid value at workflowDefinition.tasks[1]: Missing required field: 'type'",
+        },
+        id="Missing required type in task definition",
+    )
+    yield pytest.param(
+        {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "description": "desc",
+                "tasks": [{"externalId": "t1", "type": "function", "parameters": {}, "retries": "notAnInt"}],
+            },
+        },
+        {
+            "Missing required field in workflowDefinition.tasks[1].parameters: 'function'",
+            "Invalid value at workflowDefinition.tasks[1].retries: Input should be a valid "
+            "integer. Got 'notAnInt' of type str.",
+        },
+        id="Wrong type for retries",
+    )
+    yield pytest.param(
+        {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "description": "desc",
+                "tasks": [{"externalId": "t1", "type": "function", "parameters": {}, "onFailure": "notAValidValue"}],
+            },
+        },
+        {
+            "Unrecognized value for workflowDefinition.tasks[1].onFailure: Expected one of "
+            "'abortWorkflow' or 'skipTask'. Got 'notAValidValue'.",
+            "Missing required field in workflowDefinition.tasks[1].parameters: 'function'",
+        },
+        id="Invalid enum value for onFailure",
+    )
+    yield pytest.param(
+        {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "description": "desc",
+                "tasks": [{"externalId": "t1", "type": "unknownType", "parameters": {}}],
+            },
+        },
+        {
+            "Invalid value at workflowDefinition.tasks[1]: Input tag 'unknownType' found using 'type' "
+            "does not match any of the expected tags: 'function', 'transformation', "
+            "'cdf', 'dynamic', 'subworkflow', 'simulation', 'functionApp'"
+        },
+        id="Invalid task type",
+    )
+    yield pytest.param(
+        {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "t1",
+                        "type": "functionApp",
+                        "parameters": {
+                            "functionApp": {
+                                "externalId": "my-app",
+                                "path": "/invoke",
+                                "parameters": {f"k{i}": "v" for i in range(11)},
+                            }
+                        },
+                    }
+                ]
+            },
+        },
+        {
+            "Invalid value at workflowDefinition.tasks[1].parameters.functionApp.parameters: "
+            "Dictionary should have at most 10 items after validation, not 11"
+        },
+        id="functionApp parameters exceeds max 10 entries",
+    )
+    yield pytest.param(
+        {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "t1",
+                        "type": "function",
+                        "parameters": {"function": {"externalId": "my-func"}},
+                        "lineageAnnotation": {
+                            "sources": [{"uri": f"cdf://cluster/project/domain/default/files/f{i}"} for i in range(101)]
+                        },
+                    }
+                ]
+            },
+        },
+        {
+            "Invalid value at workflowDefinition.tasks[1].lineageAnnotation.sources: List should have at "
+            "most 100 items after validation, not 101"
+        },
+        id="lineageAnnotation sources exceeds max 100 entries",
+    )
+
+
+def valid_subworkflow_test_cases() -> Iterable:
+    """Test cases for CDF-26812: subworkflow reference validation."""
+    yield pytest.param(
+        {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "subworkflowTask",
+                        "type": "subworkflow",
+                        "parameters": {
+                            "subworkflow": {
+                                "workflowExternalId": "mySubWorkflow",
+                                "version": "v1",
+                            }
+                        },
+                    }
+                ]
+            },
+        },
+        id="Subworkflow task with external workflow reference",
+    )
+    yield pytest.param(
+        {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "subworkflowTask",
+                        "type": "subworkflow",
+                        "parameters": {
+                            "subworkflow": {
+                                "tasks": [
+                                    {
+                                        "externalId": "nestedTask1",
+                                        "type": "transformation",
+                                        "parameters": {
+                                            "transformation": {"externalId": "myTransformation"},
+                                        },
+                                    }
+                                ]
+                            }
+                        },
+                    }
+                ]
+            },
+        },
+        id="Subworkflow task with inline tasks",
+    )
+
+
+class TestWorkflowVersionYAML:
+    @pytest.mark.parametrize("data", list(find_resources("WorkflowVersion")))
+    def test_load_valid_workflow_file(self, data: dict[str, object]) -> None:
+        loaded = WorkflowVersionYAML.model_validate(data)
+
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+
+    @pytest.mark.parametrize("data, expected_errors", list(invalid_workflow_version_test_cases()))
+    def test_invalid_error_messages(
+        self, data: dict | list, expected_errors: set[str], enable_data_products: None
+    ) -> None:
+        warning_list = validate_resource_yaml_pydantic(data, WorkflowVersionYAML, Path("some_file.yaml"))
+        assert len(warning_list) == 1
+        format_warning = warning_list[0]
+        assert isinstance(format_warning, ResourceFormatWarning)
+
+        assert set(format_warning.errors) == expected_errors
+
+    @pytest.mark.parametrize("data", list(valid_subworkflow_test_cases()))
+    def test_valid_subworkflow_formats(self, data: dict[str, object]) -> None:
+        """Test that both subworkflow reference and inline tasks formats are valid (CDF-26812)."""
+        warning_list = validate_resource_yaml_pydantic(data, WorkflowVersionYAML, Path("some_file.yaml"))
+        assert len(warning_list) == 0, f"Expected no warnings, got: {warning_list}"
+
+        loaded = WorkflowVersionYAML.model_validate(data)
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+
+    def test_cdf_task_type(self) -> None:
+        data = {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "cdfTask",
+                        "type": "cdf",
+                        "parameters": {
+                            "cdfRequest": {
+                                "resourcePath": "/timeseries/list",
+                                "method": "GET",
+                            }
+                        },
+                    }
+                ]
+            },
+        }
+        warning_list = validate_resource_yaml_pydantic(data, WorkflowVersionYAML, Path("some_file.yaml"))
+        assert len(warning_list) == 0, f"Expected no warnings, got: {warning_list}"
+
+        loaded = WorkflowVersionYAML.model_validate(data)
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+
+    def test_tasks_are_in_union(self) -> None:
+        all_tasks = get_concrete_subclasses(TaskDefinition)
+        all_union_tasks = get_args(Task.__args__[0])
+        missing = set(all_tasks) - set(all_union_tasks)
+        assert not missing, (
+            f"The following TaskDefinition subclasses are "
+            f"missing from the Tasks union: {humanize_collection([cls.__name__ for cls in missing])}"
+        )
+
+    def test_task_extra_fields_roundtrip(self) -> None:
+        """Tasks must preserve unknown fields so the API can add new properties without breaking deployments."""
+        data = {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "t1",
+                        "type": "function",
+                        "parameters": {"function": {"externalId": "my-func"}},
+                        "someNewField": "some-value",
+                    }
+                ]
+            },
+        }
+        loaded = WorkflowVersionRequest._load(data)
+
+        assert loaded.dump() == data
+
+
+class TestLineageAnnotationSupport:
+    def test_load_valid_lineage_annotation(self, enable_data_products: None) -> None:
+        data = {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "t1",
+                        "type": "function",
+                        "parameters": {"function": {"externalId": "my-func"}},
+                        "lineageAnnotation": {
+                            "sources": [{"uri": "cdf://cluster/project/domain/default/files/f1"}],
+                            "targets": [{"uri": "cdf://cluster/project/domain/default/timeseries/ts1"}],
+                        },
+                    }
+                ]
+            },
+        }
+        loaded = WorkflowVersionYAML.model_validate(data)
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+
+    def test_lineage_annotation_requires_alpha_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda _flag: False)
+        with pytest.raises(ValueError, match="data_products alpha flag"):
+            WorkflowVersionYAML.model_validate(
+                {
+                    "workflowExternalId": "wf1",
+                    "version": "v1",
+                    "workflowDefinition": {
+                        "tasks": [
+                            {
+                                "externalId": "t1",
+                                "type": "function",
+                                "parameters": {"function": {"externalId": "my-func"}},
+                                "lineageAnnotation": {
+                                    "sources": [{"uri": "cdf://cluster/project/domain/default/files/f1"}]
+                                },
+                            }
+                        ]
+                    },
+                }
+            )

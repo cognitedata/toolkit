@@ -25,10 +25,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParse
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_ios import (
-    RESOURCE_CRUD_BY_FOLDER_NAME,
-    Loader,
-)
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_IO_BY_FOLDER_NAME, ResourceIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from tests.data import BUILDABLE_PACKAGE, COMPLETE_ORG, COMPLETE_ORG_ALPHA_FLAGS
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -40,6 +37,10 @@ SNAPSHOTS_DIR_CLEAN = THIS_DIR / "test_build_clean_snapshots"
 SNAPSHOTS_DIR_CLEAN.mkdir(exist_ok=True)
 
 
+def module_param_id(module_path: Path) -> str:
+    return f"{module_path.parent.name}/{module_path.name}"
+
+
 def find_all_modules() -> Iterator[Path]:
     result, _ = ModuleParser.find_modules(BUILDABLE_PACKAGE)
     for module_relative_path in result.keys():
@@ -48,10 +49,10 @@ def find_all_modules() -> Iterator[Path]:
         elif module_relative_path.name == "search":
             # Not ready yet
             continue
-        yield pytest.param(module_relative_path, id=f"{module_relative_path.parent.name}/{module_relative_path.name}")
+        yield module_relative_path
 
 
-@pytest.mark.parametrize("module_path", list(find_all_modules()))
+@pytest.mark.parametrize("module_path", list(find_all_modules()), ids=module_param_id)
 def test_build_deploy_module(
     module_path: Path,
     build_tmp_path: Path,
@@ -67,7 +68,7 @@ def test_build_deploy_module(
         parameters=BuildParameters(
             organization_dir=buildable_modules,
             build_dir=build_tmp_path,
-            config_yaml=buildable_modules / "config.dev.yaml",
+            config_yamls=[buildable_modules / "config.dev.yaml"],
             user_selected_modules=[module_path.name],
         ),
     )
@@ -113,7 +114,7 @@ def test_build_deploy_module(
         )
 
 
-@pytest.mark.parametrize("module_path", list(find_all_modules()))
+@pytest.mark.parametrize("module_path", list(find_all_modules()), ids=module_param_id)
 def test_build_deploy_with_dry_run(
     module_path: Path,
     build_tmp_path: Path,
@@ -127,7 +128,7 @@ def test_build_deploy_with_dry_run(
         parameters=BuildParameters(
             organization_dir=buildable_modules,
             build_dir=build_tmp_path,
-            config_yaml=buildable_modules / "config.dev.yaml",
+            config_yamls=[buildable_modules / "config.dev.yaml"],
             user_selected_modules=[module_path.name],
         ),
     )
@@ -157,7 +158,7 @@ def test_build_deploy_with_dry_run(
     assert not delete_result, f"No resources should be deleted in dry run: got these calls: {delete_result}"
 
 
-@pytest.mark.parametrize("module_path", list(find_all_modules()))
+@pytest.mark.parametrize("module_path", list(find_all_modules()), ids=module_param_id)
 def test_init_build_clean(
     module_path: Path,
     build_tmp_path: Path,
@@ -172,7 +173,7 @@ def test_init_build_clean(
         parameters=BuildParameters(
             organization_dir=buildable_modules,
             build_dir=build_tmp_path,
-            config_yaml=buildable_modules / "config.dev.yaml",
+            config_yamls=[buildable_modules / "config.dev.yaml"],
             user_selected_modules=[module_path.name],
         ),
     )
@@ -209,10 +210,7 @@ def test_init_build_clean(
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR_CLEAN / f"{module_path.name}.yaml")
 
 
-TEST_CASES = []
-if Flags.V09.is_enabled():
-    # The extractor pipeline in external file is only supported in v0.9.
-    TEST_CASES.append(COMPLETE_ORG)
+TEST_CASES = [COMPLETE_ORG]
 if Flags.GRAPHQL.is_enabled():
     TEST_CASES.append(COMPLETE_ORG_ALPHA_FLAGS)
 
@@ -232,7 +230,7 @@ def test_build_deploy_v2_complete_orgs(
         parameters=BuildParameters(
             organization_dir=organization_dir,
             build_dir=build_tmp_path,
-            config_yaml=organization_dir / "config.dev.yaml",
+            config_yamls=[organization_dir / "config.dev.yaml"],
         ),
     )
     with patch.dict(
@@ -269,31 +267,33 @@ def test_build_deploy_v2_complete_orgs(
 def test_complete_org_is_complete() -> None:
     module_scan, _ = BuildV2Command.read_filesystem_and_find_modules(
         organization_dir=COMPLETE_ORG,
-        config_yaml=COMPLETE_ORG / "config.dev.yaml",
+        config_yamls=[COMPLETE_ORG / "config.dev.yaml"],
         user_selected_modules=[f"{MODULES}/"],
     )
-    used_loader_by_folder_name: dict[str, set[type[Loader]]] = defaultdict(set)
+    used_loader_by_folder_name: dict[str, set[type[ResourceIO]]] = defaultdict(set)
 
     for module in module_scan.modules:
         for resource_folder, files in module.resource_files_by_folder.items():
-            for loader in RESOURCE_CRUD_BY_FOLDER_NAME[resource_folder]:
+            for loader in RESOURCE_IO_BY_FOLDER_NAME[resource_folder]:
                 if any(loader.is_supported_file(file) for file in files):
                     used_loader_by_folder_name[resource_folder].add(loader)
 
     alpha_dir_scan, _ = BuildV2Command.read_filesystem_and_find_modules(
-        COMPLETE_ORG_ALPHA_FLAGS, COMPLETE_ORG_ALPHA_FLAGS / "config.dev.yaml", user_selected_modules=[f"{MODULES}/"]
+        COMPLETE_ORG_ALPHA_FLAGS,
+        config_yamls=[COMPLETE_ORG_ALPHA_FLAGS / "config.dev.yaml"],
+        user_selected_modules=[f"{MODULES}/"],
     )
     for module in alpha_dir_scan.modules:
         for resource_folder, files in module.resource_files_by_folder.items():
-            if resource_folder not in RESOURCE_CRUD_BY_FOLDER_NAME:
+            if resource_folder not in RESOURCE_IO_BY_FOLDER_NAME:
                 continue
-            for loader in RESOURCE_CRUD_BY_FOLDER_NAME[resource_folder]:
+            for loader in RESOURCE_IO_BY_FOLDER_NAME[resource_folder]:
                 if any(loader.is_supported_file(file) for file in files):
                     used_loader_by_folder_name[resource_folder].add(loader)
 
     unused_loaders = {
         loader
-        for folder, loaders in RESOURCE_CRUD_BY_FOLDER_NAME.items()
+        for folder, loaders in RESOURCE_IO_BY_FOLDER_NAME.items()
         # Todo: Remove in v1.0
         if folder != "data_models"
         for loader in loaders

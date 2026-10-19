@@ -28,6 +28,7 @@ from ._identifiers import (
     DataSetId,
     ExternalId,
     ExtractionPipelineConfigId,
+    IntegrationConfigId,
     InternalId,
     InternalOrExternalId,
     InternalUnwrappedId,
@@ -35,6 +36,7 @@ from ._identifiers import (
     PrincipalId,
     PrincipalLoginId,
     RawDatabaseId,
+    RawRowId,
     RawTableId,
     RuleSetVersionId,
     SemanticVersion,
@@ -45,6 +47,7 @@ from ._identifiers import (
     UserProfileId,
     WorkflowExecutionId,
     WorkflowVersionId,
+    WritebackRequestId,
 )
 from ._migration import AssetCentricExternalId
 
@@ -68,6 +71,7 @@ __all__ = [
     "ExtractionPipelineConfigId",
     "InstanceDefinitionId",
     "InstanceId",
+    "IntegrationConfigId",
     "InternalId",
     "InternalOrExternalId",
     "InternalUnwrappedId",
@@ -77,6 +81,7 @@ __all__ = [
     "PrincipalId",
     "PrincipalLoginId",
     "RawDatabaseId",
+    "RawRowId",
     "RawTableId",
     "RuleSetVersionId",
     "SemanticVersion",
@@ -95,4 +100,5 @@ __all__ = [
     "ViewUntypedId",
     "WorkflowExecutionId",
     "WorkflowVersionId",
+    "WritebackRequestId",
 ]

@@ -18,7 +18,7 @@ from tests.data import LOAD_DATA
 
 @pytest.fixture
 def exhaustive_filter(env_vars_with_client: EnvironmentVariables) -> LocationFilterRequest:
-    loader = LocationFilterIO.create_loader(env_vars_with_client.get_client())
+    loader = LocationFilterIO.create_io(env_vars_with_client.get_client())
     raw_list = loader.load_resource_file(
         LOAD_DATA / "locations" / "exhaustive.LocationFilter.yaml", env_vars_with_client.dump()
     )
@@ -31,7 +31,7 @@ class TestLocationFilterLoader:
         self,
         env_vars_with_client_cheap: EnvironmentVariables,
     ) -> None:
-        loader = LocationFilterIO.create_loader(env_vars_with_client_cheap.get_client())
+        loader = LocationFilterIO.create_io(env_vars_with_client_cheap.get_client())
         raw_list = loader.load_resource_file(
             LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", env_vars_with_client_cheap.dump()
         )
@@ -73,7 +73,7 @@ class TestLocationFilterLoader:
         env_vars_with_client_cheap: EnvironmentVariables,
         subtree_field: str,
     ) -> None:
-        loader = LocationFilterIO.create_loader(env_vars_with_client_cheap.get_client())
+        loader = LocationFilterIO.create_io(env_vars_with_client_cheap.get_client())
         loaded = loader.load_resource(
             {
                 "externalId": "my-location",
@@ -151,7 +151,7 @@ class TestLocationFilterLoader:
         self,
         toolkit_client_cheap: ToolkitClient,
     ) -> None:
-        crud = LocationFilterIO.create_loader(toolkit_client_cheap)
+        crud = LocationFilterIO.create_io(toolkit_client_cheap)
         location_filter = LocationFilterResponse(
             external_id="springfield",
             name="Springfield Location",

@@ -21,9 +21,9 @@ def large_sequence(toolkit_client: ToolkitClient) -> SequenceResponse:
     sequence_request = SequenceRequest(
         external_id=SEQUENCE_EXTERNAL_ID, columns=[SequenceColumnRequest(external_id="col1")]
     )
-    retrieved = toolkit_client.tool.sequences.retrieve([sequence_request.as_id()], ignore_unknown_ids=True)
+    retrieved = toolkit_client.sequences.retrieve([sequence_request.as_id()], ignore_unknown_ids=True)
     if len(retrieved) == 0:
-        return toolkit_client.tool.sequences.create([sequence_request])[0]
+        return toolkit_client.sequences.create([sequence_request])[0]
     return retrieved[0]
 
 
@@ -35,7 +35,7 @@ class TestSequenceRowCRUD:
             columns=[large_sequence.columns[0].external_id],
             rows=[SequenceRow(row_number=no, values=[1000.0 + no]) for no in range(count)],
         )
-        io = SequenceRowIO(toolkit_client, None, None)
+        io = SequenceRowIO(toolkit_client)
 
         try:
             io.create([many_rows])
@@ -43,8 +43,8 @@ class TestSequenceRowCRUD:
             raise AssertionError(f"Failed inserting {count} rows into sequence. Got error: {e}")
 
         try:
-            deleted = io.delete([large_sequence.as_id()])
+            deleted_ids = io.delete([large_sequence.as_id()])
         except ToolkitAPIError as e:
             raise AssertionError(f"Failed deleting rows from sequence. Got error: {e}")
-        if deleted != count:
-            raise AssertionError(f"Expected to delete 1 sequence, but deleted {deleted}")
+        if len(deleted_ids) != 1:
+            raise AssertionError(f"Expected to delete 1 sequence, but deleted {len(deleted_ids)}")

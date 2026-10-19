@@ -1,13 +1,12 @@
 import itertools
 import os
 import re
-import sys
 from abc import ABC
 from collections import UserDict, defaultdict
 from collections.abc import Hashable, Iterable, Sequence, Set
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar, cast, get_args
+from typing import Any, ClassVar, Self, cast, get_args
 
 from rich import print
 
@@ -20,7 +19,7 @@ from cognite_toolkit._cdf_tk.constants import (
     EnvType,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError
-from cognite_toolkit._cdf_tk.resource_ios import CRUDS_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_IO_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
 )
@@ -35,10 +34,6 @@ from cognite_toolkit._cdf_tk.utils import (
 
 from ._base import ConfigCore
 
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 _AVAILABLE_ENV_TYPES = tuple(get_args(EnvType))
 
 
@@ -116,11 +111,11 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
     variables: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def load(cls, data: dict[str, Any], build_env_name: str, filepath: Path) -> Self:
+    def load(cls, data: dict[str, Any], build_env: str, filepath: Path) -> Self:
         if "environment" not in data:
             err_msg = f"Expected 'environment' section in {filepath!s}."
             raise ToolkitEnvError(err_msg)
-        environment = Environment.load(data["environment"], build_env_name, filepath.parent)
+        environment = Environment.load(data["environment"], build_env, filepath.parent)
 
         if "modules" in data and "variables" not in data:
             err_msg = (
@@ -369,19 +364,20 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         else:
             raise ToolkitEnvError(f"Missing environment in {existing_config_yaml!s}")
 
-        modules = config[cls._variables] if cls._variables in config else config
         entries: dict[tuple[str, ...], ConfigEntry] = {}
-        for key_path, value in flatten_dict(modules).items():
-            full_key_path = (cls._variables, *key_path)
-            if full_key_path in entries:
-                entries[full_key_path].current_value = value
-                entries[full_key_path].current_comment = comments.get(full_key_path)
-            else:
-                entries[full_key_path] = ConfigEntry(
-                    key_path=full_key_path,
-                    current_value=value,
-                    current_comment=comments.get(full_key_path),
-                )
+        if cls._variables in config and isinstance(config[cls._variables], dict) and config[cls._variables]:
+            modules = config[cls._variables]
+            for key_path, value in flatten_dict(modules).items():
+                full_key_path = (cls._variables, *key_path)
+                if full_key_path in entries:
+                    entries[full_key_path].current_value = value
+                    entries[full_key_path].current_comment = comments.get(full_key_path)
+                else:
+                    entries[full_key_path] = ConfigEntry(
+                        key_path=full_key_path,
+                        current_value=value,
+                        current_comment=comments.get(full_key_path),
+                    )
 
         return cls(
             environment=environment,
@@ -410,7 +406,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
                 continue
             content = safe_read(filepath)
             key_parent = filepath.parent.relative_to(organization_dir).parts
-            if key_parent and key_parent[-1] in CRUDS_BY_FOLDER_NAME:
+            if key_parent and key_parent[-1] in RESOURCE_IO_BY_FOLDER_NAME:
                 key_parent = key_parent[:-1]
 
             for match in re.findall(r"{{\s*([a-zA-Z0-9_]+)\s*}}", content):
@@ -429,7 +425,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
                 # Remove module subfolders.
                 key_parent_list = list(key_parent)
                 for i in range(len(key_parent_list)):
-                    if key_parent_list[i] in CRUDS_BY_FOLDER_NAME:
+                    if key_parent_list[i] in RESOURCE_IO_BY_FOLDER_NAME:
                         key_parent_list = key_parent_list[:i]
                         break
                 key_parent = tuple(key_parent_list)

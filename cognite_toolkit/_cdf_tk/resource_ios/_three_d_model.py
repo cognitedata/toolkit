@@ -28,7 +28,7 @@ from ._data_organization import DataSetsIO
 
 
 @final
-class ThreeDModelCRUD(
+class ThreeDModelIO(
     ResourceContainerIO[NameId, ThreeDModelClassicRequest, ThreeDModelClassicResponse, ThreeDModelYAML]
 ):
     folder_name = "3dmodels"
@@ -45,7 +45,9 @@ class ThreeDModelCRUD(
         return "3D models"
 
     @classmethod
-    def get_id(cls, item: ThreeDModelClassicRequest | ThreeDModelClassicResponse | dict) -> NameId:
+    def get_id(cls, item: ThreeDModelClassicRequest | ThreeDModelClassicResponse | NameId | dict) -> NameId:
+        if isinstance(item, NameId):
+            return item
         if isinstance(item, dict):
             return NameId(name=item["name"])
         if not item.name:
@@ -65,7 +67,7 @@ class ThreeDModelCRUD(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: NameId) -> str:
+    def as_filename(cls, id: NameId) -> str:
         return sanitize_filename(id.name)
 
     @classmethod
@@ -78,12 +80,12 @@ class ThreeDModelCRUD(
             yield ThreeDAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
 
     def create(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelClassicResponse]:
-        return self.client.tool.three_d.models_classic.create(items)
+        return self.client.three_d.models_classic.create(items)
 
     def retrieve(self, ids: Sequence[NameId]) -> list[ThreeDModelClassicResponse]:
         selected_names = {id_.name for id_ in ids}
         output: list[ThreeDModelClassicResponse] = []
-        for models in self.client.tool.three_d.models_classic.iterate(limit=None):
+        for models in self.client.three_d.models_classic.iterate(limit=None):
             for model in models:
                 if model.name in selected_names:
                     output.append(model)
@@ -93,13 +95,13 @@ class ThreeDModelCRUD(
         return output
 
     def update(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelClassicResponse]:
-        return self.client.tool.three_d.models_classic.update(items)
+        return self.client.three_d.models_classic.update(items)
 
-    def delete(self, ids: Sequence[NameId]) -> int:
+    def delete(self, ids: Sequence[NameId]) -> list[NameId]:
         models = self.retrieve(ids)
         internal_ids = [InternalId(id=model.id) for model in models]
-        self.client.tool.three_d.models_classic.delete(internal_ids)
-        return len(models)
+        self.client.three_d.models_classic.delete(internal_ids)
+        return [NameId(name=model.name) for model in models]
 
     def _iterate(
         self,
@@ -109,7 +111,7 @@ class ThreeDModelCRUD(
     ) -> Iterable[ThreeDModelClassicResponse]:
         # DataSet filtering is not supported by the API, so we filter client-side.
         data_set_id = self.client.lookup.data_sets.id(data_set_external_id) if data_set_external_id else None
-        for models in self.client.tool.three_d.models_classic.iterate(limit=None):
+        for models in self.client.three_d.models_classic.iterate(limit=None):
             if data_set_id is None:
                 yield from models
                 continue
@@ -121,9 +123,9 @@ class ThreeDModelCRUD(
         models = self.retrieve(ids)
         count = 0
         for model in models:
-            for revisions in self.client.tool.three_d.revisions_classic.iterate(model_id=model.id, limit=None):
+            for revisions in self.client.three_d.revisions_classic.iterate(model_id=model.id, limit=None):
                 revision_ids = [ThreeDModelRevisionId(id=r.id, model_id=r.model_id) for r in revisions]
-                self.client.tool.three_d.revisions_classic.delete(ids=revision_ids)
+                self.client.three_d.revisions_classic.delete(ids=revision_ids)
                 count += len(revisions)
         return count
 
@@ -131,7 +133,7 @@ class ThreeDModelCRUD(
         models = self.retrieve(ids)
         count = 0
         for model in models:
-            for revisions in self.client.tool.three_d.revisions_classic.iterate(model_id=model.id, limit=None):
+            for revisions in self.client.three_d.revisions_classic.iterate(model_id=model.id, limit=None):
                 count += len(revisions)
         return count
 

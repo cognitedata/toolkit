@@ -1,4 +1,4 @@
-from collections.abc import Hashable, Iterable, Sequence, Sized
+from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal, NoReturn, final
 
@@ -21,9 +21,9 @@ from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import FunctionAppsYAML
 
-from ._auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
-from ._file import CogniteFileCRUD, FileMetadataCRUD
+from ._file import CogniteFileIO, FileMetadataIO
 from ._function_code_bundle import FunctionCodeBundle
 
 
@@ -43,14 +43,14 @@ class FunctionAppIO(ResourceIO[ExternalId, FunctionAppRequest, FunctionAppRespon
     resource_cls = FunctionAppResponse
     resource_write_cls = FunctionAppRequest
     yaml_cls = FunctionAppsYAML
-    dependencies = frozenset({DataSetsIO, GroupAllScopedCRUD})
-    extra_kinds = frozenset({FileMetadataCRUD.kind, CogniteFileCRUD.kind})
+    dependencies = frozenset({DataSetsIO, GroupAllScopedIO})
+    extra_kinds = frozenset({FileMetadataIO.kind, CogniteFileIO.kind})
 
     class _MetadataKey:
         function_hash = "cognite-toolkit-hash"
 
-    def __init__(self, client: ToolkitClient, build_path: Path | None, console: Any) -> None:
-        super().__init__(client, build_path, console)
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
         self.data_set_id_by_external_id: dict[str, int] = {}
         self.space_by_external_id: dict[str, str] = {}
         self._code_bundle = FunctionCodeBundle(client)
@@ -78,7 +78,9 @@ class FunctionAppIO(ResourceIO[ExternalId, FunctionAppRequest, FunctionAppRespon
             yield FilesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: FunctionAppResponse | FunctionAppRequest | dict) -> ExternalId:
+    def get_id(cls, item: FunctionAppResponse | FunctionAppRequest | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
@@ -142,13 +144,13 @@ class FunctionAppIO(ResourceIO[ExternalId, FunctionAppRequest, FunctionAppRespon
     def _not_available(self) -> NoReturn:
         raise ToolkitNotSupported(self.deploy_not_supported_message)
 
-    def create(self, items: Sequence[FunctionAppRequest]) -> Sized:
+    def create(self, items: Sequence[FunctionAppRequest]) -> Sequence[FunctionAppResponse]:
         return self._not_available()
 
     def retrieve(self, ids: Sequence[ExternalId]) -> Sequence[FunctionAppResponse]:
         return self._not_available()
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> Sequence[ExternalId]:
         return self._not_available()
 
     def _iterate(

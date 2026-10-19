@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import SuccessExtra
-from cognite_toolkit._cdf_tk.resource_ios._file import FileMetadataCRUD
+from cognite_toolkit._cdf_tk.resource_ios._file import FileMetadataIO
 from cognite_toolkit._cdf_tk.resource_ios._industrial_tool import StreamlitIO
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content
 
@@ -73,9 +73,9 @@ class TestStreamlitUpdateWithFileio:
     )
     def test_reupload_based_on_hash(self, cdf_hash: str, local_hash: str, expect_upload: bool) -> None:
         mock_client = MagicMock()
-        loader = StreamlitIO(mock_client, None, None, use_fileio=True)
+        streamlit_io = StreamlitIO(mock_client)
         ext_id = "stapp-test"
-        loader.filemetadata_by_external_id[ext_id] = MagicMock(spec=Path)
+        streamlit_io.filemetadata_by_external_id[ext_id] = MagicMock(spec=Path)
 
         item = StreamlitRequest(
             external_id=ext_id,
@@ -88,18 +88,16 @@ class TestStreamlitUpdateWithFileio:
         file_request = MagicMock(external_id=ext_id, filepath=source_file)
         file_request.as_id.return_value = MagicMock(external_id=ext_id)
 
-        with patch("cognite_toolkit._cdf_tk.resource_ios._industrial_tool.FileMetadataCRUD") as MockCRUD:
+        with patch("cognite_toolkit._cdf_tk.resource_ios._industrial_tool.FileMetadataIO") as MockCRUD:
             mock_fileio = MagicMock()
             MockCRUD.return_value = mock_fileio
             mock_fileio.load_resource_files.return_value = [file_request]
             mock_fileio.retrieve.return_value = [self._file_response(ext_id, cdf_hash)]
             mock_fileio.update.return_value = [self._file_response(ext_id, local_hash)]
-            mock_client.tool.filemetadata.get_upload_url.return_value = [
-                MagicMock(upload_url="https://upload.example.com")
-            ]
-            loader._update_with_fileio([item])
+            mock_client.filemetadata.get_upload_url.return_value = [MagicMock(upload_url="https://upload.example.com")]
+            streamlit_io.update([item])
 
-        assert mock_client.tool.filemetadata.upload_file.called == expect_upload
+        assert mock_client.filemetadata.upload_file.called == expect_upload
 
 
 class TestStreamlitIOGetExtraFiles:
@@ -123,7 +121,7 @@ class TestStreamlitIOGetExtraFiles:
         file_metadata_extra = next(
             extra
             for extra in extras
-            if isinstance(extra, SuccessExtra) and extra.suffix == f".{FileMetadataCRUD.kind}.yaml"
+            if isinstance(extra, SuccessExtra) and extra.suffix == f".{FileMetadataIO.kind}.yaml"
         )
         file_metadata = read_yaml_content(file_metadata_extra.content)
         assert file_metadata["dataSetExternalId"] == "my_dataset"

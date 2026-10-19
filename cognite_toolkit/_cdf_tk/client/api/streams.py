@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
@@ -29,7 +30,7 @@ class StreamsAPI(CDFResourceAPI[StreamResponse]):
     ) -> PagedResponse[StreamResponse]:
         return PagedResponse[StreamResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[StreamRequest]) -> list[StreamResponse]:
+    def create(self, items: Sequence[StreamRequest]) -> builtins.list[StreamResponse]:
         """Create one or more streams.
 
         Args:
@@ -55,7 +56,7 @@ class StreamsAPI(CDFResourceAPI[StreamResponse]):
 
     def retrieve(
         self, items: Sequence[ExternalId], include_statistics: bool = False, ignore_unknown_ids: bool = False
-    ) -> list[StreamResponse]:
+    ) -> builtins.list[StreamResponse]:
         """Retrieve streams by their external IDs.
 
         Note: The streams API only supports retrieving one stream at a time via path parameter.
@@ -68,7 +69,7 @@ class StreamsAPI(CDFResourceAPI[StreamResponse]):
         Returns:
             List of StreamResponse items.
         """
-        results: list[StreamResponse] = []
+        results: builtins.list[StreamResponse] = []
         endpoint = self._method_endpoint_map["retrieve"]
         for item in items:
             request = RequestMessage(
@@ -84,7 +85,7 @@ class StreamsAPI(CDFResourceAPI[StreamResponse]):
             _ = response.get_success_or_raise(request)
         return results
 
-    def list(self) -> list[StreamResponse]:
+    def list(self) -> builtins.list[StreamResponse]:
         """List all streams.
 
         Note: The streams API does not support pagination.

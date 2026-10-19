@@ -15,8 +15,8 @@ class TestDownloadCommand:
         cmd = DownloadCommand(silent=True, skip_tracking=True)
         with monkeypatch_toolkit_client() as client:
             dataset = "my/:_data_set"
-            client.assets.aggregate_count.return_value = 1
-            client.tool.assets.paginate.return_value = PagedResponse(
+            client.assets.count.return_value = 1
+            client.assets.paginate.return_value = PagedResponse(
                 items=[
                     AssetResponse(
                         id=123,
@@ -33,7 +33,7 @@ class TestDownloadCommand:
 
             client.lookup.data_sets.id.return_value = 42
             client.lookup.data_sets.external_id.return_value = dataset
-            client.tool.transformations.run_query.return_value = SQLQueryResponse(
+            client.transformations.run_query_preview.return_value = SQLQueryResponse(
                 schema_=[], results=[{"key": "key", "key_count": 1}]
             )
 

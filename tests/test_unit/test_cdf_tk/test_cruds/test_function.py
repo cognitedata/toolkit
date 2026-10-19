@@ -8,15 +8,14 @@ import respx
 import yaml
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
-    ClientCredentials,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
     FunctionWrite,
 )
 from cognite.client.data_classes.capabilities import FilesAcl, FunctionsAcl
-from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
@@ -24,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
     FunctionScheduleResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployV2Command
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
@@ -37,7 +37,7 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 class TestFunctionLoader:
     def test_load_functions(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_loader(env_vars_with_client_cheap.get_client(), LOAD_DATA)
+        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client())
 
         raw_list = loader.load_resource_file(
             LOAD_DATA / "functions" / "1.my_functions.yaml", env_vars_with_client_cheap.dump()
@@ -46,7 +46,7 @@ class TestFunctionLoader:
         assert len(raw_list) == 2
 
     def test_load_function(self, env_vars_with_client: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), LOAD_DATA)
+        loader = FunctionIO.create_io(env_vars_with_client.get_client())
 
         raw_list = loader.load_resource_file(
             LOAD_DATA / "functions" / "1.my_function.yaml", env_vars_with_client.dump()
@@ -59,7 +59,7 @@ class TestFunctionLoader:
         """Avoid poisoning the shared lookup cache when dry-run and a DataSet is created in the same deploy."""
         client = MagicMock()
         client.lookup.data_sets.id.return_value = 42
-        loader = FunctionIO.create_loader(client, Path("/tmp"))
+        loader = FunctionIO.create_io(client)
         resource = {
             "externalId": "fn_test",
             "name": "test",
@@ -107,7 +107,7 @@ secrets:
         filepath.read_text.return_value = local_yaml
         filepath.parent.name = FunctionIO.folder_name
 
-        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), tmp_path)
+        loader = FunctionIO.create_io(env_vars_with_client.get_client())
         resource_dict = loader.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
         resource = loader.load_resource(deepcopy(resource_dict[0]))
@@ -182,7 +182,7 @@ secrets:
                 ),
             },
         )
-        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), tmp_path)
+        loader = FunctionIO.create_io(env_vars_with_client.get_client())
 
         dumped = loader.dump_resource(cdf_function, local_dict)
 
@@ -211,7 +211,7 @@ secrets:
                 ),
             },
         )
-        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), tmp_path)
+        loader = FunctionIO.create_io(env_vars_with_client.get_client())
 
         dumped = loader.dump_resource(cdf_function, local_dict)
 
@@ -240,14 +240,14 @@ secrets:
                 ),
             },
         )
-        loader = FunctionIO.create_loader(env_vars_with_client.get_client(), tmp_path)
+        loader = FunctionIO.create_io(env_vars_with_client.get_client())
 
         dumped = loader.dump_resource(cdf_function, local_dict)
 
         assert dumped["runtime"] == "py311"
 
     def test_get_function_required_capabilities(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_loader(env_vars_with_client_cheap.get_client(), None)
+        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client())
         loader.data_set_id_by_external_id = {"function1": 123, "function2": 456}
 
         # Mock data
@@ -276,14 +276,14 @@ secrets:
         assert sorted(write_capabilities[1].scope.ids) == [123, 456]
 
     def test_get_function_required_capabilities_empty(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_loader(env_vars_with_client_cheap.get_client(), None)
+        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client())
         capabilities = loader.get_function_required_capabilities([], read_only=False)
         assert capabilities == []
 
     def test_get_function_required_capabilities_no_datasets(
         self, env_vars_with_client_cheap: EnvironmentVariables
     ) -> None:
-        loader = FunctionIO.create_loader(env_vars_with_client_cheap.get_client(), None)
+        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client())
         items = [
             FunctionWrite(external_id="function1", name="Function 1", file_id=1001),
             FunctionWrite(external_id="function2", name="Function 2", file_id=1002),
@@ -296,7 +296,7 @@ secrets:
     @pytest.fixture()
     def function_io_with_file(self, tmp_path: Path) -> Iterable[FunctionIO]:
         with monkeypatch_toolkit_client() as client:
-            loader = FunctionIO(client, None, None, file_upload_timeout_seconds=30.0)
+            loader = FunctionIO(client, file_upload_timeout_seconds=30.0)
             function_id = "my_func"
             filestem = function_id
             filemetadata = tmp_path / f"{filestem}.FileMetadata.yaml"
@@ -305,9 +305,16 @@ secrets:
 
             loader.filemetadata_path_by_external_id[function_id] = filemetadata
 
-            client.tool.filemetadata.create.return_value = [
-                FileMetadataResponse(id=42, created_time=0, last_updated_time=1, uploaded=True, name=function_id)
-            ]
+            file_response = FileMetadataResponse(
+                id=42,
+                external_id=function_id,
+                created_time=0,
+                last_updated_time=1,
+                uploaded=True,
+                name=function_id,
+            )
+            client.filemetadata.create.return_value = [file_response]
+            client.filemetadata.retrieve.return_value = [file_response]
             yield loader
 
     def test_replacing_file_mapping_updates_code_bundle(
@@ -321,11 +328,11 @@ secrets:
     def test_create_succeeds_when_file_uploaded_within_timeout(self, function_io_with_file: FunctionIO) -> None:
         function_io = function_io_with_file
         client = function_io.client
-        client.tool.filemetadata.await_file_uploaded.return_value = set(), 3.0
+        client.filemetadata.await_file_uploaded.return_value = set(), 3.0
         created_response = FunctionResponse(
             id=1, name="my_func", external_id="my_func", file_id=42, created_time=0, status="Ready"
         )
-        client.tool.functions.create.return_value = [created_response]
+        client.functions.create.return_value = [created_response]
 
         with patch.object(function_io, "_is_activated", return_value=True):
             result = function_io.create([FunctionRequest(name="my_func", external_id="my_func", file_id=-1)])
@@ -335,7 +342,7 @@ secrets:
     def test_create_raises_timeout_when_file_not_uploaded(self, function_io_with_file: FunctionIO) -> None:
         function_io = function_io_with_file
         client = function_io.client
-        client.tool.filemetadata.await_file_uploaded.return_value = {InternalId(id=42)}, 0.0
+        client.filemetadata.await_file_uploaded.return_value = {InternalId(id=42)}, 0.0
 
         item = FunctionRequest(name="my_func", external_id="my_func", file_id=-1)
 
@@ -363,7 +370,7 @@ class TestFunctionScheduleLoader:
         )
         with monkeypatch_toolkit_client() as client:
             client.config = config
-            loader = FunctionScheduleIO.create_loader(client)
+            loader = FunctionScheduleIO.create_io(client)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = yaml.dump(schedule)
@@ -398,9 +405,7 @@ authentication:
                 created_time=1,
                 when="2024-01-01T08:00:00Z",
             )
-            # The as_write method looks up the input data.
-            client.functions.schedules.get_input_data.return_value = None
-            loader = FunctionScheduleIO(client, None, None)
+            loader = FunctionScheduleIO(client)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_content
@@ -422,7 +427,7 @@ authentication:
             pytest.param(
                 "invalid-client-id",
                 "invalid-client-secret",
-                CogniteAPIError(message="Invalid client credentials", code=400),
+                ToolkitAPIError(message="Invalid client credentials", code=400),
                 id="Invalid credentials no extra hint",
             ),
             pytest.param(
@@ -466,14 +471,14 @@ authentication:
             json={"error": {"message": "Invalid client credentials"}},
         )
         client = ToolkitClient(toolkit_config)
-        loader = FunctionScheduleIO(client, None, None)
+        loader = FunctionScheduleIO(client)
         schedule = FunctionScheduleRequest(
             name="daily-8am-utc",
             function_external_id="fn_example_repeater",
             cron_expression="0 8 * * *",
         )
         id_ = loader.get_id(schedule)
-        loader.authentication_by_id[id_] = ClientCredentials(
+        loader.authentication_by_id[id_] = ClientCredentialsSessionRequest(
             client_id=client_id,
             client_secret=client_secret,
         )
@@ -491,7 +496,7 @@ authentication:
             json={"items": []},
         )
         client = ToolkitClient(toolkit_config)
-        loader = FunctionScheduleIO(client, None, None)
+        loader = FunctionScheduleIO(client)
         schedule = FunctionScheduleWrite(
             name="daily-8am-utc",
             function_external_id="fn_non_existent_function",

@@ -131,6 +131,38 @@ class RawTableId(Identifier):
         return f"{self.db_name}.{self.name}"
 
 
+class RawRowId(Identifier):
+    """Identifier for a row in a RAW table.
+
+    ``db_name`` and ``table_name`` are path parameters. The delete endpoint accepts only ``key`` in the body.
+    """
+
+    key: str
+    db_name: str
+    table_name: str
+
+    def dump(
+        self, camel_case: bool = True, exclude_extra: bool = False, context: Literal["api", "toolkit"] = "api"
+    ) -> dict[str, Any]:
+        return {"key": self.key}
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, RawRowId):
+            return NotImplemented
+        return (self.db_name, self.table_name, self.key) == (other.db_name, other.table_name, other.key)
+
+    def __hash__(self) -> int:
+        return hash((self.db_name, self.table_name, self.key))
+
+    def __str__(self) -> str:
+        return f"{self.db_name}.{self.table_name}.{self.key}"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"dbName-{self.db_name}.tableName-{self.table_name}.key-{self.key}"
+        return f"{self.db_name}.{self.table_name}.{self.key}"
+
+
 class SequenceRowId(Identifier):
     external_id: str = Field(description="ExternalId of the sequence")
     rows: tuple[int, ...]
@@ -147,6 +179,19 @@ class SequenceRowId(Identifier):
 
 
 class ExtractionPipelineConfigId(Identifier):
+    external_id: str
+    revision: int | None = None
+
+    def __str__(self) -> str:
+        return f"externalId='{self.external_id}', revision={self.revision}"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"externalId-{self.external_id}.revision-{self.revision}"
+        return f"{self.external_id}.{self.revision}"
+
+
+class IntegrationConfigId(Identifier):
     external_id: str
     revision: int | None = None
 
@@ -300,6 +345,18 @@ class RuleSetVersionId(Identifier):
         if include_type:
             return f"ruleSetExternalId-{self.rule_set_external_id}.version-{self.version}"
         return f"{self.rule_set_external_id}.{self.version}"
+
+
+class WritebackRequestId(Identifier):
+    request_id: str
+
+    def __str__(self) -> str:
+        return f"requestId='{self.request_id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"requestId-{self.request_id}"
+        return self.request_id
 
 
 class SignalSinkId(Identifier):

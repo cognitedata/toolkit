@@ -49,9 +49,9 @@ def toolkit_client(toolkit_client_config: ToolkitClientConfig) -> ToolkitClient:
 def smoke_dataset(toolkit_client: ToolkitClient) -> DataSetResponse:
     client = toolkit_client
     dataset_external_id = ExternalId(external_id="toolkit_smoke_test_dataset")
-    if dataset := client.tool.datasets.retrieve([dataset_external_id], ignore_unknown_ids=True):
+    if dataset := client.datasets.retrieve([dataset_external_id], ignore_unknown_ids=True):
         return dataset[0]
-    return client.tool.datasets.create(
+    return client.datasets.create(
         [
             DataSetRequest(
                 name="Toolkit Smoke Test Dataset",
@@ -70,9 +70,9 @@ def smoke_space(toolkit_client: ToolkitClient) -> SpaceResponse:
     client = toolkit_client
 
     space_external_id = SMOKE_SPACE
-    if spaces := client.tool.spaces.retrieve([SpaceId(space=space_external_id)]):
+    if spaces := client.spaces.retrieve([SpaceId(space=space_external_id)]):
         return spaces[0]
-    return client.tool.spaces.create(
+    return client.spaces.create(
         [
             SpaceRequest(
                 name="Toolkit Smoke Test Space",
@@ -95,11 +95,11 @@ def three_d_file(toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse) 
         mime_type=mime_type,
         source="3d-models",
     )
-    read = client.tool.filemetadata.retrieve([meta.as_id()], ignore_unknown_ids=True)
+    read = client.filemetadata.retrieve([meta.as_id()], ignore_unknown_ids=True)
     if read and read[0].uploaded is True:
         return read[0]
 
-    created_list = client.tool.filemetadata.create([meta], overwrite=True)
+    created_list = client.filemetadata.create([meta], overwrite=True)
     created = created_list[0]
     if not created.upload_url:
         raise AssertionError("Expected upload URL to be present for created file metadata")

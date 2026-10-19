@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
@@ -39,7 +40,7 @@ class WorkflowsAPI(CDFResourceAPI[WorkflowResponse]):
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[ExternalId]:
         return ResponseItems[ExternalId].model_validate_json(response.body)
 
-    def create(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
+    def create(self, items: Sequence[WorkflowRequest]) -> builtins.list[WorkflowResponse]:
         """Create or update workflows in CDF.
 
         Args:
@@ -50,7 +51,7 @@ class WorkflowsAPI(CDFResourceAPI[WorkflowResponse]):
         return self._request_item_response(items, "upsert")
 
     # This is a duplicate of the create method, included to standardize the API interface.
-    def update(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
+    def update(self, items: Sequence[WorkflowRequest]) -> builtins.list[WorkflowResponse]:
         """Create or update workflows in CDF.
 
         Args:
@@ -60,7 +61,9 @@ class WorkflowsAPI(CDFResourceAPI[WorkflowResponse]):
         """
         return self.create(items)
 
-    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[WorkflowResponse]:
+    def retrieve(
+        self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[WorkflowResponse]:
         """Retrieve workflows from CDF by external ID.
 
         Args:
@@ -70,7 +73,7 @@ class WorkflowsAPI(CDFResourceAPI[WorkflowResponse]):
         Returns:
             List of retrieved WorkflowResponse objects.
         """
-        result: list[WorkflowResponse] = []
+        result: builtins.list[WorkflowResponse] = []
         endpoint = self._method_endpoint_map["retrieve"]
         for item in items:
             request = RequestMessage(
@@ -113,7 +116,7 @@ class WorkflowsAPI(CDFResourceAPI[WorkflowResponse]):
     def iterate(
         self,
         limit: int | None = 100,
-    ) -> Iterable[list[WorkflowResponse]]:
+    ) -> Iterable[builtins.list[WorkflowResponse]]:
         """Iterate over all workflows in CDF.
 
         Args:
@@ -127,7 +130,7 @@ class WorkflowsAPI(CDFResourceAPI[WorkflowResponse]):
     def list(
         self,
         limit: int | None = 100,
-    ) -> list[WorkflowResponse]:
+    ) -> builtins.list[WorkflowResponse]:
         """List all workflows in CDF.
 
         Returns:

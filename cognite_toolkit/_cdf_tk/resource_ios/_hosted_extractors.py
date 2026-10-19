@@ -2,8 +2,7 @@ from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import ClientCredentials
-from rich.console import Console
+from typing_extensions import TypeForm
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -30,19 +29,25 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
     BasicAuthenticationRequest,
     ClientCredentialAuthenticationRequest,
     EventHubSourceRequest,
+    EventHubSourceResponse,
     HostedExtractorSourceRequest,
     HostedExtractorSourceRequestUnion,
     HostedExtractorSourceResponseUnion,
     HTTPBasicAuthenticationRequest,
     KafkaSourceRequest,
+    MQTTBrokerSourceRequest,
     MQTTSourceRequest,
     RESTSourceRequest,
     ScramShaAuthenticationRequest,
     UnknownAuthenticationRequest,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._data_organization import DataSetsIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.utils import calculate_secure_hash, humanize_collection
+from cognite_toolkit._cdf_tk.utils.cdf import read_auth
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import (
     HostedExtractorDestinationYAML,
@@ -50,8 +55,6 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
     HostedExtractorMappingYAML,
     HostedExtractorSourceYAML,
 )
-
-from ._data_organization import DataSetsIO
 
 
 @final
@@ -64,20 +67,51 @@ class HostedExtractorSourceIO(
     ]
 ):
     folder_name = "hosted_extractors"
-    resource_cls = HostedExtractorSourceResponseUnion  # type: ignore[assignment]
-    resource_write_cls = HostedExtractorSourceRequestUnion  # type: ignore[assignment]
+    # These are Annotated unions, not classes. Call sites load them through the TypeAdapter.
+    resource_cls: TypeForm[HostedExtractorSourceResponseUnion] = HostedExtractorSourceResponseUnion
+    resource_write_cls: TypeForm[HostedExtractorSourceRequestUnion] = HostedExtractorSourceRequestUnion
     kind = "Source"
     yaml_cls = HostedExtractorSourceYAML
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Sources/operation/create_sources"
-    _SupportedSources = (MQTTSourceRequest, KafkaSourceRequest, RESTSourceRequest, EventHubSourceRequest)
+    _SupportedSources = (
+        MQTTSourceRequest,
+        KafkaSourceRequest,
+        RESTSourceRequest,
+        EventHubSourceRequest,
+        MQTTBrokerSourceRequest,
+    )
+
+    class _MetadataKey:
+        _prefix = "toolkit-hash"
+        AUTH_BASIC_PASSWORD = f"{_prefix}-auth-basic-password"
+        AUTH_CLIENT_SECRET = f"{_prefix}-auth-client-secret"
+        AUTH_VALUE = f"{_prefix}-auth-value"
+        CA_CERTIFICATE = f"{_prefix}-ca-certificate"
+        AUTH_CERTIFICATE = f"{_prefix}-auth-certificate"
+
+        @classmethod
+        def auth_unknown(cls, field: str) -> str:
+            return f"{cls._prefix}-auth-{field}"
+
+    # The certificate fields are objects that may contain sensitive strings (private key and key password).
+    # The API only returns certificate metadata (thumbprint/expiry), so we hash the local value into the
+    # resource metadata to detect changes.
+    _CERTIFICATE_KEYS: tuple[tuple[str, str], ...] = (
+        ("caCertificate", _MetadataKey.CA_CERTIFICATE),
+        ("authCertificate", _MetadataKey.AUTH_CERTIFICATE),
+    )
 
     @property
     def display_name(self) -> str:
         return "hosted extractor sources"
 
     @classmethod
-    def get_id(cls, item: HostedExtractorSourceRequestUnion | HostedExtractorSourceResponseUnion | dict) -> ExternalId:
+    def get_id(
+        cls, item: HostedExtractorSourceRequestUnion | HostedExtractorSourceResponseUnion | ExternalId | dict
+    ) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -87,7 +121,7 @@ class HostedExtractorSourceIO(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -104,19 +138,34 @@ class HostedExtractorSourceIO(
         return []
 
     def create(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
-        return self.client.tool.hosted_extractors.sources.create(list(items))
+        to_create: list[HostedExtractorSourceRequestUnion] = []
+        to_skip: list[MQTTBrokerSourceRequest] = []
+        for item in items:
+            if isinstance(item, MQTTBrokerSourceRequest):
+                to_skip.append(item)
+            else:
+                to_create.append(item)
+        if to_skip:
+            HighSeverityWarning(
+                f"{len(to_skip)} MQTT broker sources will not be created by Toolkit. You will need to create them manually through the CDF API, Toolkit can update them once they are created. "
+                f"The reason is that MQTT broker responses return auth information in the response. If you had created them through Toolkit this would be lost."
+                f"The following MQTT broker sources will not be created: {humanize_collection(to_skip)}"
+            ).print_warning(console=self.client.console)
+
+        return self.client.hosted_extractors.sources.create(to_create)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorSourceResponseUnion]:
-        return self.client.tool.hosted_extractors.sources.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.hosted_extractors.sources.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
-        return self.client.tool.hosted_extractors.sources.update(list(items), mode="replace")
+        return self.client.hosted_extractors.sources.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.hosted_extractors.sources.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.hosted_extractors.sources.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -124,26 +173,63 @@ class HostedExtractorSourceIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorSourceResponseUnion]:
-        for sources in self.client.tool.hosted_extractors.sources.iterate(limit=None):
+        for sources in self.client.hosted_extractors.sources.iterate(limit=None):
             yield from sources
 
     def dump_resource(
         self, resource: HostedExtractorSourceResponseUnion, local: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        # Secrets and certificates cannot be compared (API never returns them). Dumping only
-        # the identifier when a local YAML exists makes deploy always upsert.
-        if local:
-            HighSeverityWarning(
-                "Sources that contain credentials are always considered as changed and will be redeployed every time"
-            ).print_warning(console=self.client.console)
-            return self.dump_id(self.get_id(resource))
         dumped = resource.dump()
         dumped.pop("createdTime", None)
         dumped.pop("lastUpdatedTime", None)
-        # API returns certificate metadata (thumbprint/expiry) that cannot be redeployed.
-        dumped.pop("caCertificate", None)
-        dumped.pop("authCertificate", None)
+        if isinstance(resource, EventHubSourceResponse):
+            if not (local and "keyName" in local):
+                # Deprecated, but still returned by the API even if it is not set.
+                dumped.pop("keyName", None)
+
+        local_auth = local.get("authentication") if local else None
+        if isinstance(local_auth, dict) and isinstance(dumped.get("authentication"), dict):
+            # The API does not return sensitive strings (passwords, secrets, tokens). We set them equal
+            # to the local values as any actual change will be caught by the hash comparison and redeployed.
+            # Furthermore, it should not confuse the user as all sensitive strings are hidden from terminal output.
+            dumped_auth = dumped["authentication"]
+            for field_name, _ in self._sensitive_auth_fields(local_auth):
+                if field_name in local_auth:
+                    dumped_auth[field_name] = local_auth[field_name]
+
+        if dumped.get("scheme") == "https" and local and "scheme" not in local:
+            # We remove the default set by the API to avoid unnecessary redeploys.
+            dumped.pop("scheme")
+
+        # API returns certificate metadata (thumbprint/expiry) that cannot be redeployed. Re-inject the
+        # local certificate so an unchanged source is not flagged as changed. Any change to the certificate
+        # (including its private key or key password) is caught by the hash stored in metadata.
+        for cert_key, _ in self._CERTIFICATE_KEYS:
+            if local and isinstance(local.get(cert_key), dict | str):
+                dumped[cert_key] = local[cert_key]
+            else:
+                dumped.pop(cert_key, None)
         return dumped
+
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        raw_data_list = super().load_resource_file(filepath, environment_variables)
+        for raw_data in raw_data_list:
+            metadata = raw_data.get("metadata", {}) or {}
+            authentication = raw_data.get("authentication")
+            if isinstance(authentication, dict):
+                for field_name, metadata_key in self._sensitive_auth_fields(authentication):
+                    secret = authentication.get(field_name)
+                    if isinstance(secret, str) and secret:
+                        metadata[metadata_key] = calculate_secure_hash(secret, shorten=True)
+            for cert_key, metadata_key in self._CERTIFICATE_KEYS:
+                certificate = raw_data.get(cert_key)
+                if isinstance(certificate, dict | str):
+                    metadata[metadata_key] = calculate_secure_hash(certificate, shorten=True)
+            if metadata:
+                raw_data["metadata"] = metadata
+        return raw_data_list
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> HostedExtractorSourceRequestUnion:
         loaded = HostedExtractorSourceRequest.validate_python(resource)
@@ -186,6 +272,27 @@ class HostedExtractorSourceIO(
             # Assume all keys are sensitive. Ensuring that we do not expose secrets.
             yield from set(auth.dump().keys()) - {"type"}
 
+    @classmethod
+    def _sensitive_auth_fields(cls, authentication: dict[str, Any]) -> Iterable[tuple[str, str]]:
+        """Yields (field name in the authentication object, metadata hash key) for each sensitive string.
+
+        The hash of each sensitive string is stored in the resource metadata so that a change to a secret
+        is detected (and triggers a redeploy) even though the API never returns the secret itself.
+        """
+        auth_type = authentication.get("type")
+        if auth_type in ("basic", "scramSha256", "scramSha512"):
+            yield "password", cls._MetadataKey.AUTH_BASIC_PASSWORD
+        elif auth_type == "clientCredentials":
+            yield "clientSecret", cls._MetadataKey.AUTH_CLIENT_SECRET
+        elif auth_type in ("header", "query"):
+            yield "value", cls._MetadataKey.AUTH_VALUE
+        else:
+            # Unknown authentication type. Assume every field (except the discriminator 'type') is
+            # sensitive to ensure we do not expose secrets.
+            for field in authentication:
+                if field != "type":
+                    yield field, cls._MetadataKey.auth_unknown(field)
+
 
 @final
 class HostedExtractorDestinationIO(
@@ -205,16 +312,20 @@ class HostedExtractorDestinationIO(
     _doc_url = "Destinations/operation/create_destinations"
     yaml_cls = HostedExtractorDestinationYAML
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
-        super().__init__(client, build_dir, console)
-        self._authentication_by_id: dict[str, ClientCredentials] = {}
+    def __init__(self, client: ToolkitClient):
+        super().__init__(client)
+        self._authentication_by_id: dict[str, ClientCredentialsSessionRequest] = {}
 
     @property
     def display_name(self) -> str:
         return "hosted extractor destinations"
 
     @classmethod
-    def get_id(cls, item: HostedExtractorDestinationRequest | HostedExtractorDestinationResponse | dict) -> ExternalId:
+    def get_id(
+        cls, item: HostedExtractorDestinationRequest | HostedExtractorDestinationResponse | ExternalId | dict
+    ) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -224,7 +335,7 @@ class HostedExtractorDestinationIO(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -237,19 +348,20 @@ class HostedExtractorDestinationIO(
             yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[HostedExtractorDestinationResponse]:
-        return self.client.tool.hosted_extractors.destinations.create(list(items))
+        return self.client.hosted_extractors.destinations.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorDestinationResponse]:
-        return self.client.tool.hosted_extractors.destinations.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.hosted_extractors.destinations.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[HostedExtractorDestinationResponse]:
-        return self.client.tool.hosted_extractors.destinations.update(list(items), mode="replace")
+        return self.client.hosted_extractors.destinations.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.hosted_extractors.destinations.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.hosted_extractors.destinations.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -257,17 +369,24 @@ class HostedExtractorDestinationIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorDestinationResponse]:
-        for destinations in self.client.tool.hosted_extractors.destinations.iterate(limit=None):
+        for destinations in self.client.hosted_extractors.destinations.iterate(limit=None):
             yield from destinations
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> HostedExtractorDestinationRequest:
         if raw_auth := resource.pop("credentials", None):
-            credentials = ClientCredentials._load(raw_auth)
-            self._authentication_by_id[self.get_id(resource).external_id] = credentials
+            external_id = self.get_id(resource).external_id
+            credentials = read_auth(
+                raw_auth,
+                self.client.config,
+                external_id,
+                "hosted extractor destination",
+                console=self.console,
+            )
+            self._authentication_by_id[external_id] = credentials
             if is_dry_run:
                 resource["credentials"] = {"nonce": "dummy_nonce"}
             else:
-                session = self.client.iam.sessions.create(credentials, "CLIENT_CREDENTIALS")
+                session = self.client.sessions.create_single(credentials)
                 resource["credentials"] = {"nonce": session.nonce}
         if ds_external_id := resource.pop("targetDataSetExternalId", None):
             resource["targetDataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
@@ -321,7 +440,9 @@ class HostedExtractorJobIO(
         return "hosted extractor jobs"
 
     @classmethod
-    def get_id(cls, item: HostedExtractorJobRequest | HostedExtractorJobResponse | dict) -> ExternalId:
+    def get_id(cls, item: HostedExtractorJobRequest | HostedExtractorJobResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -331,7 +452,7 @@ class HostedExtractorJobIO(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -350,22 +471,34 @@ class HostedExtractorJobIO(
         local = local or {}
         if not dumped.get("config") and "config" not in local:
             dumped.pop("config", None)
+        cdf_format: dict | None = dumped["format"] if isinstance(dumped.get("format"), dict) else None
+        if cdf_format:
+            if isinstance(local_format := local.get("format"), dict):
+                if cdf_format.get("encoding") == "utf8" and "encoding" not in local_format:
+                    # The API returns a default encoding of "utf8" even if it is not set. We remove it to avoid unnecessary redeploys.
+                    cdf_format.pop("encoding")
+            if cdf_format.get("type") == "custom" and "expression" in cdf_format:
+                # The API returns a default expression fetched from the mapping itself.
+                # removing it.
+                cdf_format.pop("expression")
+
         return dumped
 
     def create(self, items: Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
-        return self.client.tool.hosted_extractors.jobs.create(list(items))
+        return self.client.hosted_extractors.jobs.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorJobResponse]:
-        return self.client.tool.hosted_extractors.jobs.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.hosted_extractors.jobs.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
-        return self.client.tool.hosted_extractors.jobs.update(list(items), mode="replace")
+        return self.client.hosted_extractors.jobs.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.hosted_extractors.jobs.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.hosted_extractors.jobs.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -373,7 +506,7 @@ class HostedExtractorJobIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorJobResponse]:
-        for jobs in self.client.tool.hosted_extractors.jobs.iterate(limit=None):
+        for jobs in self.client.hosted_extractors.jobs.iterate(limit=None):
             yield from jobs
 
     @classmethod
@@ -408,7 +541,11 @@ class HostedExtractorMappingIO(
         return "hosted extractor mappings"
 
     @classmethod
-    def get_id(cls, item: HostedExtractorMappingRequest | HostedExtractorMappingResponse | dict) -> ExternalId:
+    def get_id(
+        cls, item: HostedExtractorMappingRequest | HostedExtractorMappingResponse | ExternalId | dict
+    ) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -418,7 +555,7 @@ class HostedExtractorMappingIO(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -435,19 +572,20 @@ class HostedExtractorMappingIO(
         return []
 
     def create(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:
-        return self.client.tool.hosted_extractors.mappings.create(list(items))
+        return self.client.hosted_extractors.mappings.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorMappingResponse]:
-        return self.client.tool.hosted_extractors.mappings.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.hosted_extractors.mappings.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:
-        return self.client.tool.hosted_extractors.mappings.update(list(items), mode="replace")
+        return self.client.hosted_extractors.mappings.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.hosted_extractors.mappings.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.hosted_extractors.mappings.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,
@@ -455,5 +593,5 @@ class HostedExtractorMappingIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorMappingResponse]:
-        for mappings in self.client.tool.hosted_extractors.mappings.iterate(limit=None):
+        for mappings in self.client.hosted_extractors.mappings.iterate(limit=None):
             yield from mappings

@@ -16,7 +16,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.resource_ios._datamodel import DataModelIO
 from cognite_toolkit._cdf_tk.resource_ios._function import FunctionIO
@@ -48,15 +47,20 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
     resource_write_cls = AgentRequest
     kind = "Agent"
     yaml_cls = AgentYAML
-    extra_content_property = "instructions"
     dependencies = frozenset(
-        {FunctionIO, DataModelIO, *({SkillIO} if FeatureFlag.is_enabled(Flags.AGENT_SKILLS) else set())}
+        {
+            FunctionIO,
+            DataModelIO,
+            SkillIO,
+        }
     )
     _doc_base_url = ""
     _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/main_ai_agents_post/"
 
     @classmethod
-    def get_id(cls, item: AgentRequest | AgentResponse | dict) -> ExternalId:
+    def get_id(cls, item: AgentRequest | AgentResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return item.as_id()
@@ -66,7 +70,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @staticmethod
@@ -120,7 +124,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         if not instructions_file.is_file():
             yield FailedReadExtra(
                 source_path=instructions_file,
-                code="MISSING",
+                code="MISSING-REFERENCED-FILE",
                 error=f"Instructions file {instructions_file.as_posix()} not found or is not a file",
             )
             return
@@ -149,7 +153,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             if not tools_file.is_file():
                 yield FailedReadExtra(
                     source_path=tools_file,
-                    code="MISSING",
+                    code="MISSING-REFERENCED-FILE",
                     error=f"Tools file {tools_file.as_posix()} not found or is not a file",
                 )
                 continue
@@ -159,7 +163,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             if parsed_content is None:
                 yield FailedReadExtra(
                     source_path=tools_file,
-                    code="SYNTAX-ERROR",
+                    code="INVALID-FILE-CONTENT",
                     error=f"Tools file {tools_file.as_posix()} is not valid YAML",
                 )
                 continue
@@ -217,7 +221,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         if not code_file.is_file():
             return FailedReadExtra(
                 source_path=code_file,
-                code="MISSING",
+                code="MISSING-REFERENCED-FILE",
                 error=f"Python code file {code_file.as_posix()} not found or is not a file",
             )
         content = safe_read(code_file, encoding=BUILD_FOLDER_ENCODING)
@@ -239,9 +243,6 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
     def split_resource(
         self, base_filepath: Path, resource: dict[str, Any]
     ) -> Iterable[tuple[Path, dict[str, Any] | str]]:
-        if not Flags.V09.is_enabled():
-            yield from super().split_resource(base_filepath, resource)
-            return
 
         if instructions := resource.pop("instructions", None):
             md_path = base_filepath.with_suffix(".md")
@@ -291,9 +292,8 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
                     yield from cls._query_knowledge_graph_dependencies(tool)
                 case Query():
                     yield from cls._query_dependencies(tool)
-        if FeatureFlag.is_enabled(Flags.AGENT_SKILLS):
-            for skill_external_id in resource.skills or []:
-                yield SkillIO, ExternalId(external_id=skill_external_id)
+        for skill_external_id in resource.skills or []:
+            yield SkillIO, ExternalId(external_id=skill_external_id)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[AgentRequest]) -> ScopeDefinition:
@@ -332,15 +332,15 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             ) from None
 
     def create(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
-        return self.client.tool.agents.create(self.topological_sort(items))
+        return self.client.agents.create(self.topological_sort(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[AgentResponse]:
-        return self.client.tool.agents.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.agents.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
-        return self.client.tool.agents.update(self.topological_sort(items))
+        return self.client.agents.update(self.topological_sort(items))
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         # The agents service rejects deleting an agent that is still referenced as a subagent by
         # another agent, so the referencing agents must be deleted before the subagents they reference,
         # i.e. the reverse of the create/update order.
@@ -350,8 +350,8 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         # Ids that could not be retrieved (e.g. already deleted) are appended at the end.
         ordered_ids.extend(id_ for id_ in ids if id_ not in retrieved_ids)
 
-        self.client.tool.agents.delete(ordered_ids, ignore_unknown_ids=True)
-        return len(ids)
+        self.client.agents.delete(ordered_ids, ignore_unknown_ids=True)
+        return ordered_ids
 
     def _iterate(
         self,
@@ -359,7 +359,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[AgentResponse]:
-        return self.client.tool.agents.list(limit=None)
+        return self.client.agents.list(limit=None)
 
     def dump_resource(self, resource: AgentResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()

@@ -243,7 +243,7 @@ class AssetExternalIdTargetSpaceResolver:
     def _root_internal_id_to_target_space(
         client: ToolkitClient, target_by_root_asset: Mapping[str, str]
     ) -> dict[int, str]:
-        root_assets = client.tool.assets.retrieve(
+        root_assets = client.assets.retrieve(
             ExternalId.from_external_ids(target_by_root_asset.keys()), ignore_unknown_ids=True
         )
         root_id_to_target: dict[int, str] = {}
@@ -261,9 +261,7 @@ class AssetExternalIdTargetSpaceResolver:
                 asset_external_ids.add(asset_external_id)
         if not asset_external_ids:
             return
-        assets = self._client.tool.assets.retrieve(
-            ExternalId.from_external_ids(asset_external_ids), ignore_unknown_ids=True
-        )
+        assets = self._client.assets.retrieve(ExternalId.from_external_ids(asset_external_ids), ignore_unknown_ids=True)
         found_by_external_id = {asset.external_id: asset.root_id for asset in assets if asset.external_id is not None}
         for asset_external_id in asset_external_ids:
             self._root_id_by_asset_external_id[asset_external_id] = found_by_external_id.get(asset_external_id)

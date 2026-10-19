@@ -30,9 +30,9 @@ from cognite_toolkit._cdf_tk.yaml_classes.location import AssetCentricFields
 
 from ._classic import AssetIO, SequenceIO
 from ._data_organization import DataSetsIO
-from ._datamodel import DataModelIO, SpaceCRUD, ViewIO
-from ._file import FileMetadataCRUD
-from ._timeseries import TimeSeriesCRUD
+from ._datamodel import DataModelIO, SpaceIO, ViewIO
+from ._file import FileMetadataIO
+from ._timeseries import TimeSeriesIO
 
 
 @final
@@ -46,11 +46,11 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
             AssetIO,
             DataSetsIO,
             DataModelIO,
-            SpaceCRUD,
+            SpaceIO,
             ViewIO,
             SequenceIO,
-            FileMetadataCRUD,
-            TimeSeriesCRUD,
+            FileMetadataIO,
+            TimeSeriesIO,
         }
     )
     kind = "LocationFilter"
@@ -73,7 +73,9 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
             yield LocationFiltersAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: LocationFilterRequest | LocationFilterResponse | dict) -> ExternalId:
+    def get_id(cls, item: LocationFilterRequest | LocationFilterResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -94,7 +96,7 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
         return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return id.external_id
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LocationFilterRequest:
@@ -196,30 +198,30 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
             # These are set if lookup has been deferred
             if item.parent_external_id and item.parent_id == -1:
                 item.parent_id = self.client.lookup.location_filters.id(item.parent_external_id)
-            created.extend(self.client.tool.location_filters.create([item]))
+            created.extend(self.client.location_filters.create([item]))
         return created
 
-    def retrieve(self, external_ids: Sequence[ExternalId]) -> list[LocationFilterResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[LocationFilterResponse]:
         # Use flat=True to get all locations in a flat list
-        all_locations = self.client.tool.location_filters.list(flat=True)
-        external_id_set = {ext_id.external_id for ext_id in external_ids}
+        all_locations = self.client.location_filters.list(flat=True)
+        external_id_set = {ext_id.external_id for ext_id in ids}
         return [loc for loc in all_locations if loc.external_id in external_id_set]
 
     def update(self, items: Sequence[LocationFilterRequest]) -> list[LocationFilterResponse]:
-        all_locations = self.client.tool.location_filters.list(flat=True)
+        all_locations = self.client.location_filters.list(flat=True)
         ids = {loc.external_id: loc.id for loc in all_locations}
         # Set the id on each item before updating
         for item in items:
             item.id = ids[item.external_id]
-        return self.client.tool.location_filters.update(items)
+        return self.client.location_filters.update(items)
 
-    def delete(self, external_ids: Sequence[ExternalId]) -> int:
-        locations = self.retrieve(external_ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        locations = self.retrieve(ids)
         if not locations:
-            return 0
-        ids = [InternalId(id=loc.id) for loc in locations]
-        self.client.tool.location_filters.delete(ids)
-        return len(ids)
+            return []
+        internal_ids = [InternalId(id=loc.id) for loc in locations]
+        self.client.location_filters.delete(internal_ids)
+        return [ExternalId(external_id=loc.external_id) for loc in locations if loc.external_id is not None]
 
     def _iterate(
         self,
@@ -227,7 +229,7 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[LocationFilterResponse]:
-        for chunk in self.client.tool.location_filters.iterate(flat=True):
+        for chunk in self.client.location_filters.iterate(flat=True):
             yield from chunk
 
     @classmethod
@@ -254,9 +256,9 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
         for view in resource.views or []:
             yield ViewIO, ViewId(space=view.space, external_id=view.external_id, version=view.version)
         for space in resource.instance_spaces or []:
-            yield SpaceCRUD, SpaceId(space=space)
+            yield SpaceIO, SpaceId(space=space)
         if resource.user_data_instance_space:
-            yield SpaceCRUD, SpaceId(space=resource.user_data_instance_space)
+            yield SpaceIO, SpaceId(space=resource.user_data_instance_space)
         for data_model in resource.data_models or []:
             yield (
                 DataModelIO,

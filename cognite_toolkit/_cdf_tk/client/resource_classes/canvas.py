@@ -1,8 +1,7 @@
-import sys
 from collections import defaultdict
 from collections.abc import Set
 from datetime import datetime, timezone
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal, Self
 from uuid import uuid4
 
 from pydantic import Field, JsonValue, model_validator
@@ -24,11 +23,6 @@ from .data_modeling import (
     move_response_properties,
 )
 from .data_modeling._wrapped import move_request_properties
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 CANVAS_INSTANCE_SPACE = "IndustrialCanvasInstanceSpace"
 SOLUTION_TAG_SPACE = "SolutionTagsInstanceSpace"

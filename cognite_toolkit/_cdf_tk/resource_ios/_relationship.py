@@ -19,8 +19,8 @@ from cognite_toolkit._cdf_tk.yaml_classes import RelationshipYAML
 
 from ._classic import AssetIO, EventIO, SequenceIO
 from ._data_organization import DataSetsIO, LabelIO
-from ._file import FileMetadataCRUD
-from ._timeseries import TimeSeriesCRUD
+from ._file import FileMetadataIO
+from ._timeseries import TimeSeriesIO
 
 
 @final
@@ -30,7 +30,7 @@ class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipRes
     resource_write_cls = RelationshipRequest
     kind = "Relationship"
     yaml_cls = RelationshipYAML
-    dependencies = frozenset({DataSetsIO, AssetIO, EventIO, SequenceIO, FileMetadataCRUD, TimeSeriesCRUD, LabelIO})
+    dependencies = frozenset({DataSetsIO, AssetIO, EventIO, SequenceIO, FileMetadataIO, TimeSeriesIO, LabelIO})
     _doc_url = "Relationships/operation/createRelationships"
 
     @property
@@ -38,7 +38,9 @@ class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipRes
         return "relationships"
 
     @classmethod
-    def get_id(cls, item: RelationshipRequest | RelationshipResponse | dict) -> ExternalId:
+    def get_id(cls, item: RelationshipRequest | RelationshipResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if not item.external_id:
@@ -59,28 +61,28 @@ class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipRes
             yield RelationshipsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[RelationshipRequest]) -> list[RelationshipResponse]:
-        return self.client.tool.relationships.create(list(items))
+        return self.client.relationships.create(list(items))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[RelationshipResponse]:
-        return self.client.tool.relationships.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.relationships.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[RelationshipRequest]) -> list[RelationshipResponse]:
-        return self.client.tool.relationships.update(list(items))
+        return self.client.relationships.update(list(items))
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         if not ids:
-            return 0
+            return []
         try:
-            self.client.tool.relationships.delete(list(ids))
+            self.client.relationships.delete(list(ids))
         except ToolkitAPIError as e:
             if missing := {ExternalId.model_validate(item) for item in e.missing or []}:
                 if existing := (set(ids) - missing):
-                    self.client.tool.relationships.delete(list(existing))
-                    return len(existing)
-                else:
-                    return 0
+                    existing_list = list(existing)
+                    self.client.relationships.delete(existing_list)
+                    return existing_list
+                return []
             raise
-        return len(ids)
+        return list(ids)
 
     def _iterate(
         self,
@@ -91,7 +93,7 @@ class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipRes
         filter: ClassicFilter | None = None
         if data_set_external_id:
             filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
-        for items in self.client.tool.relationships.iterate(filter=filter, limit=None):
+        for items in self.client.relationships.iterate(filter=filter, limit=None):
             yield from items
 
     @classmethod
@@ -103,8 +105,8 @@ class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipRes
         type_to_crud: dict[str, type[ResourceIO]] = {
             "asset": AssetIO,
             "sequence": SequenceIO,
-            "timeseries": TimeSeriesCRUD,
-            "file": FileMetadataCRUD,
+            "timeseries": TimeSeriesIO,
+            "file": FileMetadataIO,
             "event": EventIO,
         }
         for type_value, id_value in [

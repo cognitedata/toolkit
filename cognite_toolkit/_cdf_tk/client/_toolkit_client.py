@@ -1,6 +1,3 @@
-from typing import cast
-
-from cognite.client import CogniteClient
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.api.charts import ChartsAPI
@@ -29,6 +26,7 @@ from .api.groups import GroupsAPI
 from .api.hosted_extractors import HostedExtractorsAPI
 from .api.infield import InfieldAPI
 from .api.instances import InstancesAPI
+from .api.integrations import IntegrationsAPI
 from .api.labels import LabelsAPI
 from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
@@ -38,32 +36,39 @@ from .api.raw import RawAPI
 from .api.records import RecordsAPI
 from .api.relationships import RelationshipsAPI
 from .api.rulesets import RuleSetsAPI
+from .api.sap_writeback import SAPWritebackAPI
 from .api.search_config import SearchConfigurationsAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
+from .api.sessions import SessionAPI
 from .api.signal_sinks import SignalSinksAPI
 from .api.signal_subscriptions import SignalSubscriptionsAPI
 from .api.simulators import SimulatorsAPI
 from .api.skills import SkillsAPI
 from .api.spaces import SpacesAPI
+from .api.statistics import StatisticsAPI
 from .api.streamlit_ import StreamlitAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI
 from .api.timeseries import TimeSeriesAPI
-from .api.token import TokenAPI, ToolkitTokenAPI
+from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
 from .api.user_profiles import UserProfilesAPI
-from .api.verify import VerifyAPI
 from .api.views import ViewsAPI
 from .api.workflows import WorkflowsAPI
 from .config import ToolkitClientConfig
 
 
-class ToolAPI:
-    """This is reimplemented CogniteAPIs in Toolkit"""
-
-    def __init__(self, http_client: HTTPClient, console: Console) -> None:
+class ToolkitClient:
+    def __init__(
+        self,
+        config: ToolkitClientConfig,
+        console: Console | None = None,
+    ) -> None:
+        self.config = config
+        http_client = HTTPClient(config, console=console)
         self.http_client = http_client
+        self.console: Console = console or Console(markup=True)
         self.agents = AgentsAPI(http_client)
         self.skills = SkillsAPI(http_client)
         self.apps = AppsAPI(http_client)
@@ -103,40 +108,18 @@ class ToolAPI:
         self.signal_sinks = SignalSinksAPI(http_client)
         self.signal_subscriptions = SignalSubscriptionsAPI(http_client)
         self.streamlit = StreamlitAPI(http_client)
-
-
-class ToolkitClient(CogniteClient):
-    def __init__(
-        self,
-        config: ToolkitClientConfig,
-        console: Console | None = None,
-    ) -> None:
-        super().__init__(config=config)
-        http_client = HTTPClient(config, console=console)
-        self.http_client = http_client
-        self.console: Console = console or Console(markup=True)
-        self.tool = ToolAPI(http_client, self.console)
-
-        self.verify = VerifyAPI(config, self)
-        self.lookup = LookUpGroup(config, self, self.console)
+        self.lookup = LookUpGroup(self)
         self.canvas = IndustrialCanvasAPI(http_client)
-        self.migration = MigrationAPI(self.tool.instances, http_client)
-        self.token = TokenAPI(self)
+        self.migration = MigrationAPI(self.instances, http_client)
         self.charts = ChartsAPI(http_client)
         self.project = ProjectAPI(http_client)
         self.principals = PrincipalsAPI(http_client=http_client, project_api=self.project)
+        self.sessions = SessionAPI(http_client)
         self.user_profiles = UserProfilesAPI(http_client)
         self.infield = InfieldAPI(http_client)
         self.records = RecordsAPI(http_client)
+        self.statistics = StatisticsAPI(http_client)
         self.streams = StreamsAPI(http_client)
         self.alerts = AlertsAPI(http_client)
-
-    @property
-    def config(self) -> ToolkitClientConfig:
-        """Returns a config object containing the configuration for the current client.
-
-        Returns:
-            ToolkitClientConfig: The configuration object.
-        """
-
-        return cast(ToolkitClientConfig, super().config)
+        self.sap_writeback = SAPWritebackAPI(http_client)
+        self.integrations = IntegrationsAPI(http_client)

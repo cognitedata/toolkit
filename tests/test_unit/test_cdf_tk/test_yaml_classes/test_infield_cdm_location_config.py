@@ -1,0 +1,510 @@
+from collections.abc import Iterable
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
+from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import InFieldCDMLocationConfigYAML
+from tests.data import COMPLETE_ORG_ALPHA_FLAGS
+from tests.test_unit.utils import find_resources
+
+
+def invalid_test_cases() -> Iterable:
+    yield pytest.param(
+        {"name": "MyLocationConfig"},
+        {"Missing required field: 'externalId'", "Missing required field: 'space'"},
+        id="Missing required fields: externalId and space",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "unknownField": "invalid_value",
+            "anotherUnknownField": 123,
+            "featureToggles": {
+                "threeD": True,
+                "invalidToggle": "bad_value",
+            },
+        },
+        {
+            "Unrecognized field in featureToggles: 'invalidToggle'. ",
+            "Unrecognized field: 'anotherUnknownField'",
+            "Unrecognized field: 'unknownField'",
+        },
+        id="Multiple extra fields at different levels",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "featureToggles": {
+                "threeD": "not_a_boolean",
+                "trends": 123,
+            },
+            "accessManagement": {
+                "templateAdmins": "should_be_a_list",
+                "checklistAdmins": 456,
+            },
+            "dataFilters": {
+                "files": {
+                    "path": {
+                        "space": 123,  # Should be string
+                        "externalId": True,  # Should be string
+                    },
+                    "instanceSpaces": "should_be_list",  # Should be list
+                },
+            },
+            "viewMappings": {
+                "asset": {
+                    "space": "my_space",
+                    "version": "v1",
+                    # Missing externalId
+                },
+            },
+            "disciplines": [
+                {
+                    "name": "Engineering",
+                    # Missing externalId
+                },
+            ],
+        },
+        {
+            "Invalid value at accessManagement.checklistAdmins: Input should be a valid list. Got 456.",
+            "Invalid value at accessManagement.templateAdmins: Input should be a valid list. Got 'should_be_a_list'.",
+            "Invalid value at dataFilters.files.instanceSpaces: Input should be a valid list. Got 'should_be_list'.",
+            "Invalid value at dataFilters.files.path.externalId: Input should be a valid string. Got True of type bool. Hint: Use double quotes to force string.",
+            "Invalid value at dataFilters.files.path.space: Input should be a valid string. Got 123 of type int. Hint: Use double quotes to force string.",
+            "Missing required field in disciplines[1]: 'externalId'",
+            "Invalid value at featureToggles.threeD: Input should be a valid boolean. Got 'not_a_boolean' of type str.",
+            "Invalid value at featureToggles.trends: Input should be a valid boolean. Got 123 of type int.",
+            "Missing required field in viewMappings.asset: 'externalId'",
+        },
+        id="Multiple type mismatches across nested structures",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "unknownField": "bad_value",
+            },
+        },
+        {"Unrecognized field in dataExplorationConfig: 'unknownField'. "},
+        id="Unknown field in dataExplorationConfig",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetPropertiesCardConfig": {
+                    "name": {
+                        "orderNumber": -1,
+                    },
+                },
+            },
+        },
+        {
+            "Invalid value at dataExplorationConfig.assetPropertiesCardConfig.name.orderNumber: Input should be greater than or equal to 0"
+        },
+        id="Negative orderNumber in dataExplorationConfig.assetPropertiesCardConfig",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetPropertiesCardConfig": {
+                    "name": {
+                        "unknownField": "bad_value",
+                    },
+                },
+            },
+        },
+        {"Unrecognized field in dataExplorationConfig.assetPropertiesCardConfig.name: 'unknownField'. "},
+        id="Unknown field in dataExplorationConfig.assetPropertiesCardConfig entry",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [],
+            },
+        },
+        {"Invalid value at viewMappings.observation: List should have at least 1 item after validation, not 0"},
+        id="Empty observation list in viewMappings",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsA",
+                        },
+                    },
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsB",
+                        },
+                    },
+                ],
+            },
+        },
+        {"Invalid value at viewMappings.observation: List should have at most 1 item after validation, not 2"},
+        id="Multiple observations in viewMappings not supported",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {"space": "my_space", "version": "v1", "externalId": "ObsA"},
+                ],
+            },
+        },
+        {
+            "Missing required field in viewMappings.observation[1]: 'view'",
+            "Unrecognized fields in viewMappings.observation[1]: 'externalId', 'space' and 'version'. ",
+        },
+        id="Flat legacy ViewMapping shape in viewMappings.observation",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": None,
+                        "space": "my_space",
+                        "version": "v1",
+                        "externalId": "ObsA",
+                    },
+                ],
+            },
+        },
+        {
+            "Empty field in viewMappings.observation[1]: 'view'. "
+            "Hint: Check that its properties are properly indented underneath it.",
+            "Unrecognized fields in viewMappings.observation[1]: 'externalId', 'space' and 'version'. ",
+        },
+        id="Empty view (under-indented siblings) in viewMappings.observation",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "asset": {
+                    "space": "my_space",
+                    "version": "v1",
+                    "externalId": "123invalid",
+                },
+            },
+        },
+        {
+            "Invalid value at viewMappings.asset.externalId: String should match pattern '^[a-zA-Z]([a-zA-Z0-9_]{0,253}[a-zA-Z0-9])?$'"
+        },
+        id="Invalid externalId pattern in viewMappings.asset",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                        },
+                    },
+                ],
+            },
+        },
+        {"Missing required field in viewMappings.observation[1].view: 'externalId'"},
+        id="Missing required field in viewMappings.observation view",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsView",
+                        },
+                        "unknownField": "bad_value",
+                    },
+                ],
+            },
+        },
+        {"Unrecognized field in viewMappings.observation[1]: 'unknownField'. "},
+        id="Unknown field in viewMappings.observation",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsView",
+                        },
+                        "writeBack": {
+                            "notificationsEndpointExternalId": "notif-endpoint",
+                            "unknownField": "bad_value",
+                        },
+                    },
+                ],
+            },
+        },
+        {"Unrecognized field in viewMappings.observation[1].writeBack: 'unknownField'. "},
+        id="Unknown field in viewMappings.observation.writeBack",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsView",
+                        },
+                        "writeBack": {},
+                    },
+                ],
+            },
+        },
+        {"Missing required field in viewMappings.observation[1].writeBack: 'notificationsEndpointExternalId'"},
+        id="Missing notificationsEndpointExternalId in viewMappings.observation.writeBack",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsView",
+                        },
+                        "fieldsConfig": {
+                            "assets": {
+                                "orderNumber": -1,
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+        {
+            "Invalid value at viewMappings.observation[1].fieldsConfig.assets.orderNumber: Input should be greater than or equal to 0"
+        },
+        id="Negative orderNumber in viewMappings.observation.fieldsConfig",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsView",
+                        },
+                        "fieldsConfig": {
+                            "assets": {
+                                "unknownField": "bad_value",
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+        {"Unrecognized field in viewMappings.observation[1].fieldsConfig.assets: 'unknownField'. "},
+        id="Unknown field in viewMappings.observation.fieldsConfig entry",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetActivitiesCardView": {
+                    "space": "my_space",
+                    "version": "v1",
+                    "externalId": "MyActivityView",
+                    "unknownNested": "x",
+                },
+            },
+        },
+        {"Unrecognized field in dataExplorationConfig.assetActivitiesCardView: 'unknownNested'. "},
+        id="Unknown field in dataExplorationConfig.assetActivitiesCardView",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetActivitiesCardView": {
+                    "space": "my_space",
+                    "version": "v1",
+                },
+            },
+        },
+        {"Missing required field in dataExplorationConfig.assetActivitiesCardView: 'externalId'"},
+        id="Missing required field in dataExplorationConfig.assetActivitiesCardView",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetNotificationsCardView": {
+                    "space": "my_space",
+                    "version": "v1",
+                    "externalId": "MyNotificationView",
+                    "extraProp": 1,
+                },
+            },
+        },
+        {"Unrecognized field in dataExplorationConfig.assetNotificationsCardView: 'extraProp'. "},
+        id="Unknown field in dataExplorationConfig.assetNotificationsCardView",
+    )
+    yield pytest.param(
+        {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetNotificationsCardView": {
+                    "space": "my_space",
+                    "version": "v1",
+                },
+            },
+        },
+        {"Missing required field in dataExplorationConfig.assetNotificationsCardView: 'externalId'"},
+        id="Missing required field in dataExplorationConfig.assetNotificationsCardView",
+    )
+
+
+class TestInfieldCDMLocationConfigYAML:
+    @pytest.mark.parametrize(
+        "data",
+        list(
+            find_resources("InFieldCDMLocationConfig", resource_dir="cdf_applications", base=COMPLETE_ORG_ALPHA_FLAGS)
+        ),
+    )
+    def test_load_valid(self, data: dict[str, Any]) -> None:
+        loaded = InFieldCDMLocationConfigYAML.model_validate(data)
+
+        dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
+        assert dumped == data
+
+    @pytest.mark.parametrize("data, expected_errors", list(invalid_test_cases()))
+    def test_invalid_error_messages(self, data: dict[str, Any], expected_errors: set[str]) -> None:
+        warning_list = validate_resource_yaml_pydantic(data, InFieldCDMLocationConfigYAML, Path("some_file.yaml"))
+        assert len(warning_list) == 1
+        format_warning = warning_list[0]
+        assert isinstance(format_warning, ResourceFormatWarning)
+
+        assert set(format_warning.errors) == expected_errors
+
+    def test_load_valid_observation_view_config(self) -> None:
+        data = {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsView",
+                        },
+                        "writeBack": {
+                            "notificationsEndpointExternalId": "notif-endpoint",
+                        },
+                    },
+                ],
+            },
+        }
+        loaded = InFieldCDMLocationConfigYAML.model_validate(data)
+        dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
+        assert dumped == data
+
+    def test_load_valid_observation_view_config_with_fields_config(self) -> None:
+        data = {
+            "externalId": "my_config",
+            "space": "my_space",
+            "viewMappings": {
+                "observation": [
+                    {
+                        "view": {
+                            "space": "my_space",
+                            "version": "v1",
+                            "externalId": "ObsView",
+                        },
+                        "fieldsConfig": {
+                            "assets": {
+                                "isRequired": True,
+                                "isEditable": False,
+                                "orderNumber": 1,
+                            },
+                            "files": {
+                                "orderNumber": 2,
+                            },
+                        },
+                        "writeBack": {
+                            "notificationsEndpointExternalId": "notif-endpoint",
+                        },
+                    },
+                ],
+            },
+        }
+        loaded = InFieldCDMLocationConfigYAML.model_validate(data)
+        dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
+        assert dumped == data
+
+    def test_load_valid_asset_properties_card_config(self) -> None:
+        data = {
+            "externalId": "my_config",
+            "space": "my_space",
+            "dataExplorationConfig": {
+                "assetPropertiesCardConfig": {
+                    "name": {
+                        "displayName": "Asset name",
+                        "orderNumber": 0,
+                    },
+                    "description": {
+                        "orderNumber": 1,
+                    },
+                },
+            },
+        }
+        loaded = InFieldCDMLocationConfigYAML.model_validate(data)
+        dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
+        assert dumped == data

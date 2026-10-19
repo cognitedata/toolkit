@@ -18,16 +18,17 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildParameters,
     BuildVariable,
     BuiltResource,
-    ResourceType,
 )
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes import YAMLComments
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     ExtractionPipelineConfigIO,
+    ResourceFileIO,
     ResourceIO,
+    ResourceType,
     ViewIO,
+    get_resource_build_io,
 )
 from cognite_toolkit._cdf_tk.ui import (
     ToolkitPanel,
@@ -98,22 +99,17 @@ class PullV2Command(ToolkitCommand):
             config_yaml: Optional path to a specific configuration YAML file to pull.
             dry_run: If True, no files will be modified; only a summary of changes will be displayed.
             verbose: If True, detailed output will be printed during execution.
-            build_env_name: Name of the build environment to use when v09 is disabled.
+            build_env_name: Unused. Kept so existing callers can still pass a build environment name.
         """
         client = env_vars.get_client(is_strict_validation=False)
         console = client.console
         build_dir = Path(tempfile.mkdtemp())
         try:
-            if Flags.V09.is_enabled():
-                config_yaml_input = config_yaml
-            else:
-                config_yaml_input = (
-                    organization_dir / f"config.{build_env_name}.yaml" if build_env_name else config_yaml
-                )
+            config_yaml_input = config_yaml
             parameters = BuildParameters(
                 organization_dir=organization_dir,
                 build_dir=build_dir,
-                config_yaml=config_yaml_input,
+                config_yamls=[config_yaml_input] if config_yaml_input else None,
                 user_selected_modules=user_selected_modules,
                 verbose=False,
                 write_insights=False,
@@ -148,9 +144,7 @@ class PullV2Command(ToolkitCommand):
 
         results: list[PullResult] = []
         for resource_type, resources in resources_by_type.items():
-            resource_io = resources[0].crud_cls.create_loader(
-                client, build_dir=build_folder.build_dir, console=client.console
-            )
+            resource_io = resources[0].crud_cls.create_io(client)
 
             cdf_resources = resource_io.retrieve([resource.identifier for resource in resources])
             cdf_resource_by_id = {resource_io.get_id(r): r for r in cdf_resources}
@@ -528,13 +522,13 @@ class PullV2Command(ToolkitCommand):
         variables_with_environment_list: list[BuildVariable] = []
         for variable in variables:
             updated_variable = variable
-            if isinstance(updated_variable.value, str) and ENV_VAR_PATTERN.match(updated_variable.value):
+            raw_value = variable.value
+            if isinstance(raw_value, str) and ENV_VAR_PATTERN.match(raw_value):
                 for key, value in environment_variables.items():
-                    if key in updated_variable.value and isinstance(value, str):
+                    if isinstance(value, str) and key in raw_value:
                         # Running through all environment variables, in case multiple are used in the same variable.
-                        updated_variable = updated_variable.model_copy(
-                            update={"value": updated_variable.value.replace(f"${{{key}}}", value)}
-                        )
+                        raw_value = raw_value.replace(f"${{{key}}}", value)
+                updated_variable = variable.model_copy(update={"value": raw_value})
             elif isinstance(variable.value, list):
                 new_value: list[str | int | float | bool] = []
                 for var_item in variable.value:
@@ -571,11 +565,8 @@ class PullV2Command(ToolkitCommand):
                 extra_content, extra_placeholders = BuildVariable.substitute_with_placeholders(
                     safe_read(extra.source_path), built.variables
                 )
-                if (
-                    built.crud_cls.extra_content_property in item_write
-                    and built.crud_cls.extra_content_property is not None
-                ):
-                    new_extra = item_write.pop(built.crud_cls.extra_content_property)
+                if extra.resource_field in item_write and extra.resource_field is not None:
+                    new_extra = item_write.pop(extra.resource_field)
                     for placeholder, variable in extra_placeholders.items():
                         if placeholder in extra_content:
                             new_extra = new_extra.replace(str(variable.value), f"{{{{ {variable.name} }}}}")
@@ -590,9 +581,31 @@ class PullV2Command(ToolkitCommand):
                     base_to_write = split_content
                 elif isinstance(split_content, str):
                     extra_files[split_path] = split_content
-            return replacer.replace(source_with_variable_substitution, source_with_variable_placeholder, base_to_write)
+            return replacer.replace(
+                source_with_variable_substitution,
+                source_with_variable_placeholder,
+                cls._to_source_format(built, base_to_write),
+            )
 
-        return replacer.replace(source_with_variable_substitution, source_with_variable_placeholder, item_write)
+        return replacer.replace(
+            source_with_variable_substitution,
+            source_with_variable_placeholder,
+            cls._to_source_format(built, item_write),
+        )
+
+    @staticmethod
+    def _to_source_format(built: BuiltResource, crud: dict[str, Any]) -> dict[str, Any]:
+        """Convert a CDF dump into the format of the source file.
+
+        Pull reads and writes CDF through the CRUD loader. A ResourceFileIO, such as CatalogDataSet, is stored
+        as another resource and has to be converted with from_crud_type before it is merged back into the source YAML.
+        """
+        if built.source_type is None:
+            return crud
+        io_cls = get_resource_build_io(built.source_type.resource_folder, built.source_type.kind)
+        if not issubclass(io_cls, ResourceFileIO):
+            return crud
+        return io_cls.from_crud_type(crud)
 
 
 class ResourceReplacer:
@@ -784,11 +797,12 @@ class ResourceReplacer:
             # This is a special case for the ExtractionPipelineConfigLoader where the config dict is typically a
             # dict locally, but returned as a string from the server.
             try:
-                to_write = read_yaml_content(to_write)
+                loaded = read_yaml_content(to_write)
             except yaml.YAMLError:
                 ...
             else:
-                return self._replace_dict(current, placeholder_value, to_write, json_path)
+                if isinstance(loaded, dict):
+                    return self._replace_dict(current, placeholder_value, loaded, json_path)
 
         raise ToolkitValueError(
             f"CDF value and local value should be of the same type in {'.'.join(map(str, json_path))}, "

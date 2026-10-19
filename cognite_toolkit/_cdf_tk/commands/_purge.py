@@ -1,6 +1,6 @@
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import date
 from functools import partial
@@ -8,9 +8,7 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 import questionary
-from cognite.client.data_classes import DataSetUpdate
 from cognite.client.data_classes.data_modeling import Edge
-from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from pydantic import JsonValue
 from rich import print
 from rich.console import Console
@@ -24,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsFailedResponse,
     ItemsRequest,
     ItemsSuccessResponse,
+    RequestMessage,
     ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import (
@@ -35,6 +34,28 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    AllScope,
+    AssetRootIDScope,
+    AssetsAcl,
+    DataModelInstancesAcl,
+    DataModelsAcl,
+    DataSetScope,
+    EventsAcl,
+    ExtractionConfigsAcl,
+    ExtractionPipelinesAcl,
+    FilesAcl,
+    IDScopeLowerCase,
+    LabelsAcl,
+    RelationshipsAcl,
+    SequencesAcl,
+    SpaceIDScope,
+    ThreeDAcl,
+    TimeSeriesAcl,
+    TransformationsAcl,
+    WorkflowOrchestrationAcl,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.statistics import SpaceStatisticsResponse
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
@@ -61,20 +82,20 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
 from cognite_toolkit._cdf_tk.resource_ios import (
     AssetIO,
-    ContainerCRUD,
+    ContainerIO,
     DataModelIO,
-    EdgeCRUD,
+    EdgeIO,
     EventIO,
     ExtractionPipelineIO,
-    FileMetadataCRUD,
+    FileMetadataIO,
     LabelIO,
-    NodeCRUD,
+    NodeIO,
     RelationshipIO,
     ResourceIO,
     SequenceIO,
-    SpaceCRUD,
-    ThreeDModelCRUD,
-    TimeSeriesCRUD,
+    SpaceIO,
+    ThreeDModelIO,
+    TimeSeriesIO,
     TransformationIO,
     ViewIO,
     WorkflowIO,
@@ -96,7 +117,6 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
-from cognite_toolkit._cdf_tk.utils.validate_access import ValidateAccess
 
 from ._base import ToolkitCommand
 from ._migrate.data_model import INSTANCE_SOURCE_VIEW_ID, INSTANCE_SPACE_RELOCATION_SOURCE_VIEW_ID
@@ -136,7 +156,7 @@ class DeleteItem(RequestItem):
         exclude_extra: bool = False,
         context: Literal["api", "toolkit"] = "api",
     ) -> dict[str, Any]:
-        return self.item  # type: ignore[return-value]
+        return cast(dict[str, Any], self.item)
 
     def __str__(self) -> str:
         return self.as_id_fun(self.item)
@@ -174,8 +194,7 @@ class DataModelingToDelete(ToDelete):
         def as_id(page: Page[ResourceResponseProtocol]) -> Page[JsonVal]:
             # We know that all data modeling resources implement as_id
             items = [
-                DataItem(tracking_id=item.tracking_id, item=item.item.as_id().dump())  # type: ignore[attr-defined]
-                for item in page.items
+                DataItem(tracking_id=item.tracking_id, item=cast(Any, item.item).as_id().dump()) for item in page.items
             ]
             return page.create_from(items)
 
@@ -213,14 +232,16 @@ class NodesToDelete(ToDelete):
         self, client: ToolkitClient, logger: FileWithAggregationLogger
     ) -> Callable[[Page[ResourceResponseProtocol]], Page[JsonVal]]:
         def check_for_data(page: Page[ResourceResponseProtocol]) -> Page[JsonVal]:
-            tracking_by_node_id = {InstanceId(instance_id=item.item.as_id()): item.tracking_id for item in page.items}  # type: ignore[attr-defined]
+            tracking_by_node_id = {
+                InstanceId(instance_id=cast(Any, item.item).as_id()): item.tracking_id for item in page.items
+            }
             timeseries_ids: set[NodeId] = set()
             files_ids: set[NodeId] = set()
             if not self.delete_datapoints:
-                timeseries = client.tool.timeseries.retrieve(list(tracking_by_node_id), ignore_unknown_ids=True)
+                timeseries = client.timeseries.retrieve(list(tracking_by_node_id), ignore_unknown_ids=True)
                 timeseries_ids = {ts.instance_id for ts in timeseries if ts.instance_id is not None}
             if not self.delete_file_content:
-                files = client.tool.filemetadata.retrieve(list(tracking_by_node_id), ignore_unknown_ids=True)
+                files = client.filemetadata.retrieve(list(tracking_by_node_id), ignore_unknown_ids=True)
                 files_ids = {f.instance_id for f in files if f.instance_id is not None}
             for node_id in timeseries_ids:
                 tracking_id = tracking_by_node_id.get(InstanceId(instance_id=node_id))
@@ -247,7 +268,7 @@ class NodesToDelete(ToDelete):
 
             result: list[DataItem[JsonVal]] = []
             for item in page.items:
-                node_id = item.item.as_id()  # type: ignore[attr-defined]
+                node_id = cast(Any, item.item).as_id()
                 if node_id not in timeseries_ids and node_id not in files_ids:
                     dumped = node_id.dump(include_instance_type=True)
                     result.append(DataItem(tracking_id=item.tracking_id, item=dumped))
@@ -264,15 +285,14 @@ class IdResourceToDelete(ToDelete):
         def as_id(page: Page[ResourceResponseProtocol]) -> Page[JsonVal]:
             # We know that all id resources have an id attribute
             items: list[DataItem[JsonVal]] = [
-                DataItem(tracking_id=item.tracking_id, item={"id": item.item.id})  # type: ignore[attr-defined]
-                for item in page.items
+                DataItem(tracking_id=item.tracking_id, item={"id": cast(Any, item.item).id}) for item in page.items
             ]
             return page.create_from(items)
 
         return as_id
 
     def get_tracking_id(self, resource: ResourceResponseProtocol) -> str:
-        return str(resource.id)  # type: ignore[attr-defined]
+        return str(cast(Any, resource).id)
 
 
 @dataclass
@@ -283,7 +303,7 @@ class ExternalIdToDelete(ToDelete):
         def as_external_id(page: Page[ResourceResponseProtocol]) -> Page[JsonVal]:
             # We know that all external id resources have an external_id attribute
             items: list[DataItem[JsonVal]] = [
-                DataItem(tracking_id=item.tracking_id, item={"externalId": item.item.external_id})  # type: ignore[attr-defined]
+                DataItem(tracking_id=item.tracking_id, item={"externalId": cast(Any, item.item).external_id})
                 for item in page.items
             ]
             return page.create_from(items)
@@ -291,7 +311,7 @@ class ExternalIdToDelete(ToDelete):
         return as_external_id
 
     def get_tracking_id(self, resource: ResourceResponseProtocol) -> str:
-        return str(resource.external_id)  # type: ignore[attr-defined]
+        return str(cast(Any, resource).external_id)
 
 
 @dataclass
@@ -317,16 +337,16 @@ class PurgeCommand(ToolkitCommand):
         dry_run: bool = False,
         verbose: bool = False,
     ) -> DeployResults:
-        stats = client.data_modeling.statistics.spaces.retrieve(selected_space)
-        if stats is None:
+        retrieved_stats = client.statistics.spaces.retrieve([SpaceId(space=selected_space)])
+        if not retrieved_stats:
             raise ToolkitMissingResourceError(f"Space {selected_space!r} does not exist")
+        stats = retrieved_stats[0]
 
         instance_count = stats.nodes + stats.edges
 
-        validator = ValidateAccess(client, "purge")
         # TEMPORARY: The GET /models/statistics endpoint requires datamodelsAcl:read with All scope.
         # This check will be removed once DMS limits are available through the limits service.
-        if instance_count > 0 and validator.data_model(["read"]) is not None:
+        if instance_count > 0 and client.token.verify_acls([DataModelsAcl(actions=["READ"], scope=AllScope())]):
             raise AuthorizationError(
                 "Purging spaces containing instances currently requires datamodelsAcl:read with All scope."
             )
@@ -334,9 +354,9 @@ class PurgeCommand(ToolkitCommand):
         if stats.containers > 0:
             container_ids = [
                 ContainerId(space=c.space, external_id=c.external_id)
-                for c in client.tool.containers.list(filter=ContainerFilter(space=selected_space))
+                for c in client.containers.list(filter=ContainerFilter(space=selected_space))
             ]
-            inspect_results = client.tool.containers.inspect(container_ids)
+            inspect_results = client.containers.inspect(container_ids)
             in_scope_view_ids = [
                 view
                 for inspected in inspect_results
@@ -349,7 +369,7 @@ class PurgeCommand(ToolkitCommand):
 
         if not dry_run:
             if instance_count > 0:
-                project_instance_statistics = client.data_modeling.statistics.project().instances
+                project_instance_statistics = client.statistics.retrieve().instances
                 validate_soft_delete_capacity(
                     project_instance_statistics.soft_deleted_instances,
                     project_instance_statistics.soft_deleted_instances_limit,
@@ -375,12 +395,18 @@ class PurgeCommand(ToolkitCommand):
                 return DeployResults([], "purge", dry_run=dry_run)
 
         # ValidateAuth
+        # We check for write even in dry-run mode. This is because dry-run is expected to fail
+        # if the user cannot perform the purge.
         if include_space or (stats.containers + stats.views + stats.data_models) > 0:
-            # We check for write even in dry-run mode. This is because dry-run is expected to fail
-            # if the user cannot perform the purge.
-            validator.data_model(["read", "write"], spaces={selected_space})
+            if missing := client.token.verify_acls(
+                [DataModelsAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=[selected_space]))]
+            ):
+                raise client.token.create_error(missing, action="purging data models")
         if (stats.nodes + stats.edges) > 0:
-            validator.instances(["read", "write"], spaces={selected_space})
+            if missing := client.token.verify_acls(
+                [DataModelInstancesAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=[selected_space]))]
+            ):
+                raise client.token.create_error(missing, action="purging instances")
 
         to_delete = self._create_to_delete_list_purge_space(client, delete_datapoints, delete_file_content, stats)
         if dry_run:
@@ -388,7 +414,7 @@ class PurgeCommand(ToolkitCommand):
             for item in to_delete:
                 results[item.display_name] = ResourceDeployResult(item.display_name, deleted=item.total)
             if include_space:
-                space_loader = SpaceCRUD.create_loader(client)
+                space_loader = SpaceIO.create_io(client)
                 results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
         else:
             results = self._delete_resources(to_delete, client, verbose, selected_space, None, log_dir)
@@ -399,15 +425,13 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _create_to_delete_list_purge_space(
-        client: ToolkitClient, delete_datapoints: bool, delete_file_content: bool, stats: SpaceStatistics
+        client: ToolkitClient, delete_datapoints: bool, delete_file_content: bool, stats: SpaceStatisticsResponse
     ) -> list[ToDelete]:
         config = client.config
         to_delete = [
-            EdgeToDelete(
-                EdgeCRUD.create_loader(client), stats.edges, config.create_api_url("/models/instances/delete")
-            ),
+            EdgeToDelete(EdgeIO.create_io(client), stats.edges, config.create_api_url("/models/instances/delete")),
             NodesToDelete(
-                NodeCRUD.create_loader(client),
+                NodeIO.create_io(client),
                 stats.nodes,
                 config.create_api_url(
                     "/models/instances/delete",
@@ -416,15 +440,13 @@ class PurgeCommand(ToolkitCommand):
                 delete_file_content=delete_file_content,
             ),
             DataModelingToDelete(
-                DataModelIO.create_loader(client),
+                DataModelIO.create_io(client),
                 stats.data_models,
                 config.create_api_url("/models/datamodels/delete"),
             ),
+            DataModelingToDelete(ViewIO.create_io(client), stats.views, config.create_api_url("/models/views/delete")),
             DataModelingToDelete(
-                ViewIO.create_loader(client), stats.views, config.create_api_url("/models/views/delete")
-            ),
-            DataModelingToDelete(
-                ContainerCRUD.create_loader(client),
+                ContainerIO.create_io(client),
                 stats.containers,
                 config.create_api_url("/models/containers/delete"),
             ),
@@ -432,7 +454,7 @@ class PurgeCommand(ToolkitCommand):
         return to_delete
 
     def _delete_space(self, client: ToolkitClient, selected_space: str, results: DeployResults) -> None:
-        space_loader = SpaceCRUD.create_loader(client)
+        space_loader = SpaceIO.create_io(client)
         try:
             space_loader.delete([SpaceId(space=selected_space)])
             print(f"Space {selected_space} deleted")
@@ -605,17 +627,36 @@ class PurgeCommand(ToolkitCommand):
                 return DeployResults([], "purge", dry_run=dry_run)
 
         # Validate Auth
-        validator = ValidateAccess(client, "purge")
         data_set_id = client.lookup.data_sets.id(selected_data_set_external_id)
         if data_set_id is None:
             raise ToolkitMissingResourceError(f"DataSet {selected_data_set_external_id!r} does not exist")
-        action = cast(Sequence[Literal["read", "write"]], ["read"] if dry_run else ["read", "write"])
+        actions: list[Literal["READ", "WRITE"]] = ["READ"] if dry_run else ["READ", "WRITE"]
         if include_data:
-            # Check asset, events, time series, files, and sequences access, relationships, labels, 3D access.
-            validator.dataset_data(action, dataset_ids={data_set_id})
+            if missing := client.token.verify_acls(
+                [
+                    AssetsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    EventsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    TimeSeriesAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    FilesAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    SequencesAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    RelationshipsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    LabelsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    ThreeDAcl(
+                        actions=["READ"] if dry_run else ["READ", "DELETE"], scope=DataSetScope(ids=[data_set_id])
+                    ),
+                ]
+            ):
+                raise client.token.create_error(missing, action=f"purging {selected_data_set_external_id} dataset")
         if include_configurations:
-            # Check workflow, transformations, extraction pipeline access
-            validator.dataset_configurations(action, dataset_ids={data_set_id})
+            if missing := client.token.verify_acls(
+                [
+                    WorkflowOrchestrationAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    TransformationsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    ExtractionConfigsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                    ExtractionPipelinesAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
+                ]
+            ):
+                raise client.token.create_error(missing, action=f"purging {selected_data_set_external_id} dataset")
 
         to_delete: list[ToDelete] = self._create_to_delete_list_purge_dataset(
             client,
@@ -637,13 +678,26 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _archive_dataset(client: ToolkitClient, data_set: str) -> None:
-        archived = (
-            DataSetUpdate(external_id=data_set)
-            .external_id.set(str(uuid.uuid4()))
-            .metadata.add({"archived": "true"})
-            .write_protected.set(True)
+        # The Toolkit client does not have a way to update a dataset externalId, so
+        # we use a direct HTTP request to do the update
+        request = RequestMessage(
+            endpoint_url=client.config.create_api_url("/datasets/update"),
+            method="POST",
+            body_content={
+                "items": [
+                    {
+                        "externalId": data_set,
+                        "update": {
+                            "externalId": {"set": str(uuid.uuid4())},
+                            "metadata": {"add": {"archived": "true"}},
+                            "writeProtected": {"set": True},
+                        },
+                    }
+                ]
+            },
         )
-        client.data_sets.update(archived)
+        result = client.http_client.request_single_retries(request)
+        _ = result.get_success_or_raise(request)
         print(f"DataSet {data_set} archived")
 
     @staticmethod
@@ -658,31 +712,31 @@ class PurgeCommand(ToolkitCommand):
         to_delete: list[ToDelete] = []
 
         if include_data:
-            three_d_crud = ThreeDModelCRUD.create_loader(client)
+            three_d_crud = ThreeDModelIO.create_io(client)
             to_delete.extend(
                 [
                     ExternalIdToDelete(
-                        RelationshipIO.create_loader(client),
+                        RelationshipIO.create_io(client),
                         RelationshipAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/relationships/delete"),
                     ),
                     IdResourceToDelete(
-                        EventIO.create_loader(client),
+                        EventIO.create_io(client),
                         EventAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/events/delete"),
                     ),
                     IdResourceToDelete(
-                        FileMetadataCRUD.create_loader(client),
+                        FileMetadataIO.create_io(client),
                         FileAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/files/delete"),
                     ),
                     IdResourceToDelete(
-                        TimeSeriesCRUD.create_loader(client),
+                        TimeSeriesIO.create_io(client),
                         TimeSeriesAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/timeseries/delete"),
                     ),
                     IdResourceToDelete(
-                        SequenceIO.create_loader(client),
+                        SequenceIO.create_io(client),
                         SequenceAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/sequences/delete"),
                     ),
@@ -692,22 +746,22 @@ class PurgeCommand(ToolkitCommand):
                         config.create_api_url("/3d/models/delete"),
                     ),
                     AssetToDelete(
-                        AssetIO.create_loader(client),
+                        AssetIO.create_io(client),
                         AssetAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/assets/delete"),
                         recursive=asset_recursive,
                     ),
                     ExternalIdToDelete(
-                        LabelIO.create_loader(client),
+                        LabelIO.create_io(client),
                         LabelCountAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/labels/delete"),
                     ),
                 ]
             )
         if include_configurations:
-            transformation_crud = TransformationIO.create_loader(client)
-            workflow_crud = WorkflowIO.create_loader(client)
-            extraction_pipeline_crud = ExtractionPipelineIO.create_loader(client)
+            transformation_crud = TransformationIO.create_io(client)
+            workflow_crud = WorkflowIO.create_io(client)
+            extraction_pipeline_crud = ExtractionPipelineIO.create_io(client)
 
             to_delete.extend(
                 [
@@ -757,18 +811,17 @@ class PurgeCommand(ToolkitCommand):
         self.validate_not_purging_through_denied_view(selector)
         io = InstanceIO(client)
         console = client.console
-        validator = ValidateAccess(client, default_operation="purge")
-        self.validate_instance_access(validator, selector.get_instance_spaces())
+        self.validate_instance_access(client, selector.get_instance_spaces())
         if unlink:
-            self.validate_timeseries_access(validator)
-            self.validate_file_access(validator)
+            self.validate_timeseries_access(client)
+            self.validate_file_access(client)
 
         total = io.count(selector)
         if total is None or total == 0:
             print("No instances found.")
             return DeleteResults()
         if not dry_run:
-            project_instance_statistics = client.data_modeling.statistics.project().instances
+            project_instance_statistics = client.statistics.retrieve().instances
             validate_soft_delete_capacity(
                 project_instance_statistics.soft_deleted_instances,
                 project_instance_statistics.soft_deleted_instances_limit,
@@ -852,56 +905,115 @@ class PurgeCommand(ToolkitCommand):
             "[bold yellow]cdf data purge space[/] instead or select other views containing the same instances."
         )
 
-    def validate_instance_access(self, validator: ValidateAccess, instance_spaces: list[str] | None) -> None:
-        space_ids = validator.instances(
-            ["read", "write"], spaces=set(instance_spaces) if instance_spaces else None, operation="purge"
-        )
-        if space_ids is None:
-            # Full access
-            return
-        self.warn(
-            LimitedAccessWarning(
-                f"You can only purge instances in the following instance spaces: {humanize_collection(space_ids)}."
+    def validate_instance_access(self, client: ToolkitClient, instance_spaces: list[str] | None) -> None:
+        available_scopes = client.token.check_available_scopes(DataModelInstancesAcl, ["READ", "WRITE"])
+        space_ids: set[str] = set()
+        for scope in available_scopes:
+            if isinstance(scope, AllScope):
+                # Full access
+                return
+            elif isinstance(scope, SpaceIDScope):
+                space_ids.update(scope.space_ids)
+            else:
+                raise RuntimeError("Bug in Toolkit: unexpected scope type returned from check_available_scopes")
+        if not space_ids:
+            raise client.token.create_error(
+                [DataModelInstancesAcl(actions=["READ", "WRITE"], scope=AllScope())],
+                action="purging instances",
             )
-        )
+        if instance_spaces is None:
+            self.warn(
+                LimitedAccessWarning(
+                    f"You can only purge instances in the following instance spaces: {humanize_collection(space_ids)}."
+                )
+            )
+        elif missing_ids := set(instance_spaces) - space_ids:
+            raise client.token.create_error(
+                [DataModelInstancesAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=sorted(missing_ids)))],
+                action="purging instances",
+            )
         return
 
-    def validate_model_access(self, validator: ValidateAccess, view: list[str] | None) -> None:
+    def validate_model_access(self, client: ToolkitClient, view: list[str] | None) -> None:
         space = view[0] if isinstance(view, list) and view and isinstance(view[0], str) else None
-        if space_ids := validator.data_model(["read"], spaces={space} if space else None):
+        available_scopes = client.token.check_available_scopes(DataModelsAcl, ["READ"])
+        space_ids: set[str] = set()
+        for scope in available_scopes:
+            if isinstance(scope, AllScope):
+                return
+            elif isinstance(scope, SpaceIDScope):
+                space_ids.update(scope.space_ids)
+            else:
+                raise RuntimeError("Bug in Toolkit: unexpected scope type returned from check_available_scopes")
+        if space is not None and space not in space_ids:
+            raise client.token.create_error(
+                [DataModelsAcl(actions=["READ"], scope=SpaceIDScope(space_ids=[space]))],
+                action="reading data models",
+            )
+        if space is None and space_ids:
             self.warn(
                 LimitedAccessWarning(
                     f"You can only select views in the {len(space_ids)} spaces you have access to: {humanize_collection(space_ids)}."
                 )
             )
+        elif space is None:
+            raise client.token.create_error(
+                [DataModelsAcl(actions=["READ"], scope=AllScope())],
+                action="reading data models",
+            )
+        return
 
-    def validate_timeseries_access(self, validator: ValidateAccess) -> None:
-        try:
-            ids_by_scope = validator.timeseries(["read", "write"], operation="unlink")
-        except AuthorizationError as e:
-            self.warn(HighSeverityWarning(f"You cannot unlink time series. You need read and write access: {e!s}"))
+    def validate_timeseries_access(self, client: ToolkitClient) -> None:
+        available_scopes = client.token.check_available_scopes(TimeSeriesAcl, ["READ", "WRITE"])
+        if not available_scopes:
+            error = client.token.create_error(
+                [TimeSeriesAcl(actions=["READ", "WRITE"], scope=AllScope())],
+                action="unlinking time series",
+            )
+            self.warn(HighSeverityWarning(f"You cannot unlink time series. You need read and write access: {error!s}"))
             return
-        if ids_by_scope is None:
-            return
+        ids_by_scope: dict[str, list[str]] = {}
+        for scope in available_scopes:
+            if isinstance(scope, AllScope):
+                return
+            elif isinstance(scope, DataSetScope):
+                ids_by_scope.setdefault("dataset", []).extend(client.lookup.data_sets.external_id(scope.ids))
+            elif isinstance(scope, AssetRootIDScope):
+                ids_by_scope.setdefault("asset root", []).extend(client.lookup.assets.external_id(scope.root_ids))
+            elif isinstance(scope, IDScopeLowerCase):
+                ids_by_scope.setdefault("time series", []).extend(client.lookup.time_series.external_id(scope.ids))
+            else:
+                raise RuntimeError("Bug in Toolkit: unexpected scope type returned from check_available_scopes")
         scope_str = humanize_collection(
             [f"{scope_name} ({humanize_collection(ids)})" for scope_name, ids in ids_by_scope.items()],
             bind_word="and",
         )
         self.warn(LimitedAccessWarning(f"You can only unlink time series in the following scopes: {scope_str}."))
+        return
 
-    def validate_file_access(self, validator: ValidateAccess) -> None:
-        try:
-            ids_by_scope = validator.files(["read", "write"], operation="unlink")
-        except AuthorizationError as e:
-            self.warn(HighSeverityWarning(f"You cannot unlink files. You need read and write access: {e!s}"))
+    def validate_file_access(self, client: ToolkitClient) -> None:
+        available_scopes = client.token.check_available_scopes(FilesAcl, ["READ", "WRITE"])
+        if not available_scopes:
+            error = client.token.create_error(
+                [FilesAcl(actions=["READ", "WRITE"], scope=AllScope())],
+                action="unlinking files",
+            )
+            self.warn(HighSeverityWarning(f"You cannot unlink files. You need read and write access: {error!s}"))
             return
-        if ids_by_scope is None:
-            return
+        ids_by_scope: dict[str, list[str]] = {}
+        for scope in available_scopes:
+            if isinstance(scope, AllScope):
+                return
+            elif isinstance(scope, DataSetScope):
+                ids_by_scope.setdefault("dataset", []).extend(client.lookup.data_sets.external_id(scope.ids))
+            else:
+                raise RuntimeError("Bug in Toolkit: unexpected scope type returned from check_available_scopes")
         scope_str = humanize_collection(
             [f"{scope_name} ({humanize_collection(ids)})" for scope_name, ids in ids_by_scope.items()],
             bind_word="and",
         )
         self.warn(LimitedAccessWarning(f"You can only unlink files in the following scopes: {scope_str}."))
+        return
 
     @staticmethod
     def _no_op(instance_ids: Page[InstanceDefinitionId]) -> Page[InstanceDefinitionId]:
@@ -964,14 +1076,14 @@ class PurgeCommand(ToolkitCommand):
     ) -> None:
         node_items = {InstanceId(instance_id=item.item): item for item in page.items if isinstance(item.item, NodeId)}
         if node_items:
-            timeseries = client.tool.timeseries.retrieve(list(node_items.keys()), ignore_unknown_ids=True)
+            timeseries = client.timeseries.retrieve(list(node_items.keys()), ignore_unknown_ids=True)
             migrated_timeseries_ids = {
                 InternalId(id=ts.id): InstanceId(instance_id=ts.instance_id)
                 for ts in timeseries
                 if ts.instance_id and ts.pending_instance_id
             }
             if not dry_run and timeseries:
-                client.tool.timeseries.unlink_instance_ids(list(migrated_timeseries_ids.keys()))
+                client.timeseries.unlink_instance_ids(list(migrated_timeseries_ids.keys()))
                 for internal_id, value in migrated_timeseries_ids.items():
                     data_item = node_items[value]
                     logger.log(
@@ -993,7 +1105,6 @@ class PurgeCommand(ToolkitCommand):
                             message=f"Ready to unlink TimeSeries with internal ID {internal_id!s} from Node {data_item.item!r}",
                         )
                     )
-        return None
 
     @staticmethod
     def _unlink_files(
@@ -1004,14 +1115,14 @@ class PurgeCommand(ToolkitCommand):
     ) -> None:
         node_items = {InstanceId(instance_id=item.item): item for item in page.items if isinstance(item.item, NodeId)}
         if node_items:
-            files = client.tool.filemetadata.retrieve(list(node_items.keys()), ignore_unknown_ids=True)
+            files = client.filemetadata.retrieve(list(node_items.keys()), ignore_unknown_ids=True)
             migrated_file_ids = {
                 InternalId(id=file.id): InstanceId(instance_id=file.instance_id)
                 for file in files
                 if file.instance_id and file.pending_instance_id
             }
             if not dry_run and files:
-                client.tool.filemetadata.unlink_instance_ids(list(migrated_file_ids.keys()))
+                client.filemetadata.unlink_instance_ids(list(migrated_file_ids.keys()))
                 for internal_id, value in migrated_file_ids.items():
                     data_item = node_items[value]
                     logger.log(
@@ -1033,4 +1144,3 @@ class PurgeCommand(ToolkitCommand):
                             message=f"Ready to unlink File with internal ID {internal_id!s} from Node {data_item.item!r}",
                         )
                     )
-        return None

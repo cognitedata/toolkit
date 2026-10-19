@@ -1,10 +1,11 @@
 import mimetypes
 from collections import defaultdict
-from collections.abc import Hashable, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ToolkitAPIError,
@@ -22,10 +23,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import (
     FileMetadataResponse,
 )
 from cognite_toolkit._cdf_tk.resource_ios import (
-    CogniteFileCRUD,
+    CogniteFileIO,
     DataSetsIO,
-    FileMetadataCRUD,
+    FileMetadataIO,
     LabelIO,
+    ResourceIO,
     SecurityCategoryIO,
 )
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
@@ -97,7 +99,7 @@ class FileMetadataContentIO(
         self.overwrite = overwrite
         self._config_directory = config_directory
         self._file_directory = file_directory
-        self._crud = FileMetadataCRUD(client, None, None, support_upload=False)
+        self._crud = FileMetadataIO(client, support_upload=False)
         self._downloaded_data_sets_by_selector: dict[FileMetadataContentSelectorV2 | None, set[int]] = defaultdict(set)
         self._downloaded_labels_by_selector: dict[FileMetadataContentSelectorV2 | None, set[ExternalId]] = defaultdict(
             set
@@ -170,7 +172,7 @@ class FileMetadataContentIO(
         self._file_directory.mkdir(exist_ok=True, parents=True)
         for chunk in chunker_sequence(file_ids, self.CHUNK_SIZE):
             self.logger.register([item.display_name for item in chunk])
-            file_metadata = self.client.tool.filemetadata.retrieve(list(chunk), ignore_unknown_ids=True)
+            file_metadata = self.client.filemetadata.retrieve(list(chunk), ignore_unknown_ids=True)
             retrieved_by_id = {file.id: file for file in file_metadata}
             data_items: list[DataItem[FileMetadataResponse]] = []
             for item in chunk:
@@ -210,9 +212,9 @@ class FileMetadataContentIO(
     def _try_download_content(self, file_metadata: FileMetadataResponse, destination: Path, tracking_id: str) -> bool:
         """Tries to download the file content to the destination returns whether it was successful."""
         try:
-            result = self.client.tool.filemetadata.get_download_url([file_metadata.as_internal_id()])[0]
+            result = self.client.filemetadata.get_download_url([file_metadata.as_internal_id()])[0]
             if result.download_url:
-                self.client.tool.filemetadata.download_file(download_url=result.download_url, destination=destination)
+                self.client.filemetadata.download_file(download_url=result.download_url, destination=destination)
                 return True
             message = f"File content download URL not found for {tracking_id}."
         except ToolkitAPIError as err:
@@ -340,10 +342,10 @@ class FileMetadataContentIO(
     def json_to_row(
         self, item_json: dict[str, JsonVal], selector: FileMetadataContentSelectorV2 | None = None
     ) -> dict[str, JsonVal]:
-        if "metadata" in item_json and isinstance(item_json["metadata"], dict):
-            metadata = item_json.pop("metadata")
-            # MyPy does understand that metadata is a dict here due to the check above.
-            for key, value in metadata.items():  # type: ignore[union-attr]
+        metadata = item_json.get("metadata")
+        if isinstance(metadata, dict):
+            del item_json["metadata"]
+            for key, value in metadata.items():
                 item_json[f"metadata.{key}"] = value
         return item_json
 
@@ -354,33 +356,32 @@ class FileMetadataContentIO(
                 ExternalId(external_id=data_set_external_id)
                 for data_set_external_id in self.client.lookup.data_sets.external_id(list(data_set_ids))
             ]
-            yield from self._configurations(data_set_external_ids, DataSetsIO.create_loader(self.client))
+            yield from self._configurations(data_set_external_ids, DataSetsIO.create_io(self.client))
 
         labels = self._downloaded_labels_by_selector[selector]
         if labels:
-            yield from self._configurations(list(labels), LabelIO.create_loader(self.client))
+            yield from self._configurations(list(labels), LabelIO.create_io(self.client))
         if security_categories := self._downloaded_security_categories_by_selector[selector]:
             category_ids: list[NameId] = [
                 NameId(name=name)
                 for name in self.client.lookup.security_categories.external_id(list(security_categories))
             ]
-            yield from self._configurations(category_ids, SecurityCategoryIO.create_loader(self.client))
+            yield from self._configurations(category_ids, SecurityCategoryIO.create_io(self.client))
 
     @classmethod
     def _configurations(
         cls,
-        ids: Sequence[Hashable],
-        loader: DataSetsIO | LabelIO | SecurityCategoryIO,
+        ids: Sequence[T_Identifier],
+        loader: ResourceIO[T_Identifier, Any, Any, Any],
     ) -> Iterable[StorageIOConfig]:
         if not ids:
             return
 
-        items = loader.retrieve(ids)  # type: ignore[arg-type]
+        items = loader.retrieve(ids)
         yield StorageIOConfig(
             kind=loader.kind,
             folder_name=loader.folder_name,
-            # We know that the items will be labels for LabelLoader and data sets for DataSetsLoader
-            value=[loader.dump_resource(item) for item in items],  # type: ignore[arg-type]
+            value=[loader.dump_resource(item) for item in items],
         )
 
     def upload_items(
@@ -435,9 +436,9 @@ class FileMetadataContentIO(
         try:
             # We aim to have each request the size of 50MiB
             if parts <= 1:
-                return self.client.tool.filemetadata.create([request], overwrite=self.overwrite)[0]
+                return self.client.filemetadata.create([request], overwrite=self.overwrite)[0]
             parts = min(parts, MULTI_FILE_MAX_PART_COUNT)
-            return self.client.tool.filemetadata.upload_multi_parts(request, overwrite=self.overwrite, parts=parts)
+            return self.client.filemetadata.upload_multi_parts(request, overwrite=self.overwrite, parts=parts)
         except ToolkitAPIError as error:
             if error.response is not None:
                 return error.response.as_item_response(tracking_id)
@@ -454,12 +455,11 @@ class FileMetadataContentIO(
         try:
             if created.upload_url is not None:
                 # Upload single
-                response = self.client.tool.filemetadata.upload_file(filepath, created.upload_url, created.mime_type)
+                response = self.client.filemetadata.upload_file(filepath, created.upload_url, created.mime_type)
             elif created.upload_urls and created.upload_id:
-                responses = self.client.tool.filemetadata.upload_file_multiparts(
-                    filepath, created.upload_urls, created.mime_type
-                )
-                self.client.tool.filemetadata.complete_multipart_upload(created.as_internal_id(), created.upload_id)
+                # Part URLs are signed without Content-Type. The mime type stays on the file record.
+                responses = self.client.filemetadata.upload_file_multiparts(filepath, created.upload_urls)
+                self.client.filemetadata.complete_multipart_upload(created.as_internal_id(), created.upload_id)
                 response = responses[-1]
             else:
                 # This should never happen.
@@ -556,7 +556,7 @@ class CogniteFileContentIO(
         self.overwrite = overwrite
         self._config_directory = config_directory
         self._file_directory = file_directory
-        self._crud = CogniteFileCRUD(client, None, None, support_upload=False)
+        self._crud = CogniteFileIO(client, support_upload=False)
 
     def _verify_download_selector(self, selector: CogniteFileContentSelectorV2) -> tuple[NodeWithNameId, ...]:
         if isinstance(selector, CogniteFileFilesSelectorV2) and selector.ids:
@@ -598,7 +598,7 @@ class CogniteFileContentIO(
         self._file_directory.mkdir(exist_ok=True, parents=True)
         for chunk in chunker_sequence(file_ids, self.CHUNK_SIZE):
             self.logger.register([item.display_name for item in chunk])
-            cognite_files = self.client.tool.cognite_files.retrieve(list(chunk))
+            cognite_files = self.client.cognite_files.retrieve(list(chunk))
             retrieved_by_key = {(f.space, f.external_id): f for f in cognite_files}
             data_items: list[DataItem[CogniteFileResponse]] = []
             for item in chunk:
@@ -642,16 +642,14 @@ class CogniteFileContentIO(
         """Download file bytes via the linked classic file entry, if present."""
         try:
             instance_id = InstanceId(instance_id=cognite_file.as_id())
-            linked = self.client.tool.filemetadata.retrieve([instance_id], ignore_unknown_ids=True)
+            linked = self.client.filemetadata.retrieve([instance_id], ignore_unknown_ids=True)
             if not linked or not linked[0].uploaded:
                 message = f"No uploaded classic file linked to CogniteFile instance for {tracking_id}."
             else:
                 fm = linked[0]
-                result = self.client.tool.filemetadata.get_download_url([fm.as_internal_id()])[0]
+                result = self.client.filemetadata.get_download_url([fm.as_internal_id()])[0]
                 if result.download_url:
-                    self.client.tool.filemetadata.download_file(
-                        download_url=result.download_url, destination=destination
-                    )
+                    self.client.filemetadata.download_file(download_url=result.download_url, destination=destination)
                     return True
                 message = f"File content download URL not found for {tracking_id}."
         except ToolkitAPIError as err:
@@ -683,7 +681,7 @@ class CogniteFileContentIO(
         return self.json_to_resource(json_item)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> CogniteFileRequest:
-        # CogniteFileCRUD.load_resource only restores filepath from YAML-side cache; table/template
+        # CogniteFileIO.load_resource only restores filepath from YAML-side cache; table/template
         # uploads must take $FILEPATH from the row payload explicitly.
         payload = dict(item_json)
         raw_path = payload.pop(FILEPATH, None)
@@ -780,7 +778,7 @@ class CogniteFileContentIO(
 
     def _create_cognite_file(self, request: CogniteFileRequest, tracking_id: str) -> ItemsResultMessage | None:
         try:
-            self.client.tool.cognite_files.create([request], replace=self.overwrite)
+            self.client.cognite_files.create([request], replace=self.overwrite)
         except ToolkitAPIError as error:
             if error.response is not None:
                 return error.response.as_item_response(tracking_id)
@@ -799,7 +797,7 @@ class CogniteFileContentIO(
         part_count = filesize // IDEAL_FILE_SIZE
         try:
             if part_count <= 1:
-                url_items = self.client.tool.filemetadata.get_upload_url([instance_id])
+                url_items = self.client.filemetadata.get_upload_url([instance_id])
                 if not url_items:
                     return ItemsFailedRequest(
                         ids=[tracking_id],
@@ -811,19 +809,18 @@ class CogniteFileContentIO(
                         ids=[tracking_id],
                         error_message=f"No upload URL returned from CDF for item {tracking_id}.",
                     )
-                response = self.client.tool.filemetadata.upload_file(filepath, url_info.upload_url, request.mime_type)
+                response = self.client.filemetadata.upload_file(filepath, url_info.upload_url, request.mime_type)
                 return response.as_item_response(tracking_id)
             n_parts = min(part_count, MULTI_FILE_MAX_PART_COUNT)
-            url_info = self.client.tool.filemetadata.get_multipart_upload_urls(instance_id, n_parts)
+            url_info = self.client.filemetadata.get_multipart_upload_urls(instance_id, n_parts)
             if not url_info.upload_urls or not url_info.upload_id:
                 return ItemsFailedRequest(
                     ids=[tracking_id],
                     error_message=f"No multipart upload URLs returned from CDF for item {tracking_id}.",
                 )
-            responses = self.client.tool.filemetadata.upload_file_multiparts(
-                filepath, url_info.upload_urls, request.mime_type
-            )
-            self.client.tool.filemetadata.complete_multipart_upload(instance_id, url_info.upload_id)
+            # Part URLs are signed without Content-Type. The mime type stays on the file record.
+            responses = self.client.filemetadata.upload_file_multiparts(filepath, url_info.upload_urls)
+            self.client.filemetadata.complete_multipart_upload(instance_id, url_info.upload_id)
             return responses[-1].as_item_response(tracking_id)
         except ToolkitAPIError as error:
             if error.response is not None:

@@ -20,22 +20,18 @@ repos:
       - id: ruff-format
     rev: v0.15.14
 
+  - repo: https://github.com/astral-sh/ty-pre-commit
+    # ty version.
+    rev: v0.0.87
+    hooks:
+      - id: ty
+
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.48.0
     hooks:
     - id: markdownlint
-    
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0 # Use the latest stable version
     hooks:
       - id: end-of-file-fixer
-
-# Mypy must be run in the local system environment, not in the pre-commit environment.
-  - hooks:
-    - id: mypy
-      name: mypy
-      entry: uv run mypy cognite_toolkit/ tests_smoke/ --config-file pyproject.toml
-      files: ^.*.(py|pyi)$
-      language: system
-      pass_filenames: false
-    repo: local

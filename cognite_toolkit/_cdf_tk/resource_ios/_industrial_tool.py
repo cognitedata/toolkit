@@ -7,7 +7,6 @@ from typing import Any, Literal, cast, final
 from cognite.client._version import __version__ as CogniteSDKVersion
 from packaging.requirements import Requirement
 from pydantic import ValidationError
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -41,9 +40,9 @@ from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash, calculate_hash
 from cognite_toolkit._cdf_tk.yaml_classes import FileMetadataYAML, StreamlitYAML
 
-from ._auth import GroupAllScopedCRUD
+from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
-from ._file import FileMetadataCRUD
+from ._file import FileMetadataIO
 
 
 @final
@@ -52,24 +51,17 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
     resource_cls = StreamlitResponse
     resource_write_cls = StreamlitRequest
     kind = "Streamlit"
-    dependencies = frozenset({DataSetsIO, GroupAllScopedCRUD})
+    dependencies = frozenset({DataSetsIO, GroupAllScopedIO})
     _doc_url = "Files/operation/initFileUpload"
     _metadata_hash_key = "cdf-toolkit-app-hash"
     yaml_cls = StreamlitYAML
 
-    extra_kinds = frozenset({FileMetadataCRUD.kind})
+    extra_kinds = frozenset({FileMetadataIO.kind})
 
-    def __init__(
-        self,
-        client: ToolkitClient,
-        build_dir: Path | None,
-        console: Console | None = None,
-        use_fileio: bool = True,
-    ):
-        super().__init__(client, build_dir, console)
+    def __init__(self, client: ToolkitClient):
+        super().__init__(client)
         self._source_file_by_external_id: dict[str, Path] = {}
         self.filemetadata_by_external_id: dict[str, Path] = {}
-        self.use_fileio = use_fileio
 
     @property
     def display_name(self) -> str:
@@ -89,7 +81,9 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
             yield FilesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: StreamlitRequest | StreamlitResponse | dict) -> ExternalId:
+    def get_id(cls, item: StreamlitRequest | StreamlitResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
@@ -101,7 +95,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return id.external_id
 
     @classmethod
@@ -118,17 +112,12 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         app_path = filepath.with_name(identifier.external_id)
         if not app_path.is_dir():
             yield FailedReadExtra(
-                code="MISSING",
+                code="MISSING-REFERENCED-DIRECTORY",
                 error=f"Cannot find Streamlit app code for {identifier.external_id!r}. Expected directory {app_path.as_posix()} to exist.",
                 source_path=app_path,
             )
             return
         if "entrypoint" not in item:
-            yield FailedReadExtra(
-                code="MISSING",
-                error=f"Cannot create Streamlit app code for {identifier.external_id!r} as 'entrypoint' is missing in the YAML definition.",
-                source_path=app_path,
-            )
             return
 
         # This mutates the input object, but it is the easiest way to pass
@@ -155,11 +144,11 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         try:
             streamlit_request = StreamlitRequest.model_validate(item)
             file_metadata_yaml = FileMetadataYAML(
-                externalId=streamlit_request.external_id,
+                external_id=streamlit_request.external_id,
                 name=f"{streamlit_request.name}-source.json",
                 directory=STREAMLIT_DIRECTORY,
                 metadata=streamlit_request._as_metadata(),
-                dataSetExternalId=item.get("dataSetExternalId"),
+                data_set_external_id=item.get("dataSetExternalId"),
             )
             file_metadata = yaml_safe_dump(file_metadata_yaml.model_dump(by_alias=True, exclude_unset=True))
         except ValidationError as e:
@@ -168,7 +157,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
 
             error_str = "\n - ".join(humanize_validation_error(e))
             yield FailedReadExtra(
-                code="SYNTAX-ERROR",
+                code="INVALID-FILE-CONTENT",
                 source_path=app_path,
                 error=f"Cannot create Streamlit app code for {identifier.external_id!r}.\n{error_str}",
             )
@@ -176,7 +165,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
             yield SuccessExtra(
                 source_path=app_path,
                 source_hash=source_hash,
-                suffix=f".{FileMetadataCRUD.kind}.yaml",
+                suffix=f".{FileMetadataIO.kind}.yaml",
                 content=file_metadata,
                 description="Streamlit app",
                 resource_field=None,
@@ -197,13 +186,9 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
         for item in raw_list:
             external_id = self.get_id(item).external_id
-            if self.use_fileio:
-                if (filemeta := filepath.parent / f"{filestem}.{FileMetadataCRUD.kind}.yaml").is_file():
-                    self.filemetadata_by_external_id[external_id] = filemeta
-            else:
-                self._source_file_by_external_id[external_id] = filepath
-                content = self._as_json_string(filepath.with_name(external_id), item["entrypoint"])
-                item[self._metadata_hash_key] = calculate_hash(content, shorten=True)
+            if (filemeta := filepath.parent / f"{filestem}.{FileMetadataIO.kind}.yaml").is_file():
+                self.filemetadata_by_external_id[external_id] = filemeta
+
         return raw_list
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> StreamlitRequest:
@@ -264,27 +249,8 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         result = self.client.http_client.request_single_retries(request)
         result.get_success_or_raise(request)
 
-    def create(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        if self.use_fileio:
-            return self._create_with_fileio(items)
-        else:
-            return self._create_legacy(items)
-
-    def _create_legacy(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        created: list[StreamlitResponse] = []
-        for item in items:
-            source_file = self._source_file_by_external_id[item.external_id]
-            content = self._as_json_string(source_file.with_name(item.external_id), item.entrypoint)
-            responses = self.client.tool.streamlit.create([item])
-            for response in responses:
-                if not response.upload_url:
-                    raise ToolkitRequiredValueError("Create response missing upload_url.")
-                self._upload_content(response.upload_url, content)
-                created.append(response)
-        return created
-
-    def _create_with_fileio(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        fileio = FileMetadataCRUD(self.client, None, None)
+    def create(self, items: Sequence[StreamlitRequest]) -> list[ExternalId]:
+        fileio = FileMetadataIO(self.client)
         try:
             filepaths = [self.filemetadata_by_external_id[item.external_id] for item in items]
         except KeyError as e:
@@ -292,33 +258,14 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
                 f"Missing file metadata for Streamlit app with external_id {e.args[0]!r}. Cannot create Streamlit app without the file metadata."
             ) from e
         file_requests = fileio.load_resource_files(filepaths)
-        file_responses = fileio.create(file_requests)
-        return [StreamlitResponse.model_validate(file.dump()) for file in file_responses]
+        # Streamlit apps are created through file metadata, so the file responses are not Streamlit responses.
+        return fileio.get_ids(fileio.create(file_requests))
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[StreamlitResponse]:
-        return self.client.tool.streamlit.retrieve(list(ids), ignore_unknown_ids=True)
+        return self.client.streamlit.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        if self.use_fileio:
-            return self._update_with_fileio(items)
-        else:
-            return self._update_legacy(items)
-
-    def _update_legacy(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        updated: list[StreamlitResponse] = []
-        for item in items:
-            source_file = self._source_file_by_external_id[item.external_id]
-            content = self._as_json_string(source_file.with_name(item.external_id), item.entrypoint)
-            responses = self.client.tool.streamlit.create([item], overwrite=True)
-            for response in responses:
-                if not response.upload_url:
-                    raise ToolkitRequiredValueError("Create response missing upload_url for content upload.")
-                self._upload_content(response.upload_url, content)
-                updated.append(response)
-        return updated
-
-    def _update_with_fileio(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        fileio = FileMetadataCRUD(self.client, None, None)
+    def update(self, items: Sequence[StreamlitRequest]) -> list[ExternalId]:
+        fileio = FileMetadataIO(self.client)
         try:
             filepaths = [self.filemetadata_by_external_id[item.external_id] for item in items]
         except KeyError as e:
@@ -337,12 +284,11 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
             for r in current_cdf
             if r.external_id is not None
         }
-        file_responses = fileio.update(list(file_request_by_external_id.values()))
-        response_by_external_id = {
-            response.external_id: StreamlitResponse.model_validate(response.dump()) for response in file_responses
-        }
+        updated = fileio.update(list(file_request_by_external_id.values()))
+        updated_external_ids = {response.external_id for response in updated if response.external_id}
+        updated_ids = fileio.get_ids(updated)
         for item in items:
-            if item.external_id not in response_by_external_id or item.external_id not in file_request_by_external_id:
+            if item.external_id not in updated_external_ids or item.external_id not in file_request_by_external_id:
                 continue
             request = file_request_by_external_id[item.external_id]
             if item.cognite_toolkit_app_hash == pre_update_hash_by_id.get(item.external_id):
@@ -350,7 +296,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
                 continue
             if request.filepath is None:
                 raise ResourceUpdateError(f"Cannot update streamlit app {item.external_id}. Missing source file")
-            responses_with_url = self.client.tool.filemetadata.get_upload_url([request.as_id()])
+            responses_with_url = self.client.filemetadata.get_upload_url([request.as_id()])
             if len(responses_with_url) != 1:
                 raise RuntimeError(
                     f"Expected to get one upload url for file with external id {item.external_id}, but got {len(responses_with_url)}"
@@ -360,15 +306,16 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
                 raise RuntimeError(
                     f"Cannot update streamlit app {item.external_id}. Missing upload url for file content upload."
                 )
-            self.client.tool.filemetadata.upload_file(request.filepath, upload_url=response_with_url.upload_url)
+            self.client.filemetadata.upload_file(request.filepath, upload_url=response_with_url.upload_url)
 
-        return list(response_by_external_id.values())
+        return updated_ids
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.streamlit.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.streamlit.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -376,5 +323,5 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[StreamlitResponse]:
-        for page in self.client.tool.streamlit.iterate(limit=None):
+        for page in self.client.streamlit.iterate(limit=None):
             yield from page

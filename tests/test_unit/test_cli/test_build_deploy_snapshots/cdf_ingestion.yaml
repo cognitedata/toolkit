@@ -241,7 +241,7 @@ WorkflowResponse:
   externalId: ingestion
 WorkflowTriggerResponse:
 - authentication:
-    nonce: dummy-nonce
+    nonce: '123'
   externalId: ingestion
   metadata:
     cognite-toolkit-auth-hash: 003722e2

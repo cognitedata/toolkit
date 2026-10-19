@@ -1,9 +1,7 @@
 from collections.abc import Callable, Iterable, Sequence
-from itertools import chain
 from typing import Any, Literal, TypeVar
 
-from cognite.client.credentials import OAuthDeviceCode
-from cognite.client.data_classes.data_modeling import EdgeId
+from cognite.client.credentials import OAuthClientCredentials, OAuthDeviceCode
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.api.instances import INSTANCE_DELETE_ENDPOINT, INSTANCE_UPSERT_ENDPOINT
@@ -13,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList, ItemsResultMessage
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceDefinitionId, NodeId
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeId, ExternalId, InstanceDefinitionId, NodeId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ChartMonitorJobFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
@@ -30,9 +28,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart_scheduled_calculation
     ChartScheduledCalculationResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import MonitoringJobReference
+from cognite_toolkit._cdf_tk.client.resource_classes.session import (
+    ClientCredentialsSessionRequest,
+    TokenExchangeSessionRequest,
+)
 from cognite_toolkit._cdf_tk.constants import MISSING_NONCE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -74,7 +75,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         self,
         client: ToolkitClient,
         skip_existing: bool = False,
-        skip_backend_services: bool = not Flags.EXTEND_UPLOAD.is_enabled(),
+        skip_backend_services: bool = False,
         skip_strict_mode: bool = False,
         api_format: Literal["request", "response"] = "request",
     ) -> None:
@@ -382,11 +383,18 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
                     succeeded[ext_id] = updated
             else:
                 if request.nonce == MISSING_NONCE:
-                    if self._skip_strict_mode:
-                        request.nonce = self.client.iam.sessions.create().nonce
+                    if self._skip_strict_mode and isinstance(
+                        creds := self.client.config.credentials, OAuthClientCredentials
+                    ):
+                        request.nonce = self.client.sessions.create_single(
+                            ClientCredentialsSessionRequest(
+                                client_id=creds.client_id,
+                                client_secret=creds.client_secret,
+                            )
+                        ).nonce
                     elif isinstance(self.client.config.credentials, OAuthDeviceCode):
                         # Reusing the user's credentials.
-                        request.nonce = self.client.iam.sessions.create(session_type="TOKEN_EXCHANGE").nonce
+                        request.nonce = self.client.sessions.create_single(TokenExchangeSessionRequest()).nonce
                     else:
                         log_entries.append(
                             LogEntryV2(
@@ -454,15 +462,24 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         )
         log_entries.extend(job_upsert_logs)
 
-        existing_calculation_ids = {
-            calculation.as_id()
+        existing_calculations = {
+            calculation.as_id(): calculation
             for calculation in self.client.charts.scheduled_calculations.retrieve(
                 list(calculation_by_id.keys()), ignore_unknown_ids=True
             )
         }
+        for ext_id, (request, tracking_id) in calculation_by_id.items():
+            existing = existing_calculations.get(ext_id)
+            if (
+                existing is not None
+                and existing.target_timeseries_external_id is not None
+                and request.target_timeseries_instance_id is not None
+            ):
+                request = request.with_target_update()
+                calculation_by_id[ext_id] = request, tracking_id
         calculation_upsert_logs, failed_calculations, _ = self._upsert_unique_backend_requests(
             calculation_by_id,
-            existing_calculation_ids,
+            set(existing_calculations),
             self.client.charts.scheduled_calculations.update,
             self.client.charts.scheduled_calculations.create,
             "scheduled calculation",
@@ -630,21 +647,22 @@ class CanvasIO(UploadableDataIO[CanvasSelector, IndustrialCanvasResponse, Indust
             # It is possible to delete and create in the same request, but we keep this separate
             # as there is a risk for deadlocks.
             # We delete all edges before nodes to avoid a deadlock.
-            delete_chunk: list[InstanceDefinitionId]
-            for delete_chunk in chain(  # type: ignore[assignment]
-                chunker_sequence(edges_to_delete, INSTANCE_DELETE_ENDPOINT.item_limit),
-                chunker_sequence(nodes_to_delete, INSTANCE_DELETE_ENDPOINT.item_limit),
-            ):
-                result = http_client.request_single_retries(
-                    message=RequestMessage(
-                        endpoint_url=http_client.config.create_api_url(INSTANCE_DELETE_ENDPOINT.path),
-                        method=INSTANCE_DELETE_ENDPOINT.method,
-                        body_content={
-                            "items": [instance_id.dump() for instance_id in delete_chunk],
-                        },
+            id_groups: tuple[Sequence[InstanceDefinitionId], Sequence[InstanceDefinitionId]] = (
+                edges_to_delete,
+                nodes_to_delete,
+            )
+            for ids in id_groups:
+                for delete_chunk in chunker_sequence(list(ids), INSTANCE_DELETE_ENDPOINT.item_limit):
+                    result = http_client.request_single_retries(
+                        message=RequestMessage(
+                            endpoint_url=http_client.config.create_api_url(INSTANCE_DELETE_ENDPOINT.path),
+                            method=INSTANCE_DELETE_ENDPOINT.method,
+                            body_content={
+                                "items": [instance_id.dump() for instance_id in delete_chunk],
+                            },
+                        )
                     )
-                )
-                results.append(result.as_item_response(item.tracking_id))
+                    results.append(result.as_item_response(item.tracking_id))
         return results
 
     def data_to_json_chunk(
@@ -838,7 +856,19 @@ class CanvasIO(UploadableDataIO[CanvasSelector, IndustrialCanvasResponse, Indust
             name = item_json["name"]
             if isinstance(name, str):
                 return name
-        try:
-            return item_json["canvas"]["sources"][0]["properties"]["name"]  # type: ignore[index,return-value, call-overload]
-        except (KeyError, IndexError, TypeError):
+        canvas = item_json.get("canvas")
+        if not isinstance(canvas, dict):
             return "<unknown>"
+        sources = canvas.get("sources")
+        if not isinstance(sources, list) or not sources:
+            return "<unknown>"
+        first = sources[0]
+        if not isinstance(first, dict):
+            return "<unknown>"
+        properties = first.get("properties")
+        if not isinstance(properties, dict):
+            return "<unknown>"
+        name = properties.get("name")
+        if isinstance(name, str):
+            return name
+        return "<unknown>"

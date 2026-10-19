@@ -1,5 +1,6 @@
 """Data Product Versions API for managing versions of CDF data products."""
 
+import builtins
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from typing import Literal
@@ -46,14 +47,14 @@ class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
     @staticmethod
     def _group_by_parent(
         items: Sequence[DataProductVersionRequest],
-    ) -> dict[str, list[DataProductVersionRequest]]:
-        by_parent: dict[str, list[DataProductVersionRequest]] = {}
+    ) -> dict[str, builtins.list[DataProductVersionRequest]]:
+        by_parent: dict[str, builtins.list[DataProductVersionRequest]] = {}
         for item in items:
             by_parent.setdefault(item.data_product_external_id, []).append(item)
         return by_parent
 
-    def create(self, items: Sequence[DataProductVersionRequest]) -> list[DataProductVersionResponse]:
-        results: list[DataProductVersionResponse] = []
+    def create(self, items: Sequence[DataProductVersionRequest]) -> builtins.list[DataProductVersionResponse]:
+        results: builtins.list[DataProductVersionResponse] = []
         for data_product_external_id, versions in self._group_by_parent(items).items():
             url = self._make_url(self._method_endpoint_map["create"].path.format(externalId=data_product_external_id))
             for version in versions:
@@ -74,8 +75,8 @@ class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
         self,
         items: Sequence[DataProductVersionId],
         ignore_unknown_ids: bool = False,
-    ) -> list[DataProductVersionResponse]:
-        results: list[DataProductVersionResponse] = []
+    ) -> builtins.list[DataProductVersionResponse]:
+        results: builtins.list[DataProductVersionResponse] = []
         for item in items:
             url = self._make_url(
                 self._method_endpoint_map["retrieve"].path.format(
@@ -102,9 +103,9 @@ class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
         self,
         items: Sequence[DataProductVersionRequest],
         mode: Literal["patch", "replace"] = "replace",
-    ) -> list[DataProductVersionResponse]:
+    ) -> builtins.list[DataProductVersionResponse]:
         """Apply updates; in ``replace`` mode we retrieve first so ``as_update`` can diff views. The patch API only supports ``views.add`` (no full replace). We need the live view list to compute add/remove keys and avoid resending existing refs (duplicate 400)."""
-        results: list[DataProductVersionResponse] = []
+        results: builtins.list[DataProductVersionResponse] = []
         for data_product_external_id, versions in self._group_by_parent(items).items():
             url = self._make_url(self._method_endpoint_map["update"].path.format(externalId=data_product_external_id))
             views_by_version: dict[str, list] = {}
@@ -132,7 +133,7 @@ class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
         return results
 
     def delete(self, ids: Sequence[DataProductVersionId]) -> None:
-        by_parent: defaultdict[str, list[str]] = defaultdict(list)
+        by_parent: defaultdict[str, builtins.list[str]] = defaultdict(list)
         for id_ in ids:
             by_parent[id_.data_product_external_id].append(id_.version)
         for data_product_external_id, versions in by_parent.items():
@@ -147,14 +148,14 @@ class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
 
     def iterate(
         self, data_product_external_id: str, limit: int | None = 10
-    ) -> Iterable[list[DataProductVersionResponse]]:
+    ) -> Iterable[builtins.list[DataProductVersionResponse]]:
         path = self._method_endpoint_map["list"].path.format(externalId=data_product_external_id)
         for batch in self._iterate(limit=limit, endpoint_path=path):
             for item in batch:
                 item.data_product_external_id = data_product_external_id
             yield batch
 
-    def list(self, data_product_external_id: str, limit: int | None = 10) -> list[DataProductVersionResponse]:
+    def list(self, data_product_external_id: str, limit: int | None = 10) -> builtins.list[DataProductVersionResponse]:
         path = self._method_endpoint_map["list"].path.format(externalId=data_product_external_id)
         items = self._list(limit=limit, endpoint_path=path)
         for item in items:

@@ -53,7 +53,7 @@ FunctionResponse:
   fileId: 17535087227997853291
   functionPath: handler.py
   metadata:
-    cognite-toolkit-hash: /=d32c50d9;handler.py=7a0c434e;requirements.txt=1d4815ec
+    cognite-toolkit-hash: /=1bd191f1;handler.py=78552942;requirements.txt=1d4815ec
   name: Annotation to Direct Relations Writer
   owner: Anonymous
 RAWDatabaseResponse:

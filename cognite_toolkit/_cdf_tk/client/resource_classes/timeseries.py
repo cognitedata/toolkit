@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId, NodeUntypedId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeUntypedId
 
 
 class TimeSeries(BaseModelObject):
@@ -23,7 +23,7 @@ class TimeSeries(BaseModelObject):
     security_categories: list[int] | None = None
     data_set_id: int | None = None
 
-    def as_id(self) -> InternalOrExternalId:
+    def as_id(self) -> ExternalId:
         if self.external_id is None:
             raise ValueError("Cannot convert TimeSeriesRequest to ExternalId when external_id is None")
         return ExternalId(external_id=self.external_id)

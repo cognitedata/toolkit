@@ -4,7 +4,6 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, SpaceStatistics
 
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewRequest
@@ -13,6 +12,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._container im
     ContainerInspectResultItem,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.statistics import (
+    CountLimit,
+    InstanceStatistics,
+    ProjectStatisticsResponse,
+    SpaceStatisticsResponse,
+)
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     DeploymentStep,
@@ -21,7 +26,7 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     ResourceToDeploy,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, EdgeCRUD, NodeCRUD, SpaceCRUD, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, EdgeIO, NodeIO, SpaceIO, ViewIO
 
 
 def _make_instance_statistics(soft_deleted: int = 300, limit: int = 10_000_000) -> InstanceStatistics:
@@ -41,9 +46,17 @@ def _make_client(project: str = "my-project", soft_deleted: int = 300, limit: in
     client = MagicMock()
     client.config.project = project
     client.console = MagicMock()
-    stats = MagicMock()
-    stats.instances = _make_instance_statistics(soft_deleted, limit)
-    client.data_modeling.statistics.project.return_value = stats
+    client.statistics.retrieve.return_value = ProjectStatisticsResponse(
+        spaces=CountLimit(count=0, limit=1),
+        containers=CountLimit(count=0, limit=1),
+        views=CountLimit(count=0, limit=1),
+        data_models=CountLimit(count=0, limit=1),
+        container_properties=CountLimit(count=0, limit=1),
+        instances=_make_instance_statistics(soft_deleted, limit),
+        concurrent_read_limit=1,
+        concurrent_write_limit=1,
+        concurrent_delete_limit=1,
+    )
     return client
 
 
@@ -64,7 +77,7 @@ class TestConfirmDropData:
         result = cmd._confirm_drop_data(client, [], options)
         assert result is True
         # The project-level statistics should not have been fetched (no instances)
-        client.data_modeling.statistics.project.assert_not_called()
+        client.statistics.retrieve.assert_not_called()
 
     def test_returns_false_when_user_declines_project_name(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """When the user declines the project name confirmation, return False."""
@@ -144,9 +157,9 @@ class TestConfirmDropData:
 
 
 class TestCountDmsInstancesInPlan:
-    def _make_client(self, space_stats: SpaceStatistics | None = None) -> MagicMock:
+    def _make_client(self, space_stats: SpaceStatisticsResponse | None = None) -> MagicMock:
         client = MagicMock()
-        client.data_modeling.statistics.spaces.retrieve.return_value = [space_stats] if space_stats else None
+        client.statistics.spaces.retrieve.return_value = [space_stats] if space_stats else []
         return client
 
     def test_returns_zero_for_empty_plan(self) -> None:
@@ -156,20 +169,31 @@ class TestCountDmsInstancesInPlan:
     def test_skips_non_instance_cruds(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         """ContainerCRUD steps must not contribute to the count."""
         cmd = DeployV2Command(print_warning=False, skip_tracking=True)
-        from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD
+        from cognite_toolkit._cdf_tk.resource_ios import ContainerIO
 
         monkeypatch.setattr(cmd, "_read_resource_files", lambda crud, files, opts: {"key": MagicMock()})
-        plan = [DeploymentStep(crud_cls=ContainerCRUD, files=[])]
+        plan = [DeploymentStep(crud_cls=ContainerIO, files=[])]
         assert cmd._count_dms_instances_in_plan(MagicMock(), plan, DeployOptions()) == 0
 
     def test_counts_nodes_and_edges_from_space_stats(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """For SpaceCRUD, sum nodes + edges from space-level statistics."""
         cmd = DeployV2Command(print_warning=False, skip_tracking=True)
         space = SpaceResponse(space="my_space", is_global=False, created_time=0, last_updated_time=0)
-        client = self._make_client(SpaceStatistics("my_space", 0, 0, 0, 40, 0, 50, 0))
+        client = self._make_client(
+            SpaceStatisticsResponse(
+                space="my_space",
+                containers=0,
+                views=0,
+                data_models=0,
+                edges=40,
+                soft_deleted_edges=0,
+                nodes=50,
+                soft_deleted_nodes=0,
+            )
+        )
         monkeypatch.setattr(cmd, "_read_resource_files", lambda crud, files, opts: {"my_space": MagicMock()})
-        with patch.object(SpaceCRUD, "retrieve", return_value=[space]):
-            plan = [DeploymentStep(crud_cls=SpaceCRUD, files=[])]
+        with patch.object(SpaceIO, "retrieve", return_value=[space]):
+            plan = [DeploymentStep(crud_cls=SpaceIO, files=[])]
             assert cmd._count_dms_instances_in_plan(client, plan, DeployOptions()) == 90
 
     def test_counts_len_for_node_and_edge_cruds(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -178,12 +202,12 @@ class TestCountDmsInstancesInPlan:
         existing = [MagicMock(), MagicMock(), MagicMock()]
         monkeypatch.setattr(cmd, "_read_resource_files", lambda crud, files, opts: {"k": MagicMock()})
         with (
-            patch.object(NodeCRUD, "retrieve", return_value=existing[:2]),
-            patch.object(EdgeCRUD, "retrieve", return_value=existing[2:]),
+            patch.object(NodeIO, "retrieve", return_value=existing[:2]),
+            patch.object(EdgeIO, "retrieve", return_value=existing[2:]),
         ):
             plan = [
-                DeploymentStep(crud_cls=NodeCRUD, files=[]),
-                DeploymentStep(crud_cls=EdgeCRUD, files=[]),
+                DeploymentStep(crud_cls=NodeIO, files=[]),
+                DeploymentStep(crud_cls=EdgeIO, files=[]),
             ]
             assert cmd._count_dms_instances_in_plan(MagicMock(), plan, DeployOptions()) == 3
 
@@ -193,8 +217,8 @@ class TestCountDmsInstancesInPlan:
         space = SpaceResponse(space="my_space", is_global=False, created_time=0, last_updated_time=0)
         client = self._make_client(space_stats=None)
         monkeypatch.setattr(cmd, "_read_resource_files", lambda crud, files, opts: {"my_space": MagicMock()})
-        with patch.object(SpaceCRUD, "retrieve", return_value=[space]):
-            plan = [DeploymentStep(crud_cls=SpaceCRUD, files=[])]
+        with patch.object(SpaceIO, "retrieve", return_value=[space]):
+            plan = [DeploymentStep(crud_cls=SpaceIO, files=[])]
             assert cmd._count_dms_instances_in_plan(client, plan, DeployOptions()) == 0
 
 
@@ -263,15 +287,15 @@ class TestCheckNoOutOfScopeViewReferences:
             ),
         )
         client = MagicMock()
-        client.tool.containers.inspect.return_value = [inspect_result]
+        client.containers.inspect.return_value = [inspect_result]
         plan = [
-            DeploymentStep(crud_cls=ContainerCRUD, files=[]),
+            DeploymentStep(crud_cls=ContainerIO, files=[]),
             DeploymentStep(crud_cls=ViewIO, files=[]),
         ]
         raises_ctx = pytest.raises(ToolkitValueError, match=error_match) if should_raise else nullcontext()
         with (
-            patch.object(ContainerCRUD, "create_loader", return_value=mock_container_crud),
-            patch.object(ViewIO, "create_loader", return_value=mock_view_crud),
+            patch.object(ContainerIO, "create_io", return_value=mock_container_crud),
+            patch.object(ViewIO, "create_io", return_value=mock_view_crud),
             raises_ctx,
         ):
             cmd._validate_plan_container_references(client, plan, DeployOptions(drop=True, operation=operation))
@@ -288,12 +312,12 @@ class TestDeployResourcesSpecialUpsertHandling:
         )
 
         with monkeypatch_toolkit_client() as client:
-            client.tool.views.create.side_effect = lambda items: list(items)
-            loader = ViewIO(client, Path("build_dir"), None)
+            client.views.create.side_effect = lambda items: list(items)
+            loader = ViewIO(client)
             resources: ResourceToDeploy = ResourceToDeploy(to_create=[derived_view], to_update=[base_view])
             result = DeployV2Command.deploy_resources(loader, resources, set())
 
         assert result.created_count == 1
         assert result.updated_count == 1
-        deployed_ids = [view.external_id for call in client.tool.views.create.call_args_list for view in call[0][0]]
+        deployed_ids = [view.external_id for call in client.views.create.call_args_list for view in call[0][0]]
         assert deployed_ids.index("Base") < deployed_ids.index("Derived")

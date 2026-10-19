@@ -33,7 +33,7 @@ from cognite.client.data_classes import (
     TransformationScheduleWrite,
     filters,
 )
-from cognite.client.data_classes._base import CogniteResourceList
+from cognite.client.data_classes._base import CogniteResource, CogniteResourceList
 from cognite.client.data_classes.capabilities import Capability, LegacyCapability, UnknownAcl
 from cognite.client.data_classes.data_modeling import NodeListWithCursor
 from cognite.client.data_classes.data_modeling.data_types import ListablePropertyType
@@ -170,6 +170,7 @@ def all_concrete_subclasses(base: T_Type) -> list[T_Type]:
 
 
 T_Object = TypeVar("T_Object", bound=object)
+T_Resource = TypeVar("T_Resource", bound=CogniteResource)
 
 
 class FakeCogniteResourceGenerator:
@@ -189,9 +190,12 @@ class FakeCogniteResourceGenerator:
         self._min_string_length = min_string_length
         self._max_string_length = max_string_length
 
-    def create_instances(self, list_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
-        return list_cls(  # type: ignore[call-arg]
-            [self.create_instance(list_cls._RESOURCE, skip_defaulted_args) for _ in range(self._max_list_dict_items)]  # type: ignore[attr-defined]
+    def create_instances(
+        self, list_cls: type[CogniteResourceList[T_Resource]], skip_defaulted_args: bool = False
+    ) -> CogniteResourceList[T_Resource]:
+        resource_cls = list_cls._RESOURCE
+        return list_cls(
+            [self.create_instance(resource_cls, skip_defaulted_args) for _ in range(self._max_list_dict_items)]
         )
 
     def create_instance(self, resource_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
@@ -200,7 +204,9 @@ class FakeCogniteResourceGenerator:
             # first check if the class is a subclass of BaseModel, which is a common case and can be handled more efficiently.
             # If `issubclass` raises a TypeError, we ignore it and continue with the other checks.
             if issubclass(resource_cls, BaseModel):
-                return self.create_pydantic_instance(resource_cls, skip_defaulted_args)  # type: ignore[return-value]
+                instance = self.create_pydantic_instance(resource_cls, skip_defaulted_args)
+                assert isinstance(instance, resource_cls)
+                return instance
         except TypeError:
             ...
 
@@ -594,6 +600,9 @@ class MockQuestionary:
     def confirm(self, *_: Any, **__: Any) -> MockQuestion:
         return MockQuestion(self.answers.pop(0))
 
+    def path(self, *_: Any, **__: Any) -> MockQuestion:
+        return MockQuestion(self.answers.pop(0))
+
     def checkbox(self, *_: Any, choices: list[Choice], **__: Any) -> MockQuestion:
         return MockQuestion(self.answers.pop(0), choices)
 
@@ -601,7 +610,7 @@ class MockQuestionary:
         return MockQuestion(self.answers.pop(0))
 
     def __enter__(self) -> MockQuestionary:
-        for method in [self.select, self.confirm, self.checkbox, self.text]:
+        for method in [self.select, self.confirm, self.checkbox, self.text, self.path]:
             for module_target in self.module_targets:
                 self.monkeypatch.setattr(f"{module_target}.questionary.{method.__name__}", method)
         return self

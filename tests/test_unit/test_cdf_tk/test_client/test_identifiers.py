@@ -1,9 +1,8 @@
-from cognite.neat._utils.auxiliary import get_concrete_subclasses
-
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 
 # Import one of the concrete Identifier subclasses to ensure they are registered in the test
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, NodeId, ViewId, ViewNoVersionId
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 
 class TestIdentifiers:

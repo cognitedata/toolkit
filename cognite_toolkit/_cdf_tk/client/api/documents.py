@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable
 from typing import Any
 
@@ -38,7 +39,7 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
     @staticmethod
     def _documents_list_body(
         filter: dict[str, Any] | None,
-        sort: list[dict[str, Any]] | None,
+        sort: builtins.list[dict[str, Any]] | None,
     ) -> dict[str, Any]:
         body: dict[str, Any] = {}
         if filter is not None:
@@ -57,7 +58,7 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
         *,
         query: str | None = None,
         filter: dict[str, Any] | None = None,
-        sort: list[dict[str, Any]] | None = None,
+        sort: builtins.list[dict[str, Any]] | None = None,
         limit: int = 100,
         cursor: str | None = None,
         highlight: bool = False,
@@ -163,7 +164,7 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
         query: str | None = None,
         filter: dict[str, Any] | None = None,
         limit: int = 100,
-    ) -> list[DocumentUniqueBucket]:
+    ) -> builtins.list[DocumentUniqueBucket]:
         """Top distinct values for a field, each with a count and normalized ``values`` list.
 
         Uses ``uniqueValues`` for almost all paths, and ``uniqueProperties`` when ``property`` is
@@ -190,7 +191,7 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
     def paginate(
         self,
         filter: dict[str, Any] | None = None,
-        sort: list[dict[str, Any]] | None = None,
+        sort: builtins.list[dict[str, Any]] | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[DocumentResponse]:
@@ -213,9 +214,9 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
     def iterate(
         self,
         filter: dict[str, Any] | None = None,
-        sort: list[dict[str, Any]] | None = None,
+        sort: builtins.list[dict[str, Any]] | None = None,
         limit: int | None = 100,
-    ) -> Iterable[list[DocumentResponse]]:
+    ) -> Iterable[builtins.list[DocumentResponse]]:
         """Iterate over document list pages in CDF.
 
         Args:
@@ -234,9 +235,9 @@ class DocumentsAPI(CDFResourceAPI[DocumentResponse]):
     def list(
         self,
         filter: dict[str, Any] | None = None,
-        sort: list[dict[str, Any]] | None = None,
+        sort: builtins.list[dict[str, Any]] | None = None,
         limit: int | None = 100,
-    ) -> list[DocumentResponse]:
+    ) -> builtins.list[DocumentResponse]:
         """List documents in CDF.
 
         Args:

@@ -8,10 +8,10 @@ import zipfile
 from collections import Counter
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
+import httpx2
 import questionary
-import requests
 import typer
 from packaging.version import Version
 from packaging.version import parse as parse_version
@@ -41,6 +41,8 @@ from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParse
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ModuleDirectory
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    BuildError,
+    BuildWarning,
     ConsistencyError,
     FileReadError,
     IgnoredFileWarning,
@@ -64,7 +66,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
     Packages,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.ui import QUESTIONARY_STYLE, ToolkitPanel, ToolkitPanelSection, ToolkitTable
@@ -79,11 +80,6 @@ from cognite_toolkit._cdf_tk.utils.file import (
 from cognite_toolkit._cdf_tk.utils.repository import FileDownloader
 from cognite_toolkit._version import __version__
 
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
 INDENT = "  "
 POINTER = INDENT + "▶"
 
@@ -94,6 +90,8 @@ _INSIGHT_STYLE: dict[str, tuple[str, str]] = {
     ModelSyntaxError.__name__: ("red", "✗"),
     IgnoredFileWarning.__name__: ("yellow", "○"),
     ModelSyntaxWarning.__name__: ("yellow", "!"),
+    "Error": ("red", "✗"),
+    "Warning": ("yellow", "!"),
     Recommendation.__name__: ("green", "*"),
 }
 _INSIGHT_SEVERITY: dict[str, int] = {
@@ -102,6 +100,8 @@ _INSIGHT_SEVERITY: dict[str, int] = {
     ModelSyntaxError.__name__: ModelSyntaxError.severity,
     IgnoredFileWarning.__name__: IgnoredFileWarning.severity,
     ModelSyntaxWarning.__name__: ModelSyntaxWarning.severity,
+    "Error": BuildError.severity,
+    "Warning": BuildWarning.severity,
     Recommendation.__name__: Recommendation.severity,
 }
 _INSIGHT_ORDER: tuple[str, ...] = tuple(
@@ -110,7 +110,7 @@ _INSIGHT_ORDER: tuple[str, ...] = tuple(
 
 
 _FILE_DOWNLOADERS_BY_TYPE: dict[str, type[FileDownloader]] = {
-    downloader_cls._type: downloader_cls  # type: ignore
+    downloader_cls._type: downloader_cls  # type: ignore[type-abstract]
     for downloader_cls in FileDownloader.__subclasses__()
 }
 
@@ -178,7 +178,7 @@ class ModulesCommand(ToolkitCommand):
         self,
         organization_dir: Path,
         selected_packages: Packages,
-        environments: list[EnvType],
+        environments: builtins.list[EnvType],
         modules_source_path: Path,
         mode: Literal["new", "clean", "update"] | None,
         download_data: bool = False,
@@ -328,7 +328,7 @@ class ModulesCommand(ToolkitCommand):
         select_all: bool = False,
         clean: bool = False,
         user_select: str | None = None,
-        user_environments: list[str] | None = None,
+        user_environments: builtins.list[EnvType] | None = None,
         user_download_data: bool | None = None,
         library_url: str | None = None,
         library_checksum: str | None = None,
@@ -407,6 +407,7 @@ class ModulesCommand(ToolkitCommand):
             print("Exiting...")
             raise typer.Exit()
 
+        environments: list[EnvType]
         if user_environments is None:
             environments = questionary.checkbox(
                 "Which environments would you like to include?",
@@ -481,7 +482,7 @@ class ModulesCommand(ToolkitCommand):
             ).unsafe_ask()
         return download_data
 
-    def _select_modules_in_package(self, package: Package) -> list[ModuleDirectory]:
+    def _select_modules_in_package(self, package: Package) -> builtins.list[ModuleDirectory]:
         dependencies: set[str] = set()
         for module in package.modules:
             if not module.module_toml:
@@ -513,7 +514,7 @@ class ModulesCommand(ToolkitCommand):
             validate=lambda choices: True if choices else "You must select at least one module.",
         ).unsafe_ask()
 
-    def _select_packages(self, packages: Packages, existing_module_names: list[str] | None = None) -> Packages:
+    def _select_packages(self, packages: Packages, existing_module_names: builtins.list[str] | None = None) -> Packages:
         adding_to_existing = False
         if existing_module_names is not None:
             adding_to_existing = True
@@ -580,7 +581,7 @@ class ModulesCommand(ToolkitCommand):
         self,
         packages: Packages,
         module_name: str,
-        existing_module_names: list[str],
+        existing_module_names: builtins.list[str],
     ) -> Packages:
         """
         Find a package or module by name and return it as a Packages selection.
@@ -854,7 +855,7 @@ class ModulesCommand(ToolkitCommand):
 
     @staticmethod
     def _get_module_version(project_path: Path) -> Version:
-        cdf_toml = CDFToml.load(use_singleton=False)
+        cdf_toml = CDFToml.load_module_context(use_singleton=False)
         # After `0.3.0` the version is in the CDF TOML file
         if cdf_toml.is_loaded_from_file and cdf_toml.modules.version:
             return parse_version(cdf_toml.modules.version)
@@ -906,12 +907,7 @@ class ModulesCommand(ToolkitCommand):
             organization_dir = Path.cwd()
         effective_build_env = build_env_name or DEFAULT_ENV
         verify_module_directory(organization_dir, effective_build_env)
-
-        if Flags.V09.is_enabled():
-            config_yaml_input = config_yaml
-        else:
-            config_path = organization_dir / BuildConfigYAML.get_filename(effective_build_env)
-            config_yaml_input = config_path if config_path.is_file() else None
+        config_yaml_input = config_yaml
         lineage = BuildV2Command(
             print_warning=self.print_warning,
             skip_tracking=True,
@@ -1112,7 +1108,7 @@ class ModulesCommand(ToolkitCommand):
         """
         build_input = BuildV2Command._read_file_system(
             organization_dir=organization_dir,
-            config_yaml=organization_dir / f"config.{build_env}.yaml",
+            config_yamls=[organization_dir / f"config.{build_env}.yaml"],
             user_selected_modules=[f"{MODULES}/"],
         )
 
@@ -1124,7 +1120,7 @@ class ModulesCommand(ToolkitCommand):
         Returns a list of available packages, either from the CDF TOML file or from external libraries if the feature flag is enabled.
         """
 
-        cdf_toml = CDFToml.load()
+        cdf_toml = CDFToml.load_module_context()
 
         if self._module_source_dir is None:
             if user_library:
@@ -1245,19 +1241,19 @@ class ModulesCommand(ToolkitCommand):
             if file_path.exists():
                 file_path.unlink()
 
-            response = requests.get(url, stream=True)
-            response.raise_for_status()  # Raise an exception for HTTP errors
+            with httpx2.stream("GET", url, follow_redirects=True) as response:
+                response.raise_for_status()  # Raise an exception for HTTP errors
 
-            total_size = int(response.headers.get("content-length", 0))
+                total_size = int(response.headers.get("content-length", 0))
 
-            with Progress() as progress:
-                task = progress.add_task("Download", total=total_size)
-                with open(file_path, "wb") as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                        progress.update(task, advance=len(chunk))
+                with Progress() as progress:
+                    task = progress.add_task("Download", total=total_size)
+                    with open(file_path, "wb") as f:
+                        for chunk in response.iter_bytes(chunk_size=8192):
+                            f.write(chunk)
+                            progress.update(task, advance=len(chunk))
 
-        except requests.exceptions.RequestException as e:
+        except httpx2.HTTPError as e:
             raise ToolkitError(f"Error downloading file from {url}: {e}") from e
 
     def _unpack(self, file_path: Path) -> None:

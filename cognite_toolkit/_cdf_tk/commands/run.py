@@ -7,31 +7,42 @@ import re
 import shutil
 import textwrap
 import time
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import questionary
 from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive, Token
 from cognite.client.data_classes import ClientCredentials, WorkflowTriggerUpsert
-from cognite.client.data_classes.transformations import TransformationList
-from cognite.client.data_classes.transformations.common import NonceCredentials
 from cognite.client.data_classes.workflows import (
     FunctionTaskParameters,
-    WorkflowExecutionDetailed,
     WorkflowVersionId,
     WorkflowVersionUpsert,
 )
-from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils import ms_to_datetime
+from pydantic import JsonValue
 from rich import print
-from rich.progress import Progress
+from rich.progress import Progress, TaskID
 from rich.table import Table
 
-from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, WorkflowExecutionId
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleId
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    NonceCredentials as TransformationNonceCredentials,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    SQLQueryResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_job import TransformationJobResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import (
+    WorkflowExecutionDetailedResponse,
+    WorkflowTaskExecution,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import Task, WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.auth import CLIENT_NAME, EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ResourceLineageItem
@@ -45,12 +56,11 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotSupported,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, FunctionScheduleIO, WorkflowVersionIO
 from cognite_toolkit._cdf_tk.resource_ios._workflow import WorkflowTriggerIO
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-from cognite_toolkit._cdf_tk.utils import in_dict
+from cognite_toolkit._cdf_tk.utils import humanize_collection, in_dict
 from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write
 
 from ._base import ToolkitCommand
@@ -148,10 +158,7 @@ if __name__ == "__main__":
         verify_module_directory(organization_dir, build_env_name)
 
         client = env_vars.get_client()
-        if Flags.V09.is_enabled():
-            config_yaml_input = config_yaml
-        else:
-            config_yaml_input = organization_dir / f"config.{build_env_name}.yaml" if build_env_name else None
+        config_yaml_input = config_yaml
 
         build_folder = BuildV2Command(
             print_warning=False,
@@ -164,7 +171,8 @@ if __name__ == "__main__":
         is_interactive = external_id is None
         external_id = cast(ExternalId, self._get_function(external_id, build_folder).identifier).external_id
         call_args = self._get_call_args(data_source, external_id, build_folder, env_vars.dump(), is_interactive)
-        function = client.functions.retrieve(external_id=external_id)
+        retrieved_functions = client.functions.retrieve([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
+        function = retrieved_functions[0] if retrieved_functions else None
         if function is None:
             raise ToolkitMissingResourceError(
                 f"Could not find function with external id {external_id}. Have you deployed it?"
@@ -174,8 +182,8 @@ if __name__ == "__main__":
             wait = questionary.confirm("Do you want to wait for the function to complete?").unsafe_ask()
 
         # Todo: Get one shot token using the call_args.authentication
-        session = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
-        result = client.functions.call(external_id=external_id, data=call_args.data, wait=False, nonce=session.nonce)
+        session = client.sessions.create_one_shot_token_exchange_session()
+        result = client.functions.calls.call(function_id=function.id, nonce=session.nonce, data=call_args.data)
 
         table = Table(title=f"Function {external_id!r}, id {function.id!r}")
         table.add_column("Info", justify="left")
@@ -197,10 +205,17 @@ if __name__ == "__main__":
             while result.status.casefold() == "running" and duration < max_time:
                 time.sleep(sleep_time)
                 sleep_time = min(sleep_time * 2, 60)
-                result.update()
+                results = client.functions.calls.retrieve(
+                    function_id=function.id, items=[InternalId(id=result.id)], ignore_unknown_ids=True
+                )
+                if not results:
+                    raise ToolkitMissingResourceError(
+                        f"Could not find function call with id {result.id}. It may have been deleted."
+                    )
+                result = results[0]
                 duration = time.time() - start_time
-                progress.advance(call_task, advance=duration)
-            progress.advance(call_task, advance=max_time - duration)
+                progress.update(call_task, completed=duration)
+            progress.update(call_task, completed=max_time)
             progress.stop()
         table = Table(title=f"Function {external_id}, id {function.id}")
         table.add_column("Info", justify="left")
@@ -214,11 +229,10 @@ if __name__ == "__main__":
         run_time = finished_time - created_time
         table.add_row("Duration", f"{run_time.total_seconds():,} seconds")
         if result.error is not None:
-            table.add_row("Error", str(result.error.get("message", "Empty error")))
-            table.add_row("Error trace", str(result.error.get("trace", "Empty trace")))
-        response = client.functions.calls.get_response(call_id=result.id or 0, function_id=function.id)
-        table.add_row("Result", str(json.dumps(response, indent=2, sort_keys=True)))
-        logs = client.functions.calls.get_logs(call_id=result.id or 0, function_id=function.id)
+            table.add_row("Error", result.error)
+        response = client.functions.calls.get_response(function.id, call_id=result.id)
+        table.add_row("Result", response.model_dump_json(indent=2))
+        logs = client.functions.calls.get_logs(function_id=function.id, call_id=result.id)
         table.add_row("Logs", str(logs))
         print(table)
         return True
@@ -241,7 +255,7 @@ if __name__ == "__main__":
             external_id = questionary.select(
                 "Select function to run", choices=list(function_builds_by_identifier.keys())
             ).unsafe_ask()
-        elif external_id not in function_builds_by_identifier.keys():
+        elif external_id not in function_builds_by_identifier:
             raise ToolkitMissingResourceError(f"Could not find function with external id {external_id}")
         return function_builds_by_identifier[external_id]
 
@@ -341,7 +355,9 @@ if __name__ == "__main__":
         if len(options) == 0:
             print(f"No schedules or workflows found for this {function_external_id} function.")
             return {}, None
-        selected_name: str = questionary.select("Select schedule to run", choices=options).unsafe_ask()  # type: ignore[arg-type]
+        selected_name = questionary.select("Select schedule to run", choices=list(options)).unsafe_ask()
+        if not isinstance(selected_name, str):
+            raise ToolkitValueError(f"Expected a schedule name, got {selected_name!r}.")
         selected = options[selected_name]
         if isinstance(selected, ResourceLineageItem):
             # Schedule
@@ -447,11 +463,7 @@ if __name__ == "__main__":
         if organization_dir in {Path("."), Path("./")}:
             organization_dir = Path.cwd()
         verify_module_directory(organization_dir, build_env_name)
-
-        if Flags.V09.is_enabled():
-            config_yaml_input = config_yaml
-        else:
-            config_yaml_input = organization_dir / f"config.{build_env_name}.yaml" if build_env_name else None
+        config_yaml_input = config_yaml
 
         build_folder = BuildV2Command(
             print_warning=False,
@@ -478,8 +490,9 @@ if __name__ == "__main__":
                 f"Could not find function code for {function_external_id}. Expected at {function_source_code.as_posix()}"
             )
 
-        requirements_txt: Path | str = function_source_code / "requirements.txt"
-        if not cast(Path, requirements_txt).exists():
+        requirements_path = function_source_code / "requirements.txt"
+        requirements_txt: Path | str = requirements_path
+        if not requirements_path.exists():
             self.warn(
                 MediumSeverityWarning(
                     "No requirements.txt found for function, "
@@ -609,7 +622,10 @@ if __name__ == "__main__":
             if env_vars.LOGIN_FLOW == "token":
                 credentials_cls = Token.__name__
                 credentials_args = {"token": 'os.environ["CDF_TOKEN"]'}
-                env["CDF_TOKEN"] = env_vars.CDF_TOKEN  # type: ignore[assignment]
+                token = env_vars.CDF_TOKEN
+                if not isinstance(token, str):
+                    raise ToolkitValueError("CDF_TOKEN is required to run with the token login flow.")
+                env["CDF_TOKEN"] = token
             elif env_vars.LOGIN_FLOW == "interactive":
                 credentials_cls = OAuthInteractive.__name__
                 credentials_args = {
@@ -625,7 +641,12 @@ if __name__ == "__main__":
                     "client_secret": 'os.environ["IDP_CLIENT_SECRET"]',
                     "scopes": str(env_vars.idp_scopes),
                 }
-                env["IDP_CLIENT_SECRET"] = env_vars.IDP_CLIENT_SECRET  # type: ignore[assignment]
+                client_secret = env_vars.IDP_CLIENT_SECRET
+                if not isinstance(client_secret, str):
+                    raise ToolkitValueError(
+                        "IDP_CLIENT_SECRET is required to run with the client credentials login flow."
+                    )
+                env["IDP_CLIENT_SECRET"] = client_secret
             else:
                 raise ToolkitNotSupported(f"Login flow {env_vars.LOGIN_FLOW} is not supported .")
 
@@ -682,218 +703,437 @@ if __name__ == "__main__":
         return re.sub(r"\.+", ".", handler_file.replace(".py", "").replace("/", ".")).removeprefix(".")
 
 
-class RunTransformationCommand(ToolkitCommand):
-    def run_transformation(self, client: ToolkitClient, external_ids: str | list[str]) -> bool:
+class RunTransformationV2Command(ToolkitCommand):
+    _IN_PROGRESS_STATUSES: ClassVar[frozenset[str]] = frozenset({"created", "running"})
+
+    def run_transformation(
+        self, client: ToolkitClient, external_ids: str | list[str] | None, is_dry_run: bool, wait: bool
+    ) -> bool:
         """Run a transformation in CDF"""
         if isinstance(external_ids, str):
             external_ids = [external_ids]
+        elif external_ids is None:
+            # Interactive mode
+            external_ids = [self._select_transformation_interactive(client)]
+            is_dry_run = questionary.confirm("Do you want to run the transformation in dry-run mode?").unsafe_ask()
+            if not is_dry_run:
+                wait = questionary.confirm("Do you want to wait for the transformation to complete?").unsafe_ask()
+
+        if is_dry_run:
+            return self._dry_run_transformations(client, external_ids)
+
+        for external_id in external_ids:
+            try:
+                session = client.sessions.create_one_shot_token_exchange_session()
+            except ToolkitAPIError as e:
+                print("[bold red]ERROR:[/] Could not get a oneshot session.")
+                print(e)
+                return False
+            nonce = TransformationNonceCredentials(
+                session_id=session.id, nonce=session.nonce, cdf_project_name=client.config.project
+            )
+            try:
+                job = client.transformations.run(ExternalId(external_id=external_id), nonce=nonce)
+                print(f"Running transformation {external_id}, status {job.status}...")
+            except ToolkitAPIError as e:
+                print(f"[bold red]ERROR:[/] Could not run transformation {external_id}.")
+                print(e)
+                continue
+            if wait:
+                job = self._wait_for_job(client, job)
+                print(f"Transformation {external_id} finished with status {job.status}.")
+                if job.error:
+                    print(f"[bold red]ERROR:[/] {job.error}")
+                if job.status.casefold() == "completed":
+                    self._print_job_metrics(client, job)
+        return True
+
+    @classmethod
+    def _dry_run_transformations(cls, client: ToolkitClient, external_ids: list[str]) -> bool:
         try:
-            transformations: TransformationList = client.transformations.retrieve_multiple(external_ids=external_ids)
-        except CogniteAPIError as e:
+            transformations = client.transformations.retrieve(ExternalId.from_external_ids(external_ids))
+        except ToolkitAPIError as e:
             print("[bold red]ERROR:[/] Could not retrieve transformations.")
             print(e)
             return False
-        if transformations is None or len(transformations) == 0:
+        if not transformations:
             print(f"[bold red]ERROR:[/] Could not find transformation with external_id {external_ids}")
             return False
-        for transformation in transformations:
-            session = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
-            if session is None:
-                print("[bold red]ERROR:[/] Could not get a oneshot session.")
-                return False
-            nonce = NonceCredentials(session_id=session.id, nonce=session.nonce, cdf_project_name=client.config.project)
-            transformation.source_nonce = nonce
-            transformation.destination_nonce = nonce
-        try:
-            client.transformations.update(transformations)
-        except CogniteAPIError as e:
-            print("[bold red]ERROR:[/] Could not update transformations with oneshot session.")
-            print(e)
-            return False
+
         for transformation in transformations:
             try:
-                job = client.transformations.run(transformation_external_id=transformation.external_id, wait=False)
-                print(f"Running transformation {transformation.external_id}, status {job.status}...")
-            except CogniteAPIError as e:
-                print(f"[bold red]ERROR:[/] Could not run transformation {transformation.external_id}.")
+                result = client.transformations.run_query_preview(transformation.query, convert_to_string=False)
+            except ToolkitAPIError as e:
+                print(f"[bold red]ERROR:[/] Could not dry-run transformation {transformation.external_id}.")
                 print(e)
+                continue
+            cls._print_query_result(transformation.external_id, result)
         return True
 
+    @classmethod
+    def _print_query_result(cls, external_id: str, result: SQLQueryResponse) -> None:
+        columns = [column.name for column in result.schema_]
+        if not columns:
+            print(f"Dry-run of {external_id} returned {len(result.results)} row(s).")
+            return
+        table = Table(title=f"Dry-run result for {external_id}")
+        for column in columns:
+            table.add_column(column)
+        for row in result.results:
+            table.add_row(*(str(row.get(column, "")) for column in columns))
+        print(table)
+        print(f"Dry-run of {external_id} returned {len(result.results)} row(s).")
 
-class RunWorkflowCommand(ToolkitCommand):
+    def _wait_for_job(self, client: ToolkitClient, job: TransformationJobResponse) -> TransformationJobResponse:
+        sleep_time = 1.0
+        with Progress() as progress:
+            wait_task = progress.add_task(
+                f"Waiting for transformation {job.transformation_external_id} to complete...", total=None
+            )
+            while job.status.casefold() in self._IN_PROGRESS_STATUSES:
+                time.sleep(sleep_time)
+                sleep_time = min(sleep_time * 2, 15)
+                retrieved = client.transformations.jobs.retrieve([job.as_id()])
+                if not retrieved:
+                    print(f"[bold red]ERROR:[/] Could not retrieve job {job.id}.")
+                    return job
+                job = retrieved[0]
+                progress.update(wait_task, description=f"Transformation {job.transformation_external_id}: {job.status}")
+        return job
+
+    @staticmethod
+    def _print_job_metrics(client: ToolkitClient, job: TransformationJobResponse) -> None:
+        try:
+            metrics = client.transformations.jobs.list_metrics(job.id)
+        except ToolkitAPIError as e:
+            print(f"[bold red]ERROR:[/] Could not retrieve metrics for job {job.id}.")
+            print(e)
+            return
+        if not metrics:
+            print(f"No metrics available for transformation {job.transformation_external_id}.")
+            return
+
+        table = Table(title=f"Job metrics for {job.transformation_external_id}")
+        table.add_column("Time")
+        table.add_column("Metric")
+        table.add_column("Count", justify="right")
+        for metric in metrics:
+            table.add_row(str(ms_to_datetime(metric.timestamp)), metric.name, f"{metric.count:,}")
+        print(table)
+
+    @staticmethod
+    def _select_transformation_interactive(client: ToolkitClient) -> str:
+        transformations = client.transformations.list(limit=None)
+        if not transformations:
+            raise ToolkitMissingResourceError("No transformations found.")
+
+        choices = [
+            questionary.Choice(
+                title=f"{transformation.name} ({transformation.external_id})",
+                value=transformation.external_id,
+            )
+            for transformation in sorted(transformations, key=lambda t: (t.name or t.external_id).casefold())
+        ]
+        selected: str | None = questionary.select(
+            "Select a transformation to run",
+            choices=choices,
+            instruction="Type to filter",
+            use_search_filter=True,
+            use_jk_keys=False,
+        ).unsafe_ask()
+        if not selected:
+            raise ToolkitValueError("No transformation selected.")
+        return selected
+
+
+class RunWorkflowV2Command(ToolkitCommand):
+    unfinished_task_statuses = frozenset({"IN_PROGRESS", "SCHEDULED"})
+    failed_task_statuses = frozenset({"FAILED", "FAILED_WITH_TERMINAL_ERROR", "TIMED_OUT", "CANCELED"})
+
     def run_workflow(
         self,
-        env_vars: EnvironmentVariables,
-        organization_dir: Path,
-        build_env_name: str | None,
+        client: ToolkitClient,
         external_id: str | None,
         version: str | None,
         wait: bool,
-        config_yaml: Path | None = None,
     ) -> bool:
-        """Run a workflow in CDF"""
-        client = env_vars.get_client()
-        if Flags.V09.is_enabled():
-            config_yaml_input = config_yaml
-        else:
-            config_yaml_input = organization_dir / f"config.{build_env_name}.yaml" if build_env_name else None
+        """Run a workflow in CDF.
 
-        build_folder = BuildV2Command(
-            print_warning=False,
-            silent=True,
-        ).tmp_build(
-            organization_dir,
-            config_yaml_input,
-            client,
-        )
-        is_interactive = external_id is None
-        workflows = build_folder.get_resource_of_type(WorkflowVersionIO.as_resource_type())
-        if len(workflows) == 0:
-            raise ToolkitMissingResourceError("No workflows found in modules.")
+        The available workflows are read from CDF, so no local modules are needed.
+        """
         if external_id is None:
             # Interactive mode
-            choices = [questionary.Choice(title=f"{build.identifier!r}", value=build) for build in workflows]
-            selected = questionary.select("Select workflow to run", choices=choices).unsafe_ask()
+            selected = self._interactive_select_workflow(client)
+            input_ = self._get_trigger_input(client, selected.as_id())
+            wait = questionary.confirm("Do you want to wait for the workflow to complete?").unsafe_ask()
         else:
-            selected_ = next(
-                (
-                    build
-                    for build in workflows
-                    if isinstance(build.identifier, ToolkitWorkflowVersionId)
-                    and build.identifier.workflow_external_id == external_id
-                    and (version is None or (build.identifier.version == version))
-                ),
-                None,
-            )
-            if selected_ is None:
-                raise ToolkitMissingResourceError(f"Could not find workflow with external id {external_id}")
-            selected = selected_
-        id_ = cast(WorkflowVersionId, selected.identifier)
-
-        triggers = build_folder.get_resource_of_type(WorkflowTriggerIO.as_resource_type())
-        credentials: ClientCredentials | None = None
-        input_: dict | None = None
-        for trigger in triggers:
-            trigger_dict = trigger.load_resource_dict(build_folder.organization_dir, env_vars.dump(), validate=False)
-            if (
-                trigger_dict["workflowExternalId"] == id_.workflow_external_id
-                and trigger_dict["workflowVersion"] == id_.version
-            ):
-                print(f"Found trigger {trigger.identifier!r} for workflow {id_!r}")
-                if (
-                    is_interactive
-                    and not questionary.confirm(
-                        "Do you want to use input data and authentication from this trigger?"
-                    ).unsafe_ask()
-                ):
-                    break
-                credentials = (
-                    ClientCredentials.load(trigger_dict["authentication"]) if "authentication" in trigger_dict else None
-                )
-                input_ = trigger_dict.get("input")
-                break
+            selected = self._retrieve_workflow(client, external_id, version)
+            input_ = None
+        id_ = selected.as_id()
 
         try:
-            if credentials:
-                client = ToolkitClient(
-                    config=ToolkitClientConfig(
-                        client_name=CLIENT_NAME,
-                        project=env_vars.CDF_PROJECT,
-                        base_url=env_vars.cdf_url,
-                        credentials=OAuthClientCredentials(
-                            token_url=env_vars.idp_token_url,
-                            client_id=credentials.client_id,
-                            client_secret=credentials.client_secret,
-                            scopes=env_vars.idp_scopes,
-                        ),
-                    )
-                )
-                nonce = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
-            else:
-                nonce = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
-        except CogniteAPIError as e:
-            raise AuthorizationError(f"Could not create oneshot session for workflow {id_!r}: {e!s}") from e
+            nonce = client.sessions.create_one_shot_token_exchange_session().nonce
+        except ToolkitAPIError as e:
+            raise AuthorizationError(f"Could not create oneshot session for workflow {id_!s}: {e!s}") from e
 
-        if is_interactive:
-            wait = questionary.confirm("Do you want to wait for the workflow to complete?").unsafe_ask()
-        if id_.version is None:
-            raise ToolkitValueError("Version is required for workflow.")
-        execution = client.workflows.executions.run(
-            workflow_external_id=id_.workflow_external_id,
-            version=id_.version,
-            input=input_,
-            nonce=nonce,
-        )
-        table = Table(title=f"Workflow {id_!r}")
+        execution = client.workflows.executions.run(id_, nonce=nonce, input=input_)
+        table = Table(title=f"Workflow {id_!s}")
         table.add_column("Info", justify="left")
         table.add_column("Value", justify="left", style="green")
-        table.add_row("Execution id", str(execution.id))
+        table.add_row("Execution id", execution.id)
         table.add_row("Status", str(execution.status))
-        table.add_row("Created time", f"{ms_to_datetime(execution.start_time or 0):%Y-%m-%d %H:%M:%S}")
+        table.add_row("Created time", f"{ms_to_datetime(execution.created_time):%Y-%m-%d %H:%M:%S}")
         print(table)
 
         if not wait:
             return True
 
-        workflow = client.workflows.versions.retrieve(WorkflowVersionId(id_.workflow_external_id, id_.version))
-        if workflow is None:
-            raise ToolkitMissingResourceError(f"Could not find workflow {id_!r}")
+        result = self._wait_for_completion(client, execution.as_id(), selected.workflow_definition.tasks)
+        if result is None:
+            print(f"Could not find execution {execution.id}")
+            return False
 
-        total = len(workflow.workflow_definition.tasks)
-        max_time = sum((task.timeout or 3600) * (task.retries or 3) for task in workflow.workflow_definition.tasks)
-        result = cast(WorkflowExecutionDetailed, client.workflows.executions.retrieve_detailed(execution.id))
-        with Progress() as progress:
-            call_task = progress.add_task("Waiting for workflow execution to complete...", total=total)
+        print(f"Workflow {id_!s} execution {execution.id} completed with status {result.status}")
+        self._print_tasks(id_, result)
+        return True
+
+    @classmethod
+    def _interactive_select_workflow(cls, client: ToolkitClient) -> WorkflowVersionResponse:
+        workflow_versions = client.workflows.versions.list(workflow_external_id=None, limit=None)
+
+        versions_by_external_id: dict[str, list[WorkflowVersionResponse]] = defaultdict(list)
+        for item in workflow_versions:
+            versions_by_external_id[item.workflow_external_id].append(item)
+
+        if len(versions_by_external_id) == 0:
+            raise ToolkitMissingResourceError("No workflows found in CDF.")
+        else:
+            external_id_choices = [
+                questionary.Choice(title=external_id, value=versions)
+                for external_id, versions in sorted(versions_by_external_id.items())
+            ]
+            versions = questionary.select(
+                "Select workflow to run",
+                choices=external_id_choices,
+                instruction="Type to filter",
+                use_search_filter=True,
+                use_jk_keys=False,
+            ).unsafe_ask()
+
+        if len(versions) == 1:
+            return versions[0]
+
+        choices = [
+            questionary.Choice(
+                title=f'Version {item.version!r} (last updated: {ms_to_datetime(item.last_updated_time):%Y-%m-%d %H:%M:%S"})',
+                value=item,
+            )
+            for item in sorted(versions, key=lambda item: item.last_updated_time, reverse=True)
+        ]
+        return questionary.select(
+            f"Select version of {versions[0].workflow_external_id} to run",
+            choices=choices,
+            instruction="Type to filter",
+            use_search_filter=True,
+            use_jk_keys=False,
+        ).unsafe_ask()
+
+    @classmethod
+    def _retrieve_workflow(
+        cls, client: ToolkitClient, external_id: str, version: str | None
+    ) -> WorkflowVersionResponse:
+        if version is not None:
+            workflows = client.workflows.versions.retrieve(
+                [ToolkitWorkflowVersionId(workflow_external_id=external_id, version=version)], ignore_unknown_ids=True
+            )
+            if len(workflows) == 0:
+                raise ToolkitMissingResourceError(
+                    f"Could not find workflow with external id {external_id} and version {version}"
+                )
+            # We specifically requested a version, so we know there is only one workflow in the list.
+            return workflows[0]
+        else:
+            options = client.workflows.versions.list(workflow_external_id=external_id, limit=None)
+            if len(options) == 0:
+                raise ToolkitMissingResourceError(f"Could not find workflow with external id {external_id}")
+            return max(options, key=lambda item: item.last_updated_time)
+
+    @staticmethod
+    def _get_trigger_input(client: ToolkitClient, id_: ToolkitWorkflowVersionId) -> dict[str, JsonValue] | None:
+        triggers = client.workflows.triggers.list(
+            workflow_external_id=id_.workflow_external_id, workflow_version=id_.version
+        )
+        triggers_with_data = [trigger for trigger in triggers if isinstance(trigger.input, dict)]
+        if len(triggers_with_data) == 0:
+            return None
+        if len(triggers_with_data) == 1:
+            if questionary.confirm(
+                f"Found trigger {triggers_with_data[0].as_id()!s} for workflow {id_!s}. Do you want to use input data from this trigger?"
+            ).unsafe_ask():
+                return triggers_with_data[0].input if isinstance(triggers_with_data[0].input, dict) else None
+            return None
+        choices = [
+            questionary.Choice(
+                f"{trigger.as_id()!s} {str(trigger.input)[:50]}{'…' if len(str(trigger.input)) > 50 else ''}",
+                value=trigger,
+            )
+            for trigger in triggers_with_data
+        ]
+        return questionary.select(
+            f"Select trigger for workflow {id_!s} to use input data from",
+            choices=choices,
+            instruction="Type to filter",
+            use_search_filter=True,
+            use_jk_keys=False,
+        ).unsafe_ask()
+
+    @classmethod
+    def _wait_for_completion(
+        cls, client: ToolkitClient, execution_id: WorkflowExecutionId, tasks: list[Task]
+    ) -> WorkflowExecutionDetailedResponse | None:
+        # Each task is attempted once, plus once more for each retry.
+        max_time = sum(
+            (task.timeout or 3600) * ((task.retries if task.retries is not None else 3) + 1) for task in tasks
+        )
+        result = cls._retrieve_execution(client, execution_id)
+        # Attempts we have already told the user about, so each one is only reported once.
+        reported: set[str] = set()
+        with Progress(console=client.console) as progress:
+            bar = progress.add_task(cls._progress_description(result), total=len(tasks))
+            cls._update_progress(progress, bar, result, len(tasks), reported)
             start_time = time.time()
             duration = 0.0
             sleep_time = 1
             while (result is None or str(result.status).upper() == "RUNNING") and duration < max_time:
                 time.sleep(sleep_time)
                 sleep_time = min(sleep_time * 2, 15)
-                result = cast(
-                    WorkflowExecutionDetailed,
-                    client.workflows.executions.retrieve_detailed(execution.id),
-                )
+                result = cls._retrieve_execution(client, execution_id)
                 duration = time.time() - start_time
-                if result is not None:
-                    completed_count = sum(
-                        1
-                        for task in result.executed_tasks
-                        if str(task.status).upper() not in {"IN_PROGRESS", "SCHEDULED"}
-                    )
-                    progress.update(call_task, completed=min(completed_count, total))
-            if result is not None:
-                completed_count = sum(
-                    1 for task in result.executed_tasks if str(task.status).upper() not in {"IN_PROGRESS", "SCHEDULED"}
-                )
-                progress.update(call_task, completed=min(completed_count, total))
-        if result is None:
-            print(f"Could not find execution {execution.id}")
-            return False
+                cls._update_progress(progress, bar, result, len(tasks), reported)
+        return result
 
-        print(f"Workflow {id_!r} execution {execution.id} completed with status {result.status}")
+    @staticmethod
+    def _retrieve_execution(
+        client: ToolkitClient, execution_id: WorkflowExecutionId
+    ) -> WorkflowExecutionDetailedResponse | None:
+        executions = client.workflows.executions.retrieve([execution_id], ignore_unknown_ids=True)
+        return executions[0] if executions else None
 
-        table = Table(title=f"Workflow Tasks {id_!r}")
+    @staticmethod
+    def _attempts_by_task(
+        execution: WorkflowExecutionDetailedResponse,
+    ) -> dict[str, list[WorkflowTaskExecution]]:
+        """Group the task executions by task, in the order they were attempted."""
+        attempts_by_task: dict[str, list[WorkflowTaskExecution]] = defaultdict(list)
+        for task in execution.executed_tasks:
+            attempts_by_task[task.external_id].append(task)
+        return attempts_by_task
+
+    @classmethod
+    def _update_progress(
+        cls,
+        progress: Progress,
+        bar: TaskID,
+        execution: WorkflowExecutionDetailedResponse | None,
+        task_count: int,
+        reported: set[str],
+    ) -> None:
+        if execution is None:
+            return
+        attempts_by_task = cls._attempts_by_task(execution)
+        for attempts in attempts_by_task.values():
+            for attempt_no, task in enumerate(attempts, 1):
+                cls._report_attempt(progress, task, attempt_no, reported)
+        progress.update(
+            bar,
+            # Dynamic and subworkflow tasks are expanded at runtime, so the workflow
+            # definition is a lower bound on the number of tasks.
+            total=max(task_count, len(attempts_by_task)),
+            completed=cls._finished_task_count(execution),
+            description=cls._progress_description(execution),
+        )
+
+    @classmethod
+    def _finished_task_count(cls, execution: WorkflowExecutionDetailedResponse) -> int:
+        """Count the tasks that are done, which is not the same as the number of task executions.
+
+        A task that is retried has one execution per attempt, so only the last attempt of each task counts.
+        """
+        return sum(
+            1
+            for attempts in cls._attempts_by_task(execution).values()
+            if str(attempts[-1].status).upper() not in cls.unfinished_task_statuses
+        )
+
+    @classmethod
+    def _report_attempt(
+        cls, progress: Progress, task: WorkflowTaskExecution, attempt_no: int, reported: set[str]
+    ) -> None:
+        if attempt_no > 1 and f"{task.id}:started" not in reported:
+            reported.add(f"{task.id}:started")
+            progress.console.print(f"[yellow]Retrying task {task.external_id!r} (attempt {attempt_no})[/]")
+        status = str(task.status).upper()
+        if status not in cls.failed_task_statuses or f"{task.id}:{status}" in reported:
+            return
+        reported.add(f"{task.id}:{status}")
+        reason = f": {task.reason_for_incompletion}" if task.reason_for_incompletion else ""
+        progress.console.print(f"[red]Task {task.external_id!r} attempt {attempt_no} {status}[/]{reason}")
+
+    @staticmethod
+    def _progress_description(execution: WorkflowExecutionDetailedResponse | None) -> str:
+        if execution is None:
+            return "Waiting for workflow execution to start..."
+        running = [task.external_id for task in execution.executed_tasks if str(task.status).upper() == "IN_PROGRESS"]
+        if not running:
+            return "Waiting for workflow execution to complete..."
+        if len(running) == 1:
+            return f"Running task {running[0]!r}..."
+        return f"Running {len(running)} tasks: {humanize_collection(running[:3])}..."
+
+    @staticmethod
+    def _truncate(value: JsonValue, max_length: int = 50) -> str:
+        if value is None:
+            return ""
+        text = " ".join((value if isinstance(value, str) else json.dumps(value)).split())
+        if len(text) <= max_length:
+            return text
+        return f"{text[: max_length - 1]}…"
+
+    @classmethod
+    def _print_tasks(cls, id_: ToolkitWorkflowVersionId, execution: WorkflowExecutionDetailedResponse) -> None:
+        table = Table(title=f"Workflow Tasks {id_!s}")
         table.add_column("Task")
+        table.add_column("Attempt")
         table.add_column("Status")
         table.add_column("Start Time")
         table.add_column("End Time")
         table.add_column("Duration")
+        table.add_column("Output")
         table.add_column("ReasonForIncompletion")
 
-        for task in result.executed_tasks:
-            task_duration = (
-                f"{datetime.timedelta(seconds=(task.end_time - task.start_time) / 1000).total_seconds():.1f} seconds"
-                if task.end_time and task.start_time
-                else ""
-            )
-            table.add_row(
-                task.external_id,
-                task.status,
-                f"{ms_to_datetime(task.start_time):%Y-%m-%d %H:%M:%S}" if task.start_time else "",
-                f"{ms_to_datetime(task.end_time):%Y-%m-%d %H:%M:%S}" if task.end_time else "",
-                task_duration,
-                task.reason_for_incompletion,
-            )
+        for external_id, attempts in cls._attempts_by_task(execution).items():
+            for attempt_no, task in enumerate(attempts, 1):
+                task_duration = (
+                    f"{datetime.timedelta(seconds=(task.end_time - task.start_time) / 1000).total_seconds():.1f} seconds"
+                    if task.end_time and task.start_time
+                    else ""
+                )
+                if attempt_no > 1:
+                    # The task is already named in the first row of the group.
+                    task_name = ""
+                elif len(attempts) > 1:
+                    task_name = f"{external_id} ({len(attempts)} attempts)"
+                else:
+                    task_name = external_id
+                table.add_row(
+                    task_name,
+                    f"{attempt_no}/{len(attempts)}" if len(attempts) > 1 else "1",
+                    str(task.status),
+                    f"{ms_to_datetime(task.start_time):%Y-%m-%d %H:%M:%S}" if task.start_time else "",
+                    f"{ms_to_datetime(task.end_time):%Y-%m-%d %H:%M:%S}" if task.end_time else "",
+                    task_duration,
+                    cls._truncate(task.output),
+                    task.reason_for_incompletion,
+                    end_section=len(attempts) > 1 and attempt_no == len(attempts),
+                )
         print(table)
-        return True

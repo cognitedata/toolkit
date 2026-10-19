@@ -1,7 +1,6 @@
-from collections.abc import Hashable, Iterable, Sequence, Sized
+from collections.abc import Hashable, Iterable, Sequence
+from pathlib import Path
 from typing import Any, Literal, final
-
-from cognite.client import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeId
@@ -18,13 +17,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
     ResourceViewMappingRequest,
     ResourceViewMappingResponse,
 )
-from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.utils import sanitize_filename
+from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions
 from cognite_toolkit._cdf_tk.yaml_classes import ResourceViewMappingYAML
 
-from ._datamodel import SpaceCRUD, ViewIO
+from ._datamodel import SpaceIO, ViewIO
 
 
 @final
@@ -35,7 +34,7 @@ class ResourceViewMappingIO(
     resource_cls = ResourceViewMappingResponse
     resource_write_cls = ResourceViewMappingRequest
     kind = "ResourceViewMapping"
-    dependencies = frozenset({SpaceCRUD, ViewIO})
+    dependencies = frozenset({SpaceIO, ViewIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
     yaml_cls = ResourceViewMappingYAML
 
@@ -44,7 +43,9 @@ class ResourceViewMappingIO(
         return "resource view mapping"
 
     @classmethod
-    def get_id(cls, item: ResourceViewMappingRequest | ResourceViewMappingResponse | dict) -> ExternalId:
+    def get_id(cls, item: ResourceViewMappingRequest | ResourceViewMappingResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -54,8 +55,17 @@ class ResourceViewMappingIO(
         return {"externalId": id.external_id}
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
+
+    @classmethod
+    def safe_read(cls, filepath: Path | str) -> str:
+        # The version is a string, but the user often writes it as an int.
+        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
+        # This is technically a user mistake, as you should quote the version in the YAML file.
+        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
+        # so we fix it here.
+        return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[ResourceViewMappingRequest]) -> ScopeDefinition:
@@ -68,27 +78,26 @@ class ResourceViewMappingIO(
 
     def prerequisite_warning(self) -> str | None:
         view_id = RESOURCE_MAPPING_VIEW_ID
-        views = self.client.data_modeling.views.retrieve(
-            dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version)
-        )
+        views = self.client.views.retrieve([view_id])
         if len(views) > 0:
             return None
         return f"{self.display_name} requires the {view_id!s} to be deployed. run `cdf migrate prepare` to deploy it."
 
-    def create(self, items: Sequence[ResourceViewMappingRequest]) -> Sized:
-        return self.client.migration.resource_view_mapping.create(items)
+    def create(self, items: Sequence[ResourceViewMappingRequest]) -> list[ExternalId]:
+        created = self.client.migration.resource_view_mapping.create(items)
+        return [ExternalId(external_id=item.external_id) for item in created]
 
-    def update(self, items: Sequence[ResourceViewMappingRequest]) -> Sized:
-        return self.client.migration.resource_view_mapping.create(items)
+    def update(self, items: Sequence[ResourceViewMappingRequest]) -> list[ExternalId]:
+        return self.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ResourceViewMappingResponse]:
         node_ids = NodeId.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
         return self.client.migration.resource_view_mapping.retrieve(node_ids)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         node_ids = NodeId.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
         result = self.client.migration.resource_view_mapping.delete(node_ids)
-        return len(result)
+        return [ExternalId(external_id=node.external_id) for node in result]
 
     def _iterate(
         self,
@@ -103,7 +112,7 @@ class ResourceViewMappingIO(
 
     @classmethod
     def get_dependencies(cls, resource: ResourceViewMappingYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
-        yield SpaceCRUD, SpaceId(space=COGNITE_MIGRATION_SPACE)
+        yield SpaceIO, SpaceId(space=COGNITE_MIGRATION_SPACE)
         yield ViewIO, RESOURCE_MAPPING_VIEW_ID
         if resource.view_id:
             yield ViewIO, resource.view_id.as_id()
