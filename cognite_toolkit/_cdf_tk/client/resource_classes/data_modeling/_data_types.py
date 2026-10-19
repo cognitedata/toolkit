@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Annotated, Any, Literal
 
-from pydantic import BeforeValidator, Field, TypeAdapter, field_serializer
+from pydantic import BeforeValidator, ConfigDict, Field, TypeAdapter, field_serializer
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
@@ -140,4 +140,4 @@ DataType = Annotated[
     BeforeValidator(_handle_unknown_property_type),
 ]
 
-DataTypeAdapter: TypeAdapter[DataType] = TypeAdapter(DataType)
+DataTypeAdapter: TypeAdapter[DataType] = TypeAdapter(DataType, config=ConfigDict(defer_build=True))

@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning, ModelSyntaxWarning
 
 
-class BaseModelResource(BaseModel, alias_generator=to_camel, extra="forbid"): ...
+class BaseModelResource(BaseModel, alias_generator=to_camel, extra="forbid", defer_build=True): ...
 
 
 class ToolkitResource(BaseModelResource):

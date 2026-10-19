@@ -1,6 +1,6 @@
 from typing import Annotated, Any
 
-from pydantic import BeforeValidator, TypeAdapter
+from pydantic import BeforeValidator, ConfigDict, TypeAdapter
 
 from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field
 
@@ -65,7 +65,7 @@ HostedExtractorSourceRequestUnion = Annotated[
 ]
 
 HostedExtractorSourceRequest: TypeAdapter[HostedExtractorSourceRequestUnion] = TypeAdapter(
-    HostedExtractorSourceRequestUnion
+    HostedExtractorSourceRequestUnion, config=ConfigDict(defer_build=True)
 )
 
 HostedExtractorSourceResponseUnion = Annotated[
@@ -79,7 +79,7 @@ HostedExtractorSourceResponseUnion = Annotated[
 ]
 
 HostedExtractorSourceResponse: TypeAdapter[HostedExtractorSourceResponseUnion] = TypeAdapter(
-    HostedExtractorSourceResponseUnion
+    HostedExtractorSourceResponseUnion, config=ConfigDict(defer_build=True)
 )
 
 

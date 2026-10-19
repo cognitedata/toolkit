@@ -1,6 +1,6 @@
 from typing import Any, Literal, TypeAlias
 
-from pydantic import Field, field_serializer
+from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
@@ -101,14 +101,6 @@ class SimulatorRoutineConfiguration(BaseModelObject):
     steady_state_detection: list[SteadyStateDetectionConfig] = Field(default_factory=list)
     inputs: list[RoutineInputConstantConfig] | None = None
     outputs: list[RoutineOutputConfig] | None = None
-
-    @field_serializer("schedule", "data_sampling")
-    def ensure_enabled_is_set(self, value: Any) -> Any:
-        # Ensure that schedule and data_sampling always serialize "enabled" field
-        if isinstance(value, dict):
-            if "enabled" not in value:
-                value["enabled"] = True
-        return value
 
 
 class ScriptStep(BaseModelObject):
