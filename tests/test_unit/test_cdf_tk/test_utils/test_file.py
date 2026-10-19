@@ -1,6 +1,8 @@
+import os
 import re
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 from zipfile import ZipFile
 
 import pytest
@@ -10,6 +12,7 @@ from cognite_toolkit._cdf_tk.utils.file import (
     create_logfile_stem,
     create_temporary_zip,
     find_unique_match_position,
+    load_yaml_inject_variables,
     read_yaml_content,
     sanitize_filename,
     yaml_find_unique_position,
@@ -173,3 +176,25 @@ class TestFindUniqueMatchPosition:
 
     def test_no_match(self) -> None:
         assert find_unique_match_position(self.CONTENT, re.compile(r"\{\{ missing \}\}")) is None
+
+
+class TestLoadYamlInjectVariables:
+    PEM_REAL = "-----BEGIN CERTIFICATE-----\nMIIBszCCAVmgAwIBAgIU\n-----END CERTIFICATE-----"
+    PEM_ESCAPED = PEM_REAL.replace("\n", "\\n")  # what a CI/shell env var typically holds
+
+    YAML = "externalId: my_mqtt\nauthCertificate:\n  certificate: ${MQTT_CERT}\n"
+
+    @pytest.mark.parametrize(
+        "env_value",
+        [
+            pytest.param(PEM_REAL, id="from .env (dotenv unescaped)"),
+            pytest.param(PEM_ESCAPED, id="from process env (escaped)"),
+        ],
+    )
+    def test_pem_certificate_injected_from_env(self, env_value: str) -> None:
+        with patch.dict(os.environ, {"MQTT_CERT": env_value}):
+            loaded = load_yaml_inject_variables(self.YAML, dict(os.environ), required_return_type="dict")
+
+        cert = loaded["authCertificate"]["certificate"]
+        assert "\\n" not in cert, "Literal backslash-n in PEM -> invalid certificate"
+        assert cert.splitlines()[0] == "-----BEGIN CERTIFICATE-----"
