@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.commands import (
 from cognite_toolkit._cdf_tk.commands._base import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConfigYAML
-from cognite_toolkit._cdf_tk.constants import LOGS_DIRECTORY
+from cognite_toolkit._cdf_tk.constants import BUILD_MODULE_ARG, LOGS_DIRECTORY
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -185,7 +185,7 @@ class CoreApp(typer.Typer):
         selected: Annotated[
             list[str] | None,
             typer.Option(
-                "--modules",
+                BUILD_MODULE_ARG,
                 "-m",
                 help="Specify paths or names to the modules to build",
             ),
@@ -244,10 +244,13 @@ class CoreApp(typer.Typer):
             if config_yaml is None:
                 config_yaml = organization_dir / ConfigYAML.get_filename(build_env_name)
 
+        # Todo when allowing multiple config YAMLS, check if selected is set and multiple config YAMLS are set,
+        # Then raise a BadParameterError, as this is ambiguous. The selected is used to overwrite the selected section
+        # in a config YAML, but if multiple config YAMLS are set, it is ambiguous which one to overwrite. So we should raise an error in that case.
         parameter = BuildParameters(
             organization_dir=organization_dir,
             build_dir=build_dir,
-            config_yaml=config_yaml,
+            config_yamls=[config_yaml] if config_yaml is not None else [],
             user_selected_modules=selected,
             verbose=verbose,
             insight_format=insight_format.value,

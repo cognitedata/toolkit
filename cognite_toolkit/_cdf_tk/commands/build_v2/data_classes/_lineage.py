@@ -38,6 +38,7 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_content,
     safe_read,
 )
+from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash_multi_file
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
 from ._module import BuildVariable
@@ -227,7 +228,7 @@ class BuildLineage(_BaseLineageModel):
 
     @classmethod
     def from_build(
-        cls, build: BuildFolder, cdf_project: str | None = None, config_yaml: Path | None = None
+        cls, build: BuildFolder, cdf_project: str | None = None, config_yamls: list[Path] | None = None
     ) -> "BuildLineage":
         """Construct lineage from build output folder."""
 
@@ -254,7 +255,7 @@ class BuildLineage(_BaseLineageModel):
             modules_summary=modules_summary,
             insights_summary=insights_summary,
             cdf_project=cdf_project,
-            config_hash=calculate_hash(config_yaml, shorten=True) if config_yaml is not None else None,
+            config_hash=calculate_hash_multi_file(config_yamls, shorten=True) if config_yamls else None,
         )
 
     def to_yaml(self) -> str:
