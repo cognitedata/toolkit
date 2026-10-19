@@ -214,6 +214,111 @@ name: My Space
         assert file_by_suffix[".txt"].read_text() == expected_content
 
 
+class TestMultiConfigBuild:
+    @pytest.mark.parametrize(
+        "config_a, config_b, expected_error_fragment",
+        [
+            pytest.param(
+                """environment:
+  project: dev-project
+  validation-type: dev
+  selected:
+  - modules/
+""",
+                """environment:
+  name: dev
+  project: prod-project
+  validation-type: dev
+  selected:
+  - modules/
+""",
+                "different CDF projects",
+                id="Different CDF Projects",
+            ),
+            pytest.param(
+                """environment:
+  project: dev-project
+  validation-type: prod
+  selected:
+  - modules/
+""",
+                """environment:
+  name: dev
+  project: dev-project
+  validation-type: dev
+  selected:
+  - modules/
+""",
+                "different validation types",
+                id="Different Validation Types",
+            ),
+        ],
+    )
+    def test_invalid_config_yaml_raises(
+        self, config_a: str, config_b: str, expected_error_fragment, tmp_path: Path
+    ) -> None:
+        config_a_path = tmp_path / "config_a.yaml"
+        config_b_path = tmp_path / "config_b.yaml"
+        config_a_path.write_text(config_a)
+        config_b_path.write_text(config_b)
+
+        _ = create_resource_file(tmp_path, SpaceIO, SPACE_YAML)
+
+        parameters = BuildParameters(
+            organization_dir=tmp_path,
+            build_dir=Path("build"),
+            config_yamls=[config_a_path, config_b_path],
+        )
+
+        with pytest.raises(ToolkitValueError) as exc_info:
+            BuildV2Command._read_file_system(
+                parameters.organization_dir, parameters.config_yamls, parameters.user_selected_modules
+            )
+
+        assert expected_error_fragment in str(exc_info.value)
+
+    @staticmethod
+    def _create_config(variables: str) -> str:
+        return f"""environment:
+  name: dev
+  project: dev-project
+  validation-type: dev
+  selected:
+  - modules/
+variables:
+{variables}
+"""
+
+    def test_build_multiple_configs(self, tmp_path: Path, toolkit_client_cheap: ToolkitClient) -> None:
+        config_a_path = tmp_path / "config.siteA.yaml"
+        config_b_path = tmp_path / "config.siteB.yaml"
+
+        config_a_path.write_text(self._create_config("  site: siteA"))
+        config_b_path.write_text(self._create_config("  site: siteB"))
+
+        _ = create_resource_file(
+            tmp_path,
+            SpaceIO,
+            """space: {{ site }}
+name: {{ site }} Space
+""",
+        )
+        build_dir = tmp_path / "build"
+
+        parameters = BuildParameters(
+            organization_dir=tmp_path,
+            build_dir=build_dir,
+            config_yamls=[config_a_path, config_b_path],
+        )
+
+        _ = BuildV2Command().build(parameters, client=None)
+
+        built_spaces = list(build_dir.rglob(f"*.{SpaceIO.kind}.yaml"))
+        assert len(built_spaces) == 2
+        spaces = SpaceIO(toolkit_client_cheap).load_resource_files(built_spaces)
+        assert [s.space for s in spaces] == ["siteA", "siteB"]
+
+
 class TestDependencyValidationSearchConfig:
     @staticmethod
     def _minimal_module(tmp_path: Path) -> tuple[BuiltModule, Path, Path]:
