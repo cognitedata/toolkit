@@ -129,14 +129,14 @@ def _write(tmp_path: Path, name: str, content: str) -> Path:
 
 
 def _module(resources: list[tuple[Path, type[ResourceIO], ContainerId | ViewId]]) -> BuiltModule:
-    module_id = ModuleId(id=RelativeDirPath(Path("modules/my")), path=resources[0][0].parent.resolve())
+    module_id = ModuleId(id=Path("modules/my"), path=resources[0][0].parent.resolve())
     built = [
         BuiltResource(
             identifier=identifier,
             source_hash="test-hash",
             type=ResourceType(resource_folder=crud_cls.folder_name, kind=crud_cls.kind),
-            source_path=AbsoluteFilePath(path.resolve()),
-            build_path=AbsoluteFilePath(path.resolve()),
+            source_path=path.resolve(),
+            build_path=path.resolve(),
             crud_cls=crud_cls,
             has_syntax_error=False,
             module_id=module_id,

@@ -56,13 +56,13 @@ class TestAgentRuleSet:
             identifier=ExternalId(external_id=external_id),
             source_hash="test-hash",
             type=ResourceType(resource_folder=AgentIO.folder_name, kind=AgentIO.kind),
-            source_path=AbsoluteFilePath(source_path.resolve()),
-            build_path=AbsoluteFilePath(build_path.resolve()),
+            source_path=source_path.resolve(),
+            build_path=build_path.resolve(),
             crud_cls=AgentIO,
             dependencies=set(),
             has_syntax_error=False,
             module_id=ModuleId(
-                id=RelativeDirPath(Path("modules/my")),
+                id=Path("modules/my"),
                 path=source_path.parent.resolve(),
             ),
         )

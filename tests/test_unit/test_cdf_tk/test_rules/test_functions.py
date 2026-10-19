@@ -43,13 +43,13 @@ class TestFunctionLimitsRule:
             identifier=ExternalId(external_id=external_id),
             source_hash="test-hash",
             type=ResourceType(resource_folder=FunctionIO.folder_name, kind=FunctionIO.kind),
-            source_path=AbsoluteFilePath(source_path.resolve()),
-            build_path=AbsoluteFilePath(build_path.resolve()),
+            source_path=source_path.resolve(),
+            build_path=build_path.resolve(),
             crud_cls=FunctionIO,
             dependencies=set(),
             has_syntax_error=False,
             module_id=ModuleId(
-                id=RelativeDirPath(Path("modules/my")),
+                id=Path("modules/my"),
                 path=source_path.parent.resolve(),
             ),
         )
@@ -67,6 +67,7 @@ class TestFunctionLimitsRule:
         rule = self._create_rule_with_client(function_limits)
         status = rule.get_status()
         assert status.code == "ready"
+        assert status.message is not None
         assert "validate function limits" in status.message.lower()
 
     def test_get_status_without_client(self) -> None:
@@ -74,6 +75,7 @@ class TestFunctionLimitsRule:
         rule = FunctionRuleSet(modules=[])
         status = rule.get_status()
         assert status.code == "reduced"
+        assert status.message is not None
         assert "requirement" in status.message.lower()
 
     def test_validate_function_cpu_exceeds_max(self, tmp_path: Path, function_limits: FunctionLimits) -> None:

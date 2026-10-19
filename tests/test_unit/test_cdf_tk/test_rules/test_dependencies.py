@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 
 
 def _built_module(yaml_file: Path, crud_cls: type[ResourceIO], identifier: Identifier) -> BuiltModule:
-    module_id = ModuleId(id=RelativeDirPath(Path("modules/my")), path=yaml_file.parent.resolve())
+    module_id = ModuleId(id=Path("modules/my"), path=yaml_file.parent.resolve())
     return BuiltModule(
         module_id=module_id,
         yaml_line_count=0,
@@ -22,8 +22,8 @@ def _built_module(yaml_file: Path, crud_cls: type[ResourceIO], identifier: Ident
                 identifier=identifier,
                 source_hash="test-hash",
                 type=ResourceType(resource_folder=crud_cls.folder_name, kind=crud_cls.kind),
-                source_path=AbsoluteFilePath(yaml_file.resolve()),
-                build_path=AbsoluteFilePath(yaml_file.resolve()),
+                source_path=yaml_file.resolve(),
+                build_path=yaml_file.resolve(),
                 crud_cls=crud_cls,
                 has_syntax_error=False,
                 module_id=module_id,
