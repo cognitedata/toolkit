@@ -177,21 +177,19 @@ class TestFindUniqueMatchPosition:
 
 
 class TestLoadYamlInjectVariables:
-    PEM_REAL = "-----BEGIN CERTIFICATE-----\nMIIBszCCAVmgAwIBAgIU\n-----END CERTIFICATE-----"
-    PEM_ESCAPED = PEM_REAL.replace("\n", "\\n")  # what a CI/shell env var typically holds
+    PEM = "-----BEGIN CERTIFICATE-----\nMIIBszCCAVmgAwIBAgIU\n-----END CERTIFICATE-----"
 
     YAML = "externalId: my_mqtt\nauthCertificate:\n  certificate: ${MQTT_CERT}\n"
 
-    @pytest.mark.parametrize(
-        "env_value",
-        [
-            pytest.param(PEM_REAL, id="from .env (dotenv unescaped)"),
-            pytest.param(PEM_ESCAPED, id="from process env (escaped)"),
-        ],
-    )
-    def test_pem_certificate_injected_from_env(self, env_value: str) -> None:
-        loaded = load_yaml_inject_variables(self.YAML, {"MQTT_CERT": env_value}, required_return_type="dict")
+    def test_multiline_value_injected_from_env(self) -> None:
+        loaded = load_yaml_inject_variables(self.YAML, {"MQTT_CERT": self.PEM}, required_return_type="dict")
 
-        cert = loaded["authCertificate"]["certificate"]
-        assert "\\n" not in cert, "Literal backslash-n in PEM -> invalid certificate"
-        assert cert.splitlines()[0] == "-----BEGIN CERTIFICATE-----"
+        assert loaded["authCertificate"]["certificate"] == self.PEM
+        assert loaded["externalId"] == "my_mqtt"
+
+    def test_escaped_newlines_are_preserved(self) -> None:
+        # Unescaping is resource specific, e.g., done by HostedExtractorSourceIO for certificates.
+        escaped = self.PEM.replace("\n", "\\n")
+        loaded = load_yaml_inject_variables(self.YAML, {"MQTT_CERT": escaped}, required_return_type="dict")
+
+        assert loaded["authCertificate"]["certificate"] == escaped
