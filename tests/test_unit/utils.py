@@ -359,7 +359,7 @@ class FakeCogniteResourceGenerator:
     def create_value(self, type_: Any, var_name: str | None = None) -> Any:
 
         if isinstance(type_, typing.ForwardRef):
-            type_ = type_._evaluate(globals(), (), ())  # type: ignore[call-arg]
+            type_ = type_._evaluate(globals(), {}, ())  # type: ignore[call-arg]
         if inspect.isclass(type_) and issubclass(type_, BaseModel):
             return self.create_pydantic_instance(type_)
 
