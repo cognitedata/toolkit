@@ -1,15 +1,9 @@
 import subprocess
-import sys
+import tomllib
 from collections.abc import Iterable
 from pathlib import Path
+from tomllib import TOMLDecodeError
 from typing import Any
-
-if sys.version_info >= (3, 11):
-    import tomllib
-    from tomllib import TOMLDecodeError
-else:
-    import tomli as tomllib
-    from tomli import TOMLDecodeError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import InstanceId, InternalId
