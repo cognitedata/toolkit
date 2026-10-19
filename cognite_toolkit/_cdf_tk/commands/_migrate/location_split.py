@@ -224,7 +224,13 @@ def build_target_by_root_asset(
 
 
 class AssetExternalIdTargetSpaceResolver:
-    """Resolve target space from a classic asset reference on the node (e.g. Notification.assetExternalId)."""
+    """Resolve target space from a classic asset reference on the node (e.g. Notification.assetExternalId).
+
+    A node's asset matches a location if the location's asset is anywhere in the node's asset's chain of
+    parent assets (including the asset itself). When multiple location assets appear in that chain, the
+    closest one (i.e. furthest from the hierarchy root) wins, so a sub-location configured as a child of a
+    broader location is preferred over the broader one.
+    """
 
     def __init__(
         self,
@@ -236,35 +242,45 @@ class AssetExternalIdTargetSpaceResolver:
         self._client = client
         self._view_id = view_id
         self._property_id = property_id
-        self._root_id_to_target_space = self._root_internal_id_to_target_space(client, target_by_root_asset)
-        self._root_id_by_asset_external_id: dict[str, int | None] = {}
+        self._location_asset_id_to_target_space = self._location_asset_internal_id_to_target_space(
+            client, target_by_root_asset
+        )
+        self._path_by_asset_external_id: dict[str, list[int] | None] = {}
 
     @staticmethod
-    def _root_internal_id_to_target_space(
+    def _location_asset_internal_id_to_target_space(
         client: ToolkitClient, target_by_root_asset: Mapping[str, str]
     ) -> dict[int, str]:
-        root_assets = client.assets.retrieve(
+        location_assets = client.assets.retrieve(
             ExternalId.from_external_ids(target_by_root_asset.keys()), ignore_unknown_ids=True
         )
-        root_id_to_target: dict[int, str] = {}
-        for asset in root_assets:
+        location_asset_id_to_target: dict[int, str] = {}
+        for asset in location_assets:
             if asset.external_id is None or asset.external_id not in target_by_root_asset:
                 continue
-            root_id_to_target[asset.id] = target_by_root_asset[asset.external_id]
-        return root_id_to_target
+            location_asset_id_to_target[asset.id] = target_by_root_asset[asset.external_id]
+        return location_asset_id_to_target
 
     def prepare_page(self, nodes: Sequence[NodeResponse]) -> None:
         asset_external_ids: set[str] = set()
         for node in nodes:
             asset_external_id = as_external_id(get_view_property(node, self._view_id, self._property_id))
-            if asset_external_id is not None and asset_external_id not in self._root_id_by_asset_external_id:
+            if asset_external_id is not None and asset_external_id not in self._path_by_asset_external_id:
                 asset_external_ids.add(asset_external_id)
         if not asset_external_ids:
             return
-        assets = self._client.assets.retrieve(ExternalId.from_external_ids(asset_external_ids), ignore_unknown_ids=True)
-        found_by_external_id = {asset.external_id: asset.root_id for asset in assets if asset.external_id is not None}
+        assets = self._client.assets.retrieve(
+            ExternalId.from_external_ids(asset_external_ids),
+            ignore_unknown_ids=True,
+            aggregated_properties=["path"],
+        )
+        found_by_external_id = {
+            asset.external_id: [segment["id"] for segment in asset.aggregates.path]
+            for asset in assets
+            if asset.external_id is not None and asset.aggregates is not None
+        }
         for asset_external_id in asset_external_ids:
-            self._root_id_by_asset_external_id[asset_external_id] = found_by_external_id.get(asset_external_id)
+            self._path_by_asset_external_id[asset_external_id] = found_by_external_id.get(asset_external_id)
 
     def resolve(self, node: NodeResponse) -> str:
         asset_external_id = as_external_id(get_view_property(node, self._view_id, self._property_id))
@@ -272,22 +288,23 @@ class AssetExternalIdTargetSpaceResolver:
             raise TargetSpaceResolutionError(
                 f"{node.as_id()} is missing {self._property_id}.", severity=Severity.failure
             )
-        if asset_external_id not in self._root_id_by_asset_external_id:
+        if asset_external_id not in self._path_by_asset_external_id:
             raise RuntimeError(
                 f"Bug in Toolkit: asset {asset_external_id!r} was requested without prefetching it first. "
                 "Call prepare_page() before resolving."
             )
-        root_id = self._root_id_by_asset_external_id[asset_external_id]
-        if root_id is None:
+        path = self._path_by_asset_external_id[asset_external_id]
+        if path is None:
             raise TargetSpaceResolutionError(
                 f"{node.as_id()}: asset {asset_external_id!r} referenced via {self._property_id} was not found.",
                 severity=Severity.failure,
             )
-        target_space = self._root_id_to_target_space.get(root_id)
-        if target_space is None:
-            raise TargetSpaceResolutionError(
-                f"{node.as_id()}: asset {asset_external_id!r} root asset does not match a location sharing this "
-                "source space.",
-                severity=Severity.failure,
-            )
-        return target_space
+        for asset_id in reversed(path):
+            target_space = self._location_asset_id_to_target_space.get(asset_id)
+            if target_space is not None:
+                return target_space
+        raise TargetSpaceResolutionError(
+            f"{node.as_id()}: asset {asset_external_id!r} is not located under any location asset sharing this "
+            "source space.",
+            severity=Severity.failure,
+        )
