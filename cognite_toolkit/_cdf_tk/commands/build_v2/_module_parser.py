@@ -223,6 +223,9 @@ class ModuleParser:
             path, iteration, subdict = to_check.pop()
             for key, value in subdict.items():
                 subpath = path / key
+                if value is None:
+                    # An empty key, e.g. `modules:` without any children, is treated as an empty dict.
+                    value = {}
                 if isinstance(value, str | float | int | bool):
                     variables_by_path_and_iteration[path][iteration].append(
                         BuildVariable(id=subpath, value=value, is_selected=path in selected_paths, iteration=iteration)
