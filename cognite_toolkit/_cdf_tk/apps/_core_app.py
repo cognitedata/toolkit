@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConfigYAML
 from cognite_toolkit._cdf_tk.constants import BUILD_MODULE_ARG, LOGS_DIRECTORY
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
@@ -198,9 +199,22 @@ class CoreApp(typer.Typer):
                 exists=True,
                 file_okay=True,
                 dir_okay=False,
+                hidden=Flags.MULTI_CONFIGS.is_enabled(),
                 help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
             ),
         ] = Path(CDF_TOML.cdf.default_config_yaml) if CDF_TOML.cdf.default_config_yaml else None,
+        config_yamls: Annotated[
+            list[Path] | None,
+            typer.Option(
+                "--config-yaml",
+                "-c",
+                exists=True,
+                file_okay=True,
+                dir_okay=False,
+                hidden=Flags.MULTI_CONFIGS.is_enabled(),
+                help="Path to the config YAML file (for example config.<env>.yaml under the organization directory). Can be specified multiple times to pass multiple config YAMLs.",
+            ),
+        ] = None,
         build_env_name: Annotated[
             str | None,
             typer.Option(
@@ -244,13 +258,23 @@ class CoreApp(typer.Typer):
             if config_yaml is None:
                 config_yaml = organization_dir / ConfigYAML.get_filename(build_env_name)
 
-        # Todo when allowing multiple config YAMLS, check if selected is set and multiple config YAMLS are set,
-        # Then raise a BadParameterError, as this is ambiguous. The selected is used to overwrite the selected section
-        # in a config YAML, but if multiple config YAMLS are set, it is ambiguous which one to overwrite. So we should raise an error in that case.
+        if config_yamls is not None and len(config_yamls) > 1 and selected is not None:
+            raise typer.BadParameter(
+                f"Cannot use --config-yaml multiple times and {BUILD_MODULE_ARG} at the same time. "
+                f"Please use either --config-yaml multiple times or {BUILD_MODULE_ARG}, but not both."
+                f"Note that {BUILD_MODULE_ARG} is used to override the selected modules in the config YAML,"
+                f" so it is only supported when using a single config YAML file."
+            )
+        user_config_yamls: list[Path] | None
+        if Flags.MULTI_CONFIGS.is_enabled():
+            user_config_yamls = config_yamls
+        else:
+            user_config_yamls = [config_yaml] if config_yaml is not None else None
+
         parameter = BuildParameters(
             organization_dir=organization_dir,
             build_dir=build_dir,
-            config_yamls=[config_yaml] if config_yaml is not None else [],
+            config_yamls=user_config_yamls,
             user_selected_modules=selected,
             verbose=verbose,
             insight_format=insight_format.value,
