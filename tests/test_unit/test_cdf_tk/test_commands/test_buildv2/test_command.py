@@ -316,7 +316,7 @@ name: {{ site }} Space
         built_spaces = list(build_dir.rglob(f"*.{SpaceIO.kind}.yaml"))
         assert len(built_spaces) == 2
         spaces = SpaceIO(toolkit_client_cheap).load_resource_files(built_spaces)
-        assert [s.space for s in spaces] == ["siteA", "siteB"]
+        assert sorted(s.space for s in spaces) == ["siteA", "siteB"]
 
 
 class TestDependencyValidationSearchConfig:
