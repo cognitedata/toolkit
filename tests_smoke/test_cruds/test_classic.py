@@ -43,8 +43,8 @@ class TestSequenceRowCRUD:
             raise AssertionError(f"Failed inserting {count} rows into sequence. Got error: {e}")
 
         try:
-            deleted = io.delete([large_sequence.as_id()])
+            deleted_ids = io.delete([large_sequence.as_id()])
         except ToolkitAPIError as e:
             raise AssertionError(f"Failed deleting rows from sequence. Got error: {e}")
-        if deleted != count:
-            raise AssertionError(f"Expected to delete 1 sequence, but deleted {deleted}")
+        if len(deleted_ids) != 1:
+            raise AssertionError(f"Expected to delete 1 sequence, but deleted {len(deleted_ids)}")
