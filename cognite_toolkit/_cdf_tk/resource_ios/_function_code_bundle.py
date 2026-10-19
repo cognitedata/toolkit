@@ -1,7 +1,7 @@
+import subprocess
 import sys
 from collections.abc import Iterable
 from pathlib import Path
-import subprocess
 from typing import Any
 
 if sys.version_info >= (3, 11):
@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, Read
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     calculate_hash,
-    calculate_zipfile_hash,
+    calculate_zip_content_hash,
     humanize_collection,
 )
 from cognite_toolkit._cdf_tk.utils.file import (
@@ -118,7 +118,7 @@ class FunctionCodeBundle:
             if "workspace" not in pyproject["tool"]["uv"]:
                 return None
             return FailedReadExtra(
-                code="MISSING",
+                code="INVALID-FILE-CONTENT",
                 error=(
                     f"Function App {function_rootdir.name!r} uses a UV workspace. Set the FunctionApp YAML "
                     "'package' field to the workspace package to deploy."
@@ -130,7 +130,7 @@ class FunctionCodeBundle:
         if not pyproject_file.exists() or not lock_file.exists():
             missing = "pyproject.toml" if not pyproject_file.exists() else "uv.lock"
             return FailedReadExtra(
-                code="MISSING",
+                code="MISSING-REFERENCED-FILE",
                 error=(
                     f"Function App {function_rootdir.name!r} requires either requirements.txt or both pyproject.toml "
                     f"and uv.lock. Missing {missing}."
@@ -147,7 +147,7 @@ class FunctionCodeBundle:
         if isinstance(pyproject.get("tool"), dict) and isinstance(pyproject["tool"].get("uv"), dict):
             if "workspace" in pyproject["tool"]["uv"] and package is None:
                 return FailedReadExtra(
-                    code="MISSING",
+                    code="INVALID-FILE-CONTENT",
                     error=(
                         f"Function App {function_rootdir.name!r} uses a UV workspace. Set the FunctionApp YAML "
                         "'package' field to the workspace package to deploy."
@@ -172,7 +172,7 @@ class FunctionCodeBundle:
             result = subprocess.run(args, cwd=uv_root, capture_output=True, timeout=30, check=False)
         except FileNotFoundError:
             return FailedReadExtra(
-                code="MISSING",
+                code="MISSING-REFERENCED-FILE",
                 error="Cannot export Function App dependencies because UV is not installed. Install uv or add requirements.txt.",
                 source_path=function_rootdir,
             )
@@ -240,7 +240,7 @@ class FunctionCodeBundle:
             exclude_files={"pyproject.toml", "uv.lock"} if isinstance(requirements, bytes) else None,
         )
         function_hash = (
-            calculate_zipfile_hash(zip_content, shorten=True)
+            calculate_zip_content_hash(zip_content, shorten=True)
             if hash_build_file
             else cls.create_hash_values(function_rootdir)
         )
@@ -248,7 +248,7 @@ class FunctionCodeBundle:
             item["metadata"] = {}
         item["metadata"][function_hash_key] = function_hash
         source_hash = (
-            calculate_zipfile_hash(zip_content) if hash_build_file else calculate_directory_hash(function_rootdir)
+            calculate_zip_content_hash(zip_content) if hash_build_file else calculate_directory_hash(function_rootdir)
         )
 
         yield SuccessExtra(

@@ -173,7 +173,7 @@ def test_function_app_parent_workspace_requires_package(tmp_path: Path) -> None:
 
     [failed] = FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id(item), item)
 
-    assert failed.code == "MISSING"
+    assert failed.code == "INVALID-FILE-CONTENT"
     assert "'package' field" in failed.error
 
 
@@ -187,12 +187,12 @@ def test_function_app_workspace_requires_package(tmp_path: Path) -> None:
 
     [failed] = FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id(item), item)
 
-    assert failed.code == "MISSING"
+    assert failed.code == "INVALID-FILE-CONTENT"
     assert "'package' field" in failed.error
 
 
 def test_function_app_removes_package_from_request() -> None:
-    loader = FunctionAppIO.create_loader(MagicMock(), None)
+    loader = FunctionAppIO.create_io(MagicMock())
     request = loader.load_resource({"externalId": "app", "name": "App", "package": "worker"})
 
     assert "package" not in request.dump()
