@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import date
 from enum import Enum
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, TypeAlias
 
 import typer
 from dotenv import dotenv_values, load_dotenv
@@ -53,6 +53,37 @@ def _version_callback(value: bool) -> None:
     if value:
         typer.echo(f"CDF-Toolkit version: {current_version}.")
         raise typer.Exit()
+
+
+if Flags.MULTI_CONFIGS.is_enabled():
+    CONFIG_YAML_ARG: TypeAlias = Annotated[
+        list[Path] | None,
+        typer.Option(
+            "--config-yaml",
+            "-c",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            help="Path to the config YAML file (for example config.<env>.yaml under the organization directory). Can be specified multiple times to pass multiple config YAMLs.",
+        ),
+    ]
+    if CDF_TOML.cdf.default_config_yaml:
+        CONFIG_YAML_DEFAULT: Path | None = Path(CDF_TOML.cdf.default_config_yaml)
+    else:
+        CONFIG_YAML_DEFAULT = None
+else:
+    CONFIG_YAML_ARG = Annotated[
+        Path | None,
+        typer.Option(
+            "--config-yaml",
+            "-c",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
+        ),
+    ]
+    CONFIG_YAML_DEFAULT = None
 
 
 class CoreApp(typer.Typer):
@@ -191,30 +222,7 @@ class CoreApp(typer.Typer):
                 help="Specify paths or names to the modules to build",
             ),
         ] = None,
-        config_yaml: Annotated[
-            Path | None,
-            typer.Option(
-                "--config-yaml",
-                "-c",
-                exists=True,
-                file_okay=True,
-                dir_okay=False,
-                hidden=Flags.MULTI_CONFIGS.is_enabled(),
-                help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
-            ),
-        ] = Path(CDF_TOML.cdf.default_config_yaml) if CDF_TOML.cdf.default_config_yaml else None,
-        config_yamls: Annotated[
-            list[Path] | None,
-            typer.Option(
-                "--config-yaml",
-                "-c",
-                exists=True,
-                file_okay=True,
-                dir_okay=False,
-                hidden=Flags.MULTI_CONFIGS.is_enabled(),
-                help="Path to the config YAML file (for example config.<env>.yaml under the organization directory). Can be specified multiple times to pass multiple config YAMLs.",
-            ),
-        ] = None,
+        config_yaml: CONFIG_YAML_ARG = CONFIG_YAML_DEFAULT,
         build_env_name: Annotated[
             str | None,
             typer.Option(
@@ -258,23 +266,22 @@ class CoreApp(typer.Typer):
             if config_yaml is None:
                 config_yaml = organization_dir / ConfigYAML.get_filename(build_env_name)
 
-        if config_yamls is not None and len(config_yamls) > 1 and selected is not None:
+        if isinstance(config_yaml, list) and len(config_yaml) > 1 and selected is not None:
             raise typer.BadParameter(
                 f"Cannot use --config-yaml multiple times and {BUILD_MODULE_ARG} at the same time. "
                 f"Please use either --config-yaml multiple times or {BUILD_MODULE_ARG}, but not both."
                 f"Note that {BUILD_MODULE_ARG} is used to override the selected modules in the config YAML,"
                 f" so it is only supported when using a single config YAML file."
             )
-        user_config_yamls: list[Path] | None
-        if Flags.MULTI_CONFIGS.is_enabled():
-            user_config_yamls = config_yamls
+        if isinstance(config_yaml, Path):
+            config_yamls = [config_yaml]
         else:
-            user_config_yamls = [config_yaml] if config_yaml is not None else None
+            config_yamls = config_yaml
 
         parameter = BuildParameters(
             organization_dir=organization_dir,
             build_dir=build_dir,
-            config_yamls=user_config_yamls,
+            config_yamls=config_yamls,
             user_selected_modules=selected,
             verbose=verbose,
             insight_format=insight_format.value,
