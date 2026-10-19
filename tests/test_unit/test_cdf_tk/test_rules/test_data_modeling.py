@@ -38,6 +38,9 @@ from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 CONTAINER_ID = ContainerId(space="my_space", external_id="MyContainer")
 VIEW_ID = ViewId(space="my_space", external_id="MyView", version="v1")
 OTHER_VIEW_ID = ViewId(space="my_space", external_id="OtherView", version="v1")
+PARENT_VIEW_ID = ViewId(space="my_space", external_id="ParentView", version="v1")
+DIRECT_PARENT_ID = ViewId(space="my_space", external_id="DirectParent", version="v1")
+TEXT_PARENT_ID = ViewId(space="my_space", external_id="TextParent", version="v1")
 DATA_MODEL_ID = DataModelId(space="my_space", external_id="MyModel", version="v1")
 
 CONTAINER_YAML = """space: my_space
@@ -107,6 +110,15 @@ properties:
         version: v1
       identifier: related
 """
+
+
+def _implements_view_yaml(*parents: ViewId) -> str:
+    implements = "".join(
+        f"  - type: view\n    space: {parent.space}\n    externalId: {parent.external_id}\n    version: {parent.version}\n"
+        for parent in parents
+    )
+    return f"space: my_space\nexternalId: OtherView\nversion: v1\nimplements:\n{implements}"
+
 
 CONTAINER_REMOVED_PROPERTY_YAML = """space: my_space
 externalId: MyContainer
@@ -336,6 +348,64 @@ class TestReverseDirectRelations:
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [insight.code for insight in insights] == ["MISSING-REFERENCED-PROPERTY"]
+
+    def test_direct_relation_inherited_from_local_view_is_accepted(self, tmp_path: Path) -> None:
+        container_file = _write(tmp_path, "MyContainer.container.yaml", DIRECT_CONTAINER_YAML)
+        parent_view = _write(tmp_path, "ParentView.view.yaml", MAPPED_VIEW_YAML.replace("OtherView", "ParentView"))
+        child_view = _write(tmp_path, "OtherView.view.yaml", _implements_view_yaml(PARENT_VIEW_ID))
+        reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
+        rule = DataModelingRuleSet(
+            modules=[
+                _module(
+                    [
+                        (container_file, ContainerIO, CONTAINER_ID),
+                        (parent_view, ViewIO, PARENT_VIEW_ID),
+                        (child_view, ViewIO, OTHER_VIEW_ID),
+                        (reverse_view, ViewIO, VIEW_ID),
+                    ]
+                )
+            ]
+        )
+
+        assert list(rule.validate()) == []
+
+    def test_direct_relation_inherited_from_cdf_view_is_accepted(self, tmp_path: Path) -> None:
+        child_view = _write(tmp_path, "OtherView.view.yaml", _implements_view_yaml(PARENT_VIEW_ID))
+        reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
+        client = _client(views=[_cdf_view(PARENT_VIEW_ID, {"related": _view_property("related", direct=True)})])
+        rule = DataModelingRuleSet(
+            modules=[_module([(child_view, ViewIO, OTHER_VIEW_ID), (reverse_view, ViewIO, VIEW_ID)])], client=client
+        )
+
+        assert list(rule.validate()) == []
+        client.views.retrieve.assert_any_call([PARENT_VIEW_ID], include_inherited_properties=True)
+
+    @pytest.mark.parametrize(
+        "implements, expected_codes",
+        [
+            pytest.param([TEXT_PARENT_ID, DIRECT_PARENT_ID], [], id="last-implemented-view-wins-direct"),
+            pytest.param(
+                [DIRECT_PARENT_ID, TEXT_PARENT_ID], ["INVALID-REFERENCED-PROPERTY"], id="last-wins-not-direct"
+            ),
+        ],
+    )
+    def test_implements_order_decides_inherited_property(
+        self, implements: list[ViewId], expected_codes: list[str], tmp_path: Path
+    ) -> None:
+        child_view = _write(tmp_path, "OtherView.view.yaml", _implements_view_yaml(*implements))
+        reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
+        client = _client(
+            views=[
+                _cdf_view(DIRECT_PARENT_ID, {"related": _view_property("related", direct=True)}),
+                _cdf_view(TEXT_PARENT_ID, {"related": _view_property("related", direct=False)}),
+            ]
+        )
+        rule = DataModelingRuleSet(
+            modules=[_module([(child_view, ViewIO, OTHER_VIEW_ID), (reverse_view, ViewIO, VIEW_ID)])], client=client
+        )
+
+        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        assert [insight.code for insight in insights] == expected_codes
 
 
 class TestDataModelingChangesMove:
