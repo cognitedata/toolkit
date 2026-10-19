@@ -48,6 +48,15 @@ def calculate_secure_hash(item: dict[str, Any] | str, shorten: bool = False) -> 
     return calculated_hash
 
 
+def calculate_hash_multi_file(filepaths: list[Path], shorten: bool = False) -> str:
+    if not filepaths:
+        return ""
+    byte_array: list[bytes] = []
+    for config_file in filepaths:
+        byte_array.append(config_file.read_bytes().replace(b"\r\n", b"\n"))
+    return calculate_hash(b"".join(byte_array), shorten=shorten)
+
+
 def calculate_hash(content: str | bytes | Path, shorten: bool = False) -> str:
     sha256_hash = hashlib.sha256()
     if isinstance(content, Path):

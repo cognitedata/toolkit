@@ -12,7 +12,7 @@ from typing import Any, ClassVar, Literal, cast
 
 import questionary
 import yaml
-from pydantic import JsonValue, ValidationError
+from pydantic import ValidationError
 from questionary import Choice
 from rich.console import Console, Group, RenderableType
 from rich.markup import escape
@@ -43,6 +43,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     UNRESOLVED_VARIABLE_PATTERN,
     BuiltResource,
+    ConfigFile,
     ValidationResult,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
@@ -63,7 +64,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     ReadYAMLFile,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
-from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, MODULES
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, BUILD_MODULE_ARG, HINT_LEAD_TEXT, MODULES
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import BuildTracking, ResourceBuildStat
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
@@ -99,6 +100,7 @@ from cognite_toolkit._cdf_tk.utils.file import (
     yaml_positions,
     yaml_safe_dump,
 )
+from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash_multi_file
 from cognite_toolkit._cdf_tk.validation import (
     ValidationMessage,
     humanize_validation_error,
@@ -144,7 +146,7 @@ class BuildV2Command(ToolkitCommand):
         self.validate_build_parameters(parameters, console, sys.argv)
 
         module_scan_result, selection_source = self.read_filesystem_and_find_modules(
-            parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules, parameters.operation
+            parameters.organization_dir, parameters.config_yamls, parameters.user_selected_modules, parameters.operation
         )
 
         if display:
@@ -229,7 +231,7 @@ class BuildV2Command(ToolkitCommand):
     def read_filesystem_and_find_modules(
         cls,
         organization_dir: Path,
-        config_yaml: Path | None = None,
+        config_yamls: list[Path] | None = None,
         user_selected_modules: list[str] | None = None,
         operation: str | None = None,
     ) -> tuple[ModuleScanResult, SelectionSource]:
@@ -239,11 +241,11 @@ class BuildV2Command(ToolkitCommand):
         Returns:
             A tuple containing the ModuleScanResult and the SelectionSource indicating how the modules were selected (from user input, config file, or interactive selection).
         """
-        build_files = cls._read_file_system(organization_dir, config_yaml, user_selected_modules)
+        build_files = cls._read_file_system(organization_dir, config_yamls, user_selected_modules)
 
         if user_selected_modules:
             selection_source: SelectionSource = "cli-arg"
-        elif build_files.selected_modules is not None:
+        elif build_files.config_files and any(config_file.selected_modules for config_file in build_files.config_files):
             selection_source = "config"
         else:
             selection_source = "interactive"
@@ -328,13 +330,17 @@ class BuildV2Command(ToolkitCommand):
         """
         console = client.console if client else Console(markup=True)
         self.validate_build_parameters(
-            BuildParameters(organization_dir=organization_dir, config_yaml=config_yaml), console, sys.argv
+            BuildParameters(organization_dir=organization_dir, config_yamls=[config_yaml] if config_yaml else None),
+            console,
+            sys.argv,
         )
 
         organization_dir = organization_dir.resolve()
         config_yaml_path = config_yaml.resolve() if config_yaml else None
         base_parameters = BuildParameters(
-            organization_dir=organization_dir, config_yaml=config_yaml_path, user_selected_modules=[f"{MODULES}/"]
+            organization_dir=organization_dir,
+            config_yamls=[config_yaml_path] if config_yaml_path else None,
+            user_selected_modules=[f"{MODULES}/"],
         )
 
         cache_path = self._build_cache_path(organization_dir, config_yaml_path)
@@ -360,12 +366,14 @@ class BuildV2Command(ToolkitCommand):
             build_parameters = BuildParameters(
                 organization_dir=organization_dir,
                 build_dir=build_dir,
-                config_yaml=config_yaml_path,
+                config_yamls=[config_yaml_path] if config_yaml_path else [],
                 user_selected_modules=user_selected_modules,
             )
             build_folder = self.build(build_parameters, client, display=False)
             cdf_project = client.config.project if client else None
-            lineage = BuildLineage.from_build(build_folder, cdf_project, config_yaml_path)
+            lineage = BuildLineage.from_build(
+                build_folder, cdf_project, [config_yaml_path] if config_yaml_path else None
+            )
             if cached_lineage is not None and needs_rebuild is not None:
                 lineage = self._merge_build_lineage(cached_lineage, lineage)
 
@@ -388,13 +396,13 @@ class BuildV2Command(ToolkitCommand):
         if cached_lineage is None:
             return None, False
 
-        if parameters.config_yaml is not None:
-            current_config_hash = calculate_hash(parameters.config_yaml, shorten=True)
+        if parameters.config_yamls:
+            current_config_hash = calculate_hash_multi_file(parameters.config_yamls, shorten=True)
             if cached_lineage.config_hash != current_config_hash:
                 return None, False
 
         build_files = self._read_file_system(
-            parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
+            parameters.organization_dir, parameters.config_yamls, parameters.user_selected_modules
         )
         source_by_module_id, _ = ModuleParser.find_modules(build_files.organization_dir, build_files.yaml_files)
         module_scan = ModuleParser.parse(build_files, {Path(MODULES)}, source_by_module_id, [])
@@ -468,17 +476,25 @@ class BuildV2Command(ToolkitCommand):
 
         # Set up the variables
         organization_dir = parameters.organization_dir
-        config_yaml_path: Path | None = parameters.config_yaml.resolve() if parameters.config_yaml else None
+        config_yaml_paths: list[Path] | None = (
+            [path.resolve() for path in parameters.config_yamls] if parameters.config_yamls else None
+        )
         module_directory = parameters.modules_directory
 
         # Execute the checks.
-        if module_directory.exists() and (config_yaml_path is None or config_yaml_path.exists()):
+        if module_directory.exists() and (
+            config_yaml_paths is None or all(path.exists() for path in config_yaml_paths)
+        ):
             # All good.
             return
 
         # Display what Toolkit expects.
-        if isinstance(config_yaml_path, Path):
-            content = f"  ┣ {MODULES}/\n  ┗ {config_yaml_path.name}\n"
+        if config_yaml_paths is not None and config_yaml_paths:
+            content_lines = [f"  ┣ {MODULES}/"]
+            for config_path in config_yaml_paths[:-1]:
+                content_lines.append(f"  ┣ {config_path.name}")
+            content_lines.append(f"  ┗ {config_yaml_paths[-1].name}\n")
+            content = "\n".join(content_lines)
         else:
             content = f"  ┗ {MODULES}\n"
         organization_dir_display = relative_to_if_possible(organization_dir)
@@ -490,9 +506,14 @@ class BuildV2Command(ToolkitCommand):
 
         if not organization_dir.exists():
             raise ToolkitNotADirectoryError(f"Organization directory '{organization_dir_display.as_posix()}' not found")
-        elif module_directory.exists() and config_yaml_path is not None and not config_yaml_path.exists():
+        elif (
+            module_directory.exists()
+            and config_yaml_paths is not None
+            and (missing_config_paths := [path for path in config_yaml_paths if not path.exists()])
+        ):
+            suffix = "s" if len(missing_config_paths) > 1 else ""
             raise ToolkitFileNotFoundError(
-                f"Config YAML file '{relative_to_if_possible(config_yaml_path).as_posix()}' not found"
+                f"Config YAML file{suffix} '{humanize_collection([relative_to_if_possible(path).as_posix() for path in missing_config_paths])}' not found"
             )
         elif not module_directory.exists():
             # This is likely the most common error. The user pass in Path.cwd() as the organization directory,
@@ -546,10 +567,12 @@ class BuildV2Command(ToolkitCommand):
     def _find_modules(cls, build: BuildInput, operation: str) -> ModuleScanResult:
         source_by_module_id, orphan_files = ModuleParser.find_modules(build.organization_dir, build.yaml_files)
 
-        if build.selected_modules is None:
+        if build.user_selected_modules is None and all(
+            file.selected_modules is None for file in build.config_files or []
+        ):
             user_selected_modules = cls._ask_user_to_select_modules(list(source_by_module_id.values()), operation)
         else:
-            user_selected_modules = build.selected_modules
+            user_selected_modules = build.user_selected_modules
 
         return ModuleParser.parse(build, user_selected_modules, source_by_module_id, orphan_files)
 
@@ -731,36 +754,89 @@ class BuildV2Command(ToolkitCommand):
     def _read_file_system(
         cls,
         organization_dir: Path,
-        config_yaml: Path | None,
+        config_yamls: list[Path] | None,
         user_selected_modules: list[str] | None,
     ) -> BuildInput:
-        """Reads the file system to find the YAML files to build along with config.<name>.yaml if it exists."""
-        selected: set[RelativeDirPath | str] | None = None
-        variables: dict[str, JsonValue] = {}
+        """Reads the file system to find the YAML files to build along with config.<name>.yaml if they exists."""
         cdf_project: str = os.environ.get("CDF_PROJECT", "UNKNOWN")
         validation_type: ValidationType = "prod"
-        if user_selected_modules:
-            selected, errors = cls.parse_user_selection(user_selected_modules, organization_dir)
-            if errors:
-                raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
 
-        config_path: Path | None = None
-        if config_yaml:
-            config_path = config_yaml.resolve()
-            try:
-                config = ConfigYAML.from_yaml_file(config_path)
-            except ValidationError as e:
-                errors = humanize_validation_error(e)
+        if config_yamls and len(config_yamls) > 1 and user_selected_modules is not None:
+            # This should have been caught a lot earlier, but keep it for safety.
+            raise ToolkitValueError(
+                f"Cannot specify multiple config YAML files and also provide {BUILD_MODULE_ARG} argument. "
+                f"The {BUILD_MODULE_ARG} argument is used to overwrite the selected section in the config YAML file, "
+                "but this is not supported for multiple config files"
+            )
+
+        parsed_user_selected: set[RelativeDirPath | str] | None = None
+        if user_selected_modules:
+            parsed_user_selected, errors = cls.parse_user_selection(user_selected_modules, organization_dir)
+            if errors:
                 raise ToolkitValueError(
-                    f"Config YAML file '{config_path.as_posix()}' is invalid:\n{'- '.join(errors)}"
-                ) from e
-            if not user_selected_modules and config.environment.selected:
-                selected, errors = cls.parse_user_selection(config.environment.selected, organization_dir)
-                if errors:
-                    raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
-            variables = config.variables or {}
-            cdf_project = config.environment.project
-            validation_type = config.environment.validation_type
+                    f"Invalid module selection given by the {BUILD_MODULE_ARG}:\n"
+                    + "\n".join(f"- {error}" for error in errors)
+                )
+
+        config_files: list[ConfigFile] | None = None
+        if config_yamls:
+            config_files = []
+            projects: Counter[str] = Counter()
+            validation_types: Counter[ValidationType] = Counter()
+            missing_selected: list[Path] = []
+            for config_yaml in config_yamls:
+                config_path_resolved = config_yaml.resolve()
+                try:
+                    config = ConfigYAML.from_yaml_file(config_path_resolved)
+                except ValidationError as e:
+                    errors = humanize_validation_error(e)
+                    raise ToolkitValueError(
+                        f"Config YAML file '{relative_to_if_possible(config_path_resolved).as_posix()}' is invalid:\n{'- '.join(errors)}"
+                    ) from e
+                selected: set[RelativeDirPath | str] | None = None
+                if parsed_user_selected:
+                    # CLI args override config YAML selection, so we use the parsed user selection if provided.
+                    # This can only happen if there is a single config YAML file, as we check for this above.
+                    selected = parsed_user_selected
+                elif config.environment.selected:
+                    selected, errors = cls.parse_user_selection(config.environment.selected, organization_dir)
+                    if errors:
+                        raise ToolkitValueError(
+                            f"Invalid module selection in {relative_to_if_possible(config_path_resolved).as_posix()}:\n"
+                            + "\n".join(f"- {error}" for error in errors)
+                        )
+                else:
+                    missing_selected.append(config_path_resolved)
+
+                projects.update([config.environment.project])
+                validation_types.update([config.environment.validation_type])
+                config_files.append(
+                    ConfigFile(selected_modules=selected, variables=config.variables or {}, path=config_path_resolved)
+                )
+
+            if len(config_yamls) > 1 and missing_selected:
+                raise ToolkitValueError(
+                    "Multiple config YAML files provided, but the following config YAML files do not specify any "
+                    "selected modules: "
+                    f"{', '.join(relative_to_if_possible(path).as_posix() for path in missing_selected)}. "
+                    f"When using multiple config YAML files, all config YAML files must specify selected modules."
+                )
+
+            if len(projects) > 1:
+                raise ToolkitValueError(
+                    f"Multiple config YAML files provided with different CDF projects: "
+                    f"{', '.join(f'{project} ({count})' for project, count in projects.items())}. "
+                    f"Please ensure all config YAML files specify the same CDF project."
+                )
+            if len(validation_types) > 1:
+                raise ToolkitValueError(
+                    f"Multiple config YAML files provided with different validation types: "
+                    f"{', '.join(f'{validation_type} ({count})' for validation_type, count in validation_types.items())}. "
+                    f"Please ensure all config YAML files specify the same validation type."
+                )
+
+            validation_type = validation_types.most_common(1)[0][0]
+            cdf_project = projects.most_common(1)[0][0]
 
         yaml_files = [
             yaml_file.relative_to(organization_dir) for yaml_file in (organization_dir / MODULES).rglob("*.y*ml")
@@ -768,12 +844,11 @@ class BuildV2Command(ToolkitCommand):
 
         return BuildInput(
             yaml_files=yaml_files,
-            selected_modules=selected,
-            variables=variables,
+            user_selected_modules=parsed_user_selected,
             validation_type=validation_type,
             cdf_project=cdf_project,
             organization_dir=organization_dir.resolve(),
-            config_path=config_path,
+            config_files=config_files,
         )
 
     @classmethod
@@ -1618,5 +1693,5 @@ class BuildV2Command(ToolkitCommand):
 
         if parameters.write_lineage:
             lineage_file = build.build_dir / BuildLineage.filename
-            lineage = BuildLineage.from_build(build, cdf_project, parameters.config_yaml).to_yaml()
+            lineage = BuildLineage.from_build(build, cdf_project, parameters.config_yamls).to_yaml()
             safe_write(lineage_file, lineage)

@@ -14,7 +14,7 @@ class TestBuildConfigYAML:
             parameters=BuildParameters(
                 organization_dir=PROJECT_FOR_TEST,
                 build_dir=BUILD_DIR,
-                config_yaml=PROJECT_FOR_TEST / "config.dev.yaml",
+                config_yamls=[PROJECT_FOR_TEST / "config.dev.yaml"],
                 user_selected_modules=[f"{MODULES}/"],
             ),
         )
