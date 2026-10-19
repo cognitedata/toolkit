@@ -357,29 +357,13 @@ class FakeCogniteResourceGenerator:
         return model_cls(**keyword_arguments)
 
     def create_value(self, type_: Any, var_name: str | None = None) -> Any:
-        import numpy as np
 
         if isinstance(type_, typing.ForwardRef):
-            type_ = type_._evaluate(globals(), self._type_checking(), ())  # type: ignore[call-arg]
+            type_ = type_._evaluate(globals(), (), ())  # type: ignore[call-arg]
         if inspect.isclass(type_) and issubclass(type_, BaseModel):
             return self.create_pydantic_instance(type_)
 
         container_type = get_origin(type_)
-        is_container = container_type is not None
-        if not is_container or container_type is np.ndarray:  # looks weird, but 3.8 and 3.12 type compat. issue
-            # Handle numpy types
-            from numpy.typing import NDArray
-
-            if type_ == NDArray[np.float64]:
-                return np.array([self._random.random() for _ in range(3)], dtype=np.float64)
-            elif type_ == NDArray[np.uint32]:
-                return np.array([self._random.randint(1, 100) for _ in range(3)], dtype=np.uint32)
-            elif type_ == NDArray[np.int64]:
-                return np.array([self._random.randint(1, 100) for _ in range(3)], dtype=np.int64)
-            elif type_ == NDArray[np.datetime64]:
-                return np.array([self._random.randint(1, 1704067200000) for _ in range(3)], dtype="datetime64[ns]")
-            elif type_ == NDArray[np.object_]:
-                return np.array([self._random_string(10) for _ in range(3)], dtype=np.object_)
 
         # Handle containers
         args = get_args(type_)
@@ -544,30 +528,6 @@ class FakeCogniteResourceGenerator:
                 if re.match(pattern, fallback):
                     return fallback
         return generated
-
-    @classmethod
-    def _type_checking(cls) -> dict[str, Any]:
-        """
-        When calling the get_type_hints function, it imports the module with the function TYPE_CHECKING is set to False.
-
-        This function takes all the special types used in data classes and returns them as a dictionary so it
-        can be used in the local namespaces.
-        """
-        import numpy as np
-        import numpy.typing as npt
-        from cognite.client import CogniteClient
-
-        NumpyDatetime64NSArray = npt.NDArray[np.datetime64]
-        NumpyInt64Array = npt.NDArray[np.int64]
-        NumpyFloat64Array = npt.NDArray[np.float64]
-        NumpyObjArray = npt.NDArray[np.object_]
-        return {
-            "CogniteClient": CogniteClient,
-            "NumpyDatetime64NSArray": NumpyDatetime64NSArray,
-            "NumpyInt64Array": NumpyInt64Array,
-            "NumpyFloat64Array": NumpyFloat64Array,
-            "NumpyObjArray": NumpyObjArray,
-        }
 
 
 class MockQuestion:
