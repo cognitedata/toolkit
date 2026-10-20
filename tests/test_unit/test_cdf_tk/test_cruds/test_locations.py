@@ -44,6 +44,7 @@ class TestLocationFilterLoader:
         assert exhaustive_filter.external_id == "unique-external-id-123"
 
     def test_load_filter_write_data_models(self, exhaustive_filter: LocationFilterRequest) -> None:
+        assert exhaustive_filter.data_models is not None
         assert isinstance(exhaustive_filter.data_models[0], DataModelId)
         assert exhaustive_filter.data_models[0].external_id == "data-model-id-456"
 
@@ -61,6 +62,10 @@ class TestLocationFilterLoader:
     def test_load_filter_write_asset_centric(self, exhaustive_filter: LocationFilterRequest) -> None:
         assert isinstance(exhaustive_filter.asset_centric, AssetCentricFilter)
         assert isinstance(exhaustive_filter.asset_centric.assets, AssetCentricSubFilter)
+        assert isinstance(exhaustive_filter.asset_centric.events, AssetCentricSubFilter)
+        assert exhaustive_filter.asset_centric.asset_subtree_ids is not None
+        assert exhaustive_filter.asset_centric.assets.asset_subtree_ids is not None
+        assert exhaustive_filter.asset_centric.events.asset_subtree_ids is not None
         assert exhaustive_filter.asset_centric.asset_subtree_ids[0] == ExternalId(external_id="general-subtree-id-890")
         assert exhaustive_filter.asset_centric.assets.asset_subtree_ids[0] == ExternalId(external_id="root-asset")
         assert exhaustive_filter.asset_centric.events.asset_subtree_ids[0] == ExternalId(
