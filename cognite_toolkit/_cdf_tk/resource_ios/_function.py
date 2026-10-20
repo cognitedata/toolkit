@@ -4,7 +4,6 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Literal, cast, final
 
-from cognite.client.data_classes import capabilities as cap
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
 from rich import print
 
@@ -33,7 +32,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     SpaceIDScope,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
-from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitRequiredValueError,
@@ -194,47 +192,6 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
     @classmethod
     def _create_hash_values(cls, function_rootdir: Path) -> str:
         return FunctionCodeBundle.create_hash_values(function_rootdir)
-
-    def get_function_required_capabilities(
-        self, items: Sequence[FunctionRequest] | None, read_only: bool
-    ) -> list[cap.Capability]:
-        """
-        Get required capabilities for working with CDF Functions and their associated files.
-
-        This method determines the necessary permissions needed for function operations,
-        with dataset-scoped file access when possible. When functions are associated with
-        specific datasets, it will request file permissions only for those datasets
-        rather than requiring all-scope file access.
-        """
-        if items is not None and not items:
-            return []
-
-        function_actions = (
-            [cap.FunctionsAcl.Action.Read]
-            if read_only
-            else [cap.FunctionsAcl.Action.Read, cap.FunctionsAcl.Action.Write]
-        )
-        file_actions = (
-            [cap.FilesAcl.Action.Read] if read_only else [cap.FilesAcl.Action.Read, cap.FilesAcl.Action.Write]
-        )
-
-        file_scope: cap.AllScope | cap.DataSetScope = cap.FilesAcl.Scope.All()
-
-        if items and self.data_set_id_by_external_id:
-            dataset_ids = [
-                data_set_id
-                for item in items
-                if item.external_id
-                and (data_set_id := self.data_set_id_by_external_id.get(item.external_id)) is not None
-                and data_set_id != DRY_RUN_ID
-            ]
-            if dataset_ids:
-                file_scope = cap.FilesAcl.Scope.DataSet(dataset_ids)
-
-        return [
-            cap.FunctionsAcl(function_actions, cap.FunctionsAcl.Scope.All()),
-            cap.FilesAcl(file_actions, file_scope),  # Needed for uploading function artifacts
-        ]
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionRequest:
         item_id = self.get_id(resource)
