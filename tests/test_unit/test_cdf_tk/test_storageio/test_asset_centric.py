@@ -1,5 +1,5 @@
 import json
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.dataio._base import Page, TableUploadableDataIO
 from cognite_toolkit._cdf_tk.dataio.selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader
+from tests.constants import CDF_CLUSTER
 
 RESOURCE_COUNT = 50
 DATA_SET_ID = 1234
@@ -41,18 +42,20 @@ CHUNK_SIZE = 10
 def some_asset_data() -> list[AssetResponse]:
     """Fixture to provide a sample assets for testing."""
     return [
-        AssetResponse(
-            id=1000 + i,
-            externalId=f"asset_{i}",
-            name=f"Asset {i}",
-            description=f"Description for asset {i}",
-            rootId=ASSET_ID,
-            source="test_source",
-            labels=[{"externalId": "my_label"}],
-            dataSetId=DATA_SET_ID,
-            createdTime=1,
-            lastUpdatedTime=1,
-            **({"metadata": {"key": f"value_{i}"}} if i % 2 == 0 else {}),
+        AssetResponse.model_validate(
+            {
+                "id": 1000 + i,
+                "externalId": f"asset_{i}",
+                "name": f"Asset {i}",
+                "description": f"Description for asset {i}",
+                "rootId": ASSET_ID,
+                "source": "test_source",
+                "labels": [{"externalId": "my_label"}],
+                "dataSetId": DATA_SET_ID,
+                "createdTime": 1,
+                "lastUpdatedTime": 1,
+                **({"metadata": {"key": f"value_{i}"}} if i % 2 == 0 else {}),
+            }
         )
         for i in range(RESOURCE_COUNT)
     ]
@@ -62,19 +65,21 @@ def some_asset_data() -> list[AssetResponse]:
 def some_filemetadata_data() -> list[FileMetadataResponse]:
     """Fixture to provide a sample FileMetadataList for testing."""
     return [
-        FileMetadataResponse(
-            id=1000 + i,
-            external_id=f"file_{i}",
-            name=f"File {i}",
-            directory="/test/dir",
-            mime_type="text/plain",
-            data_set_id=DATA_SET_ID,
-            asset_ids=[ASSET_ID],
-            source="test_source",
-            created_time=1,
-            last_updated_time=1,
-            uploaded=True,
-            **({"metadata": {"key": f"value_{i}"}} if i % 2 == 0 else {}),
+        FileMetadataResponse.model_validate(
+            {
+                "id": 1000 + i,
+                "externalId": f"file_{i}",
+                "name": f"File {i}",
+                "directory": "/test/dir",
+                "mimeType": "text/plain",
+                "dataSetId": DATA_SET_ID,
+                "assetIds": [ASSET_ID],
+                "source": "test_source",
+                "createdTime": 1,
+                "lastUpdatedTime": 1,
+                "uploaded": True,
+                **({"metadata": {"key": f"value_{i}"}} if i % 2 == 0 else {}),
+            }
         )
         for i in range(RESOURCE_COUNT)
     ]
@@ -84,20 +89,22 @@ def some_filemetadata_data() -> list[FileMetadataResponse]:
 def some_timeseries_data() -> list[TimeSeriesResponse]:
     """Fixture to provide a sample list of TimeSeriesResponse for testing."""
     return [
-        TimeSeriesResponse(
-            id=2000 + i,
-            externalId=f"ts_{i}",
-            name=f"Time Series {i}",
-            description=f"Description for time series {i}",
-            assetId=ASSET_ID,
-            dataSetId=DATA_SET_ID,
-            unit="unit",
-            isString=False,
-            isStep=False,
-            type="numeric",
-            createdTime=1,
-            lastUpdatedTime=1,
-            **({"metadata": {"key": f"value_{i}"}} if i % 2 == 0 else {}),
+        TimeSeriesResponse.model_validate(
+            {
+                "id": 2000 + i,
+                "externalId": f"ts_{i}",
+                "name": f"Time Series {i}",
+                "description": f"Description for time series {i}",
+                "assetId": ASSET_ID,
+                "dataSetId": DATA_SET_ID,
+                "unit": "unit",
+                "isString": False,
+                "isStep": False,
+                "type": "numeric",
+                "createdTime": 1,
+                "lastUpdatedTime": 1,
+                **({"metadata": {"key": f"value_{i}"}} if i % 2 == 0 else {}),
+            }
         )
         for i in range(RESOURCE_COUNT)
     ]
@@ -107,18 +114,20 @@ def some_timeseries_data() -> list[TimeSeriesResponse]:
 def some_event_data() -> list[EventResponse]:
     """Fixture to provide a sample list of EventResponse for testing."""
     return [
-        EventResponse(
-            id=3000 + i,
-            externalId=f"event_{i}",
-            description=f"Description for event {i}",
-            assetIds=[ASSET_ID],
-            dataSetId=DATA_SET_ID,
-            source="test_source",
-            startTime=1000000000000 + i * 1000,
-            endTime=1000000001000 + i * 1000,
-            createdTime=1,
-            lastUpdatedTime=1,
-            **({"metadata": {"key": f"value_{i}"}} if i % 2 == 0 else {}),
+        EventResponse.model_validate(
+            {
+                "id": 3000 + i,
+                "externalId": f"event_{i}",
+                "description": f"Description for event {i}",
+                "assetIds": [ASSET_ID],
+                "dataSetId": DATA_SET_ID,
+                "source": "test_source",
+                "startTime": 1000000000000 + i * 1000,
+                "endTime": 1000000001000 + i * 1000,
+                "createdTime": 1,
+                "lastUpdatedTime": 1,
+                **({"metadata": {"key": f"value_{i}"}} if i % 2 == 0 else {}),
+            }
         )
         for i in range(RESOURCE_COUNT)
     ]
@@ -260,12 +269,16 @@ class TestAssetCentricIO:
 
         assert isinstance(io, TableUploadableDataIO)
         config = toolkit_config
-        resources = {
+        resources_by_io: dict[
+            type[AssetCentricIO],
+            Sequence[AssetResponse | FileMetadataResponse | TimeSeriesResponse | EventResponse],
+        ] = {
             AssetDataIO: some_asset_data,
             FileMetadataDataIO: some_filemetadata_data,
             TimeSeriesDataIO: some_timeseries_data,
             EventDataIO: some_event_data,
-        }[io_class]
+        }
+        resources = resources_by_io[io_class]
 
         resource_by_external_id = {
             resource.external_id: resource for resource in resources if resource.external_id is not None
@@ -312,7 +325,7 @@ class TestAssetIO:
         asset_centric_client: ToolkitClient,
     ) -> None:
         config = toolkit_config
-        monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
+        monkeypatch.setenv("CDF_CLUSTER", CDF_CLUSTER)
         monkeypatch.setenv("CDF_PROJECT", config.project)
 
         def asset_create_callback(request: httpx2.Request) -> httpx2.Response:
@@ -326,7 +339,8 @@ class TestAssetIO:
 
         respx_mock.post(config.create_api_url("/assets")).mock(side_effect=asset_create_callback)
 
-        selector = AssetSubtreeSelector(hierarchy="test_hierarchy", kind="Assets", download_dir_name="assets")
+        download_dir_name = "assets"
+        selector = AssetSubtreeSelector(hierarchy="test_hierarchy", kind="Assets", download_dir_name=download_dir_name)
 
         io = AssetDataIO(asset_centric_client)
 
@@ -343,11 +357,11 @@ class TestAssetIO:
             limit=100,
         )
 
-        csv_files = list((tmp_path / selector.download_dir_name).glob("*.csv"))
+        csv_files = list((tmp_path / download_dir_name).glob("*.csv"))
         assert len(csv_files) == 1
 
         upload_command.upload(
-            input_dir=tmp_path / selector.download_dir_name,
+            input_dir=tmp_path / download_dir_name,
             client=asset_centric_client,
             deploy_resources=True,
             dry_run=False,

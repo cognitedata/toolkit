@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.dataio import DataItem, Page, RecordIO
 from cognite_toolkit._cdf_tk.dataio.selectors import RecordContainerSelector
 from cognite_toolkit._cdf_tk.dataio.selectors._records import SelectedContainer, SelectedStream
+from tests.constants import CDF_CLUSTER
 
 
 def _make_selector(initialize_cursor: str = "365d-ago") -> RecordContainerSelector:
@@ -179,7 +180,7 @@ class TestRecordIO:
 
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_stream_data_enforces_max_total_records(
-        self, toolkit_config: ToolkitClientConfig, monkeypatch: pytest.MonkeyPatch
+        self, toolkit_config: ToolkitClientConfig, monkeypatch: pytest.MonkeyPatch, httpx2_mock: respx.Router,
     ) -> None:
         client = ToolkitClient(config=toolkit_config)
         selector = _make_selector()
@@ -187,12 +188,11 @@ class TestRecordIO:
         io = RecordIO(client)
         monkeypatch.setattr(RecordIO, "MAX_TOTAL_RECORDS", 5)
 
-        with respx.mock() as mock_router:
-            route = mock_router.post(sync_url)
-            route.side_effect = [
-                httpx2.Response(status_code=200, json=_make_sync_response(5, has_next=True)),
-            ]
-            pages = list(io.stream_data(selector, limit=None))
+        route = httpx2_mock.post(sync_url)
+        route.side_effect = [
+            httpx2.Response(status_code=200, json=_make_sync_response(5, has_next=True)),
+        ]
+        pages = list(io.stream_data(selector, limit=None))
 
         total_records = sum(len(page.items) for page in pages)
         assert total_records == 5
@@ -205,12 +205,12 @@ class TestRecordIO:
         self,
         tmp_path: Path,
         toolkit_config: ToolkitClientConfig,
-        respx_mock: respx.MockRouter,
+        httpx2_mock: respx.Router,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         config = toolkit_config
         client = ToolkitClient(config)
-        monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
+        monkeypatch.setenv("CDF_CLUSTER", CDF_CLUSTER)
         monkeypatch.setenv("CDF_PROJECT", config.project)
 
         record_count = 10
@@ -230,7 +230,7 @@ class TestRecordIO:
         sync_url = config.create_api_url("/streams/my_stream/records/sync")
         upload_url = config.create_api_url(RecordIO.UPSERT_ENDPOINT.format(streamId="my_stream"))
 
-        respx_mock.get(stream_url).respond(
+        httpx2_mock.get(stream_url).respond(
             json={
                 "externalId": "my_stream",
                 "createdTime": 1730204346000,
@@ -246,16 +246,16 @@ class TestRecordIO:
             },
             status_code=200,
         )
-        respx_mock.post(aggregate_url).respond(json={"aggregates": {"total": {"count": record_count}}}, status_code=200)
-        respx_mock.post(sync_url).respond(json=sync_response_data, status_code=200)
-        respx_mock.post(upload_url).mock(side_effect=record_upload_callback)
+        httpx2_mock.post(aggregate_url).respond(json={"aggregates": {"total": {"count": record_count}}}, status_code=200)
+        httpx2_mock.post(sync_url).respond(json=sync_response_data, status_code=200)
+        httpx2_mock.post(upload_url).mock(side_effect=record_upload_callback)
 
         spaces_url = config.create_api_url("/models/spaces/byids")
-        respx_mock.post(spaces_url).respond(
+        httpx2_mock.post(spaces_url).respond(
             json={"items": [{"space": "my_space", "isGlobal": False, "createdTime": 0, "lastUpdatedTime": 0}]}
         )
         containers_url = config.create_api_url("/models/containers/byids")
-        respx_mock.post(containers_url).respond(
+        httpx2_mock.post(containers_url).respond(
             json={
                 "items": [
                     {
@@ -291,7 +291,7 @@ class TestRecordIO:
         )
 
         upload_command.upload(
-            input_dir=tmp_path / selector.download_dir_name,
+            input_dir=tmp_path / "my_stream",
             client=client,
             deploy_resources=False,
             dry_run=False,
@@ -299,4 +299,4 @@ class TestRecordIO:
             kind=RecordIO.KIND,
         )
 
-        assert len(respx_mock.calls) == 8
+        assert len(httpx2_mock.calls) == 8

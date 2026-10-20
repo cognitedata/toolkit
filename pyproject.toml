@@ -123,6 +123,7 @@ addopts = [
     # Must load before the respx plugin so import httpx resolves to httpx2.
     "-p",
     "tests.httpx2_alias_plugin",
+    "-p pytest_httpx2",
 ]
 
 markers = [
