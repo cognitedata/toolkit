@@ -234,7 +234,7 @@ class HostedExtractorSourceIO(
         return raw_data_list
 
     # Fields in a certificate object that hold PEM/DER content.
-    _CERTIFICATE_CONTENT_FIELDS = ("certificate", "key")
+    _CERTIFICATE_CONTENT_FIELDS: tuple[str, ...] = ("certificate", "key")
 
     @classmethod
     def _unescape_certificate(cls, certificate: dict[str, Any] | str) -> dict[str, Any] | str:
@@ -246,13 +246,15 @@ class HostedExtractorSourceIO(
         if isinstance(certificate, str):
             return cls._unescape_newlines(certificate)
         return {
-            key: cls._unescape_newlines(value) if key in cls._CERTIFICATE_CONTENT_FIELDS else value
+            key: cls._unescape_newlines(value)
+            if key in cls._CERTIFICATE_CONTENT_FIELDS and isinstance(value, str)
+            else value
             for key, value in certificate.items()
         }
 
     @staticmethod
-    def _unescape_newlines(value: Any) -> Any:
-        if isinstance(value, str) and "\\n" in value:
+    def _unescape_newlines(value: str) -> str:
+        if "\\n" in value:
             return value.replace("\\r\\n", "\n").replace("\\n", "\n")
         return value
 
