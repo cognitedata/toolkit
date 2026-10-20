@@ -1,17 +1,24 @@
 import json
 from collections.abc import Iterator, Sequence
+from typing import Any, Protocol
 
 import httpx2
 import pytest
 import respx
 from _pytest.mark import ParameterSet
 from cognite.client.data_classes import Event, FileMetadata
-from cognite.client.data_classes._base import CogniteResource
 from cognite.client.data_classes.capabilities import Capability, EventsAcl, FilesAcl
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from tests.test_unit.utils import FakeCogniteResourceGenerator
+
+
+class _IdResource(Protocol):
+    id: int
+    external_id: str
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]: ...
 
 
 @pytest.fixture
@@ -31,7 +38,7 @@ class TestLookup:
     def test_lookup_id(
         self,
         endpoint: str,
-        resource_cls: type[CogniteResource],
+        resource_cls: type[_IdResource],
         cap_cls: type[Capability],
         toolkit_config: ToolkitClientConfig,
         rsps: respx.MockRouter,
@@ -56,7 +63,7 @@ class TestLookup:
     def test_lookup_external_id(
         self,
         endpoint: str,
-        resource_cls: type[CogniteResource],
+        resource_cls: type[_IdResource],
         cap_cls: type[Capability],
         toolkit_config: ToolkitClientConfig,
         rsps: respx.MockRouter,
@@ -82,7 +89,7 @@ class TestLookup:
     def test_missing_access(
         self,
         endpoint: str,
-        resource_cls: type[CogniteResource],
+        resource_cls: type[_IdResource],
         cap_cls: type[Capability],
         toolkit_config: ToolkitClientConfig,
         rsps: respx.MockRouter,
@@ -133,7 +140,7 @@ class TestLookup:
         assert len(rsps.calls) == 1  # Cached result used for second call
 
     @staticmethod
-    def _create_resources(resource_cls: type[CogniteResource], N: int) -> list[CogniteResource]:
+    def _create_resources(resource_cls: type[_IdResource], N: int) -> list[_IdResource]:
         generator = FakeCogniteResourceGenerator(seed=42)
         resources = [generator.create_instance(resource_cls) for _ in range(N)]
         for i, resource in enumerate(resources):
@@ -143,7 +150,7 @@ class TestLookup:
 
     @staticmethod
     def _create_client_mock(
-        endpoint: str, resources: list[CogniteResource], rsps: respx.MockRouter, config: ToolkitClientConfig
+        endpoint: str, resources: list[_IdResource], rsps: respx.MockRouter, config: ToolkitClientConfig
     ) -> ToolkitClient:
         resource_by_id = {resource.id: resource for resource in resources}
         resource_by_external_id = {resource.external_id: resource for resource in resources}
