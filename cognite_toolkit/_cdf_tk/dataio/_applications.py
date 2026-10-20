@@ -546,8 +546,11 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
     ) -> Callable[[Sequence[ChartMonitoringJobRequest]], list[ChartMonitoringJobResponse]]:
         if not self._is_migration:
             return self.client.charts.monitoring_jobs.update
-        # In Migration, we know that it is only the model that is being updated, not all the other fields.Thus, we make a special
-        # update call that only update the model.
+        # In Migration, we know that it is only the chart monitoring job model that is being updated,
+        # not all the other fields. Thus, we make a special update call that only update the model.
+        # This avoids the risk of hitting validation errors on the other fields, such as, the channelId,
+        # which may have become invalid since the monitoring job was created.
+
         endpoint = self.client.charts.monitoring_jobs._method_endpoint_map["update"]
 
         def update_model_only(items: Sequence[ChartMonitoringJobRequest]) -> list[ChartMonitoringJobResponse]:
