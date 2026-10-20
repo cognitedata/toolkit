@@ -1,5 +1,5 @@
 from abc import ABC
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime, timezone
 
 import pytest
 
@@ -601,7 +601,7 @@ class TestConvertStringToDataType:
             id="ISO timestamp to Timestamp",
         ),
         pytest.param("2025-07-22", "date", date(2025, 7, 22), id="ISO date to Date"),
-        pytest.param("1761955200000", "epoch", date(2025, 7, 22), id="Epoch to Date"),
+        pytest.param("1761955200000", "epoch", datetime(2025, 11, 1, tzinfo=UTC), id="Epoch to Timestamp"),
     )
 
     @pytest.mark.parametrize(
