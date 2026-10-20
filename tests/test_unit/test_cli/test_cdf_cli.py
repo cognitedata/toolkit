@@ -12,14 +12,15 @@ CDF_TOML_WITH_COMMENTS = """[cdf]
 # The default environment
 default_env = "dev"
 
-[modules]
-# This is the version of the modules. It should not be changed manually.
-version = "0.0.0"
-
 [plugins]
 # Plugins enable optional commands
 run = true # The run plugin
 data = false # The data plugin
+
+[modules]
+# This is the version of the modules. It should not be changed manually.
+# It will be updated by the 'cdf modules upgrade' command.
+version = "0.0.0"
 """
 
 
