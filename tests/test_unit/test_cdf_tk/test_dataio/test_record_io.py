@@ -292,7 +292,7 @@ class TestRecordIO:
         )
 
         upload_command.upload(
-            input_dir=tmp_path / selector.download_dir_name,
+            input_dir=tmp_path / "my_stream",
             client=client,
             deploy_resources=False,
             dry_run=False,
