@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import respx
-from cognite.client.data_classes.raw import RowWrite, Table, TableList
+from cognite.client.data_classes.raw import RowWrite
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableRequest, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_RESOURCE_DIR
@@ -102,7 +102,7 @@ def raw_mock_client(
     with monkeypatch_toolkit_client() as client:
         client.token.verify_acls.return_value = []
         client.raw.tables.list.return_value = []
-        client.raw.tables.create.return_value = TableList([Table(name="test_table")])
+        client.raw.tables.create.return_value = [RAWTableResponse(db_name="test_db", name="test_table", created_time=0)]
         client.config = config
         yield client, respx_mock
 
