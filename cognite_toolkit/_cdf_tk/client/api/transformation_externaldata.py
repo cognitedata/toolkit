@@ -2,8 +2,6 @@ import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
-from pydantic import JsonValue, TypeAdapter
-
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -11,12 +9,10 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
     RequestMessage,
     SuccessResponse,
-    ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
     ExternalDataSourceRequestUnion,
-    ExternalDataSourceResponseAdapter,
     ExternalDataSourceResponseUnion,
     ExternalDataSourceUsabilityResponse,
     RotatedKeysResponse,
@@ -41,18 +37,7 @@ class TransformationExternalDataSourcesAPI(CDFResourceAPI[ExternalDataSourceResp
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[ExternalDataSourceResponseUnion]:
-        # PagedResponse cannot apply the format discriminator, so each item is validated on its own.
-        if isinstance(response, SuccessResponse):
-            data = response.body_json
-        else:
-            data = TypeAdapter(dict[str, JsonValue]).validate_json(response.body)
-        raw_items = data.get("items", [])
-        if not isinstance(raw_items, list):
-            raise ToolkitAPIError("Expected 'items' to be a list in external data sources response")
-        items = [ExternalDataSourceResponseAdapter.validate_python(item) for item in raw_items]
-        raw_cursor = data.get("nextCursor")
-        next_cursor = raw_cursor if isinstance(raw_cursor, str) else None
-        return PagedResponse[ExternalDataSourceResponseUnion](items=items, nextCursor=next_cursor)
+        return PagedResponse[ExternalDataSourceResponseUnion].model_validate_json(response.body)
 
     def create(self, items: Sequence[ExternalDataSourceRequestUnion]) -> builtins.list[ExternalDataSourceResponseUnion]:
         return self._request_item_response(items, "create")

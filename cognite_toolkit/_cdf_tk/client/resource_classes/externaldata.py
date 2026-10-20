@@ -1,6 +1,6 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import BeforeValidator, TypeAdapter
+from pydantic import BeforeValidator, ConfigDict, TypeAdapter
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -196,7 +196,7 @@ ExternalDataSourceRequestUnion = Annotated[
     BeforeValidator(_handle_request_union),
 ]
 ExternalDataSourceRequestAdapter: TypeAdapter[ExternalDataSourceRequestUnion] = TypeAdapter(
-    ExternalDataSourceRequestUnion
+    ExternalDataSourceRequestUnion, config=ConfigDict(defer_build=True)
 )
 
 ExternalDataSourceResponseUnion = Annotated[
@@ -204,7 +204,7 @@ ExternalDataSourceResponseUnion = Annotated[
     BeforeValidator(_handle_response_union),
 ]
 ExternalDataSourceResponseAdapter: TypeAdapter[ExternalDataSourceResponseUnion] = TypeAdapter(
-    ExternalDataSourceResponseUnion
+    ExternalDataSourceResponseUnion, config=ConfigDict(defer_build=True)
 )
 
 

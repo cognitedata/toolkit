@@ -7,6 +7,8 @@ import traceback
 from pathlib import Path
 from typing import Any, NoReturn
 
+import click
+import questionary
 import typer
 from cognite.client.config import global_config
 from rich.markup import escape
@@ -165,6 +167,47 @@ def _suggest_command(unknown_cmd: str) -> str | None:
     return None
 
 
+def _get_unknown_command(exit_err: SystemExit) -> str | None:
+    """Returns the name of the command if the SystemExit was caused by click not finding the command."""
+    context = exit_err.__context__
+    if isinstance(context, click.exceptions.UsageError):
+        # click >= 8.4 raises NoSuchCommand (subclass of UsageError) with the command name as an attribute.
+        if isinstance(command_name := getattr(context, "command_name", None), str):
+            return command_name
+        if result := re.search(r"No such command '([\w-]+)'", context.message):
+            return result.group(1)
+    # Fallback in case the exception context is not available.
+    if result := re.search(r"click\.exceptions\.\w+: No such command '([\w-]+)'", traceback.format_exc()):
+        return result.group(1)
+    return None
+
+
+def _handle_disabled_plugin(plugin_name: str) -> None:
+    """Informs the user that the plugin is disabled and offers to enable it in the cdf.toml file."""
+    plugin_section = r"[plugins]"
+    print(f"{HINT_LEAD_TEXT} The plugin [bold]{plugin_name}[/bold] is not enabled.")
+    try:
+        enable = questionary.confirm(
+            f"Do you want to enable the '{plugin_name}' plugin in {CDFToml.file_name}?", default=True
+        ).unsafe_ask()
+    except (Exception, KeyboardInterrupt):
+        # For example, non-interactive terminal or the user aborted the prompt.
+        enable = False
+
+    if enable:
+        file_path = CDFToml.set_plugin(plugin_name, enabled=True)
+        print(
+            f"The plugin [bold]{plugin_name}[/bold] is now enabled in [bold]{file_path.name}[/bold]. "
+            "Rerun your command to use it."
+        )
+        return
+    print(
+        f"Enable it in the [bold]{CDFToml.file_name}[/bold] file by setting '{plugin_name} = true' in the "
+        f"[bold]{escape(plugin_section)}[/bold] section."
+        f"\nDocs to learn more: {Hint.link(URL.plugins, URL.plugins)}"
+    )
+
+
 def app() -> NoReturn:
     # --- Main entry point ---
     # Strip --traceback from sys.argv before Typer processes it (hidden debug flag)
@@ -181,17 +224,10 @@ def app() -> NoReturn:
 
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
         raise SystemExit(1)
-    except SystemExit:
-        if result := re.search(r"click.exceptions.UsageError: No such command '(\w+)'.", traceback.format_exc()):
-            cmd = result.group(1)
+    except SystemExit as exit_err:
+        if cmd := _get_unknown_command(exit_err):
             if cmd in Plugins.list():
-                plugin = r"[plugins]"
-                print(
-                    f"{HINT_LEAD_TEXT} The plugin [bold]{cmd}[/bold] is not enabled."
-                    f"\nEnable it in the [bold]cdf.toml[/bold] file by setting '{cmd} = true' in the "
-                    f"[bold]{escape(plugin)}[/bold] section."
-                    f"\nDocs to learn more: {Hint.link(URL.plugins, URL.plugins)}"
-                )
+                _handle_disabled_plugin(cmd)
             elif suggestion := _suggest_command(cmd):
                 print(f"{HINT_LEAD_TEXT} {suggestion}")
         raise

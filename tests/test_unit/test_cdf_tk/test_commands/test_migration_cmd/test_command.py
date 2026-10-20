@@ -1222,6 +1222,7 @@ class TestMigrationCommand:
             target=target,  # type: ignore[arg-type]
             destination="Instances",
             dry_run=False,
+            continue_on_error=False,
             log_dir=tmp_path,
             total_item_count=1001,
             start_item=0,
@@ -1243,6 +1244,7 @@ class TestMigrationCommand:
             target=target,  # type: ignore[arg-type]
             destination="Instances",
             dry_run=False,
+            continue_on_error=False,
             log_dir=tmp_path,
             total_item_count=2,
             start_item=0,
@@ -1286,6 +1288,7 @@ class TestMigrationCommand:
                 logger=logger,
                 write_client=MagicMock(),
                 log_dir=tmp_path,
+                continue_on_error=False,
                 dry_run=False,
                 verbose=False,
                 console=MagicMock(),

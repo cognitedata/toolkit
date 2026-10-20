@@ -240,6 +240,73 @@ default_organization_dir = "{organization_dir.name}"''',
         cdf_toml_content = cdf_toml_content.replace("<DEFAULT_ENV_PLACEHOLDER>", env)
         destination.write_text(cdf_toml_content, encoding="utf-8")
 
+    @classmethod
+    def set_plugin(cls, plugin_name: str, enabled: bool = True, cwd: Path | None = None) -> Path:
+        """Sets the given plugin to enabled/disabled in the [plugins] section of the cdf.toml file.
+
+        The file is updated as text such that comments and formatting are preserved.
+
+        Returns:
+            The path to the updated cdf.toml file.
+        """
+        file_path = (cwd or Path.cwd()) / cls.file_name
+        content = file_path.read_text(encoding="utf-8") if file_path.exists() else ""
+        file_path.write_text(_set_toml_bool(content, "plugins", plugin_name, enabled), encoding="utf-8")
+        return file_path
+
+
+_TABLE_HEADER_PATTERN = re.compile(r"^\s*\[\[?\s*(?P<name>[^]]+?)\s*\]\]?\s*(#.*)?$")
+_KEY_VALUE_PATTERN = re.compile(
+    r"^(?P<prefix>\s*(?P<quote>[\"']?)(?P<key>[^\"'=\s#]+)(?P=quote)\s*=\s*)(?P<value>true|false)(?P<suffix>.*)$",
+    re.DOTALL,
+)
+_COMMENTED_KEY_VALUE_PATTERN = re.compile(
+    r"^\s*#\s*(?P<quote>[\"']?)(?P<key>[^\"'=\s#]+)(?P=quote)\s*=\s*(?:true|false)\s*(?P<comment>#.*)?$",
+    re.DOTALL,
+)
+
+
+def _set_toml_bool(content: str, table: str, key: str, value: bool) -> str:
+    """Sets a boolean key in a TOML table by editing the text directly. This preserves comments and formatting."""
+    value_str = "true" if value else "false"
+    lines = content.splitlines(keepends=True)
+    table_start: int | None = None
+    table_end = len(lines)
+    for no, line in enumerate(lines):
+        if match := _TABLE_HEADER_PATTERN.match(line):
+            if table_start is not None:
+                table_end = no
+                break
+            if match.group("name") == table:
+                table_start = no
+
+    new_line = f"{key} = {value_str}\n"
+    if table_start is None:
+        if content and not content.endswith("\n"):
+            content += "\n"
+        return f"{content}\n[{table}]\n{new_line}"
+
+    for no in range(table_start + 1, table_end):
+        if (match := _KEY_VALUE_PATTERN.match(lines[no])) and clean_name(match.group("key")) == clean_name(key):
+            lines[no] = f"{match.group('prefix')}{value_str}{match.group('suffix')}"
+            return "".join(lines)
+
+    # If the key is commented out (e.g. '#data = true # The data plugin'), reuse its trailing comment.
+    for no in range(table_start + 1, table_end):
+        if (
+            (match := _COMMENTED_KEY_VALUE_PATTERN.match(lines[no]))
+            and clean_name(match.group("key")) == clean_name(key)
+            and (comment := match.group("comment"))
+        ):
+            new_line = f"{key} = {value_str} {comment.rstrip()}\n"
+            break
+
+    header = lines[table_start]
+    if not header.endswith("\n"):
+        lines[table_start] = header + "\n"
+    lines.insert(table_start + 1, new_line)
+    return "".join(lines)
+
 
 def _read_toml(file_path: Path) -> dict[str, Any]:
     # TOML files are required to be UTF-8 encoded

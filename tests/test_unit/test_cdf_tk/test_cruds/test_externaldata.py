@@ -63,10 +63,13 @@ settings:
 """
 
 
-def _make_request(**kwargs: object) -> OneLakeExternalDataSourceRequest:
-    defaults = {
-        "external_id": "fabric-lakehouse-prod",
-        "settings": OneLakeSettingsWrite(
+def _make_request(
+    external_id: str = "fabric-lakehouse-prod", data_set_id: int | None = None
+) -> OneLakeExternalDataSourceRequest:
+    return OneLakeExternalDataSourceRequest(
+        external_id=external_id,
+        data_set_id=data_set_id,
+        settings=OneLakeSettingsWrite(
             credentials=OneLakeCredentialsWrite(
                 client_id="id",
                 tenant_id="tenant",
@@ -77,35 +80,34 @@ def _make_request(**kwargs: object) -> OneLakeExternalDataSourceRequest:
                 container_id="lakehouse-guid",
             ),
         ),
-    }
-    defaults.update(kwargs)
-    return OneLakeExternalDataSourceRequest(**defaults)  # type: ignore[arg-type]
+    )
 
 
-def _make_response(**kwargs: object) -> OneLakeExternalDataSourceResponse:
-    defaults = {
-        "external_id": "fabric-lakehouse-prod",
-        "format": "one_lake",
-        "created_time": 1,
-        "last_updated_time": 1,
-        "settings": OneLakeSettingsRead(
+def _make_response(
+    external_id: str = "fabric-lakehouse-prod", data_set_id: int | None = None
+) -> OneLakeExternalDataSourceResponse:
+    return OneLakeExternalDataSourceResponse(
+        external_id=external_id,
+        data_set_id=data_set_id,
+        format="one_lake",
+        created_time=1,
+        last_updated_time=1,
+        settings=OneLakeSettingsRead(
             credentials=OneLakeCredentialsRead(client_id="azure-client-id", tenant_id="azure-tenant-id"),
             location_description=OneLakeLocationDescription(
                 workspace_id="workspace-guid",
                 container_id="lakehouse-guid",
             ),
         ),
-    }
-    defaults.update(kwargs)
-    return OneLakeExternalDataSourceResponse(**defaults)  # type: ignore[arg-type]
+    )
 
 
-def _make_snowflake_request(**kwargs: object) -> SnowflakeExternalDataSourceRequest:
-    defaults = {
-        "external_id": "snowflake-prod",
-        "name": "Production Snowflake",
-        "expiry_time": 2_000_000_000_000,
-        "settings": SnowflakeSettingsWrite(
+def _make_snowflake_request() -> SnowflakeExternalDataSourceRequest:
+    return SnowflakeExternalDataSourceRequest(
+        external_id="snowflake-prod",
+        name="Production Snowflake",
+        expiry_time=2_000_000_000_000,
+        settings=SnowflakeSettingsWrite(
             credentials=SnowflakeCredentialsWrite(
                 account_identifier="myorg-myaccount",
                 user_name="cdf_user",
@@ -113,19 +115,17 @@ def _make_snowflake_request(**kwargs: object) -> SnowflakeExternalDataSourceRequ
             ),
             location_description=SnowflakeLocationDescription(warehouse_name="CDF_WH"),
         ),
-    }
-    defaults.update(kwargs)
-    return SnowflakeExternalDataSourceRequest(**defaults)  # type: ignore[arg-type]
+    )
 
 
-def _make_snowflake_response(**kwargs: object) -> SnowflakeExternalDataSourceResponse:
-    defaults = {
-        "external_id": "snowflake-prod",
-        "name": "Production Snowflake",
-        "expiry_time": 2_000_000_000_000,
-        "created_time": 1,
-        "last_updated_time": 2,
-        "settings": SnowflakeSettingsRead(
+def _make_snowflake_response() -> SnowflakeExternalDataSourceResponse:
+    return SnowflakeExternalDataSourceResponse(
+        external_id="snowflake-prod",
+        name="Production Snowflake",
+        expiry_time=2_000_000_000_000,
+        created_time=1,
+        last_updated_time=2,
+        settings=SnowflakeSettingsRead(
             credentials=SnowflakeCredentialsRead(
                 account_identifier="myorg-myaccount",
                 user_name="cdf_user",
@@ -134,9 +134,7 @@ def _make_snowflake_response(**kwargs: object) -> SnowflakeExternalDataSourceRes
             ),
             location_description=SnowflakeLocationDescription(warehouse_name="CDF_WH"),
         ),
-    }
-    defaults.update(kwargs)
-    return SnowflakeExternalDataSourceResponse(**defaults)  # type: ignore[arg-type]
+    )
 
 
 class TestExternalDataSourceIO:

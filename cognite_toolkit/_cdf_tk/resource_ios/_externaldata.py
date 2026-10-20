@@ -121,9 +121,7 @@ class ExternalDataSourceIO(
         dumped = resource.dump()
         dumped.pop("createdTime", None)
         dumped.pop("lastUpdatedTime", None)
-        if resource.format == "one_lake":
-            dumped.pop("format", None)
-        elif isinstance(resource, SnowflakeExternalDataSourceResponse):
+        if isinstance(resource, SnowflakeExternalDataSourceResponse):
             dumped["settings"]["credentials"].pop("publicKey", None)
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
