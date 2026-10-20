@@ -24,17 +24,20 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
+    DataModelInstancesAcl,
     DataSetScope,
     FilesAcl,
     FunctionsAcl,
     ScopeDefinition,
     SessionsAcl,
+    SpaceIDScope,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitRequiredValueError,
+    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
@@ -42,7 +45,6 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     humanize_collection,
 )
-from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.file import (
     create_temporary_zip,
@@ -117,15 +119,27 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[FunctionRequest]) -> ScopeDefinition:
-        return dataset_scoped_resource(items)
+        data_set_ids = {item.data_set_id for item in items if item.data_set_id is not None}
+        space_ids = {item.space for item in items if item.space is not None}
+        if data_set_ids and space_ids:
+            raise ToolkitValueError("Toolkit does not support deploying functions with both dataset and space scoping.")
+        elif data_set_ids:
+            return DataSetScope(ids=sorted(data_set_ids))
+        elif space_ids:
+            return SpaceIDScope(space_ids=sorted(space_ids))
+        else:
+            return AllScope()
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        if isinstance(scope, AllScope | DataSetScope):
+        if isinstance(scope, AllScope | DataSetScope | SpaceIDScope):
             # Functions ACLs do not support dataset scoping, so we always create them with AllScope.
             yield FunctionsAcl(actions=sorted(actions), scope=AllScope())
-            # The files ACL is needed to deploy the function code.
-            yield FilesAcl(actions=sorted(actions), scope=scope)
+            if isinstance(scope, AllScope | DataSetScope):
+                # The files ACL is needed to deploy the function code.
+                yield FilesAcl(actions=sorted(actions), scope=scope)
+            if isinstance(scope, SpaceIDScope):
+                yield DataModelInstancesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: FunctionResponse | FunctionRequest | ExternalId | dict) -> ExternalId:
