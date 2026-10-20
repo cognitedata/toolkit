@@ -601,6 +601,7 @@ class TestConvertStringToDataType:
             id="ISO timestamp to Timestamp",
         ),
         pytest.param("2025-07-22", "date", date(2025, 7, 22), id="ISO date to Date"),
+        pytest.param("1761955200000", "epoch", date(2025, 7, 22), id="Epoch to Date"),
     )
 
     @pytest.mark.parametrize(
