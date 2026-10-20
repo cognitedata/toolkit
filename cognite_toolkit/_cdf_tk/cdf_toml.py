@@ -257,7 +257,11 @@ default_organization_dir = "{organization_dir.name}"''',
 
 _TABLE_HEADER_PATTERN = re.compile(r"^\s*\[\[?\s*(?P<name>[^]]+?)\s*\]\]?\s*(#.*)?$")
 _KEY_VALUE_PATTERN = re.compile(
-    r"^(?P<prefix>\s*(?P<quote>[\"']?)(?P<key>[^\"'=\s]+)(?P=quote)\s*=\s*)(?P<value>true|false)(?P<suffix>.*)$",
+    r"^(?P<prefix>\s*(?P<quote>[\"']?)(?P<key>[^\"'=\s#]+)(?P=quote)\s*=\s*)(?P<value>true|false)(?P<suffix>.*)$",
+    re.DOTALL,
+)
+_COMMENTED_KEY_VALUE_PATTERN = re.compile(
+    r"^\s*#\s*(?P<quote>[\"']?)(?P<key>[^\"'=\s#]+)(?P=quote)\s*=\s*(?:true|false)\s*(?P<comment>#.*)?$",
     re.DOTALL,
 )
 
@@ -286,6 +290,16 @@ def _set_toml_bool(content: str, table: str, key: str, value: bool) -> str:
         if (match := _KEY_VALUE_PATTERN.match(lines[no])) and clean_name(match.group("key")) == clean_name(key):
             lines[no] = f"{match.group('prefix')}{value_str}{match.group('suffix')}"
             return "".join(lines)
+
+    # If the key is commented out (e.g. '#data = true # The data plugin'), reuse its trailing comment.
+    for no in range(table_start + 1, table_end):
+        if (
+            (match := _COMMENTED_KEY_VALUE_PATTERN.match(lines[no]))
+            and clean_name(match.group("key")) == clean_name(key)
+            and (comment := match.group("comment"))
+        ):
+            new_line = f"{key} = {value_str} {comment.rstrip()}\n"
+            break
 
     header = lines[table_start]
     if not header.endswith("\n"):
