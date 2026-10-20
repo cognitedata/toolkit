@@ -165,7 +165,7 @@ class TestFunctionsAPI:
             client.functions.delete([ExternalId(external_id="test_function")], ignore_unknown_ids=True)
         assert console.print.call_count == global_config.max_retries - 1
         assert console.print.call_args.args[1] == (
-            "Rate limit exceeded for the '/functions' endpoint. Retrying after 42.0 "
+            "Rate limit exceeded for the '/functions/delete' endpoint. Retrying after 42.0 "
             "seconds.\n"
             "        This is automatically handled by Toolkit, but it will take longer "
             "than normal to complete the request(s)."
