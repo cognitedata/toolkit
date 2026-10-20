@@ -137,7 +137,6 @@ exclude = [
     "tests/test_unit/test_cdf_tk/approval_client",
     "tests/test_unit/test_cdf_tk/test_client", # 258
     "tests/test_unit/test_cdf_tk/test_commands", # 586
-    "tests/test_unit/test_cdf_tk/test_cruds", # 45
     "tests/test_unit/test_cdf_tk/test_storageio", # 71
     "tests/test_unit/test_cdf_tk/test_utils", # 184
 ]
