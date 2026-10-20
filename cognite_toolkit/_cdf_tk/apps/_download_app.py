@@ -1188,7 +1188,7 @@ class DownloadApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """This command will download Datapoints from CDF into a temporary ."""
+        """This command will download Datapoints from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
         if dataset is None:
             interactive = TimeSeriesInteractiveSelect(client, "download datapoints")
