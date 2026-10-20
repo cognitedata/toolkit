@@ -22,12 +22,14 @@ from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.commands._migrate.image_360_mappings import create_360_image_selectors
 from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.dataio import DataItem, InstanceIO, Page
+from cognite_toolkit._cdf_tk.dataio.progress import CursorBookmark
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     InstanceQuerySelector,
     InstanceSpaceSelector,
     InstanceViewSelector,
     SelectedView,
 )
+from tests.constants import CDF_CLUSTER
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -217,7 +219,7 @@ class TestInstanceIO:
     ) -> None:
         config = toolkit_config
         client = ToolkitClient(config)
-        monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
+        monkeypatch.setenv("CDF_CLUSTER", CDF_CLUSTER)
         monkeypatch.setenv("CDF_PROJECT", config.project)
         some_instance_data = [
             NodeResponse(
@@ -360,7 +362,7 @@ class TestInstanceIO:
         )
 
         upload_command.upload(
-            input_dir=tmp_path / selector.download_dir_name,
+            input_dir=tmp_path / "instances",
             client=client,
             deploy_resources=False,
             dry_run=False,
@@ -533,6 +535,7 @@ class TestInstanceIO:
         first_edge_ids = {di.item.external_id for di in first_page.items if di.item.instance_type == "edge"}
         assert first_node_ids == {"node_0", "node_1"}
         assert first_edge_ids == {f"edge_{i}" for i in range(SUBSELECTION_LIMIT_QUERY_ENDPOINT + 1)}
+        assert isinstance(first_page.bookmark, CursorBookmark)
         assert first_page.bookmark.cursor == "node_cursor_1"
 
         second_page = pages[1]
@@ -674,8 +677,10 @@ class TestInstanceIO:
         cognite_core_no_3D: DataModelResponseWithViews,
     ) -> None:
         """Test that json_to_resource filters out read-only properties from containers."""
+        assert cognite_core_no_3D.views is not None
         toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views)
         instance_io = InstanceIO(toolkit_client_approval.mock_client)
         instance = instance_io.json_to_resource(item_json)
 
-        assert dict(instance.sources[0].properties) == expected_properties
+        assert instance.sources
+        assert instance.sources[0].properties == expected_properties

@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     ChartOwnerSelector,
     ChartSelector,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 _CHART_TS_EXTERNAL_ID = "shared_ts_ext"
 _CHART_TS_INTERNAL_ID = 4242
@@ -220,12 +221,10 @@ class TestChartIO:
         assert len(chart_data) == 1
         chart_list = chart_data[0]
         assert len(chart_list) == 2
-        first = chart_list.items[0]
-        assert first.item.data.time_series_collection[0].ts_external_id == "ts_1"
-        assert first.item.data.time_series_collection[1].ts_external_id == "ts_2"
-        second = chart_list.items[1]
-        assert second.item.data.time_series_collection[0].ts_external_id == "ts_4"
-        assert second.item.data.time_series_collection[1].ts_external_id == "ts_3"
+        ts_external_ids = [
+            [ts.ts_external_id for ts in di.item.data.time_series_collection or []] for di in chart_list.items
+        ]
+        assert ts_external_ids == [["ts_1", "ts_2"], ["ts_4", "ts_3"]]
 
     def test_download_chart_with_backend_tasks(self) -> None:
         chart = _example_chart_response_for_download()
@@ -508,7 +507,7 @@ class TestCanvasIO:
     def test_load_canvas_missing_resource(self) -> None:
         with monkeypatch_toolkit_client() as client:
             client.lookup.assets.id.return_value = None
-            canvas_json = {
+            canvas_json: dict[str, JsonVal] = {
                 "externalId": "test_canvas",
                 "instanceType": "node",
                 "sources": [

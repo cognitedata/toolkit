@@ -120,8 +120,7 @@ testpaths = [
 
 addopts = [
     # Must load before the respx plugin so import httpx resolves to httpx2.
-    "-p",
-    "tests.httpx2_alias_plugin",
+    "-p tests.httpx2_alias_plugin",
 ]
 
 markers = [
@@ -133,14 +132,16 @@ include = ["cognite_toolkit", "tests_smoke", "tests"]
 exclude = [
     "tests/data/",
     "tests/test_unit/test_cdf_tk/approval_client",
-    "tests/test_unit/test_cdf_tk/test_client", # 258
-    "tests/test_unit/test_cdf_tk/test_commands", # 586
-    "tests/test_unit/test_cdf_tk/test_storageio", # 71
-    "tests/test_unit/test_cdf_tk/test_utils", # 184
+    "tests/test_unit/test_cdf_tk/test_client", # 76
+    "tests/test_unit/test_cdf_tk/test_commands", # 532
+    "tests/test_unit/test_cdf_tk/test_utils", # 180
 ]
 [tool.ty.environment]
 python-version = "3.14"
 python = ".venv"
+# Stubs that alias httpx -> httpx2 and httpcore -> httpcore2 (mirrors httpx2.alias_httpx() at runtime),
+# so libraries typed against httpx (e.g. respx) accept httpx2 objects.
+extra-paths = ["typings"]
 
 [tool.ty.rules]
 # This we do a lot intentionally when using the Discriminator pattern in pydantic.

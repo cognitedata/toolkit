@@ -393,7 +393,8 @@ class TestDataSelectors:
         # Migration selectors are not part of the Selector union, and are not
         # required to have example data here.
         all_selectors = [cls for cls in get_concrete_subclasses(DataSelector) if cls not in migration_selectors]
-        example_types = {p.values[0]["type"] for p in example_selector_data()}
+        # pytest.param returns a ParameterSet, which is a (values, marks, id) named tuple.
+        example_types = {values[0]["type"] for values, _, _ in example_selector_data()}
         all_types = {cls.model_fields["type"].default for cls in all_selectors}
         missing = all_types - example_types
         assert not missing, f"The following DataSelector types are missing example data: {humanize_collection(missing)}"
