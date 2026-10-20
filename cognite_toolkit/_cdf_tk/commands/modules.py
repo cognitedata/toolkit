@@ -1108,7 +1108,7 @@ class ModulesCommand(ToolkitCommand):
         """
         build_input = BuildV2Command._read_file_system(
             organization_dir=organization_dir,
-            config_yaml=organization_dir / f"config.{build_env}.yaml",
+            config_yamls=[organization_dir / f"config.{build_env}.yaml"],
             user_selected_modules=[f"{MODULES}/"],
         )
 
