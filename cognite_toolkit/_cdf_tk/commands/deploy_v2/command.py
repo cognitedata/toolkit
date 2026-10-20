@@ -1181,7 +1181,6 @@ class DeployV2Command(ToolkitCommand):
         except ValidationError as error:
             cls._handle_validation_error(error, action, crud, resources.to_create + resources.to_update, deploy_dir)
 
-        # created_ids, updated_ids, deleted_ids, unchanged_ids = cls._collect_resource_ids(crud, resources)
         return DeploymentResult(
             resource_name=crud.display_name,
             is_dry_run=False,
