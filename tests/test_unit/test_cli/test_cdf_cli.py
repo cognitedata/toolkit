@@ -14,6 +14,7 @@ default_env = "dev"
 
 [plugins]
 # Plugins enable optional commands
+#data = true # The data plugin
 run = true # The run plugin
 data = false # The data plugin
 
@@ -101,6 +102,21 @@ class TestCommandNotFound:
 
         assert cdf_toml.read_text(encoding="utf-8") == CDF_TOML_WITH_COMMENTS.replace(
             "[plugins]\n", "[plugins]\ndump = true\n"
+        )
+
+    def test_plugin_command_user_accepts_adds_missing_plugin_key_with_comments(
+        self, minimal_app: typer.Typer, monkeypatch: MonkeyPatch, tmp_path: Path
+    ) -> None:
+        content = CDF_TOML_WITH_COMMENTS.replace("data = false # The data plugin", "")
+        cdf_toml = tmp_path / "cdf.toml"
+        cdf_toml.write_text(content, encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+
+        with MockQuestionary(_cdf.__name__, monkeypatch, [True]):
+            _run_cli(monkeypatch, "data")
+
+        assert cdf_toml.read_text(encoding="utf-8") == content.replace(
+            "[plugins]\n", "[plugins]\ndata = true # The data plugin\n"
         )
 
     def test_plugin_command_user_accepts_adds_missing_plugins_section(
