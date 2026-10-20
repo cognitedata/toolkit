@@ -440,6 +440,13 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
+            ),
+        ] = False,
     ) -> None:
         """Migrate Assets to CogniteAssets."""
         client = _get_client(cdf_project)
@@ -461,6 +468,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[selected],
                 data=AssetCentricMigrationIO(client, skip_existing=skip_existing),
                 mapper=AssetCentricToInstanceMapper(client),
@@ -632,6 +640,13 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
+            ),
+        ] = False,
     ) -> None:
         """Migrate Events to CogniteActivity instances."""
         client = _get_client(cdf_project)
@@ -653,6 +668,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[selected],
                 data=AssetCentricMigrationIO(client, skip_existing=skip_existing),
                 mapper=AssetCentricToInstanceMapper(client),
@@ -741,6 +757,13 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
+            ),
+        ] = False,
     ) -> None:
         """Migrate Events to records (Streams API)."""
         client = _get_client(cdf_project)
@@ -792,6 +815,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[selected],
                 data=RecordsMigrationIO(client, stream=stream, skip_existing=skip_existing),
                 mapper=AssetCentricToRecordMapper(
@@ -897,6 +921,13 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
+            ),
+        ] = False,
     ) -> None:
         """Migrate TimeSeries to CogniteTimeSeries."""
         client = _get_client(cdf_project)
@@ -923,6 +954,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[selected],
                 data=AssetCentricMigrationIO(client, skip_linking=skip_linking, skip_existing=skip_existing),
                 mapper=AssetCentricToInstanceMapper(client),
@@ -1024,6 +1056,13 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
+            ),
+        ] = False,
     ) -> None:
         """Migrate Files to CogniteFiles."""
         client = _get_client(cdf_project)
@@ -1051,6 +1090,7 @@ class MigrateApp(typer.Typer):
 
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[selected],
                 data=AssetCentricMigrationIO(client, skip_linking=skip_linking, skip_existing=skip_existing),
                 mapper=AssetCentricToInstanceMapper(client),
@@ -1134,6 +1174,13 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
+            ),
+        ] = False,
     ) -> None:
         """Migrate Annotations to CogniteDiagramAnnotation edges in data modeling.
 
@@ -1194,6 +1241,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[selected],
                 data=annotation_io,
                 mapper=AssetCentricToInstanceMapper[AnnotationResponse](client),
@@ -1250,6 +1298,13 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
+            ),
+        ] = False,
     ) -> None:
         """Migrate Canvas applications from Asset-Centric to data modeling in CDF.
 
@@ -1270,6 +1325,7 @@ class MigrateApp(typer.Typer):
         selector = CanvasExternalIdSelector(external_ids=tuple(external_id))
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[selector],
                 # Migration should not modify solution tags - there are used across multiple applications
                 # (Canvas, InField)
@@ -1319,6 +1375,13 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
+            ),
+        ] = False,
     ) -> None:
         """Migrate Charts from time series references to data modeling in CDF.
 
@@ -1336,6 +1399,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[ChartExternalIdSelector(external_ids=tuple(selected_external_ids))],
                 data=ChartIO(client, skip_backend_services=False),
                 mapper=ChartMapper(client),
@@ -1383,6 +1447,13 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
+            ),
+        ] = False,
     ) -> None:
         """Migrate 3D Models from Asset-Centric to data modeling in CDF.
 
@@ -1401,6 +1472,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[ThreeDModelIdSelector(ids=tuple(selected_ids))],
                 data=ThreeDMigrationIO(client),
                 mapper=ThreeDMapper(client),
@@ -1462,6 +1534,13 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
+            ),
+        ] = False,
     ) -> None:
         """Migrate 3D Model Asset Mappings from Asset-Centric to data modeling in CDF.
 
@@ -1504,6 +1583,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[ThreeDModelIdSelector(ids=tuple(selected_ids))],
                 data=ThreeDAssetMappingMigrationIO(
                     client, object_3D_space=object_3D_space, cad_node_space=cad_node_space
@@ -1634,6 +1714,13 @@ class MigrateApp(typer.Typer):
                 "in the Infield location(s) that uses the relevant target space. ",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
+            ),
+        ] = False,
     ) -> None:
         """Migrates Infield data from existing APM instance spaces in CDF to the new InfieldOnCDM data model."""
         client = _get_client(cdf_project)
@@ -1664,6 +1751,7 @@ class MigrateApp(typer.Typer):
 
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=selectors,
                 data=InstanceIO(client),
                 mapper=mapper,
@@ -1719,6 +1807,13 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
+            ),
+        ] = False,
     ) -> None:
         """Migrates APM_SourceData (work orders, operations, notifications) used by Infield from the legacy
         APM_SourceData data model to the cdf_idm CogniteMaintenanceOrder/CogniteOperation/CogniteNotification views
@@ -1751,6 +1846,7 @@ class MigrateApp(typer.Typer):
 
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=selectors,
                 data=InstanceIO(client),
                 mapper=mapper,
@@ -1808,6 +1904,14 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command.",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if some items fail to migrate. "
+                "Failed items will be logged.",
+            ),
+        ] = False,
     ) -> None:
         """Migrate 360-image nodes from the legacy cdf_360_image_schema data model to Cognite CDM."""
         client = _get_client(cdf_project)
@@ -1855,6 +1959,7 @@ class MigrateApp(typer.Typer):
         )
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=selectors,
                 data=Image360CollectionInstanceIO(client),
                 mapper=mapper,
@@ -1931,6 +2036,13 @@ class MigrateApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command.",
             ),
         ] = False,
+        continue_on_error: Annotated[
+            bool,
+            typer.Option(
+                "--continue-on-error",
+                help="If set, the migration will continue even if an entire batch of items fail to migrate.",
+            ),
+        ] = False,
     ) -> None:
         """Migrate 360-image annotations (images.AssetLink / images.InstanceLink) to Cognite360ImageAnnotation edges."""
         client = _get_client(cdf_project)
@@ -1979,6 +2091,7 @@ class MigrateApp(typer.Typer):
         io = Image360AnnotationMigrationIO(client)
         cmd.run(
             lambda: cmd.migrate(
+                continue_on_error=continue_on_error,
                 selectors=[selector],
                 data=io,
                 mapper=mapper,

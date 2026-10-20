@@ -40,10 +40,13 @@ settings:
 """
 
 
-def _make_request(**kwargs: object) -> ExternalDataSourceRequest:
-    defaults = {
-        "external_id": "fabric-lakehouse-prod",
-        "settings": OneLakeSettingsWrite(
+def _make_request(
+    external_id: str = "fabric-lakehouse-prod", data_set_id: int | None = None
+) -> ExternalDataSourceRequest:
+    return ExternalDataSourceRequest(
+        external_id=external_id,
+        data_set_id=data_set_id,
+        settings=OneLakeSettingsWrite(
             credentials=OneLakeCredentialsWrite(
                 client_id="id",
                 tenant_id="tenant",
@@ -54,27 +57,26 @@ def _make_request(**kwargs: object) -> ExternalDataSourceRequest:
                 container_id="lakehouse-guid",
             ),
         ),
-    }
-    defaults.update(kwargs)
-    return ExternalDataSourceRequest(**defaults)  # type: ignore[arg-type]
+    )
 
 
-def _make_response(**kwargs: object) -> ExternalDataSourceResponse:
-    defaults = {
-        "external_id": "fabric-lakehouse-prod",
-        "format": "one_lake",
-        "created_time": 1,
-        "last_updated_time": 1,
-        "settings": OneLakeSettingsRead(
+def _make_response(
+    external_id: str = "fabric-lakehouse-prod", data_set_id: int | None = None
+) -> ExternalDataSourceResponse:
+    return ExternalDataSourceResponse(
+        external_id=external_id,
+        data_set_id=data_set_id,
+        format="one_lake",
+        created_time=1,
+        last_updated_time=1,
+        settings=OneLakeSettingsRead(
             credentials=OneLakeCredentialsRead(client_id="azure-client-id", tenant_id="azure-tenant-id"),
             location_description=OneLakeLocationDescription(
                 workspace_id="workspace-guid",
                 container_id="lakehouse-guid",
             ),
         ),
-    }
-    defaults.update(kwargs)
-    return ExternalDataSourceResponse(**defaults)  # type: ignore[arg-type]
+    )
 
 
 class TestExternalDataSourceIO:
