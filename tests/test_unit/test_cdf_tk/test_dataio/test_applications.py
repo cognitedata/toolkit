@@ -33,13 +33,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.dataio import CanvasIO, ChartIO, DataItem, Page
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     AllChartsSelector,
     CanvasExternalIdSelector,
     ChartOwnerSelector,
     ChartSelector,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 _CHART_TS_EXTERNAL_ID = "shared_ts_ext"
 _CHART_TS_INTERNAL_ID = 4242
