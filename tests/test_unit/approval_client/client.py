@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any, BinaryIO, TextIO, TypeVar, cast
 from unittest.mock import MagicMock
 
-import pandas as pd
 from cognite.client import data_modeling as dm
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
@@ -581,42 +580,6 @@ class ApprovalToolkitClient:
                 return resource_list_cls.load(read_resource_objects)
             return upserted
 
-        def _create_dataframe_info(dataframe: pd.DataFrame) -> dict[str, Any]:
-            return {
-                "shape": "x".join(map(str, dataframe.shape)),
-                "nan_count": int(dataframe.isna().sum().sum()),
-                "null_count": int(dataframe.isnull().sum().sum()),
-                "empty_count": int(dataframe[dataframe == ""].count().sum()),
-                # We round float to 4 decimals places to avoid issues with floating point precision on different systems
-                # as this is stored a snapshot.
-                "first_row": dataframe.iloc[0].apply(lambda x: round(x, 4) if isinstance(x, float) else x).to_dict(),
-                "last_row": dataframe.iloc[-1].apply(lambda x: round(x, 4) if isinstance(x, float) else x).to_dict(),
-                "index_name": dataframe.index.name if dataframe.index.name else "missing",
-            }
-
-        def insert_dataframe(*args, **kwargs) -> None:
-            args = list(args)
-            kwargs = dict(kwargs)
-            dataframe_info: dict[str, Any] = {}
-            for arg in list(args):
-                if isinstance(arg, pd.DataFrame):
-                    args.remove(arg)
-                    dataframe_info = _create_dataframe_info(arg)
-                    break
-            for key in list(kwargs):
-                if isinstance(kwargs[key], pd.DataFrame):
-                    value = kwargs.pop(key)
-                    dataframe_info = _create_dataframe_info(value)
-                    break
-            if not dataframe_info:
-                raise ValueError("No dataframe found in arguments")
-            name = "_".join([str(arg) for arg in itertools.chain(args, kwargs.values())])
-            if not name:
-                name = "missing"
-            created_resources[resource_cls.__name__].append(
-                {"name": name, "args": args, "kwargs": kwargs, "dataframe": dataframe_info}
-            )
-
         def upload(*args, **kwargs) -> None:
             name = ""
             for k, v in kwargs.items():
@@ -864,7 +827,6 @@ class ApprovalToolkitClient:
                 create_multiple,
                 create_single,
                 create_filemetadata,
-                insert_dataframe,
                 upload,
                 upsert,
                 create_instances,

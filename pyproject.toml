@@ -58,17 +58,14 @@ dev = [
     "pytest-regressions >=2.4.2",
     "pytest-xdist >=3.6.1",
     "pytest-rerunfailures >=14.0",
+    "pytest-cov >=6.0.0",
+    "pytest-json-report>=1.5.0", # For generating JSON reports from tests, this is used in the smoke tests
     "types-PyYAML >=6",
     "types-toml >=0.10.8.20240310",
-    "twine >=6.0.0",
-    "pytest-cov >=6.0.0",
-    "types-requests >=2.32.0.20241016",
     "types-python-dateutil>=2.9.0.20250708",
+    "twine >=6.0.0",
     "marko >=2.1.2",
-    "numpy>=2.2",
-    "pandas>=2.2",
     "respx>=0.22.0",
-    "pytest-json-report>=1.5.0", # For generating JSON reports from tests, this is used in the smoke tests
 ]
 
 [project.optional-dependencies]
