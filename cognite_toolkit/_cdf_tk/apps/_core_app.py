@@ -67,10 +67,6 @@ if Flags.MULTI_CONFIGS.is_enabled():
             help="Path to the config YAML file (for example config.<env>.yaml under the organization directory). Can be specified multiple times to pass multiple config YAMLs.",
         ),
     ]
-    if CDF_TOML.cdf.default_config_yaml:
-        CONFIG_YAML_DEFAULT: Path | None = Path(CDF_TOML.cdf.default_config_yaml)
-    else:
-        CONFIG_YAML_DEFAULT = None
 else:
     CONFIG_YAML_ARG = Annotated[
         Path | None,
@@ -83,6 +79,12 @@ else:
             help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
         ),
     ]
+if CDF_TOML.cdf.default_config_yaml:
+    if Flags.MULTI_CONFIGS.is_enabled():
+        CONFIG_YAML_DEFAULT: list[Path] | Path | None = [Path(CDF_TOML.cdf.default_config_yaml)]
+    else:
+        CONFIG_YAML_DEFAULT = Path(CDF_TOML.cdf.default_config_yaml)
+else:
     CONFIG_YAML_DEFAULT = None
 
 
