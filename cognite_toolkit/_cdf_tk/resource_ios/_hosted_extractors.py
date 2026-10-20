@@ -226,10 +226,37 @@ class HostedExtractorSourceIO(
             for cert_key, metadata_key in self._CERTIFICATE_KEYS:
                 certificate = raw_data.get(cert_key)
                 if isinstance(certificate, dict | str):
+                    certificate = self._unescape_certificate(certificate)
+                    raw_data[cert_key] = certificate
                     metadata[metadata_key] = calculate_secure_hash(certificate, shorten=True)
             if metadata:
                 raw_data["metadata"] = metadata
         return raw_data_list
+
+    # Fields in a certificate object that hold PEM/DER content.
+    _CERTIFICATE_CONTENT_FIELDS: tuple[str, ...] = ("certificate", "key")
+
+    @classmethod
+    def _unescape_certificate(cls, certificate: dict[str, Any] | str) -> dict[str, Any] | str:
+        """PEM certificates and keys are often stored in environment variables with escaped newlines
+        (literal backslash-n), for example, in CI/CD pipelines. These are converted to real newlines,
+        as the API requires a valid PEM. Since these fields only contain PEM or base64 encoded DER content,
+        a literal backslash-n is never intended.
+        """
+        if isinstance(certificate, str):
+            return cls._unescape_newlines(certificate)
+        return {
+            key: cls._unescape_newlines(value)
+            if key in cls._CERTIFICATE_CONTENT_FIELDS and isinstance(value, str)
+            else value
+            for key, value in certificate.items()
+        }
+
+    @staticmethod
+    def _unescape_newlines(value: str) -> str:
+        if "\\n" in value:
+            return value.replace("\\r\\n", "\n").replace("\\n", "\n")
+        return value
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> HostedExtractorSourceRequestUnion:
         loaded = HostedExtractorSourceRequest.validate_python(resource)
