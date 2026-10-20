@@ -63,6 +63,7 @@ class TestFormatConsistency:
             union = typing.get_args(loader.resource_write_cls)[0]
             assert isinstance(instance, union)
         else:
+            assert isinstance(loader.resource_write_cls, type)
             assert isinstance(instance, loader.resource_write_cls)
 
     @pytest.mark.parametrize("Loader", RESOURCE_IO_LIST)

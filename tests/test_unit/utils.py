@@ -13,7 +13,7 @@ from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
 from types import UnionType
-from typing import IO, Annotated, Any, Literal, TypeVar, get_args, get_origin
+from typing import IO, Annotated, Any, Literal, TypeVar, cast, get_args, get_origin
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -55,6 +55,7 @@ from cognite.client.data_classes.workflows import (
 from cognite.client.utils.useful_types import SequenceNotStr
 from pydantic import BaseModel, JsonValue
 from questionary import Choice
+from typing_extensions import TypeForm
 
 from cognite_toolkit._cdf_tk.client.resource_classes.group.capability import GroupCapability
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
@@ -198,7 +199,11 @@ class FakeCogniteResourceGenerator:
             [self.create_instance(resource_cls, skip_defaulted_args) for _ in range(self._max_list_dict_items)]
         )
 
-    def create_instance(self, resource_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
+    def create_instance(self, resource_cls: TypeForm[T_Object], skip_defaulted_args: bool = False) -> T_Object:
+        # TypeForm allows Annotated unions, which are unpacked in _create_instance.
+        return self._create_instance(cast(type[T_Object], resource_cls), skip_defaulted_args)
+
+    def _create_instance(self, resource_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
         try:
             # All the subsequent inspection calls (get_origin, get_args, etc.) are very expensive, so we
             # first check if the class is a subclass of BaseModel, which is a common case and can be handled more efficiently.
@@ -575,7 +580,7 @@ class MockQuestionary:
                 self.monkeypatch.setattr(f"{module_target}.questionary.{method.__name__}", method)
         return self
 
-    def __exit__(self, *args: Any) -> Literal[False]:
+    def __exit__(self, *args: object) -> Literal[False]:
         self.monkeypatch.undo()
         return False
 

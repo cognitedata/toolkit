@@ -86,6 +86,10 @@ class Flags(Enum):
         visible=False,
         description="Enables local Function App development commands",
     )
+    MULTI_CONFIGS = FlagMetadata(
+        visible=True,
+        description="Enables support for passing multiple config.<>.yaml files into the build command",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
