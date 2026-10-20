@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.utils.file import (
     create_logfile_stem,
     create_temporary_zip,
     find_unique_match_position,
+    load_yaml_inject_variables,
     read_yaml_content,
     sanitize_filename,
     yaml_find_unique_position,
@@ -173,3 +174,22 @@ class TestFindUniqueMatchPosition:
 
     def test_no_match(self) -> None:
         assert find_unique_match_position(self.CONTENT, re.compile(r"\{\{ missing \}\}")) is None
+
+
+class TestLoadYamlInjectVariables:
+    PEM = "-----BEGIN CERTIFICATE-----\nMIIBszCCAVmgAwIBAgIU\n-----END CERTIFICATE-----"
+
+    YAML = "externalId: my_mqtt\nauthCertificate:\n  certificate: ${MQTT_CERT}\n"
+
+    def test_multiline_value_injected_from_env(self) -> None:
+        loaded = load_yaml_inject_variables(self.YAML, {"MQTT_CERT": self.PEM}, required_return_type="dict")
+
+        assert loaded["authCertificate"]["certificate"] == self.PEM
+        assert loaded["externalId"] == "my_mqtt"
+
+    def test_escaped_newlines_are_preserved(self) -> None:
+        # Unescaping is resource specific, e.g., done by HostedExtractorSourceIO for certificates.
+        escaped = self.PEM.replace("\n", "\\n")
+        loaded = load_yaml_inject_variables(self.YAML, {"MQTT_CERT": escaped}, required_return_type="dict")
+
+        assert loaded["authCertificate"]["certificate"] == escaped

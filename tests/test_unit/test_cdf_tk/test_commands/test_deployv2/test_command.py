@@ -280,12 +280,11 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="spaces",
                             is_dry_run=True,
-                            created_count=1,
-                            deleted_count=0,
-                            updated_count=0,
-                            unchanged_count=0,
                             is_missing_write_acl=False,
                             created_ids=[SpaceId(space="${MY_VAR}")],
+                            deleted_ids=[],
+                            updated_ids=[],
+                            unchanged_ids=[],
                         )
                     ],
                     expected_warning=EnvironmentVariableMissingWarning,
@@ -329,10 +328,9 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="spaces",
                             is_dry_run=True,
-                            created_count=1,
-                            deleted_count=0,
-                            updated_count=0,
-                            unchanged_count=0,
+                            deleted_ids=[],
+                            updated_ids=[],
+                            unchanged_ids=[],
                             is_missing_write_acl=False,
                             created_ids=[SpaceId(space="my_space")],
                             skipped=[
@@ -372,10 +370,8 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="function schedules",
                             is_dry_run=True,
-                            created_count=1,
-                            deleted_count=1,
-                            updated_count=0,
-                            unchanged_count=0,
+                            updated_ids=[],
+                            unchanged_ids=[],
                             is_missing_write_acl=False,
                             created_ids=[FunctionScheduleId(function_external_id="my_function", name="my schedule")],
                             deleted_ids=[FunctionScheduleId(function_external_id="my_function", name="my schedule")],
@@ -399,10 +395,9 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="spaces",
                             is_dry_run=True,
-                            created_count=0,
-                            deleted_count=0,
-                            updated_count=1,
-                            unchanged_count=0,
+                            created_ids=[],
+                            deleted_ids=[],
+                            unchanged_ids=[],
                             is_missing_write_acl=False,
                             updated_ids=[SpaceId(space="my_space")],
                         )
@@ -421,10 +416,9 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="spaces",
                             is_dry_run=True,
-                            created_count=1,
-                            deleted_count=0,
-                            updated_count=0,
-                            unchanged_count=0,
+                            deleted_ids=[],
+                            updated_ids=[],
+                            unchanged_ids=[],
                             is_missing_write_acl=False,
                             created_ids=[SpaceId(space="new_space")],
                         )
@@ -445,12 +439,11 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="spaces",
                             is_dry_run=True,
-                            created_count=0,
-                            deleted_count=0,
-                            updated_count=0,
-                            unchanged_count=1,
                             is_missing_write_acl=False,
                             unchanged_ids=[SpaceId(space="my_space")],
+                            created_ids=[],
+                            deleted_ids=[],
+                            updated_ids=[],
                         )
                     ],
                 ),
@@ -467,10 +460,10 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="raw databases",
                             is_dry_run=True,
-                            created_count=0,
-                            deleted_count=0,
-                            updated_count=0,
-                            unchanged_count=0,
+                            created_ids=[],
+                            deleted_ids=[],
+                            updated_ids=[],
+                            unchanged_ids=[],
                             is_missing_write_acl=False,
                             skipped=[
                                 Skipped(
@@ -497,10 +490,10 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="raw tables",
                             is_dry_run=True,
-                            created_count=0,
-                            deleted_count=0,
-                            updated_count=0,
-                            unchanged_count=0,
+                            created_ids=[],
+                            deleted_ids=[],
+                            updated_ids=[],
+                            unchanged_ids=[],
                             is_missing_write_acl=False,
                             skipped=[
                                 Skipped(
@@ -853,10 +846,10 @@ class TestDryRunDataSetPlaceholders:
         result = DeploymentResult(
             resource_name="assets",
             is_dry_run=True,
-            created_count=0,
-            deleted_count=0,
-            updated_count=0,
-            unchanged_count=0,
+            created_ids=[],
+            deleted_ids=[],
+            updated_ids=[],
+            unchanged_ids=[],
             is_missing_write_acl=False,
             is_write_acl_unknown=True,
         )
@@ -961,10 +954,6 @@ class TestVerboseResourceOutcomes:
             DeploymentResult(
                 resource_name="spaces",
                 is_dry_run=True,
-                created_count=1,
-                deleted_count=1,
-                updated_count=1,
-                unchanged_count=1,
                 is_missing_write_acl=False,
                 created_ids=[SpaceId(space="new_space")],
                 updated_ids=[SpaceId(space="edited_space")],
@@ -982,13 +971,11 @@ class TestVerboseResourceOutcomes:
             DeploymentResult(
                 resource_name="function schedules",
                 is_dry_run=True,
-                created_count=1,
-                deleted_count=1,
-                updated_count=0,
-                unchanged_count=0,
                 is_missing_write_acl=False,
                 created_ids=[schedule],
                 deleted_ids=[schedule],
+                unchanged_ids=[],
+                updated_ids=[],
             ),
         ]
 
@@ -1034,13 +1021,11 @@ class TestVerboseResourceOutcomes:
             DeploymentResult(
                 resource_name="spaces",
                 is_dry_run=False,
-                created_count=1,
-                deleted_count=0,
-                updated_count=0,
-                unchanged_count=len(unchanged),
                 is_missing_write_acl=False,
                 created_ids=[SpaceId(space=long_id)],
                 unchanged_ids=unchanged,
+                deleted_ids=[],
+                updated_ids=[],
             )
         ]
 
@@ -1104,7 +1089,7 @@ class TestVerboseResourceOutcomes:
     def test_deploy_resources_records_ids(self) -> None:
         crud = MagicMock()
         crud.display_name = "spaces"
-        crud.get_id.side_effect = lambda resource: resource
+        crud.get_ids.side_effect = lambda resources: [r for r in resources]
         created = SpaceId(space="new")
         updated = SpaceId(space="edited")
         deleted = SpaceId(space="old")
@@ -1126,15 +1111,9 @@ class TestVerboseResourceOutcomes:
             "updated_ids": result.updated_ids,
             "deleted_ids": result.deleted_ids,
             "unchanged_ids": result.unchanged_ids,
-            "created_count": result.created_count,
-            "updated_count": result.updated_count,
-            "deleted_count": result.deleted_count,
         } == {
             "created_ids": [created],
             "updated_ids": [updated],
             "deleted_ids": [deleted],
             "unchanged_ids": [unchanged],
-            "created_count": 1,
-            "updated_count": 1,
-            "deleted_count": 1,
         }

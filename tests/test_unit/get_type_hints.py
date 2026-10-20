@@ -79,17 +79,10 @@ class _TypeHints:
         This function takes all the special types used in data classes and returns them as a dictionary so it
         can be used in the local namespaces.
         """
-        import numpy as np
-        import numpy.typing as npt
         from cognite.client import CogniteClient
 
         return {
             "CogniteClient": CogniteClient,
-            "NumpyDatetime64NSArray": npt.NDArray[np.datetime64],
-            "NumpyUInt32Array": npt.NDArray[np.uint32],
-            "NumpyInt64Array": npt.NDArray[np.int64],
-            "NumpyFloat64Array": npt.NDArray[np.float64],
-            "NumpyObjArray": npt.NDArray[np.object_],
             # These are imported locally in the HasData filter classes
             # and are thus not in the module or class namespace
             "ViewId": dm.ViewId,

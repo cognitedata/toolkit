@@ -1,4 +1,5 @@
 import errno
+import json
 import os
 import re
 import shutil
@@ -87,7 +88,7 @@ def load_yaml_inject_variables(
     for key, value in environment_variables.items():
         if value is None:
             continue
-        content = content.replace(f"${{{key}}}", str(value))
+        content = _inject_variable(content, f"${{{key}}}", str(value))
     if validate and (missing_variables := [match.group(1) for match in ENV_VAR_PATTERN.finditer(content)]):
         if isinstance(filepath, Path):
             source = filepath
@@ -111,6 +112,33 @@ def load_yaml_inject_variables(
         raise ValueError(f"Expected a dict, but got {type(result)}")
     else:
         raise ValueError(f"Unknown required_return_type {required_return_type}")
+
+
+def _inject_variable(content: str, placeholder: str, value: str) -> str:
+    """Replaces the placeholder with the value in the YAML content.
+
+    Multi-line values (e.g., PEM certificates) cannot be injected as plain text, as the newlines
+    would break the YAML structure. If the placeholder is the entire scalar value, the value is
+    injected as a double-quoted YAML string instead.
+    """
+    if placeholder not in content:
+        return content
+    if "\n" not in value:
+        return content.replace(placeholder, value)
+
+    # json.dumps produces a valid YAML double-quoted scalar with escaped newlines.
+    quoted = json.dumps(value)
+    # Matches lines where the placeholder is the entire scalar value, e.g. `key: ${VAR}`, `- ${VAR}`,
+    # or `- key: ${VAR}  # comment`:
+    #   prefix: indentation, zero or more list markers (`- `), and an optional mapping key (`key: `).
+    #   suffix: optional trailing whitespace and comment, then end of line.
+    pattern = re.compile(
+        rf"^(?P<prefix>[ \t]*(?:-[ \t]+)*(?:[^#\n]*?:[ \t]+)?){re.escape(placeholder)}(?P<suffix>[ \t]*(?:#.*)?)$",
+        re.MULTILINE,
+    )
+    content = pattern.sub(lambda m: f"{m.group('prefix')}{quoted}{m.group('suffix')}", content)
+    # Any remaining occurrences are embedded inside a larger string, fallback to plain replacement.
+    return content.replace(placeholder, value)
 
 
 @overload

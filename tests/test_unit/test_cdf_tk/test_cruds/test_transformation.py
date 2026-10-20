@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     NonceCredentials,
     TransformationRequest,
     TransformationResponse,
+    ViewDataSource,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
@@ -231,7 +232,7 @@ authentication:
             loader = TransformationIO(client)
             loaded = loader.load_resource(resource)
 
-        assert loaded.destination is not None
+        assert isinstance(loaded.destination, ViewDataSource)
         assert loaded.destination.auto_create == AutoCreateOptions(direct_relations=False)
 
     def test_dump_resource_strips_default_auto_create(self) -> None:

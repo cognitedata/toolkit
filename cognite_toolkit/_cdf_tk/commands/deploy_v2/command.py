@@ -203,18 +203,30 @@ class ResourceToDeploy(Generic[T_Identifier, T_RequestResource]):
 class DeploymentResult:
     resource_name: str
     is_dry_run: bool
-    created_count: int
-    deleted_count: int
-    updated_count: int
-    unchanged_count: int
+    created_ids: list[Identifier]
+    updated_ids: list[Identifier]
+    deleted_ids: list[Identifier]
+    unchanged_ids: list[Identifier]
     is_missing_write_acl: bool
     is_missing_read_acl: bool = False
     is_write_acl_unknown: bool = False
     skipped: list[Skipped] = field(default_factory=list)
-    created_ids: list[Identifier] = field(default_factory=list)
-    updated_ids: list[Identifier] = field(default_factory=list)
-    deleted_ids: list[Identifier] = field(default_factory=list)
-    unchanged_ids: list[Identifier] = field(default_factory=list)
+
+    @property
+    def created_count(self) -> int:
+        return len(self.created_ids)
+
+    @property
+    def deleted_count(self) -> int:
+        return len(self.deleted_ids)
+
+    @property
+    def updated_count(self) -> int:
+        return len(self.updated_ids)
+
+    @property
+    def unchanged_count(self) -> int:
+        return len(self.unchanged_ids)
 
     @property
     def skipped_count(self) -> int:
@@ -225,10 +237,6 @@ class DeploymentResult:
         return self.created_count + self.deleted_count + self.updated_count + self.unchanged_count + self.skipped_count
 
     def __iadd__(self, other: "DeploymentResult") -> "DeploymentResult":
-        self.created_count += other.created_count
-        self.deleted_count += other.deleted_count
-        self.updated_count += other.updated_count
-        self.unchanged_count += other.unchanged_count
         self.is_missing_write_acl = self.is_missing_write_acl or other.is_missing_write_acl
         self.is_missing_read_acl = self.is_missing_read_acl or other.is_missing_read_acl
         self.is_write_acl_unknown = self.is_write_acl_unknown or other.is_write_acl_unknown
@@ -795,10 +803,10 @@ class DeployV2Command(ToolkitCommand):
                         DeploymentResult(
                             resource_name=resource_name,
                             is_dry_run=options.dry_run,
-                            created_count=0,
-                            deleted_count=0,
-                            updated_count=0,
-                            unchanged_count=0,
+                            created_ids=[],
+                            deleted_ids=[],
+                            updated_ids=[],
+                            unchanged_ids=[],
                             is_missing_write_acl=is_missing_write,
                             is_missing_read_acl=is_missing_read,
                             is_write_acl_unknown=is_write_acl_unknown,
@@ -1117,10 +1125,6 @@ class DeployV2Command(ToolkitCommand):
         return DeploymentResult(
             resource_name=crud.display_name,
             is_dry_run=True,
-            created_count=len(created_ids),
-            updated_count=len(updated_ids),
-            deleted_count=len(deleted_ids),
-            unchanged_count=len(unchanged_ids),
             skipped=resources.skipped,
             is_missing_write_acl=is_missing_write_acl,
             is_write_acl_unknown=is_write_acl_unknown,
@@ -1147,13 +1151,14 @@ class DeployV2Command(ToolkitCommand):
         deploy_dir: Path | None = None,
         insights_by_resource: InsightsByResource | None = None,
     ) -> DeploymentResult:
-        deleted: Sequence[T_Identifier] = []
-        created, updated = 0, 0
+        deleted_ids: list[T_Identifier] = []
+        created_ids: list[T_Identifier] = []
+        updated_ids: list[T_Identifier] = []
         action: Literal["create", "delete", "update", "upsert"] | None = None
         try:
             if resources.to_delete:
                 action = "delete"
-                deleted = crud.delete(resources.to_delete)
+                deleted_ids = list(crud.delete(resources.to_delete))
             if isinstance(crud, ViewIO) and (resources.to_create and resources.to_update):
                 # Since the upsert endpoint for views validates cross-references between views, we need to
                 # to combine the create and update operations to avoid dependency errors in
@@ -1161,35 +1166,31 @@ class DeployV2Command(ToolkitCommand):
                 action = "upsert"
                 to_create_ids = {crud.get_id(item) for item in resources.to_create}  # type: ignore[arg-type]
                 to_upsert = [*resources.to_create, *resources.to_update]
-                upserted = crud.create(to_upsert)  # type: ignore[arg-type]
-                created = sum(1 for item in upserted if crud.get_id(item) in to_create_ids)  # type: ignore[arg-type]
-                updated = len(upserted) - created
+                upserted_ids = list(crud.get_ids(crud.create(to_upsert)))
+                created_ids = [id_ for id_ in upserted_ids if id_ in to_create_ids]
+                updated_ids = [id_ for id_ in upserted_ids if id_ not in to_create_ids]
             else:
                 if resources.to_create:
                     action = "create"
-                    created = len(crud.create(resources.to_create))
+                    created_ids = list(crud.get_ids(crud.create(resources.to_create)))
                 if resources.to_update:
                     action = "update"
-                    updated = len(crud.update(resources.to_update))
+                    updated_ids = list(crud.get_ids(crud.update(resources.to_update)))
         except ToolkitAPIError as error:
             cls._handle_deploy_error(error, action, crud, resources, skipped_cruds, deploy_dir, insights_by_resource)
         except ValidationError as error:
             cls._handle_validation_error(error, action, crud, resources.to_create + resources.to_update, deploy_dir)
 
-        created_ids, updated_ids, deleted_ids, unchanged_ids = cls._collect_resource_ids(crud, resources)
         return DeploymentResult(
             resource_name=crud.display_name,
             is_dry_run=False,
-            created_count=created,
-            updated_count=updated,
-            deleted_count=len(deleted),
-            unchanged_count=len(unchanged_ids),
             skipped=resources.skipped,
             is_missing_write_acl=False,
-            created_ids=created_ids,
-            updated_ids=updated_ids,
-            deleted_ids=deleted_ids,
-            unchanged_ids=unchanged_ids,
+            # We know that the ID types are correct here.
+            created_ids=created_ids,  # ty: ignore[invalid-argument-type]
+            updated_ids=updated_ids,  # ty: ignore[invalid-argument-type]
+            deleted_ids=deleted_ids,  # ty: ignore[invalid-argument-type]
+            unchanged_ids=resources.unchanged,  # ty: ignore[invalid-argument-type]
         )
 
     @classmethod
@@ -1423,10 +1424,10 @@ class DeployV2Command(ToolkitCommand):
         total = DeploymentResult(
             "All",
             is_dry_run=is_dry_run,
-            created_count=0,
-            deleted_count=0,
-            updated_count=0,
-            unchanged_count=0,
+            created_ids=[],
+            deleted_ids=[],
+            updated_ids=[],
+            unchanged_ids=[],
             skipped=[],
             is_missing_write_acl=False,
         )
