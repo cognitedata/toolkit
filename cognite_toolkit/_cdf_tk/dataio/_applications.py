@@ -322,7 +322,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
 
     @staticmethod
     def _collect_unique_backend_requests(
-        items: list[DataItem[ChartRequest]],
+        items: Sequence[DataItem[ChartRequest]],
         get_requests: Callable[[ChartRequest], Sequence[TChartBackendRequest] | None],
         duplicate_label: str,
     ) -> tuple[dict[ExternalId, tuple[TChartBackendRequest, str]], list[LogEntryV2]]:
@@ -433,7 +433,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
                     succeeded[ext_id] = created
         return log_entries, failed, succeeded
 
-    def _upload_backend_services(self, items: list[DataItem[ChartRequest]]) -> set[str]:
+    def _upload_backend_services(self, items: Sequence[DataItem[ChartRequest]]) -> set[str]:
         """Uploads the backend services monitoring jobs and scheduled calculations for each Chart. Returns a set of external IDs of Charts that failed to upload backend services."""
         log_entries: list[LogEntryV2] = []
 
