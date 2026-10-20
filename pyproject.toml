@@ -132,7 +132,6 @@ include = ["cognite_toolkit", "tests_smoke", "tests"]
 exclude = [
     "tests/data/",
     "tests/test_unit/test_cdf_tk/approval_client",
-    "tests/test_unit/test_cdf_tk/test_client", # 76
     "tests/test_unit/test_cdf_tk/test_commands", # 532
     "tests/test_unit/test_cdf_tk/test_utils", # 180
 ]
