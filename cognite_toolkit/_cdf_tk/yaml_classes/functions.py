@@ -78,6 +78,8 @@ class FunctionsYAML(ToolkitResource):
         """The function code is uploaded as a file, which must be stored in either a data set or a space."""
         if self.data_set_external_id is None and self.space is None:
             raise ValueError("Either dataSetExternalId or space must be set, to store the function code.")
+        if self.data_set_external_id is not None and self.space is not None:
+            raise ValueError("Only one of dataSetExternalId or space can be set, to store the function code.")
         return self
 
     def as_id(self) -> ExternalId:
