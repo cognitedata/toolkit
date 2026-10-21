@@ -1221,28 +1221,105 @@ class TestSelectModule:
                 )
 
 
+_GIT_SPACE_FILE = f"org/{MODULES}/my_module/{SpaceIO.folder_name}/my_space.{SpaceIO.kind}.yaml"
+
+
 class TestParseGitDiffSelection:
-    @pytest.mark.parametrize()
+    @pytest.mark.parametrize(
+        "current_branch, changed_files, uncommitted_files, expected_selected, expected_uncommitted",
+        [
+            pytest.param(
+                "feature-branch",
+                [_GIT_SPACE_FILE],
+                [],
+                {Path(MODULES) / "my_module"},
+                [],
+                id="feature_branch_changed_module_file",
+            ),
+            pytest.param(
+                "main",
+                [_GIT_SPACE_FILE],
+                [],
+                {Path(MODULES) / "my_module"},
+                [],
+                id="default_branch_uses_last_commit",
+            ),
+            pytest.param(
+                "feature-branch",
+                [
+                    "README.md",
+                    "org/other/some_file.yaml",
+                    f"org/{MODULES}/my_module/{SpaceIO.folder_name}/notes.md",
+                    f"org/{MODULES}/my_module/not_a_resource.yaml",
+                ],
+                [],
+                set(),
+                [],
+                id="irrelevant_changes_no_uncommitted",
+            ),
+            pytest.param(
+                "feature-branch",
+                [],
+                [_GIT_SPACE_FILE, "README.md"],
+                set(),
+                [_GIT_SPACE_FILE],
+                id="no_committed_changes_with_uncommitted_module_file",
+            ),
+            pytest.param(
+                "main",
+                [],
+                [_GIT_SPACE_FILE],
+                set(),
+                [_GIT_SPACE_FILE],
+                id="default_branch_no_last_commit_changes_with_uncommitted",
+            ),
+        ],
+    )
     def test_parse_git_diff_selection(
         self,
+        current_branch: str,
         changed_files: list[str],
         uncommitted_files: list[str],
         expected_selected: set[RelativeDirPath | str],
-        expected_uncommitted: list[Path],
+        expected_uncommitted: list[str],
         tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        # Git returns paths relative to the repository root, which are resolved against the CWD.
+        monkeypatch.chdir(tmp_path)
         org = tmp_path / "org"
-        filepath = org / MODULES / "my_module" / SpaceIO.folder_name / f"my_space.{SpaceIO.kind}.yaml"
+        filepath = tmp_path / _GIT_SPACE_FILE
         filepath.parent.mkdir(parents=True, exist_ok=True)
         filepath.write_text(SPACE_YAML)
 
         git = MagicMock(spec=Git)
         git.is_git_repo.return_value = True
         git.get_default_branch.return_value = "main"
-        git.get_current_branch.return_value = "feature-branch"
+        git.get_current_branch.return_value = current_branch
         git.get_changed_files.return_value = changed_files
-        git.get_uncommitted_files.return_value = uncommitted_files
+        git.get_changed_files_last_commit.return_value = changed_files
+        git.get_uncommitted_changes.return_value = uncommitted_files
 
         actual_selected, actual_uncommitted = BuildV2Command.parse_git_diff_selection(org, git)
+
         assert actual_selected == expected_selected
-        assert actual_uncommitted == expected_uncommitted
+        assert actual_uncommitted == [(tmp_path / file).resolve() for file in expected_uncommitted]
+        if current_branch == "main":
+            git.get_changed_files_last_commit.assert_called_once()
+            git.get_changed_files.assert_not_called()
+        else:
+            git.get_changed_files.assert_called_once_with("main", current_branch)
+            git.get_changed_files_last_commit.assert_not_called()
+        if expected_selected:
+            git.get_uncommitted_changes.assert_not_called()
+        else:
+            git.get_uncommitted_changes.assert_called_once()
+
+    def test_parse_git_diff_selection_not_git_repo(self, tmp_path: Path) -> None:
+        git = MagicMock(spec=Git)
+        git.is_git_repo.return_value = False
+
+        with pytest.raises(ToolkitValueError, match="not a Git repository"):
+            BuildV2Command.parse_git_diff_selection(tmp_path / "org", git)
+
+        git.get_default_branch.assert_not_called()
