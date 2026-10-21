@@ -800,7 +800,10 @@ class BuildV2Command(ToolkitCommand):
                     # This can only happen if there is a single config YAML file, as we check for this above.
                     selected = parsed_user_selected
                 elif Flags.GIT_DIFF_SELECT.is_enabled() and config.environment.selection_type == "git-diff":
-                    selected, uncommitted_changes = cls.parse_git_diff_selection(organization_dir, Git())
+                    try:
+                        selected, uncommitted_changes = cls.parse_git_diff_selection(organization_dir, Git())
+                    except RuntimeError as e:
+                        raise ToolkitValueError(f"Failed to determine git changes: {e}") from e
                     if not selected:
                         suffix = ""
                         if uncommitted_changes:

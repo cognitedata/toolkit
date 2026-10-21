@@ -63,7 +63,7 @@ class Git:
         """Get the list of changed files in the last commit."""
         try:
             result = subprocess.run(
-                ["git", "diff", "--name-only", "HEAD~1..HEAD"],
+                ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
                 capture_output=True,
                 text=True,
                 check=True,
