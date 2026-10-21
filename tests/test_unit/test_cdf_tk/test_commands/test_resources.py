@@ -228,7 +228,7 @@ class TestResourcesCreateCommand:
         """Test that interactive selection shows folder_name.kind format."""
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
 
-        def capture_and_select(choices: list[Choice]) -> type[SpaceIO]:
+        def capture_and_select(choices) -> type[SpaceIO]:
             titles = [c.title for c in choices]
             assert all("." in t for t in titles), f"Expected qualified names, got: {titles}"
             return SpaceIO
