@@ -28,7 +28,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, InternalId, RawTableId, SpaceId, ViewId
-from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, DataSetsAcl, DataSetScope, IDScope
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, AllScope, DataSetsAcl, DataSetScope, IDScope
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._utils import (
     confirm_by_typing_project_name,
@@ -59,6 +60,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_IO_BY_FOLDER_NAME,
     ContainerIO,
     EdgeIO,
+    FunctionIO,
     NodeIO,
     RawTableIO,
     ResourceContainerIO,
@@ -939,26 +941,41 @@ class DeployV2Command(ToolkitCommand):
             only set in dry-run when resources reference datasets that are not yet in CDF (``DRY_RUN_ID``),
             so write-protected dataset ownership cannot be verified.
         """
-        minimum_scope = crud.get_minimum_scope(resources)
-        if minimum_scope is None:
-            return False, False, False
 
-        data_set_ids: list[int] | None = None
-        if isinstance(minimum_scope, DataSetScope):
-            data_set_ids = minimum_scope.ids
-        elif isinstance(minimum_scope, AllScope):
-            # If the minimum scope is AllScope, then at least one of the resources are unscoped. But there
-            # can still be resources that are scoped to a dataset, so we check for those and add the ownership ACLs
-            # for those datasets if they are write-protected.
-            data_set_ids = cls._get_data_set_ids(resources)
+        if not isinstance(crud, FunctionIO):
+            minimum_scope = crud.get_minimum_scope(resources)
+            if minimum_scope is None:
+                return False, False, False
+            minimum_scopes = [minimum_scope]
+        else:
+            # Special case for FunctionIO, as a function can be scoped to either a dataset or spaces,
+            # so we need to check both.
+            # We know that all the resources are FunctionRequest, so we can safely cast here.
+            minimum_scopes = list(crud.get_minimum_scopes(cast(list[FunctionRequest], resources)))
+            if not minimum_scopes:
+                return False, False, False
+
+        for scope in minimum_scopes:
+            data_set_ids: list[int] | None = None
+            if isinstance(scope, DataSetScope):
+                data_set_ids = scope.ids
+            elif isinstance(scope, AllScope):
+                # If the minimum scope is AllScope, then at least one of the resources are unscoped. But there
+                # can still be resources that are scoped to a dataset, so we check for those and add the ownership ACLs
+                # for those datasets if they are write-protected.
+                data_set_ids = cls._get_data_set_ids(resources)
 
         dataset_owner: DataSetsAcl | None = None
         if write_protected_ids := cls._write_protected_datasets(client, data_set_ids or []):
             dataset_owner = DataSetsAcl(actions=["OWNER"], scope=IDScope(ids=list(write_protected_ids)))
 
         if is_dry_run:
-            read_acl = list(crud.create_acl({"READ"}, minimum_scope))
-            write_acl = list(crud.create_acl({"WRITE"}, minimum_scope))
+            read_acl: list[AclType] = []
+            write_acl: list[AclType] = []
+            for scope in minimum_scopes:
+                read_acl.extend(crud.create_acl({"READ"}, scope))
+                write_acl.extend(crud.create_acl({"WRITE"}, scope))
+
             if dataset_owner:
                 write_acl.append(dataset_owner)
             is_write_acl_unknown = cls._resources_have_unresolved_data_set(resources)
@@ -969,7 +986,9 @@ class DeployV2Command(ToolkitCommand):
             )
         else:
             # Is not dry run
-            read_write_acls = list(crud.create_acl({"READ", "WRITE"}, minimum_scope))
+            read_write_acls: list[AclType] = []
+            for scope in minimum_scopes:
+                read_write_acls.extend(crud.create_acl({"READ", "WRITE"}, scope))
             if dataset_owner:
                 read_write_acls.append(dataset_owner)
             if missing := crud.client.token.verify_acls(read_write_acls):
