@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.credentials import OAuthClientCredentials
-from cognite.client.data_classes import ClientCredentials, OidcCredentials
+from cognite.client.data_classes import OidcCredentials
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
@@ -22,12 +22,12 @@ class TestTryFindError:
         "credentials, expected",
         [
             pytest.param(
-                ClientCredentials("${ENVIRONMENT_VAR}", "1234"),
+                ClientCredentialsSessionRequest(client_id="${ENVIRONMENT_VAR}", client_secret="1234"),
                 "The environment variable is not set: ENVIRONMENT_VAR.",
                 id="Missing environment variable",
             ),
             pytest.param(
-                ClientCredentials("${ENV1}", "${ENV2}"),
+                ClientCredentialsSessionRequest(client_id="${ENV1}", client_secret="${ENV2}"),
                 "The environment variables are not set: ENV1 and ENV2.",
                 id="Missing environment variable",
             ),
@@ -44,7 +44,9 @@ class TestTryFindError:
             pytest.param(None, None, id="empty"),
         ],
     )
-    def test_try_find_error(self, credentials: OidcCredentials | ClientCredentials | None, expected: str | None):
+    def test_try_find_error(
+        self, credentials: OidcCredentials | ClientCredentialsSessionRequest | None, expected: str | None
+    ):
         assert try_find_error(credentials) == expected
 
 

@@ -27,7 +27,7 @@ class TestSuffixDescription:
             ),
         ],
     )
-    def test_suffix_description(self, description: str | None, expected_description: str, expect_warning: True) -> None:
+    def test_suffix_description(self, description: str | None, expected_description: str, expect_warning: bool) -> None:
         console = MagicMock(spec=Console)
         limit = 30
         actual = suffix_description("<suffix>", description, limit, "identifier", "my_resource_type", console=console)

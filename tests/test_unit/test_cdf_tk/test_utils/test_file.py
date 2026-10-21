@@ -102,6 +102,7 @@ databases:
 -   connection-string: !keyvault db-connection-secret
     name: my_db"""
         result = read_yaml_content(yaml_content)
+        assert isinstance(result, dict)
         assert result["azure-keyvault"]["password"] == "!keyvault value-secret-name"
         assert result["databases"][0]["connection-string"] == "!keyvault db-connection-secret"
         assert result["databases"][0]["name"] == "my_db"
@@ -112,6 +113,7 @@ databases:
 secret2: !keyvault secret-name-2
 normal_value: regular-string"""
         result = read_yaml_content(yaml_content)
+        assert isinstance(result, dict)
         assert result["secret1"] == "!keyvault secret-name-1"
         assert result["secret2"] == "!keyvault secret-name-2"
         assert result["normal_value"] == "regular-string"
