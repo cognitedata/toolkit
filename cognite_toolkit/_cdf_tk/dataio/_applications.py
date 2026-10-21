@@ -5,6 +5,7 @@ from cognite.client.credentials import OAuthClientCredentials, OAuthDeviceCode
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.api.instances import INSTANCE_DELETE_ENDPOINT, INSTANCE_UPSERT_ENDPOINT
+from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     RequestMessage,
@@ -78,6 +79,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         skip_backend_services: bool = False,
         skip_strict_mode: bool = False,
         api_format: Literal["request", "response"] = "request",
+        is_migration: bool = False,
     ) -> None:
         super().__init__(client, api_format=api_format)
         # We need to store existing charts as we use different endpoints depending on whether
@@ -88,6 +90,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         self._skip_existing = skip_existing
         self._skip_backend_services = skip_backend_services
         self._skip_strict_mode = skip_strict_mode
+        self._is_migration = is_migration
 
     @property
     def existing_charts(self) -> set[str]:
@@ -456,7 +459,7 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         job_upsert_logs, failed_jobs, succeeded_jobs = self._upsert_unique_backend_requests(
             monitoring_job_by_id,
             existing_job_ids,
-            self.client.charts.monitoring_jobs.update,
+            self._create_monitoring_job_update_call(),
             self.client.charts.monitoring_jobs.create,
             "monitoring job",
         )
@@ -537,6 +540,39 @@ class ChartIO(UploadableDataIO[ChartSelector, ChartResponse, ChartRequest]):
         if log_entries:
             self.logger.log(log_entries)
         return failed_charts
+
+    def _create_monitoring_job_update_call(
+        self,
+    ) -> Callable[[Sequence[ChartMonitoringJobRequest]], list[ChartMonitoringJobResponse]]:
+        if not self._is_migration:
+            return self.client.charts.monitoring_jobs.update
+        # In Migration, we know that it is only the chart monitoring job model that is being updated,
+        # not all the other fields. Thus, we make a special update call that only update the model.
+        # This avoids the risk of hitting validation errors on the other fields, such as, the channelId,
+        # which may have become invalid since the monitoring job was created.
+
+        endpoint = self.client.charts.monitoring_jobs._method_endpoint_map["update"]
+
+        def update_model_only(items: Sequence[ChartMonitoringJobRequest]) -> list[ChartMonitoringJobResponse]:
+            result_items: list[ChartMonitoringJobResponse] = []
+            for item in items:
+                request = RequestMessage(
+                    endpoint_url=self.client.config.create_api_url(endpoint.path),
+                    method=endpoint.method,
+                    body_content={
+                        "items": [
+                            {
+                                "externalId": item.external_id,
+                                "model": item.model.model_dump(mode="json"),
+                            }
+                        ]
+                    },
+                )
+                response = self.client.http_client.request_single_retries(request).get_success_or_raise(request)
+                result_items.extend(PagedResponse[ChartMonitoringJobResponse].model_validate_json(response.body).items)
+            return result_items
+
+        return update_model_only
 
 
 class CanvasIO(UploadableDataIO[CanvasSelector, IndustrialCanvasResponse, IndustrialCanvasRequest]):

@@ -1401,7 +1401,7 @@ class MigrateApp(typer.Typer):
             lambda: cmd.migrate(
                 continue_on_error=continue_on_error,
                 selectors=[ChartExternalIdSelector(external_ids=tuple(selected_external_ids))],
-                data=ChartIO(client, skip_backend_services=False),
+                data=ChartIO(client, skip_backend_services=False, is_migration=True),
                 mapper=ChartMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
