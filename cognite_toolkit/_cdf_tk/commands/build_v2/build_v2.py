@@ -931,7 +931,8 @@ class BuildV2Command(ToolkitCommand):
                 continue
             module_path, _ = ModuleParser.get_module_path_from_resource_file_path(changed_file_path)
             if module_path is not None:
-                module_paths.add(module_path.relative_to(module_absolute_path))
+                # We want the module path relative to the organization modules directory, not the absolute path.
+                module_paths.add(module_path.relative_to(module_absolute_path.parent))
                 module_files.add(changed_file_path)
         return module_paths, module_files
 
