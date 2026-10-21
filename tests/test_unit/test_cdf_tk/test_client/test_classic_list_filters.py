@@ -259,4 +259,4 @@ def test_unknown_aggregated_property_is_rejected(
     api = AssetsAPI(HTTPClient(toolkit_config))
     _capture_list(api, toolkit_config, respx_mock)
     with pytest.raises(ValueError, match="Unknown aggregated property"):
-        api.list(limit=1, aggregated_properties=["not-a-property"])  # type: ignore[list-item]
+        api.list(limit=1, aggregated_properties=["not-a-property"])  # ty: ignore[invalid-argument-type]

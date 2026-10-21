@@ -4,6 +4,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     Acl,
+    AclType,
     AllScope,
     AssetsAcl,
     CurrentUserScope,
@@ -100,7 +101,7 @@ class TestProjectCapability:
     def test_verify(
         self,
         capabilities: dict[tuple[type[Acl], AclName, AclAction], list[Scope]],
-        required_acls: list[Acl],
+        required_acls: list[AclType],
         expected_missing: list[Acl],
     ) -> None:
         project = FlatCapabilities(capabilities=capabilities, name="MyProject", groups=[37])
