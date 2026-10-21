@@ -33,6 +33,7 @@ from cognite_toolkit._cdf_tk.resource_ios._datamodel import DataModelIO, ViewIO
 from cognite_toolkit._cdf_tk.resource_ios._workflow import WorkflowIO
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
+from cognite_toolkit._cdf_tk.utils.git_helpers import Git
 from tests.test_unit.utils import MockQuestionary
 
 BASE_URL = "http://neat.cognitedata.com"
@@ -1218,3 +1219,30 @@ class TestSelectModule:
                     module_scan_result=scan,
                     allow_creation=allow_creation,
                 )
+
+
+class TestParseGitDiffSelection:
+    @pytest.mark.parametrize()
+    def test_parse_git_diff_selection(
+        self,
+        changed_files: list[str],
+        uncommitted_files: list[str],
+        expected_selected: set[RelativeDirPath | str],
+        expected_uncommitted: list[Path],
+        tmp_path: Path,
+    ) -> None:
+        org = tmp_path / "org"
+        filepath = org / MODULES / "my_module" / SpaceIO.folder_name / f"my_space.{SpaceIO.kind}.yaml"
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        filepath.write_text(SPACE_YAML)
+
+        git = MagicMock(spec=Git)
+        git.is_git_repo.return_value = True
+        git.get_default_branch.return_value = "main"
+        git.get_current_branch.return_value = "feature-branch"
+        git.get_changed_files.return_value = changed_files
+        git.get_uncommitted_files.return_value = uncommitted_files
+
+        actual_selected, actual_uncommitted = BuildV2Command.parse_git_diff_selection(org, git)
+        assert actual_selected == expected_selected
+        assert actual_uncommitted == expected_uncommitted
