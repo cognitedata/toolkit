@@ -39,6 +39,8 @@ class StreamYAML(ToolkitResource):
 
     def syntax_warnings(self, source_file: Path) -> "list[ModelSyntaxWarning | BuildWarning]":
         if self.settings.template["name"] not in AVAILABLE_STREAM_TEMPLATES:
+            from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning
+
             return [
                 BuildWarning(
                     source_file=source_file,
