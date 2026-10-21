@@ -71,3 +71,17 @@ class Git:
             return result.stdout.strip().splitlines()
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to get changed files in last commit: {e.stderr.strip()}") from e
+
+    @classmethod
+    def get_uncommitted_changes(cls) -> list[str]:
+        """Get the list of uncommitted changes in the current working directory."""
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--name-only"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return result.stdout.strip().splitlines()
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Failed to get uncommitted changes: {e.stderr.strip()}") from e

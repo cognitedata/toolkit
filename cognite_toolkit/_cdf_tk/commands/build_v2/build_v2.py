@@ -800,13 +800,21 @@ class BuildV2Command(ToolkitCommand):
                     # This can only happen if there is a single config YAML file, as we check for this above.
                     selected = parsed_user_selected
                 elif Flags.GIT_DIFF_SELECT.is_enabled() and config.environment.selection_type == "git-diff":
-                    selected = cls.parse_git_diff_selection(organization_dir, Git())
+                    selected, uncommitted_changes = cls.parse_git_diff_selection(organization_dir, Git())
                     if not selected:
+                        suffix = ""
+                        if uncommitted_changes:
+                            suffix = (
+                                "The following uncommitted changes were found. To build based on the git diff selection, please commit these changes:\n"
+                                + "\n".join(
+                                    f"- {relative_to_if_possible(file).as_posix()}" for file in uncommitted_changes
+                                )
+                            )
                         raise ToolkitValueError(
                             f"No modules were found to build based on the git diff selection in "
                             f"{relative_to_if_possible(config_path_resolved).as_posix()}. "
                             "Please ensure you are running this command from within a Git repository and that there are "
-                            "changes in the modules directory compared to the default branch."
+                            f"changes in the modules directory compared to the default branch.\n{suffix}"
                         )
                 elif config.environment.selected:
                     selected, errors = cls.parse_user_selection(config.environment.selected, organization_dir)
@@ -877,12 +885,15 @@ class BuildV2Command(ToolkitCommand):
         return selected, errors
 
     @classmethod
-    def parse_git_diff_selection(cls, organization_dir: Path, git: Git) -> set[RelativeDirPath | str]:
+    def parse_git_diff_selection(
+        cls, organization_dir: Path, git: Git
+    ) -> tuple[set[RelativeDirPath | str], list[Path]]:
         if not git.is_git_repo():
             raise ToolkitValueError(
                 "Git diff selection is enabled, but the current directory is not a Git repository. "
                 "Please run this command from within a Git repository."
             )
+        module_absolute_path = (organization_dir / MODULES).resolve()
         default_branch = git.get_default_branch()
         current_branch = git.get_current_branch()
         if current_branch == default_branch:
@@ -890,9 +901,23 @@ class BuildV2Command(ToolkitCommand):
         else:
             changed_files = git.get_changed_files(default_branch, current_branch)
         changed_file_paths = {Path(file).resolve() for file in changed_files}
-        selected: set[RelativeDirPath | str] = set()
+        selected, _ = cls._find_modules_from_files(changed_file_paths, module_absolute_path)
+        if selected:
+            return selected, []
+
+        uncommitted_changes = git.get_uncommitted_changes()
+        uncommitted_paths = {Path(file).resolve() for file in uncommitted_changes}
+        _, uncommitted_modules = cls._find_modules_from_files(uncommitted_paths, module_absolute_path)
+        return selected, list(uncommitted_modules)
+
+    @classmethod
+    def _find_modules_from_files(
+        cls, changed_file_paths: set[Path], module_absolute_path: Path
+    ) -> tuple[set[RelativeDirPath | str], set[Path]]:
+        module_paths: set[RelativeDirPath | str] = set()
+        module_files: set[Path] = set()
         for changed_file_path in changed_file_paths:
-            if not changed_file_path.is_relative_to(organization_dir / MODULES) or changed_file_path.suffix not in (
+            if not changed_file_path.is_relative_to(module_absolute_path) or changed_file_path.suffix not in (
                 ".yaml",
                 ".yml",
             ):
@@ -900,8 +925,9 @@ class BuildV2Command(ToolkitCommand):
                 continue
             module_path, _ = ModuleParser.get_module_path_from_resource_file_path(changed_file_path)
             if module_path is not None:
-                selected.add(module_path.relative_to(organization_dir))
-        return selected
+                module_paths.add(module_path.relative_to(module_absolute_path))
+                module_files.add(changed_file_path)
+        return module_paths, module_files
 
     @classmethod
     def _validate_user_module(cls, item: str, organization_dir: Path) -> tuple[RelativeDirPath | str | None, str]:
