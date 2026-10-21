@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from cognite_toolkit._cdf_tk.client.resource_classes.function_app import FunctionAppRequest, FunctionAppResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.resource_ios import FunctionAppIO, FunctionIO, get_resource_build_io
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra
 from cognite_toolkit._cdf_tk.yaml_classes import FunctionAppsYAML
 
 
@@ -56,7 +57,9 @@ def test_function_app_build_normalizes_null_metadata(tmp_path: Path) -> None:
     extras = list(FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id(item), item))
 
     assert len(extras) == 2
-    assert item["metadata"]["cognite-toolkit-hash"]
+    metadata = item["metadata"]
+    assert isinstance(metadata, dict)
+    assert metadata["cognite-toolkit-hash"]
 
 
 @pytest.mark.parametrize("external_id", ["../secret", "/tmp/secret", "nested/secret", "nested\\secret"])
@@ -65,6 +68,7 @@ def test_function_app_rejects_unsafe_code_paths(tmp_path: Path, external_id: str
 
     [failed] = FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id({"externalId": external_id}), {})
 
+    assert isinstance(failed, FailedReadExtra)
     assert failed.code == "SYNTAX-ERROR"
     assert "Invalid identifier" in failed.error
 
@@ -77,6 +81,7 @@ def test_function_app_rejects_symlinked_code_directory(tmp_path: Path) -> None:
 
     [failed] = FunctionAppIO.get_extra_files(resource_file, FunctionAppIO.get_id({"externalId": "app"}), {})
 
+    assert isinstance(failed, FailedReadExtra)
     assert failed.code == "SYNTAX-ERROR"
     assert "path must remain inside" in failed.error
 
