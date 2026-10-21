@@ -29,7 +29,7 @@ class Environment(BaseModel):
 
     @field_validator("selected", mode="after")
     @classmethod
-    def selected_only_passed_for_path_selection(
+    def _selected_only_passed_for_path_selection(
         cls, value: list[str] | None, values: dict[str, Any]
     ) -> list[str] | None:
         if values.get("selection_type") == "path":

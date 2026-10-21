@@ -100,6 +100,7 @@ from cognite_toolkit._cdf_tk.utils.file import (
     yaml_positions,
     yaml_safe_dump,
 )
+from cognite_toolkit._cdf_tk.utils.git_helpers import Git
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash_multi_file
 from cognite_toolkit._cdf_tk.validation import (
     ValidationMessage,
@@ -798,6 +799,15 @@ class BuildV2Command(ToolkitCommand):
                     # CLI args override config YAML selection, so we use the parsed user selection if provided.
                     # This can only happen if there is a single config YAML file, as we check for this above.
                     selected = parsed_user_selected
+                elif Flags.GIT_DIFF_SELECT.is_enabled() and config.environment.selection_type == "git-diff":
+                    selected = cls.parse_git_diff_selection(organization_dir, Git())
+                    if not selected:
+                        raise ToolkitValueError(
+                            f"No modules were found to build based on the git diff selection in "
+                            f"{relative_to_if_possible(config_path_resolved).as_posix()}. "
+                            "Please ensure you are running this command from within a Git repository and that there are "
+                            "changes in the modules directory compared to the default branch."
+                        )
                 elif config.environment.selected:
                     selected, errors = cls.parse_user_selection(config.environment.selected, organization_dir)
                     if errors:
@@ -805,6 +815,7 @@ class BuildV2Command(ToolkitCommand):
                             f"Invalid module selection in {relative_to_if_possible(config_path_resolved).as_posix()}:\n"
                             + "\n".join(f"- {error}" for error in errors)
                         )
+
                 else:
                     missing_selected.append(config_path_resolved)
 
@@ -864,6 +875,33 @@ class BuildV2Command(ToolkitCommand):
             elif item_path is not None:
                 selected.add(item_path)
         return selected, errors
+
+    @classmethod
+    def parse_git_diff_selection(cls, organization_dir: Path, git: Git) -> set[RelativeDirPath | str]:
+        if not git.is_git_repo():
+            raise ToolkitValueError(
+                "Git diff selection is enabled, but the current directory is not a Git repository. "
+                "Please run this command from within a Git repository."
+            )
+        default_branch = git.get_default_branch()
+        current_branch = git.get_current_branch()
+        if current_branch == default_branch:
+            changed_files = git.get_changed_files_last_commit()
+        else:
+            changed_files = git.get_changed_files(default_branch, current_branch)
+        changed_file_paths = {Path(file).resolve() for file in changed_files}
+        selected: set[RelativeDirPath | str] = set()
+        for changed_file_path in changed_file_paths:
+            if not changed_file_path.is_relative_to(organization_dir / MODULES) or changed_file_path.suffix not in (
+                ".yaml",
+                ".yml",
+            ):
+                # We only care about changed files that are YAML files under the organization modules directory.
+                continue
+            module_path, _ = ModuleParser.get_module_path_from_resource_file_path(changed_file_path)
+            if module_path is not None:
+                selected.add(module_path.relative_to(organization_dir))
+        return selected
 
     @classmethod
     def _validate_user_module(cls, item: str, organization_dir: Path) -> tuple[RelativeDirPath | str | None, str]:
