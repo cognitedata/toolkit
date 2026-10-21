@@ -6,7 +6,12 @@ import pytest
 import yaml
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits, ResourceLimit
+from cognite_toolkit._cdf_tk.client.resource_classes.function import (
+    FunctionLimits,
+    FunctionsActivation,
+    ResourceLimit,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, FunctionsAcl
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
@@ -171,3 +176,45 @@ class TestFunctionLimitsRule:
             mock_validate_pip.assert_not_called()
         else:
             mock_validate_pip.assert_called_once()
+
+    @pytest.mark.parametrize(
+        "missing_acls, activation_status, expected_codes, expected_message_substrings, expect_status_called",
+        [
+            pytest.param([], "activated", [], [], True, id="access and activated"),
+            pytest.param([], "inactive", ["INVALID-VALUE"], ["activated", "inactive"], True, id="inactive"),
+            pytest.param([], "requested", ["INVALID-VALUE"], ["activated", "requested"], True, id="requested"),
+            pytest.param(
+                [FunctionsAcl(actions=["READ"], scope=AllScope())],
+                "activated",
+                ["MISSING-ACCESS"],
+                ["READ access to Functions"],
+                False,
+                id="missing access",
+            ),
+        ],
+    )
+    def test_validate_function_service(
+        self,
+        missing_acls: list[FunctionsAcl],
+        activation_status: str,
+        expected_codes: list[str],
+        expected_message_substrings: list[str],
+        expect_status_called: bool,
+        tmp_path: Path,
+    ) -> None:
+        """Test validation of access to and activation of the Cognite Functions service."""
+        client = MagicMock()
+        client.token.verify_acls.return_value = missing_acls
+        client.functions.status.return_value = FunctionsActivation(status=activation_status)
+        first_function = tmp_path / "functions" / "func.yaml"
+
+        errors = list(FunctionRuleSet._validate_function_service(client, first_function))
+
+        assert [error.code for error in errors] == expected_codes
+        assert all(isinstance(error, BuildError) for error in errors)
+        assert all(error.message and error.fix for error in errors)
+        assert all(error.source_file == first_function for error in errors)
+        combined_messages = "\n".join(error.message for error in errors)
+        for substring in expected_message_substrings:
+            assert substring in combined_messages
+        assert client.functions.status.called is expect_status_called
