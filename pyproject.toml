@@ -132,9 +132,9 @@ include = ["cognite_toolkit", "tests_smoke", "tests"]
 exclude = [
     "tests/data/",
     "tests/test_unit/test_cdf_tk/approval_client",
-    "tests/test_unit/test_cdf_tk/test_commands/test_buildv2", #
-    "tests/test_unit/test_cdf_tk/test_commands/test_deployv2", #
-    "tests/test_unit/test_cdf_tk/test_commands/test_migration_cmd", #
+    "tests/test_unit/test_cdf_tk/test_commands/test_buildv2", # 10
+    "tests/test_unit/test_cdf_tk/test_commands/test_deployv2", # 6
+    "tests/test_unit/test_cdf_tk/test_commands/test_migration_cmd", # 439
 ]
 [tool.ty.environment]
 python-version = "3.14"
