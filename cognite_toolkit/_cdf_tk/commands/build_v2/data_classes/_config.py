@@ -33,7 +33,7 @@ class Environment(BaseModel):
     def _selected_only_passed_for_path_selection(
         cls, value: list[str] | None, info: ValidationInfo
     ) -> list[str] | None:
-        if info.data.get("selection_type") == "path":
+        if info.data.get("selection_type") == "path" or info.data.get("selection-type") == "path":
             return value
         if value is not None:
             raise ValueError("`selected` can only be set when `selection-type` is 'path'")
