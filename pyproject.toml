@@ -133,7 +133,6 @@ exclude = [
     "tests/data/",
     "tests/test_unit/test_cdf_tk/approval_client",
     "tests/test_unit/test_cdf_tk/test_commands", # 532
-    "tests/test_unit/test_cdf_tk/test_utils", # 180
 ]
 [tool.ty.environment]
 python-version = "3.14"
