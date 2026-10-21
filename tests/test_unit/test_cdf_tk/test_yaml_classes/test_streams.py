@@ -33,7 +33,7 @@ def invalid_stream_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"externalId": "test-stream", "settings": {"template": {"names": "ImmutableTestStream"}}},
-        {"Unrecognized value for settings.template.names[key]: Expected 'name'. Got 'names'."},
+        {"Missing required field in settings.template: 'name'", "Unrecognized field in settings.template: 'names'. "},
         id="wrong template dictionary format",
     )
     yield pytest.param(
