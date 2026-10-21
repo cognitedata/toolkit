@@ -805,7 +805,7 @@ class BuildV2Command(ToolkitCommand):
                         suffix = ""
                         if uncommitted_changes:
                             suffix = (
-                                "The following uncommitted changes were found. To build based on the git diff selection, please commit these changes:\n"
+                                f"{HINT_LEAD_TEXT}The following uncommitted changes were found. To build based on the git diff selection, please commit these changes:\n"
                                 + "\n".join(
                                     f"- {relative_to_if_possible(file).as_posix()}" for file in uncommitted_changes
                                 )
@@ -888,6 +888,12 @@ class BuildV2Command(ToolkitCommand):
     def parse_git_diff_selection(
         cls, organization_dir: Path, git: Git
     ) -> tuple[set[RelativeDirPath | str], list[Path]]:
+        """
+        Parse the modules selected based on the Git diff.
+
+        Returns a tuple containing a set of selected module paths and
+           a list of uncommitted file paths (that are inside a module).
+        """
         if not git.is_git_repo():
             raise ToolkitValueError(
                 "Git diff selection is enabled, but the current directory is not a Git repository. "
