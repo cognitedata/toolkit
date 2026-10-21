@@ -14,15 +14,18 @@
 
 
 import json
+import re
 from collections.abc import Hashable, Iterable, Sequence
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, Literal, final
+from urllib.parse import unquote
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
@@ -43,6 +46,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowVersionRequest,
     WorkflowVersionResponse,
 )
+from cognite_toolkit._cdf_tk.dataflow import Confidence, DataFlowEdge, FlowKind, FlowTarget, resource_node_id
+from cognite_toolkit._cdf_tk.dataflow._dms_query import find_view_references
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitCycleError,
@@ -64,6 +69,7 @@ from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
+from cognite_toolkit._cdf_tk.yaml_classes.workflow_trigger import DataModelingTrigger
 from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import (
     FunctionAppTask,
     FunctionTask,
@@ -75,11 +81,15 @@ from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import (
 )
 
 from ._auth import GroupAllScopedIO
+from ._classic import AssetIO, EventIO, SequenceIO
 from ._data_organization import DataSetsIO
+from ._datamodel import ViewIO
+from ._file import FileMetadataIO
 from ._function import FunctionIO
 from ._group_scoped import GroupResourceScopedIO
 from ._simulators import SimulatorRoutineIO
 from ._streams import StreamIO
+from ._timeseries import TimeSeriesIO
 from ._transformation import TransformationIO
 
 
@@ -89,6 +99,115 @@ def _is_workflow_runtime_reference(value: str) -> bool:
     Hence we do cannot check dependencies for these at build time.
     """
     return value.startswith("${")
+
+
+# cdf://<cluster>/<project>/domain/<domain>/<type>/<externalId>
+_LINEAGE_URI_RE = re.compile(r"^cdf://[^/]+/[^/]+/domain/[^/]+/(?P<type>[^/]+)/(?P<external_id>.+)$")
+_LINEAGE_IO_BY_TYPE: dict[str, type[ResourceIO]] = {
+    "timeseries": TimeSeriesIO,
+    "asset": AssetIO,
+    "assets": AssetIO,
+    "event": EventIO,
+    "events": EventIO,
+    "file": FileMetadataIO,
+    "files": FileMetadataIO,
+    "sequence": SequenceIO,
+    "sequences": SequenceIO,
+    "transformation": TransformationIO,
+    "transformations": TransformationIO,
+}
+
+
+def _lineage_target(uri: str) -> FlowTarget:
+    match = _LINEAGE_URI_RE.match(uri)
+    crud_cls = _LINEAGE_IO_BY_TYPE.get(match.group("type").lower()) if match else None
+    if match is None or crud_cls is None:
+        return FlowTarget.external(uri)
+    return FlowTarget.resource(crud_cls, ExternalId(external_id=unquote(match.group("external_id"))))
+
+
+def _iter_tasks(tasks: list[Task]) -> Iterable[Task]:
+    for task in tasks:
+        yield task
+        if isinstance(task, SubworkflowTask) and isinstance(task.parameters.subworkflow, SubworkflowInlineTasks):
+            yield from _iter_tasks(task.parameters.subworkflow.tasks)
+
+
+def _task_resource(task: Task) -> tuple[type[ResourceIO], Identifier] | None:
+    """The resource a task runs, or None for tasks without one (runtime references, dynamic and CDF tasks)."""
+    if isinstance(task, FunctionTask):
+        external_id = task.parameters.function.external_id
+        return (
+            (FunctionIO, ExternalId(external_id=external_id))
+            if not _is_workflow_runtime_reference(external_id)
+            else None
+        )
+    if isinstance(task, FunctionAppTask):
+        external_id = task.parameters.function_app.external_id
+        return (
+            (FunctionIO, ExternalId(external_id=external_id))
+            if not _is_workflow_runtime_reference(external_id)
+            else None
+        )
+    if isinstance(task, TransformationTask):
+        external_id = task.parameters.transformation.external_id
+        return (
+            (TransformationIO, ExternalId(external_id=external_id))
+            if not _is_workflow_runtime_reference(external_id)
+            else None
+        )
+    if isinstance(task, SimulationTask):
+        external_id = task.parameters.simulation.routine_external_id
+        return (
+            (SimulatorRoutineIO, ExternalId(external_id=external_id))
+            if not _is_workflow_runtime_reference(external_id)
+            else None
+        )
+    if isinstance(task, SubworkflowTask) and not isinstance(task.parameters.subworkflow, SubworkflowInlineTasks):
+        subworkflow = task.parameters.subworkflow
+        # A reference to a workflow version.
+        return WorkflowVersionIO, WorkflowVersionId(
+            workflow_external_id=subworkflow.workflow_external_id, version=subworkflow.version
+        )
+    return None
+
+
+def _contains_edges(owner: str, tasks: list[Task]) -> Iterable[DataFlowEdge]:
+    """One contains edge per resource the tasks run, with the resources that run before it as depends_on.
+
+    A task without a resource of its own is looked through, so the order survives a dynamic or CDF task in between.
+    """
+    targets: dict[str, FlowTarget] = {}
+    for task in tasks:
+        if (resource := _task_resource(task)) is not None:
+            targets[task.external_id] = FlowTarget.resource(*resource)
+    by_id = {task.external_id: task for task in tasks}
+
+    def runs_before(task: Task, seen: set[str]) -> set[str]:
+        found: set[str] = set()
+        for dependency in task.depends_on or []:
+            if dependency.external_id in seen or dependency.external_id not in by_id:
+                continue
+            seen.add(dependency.external_id)
+            if dependency.external_id in targets:
+                found.add(targets[dependency.external_id].node_id)
+            else:
+                found |= runs_before(by_id[dependency.external_id], seen)
+        return found
+
+    before: dict[str, set[str]] = {}
+    target_by_id: dict[str, FlowTarget] = {}
+    for task in tasks:
+        if isinstance(task, SubworkflowTask) and isinstance(task.parameters.subworkflow, SubworkflowInlineTasks):
+            yield from _contains_edges(owner, task.parameters.subworkflow.tasks)
+        if task.external_id not in targets:
+            continue
+        target = targets[task.external_id]
+        target_by_id[target.node_id] = target
+        before.setdefault(target.node_id, set()).update(runs_before(task, {task.external_id}))
+    for node_id, target in target_by_id.items():
+        depends_on = tuple(sorted(before[node_id] - {node_id}))
+        yield DataFlowEdge(source=owner, target=target, kind=FlowKind.CONTAINS, depends_on=depends_on or None)
 
 
 @final
@@ -374,40 +493,36 @@ class WorkflowVersionIO(
     @classmethod
     def _yield_task_dependencies(cls, tasks: list[Task]) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         for task in tasks:
-            if isinstance(task, FunctionTask):
-                function_external_id = task.parameters.function.external_id
-                if not _is_workflow_runtime_reference(function_external_id):
-                    yield FunctionIO, ExternalId(external_id=function_external_id)
-            elif isinstance(task, FunctionAppTask):
-                function_app_external_id = task.parameters.function_app.external_id
-                if not _is_workflow_runtime_reference(function_app_external_id):
-                    yield FunctionIO, ExternalId(external_id=function_app_external_id)
-            elif isinstance(task, TransformationTask):
-                transformation_external_id = task.parameters.transformation.external_id
-                if not _is_workflow_runtime_reference(transformation_external_id):
-                    yield TransformationIO, ExternalId(external_id=transformation_external_id)
-            elif isinstance(task, SimulationTask):
-                routine_external_id = task.parameters.simulation.routine_external_id
-                if not _is_workflow_runtime_reference(routine_external_id):
-                    yield SimulatorRoutineIO, ExternalId(external_id=routine_external_id)
-            elif isinstance(task, SubworkflowTask):
-                subworkflow = task.parameters.subworkflow
-                # Subworkflows can be either inline tasks or a reference to a workflow version.
+            if isinstance(task, SubworkflowTask) and isinstance(task.parameters.subworkflow, SubworkflowInlineTasks):
                 # We yield the dependencies of the inline tasks.
-                if isinstance(subworkflow, SubworkflowInlineTasks):
-                    yield from cls._yield_task_dependencies(subworkflow.tasks)
-                else:
-                    yield (
-                        cls,
-                        WorkflowVersionId(
-                            workflow_external_id=subworkflow.workflow_external_id, version=subworkflow.version
-                        ),
-                    )
+                yield from cls._yield_task_dependencies(task.parameters.subworkflow.tasks)
+            elif (resource := _task_resource(task)) is not None:
+                yield resource
 
     @classmethod
     def get_dependencies(cls, resource: WorkflowVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield WorkflowIO, ExternalId(external_id=resource.workflow_external_id)
         yield from cls._yield_task_dependencies(resource.workflow_definition.tasks)
+
+    @classmethod
+    def get_data_flow(cls, resource: WorkflowVersionYAML) -> Iterable[DataFlowEdge]:
+        owner = resource_node_id(cls, resource.as_id())
+        yield from _contains_edges(owner, resource.workflow_definition.tasks)
+        for task in _iter_tasks(resource.workflow_definition.tasks):
+            if task.lineage_annotation is None:
+                continue
+            for lineage, kind in (
+                (task.lineage_annotation.sources, FlowKind.READS),
+                (task.lineage_annotation.targets, FlowKind.WRITES),
+            ):
+                for info in lineage or []:
+                    yield DataFlowEdge(
+                        source=owner,
+                        target=_lineage_target(info.uri),
+                        kind=kind,
+                        confidence=Confidence.HIGH,
+                        note=f"task {task.external_id}",
+                    )
 
     @classmethod
     def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
@@ -644,6 +759,39 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         )
         if isinstance(resource.trigger_rule, RecordStreamTriggerRule):
             yield (StreamIO, ExternalId(external_id=resource.trigger_rule.stream_external_id))
+
+    @classmethod
+    def get_data_flow(cls, resource: WorkflowTriggerYAML) -> Iterable[DataFlowEdge]:
+        owner = resource_node_id(cls, resource.as_id())
+        yield DataFlowEdge(
+            source=owner,
+            target=FlowTarget.resource(
+                WorkflowVersionIO,
+                WorkflowVersionId(
+                    workflow_external_id=resource.workflow_external_id, version=resource.workflow_version
+                ),
+            ),
+            kind=FlowKind.TRIGGERS,
+        )
+        if isinstance(resource.trigger_rule, DataModelingTrigger):
+            views = find_view_references(resource.trigger_rule.data_modeling_query)
+            if views is None:
+                yield DataFlowEdge(
+                    source=owner,
+                    target=FlowTarget.unresolved(owner, json.dumps(resource.trigger_rule.data_modeling_query)[:200]),
+                    kind=FlowKind.READS,
+                    confidence=Confidence.LOW,
+                    note="Could not find the views of the data modeling query",
+                )
+                return
+            for view in views:
+                yield DataFlowEdge(
+                    source=owner,
+                    target=FlowTarget.resource(
+                        ViewIO, ViewId(space=view.space, external_id=view.external_id, version=view.version)
+                    ),
+                    kind=FlowKind.READS,
+                )
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None

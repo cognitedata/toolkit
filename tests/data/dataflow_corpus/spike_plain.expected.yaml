@@ -1,0 +1,5 @@
+parse_status: ok
+sources:
+- kind: raw_table
+  database: my_db
+  table: my_table

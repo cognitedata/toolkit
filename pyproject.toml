@@ -76,6 +76,9 @@ table = [
 sql = [
     "sqlparse >=0.5.3",
 ]
+dataflow = [
+    "sqlglot >=30,<31",
+]
 
 run-function-app = [
     "cognite-function-apps[cli]>=0.15.0",

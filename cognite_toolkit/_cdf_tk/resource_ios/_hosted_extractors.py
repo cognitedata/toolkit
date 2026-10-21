@@ -42,6 +42,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
     UnknownAuthenticationRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
+from cognite_toolkit._cdf_tk.dataflow import DataFlowEdge, FlowKind, FlowTarget, resource_node_id
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._data_organization import DataSetsIO
@@ -55,6 +56,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
     HostedExtractorMappingYAML,
     HostedExtractorSourceYAML,
 )
+from cognite_toolkit._cdf_tk.yaml_classes.hosted_extractor_job import CustomFormat
 
 
 @final
@@ -515,6 +517,33 @@ class HostedExtractorJobIO(
             yield HostedExtractorSourceIO, ExternalId(external_id=resource.source_id)
         if resource.destination_id:
             yield HostedExtractorDestinationIO, ExternalId(external_id=resource.destination_id)
+
+    @classmethod
+    def get_data_flow(cls, resource: HostedExtractorJobYAML) -> Iterable[DataFlowEdge]:
+        owner = resource_node_id(cls, resource.as_id())
+        if resource.source_id:
+            yield DataFlowEdge(
+                source=owner,
+                target=FlowTarget.resource(HostedExtractorSourceIO, ExternalId(external_id=resource.source_id)),
+                kind=FlowKind.READS,
+            )
+        if resource.destination_id:
+            yield DataFlowEdge(
+                source=owner,
+                target=FlowTarget.resource(
+                    HostedExtractorDestinationIO, ExternalId(external_id=resource.destination_id)
+                ),
+                kind=FlowKind.WRITES,
+            )
+        if isinstance(resource.format, CustomFormat):
+            yield DataFlowEdge(
+                source=owner,
+                target=FlowTarget.resource(
+                    HostedExtractorMappingIO, ExternalId(external_id=resource.format.mapping_id)
+                ),
+                kind=FlowKind.READS,
+                note="mapping",
+            )
 
 
 @final

@@ -11,6 +11,8 @@ from urllib.request import Request, urlopen
 
 import pytest
 
+from cognite_toolkit._cdf_tk.dataflow import DataFlowNode, FlowKind, Snapshot, SnapshotEdge
+from cognite_toolkit._cdf_tk.dataflow._io import save_snapshot
 from cognite_toolkit._cdf_tk.sandbox._server import make_server
 from tests.constants import REPO_ROOT
 
@@ -151,3 +153,78 @@ def test_rejected_token_value_gets_hint(base_url: str, org_dir: Path) -> None:
     )
     assert not result["ok"]
     assert "{{ variable }}" in result["hint"]
+
+
+def test_dataflow_routes(base_url: str, tmp_path: Path) -> None:
+    snapshot = Snapshot.create(
+        [DataFlowNode(id=name, type="t/K", label=name) for name in "abc"],
+        [
+            SnapshotEdge(source="a", target="b", kind=FlowKind.READS),
+            SnapshotEdge(source="b", target="c", kind=FlowKind.WRITES),
+        ],
+    )
+    path = tmp_path / "snapshot.json"
+    save_snapshot(snapshot, path)
+
+    with pytest.raises(HTTPError) as error:
+        call(base_url, "/dataflow")
+    assert error.value.code == 400
+
+    assert call(base_url, "/dataflow/load", {"path": str(path)})["source"] == "loaded"
+    loaded = call(base_url, "/dataflow")
+    assert loaded["source"] == "loaded"
+    assert len(loaded["nodes"]) == 3
+
+    neighbors = call(base_url, "/dataflow/neighbors?id=a&direction=out&depth=2&kinds=reads,writes")
+    assert {node["id"] for node in neighbors["nodes"]} == {"a", "b", "c"}
+    assert call(base_url, "/dataflow/node?id=b")["incoming"][0]["source"] == "a"
+    assert "POST /dataflow/load" in call(base_url, "/")["routes"]
+
+
+def test_dataflow_search_lineage_and_node_id_routes(base_url: str, org_dir: Path, tmp_path: Path) -> None:
+    load(base_url, org_dir)
+    resources = call(base_url, "/resources")
+    transformation = next(item for item in resources if item["kind"] == "Transformation")
+    assert transformation["nodeId"].startswith("transformations/Transformation/")
+
+    snapshot = Snapshot.create(
+        [
+            DataFlowNode(
+                id=transformation["nodeId"],
+                type="transformations/Transformation",
+                label="tr",
+                folder="transformations",
+                kind="Transformation",
+            ),
+            DataFlowNode(id="raw", type="external", label="raw"),
+            DataFlowNode(id="view", type="data_modeling/View", label="view", folder="data_modeling", kind="View"),
+        ],
+        [
+            SnapshotEdge(source=transformation["nodeId"], target="raw", kind=FlowKind.READS),
+            SnapshotEdge(source=transformation["nodeId"], target="view", kind=FlowKind.WRITES),
+        ],
+    )
+    path = tmp_path / "snapshot.json"
+    save_snapshot(snapshot, path)
+    call(base_url, "/dataflow/load", {"path": str(path)})
+
+    page = call(base_url, "/dataflow/nodes?kind=transformation&limit=10")
+    assert page["total"] == 1
+    assert page["counts"] == {"transformations/Transformation": 1}
+
+    identifier = transformation["identifier"]
+    found = call(base_url, f"/dataflow/node-id?kind=Transformation&externalId={identifier['externalId']}")
+    assert found["id"] == transformation["nodeId"]
+    assert found["inSnapshot"]
+    missing = call(base_url, "/dataflow/node-id?kind=Transformation&externalId=missing")
+    assert not missing["inSnapshot"]
+
+    lineage = call(base_url, "/dataflow/lineage?id=raw&only=processes")
+    assert [step["id"] for step in lineage["downstream"]] == [transformation["nodeId"]]
+    assert lineage["incomplete"] is False
+
+    neighbors = call(base_url, "/dataflow/neighbors?id=raw&depth=2&limit=1")
+    assert neighbors["truncated"]
+    assert neighbors["totalNodes"] == 3
+    assert [node["id"] for node in neighbors["nodes"]] == ["raw"]
+    assert "GET /dataflow/lineage?id=&direction=&depth=&limit=&only=&orchestration=" in call(base_url, "/")["routes"]

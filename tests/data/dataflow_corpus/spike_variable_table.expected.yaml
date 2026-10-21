@@ -1,0 +1,4 @@
+parse_status: failed
+sources:
+- kind: unresolved
+  fragment: '{{ db }}.my_table'

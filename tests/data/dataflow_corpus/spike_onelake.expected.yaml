@@ -1,0 +1,4 @@
+parse_status: ok
+sources:
+- kind: external_source
+  source_id: src

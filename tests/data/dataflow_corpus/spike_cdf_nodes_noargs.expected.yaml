@@ -1,0 +1,3 @@
+parse_status: ok
+sources:
+- kind: dm_nodes

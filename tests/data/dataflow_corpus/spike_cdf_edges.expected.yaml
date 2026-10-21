@@ -1,0 +1,6 @@
+parse_status: ok
+sources:
+- kind: dm_edges
+  space: sp
+  external_id: Edge
+  version: v1

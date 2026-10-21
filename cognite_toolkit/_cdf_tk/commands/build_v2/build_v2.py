@@ -66,6 +66,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, MODULES
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import BuildTracking, ResourceBuildStat
+from cognite_toolkit._cdf_tk.dataflow import DataFlowEdge
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
@@ -1227,6 +1228,10 @@ class BuildV2Command(ToolkitCommand):
                 if resource.validated:
                     dependencies = set(file.resource_type.crud_cls.get_dependencies(resource.validated))
 
+                data_flow: set[DataFlowEdge] = set()
+                if resource.validated:
+                    data_flow = self._get_data_flow(file.resource_type.crud_cls, resource.validated)
+
                 built_resources.append(
                     BuiltResource(
                         identifier=resource.identifier,
@@ -1238,6 +1243,7 @@ class BuildV2Command(ToolkitCommand):
                         built_content=built_content,
                         crud_cls=file.resource_type.crud_cls,
                         dependencies=dependencies,
+                        data_flow=data_flow,
                         failed_extra=[extra for extra in resource.extra_files if isinstance(extra, FailedReadExtra)],
                         extra_files=[extra for extra in resource.extra_files if isinstance(extra, SuccessExtra)],
                         has_syntax_error=resource.validated is None,
@@ -1246,6 +1252,14 @@ class BuildV2Command(ToolkitCommand):
                     )
                 )
         return built_resources
+
+    @classmethod
+    def _get_data_flow(cls, crud_cls: type[ResourceIO], validated: ToolkitResource) -> set[DataFlowEdge]:
+        # Data flow is extra information, so a failure here must never fail the build.
+        try:
+            return set(crud_cls.get_data_flow(validated))
+        except Exception:
+            return set()
 
     @classmethod
     def _create_filestem(cls, resource_id: Identifier, source_path: Path, index: int) -> str:

@@ -12,7 +12,13 @@ from pydantic import ValidationError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
-from cognite_toolkit._cdf_tk.sandbox._workspace import OPERATIONS, Workspace, insight_to_json
+from cognite_toolkit._cdf_tk.sandbox._workspace import (
+    DEFAULT_NODES_LIMIT,
+    DEFAULT_SUBGRAPH_LIMIT,
+    OPERATIONS,
+    Workspace,
+    insight_to_json,
+)
 
 TOKEN_HINT = (
     "The value contains a {{ variable }} token. Values in SetPath and AddResource are validated unresolved, "
@@ -30,7 +36,7 @@ def describe_api() -> dict[str, Any]:
                 "A module is a folder holding resource folders such as data_modeling or transformations. "
                 "Can be called again to add modules."
             ),
-            "GET /resources": "List loaded resources: kind, folder, identifier, file.",
+            "GET /resources": "List loaded resources: kind, folder, identifier, nodeId (the data flow node id), file.",
             "GET /resources/<Kind>?<identifier fields>[&folder=]": (
                 "One resource as resolved YAML, plus extraFiles such as the SQL query of a transformation."
             ),
@@ -54,6 +60,38 @@ def describe_api() -> dict[str, Any]:
             "POST /cdf/pull": (
                 "Merge CDF values into loaded session resources, keeping variables and comments. "
                 "Optional body: kind, identifier, folder."
+            ),
+            "POST /dataflow/load": (
+                "Load a prebuilt data flow snapshot. Body: path (a local file) or json (the snapshot, inline). "
+                "Needs no client and no sqlglot."
+            ),
+            "GET /dataflow[?refresh=true]": (
+                "The loaded data flow snapshot (summary, nodes, edges) and its source (loaded or collected). "
+                "refresh=true collects it from CDF, which lists every resource type. Requires a client."
+            ),
+            "GET /dataflow/nodes?q=&kind=&folder=&type=&limit=&offset=": (
+                "Search or list nodes. q is a case-insensitive substring of the label, id or identifier values. "
+                "kind is a resource kind such as View, folder a resource folder such as data_modeling, type is "
+                "<folder>/<kind> or collection, external, unresolved. limit defaults to 50 (max 500). "
+                "Returns total, offset, limit, counts per type over all matches, and nodes."
+            ),
+            "GET /dataflow/neighbors?id=&direction=&depth=&kinds=&limit=": (
+                "The subgraph around a node. direction is in, out or both (default both), depth defaults to 1, "
+                "kinds is a comma separated list of reads, writes, triggers, contains, requires. "
+                "limit keeps the nearest nodes, default 200 and clamped to 1000. "
+                "truncated and totalNodes tell if nodes were left out."
+            ),
+            "GET /dataflow/lineage?id=&direction=&depth=&limit=&only=&orchestration=": (
+                "The data flow into (upstream) and out of (downstream) a node, following reads and writes edges. "
+                "direction is upstream, downstream or both (default both), depth is unlimited by default, "
+                "limit as for neighbors. Steps have a distance and a role (process or data). "
+                "only=processes returns only process steps. orchestration (default true) adds the workflow "
+                "versions and triggers that run each process. incomplete is true if an unresolved source "
+                "or a partly parsed query is part of the flow."
+            ),
+            "GET /dataflow/node?id=": "One node with its incoming and outgoing edges.",
+            "GET /dataflow/node-id?kind=&folder=&<identifier fields>": (
+                "The node id of a resource, loaded in the session or not, and whether it is in the snapshot."
             ),
         },
         "operations": {
@@ -133,6 +171,41 @@ def make_server(
                 return HTTPStatus.OK, workspace.cdf_load(body)
             if method == "POST" and path == "/cdf/pull":
                 return HTTPStatus.OK, workspace.cdf_pull(body)
+            if method == "POST" and path == "/dataflow/load":
+                return HTTPStatus.OK, workspace.dataflow_load(body)
+            if method == "GET" and path == "/dataflow":
+                return HTTPStatus.OK, workspace.dataflow(refresh=query.get("refresh") == "true")
+            if method == "GET" and path == "/dataflow/neighbors":
+                return HTTPStatus.OK, workspace.dataflow_neighbors(
+                    query["id"],
+                    query.get("direction", "both"),
+                    int(query.get("depth", 1)),
+                    query.get("kinds"),
+                    int(query.get("limit", DEFAULT_SUBGRAPH_LIMIT)),
+                )
+            if method == "GET" and path == "/dataflow/nodes":
+                return HTTPStatus.OK, workspace.dataflow_nodes(
+                    query.get("q"),
+                    query.get("kind"),
+                    query.get("folder"),
+                    query.get("type"),
+                    int(query.get("limit", DEFAULT_NODES_LIMIT)),
+                    int(query.get("offset", 0)),
+                )
+            if method == "GET" and path == "/dataflow/node":
+                return HTTPStatus.OK, workspace.dataflow_node(query["id"])
+            if method == "GET" and path == "/dataflow/node-id":
+                identifier = {key: value for key, value in query.items() if key not in ("kind", "folder")}
+                return HTTPStatus.OK, workspace.dataflow_node_id(query["kind"], query.get("folder"), identifier)
+            if method == "GET" and path == "/dataflow/lineage":
+                return HTTPStatus.OK, workspace.dataflow_lineage(
+                    query["id"],
+                    query.get("direction", "both"),
+                    int(query["depth"]) if "depth" in query else None,
+                    int(query.get("limit", DEFAULT_SUBGRAPH_LIMIT)),
+                    query.get("only"),
+                    query.get("orchestration", "true") != "false",
+                )
             return HTTPStatus.NOT_FOUND, {"error": f"No route for {method} {path}"}
 
         def _read_body(self) -> dict[str, Any]:

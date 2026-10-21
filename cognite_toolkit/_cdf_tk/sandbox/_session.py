@@ -355,7 +355,8 @@ class ModelingSession:
         ref.source.placeholder[ref.index] = deepcopy(placeholder if placeholder is not None else resolved)
         self._refresh(ref.source)
 
-    def crud_class(self, kind: str, folder: str | None) -> type[BaseResourceIO]:
+    @staticmethod
+    def crud_class(kind: str, folder: str | None) -> type[BaseResourceIO]:
         matches = [
             io_cls
             for io_cls in RESOURCE_BUILD_IO_LIST
@@ -533,7 +534,8 @@ class ModelingSession:
 
         ``origin`` is ``cdf`` when the baseline is the CDF version (dumped or pulled), and ``sandbox`` when it is
         the text on disk. Files that still match a CDF baseline are included, so a caller can tell what came from
-        CDF unchanged. Disk files without pending edits are left out.
+        CDF unchanged. Disk files without pending edits are left out. Files of removed resources are included with
+        state ``deleted``, since they stay on disk until the next write.
         """
         entries = [
             self._change_entry(
@@ -542,10 +544,41 @@ class ModelingSession:
             for source in self.files
             if not source.deleted
         ]
+        removed_extras = {path for source in self._removed for path in self._extra_paths(source)}
         entries += [
-            self._change_entry(text.path, text.text, text.original_text, text.dirty) for text in self._texts.values()
+            self._change_entry(text.path, text.text, text.original_text, text.dirty)
+            for text in self._texts.values()
+            if text.path not in removed_extras
         ]
+        entries += self._deleted_entries(removed_extras)
         return [entry for entry in entries if entry is not None]
+
+    @staticmethod
+    def _extra_paths(source: SourceFile) -> list[Path]:
+        return [
+            extra.source_path
+            for resource in source.read.resources
+            for extra in resource.extra_files
+            if isinstance(extra, SuccessExtra)
+        ]
+
+    def _deleted_entries(self, removed_extras: set[Path]) -> list[dict[str, Any] | None]:
+        """Files that a write would delete. They stay on disk until then, so a caller listing the disk needs these."""
+        baselines: dict[Path, str] = {source.path: source.original_text for source in self._removed}
+        for path in removed_extras:
+            text = self._texts.get(path)
+            baselines[path] = text.original_text if text else (safe_read(path) if path.exists() else "")
+        entries: list[dict[str, Any] | None] = []
+        for path, original in baselines.items():
+            # A file that was never written has nothing to delete.
+            if not path.exists():
+                continue
+            cdf_text = self._cdf_text.get(path)
+            origin, baseline = ("cdf", cdf_text) if cdf_text is not None else ("sandbox", original)
+            entries.append(
+                {"path": str(path), "origin": origin, "baseline": baseline, "current": "", "state": "deleted"}
+            )
+        return entries
 
     def _change_entry(self, path: Path, current: str, original: str, pending: bool) -> dict[str, Any] | None:
         cdf_text = self._cdf_text.get(path)

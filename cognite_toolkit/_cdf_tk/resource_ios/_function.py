@@ -32,6 +32,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
+from cognite_toolkit._cdf_tk.dataflow import DataFlowEdge, FlowKind, FlowTarget, resource_node_id
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitRequiredValueError,
@@ -559,6 +560,14 @@ class FunctionScheduleIO(
     @classmethod
     def get_dependencies(cls, resource: FunctionScheduleYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield FunctionIO, ExternalId(external_id=resource.function_external_id)
+
+    @classmethod
+    def get_data_flow(cls, resource: FunctionScheduleYAML) -> Iterable[DataFlowEdge]:
+        yield DataFlowEdge(
+            source=resource_node_id(cls, resource.as_id()),
+            target=FlowTarget.resource(FunctionIO, ExternalId(external_id=resource.function_external_id)),
+            kind=FlowKind.TRIGGERS,
+        )
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None

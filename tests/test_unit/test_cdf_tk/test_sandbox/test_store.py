@@ -194,6 +194,26 @@ def test_remove_resource_deletes_file_on_write(org_dir: Path) -> None:
     assert not path.exists()
 
 
+def test_removed_resource_is_a_deleted_change_until_written(org_dir: Path) -> None:
+    workspace = Workspace()
+    workspace.load(org_dir, org_dir / "config.dev.yaml", [MODULE])
+    session = workspace.get_session()
+    path = (org_dir / MODULE / "data_modeling" / "schema.Space.yaml").resolve()
+    original = path.read_text()
+
+    session.apply(RemoveResource(kind="Space", identifier={"space": "sp_schema"}))
+
+    assert path.exists()
+    [entry] = [e for e in session.changes() if e["path"] == str(path)]
+    assert entry["state"] == "deleted"
+    assert entry["origin"] == "sandbox"
+    assert entry["baseline"] == original
+    assert entry["current"] == ""
+
+    session.write()
+    assert not [e for e in session.changes() if e["path"] == str(path)]
+
+
 def test_cdf_routes_on_server(cdf_server: tuple[str, ApprovalToolkitClient], org_dir: Path) -> None:
     base_url, approval = cdf_server
     approval.append(

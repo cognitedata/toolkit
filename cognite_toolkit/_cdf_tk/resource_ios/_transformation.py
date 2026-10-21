@@ -80,6 +80,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule imp
     TransformationScheduleResponse,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.dataflow import (
+    Confidence,
+    DataFlowEdge,
+    FlowKind,
+    FlowTarget,
+    resource_node_id,
+)
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitFileNotFoundError,
@@ -103,6 +110,7 @@ from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import get_ext_onelake_source_ids, read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
+from cognite_toolkit._cdf_tk.utils.sql_sources import SourceKind, SqlSource, extract_sql_sources
 from cognite_toolkit._cdf_tk.yaml_classes import (
     TransformationNotificationYAML,
     TransformationScheduleYAML,
@@ -110,11 +118,15 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
 )
 from cognite_toolkit._cdf_tk.yaml_classes.transformation_destination import (
     DataModelSource,
+    DestinationType,
     RawDataSource,
+    SequenceRowDataSource,
+    StandardDataSource,
     ViewDataSource,
 )
 
 from ._auth import GroupAllScopedIO
+from ._classic import SequenceIO
 from ._data_organization import DataSetsIO
 from ._datamodel import DataModelIO, SpaceIO, ViewIO
 from ._externaldata import ExternalDataSourceIO
@@ -139,6 +151,65 @@ def _strip_default_auto_create(cdf_destination: dict[str, Any], local_destinatio
             auto_create.pop(key, None)
     if not auto_create:
         cdf_destination.pop("autoCreate", None)
+
+
+_DESTINATION_COLLECTION = {"asset_hierarchy": "assets", "string_datapoints": "datapoints"}
+
+
+def _sql_source_target(owner: str, source: SqlSource) -> FlowTarget:
+    match source.kind:
+        case SourceKind.RAW_TABLE:
+            return FlowTarget.resource(RawTableIO, RawTableId(db_name=source.database or "", name=source.table or ""))
+        case SourceKind.CDF_RESOURCE:
+            return FlowTarget.collection(f"_cdf.{source.resource}")
+        case SourceKind.DM_NODES | SourceKind.DM_EDGES:
+            if source.space and source.external_id and source.version:
+                return FlowTarget.resource(
+                    ViewIO, ViewId(space=source.space, external_id=source.external_id, version=source.version)
+                )
+            return FlowTarget.collection("cdf_nodes" if source.kind is SourceKind.DM_NODES else "cdf_edges")
+        case SourceKind.DM_DATA_MODEL:
+            return FlowTarget.resource(
+                DataModelIO,
+                DataModelId(
+                    space=source.space or "", external_id=source.external_id or "", version=source.version or ""
+                ),
+            )
+        case SourceKind.EXTERNAL_SOURCE:
+            return FlowTarget.resource(ExternalDataSourceIO, ExternalId(external_id=source.source_id or ""))
+        case _:
+            return FlowTarget.unresolved(owner, source.fragment or "")
+
+
+def _destination_edge(owner: str, destination: DestinationType | None) -> DataFlowEdge:
+    target: FlowTarget
+    note: str | None = None
+    confidence = Confidence.HIGH
+    if isinstance(destination, RawDataSource):
+        target = FlowTarget.resource(RawTableIO, RawTableId(db_name=destination.database, name=destination.table))
+    elif isinstance(destination, ViewDataSource) and destination.view:
+        view = destination.view
+        target = FlowTarget.resource(
+            ViewIO, ViewId(space=view.space, external_id=view.external_id, version=view.version)
+        )
+    elif isinstance(destination, ViewDataSource) and destination.edge_type:
+        edge_type = destination.edge_type
+        target = FlowTarget.collection(f"edge_type:{edge_type.space}:{edge_type.external_id}")
+    elif isinstance(destination, DataModelSource):
+        model = destination.data_model
+        target = FlowTarget.resource(
+            DataModelIO, DataModelId(space=model.space, external_id=model.external_id, version=model.version)
+        )
+        note = f"type {model.destination_type}"
+    elif isinstance(destination, SequenceRowDataSource):
+        target = FlowTarget.resource(SequenceIO, ExternalId(external_id=destination.external_id))
+        note = "rows"
+    elif isinstance(destination, StandardDataSource):
+        target = FlowTarget.collection(f"_cdf.{_DESTINATION_COLLECTION.get(destination.type, destination.type)}")
+    else:
+        target = FlowTarget.unresolved(owner, "unknown destination")
+        confidence = Confidence.LOW
+    return DataFlowEdge(source=owner, target=target, kind=FlowKind.WRITES, confidence=confidence, note=note)
 
 
 @final
@@ -250,6 +321,20 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
                         version=destination.data_model.version,
                     ),
                 )
+
+    @classmethod
+    def get_data_flow(cls, resource: TransformationYAML) -> Iterable[DataFlowEdge]:
+        owner = resource_node_id(cls, resource.as_id())
+        if resource.query:
+            for source in extract_sql_sources(resource.query).sources:
+                yield DataFlowEdge(
+                    source=owner,
+                    target=_sql_source_target(owner, source),
+                    kind=FlowKind.READS,
+                    confidence=source.confidence,
+                    note=source.reason,
+                )
+        yield _destination_edge(owner, resource.destination)
 
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:

@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 from cognite_toolkit._cdf_tk.client.resource_classes.group import ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
+from cognite_toolkit._cdf_tk.dataflow import DataFlowEdge
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
 
 if TYPE_CHECKING:
@@ -164,6 +165,19 @@ class BaseResourceIO(ABC, Generic[T_Identifier, T_YamlResource]):
 
         """
         raise NotImplementedError(f"get_dependencies must be implemented for {cls.__name__}.")
+
+    @classmethod
+    def get_data_flow(cls, resource: T_YamlResource) -> Iterable[DataFlowEdge]:
+        """Returns the reads, writes, triggers and contains edges of a resource.
+
+        Unlike get_dependencies, this does not affect the deployment order. It is only used to describe how data
+        flows between resources, so most resources yield nothing. Overrides must not raise on valid resources.
+
+        Args:
+            resource: The resource to get data flow edges for.
+
+        """
+        return ()
 
     @classmethod
     def safe_read(cls, filepath: Path | str) -> str:

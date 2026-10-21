@@ -1,0 +1,5 @@
+# Number of corpus queries per actual parse status. The corpus test fails when "ok" drops below this count.
+# Raise it when queries are added to the corpus, never lower it to make a regression pass.
+ok: 31
+partial: 0
+failed: 3

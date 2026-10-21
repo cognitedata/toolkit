@@ -1,0 +1,7 @@
+parse_status: ok
+sources:
+- kind: dm_data_model
+  space: sp
+  external_id: Model
+  version: v1
+  view: View

@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_Identifier, T_RequestResource
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.dataflow import DataFlowEdge
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     FailedReadExtra,
     ResourceIO,
@@ -140,6 +141,10 @@ class BuiltResource(BaseModel):
     )
     crud_cls: builtins.type[ResourceIO]
     dependencies: set[tuple[builtins.type[ResourceIO], Identifier]] = Field(default_factory=set)
+    data_flow: set[DataFlowEdge] = Field(
+        default_factory=set,
+        description="What the resource reads, writes, triggers and contains. Not written to the build output.",
+    )
 
     failed_extra: list[FailedReadExtra] = Field(default_factory=list)
     extra_files: list[SuccessExtra] = Field(default_factory=list)

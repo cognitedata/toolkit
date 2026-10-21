@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.dataflow import Confidence, DataFlowEdge, FlowKind, FlowTarget, resource_node_id
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
@@ -134,6 +135,19 @@ class ExtractionPipelineIO(
                 yield RawDatabaseIO, RawDatabaseId(name=entry.db_name)
             if entry.db_name and entry.table_name:
                 yield RawTableIO, RawTableId(db_name=entry.db_name, name=entry.table_name)
+
+    @classmethod
+    def get_data_flow(cls, resource: ExtractionPipelineYAML) -> Iterable[DataFlowEdge]:
+        owner = resource_node_id(cls, resource.as_id())
+        for entry in resource.raw_tables or []:
+            if entry.db_name and entry.table_name:
+                yield DataFlowEdge(
+                    source=owner,
+                    target=FlowTarget.resource(RawTableIO, RawTableId(db_name=entry.db_name, name=entry.table_name)),
+                    kind=FlowKind.WRITES,
+                    # The pipeline declares its tables, nothing checks that it writes to them.
+                    confidence=Confidence.MEDIUM,
+                )
 
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:

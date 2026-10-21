@@ -1,0 +1,6 @@
+parse_status: ok
+sources:
+- kind: dm_nodes
+  space: sp
+  external_id: View
+  version: v1
