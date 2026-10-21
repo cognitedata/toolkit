@@ -78,6 +78,7 @@ InsightCode: TypeAlias = Literal[
     "AGENT-TOOLS-LIMIT",
     "INFIELD-VIEW-MISSING-PROPERTIES",
     "INFIELD-UNKNOWN-VIEW-PROPERTY",
+    "MISSING-ACCESS",
 ]
 # NEAT issues come with codes defined by the neat package.
 # Remove this once NEAT support is removed from Toolkit.

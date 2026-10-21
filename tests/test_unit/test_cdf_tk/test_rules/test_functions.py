@@ -91,7 +91,7 @@ class TestFunctionLimitsRule:
         )
         resource = self._create_built_resource(yaml_file, yaml_file)
         rule = self._create_rule_with_client(function_limits)
-        errors = list(rule._validate_function(resource))
+        errors = list(rule._validate_function(resource, is_function_service_available=True))
         assert len(errors) == 1
         assert isinstance(errors[0], BuildError)
         assert "CPU cores" in errors[0].message
@@ -111,7 +111,7 @@ class TestFunctionLimitsRule:
         )
         resource = self._create_built_resource(yaml_file, yaml_file)
         rule = self._create_rule_with_client(function_limits)
-        errors = list(rule._validate_function(resource))
+        errors = list(rule._validate_function(resource, is_function_service_available=True))
         assert len(errors) == 1
         assert "CPU cores" in errors[0].message
 
@@ -129,7 +129,7 @@ class TestFunctionLimitsRule:
         )
         resource = self._create_built_resource(yaml_file, yaml_file)
         rule = self._create_rule_with_client(function_limits)
-        errors = list(rule._validate_function(resource))
+        errors = list(rule._validate_function(resource, is_function_service_available=True))
         assert len(errors) == 1
         assert "memory" in errors[0].message
 
@@ -147,7 +147,7 @@ class TestFunctionLimitsRule:
         )
         resource = self._create_built_resource(yaml_file, yaml_file)
         rule = self._create_rule_with_client(function_limits)
-        errors = list(rule._validate_function(resource))
+        errors = list(rule._validate_function(resource, is_function_service_available=True))
         assert len(errors) == 1
 
     def test_validate_function_valid_resources(self, tmp_path: Path, function_limits: FunctionLimits) -> None:
@@ -165,7 +165,7 @@ class TestFunctionLimitsRule:
         )
         resource = self._create_built_resource(yaml_file, yaml_file)
         rule = self._create_rule_with_client(function_limits)
-        errors = list(rule._validate_function(resource))
+        errors = list(rule._validate_function(resource, is_function_service_available=True))
         assert len(errors) == 0
 
     def test_validate_function_unsupported_runtime(self, tmp_path: Path, function_limits: FunctionLimits) -> None:
@@ -182,7 +182,7 @@ class TestFunctionLimitsRule:
         )
         resource = self._create_built_resource(yaml_file, yaml_file)
         rule = self._create_rule_with_client(function_limits)
-        errors = list(rule._validate_function(resource))
+        errors = list(rule._validate_function(resource, is_function_service_available=True))
         assert len(errors) == 1
         assert errors[0].code == "INVALID-VALUE"
         assert "py314" in errors[0].message
@@ -201,7 +201,7 @@ class TestFunctionLimitsRule:
         )
         resource = self._create_built_resource(yaml_file, yaml_file)
         rule = self._create_rule_with_client(function_limits)
-        errors = list(rule._validate_function(resource))
+        errors = list(rule._validate_function(resource, is_function_service_available=True))
         assert len(errors) == 0
 
     def test_validate_function_none_resources(self, tmp_path: Path, function_limits: FunctionLimits) -> None:
@@ -217,7 +217,7 @@ class TestFunctionLimitsRule:
         )
         resource = self._create_built_resource(yaml_file, yaml_file)
         rule = self._create_rule_with_client(function_limits)
-        errors = list(rule._validate_function(resource))
+        errors = list(rule._validate_function(resource, is_function_service_available=True))
         assert len(errors) == 0
 
     def test_validate_function_multiple_violations(self, tmp_path: Path, function_limits: FunctionLimits) -> None:
@@ -235,7 +235,7 @@ class TestFunctionLimitsRule:
         )
         resource = self._create_built_resource(yaml_file, yaml_file)
         rule = self._create_rule_with_client(function_limits)
-        errors = list(rule._validate_function(resource))
+        errors = list(rule._validate_function(resource, is_function_service_available=True))
         assert len(errors) == 2
 
     def test_validate_function_consistency_error_attributes(
@@ -254,17 +254,12 @@ class TestFunctionLimitsRule:
         )
         resource = self._create_built_resource(yaml_file, yaml_file)
         rule = self._create_rule_with_client(function_limits)
-        errors = list(rule._validate_function(resource))
+        errors = list(rule._validate_function(resource, is_function_service_available=True))
         assert len(errors) == 1
         error = errors[0]
         assert error.code == "EXCEEDED-LIMIT"
         assert error.message is not None
         assert error.fix is not None
-
-    def test_limits_property_returns_none_without_client(self) -> None:
-        """Test that limits property returns None when no client is available."""
-        rule = FunctionRuleSet(modules=[])
-        assert rule.limits is None
 
     @patch("cognite_toolkit._cdf_tk.rules._functions.validate_requirements_with_pip")
     def test_validate_function_with_invalid_requirements_txt(
@@ -290,7 +285,7 @@ class TestFunctionLimitsRule:
 
         resource = self._create_built_resource(yaml_file, yaml_file)
         rule = self._create_rule_with_client(function_limits)
-        errors = list(rule._validate_function(resource))
+        errors = list(rule._validate_function(resource, is_function_service_available=True))
 
         assert len(errors) == 1
         assert errors[0].code == "INVALID-FUNCTION-REQUIREMENTS"
@@ -314,7 +309,7 @@ class TestFunctionLimitsRule:
 
         resource = self._create_built_resource(yaml_file, yaml_file)
         rule = self._create_rule_with_client(function_limits)
-        errors = list(rule._validate_function(resource))
+        errors = list(rule._validate_function(resource, is_function_service_available=True))
 
         assert len(errors) == 0
         mock_validate_pip.assert_not_called()
@@ -343,6 +338,6 @@ class TestFunctionLimitsRule:
 
         resource = self._create_built_resource(yaml_file, yaml_file)
         rule = self._create_rule_with_client(function_limits)
-        errors = list(rule._validate_function(resource))
+        errors = list(rule._validate_function(resource, is_function_service_available=True))
 
         assert len(errors) == 0
