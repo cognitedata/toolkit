@@ -98,8 +98,9 @@ class TestStreamYAML:
     def test_load_valid_stream(self, data: dict[str, object]) -> None:
         loaded = StreamYAML.model_validate(data)
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+        assert loaded.syntax_warnings(Path("test.yaml")) == []
 
-    def test_syntax_warning(self) -> None:
+    def test_custom_template_syntax_warning(self) -> None:
         stream = StreamYAML.model_validate(
             {
                 "externalId": "test-stream",
