@@ -1,7 +1,7 @@
 import os
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, Field, JsonValue, field_validator
 
@@ -24,7 +24,19 @@ class Environment(BaseModel):
     name: str = "dev"
     project: str = Field(default_factory=lambda: os.environ.get("CDF_PROJECT", "UNKNOWN"))
     validation_type: ValidationType = Field("dev", alias="validation-type")
+    selection_type: Literal["path", "git-diff"] = Field("path", alias="selection-type")
     selected: list[str] | None = None
+
+    @field_validator("selected", mode="after")
+    @classmethod
+    def selected_only_passed_for_path_selection(
+        cls, value: list[str] | None, values: dict[str, Any]
+    ) -> list[str] | None:
+        if values.get("selection_type") == "path":
+            return value
+        if value is not None:
+            raise ValueError("`selected` can only be set when `selection-type` is 'path'")
+        return value
 
 
 class ConfigYAML(YAMLFile):
