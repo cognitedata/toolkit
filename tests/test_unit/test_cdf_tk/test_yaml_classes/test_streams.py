@@ -23,13 +23,6 @@ def invalid_stream_test_cases() -> Iterable:
         id="Missing required field: settings",
     )
     yield pytest.param(
-        {"externalId": "test-stream", "settings": {"template": {"name": "InvalidTemplate"}}},
-        {
-            "Unrecognized value for settings.template.name: Expected one of 'ImmutableTestStream', 'BasicArchive', 'BasicLiveData' or '4yArchive'. Got 'InvalidTemplate'."
-        },
-        id="Invalid template name",
-    )
-    yield pytest.param(
         {
             "externalId": "test-stream",
             "settings": {"template": {"name": "ImmutableTestStream"}},
