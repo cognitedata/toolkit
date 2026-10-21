@@ -954,18 +954,18 @@ class DeployV2Command(ToolkitCommand):
             if not minimum_scopes:
                 return False, False, False
 
+        data_set_ids: list[int] = []
         for scope in minimum_scopes:
-            data_set_ids: list[int] | None = None
             if isinstance(scope, DataSetScope):
-                data_set_ids = scope.ids
+                data_set_ids.extend(scope.ids)
             elif isinstance(scope, AllScope):
                 # If the minimum scope is AllScope, then at least one of the resources are unscoped. But there
                 # can still be resources that are scoped to a dataset, so we check for those and add the ownership ACLs
                 # for those datasets if they are write-protected.
-                data_set_ids = cls._get_data_set_ids(resources)
+                data_set_ids.extend(cls._get_data_set_ids(resources))
 
         dataset_owner: DataSetsAcl | None = None
-        if write_protected_ids := cls._write_protected_datasets(crud.client, data_set_ids or []):
+        if write_protected_ids := cls._write_protected_datasets(crud.client, data_set_ids):
             dataset_owner = DataSetsAcl(actions=["OWNER"], scope=IDScope(ids=list(write_protected_ids)))
 
         if is_dry_run:
