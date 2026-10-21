@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, FunctionsAcl
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
@@ -61,10 +62,19 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                 message=f"Function service validation failed: {e}",
                 source="shared",
             )
+        limits: FunctionLimits | None = None
+        if self.client and is_function_service_available:
+            try:
+                limits = self.client.functions.limits()
+            except Exception as e:
+                yield InternalValidatorException(
+                    message=f"Function limits retrieval failed: {e}",
+                    source="shared",
+                )
 
         for resource in functions:
             try:
-                yield from self._validate_function(resource, is_function_service_available)
+                yield from self._validate_function(resource, limits)
             except Exception as e:
                 yield InternalValidatorException(
                     message=f"Function limits validator failed for function definition {resource.build_path.name!r}: {e}",
@@ -97,7 +107,8 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                 source_file=first_function,
             )
 
-    def _validate_function(self, resource: BuiltResource, is_function_service_available: bool) -> Iterable[Insight]:
+    @classmethod
+    def _validate_function(cls, resource: BuiltResource, limits: FunctionLimits | None) -> Iterable[Insight]:
         """Validate function definitions against CDF project limits.
 
         Args:
@@ -112,8 +123,8 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
         # Should already be validated.
         function_def = FunctionsYAML.model_validate(raw_data)
 
-        if self.client is not None and is_function_service_available:
-            yield from self._validate_limits(self.client, function_def, resource.source_path)
+        if limits:
+            yield from cls._validate_limits(limits, function_def, resource.source_path)
 
         function_folder = FunctionIO.get_function_code_implicitly(resource.source_path, function_def.as_id())
         if function_folder.is_dir() and (requirement_txt := next(function_folder.rglob("requirements.txt"), None)):
@@ -130,11 +141,9 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
 
     @classmethod
     def _validate_limits(
-        cls, client: ToolkitClient, function_def: FunctionsYAML, source_path: Path
+        cls, limits: FunctionLimits, function_def: FunctionsYAML, source_path: Path
     ) -> Iterable[Insight]:
         # Ensure we always work with a list of function definitions
-        limits = client.functions.limits()
-
         # Validate CPU cores
         if function_def.cpu is not None and limits:
             if function_def.cpu < limits.cpu_cores.min or function_def.cpu > limits.cpu_cores.max:
