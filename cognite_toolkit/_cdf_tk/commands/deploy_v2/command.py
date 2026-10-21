@@ -796,8 +796,8 @@ class DeployV2Command(ToolkitCommand):
                 resource_count = len(resource_by_id)
                 request_resources = [resource.request for resource in resource_by_id.values()]
 
-                is_missing_read, is_missing_write, is_write_acl_unknown = cls._validate_access(
-                    crud, request_resources, client, is_dry_run=options.dry_run
+                is_missing_read, is_missing_write, is_write_acl_unknown = cls.validate_access(
+                    crud, request_resources, is_dry_run=options.dry_run
                 )
                 if is_missing_read:
                     progress.update(task_id, description=f"Missing READ access for {resource_name}, skipping")
@@ -925,11 +925,10 @@ class DeployV2Command(ToolkitCommand):
         return to_deploy_by_id
 
     @classmethod
-    def _validate_access(
+    def validate_access(
         cls,
         crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
         resources: list[T_RequestResource],
-        client: ToolkitClient,
         is_dry_run: bool,
     ) -> tuple[bool, bool, bool]:
         """Validate that the user has access to the resources they are deploying.
@@ -966,7 +965,7 @@ class DeployV2Command(ToolkitCommand):
                 data_set_ids = cls._get_data_set_ids(resources)
 
         dataset_owner: DataSetsAcl | None = None
-        if write_protected_ids := cls._write_protected_datasets(client, data_set_ids or []):
+        if write_protected_ids := cls._write_protected_datasets(crud.client, data_set_ids or []):
             dataset_owner = DataSetsAcl(actions=["OWNER"], scope=IDScope(ids=list(write_protected_ids)))
 
         if is_dry_run:
@@ -980,8 +979,8 @@ class DeployV2Command(ToolkitCommand):
                 write_acl.append(dataset_owner)
             is_write_acl_unknown = cls._resources_have_unresolved_data_set(resources)
             return (
-                bool(crud.client.token.verify_acls(read_acl)),
-                bool(crud.client.token.verify_acls(write_acl)),
+                bool(crud.client.token.verify_acls(cls._dedupe_acls(read_acl))),
+                bool(crud.client.token.verify_acls(cls._dedupe_acls(write_acl))),
                 is_write_acl_unknown,
             )
         else:
@@ -991,9 +990,25 @@ class DeployV2Command(ToolkitCommand):
                 read_write_acls.extend(crud.create_acl({"READ", "WRITE"}, scope))
             if dataset_owner:
                 read_write_acls.append(dataset_owner)
-            if missing := crud.client.token.verify_acls(read_write_acls):
+            if missing := crud.client.token.verify_acls(cls._dedupe_acls(read_write_acls)):
                 raise crud.client.token.create_error(missing, action=f"deploy {crud.display_name}")
             return False, False, False
+
+    @staticmethod
+    def _dedupe_acls(acls: list[AclType]) -> list[AclType]:
+        """Remove duplicate ACLs, preserving order.
+
+        AclType models are not hashable, so we key on a stable JSON representation.
+        """
+        seen: set[str] = set()
+        unique: list[AclType] = []
+        for acl in acls:
+            # ACL name is not included in the model_dump_json
+            key = acl.acl_name + acl.model_dump_json()  # stable, includes acl_name + actions + scope
+            if key not in seen:
+                seen.add(key)
+                unique.append(acl)
+        return unique
 
     @staticmethod
     def _resources_have_unresolved_data_set(resources: list[T_RequestResource]) -> bool:
