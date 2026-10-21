@@ -131,8 +131,8 @@ def test_kill_switch_stops_execution() -> None:
         return "q"
 
     with patch(f"{ProducerWorkerExecutor.__module__}.getch", user_input):
-        executor = ProducerWorkerExecutor[list[list[int]], list[list[int]]](
-            slow_download(), lambda x: x, lambda x: x, len(to_download), max_queue_size=2
+        executor = ProducerWorkerExecutor[list[int], list[int]](
+            slow_download(), lambda x: x, lambda x: None, len(to_download), max_queue_size=2
         )
         executor.run()
         assert executor.stopped_by_user
