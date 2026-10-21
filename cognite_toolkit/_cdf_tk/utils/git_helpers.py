@@ -21,14 +21,24 @@ class Git:
         """Get the default branch of the current git repository."""
         try:
             result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                ["git", "rev-parse", "--abbrev-ref", "origin/HEAD"],
                 capture_output=True,
                 text=True,
                 check=True,
             )
-            return result.stdout.strip()
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"Failed to get default branch: {e.stderr.strip()}") from e
+            ref = result.stdout.strip()
+            if "/" in ref:
+                return ref.split("/", 1)[-1]
+            return ref
+        except subprocess.CalledProcessError:
+            for branch in ["main", "master"]:
+                res = subprocess.run(
+                    ["git", "show-ref", "--verify", f"refs/heads/{branch}"],
+                    capture_output=True,
+                )
+                if res.returncode == 0:
+                    return branch
+            return "main"
 
     @classmethod
     def get_current_branch(cls) -> str:
