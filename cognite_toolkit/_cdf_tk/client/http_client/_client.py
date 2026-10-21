@@ -219,7 +219,9 @@ class HTTPClient:
             if self._console is not None:
                 short_url = request.endpoint_url.removeprefix(self.config.base_api_url)
                 HighSeverityWarning(
-                    f"Rate limit exceeded for the {short_url!r} endpoint. Retrying after {retry_after} seconds."
+                    f"Rate limit exceeded for the {short_url!r} endpoint. Retrying after {retry_after} seconds.\n"
+                    "This is automatically handled by Toolkit, but it will take longer than normal to complete "
+                    "the request(s)."
                 ).print_warning(console=self._console)
             request.status_attempt += 1
             request.retried_status_codes.append(response.status_code)
