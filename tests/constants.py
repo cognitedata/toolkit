@@ -4,7 +4,8 @@ from collections.abc import Generator
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
-BASE_URL = "http://blabla.cognitedata.com"
+CDF_CLUSTER = "blabla"
+BASE_URL = f"http://{CDF_CLUSTER}.cognitedata.com"
 CDF_PROJECT = "pytest-project"
 
 

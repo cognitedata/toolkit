@@ -77,6 +77,7 @@ class MigrationCommand(ToolkitCommand):
         dry_run: bool = False,
         verbose: bool = False,
         user_log_filestem: str | None = None,
+        continue_on_error: bool = False,
     ) -> dict[str, list[ItemsResult]]:
         self.validate_migration_model_available(data.client)
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -111,6 +112,7 @@ class MigrationCommand(ToolkitCommand):
                 mapper=mapper,
                 logger=logger,
                 write_client=write_client,
+                continue_on_error=continue_on_error,
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
@@ -126,6 +128,7 @@ class MigrationCommand(ToolkitCommand):
         mapper: DataMapper[T_Selector, T_DataResponse, T_DataRequest],
         logger: FileWithAggregationLogger,
         write_client: HTTPClient,
+        continue_on_error: bool,
         log_dir: Path,
         dry_run: bool,
         verbose: bool,
@@ -150,14 +153,15 @@ class MigrationCommand(ToolkitCommand):
                 download_iterable=data.stream_data(selected, bookmark=step.bookmark),
                 process=self._convert(mapper),
                 write=self._upload(
-                    selected,
-                    write_client,
-                    data,
-                    mapper.destination_label or data.KIND,
-                    dry_run,
-                    log_dir,
-                    step.total_count,
-                    step.completed_count,
+                    selected=selected,
+                    write_client=write_client,
+                    target=data,
+                    destination=mapper.destination_label or data.KIND,
+                    continue_on_error=continue_on_error,
+                    dry_run=dry_run,
+                    log_dir=log_dir,
+                    total_item_count=step.total_count,
+                    start_item=step.completed_count,
                 ),
                 total_item_count=step.total_count,
                 max_queue_size=10,
@@ -307,6 +311,7 @@ class MigrationCommand(ToolkitCommand):
         write_client: HTTPClient,
         target: UploadableDataIO[T_Selector, T_DataResponse, T_DataRequest],
         destination: str,
+        continue_on_error: bool,
         dry_run: bool,
         log_dir: Path,
         total_item_count: int | None,
@@ -357,7 +362,11 @@ class MigrationCommand(ToolkitCommand):
                             )
                         )
 
-            if responses and all(isinstance(result, ItemsFailedResponse | ItemsFailedRequest) for result in responses):
+            if (
+                responses
+                and not continue_on_error
+                and all(isinstance(result, ItemsFailedResponse | ItemsFailedRequest) for result in responses)
+            ):
                 target.logger.force_write()
                 raise ToolkitRepeatedUploadFailureError(
                     f"Migration was stopped due to repeatedly failed uploads. Check the log files in {log_dir}."

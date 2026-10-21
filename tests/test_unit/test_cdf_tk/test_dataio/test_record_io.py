@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.dataio import DataItem, Page, RecordIO
 from cognite_toolkit._cdf_tk.dataio.selectors import RecordContainerSelector
 from cognite_toolkit._cdf_tk.dataio.selectors._records import SelectedContainer, SelectedStream
+from tests.constants import CDF_CLUSTER
 
 
 def _make_selector(initialize_cursor: str = "365d-ago") -> RecordContainerSelector:
@@ -210,7 +211,7 @@ class TestRecordIO:
     ) -> None:
         config = toolkit_config
         client = ToolkitClient(config)
-        monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
+        monkeypatch.setenv("CDF_CLUSTER", CDF_CLUSTER)
         monkeypatch.setenv("CDF_PROJECT", config.project)
 
         record_count = 10
@@ -291,7 +292,7 @@ class TestRecordIO:
         )
 
         upload_command.upload(
-            input_dir=tmp_path / selector.download_dir_name,
+            input_dir=tmp_path / "my_stream",
             client=client,
             deploy_resources=False,
             dry_run=False,

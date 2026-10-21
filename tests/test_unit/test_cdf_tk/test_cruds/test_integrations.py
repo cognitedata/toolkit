@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 
 import pytest
+from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import MODULES
@@ -28,7 +29,7 @@ def _example_cases() -> Iterable:
 
 class TestIntegrationExamples:
     @pytest.mark.parametrize("data, yaml_cls", list(_example_cases()))
-    def test_example_roundtrip(self, data: dict[str, object], yaml_cls: type) -> None:
+    def test_example_roundtrip(self, data: dict[str, object], yaml_cls: type[BaseModel]) -> None:
         loaded = yaml_cls.model_validate(data)
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
