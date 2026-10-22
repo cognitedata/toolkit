@@ -8,7 +8,6 @@ from typing import Annotated, Any, ClassVar, Literal, Self, TypeAlias, TypeVar
 from pydantic import (
     BaseModel,
     Field,
-    StringConstraints,
     TypeAdapter,
     field_serializer,
     field_validator,
@@ -79,9 +78,6 @@ InsightCode: TypeAlias = Literal[
     "INFIELD-VIEW-MISSING-PROPERTIES",
     "INFIELD-UNKNOWN-VIEW-PROPERTY",
 ]
-# NEAT issues come with codes defined by the neat package.
-# Remove this once NEAT support is removed from Toolkit.
-NeatInsightCode: TypeAlias = Annotated[str, StringConstraints(pattern=r"^NEAT-")]
 
 
 class InsightDefinition(BaseModel):
@@ -90,7 +86,7 @@ class InsightDefinition(BaseModel):
     insight_type: str = "InsightDefinition"
     severity: ClassVar[int] = 999
 
-    code: InsightCode | NeatInsightCode
+    code: InsightCode
     message: str
     source_file: AbsoluteFilePath
     line: int | None = None
