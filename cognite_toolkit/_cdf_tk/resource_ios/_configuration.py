@@ -29,8 +29,8 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
     yaml_cls = SearchConfigYAML
     dependencies = frozenset({ViewIO})
     kind = "SearchConfig"
-    _doc_base_url = "https://api-docs.cogheim.net/redoc/#tag/"
-    _doc_url = "Search-Config/operation/upsertSearchConfigViews"
+    _doc_base_url = "https://handbook.cogheim.net/20230101-internal/"
+    _doc_url = "search-config/upsert-view-configurations"
 
     def __init__(self, client: ToolkitClient):
         super().__init__(client)
