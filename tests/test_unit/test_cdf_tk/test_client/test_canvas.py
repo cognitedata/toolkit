@@ -24,7 +24,7 @@ class TestIndustrialCanvasDataClass:
         backup_ids = set(backup.as_ids(include_solution_tags=True))
         overlapping_ids = original_ids.intersection(backup_ids)
         solution_tags_ids = {
-            NodeId(space=SOLUTION_TAG_SPACE, external_id=tag.external_id) for tag in instance.solution_tags
+            NodeId(space=SOLUTION_TAG_SPACE, external_id=tag.external_id) for tag in instance.solution_tags or []
         }
         assert solution_tags_ids == overlapping_ids, "Expected overlapping IDs to be solution tags IDs only"
 
@@ -36,19 +36,19 @@ class TestIndustrialCanvasDataClass:
         # 1 canvas + solution tags + 2 x (rest - one for node and one for edge connecting canvas to node)
         expected_instance_count = (
             1
-            + len(instance.solution_tags)
+            + len(instance.solution_tags or [])
             + 2
             * (
-                len(instance.container_references)
-                + len(instance.fdm_instance_container_references)
-                + len(instance.annotations)
+                len(instance.container_references or [])
+                + len(instance.fdm_instance_container_references or [])
+                + len(instance.annotations or [])
             )
         )
         assert len(node_or_edges) == expected_instance_count
 
-        assert len(instance.solution_tags) > 0, "Expected solution tags to be present in the instance."
+        assert len(instance.solution_tags or []) > 0, "Expected solution tags to be present in the instance."
         assert len(instance.as_ids(include_solution_tags=False)) == expected_instance_count - len(
-            instance.solution_tags
+            instance.solution_tags or []
         )
         assert len(instance.as_ids(include_solution_tags=True)) == expected_instance_count
         assert instance.as_id() == NodeId(space=CANVAS_INSTANCE_SPACE, external_id=instance.external_id)
@@ -60,11 +60,11 @@ class TestIndustrialCanvasDataClass:
         assert isinstance(write_instances, IndustrialCanvasRequest)
 
         assert write_instances.external_id == instance.external_id
-        assert len(write_instances.container_references) == len(instance.container_references) > 0
+        assert len(write_instances.container_references or []) == len(instance.container_references or []) > 0
         assert (
-            len(write_instances.fdm_instance_container_references)
-            == len(instance.fdm_instance_container_references)
+            len(write_instances.fdm_instance_container_references or [])
+            == len(instance.fdm_instance_container_references or [])
             > 0
         )
-        assert len(write_instances.annotations) == len(instance.annotations) > 0
-        assert len(write_instances.solution_tags) == len(instance.solution_tags) > 0
+        assert len(write_instances.annotations or []) == len(instance.annotations or []) > 0
+        assert len(write_instances.solution_tags or []) == len(instance.solution_tags or []) > 0

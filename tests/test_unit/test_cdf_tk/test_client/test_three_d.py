@@ -51,7 +51,7 @@ class TestAssetsMappingsClassic:
         respx_mock.post(url).respond(status_code=200, json={"items": [asset_mapping_classic]})
 
         responses = toolkit_client.three_d.asset_mappings_classic.create(
-            [AssetMappingClassicRequestId(nodeId=123, assetId=456, modelId=37, revisionId=42)]
+            [AssetMappingClassicRequestId(node_id=123, asset_id=456, model_id=37, revision_id=42)]
         )
         assert len(responses) == 1
         response = responses[0]
@@ -70,7 +70,7 @@ class TestAssetsMappingsClassic:
         respx_mock.post(url).respond(status_code=200, json={})
 
         toolkit_client.three_d.asset_mappings_classic.delete(
-            [AssetMappingClassicRequestId(nodeId=123, assetId=456, modelId=37, revisionId=42)]
+            [AssetMappingClassicRequestId(node_id=123, asset_id=456, model_id=37, revision_id=42)]
         )
 
     @pytest.mark.parametrize(
@@ -111,10 +111,10 @@ class TestAssetsMappingsDM:
         responses = toolkit_client.three_d.asset_mappings_dm.create(
             [
                 AssetMappingDMRequestId(
-                    nodeId=123,
-                    assetInstanceId=NodeId(space="my_space", externalId="my_external_id"),
-                    modelId=37,
-                    revisionId=42,
+                    node_id=123,
+                    asset_instance_id=NodeId(space="my_space", external_id="my_external_id"),
+                    model_id=37,
+                    revision_id=42,
                 )
             ],
             object_3d_space="object_space",
@@ -139,10 +139,10 @@ class TestAssetsMappingsDM:
         toolkit_client.three_d.asset_mappings_dm.delete(
             [
                 AssetMappingDMRequestId(
-                    nodeId=123,
-                    assetInstanceId=NodeId(space="my_space", externalId="my_external_id"),
-                    modelId=37,
-                    revisionId=42,
+                    node_id=123,
+                    asset_instance_id=NodeId(space="my_space", external_id="my_external_id"),
+                    model_id=37,
+                    revision_id=42,
                 )
             ],
             object_3d_space="object_space",
@@ -172,10 +172,10 @@ class TestAssetsMappingsDM:
 
         mappings = [
             AssetMappingDMRequestId(
-                nodeId=i,
-                assetInstanceId=NodeId(space="space", externalId=f"external_{i}"),
-                modelId=37 if i % 2 == 0 else 38,
-                revisionId=42,
+                node_id=i,
+                asset_instance_id=NodeId(space="space", external_id=f"external_{i}"),
+                model_id=37 if i % 2 == 0 else 38,
+                revision_id=42,
             )
             for i in range(300)
         ]

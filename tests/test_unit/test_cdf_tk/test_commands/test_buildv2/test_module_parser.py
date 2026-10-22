@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     NonExistingModuleName,
 )
 from cognite_toolkit._cdf_tk.constants import DEFAULT_CONFIG_FILE
+from cognite_toolkit._cdf_tk.resource_ios import ResourceTypes
 from tests.data import PROJECT_FOR_TEST
 
 
@@ -234,7 +235,9 @@ class TestIsInCodeBundleSubdirectory:
             ),
         ],
     )
-    def test_is_in_code_bundle_subdirectory(self, yaml_file: Path, resource_folder: str, expected: bool) -> None:
+    def test_is_in_code_bundle_subdirectory(
+        self, yaml_file: Path, resource_folder: ResourceTypes, expected: bool
+    ) -> None:
         assert ModuleParser._is_in_code_bundle_subdirectory(yaml_file, resource_folder) is expected
 
 

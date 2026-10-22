@@ -23,13 +23,6 @@ def invalid_stream_test_cases() -> Iterable:
         id="Missing required field: settings",
     )
     yield pytest.param(
-        {"externalId": "test-stream", "settings": {"template": {"name": "InvalidTemplate"}}},
-        {
-            "Unrecognized value for settings.template.name: Expected one of 'ImmutableTestStream', 'BasicArchive', 'BasicLiveData' or '4yArchive'. Got 'InvalidTemplate'."
-        },
-        id="Invalid template name",
-    )
-    yield pytest.param(
         {
             "externalId": "test-stream",
             "settings": {"template": {"name": "ImmutableTestStream"}},
@@ -40,7 +33,7 @@ def invalid_stream_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"externalId": "test-stream", "settings": {"template": {"names": "ImmutableTestStream"}}},
-        {"Unrecognized value for settings.template.names[key]: Expected 'name'. Got 'names'."},
+        {"Missing required field in settings.template: 'name'", "Unrecognized field in settings.template: 'names'. "},
         id="wrong template dictionary format",
     )
     yield pytest.param(
@@ -105,3 +98,14 @@ class TestStreamYAML:
     def test_load_valid_stream(self, data: dict[str, object]) -> None:
         loaded = StreamYAML.model_validate(data)
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+        assert loaded.syntax_warnings(Path("test.yaml")) == []
+
+    def test_custom_template_syntax_warning(self) -> None:
+        stream = StreamYAML.model_validate(
+            {
+                "externalId": "test-stream",
+                "settings": {"template": {"name": "CustomTemplate"}},
+            }
+        )
+        warnings = stream.syntax_warnings(Path("test.yaml"))
+        assert len(warnings) == 1

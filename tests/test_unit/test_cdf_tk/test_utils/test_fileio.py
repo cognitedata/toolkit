@@ -3,7 +3,7 @@ import json
 import re
 import threading
 import time
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from datetime import date, datetime, timezone
 from io import TextIOWrapper
 from itertools import product
@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     COMPRESSION_BY_SUFFIX,
     FILE_READ_CLS_BY_FORMAT,
     FILE_WRITE_CLS_BY_FORMAT,
-    Chunk,
+    CellValue,
     Compression,
     CSVReader,
     CSVWriter,
@@ -37,7 +37,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 @pytest.fixture()
 def json_chunks() -> tuple[list[dict[str, JsonVal]], list[SchemaColumn]]:
-    chunks = [
+    chunks: list[dict[str, JsonVal]] = [
         {"text": "value1", "integer": 123},
         {"text": "value4", "list": [1, 2, 3], "nested": {"key": "value"}},
         {"text": "value5", "boolean": True},
@@ -59,10 +59,10 @@ def json_chunks() -> tuple[list[dict[str, JsonVal]], list[SchemaColumn]]:
 @pytest.fixture()
 def cell_chunks(
     json_chunks: tuple[list[dict[str, JsonVal]], list[SchemaColumn]],
-) -> tuple[list[Chunk], list[SchemaColumn]]:
-    chunks, schema = json_chunks
-    chunks = [
-        *chunks,
+) -> tuple[list[Mapping[str, CellValue]], list[SchemaColumn]]:
+    json_rows, schema = json_chunks
+    chunks: list[Mapping[str, CellValue]] = [
+        *json_rows,
         {"date": date(2023, 10, 1), "timestamp": datetime(2023, 10, 1, 12, 0, 0, tzinfo=timezone.utc)},
     ]
     schema = [
@@ -76,7 +76,7 @@ def cell_chunks(
 class LineReader(FileReader):
     format = ".DummyFormat"
 
-    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[JsonVal]:
+    def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         for line in file:
             if line.strip():
                 yield {"line": line.strip()}
@@ -90,7 +90,7 @@ class DummyWriter(FileWriter[TextIOWrapper]):
 
     def __init__(self, output_dir: Path) -> None:
         super().__init__(output_dir=output_dir, kind="DummyKind", compression=Uncompressed)
-        self.written_chunks: list[Chunk] = []
+        self.written_chunks: list[Mapping[str, CellValue]] = []
         self.opened_files: list[Path] = []
 
     def _create_writer(self, filepath: Path) -> TextIOWrapper:
@@ -98,7 +98,7 @@ class DummyWriter(FileWriter[TextIOWrapper]):
         writer = self.compression_cls(filepath).open(mode="w")
         return writer
 
-    def _write(self, writer: TextIOWrapper, chunks: Iterable[Chunk]) -> None:
+    def _write(self, writer: TextIOWrapper, chunks: Iterable[Mapping[str, CellValue]]) -> None:
         self.written_chunks.extend(chunks)
         writer.write("Writing chunks\n")
 
@@ -539,7 +539,11 @@ class TestFileIO:
         list(product(FILE_WRITE_CLS_BY_FORMAT.keys(), COMPRESSION_BY_NAME.keys())),
     )
     def test_write_cell_chunks(
-        self, format: str, compression_name: str, cell_chunks: tuple[list[Chunk], list[SchemaColumn]], tmp_path: Path
+        self,
+        format: str,
+        compression_name: str,
+        cell_chunks: tuple[list[Mapping[str, CellValue]], list[SchemaColumn]],
+        tmp_path: Path,
     ) -> None:
         chunks, columns = cell_chunks
         compression_cls = COMPRESSION_BY_NAME[compression_name]

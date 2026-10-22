@@ -28,7 +28,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, InternalId, RawTableId, SpaceId, ViewId
-from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, DataSetsAcl, DataSetScope, IDScope
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, AllScope, DataSetsAcl, DataSetScope, IDScope
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._utils import (
     confirm_by_typing_project_name,
@@ -59,6 +60,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_IO_BY_FOLDER_NAME,
     ContainerIO,
     EdgeIO,
+    FunctionIO,
     NodeIO,
     RawTableIO,
     ResourceContainerIO,
@@ -794,8 +796,8 @@ class DeployV2Command(ToolkitCommand):
                 resource_count = len(resource_by_id)
                 request_resources = [resource.request for resource in resource_by_id.values()]
 
-                is_missing_read, is_missing_write, is_write_acl_unknown = cls._validate_access(
-                    crud, request_resources, client, is_dry_run=options.dry_run
+                is_missing_read, is_missing_write, is_write_acl_unknown = cls.validate_access(
+                    crud, request_resources, is_dry_run=options.dry_run
                 )
                 if is_missing_read:
                     progress.update(task_id, description=f"Missing READ access for {resource_name}, skipping")
@@ -923,11 +925,10 @@ class DeployV2Command(ToolkitCommand):
         return to_deploy_by_id
 
     @classmethod
-    def _validate_access(
+    def validate_access(
         cls,
         crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
         resources: list[T_RequestResource],
-        client: ToolkitClient,
         is_dry_run: bool,
     ) -> tuple[bool, bool, bool]:
         """Validate that the user has access to the resources they are deploying.
@@ -939,42 +940,75 @@ class DeployV2Command(ToolkitCommand):
             only set in dry-run when resources reference datasets that are not yet in CDF (``DRY_RUN_ID``),
             so write-protected dataset ownership cannot be verified.
         """
-        minimum_scope = crud.get_minimum_scope(resources)
-        if minimum_scope is None:
-            return False, False, False
 
-        data_set_ids: list[int] | None = None
-        if isinstance(minimum_scope, DataSetScope):
-            data_set_ids = minimum_scope.ids
-        elif isinstance(minimum_scope, AllScope):
-            # If the minimum scope is AllScope, then at least one of the resources are unscoped. But there
-            # can still be resources that are scoped to a dataset, so we check for those and add the ownership ACLs
-            # for those datasets if they are write-protected.
-            data_set_ids = cls._get_data_set_ids(resources)
+        if not isinstance(crud, FunctionIO):
+            minimum_scope = crud.get_minimum_scope(resources)
+            if minimum_scope is None:
+                return False, False, False
+            minimum_scopes = [minimum_scope]
+        else:
+            # Special case for FunctionIO, as a function can be scoped to either a dataset or spaces,
+            # so we need to check both.
+            # We know that all the resources are FunctionRequest, so we can safely cast here.
+            minimum_scopes = list(crud.get_minimum_scopes(cast(list[FunctionRequest], resources)))
+            if not minimum_scopes:
+                return False, False, False
+
+        data_set_ids: list[int] = []
+        for scope in minimum_scopes:
+            if isinstance(scope, DataSetScope):
+                data_set_ids.extend(scope.ids)
+            elif isinstance(scope, AllScope):
+                # If the minimum scope is AllScope, then at least one of the resources are unscoped. But there
+                # can still be resources that are scoped to a dataset, so we check for those and add the ownership ACLs
+                # for those datasets if they are write-protected.
+                data_set_ids.extend(cls._get_data_set_ids(resources))
 
         dataset_owner: DataSetsAcl | None = None
-        if write_protected_ids := cls._write_protected_datasets(client, data_set_ids or []):
+        if write_protected_ids := cls._write_protected_datasets(crud.client, data_set_ids):
             dataset_owner = DataSetsAcl(actions=["OWNER"], scope=IDScope(ids=list(write_protected_ids)))
 
         if is_dry_run:
-            read_acl = list(crud.create_acl({"READ"}, minimum_scope))
-            write_acl = list(crud.create_acl({"WRITE"}, minimum_scope))
+            read_acl: list[AclType] = []
+            write_acl: list[AclType] = []
+            for scope in minimum_scopes:
+                read_acl.extend(crud.create_acl({"READ"}, scope))
+                write_acl.extend(crud.create_acl({"WRITE"}, scope))
+
             if dataset_owner:
                 write_acl.append(dataset_owner)
             is_write_acl_unknown = cls._resources_have_unresolved_data_set(resources)
             return (
-                bool(crud.client.token.verify_acls(read_acl)),
-                bool(crud.client.token.verify_acls(write_acl)),
+                bool(crud.client.token.verify_acls(cls._dedupe_acls(read_acl))),
+                bool(crud.client.token.verify_acls(cls._dedupe_acls(write_acl))),
                 is_write_acl_unknown,
             )
         else:
             # Is not dry run
-            read_write_acls = list(crud.create_acl({"READ", "WRITE"}, minimum_scope))
+            read_write_acls: list[AclType] = []
+            for scope in minimum_scopes:
+                read_write_acls.extend(crud.create_acl({"READ", "WRITE"}, scope))
             if dataset_owner:
                 read_write_acls.append(dataset_owner)
-            if missing := crud.client.token.verify_acls(read_write_acls):
+            if missing := crud.client.token.verify_acls(cls._dedupe_acls(read_write_acls)):
                 raise crud.client.token.create_error(missing, action=f"deploy {crud.display_name}")
             return False, False, False
+
+    @staticmethod
+    def _dedupe_acls(acls: list[AclType]) -> list[AclType]:
+        """Remove duplicate ACLs, preserving order.
+
+        AclType models are not hashable, so we key on a stable JSON representation.
+        """
+        seen: set[str] = set()
+        unique: list[AclType] = []
+        for acl in acls:
+            # ACL name is not included in the model_dump_json
+            key = acl.acl_name + acl.model_dump_json()  # stable, includes acl_name + actions + scope
+            if key not in seen:
+                seen.add(key)
+                unique.append(acl)
+        return unique
 
     @staticmethod
     def _resources_have_unresolved_data_set(resources: list[T_RequestResource]) -> bool:

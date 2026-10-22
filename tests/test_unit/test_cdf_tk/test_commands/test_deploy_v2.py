@@ -1,6 +1,6 @@
 from contextlib import nullcontext
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -259,7 +259,7 @@ class TestCheckNoOutOfScopeViewReferences:
         self,
         plan_view_ids: list[ViewId],
         hidden_view_count: int,
-        operation: str,
+        operation: Literal["deploy", "clean"],
         should_raise: bool,
         error_match: str,
         monkeypatch: pytest.MonkeyPatch,

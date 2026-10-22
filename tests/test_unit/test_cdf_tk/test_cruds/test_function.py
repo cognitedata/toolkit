@@ -12,7 +12,6 @@ from cognite.client.data_classes import (
     FunctionScheduleWriteList,
     FunctionWrite,
 )
-from cognite.client.data_classes.capabilities import FilesAcl, FunctionsAcl
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -245,53 +244,6 @@ secrets:
         dumped = loader.dump_resource(cdf_function, local_dict)
 
         assert dumped["runtime"] == "py311"
-
-    def test_get_function_required_capabilities(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client())
-        loader.data_set_id_by_external_id = {"function1": 123, "function2": 456}
-
-        # Mock data
-        items = [
-            FunctionRequest(external_id="function1", name="Function 1", file_id=1001),
-            FunctionRequest(external_id="function2", name="Function 2", file_id=1002),
-            FunctionRequest(external_id="function3", name="Function 3", file_id=1003),
-        ]
-
-        # Test read-only mode
-        read_capabilities = loader.get_function_required_capabilities(items, read_only=True)
-        assert len(read_capabilities) == 2
-        assert isinstance(read_capabilities[0], FunctionsAcl)
-        assert isinstance(read_capabilities[1], FilesAcl)
-        assert read_capabilities[0].actions == [FunctionsAcl.Action.Read]
-        assert read_capabilities[1].actions == [FilesAcl.Action.Read]
-        assert isinstance(read_capabilities[1].scope, FilesAcl.Scope.DataSet)
-        assert sorted(read_capabilities[1].scope.ids) == [123, 456]
-
-        # Test write mode
-        write_capabilities = loader.get_function_required_capabilities(items, read_only=False)
-        assert len(write_capabilities) == 2
-        assert write_capabilities[0].actions == [FunctionsAcl.Action.Read, FunctionsAcl.Action.Write]
-        assert write_capabilities[1].actions == [FilesAcl.Action.Read, FilesAcl.Action.Write]
-        assert isinstance(write_capabilities[1].scope, FilesAcl.Scope.DataSet)
-        assert sorted(write_capabilities[1].scope.ids) == [123, 456]
-
-    def test_get_function_required_capabilities_empty(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client())
-        capabilities = loader.get_function_required_capabilities([], read_only=False)
-        assert capabilities == []
-
-    def test_get_function_required_capabilities_no_datasets(
-        self, env_vars_with_client_cheap: EnvironmentVariables
-    ) -> None:
-        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client())
-        items = [
-            FunctionRequest(external_id="function1", name="Function 1", file_id=1001),
-            FunctionRequest(external_id="function2", name="Function 2", file_id=1002),
-        ]
-
-        capabilities = loader.get_function_required_capabilities(items, read_only=False)
-        assert len(capabilities) == 2
-        assert isinstance(capabilities[1].scope, FilesAcl.Scope.All)
 
     @pytest.fixture()
     def function_io_with_file(self, tmp_path: Path) -> Iterable[tuple[FunctionIO, ToolkitClientMock]]:

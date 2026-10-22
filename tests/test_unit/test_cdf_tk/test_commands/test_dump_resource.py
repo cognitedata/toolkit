@@ -7,7 +7,6 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
-from questionary import Choice
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
@@ -57,7 +56,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowDefinition,
     WorkflowVersionResponse,
 )
-from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
     AgentFinder,
     DataModelFinder,
@@ -193,7 +192,7 @@ class TestTransformationFinder:
     def test_select_transformations(
         self, three_transformations: list[TransformationResponse], monkeypatch: MonkeyPatch
     ) -> None:
-        def select_transformations(choices: list[Choice]) -> list[str]:
+        def select_transformations(choices) -> list[str]:
             assert len(choices) == len(three_transformations)
             return [choices[1].value, choices[2].value]
 
@@ -284,7 +283,7 @@ def _workflow_version(workflow_external_id: str, version: str) -> WorkflowVersio
 
 class TestWorkflowFinder:
     def test_select_workflows(self, three_workflows: list[WorkflowResponse], monkeypatch: MonkeyPatch) -> None:
-        def select_workflows(choices: list[Choice]) -> list[str]:
+        def select_workflows(choices) -> list[str]:
             assert len(choices) == len(three_workflows)
             return [choices[1].value, choices[2].value]
 
@@ -310,10 +309,10 @@ class TestWorkflowFinder:
     def test_select_workflow_multiple_versions(
         self, three_workflows: list[WorkflowResponse], monkeypatch: MonkeyPatch
     ) -> None:
-        def select_workflows(choices: list[Choice]) -> list[str]:
+        def select_workflows(choices) -> list[str]:
             return [choices[0].value]
 
-        def select_versions(choices: list[Choice]) -> list[WorkflowVersionId]:
+        def select_versions(choices) -> list[WorkflowVersionId]:
             assert len(choices) == 2
             return [choices[1].value]
 
@@ -334,21 +333,25 @@ class TestWorkflowFinder:
         assert selected == (WorkflowVersionId(workflow_external_id="workflowA", version="v2"),)
 
 
+def _data_model(space: str, external_id: str, name: str | None = None) -> DataModelResponse:
+    return DataModelResponse(
+        space=space,
+        external_id=external_id,
+        version="v1",
+        is_global=False,
+        last_updated_time=1,
+        created_time=1,
+        description=None,
+        name=name,
+        views=[],
+    )
+
+
 class TestDataModelFinder:
     def test_select_multiple_data_models(self, monkeypatch: MonkeyPatch) -> None:
-        default_args = dict(
-            is_global=False,
-            last_updated_time=1,
-            created_time=1,
-            description=None,
-            name=None,
-            views=[],
-        )
         models = [
-            DataModelResponse(
-                space="my_space", external_id="first_model", version="v1", **{**default_args, "name": "First"}
-            ),
-            DataModelResponse(space="other_space", external_id="second_model", version="v1", **default_args),
+            _data_model("my_space", "first_model", name="First"),
+            _data_model("other_space", "second_model"),
         ]
         captured: dict[str, object] = {}
 
@@ -383,18 +386,7 @@ class TestDataModelFinder:
         }
 
     def test_dump_multiple_data_models(self, tmp_path: Path) -> None:
-        default_args = dict(
-            is_global=False,
-            last_updated_time=1,
-            created_time=1,
-            description=None,
-            name=None,
-            views=[],
-        )
-        models = [
-            DataModelResponse(space="my_space", external_id="first_model", version="v1", **default_args),
-            DataModelResponse(space="other_space", external_id="second_model", version="v1", **default_args),
-        ]
+        models = [_data_model("my_space", "first_model"), _data_model("other_space", "second_model")]
         spaces = [
             SpaceResponse(space=model.space, is_global=False, last_updated_time=1, created_time=1) for model in models
         ]
@@ -427,7 +419,7 @@ class TestLocationFilterFinder:
     def test_select_location_filter(
         self, three_location_filters: list[LocationFilterResponse], monkeypatch: MonkeyPatch
     ) -> None:
-        def select_filters(choices: list[Choice]) -> list[str]:
+        def select_filters(choices) -> list[str]:
             assert len(choices) == len(three_location_filters)
             return [choices[1].value, choices[2].value]
 
@@ -510,7 +502,7 @@ class TestDumpAgents:
         assert items == [agent_dumped]
 
     def test_interactive_select_agents(self, three_agents: list[AgentResponse], monkeypatch: MonkeyPatch) -> None:
-        def select_agents(choices: list[Choice]) -> list[str]:
+        def select_agents(choices) -> list[str]:
             assert len(choices) == len(three_agents)
             return [choices[1].value, choices[2].value]
 
@@ -546,7 +538,7 @@ class TestExtractionPipelineFinder:
     def test_select_extraction_pipelines(
         self, three_extraction_pipelines: list[ExtractionPipelineResponse], monkeypatch: MonkeyPatch
     ) -> None:
-        def select_pipelines(choices: list[Choice]) -> list[str]:
+        def select_pipelines(choices) -> list[str]:
             assert len(choices) == len(three_extraction_pipelines)
             return [choices[1].value, choices[2].value]
 
@@ -627,7 +619,7 @@ class TestHostedExtractorFinder:
     def test_select_hosted_extractor_sources(
         self, three_hosted_extractor_sources: list[MQTTSourceResponse], monkeypatch: MonkeyPatch
     ) -> None:
-        def select_sources(choices: list[Choice]) -> list[str]:
+        def select_sources(choices) -> list[str]:
             assert len(choices) == len(three_hosted_extractor_sources)
             return [choices[1].value, choices[2].value]
 
@@ -765,7 +757,7 @@ def three_groups() -> list[GroupResponse]:
 
 class TestGroupFinder:
     def test_select_groups(self, three_groups: list[GroupResponse], monkeypatch: MonkeyPatch) -> None:
-        def select_groups(choices: list[Choice]) -> list[list[GroupResponse]]:
+        def select_groups(choices) -> list[list[GroupResponse]]:
             assert len(choices) == len(three_groups)
             return [choices[1].value, choices[2].value]
 
@@ -798,8 +790,8 @@ class TestDumpGroups:
 
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
-        items = sorted([read_yaml_file(filepath) for filepath in filepaths], key=lambda d: d.get("name"))
-        expected = sorted([loader.dump_resource(group) for group in three_groups[1:]], key=lambda d: d.get("name"))
+        items = sorted([read_yaml_file(filepath) for filepath in filepaths], key=lambda d: d["name"])
+        expected = sorted([loader.dump_resource(group) for group in three_groups[1:]], key=lambda d: d["name"])
         assert items == expected
 
 
@@ -849,7 +841,7 @@ class _DownloadStream:
         yield self._body
 
 
-def _mock_file_bytes(client: MagicMock, content: bytes) -> None:
+def _mock_file_bytes(client: ToolkitClientMock, content: bytes) -> None:
     client.filemetadata.retrieve.return_value = [
         FileMetadataResponse(
             id=1,
@@ -891,7 +883,7 @@ class TestDumpFunctions:
     def test_interactive_select_functions(
         self, monkeypatch: MonkeyPatch, three_functions: list[FunctionResponse]
     ) -> None:
-        def select_functions(choices: list[Choice]) -> list[str]:
+        def select_functions(choices) -> list[str]:
             assert len(choices) == len(three_functions)
             return [choices[1].value, choices[2].value]
 
@@ -919,7 +911,7 @@ def three_datasets() -> list[DataSetResponse]:
 
 class TestDataSetFinder:
     def test_select_datasets(self, three_datasets: list[DataSetResponse], monkeypatch: MonkeyPatch) -> None:
-        def select_datasets(choices: list[Choice]) -> list[str]:
+        def select_datasets(choices) -> list[str]:
             assert len(choices) == len(three_datasets)
             return [choices[1].value, choices[2].value]
 
@@ -1000,7 +992,7 @@ class TestDumpStreamlitApps:
     def test_interactive_select_streamlit_apps(
         self, three_streamlit_apps: list[StreamlitResponse], monkeypatch: MonkeyPatch
     ) -> None:
-        def select_streamlit_apps(choices: list[Choice]) -> list[str]:
+        def select_streamlit_apps(choices) -> list[str]:
             assert len(choices) == len(three_streamlit_apps)
             return [choices[1].value, choices[2].value]
 
@@ -1213,7 +1205,7 @@ class TestSpaceFinder:
             ),
         }
 
-        def select_spaces(choices: list[Choice]) -> list[str]:
+        def select_spaces(choices) -> list[str]:
             assert len(choices) == len(three_spaces)
             return [choices[1].value, choices[2].value]
 
@@ -1284,7 +1276,7 @@ class TestSearchConfigFinder:
     def test_select_search_configs(
         self, three_search_configs: list[SearchConfigResponse], monkeypatch: MonkeyPatch
     ) -> None:
-        def select_search_configs(choices: list[Choice]) -> list[str]:
+        def select_search_configs(choices) -> list[str]:
             assert len(choices) == len(three_search_configs)
             return [choices[1].value, choices[2].value]
 
@@ -1370,7 +1362,7 @@ class TestResourceViewMappingFinder:
     def test_select_resource_view_mappings(
         self, three_resource_view_mappings: list[ResourceViewMappingResponse], monkeypatch: MonkeyPatch
     ) -> None:
-        def select_mappings(choices: list[Choice]) -> list[str]:
+        def select_mappings(choices) -> list[str]:
             assert len(choices) == len(three_resource_view_mappings)
             return [choices[1].value, choices[2].value]
 
@@ -1445,7 +1437,7 @@ class TestSAPWritebackFinder:
     def test_select_sap_endpoints(
         self, three_sap_endpoints: list[SAPEndpointResponse], monkeypatch: MonkeyPatch
     ) -> None:
-        def select_endpoints(choices: list[Choice]) -> list[str]:
+        def select_endpoints(choices) -> list[str]:
             assert len(choices) == len(three_sap_endpoints)
             return [choices[1].value, choices[2].value]
 
