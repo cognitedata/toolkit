@@ -124,7 +124,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
             if not pip_result.success:
                 yield BuildError(
                     message=pip_result.create_message("Function", function_def.external_id),
-                    code="INVALID-FUNCTION-REQUIREMENTS",
+                    code="INVALID-REQUIREMENTS",
                     fix="Ensure that requirements.txt is valid.",
                     source_file=resource.source_path,
                 )
