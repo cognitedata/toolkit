@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
     OneLakeLocationDescription,
     OneLakeSettingsWrite,
     RotateKeysRequest,
+    SnowflakeExternalDataSourceResponse,
 )
 
 _EXAMPLE_RESPONSE = {
@@ -115,7 +116,7 @@ class TestTransformationExternalDataSourcesAPI:
             return_value=httpx2.Response(status_code=200, json={"items": [_SNOWFLAKE_RESPONSE]})
         )
         listed = api.list(limit=10, format="snowflake")
-        assert listed[0].format == "snowflake"
+        assert isinstance(listed[0], SnowflakeExternalDataSourceResponse)
         assert listed[0].settings.credentials.public_key == "public-key"
         assert respx_mock.calls[-1].request.url.params["format"] == "snowflake"
 
