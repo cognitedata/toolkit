@@ -13,6 +13,7 @@ import respx
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawTableId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
@@ -163,7 +164,7 @@ class TestReadBuildDirectory:
     def test_read_build_directory(
         self,
         build_files_and_dir: list[str],
-        include: DeployOptions | list[str] | None,
+        include: list[str] | None,
         expected: type[Exception] | ReadBuildDirectory,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
@@ -1146,7 +1147,7 @@ class TestVerboseResourceOutcomes:
         }
 
     def test_verbose_keeps_every_id_when_there_are_many(self) -> None:
-        unchanged = [SpaceId(space=f"space_{index:03d}") for index in range(80)]
+        unchanged: list[Identifier] = [SpaceId(space=f"space_{index:03d}") for index in range(80)]
         long_id = "asset_" + ("external-id-" * 20)
         results = [
             DeploymentResult(
@@ -1181,14 +1182,14 @@ class TestVerboseResourceOutcomes:
         crud = MagicMock()
         crud.display_name = "spaces"
         crud.support_drop = True
-        crud.get_id.side_effect = lambda resource: resource
+        crud.get_id.side_effect = lambda resource: resource.as_id()
         new = SpaceId(space="new")
         edited = SpaceId(space="edited")
         same = SpaceId(space="same")
         old = SpaceId(space="old")
         resources = ResourceToDeploy(
-            to_create=[new],
-            to_update=[edited],
+            to_create=[SpaceRequest(space=new.space)],
+            to_update=[SpaceRequest(space=edited.space)],
             to_delete=[old],
             unchanged=[same],
         )
@@ -1226,8 +1227,8 @@ class TestVerboseResourceOutcomes:
         deleted = SpaceId(space="old")
         unchanged = SpaceId(space="same")
         resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy(
-            to_create=[created],
-            to_update=[updated],
+            to_create=[SpaceRequest(space=created.space)],
+            to_update=[SpaceRequest(space=updated.space)],
             to_delete=[deleted],
             unchanged=[unchanged],
         )

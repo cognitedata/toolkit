@@ -1,13 +1,12 @@
 import math
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal, TypedDict
 from unittest.mock import MagicMock
 
 import pytest
 import yaml
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes.data_modeling import InstanceApply
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.client.identifiers import (
@@ -88,7 +87,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
-from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
     LocationSplitInstanceIdMapper,
@@ -202,13 +201,13 @@ class TestAssetCentricToInstanceMapper:
                     version=1,
                 ),
             ]
-            client.views.retrieve.return_value = cognite_core_no_3D.views + cognite_extractor_views
+            client.views.retrieve.return_value = (cognite_core_no_3D.views or []) + cognite_extractor_views
 
             mapper = AssetCentricToInstanceMapper(client)
 
             mapper.prepare(selected)
 
-            mapped: list[InstanceApply] = []
+            mapped: list[NodeRequest | EdgeRequest] = []
             for data_item in mapper.map([DataItem(tracking_id=str(i), item=s) for i, s in enumerate(source)]):
                 mapped.append(data_item.item)
 
@@ -216,6 +215,7 @@ class TestAssetCentricToInstanceMapper:
             # tests for the asset_centric_to_dm function.
             assert len(mapped) == asset_count
             first_asset = mapped[0]
+            assert first_asset.sources and first_asset.sources[0].properties
             assert first_asset.sources[0].properties["source"] == {"space": "source_systems", "externalId": "SAP"}
 
             # Check lookup calls
@@ -309,10 +309,6 @@ class TestAssetCentricToInstanceMapper:
 
 
 class TestThreeDAssetMapper:
-    DEFAULTS: ClassVar[dict[str, Any]] = {
-        "modelId": 1,
-        "revisionId": 1,
-    }
     ASSET_ID = "AssetMapping_1"
 
     @pytest.mark.parametrize(
@@ -320,37 +316,42 @@ class TestThreeDAssetMapper:
         [
             pytest.param(
                 AssetMappingClassicResponse(
-                    nodeId=1234,
-                    assetInstanceId=NodeId(space="my_space", externalId="asset_1"),
-                    **DEFAULTS,
+                    node_id=1234,
+                    asset_instance_id=NodeId(space="my_space", external_id="asset_1"),
+                    model_id=1,
+                    revision_id=1,
                 ),
                 None,
                 AssetMappingDMRequestId(
-                    nodeId=1234,
-                    assetInstanceId=NodeId(space="my_space", externalId="asset_1"),
-                    **DEFAULTS,
+                    node_id=1234,
+                    asset_instance_id=NodeId(space="my_space", external_id="asset_1"),
+                    model_id=1,
+                    revision_id=1,
                 ),
                 id="Return existing assetInstanceId",
             ),
             pytest.param(
                 AssetMappingClassicResponse(
-                    nodeId=5678,
-                    assetId=37,
-                    **DEFAULTS,
+                    node_id=5678,
+                    asset_id=37,
+                    model_id=1,
+                    revision_id=1,
                 ),
                 dm.NodeId(space="my_space", external_id="asset_2"),
                 AssetMappingDMRequestId(
-                    nodeId=5678,
-                    assetInstanceId=NodeId(space="my_space", externalId="asset_2"),
-                    **DEFAULTS,
+                    node_id=5678,
+                    asset_instance_id=NodeId(space="my_space", external_id="asset_2"),
+                    model_id=1,
+                    revision_id=1,
                 ),
                 id="Lookup and return found assetInstanceId",
             ),
             pytest.param(
                 AssetMappingClassicResponse(
-                    nodeId=91011,
-                    assetId=42,
-                    **DEFAULTS,
+                    node_id=91011,
+                    asset_id=42,
+                    model_id=1,
+                    revision_id=1,
                 ),
                 None,
                 "Missing asset instance for asset ID 42",
@@ -358,8 +359,9 @@ class TestThreeDAssetMapper:
             ),
             pytest.param(
                 AssetMappingClassicResponse(
-                    nodeId=1213,
-                    **DEFAULTS,
+                    node_id=1213,
+                    model_id=1,
+                    revision_id=1,
                 ),
                 None,
                 "Neither assetInstanceId nor assetId provided for mapping.",
@@ -444,12 +446,13 @@ class TestCanvasMapper:
             actual = mapper.map([DataItem(tracking_id="t", item=input_canvas)])[0].item
 
         assert not actual.container_references
-        assert len(actual.fdm_instance_container_references) == len(input_canvas.container_references)
+        container_references = input_canvas.container_references or []
+        assert len(actual.fdm_instance_container_references or []) == len(container_references)
 
         migrated_dumped_str = actual.dump_yaml()
 
         unexpected_uuid: list[str] = []
-        for item in input_canvas.container_references:
+        for item in container_references:
             if item.id_ in migrated_dumped_str:
                 unexpected_uuid.append(item.id_)
         # After the migration, there should be no references to the original components of the Canvas.
@@ -778,8 +781,18 @@ class TestChartMapper:
         assert aggregations[0].severity == Severity.skipped
 
 
+class _ViewArgs(TypedDict):
+    created_time: int
+    last_updated_time: int
+    writable: bool
+    queryable: bool
+    used_for: Literal["node", "edge", "record", "all"]
+    is_global: bool
+    mapped_containers: list[ContainerId]
+
+
 class TestFDMtoCDMMapper:
-    DEFAULT_ARGS: Mapping[str, Any] = dict(
+    DEFAULT_ARGS: ClassVar[_ViewArgs] = _ViewArgs(
         created_time=0,
         last_updated_time=1,
         writable=True,
@@ -885,18 +898,20 @@ class TestFDMtoCDMMapper:
         container_mapping={},
     )
 
+    FILE_NODE_ID = NodeId(space=TARGET_SPACE, external_id="fileNode")
     FILE_RESPONSE = FileMetadataResponse(
         external_id="file1",
         name="file1",
-        instance_id=NodeId(space=TARGET_SPACE, external_id="fileNode"),
+        instance_id=FILE_NODE_ID,
         created_time=0,
         last_updated_time=0,
         uploaded=True,
         id=37,
     )
+    TIMESERIES_NODE_ID = NodeId(space=TARGET_SPACE, external_id="timeseriesNode")
     TIMESERIES_RESPONSE = TimeSeriesResponse(
         external_id="timeseries1",
-        instance_id=NodeId(space=TARGET_SPACE, external_id="timeseriesNode"),
+        instance_id=TIMESERIES_NODE_ID,
         type="numeric",
         created_time=0,
         last_updated_time=0,
@@ -965,10 +980,8 @@ class TestFDMtoCDMMapper:
                             InstanceSource(
                                 source=DESTINATION_VIEW_ID,
                                 properties={
-                                    "targetDirectTimeseries": TIMESERIES_RESPONSE.instance_id.dump(
-                                        include_instance_type=False
-                                    ),
-                                    "targetDirectFile": FILE_RESPONSE.instance_id.dump(include_instance_type=False),
+                                    "targetDirectTimeseries": TIMESERIES_NODE_ID.dump(include_instance_type=False),
+                                    "targetDirectFile": FILE_NODE_ID.dump(include_instance_type=False),
                                 },
                             )
                         ],
@@ -1134,7 +1147,7 @@ class TestFDMtoCDMMapper:
 
     def _location_split_mapper(
         self,
-        client: MagicMock,
+        client: ToolkitClientMock,
         target_by_root_asset: dict[str, str],
         registered: dict[str, str] | None = None,
         dry_run: bool = False,

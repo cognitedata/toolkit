@@ -25,7 +25,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     NonExistingModuleName,
     SuccessfulReadYAMLFile,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteDirPath, AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import FileMetadataIO, SearchConfigIO, SpaceIO
@@ -180,7 +179,7 @@ name: My Space
         assert {
             "resource_count": len(my_module.resources),
             "syntax_errors": len(my_module.syntax_errors_by_source),
-            "insight_codes": {i.code for i in folder.all_insights if i.code},
+            "insight_codes": {i.code for i in folder.all_insights},
         } == {
             "resource_count": 1,
             "syntax_errors": 1,
@@ -329,7 +328,7 @@ class TestDependencyValidationSearchConfig:
         build_file = mod_path / "1-x-out.SearchConfig.yaml"
         build_file.touch()
         module = BuiltModule(
-            module_id=ModuleId(id=RelativeDirPath(Path("modules/my")), path=AbsoluteDirPath(mod_path.resolve())),
+            module_id=ModuleId(id=Path("modules/my"), path=mod_path.resolve()),
             resources=[],
             yaml_line_count=2,
         )
@@ -343,8 +342,8 @@ class TestDependencyValidationSearchConfig:
                 identifier=ViewId(space="my_space", external_id="View1", version="v1"),
                 source_hash="h-view",
                 type=ResourceType(resource_folder=ViewIO.folder_name, kind=ViewIO.kind),
-                source_path=AbsoluteFilePath(source_file.resolve()),
-                build_path=AbsoluteFilePath(build_file.resolve()),
+                source_path=source_file.resolve(),
+                build_path=build_file.resolve(),
                 crud_cls=ViewIO,
                 dependencies=set(),
                 has_syntax_error=False,
@@ -359,8 +358,8 @@ class TestDependencyValidationSearchConfig:
                     resource_folder=SearchConfigIO.folder_name,
                     kind=SearchConfigIO.kind,
                 ),
-                source_path=AbsoluteFilePath(source_file.resolve()),
-                build_path=AbsoluteFilePath(build_file.resolve()),
+                source_path=source_file.resolve(),
+                build_path=build_file.resolve(),
                 crud_cls=SearchConfigIO,
                 dependencies={(ViewIO, view_ref)},
                 has_syntax_error=False,
@@ -599,7 +598,7 @@ class TestDisplayModuleSourcesOutput:
                 build_source,
                 console,
                 verbose=False,
-                selection_source="modules",
+                selection_source="cli-arg",
                 config_file_name="",
             )
 
@@ -627,7 +626,7 @@ class TestDisplayModuleSourcesOutput:
                 build_source,
                 console,
                 verbose=True,
-                selection_source="modules",
+                selection_source="cli-arg",
                 config_file_name="",
             )
 
@@ -651,7 +650,7 @@ class TestDisplayModuleSourcesOutput:
             build_source,
             console,
             verbose=True,
-            selection_source="modules",
+            selection_source="cli-arg",
             config_file_name="",
         )
 
