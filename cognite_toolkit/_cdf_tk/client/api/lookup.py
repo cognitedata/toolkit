@@ -419,7 +419,7 @@ class UserLookUpAPI:
         except ToolkitAPIError as e:
             if e.code == 401:
                 # Requires to be authenticated by CogIdp, falling back to deprecated API.
-                users = self.client.user_profiles.list(identity_type="USER", limit=None)
+                users = self._list_user_profiles()
             else:
                 raise e
         for user in users:
@@ -432,9 +432,72 @@ class UserLookUpAPI:
                     self._user_id_by_email[user.email] = user.user_identifier
         self._has_looked_up = True
 
-    def email(self, user_id: str | list[str]) -> str | list[str] | None: ...
+    def _list_user_profiles(self) -> list[UserProfile]:
+        try:
+            return self.client.user_profiles.list(identity_type="USER", limit=None)
+        except ToolkitAPIError as e:
+            if e.code and 400 <= e.code < 500:
+                missing_capabilities = self.client.token.verify_acls([self._read_acl()])
+                if missing_capabilities:
+                    raise self.client.token.create_error(missing_capabilities, "lookup users")
+            raise
 
-    def user_id(self, email: str | list[str]) -> str | list[str] | None: ...
+    @overload
+    def email(self, user_id: str) -> str | None: ...
+
+    @overload
+    def email(self, user_id: list[str] | tuple[str, ...]) -> list[str]: ...
+
+    def email(self, user_id: str | list[str] | tuple[str, ...]) -> str | list[str] | None:
+        """Lookup the email of users given their user IDs.
+
+        Args:
+            user_id: A user ID or a sequence of user IDs to look up.
+
+        Returns:
+            The corresponding email if a single user ID is provided (None if not found),
+            or a list of emails if a sequence of user IDs is provided (missing users are skipped).
+        """
+        return self._lookup_values(user_id, self._email_by_user_id, "user ID", "email")
+
+    @overload
+    def user_id(self, email: str) -> str | None: ...
+
+    @overload
+    def user_id(self, email: list[str] | tuple[str, ...]) -> list[str]: ...
+
+    def user_id(self, email: str | list[str] | tuple[str, ...]) -> str | list[str] | None:
+        """Lookup the user IDs of users given their emails.
+
+        Args:
+            email: An email or a sequence of emails to look up.
+
+        Returns:
+            The corresponding user ID if a single email is provided (None if not found),
+            or a list of user IDs if a sequence of emails is provided (missing users are skipped).
+        """
+        return self._lookup_values(email, self._user_id_by_email, "email", "user ID")
+
+    def _lookup_values(
+        self,
+        keys: str | list[str] | tuple[str, ...],
+        mapping: dict[str, str],
+        key_name: str,
+        value_name: str,
+    ) -> str | list[str] | None:
+        self._lookup()
+        key_list = [keys] if isinstance(keys, str) else list(keys)
+        missing = [key for key in key_list if key not in mapping]
+        if missing:
+            plural = "s" if len(missing) > 1 else ""
+            plural2 = "They do" if len(missing) > 1 else "It does"
+            MediumSeverityWarning(
+                f"Failed to retrieve {value_name} for user{plural} with {key_name}{plural} "
+                f"{humanize_collection(missing)}. {plural2} not exist in CDF"
+            ).print_warning(console=self.client.console)
+        if isinstance(keys, str):
+            return mapping.get(keys)
+        return [mapping[key] for key in key_list if key in mapping]
 
 
 class LookUpGroup:
