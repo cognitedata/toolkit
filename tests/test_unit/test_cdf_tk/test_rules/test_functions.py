@@ -139,7 +139,7 @@ class TestFunctionLimitsRule:
             pytest.param(
                 "nonexistent-package==99.99.99\n",
                 PipValidationResult(error_message="Package not found: nonexistent-package"),
-                ["INVALID-FUNCTION-REQUIREMENTS"],
+                ["INVALID-REQUIREMENTS"],
                 id="invalid requirements.txt",
             ),
             pytest.param(

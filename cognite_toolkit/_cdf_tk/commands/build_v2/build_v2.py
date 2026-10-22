@@ -1050,7 +1050,7 @@ class BuildV2Command(ToolkitCommand):
         elif parsed_yaml is None:
             return FailedReadYAMLFile(
                 source_path=resource_file,
-                code="EMPTY-FILE",
+                code="INVALID-FILE-CONTENT",
                 error="The YAML file is empty. Please add content to the file or remove it if it is not needed.",
                 unresolved_variables=unresolved_variables,
             )
