@@ -165,7 +165,7 @@ class TestModulesCommand:
         filepath.parent.mkdir(parents=True, exist_ok=True)
         filepath.write_text(dummy_resource)
 
-        def select_package(choices: list[Choice]) -> Package:
+        def select_package(choices) -> Package:
             selected_package = next((c for c in choices if "complete organization" in c.title.lower()), None)
             assert selected_package is not None
             return selected_package.value

@@ -22,11 +22,11 @@ class TestDownloadCommand:
                         id=123,
                         name="asset_123",
                         metadata={"key": "value"},
-                        dataSetId=42,
+                        data_set_id=42,
                         aggregates=AssetAggregateItem(childCount=1, depth=0, path=[]),
-                        createdTime=0,
-                        lastUpdatedTime=0,
-                        rootId=0,
+                        created_time=0,
+                        last_updated_time=0,
+                        root_id=0,
                     )
                 ]
             )
