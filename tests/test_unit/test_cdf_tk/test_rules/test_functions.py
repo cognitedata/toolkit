@@ -186,7 +186,7 @@ class TestFunctionLimitsRule:
             pytest.param(
                 [FunctionsAcl(actions=["READ"], scope=AllScope())],
                 "activated",
-                ["MISSING-ACCESS"],
+                ["MISSING-READ-ACCESS"],
                 ["READ access to Functions"],
                 False,
                 id="missing access",
