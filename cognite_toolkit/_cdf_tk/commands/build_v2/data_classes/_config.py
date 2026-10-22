@@ -28,6 +28,15 @@ class Environment(BaseModel):
     selection_type: Literal["path", "git-diff"] = Field("path", alias="selection-type")
     selected: list[str] | None = None
 
+    @field_validator("selection_type", mode="after")
+    @classmethod
+    def _require_validation_type_dev(
+        cls, value: Literal["path", "git-diff"], info: ValidationInfo
+    ) -> Literal["path", "git-diff"]:
+        if value == "git-diff" and info.data.get("validation_type") != "dev":
+            raise ValueError("`selection-type` can only be set to 'git-diff' when `validation-type` is 'dev'")
+        return value
+
     @field_validator("selected", mode="after")
     @classmethod
     def _selected_only_passed_for_path_selection(
