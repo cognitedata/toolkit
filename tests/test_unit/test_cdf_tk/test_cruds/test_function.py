@@ -12,7 +12,6 @@ from cognite.client.data_classes import (
     FunctionScheduleWriteList,
     FunctionWrite,
 )
-from cognite.client.data_classes.capabilities import FilesAcl, FunctionsAcl
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -24,7 +23,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
-from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployV2Command
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
@@ -246,55 +245,8 @@ secrets:
 
         assert dumped["runtime"] == "py311"
 
-    def test_get_function_required_capabilities(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client())
-        loader.data_set_id_by_external_id = {"function1": 123, "function2": 456}
-
-        # Mock data
-        items = [
-            FunctionWrite(external_id="function1", name="Function 1", file_id=1001),
-            FunctionWrite(external_id="function2", name="Function 2", file_id=1002),
-            FunctionWrite(external_id="function3", name="Function 3", file_id=1003),
-        ]
-
-        # Test read-only mode
-        read_capabilities = loader.get_function_required_capabilities(items, read_only=True)
-        assert len(read_capabilities) == 2
-        assert isinstance(read_capabilities[0], FunctionsAcl)
-        assert isinstance(read_capabilities[1], FilesAcl)
-        assert read_capabilities[0].actions == [FunctionsAcl.Action.Read]
-        assert read_capabilities[1].actions == [FilesAcl.Action.Read]
-        assert isinstance(read_capabilities[1].scope, FilesAcl.Scope.DataSet)
-        assert sorted(read_capabilities[1].scope.ids) == [123, 456]
-
-        # Test write mode
-        write_capabilities = loader.get_function_required_capabilities(items, read_only=False)
-        assert len(write_capabilities) == 2
-        assert write_capabilities[0].actions == [FunctionsAcl.Action.Read, FunctionsAcl.Action.Write]
-        assert write_capabilities[1].actions == [FilesAcl.Action.Read, FilesAcl.Action.Write]
-        assert isinstance(write_capabilities[1].scope, FilesAcl.Scope.DataSet)
-        assert sorted(write_capabilities[1].scope.ids) == [123, 456]
-
-    def test_get_function_required_capabilities_empty(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client())
-        capabilities = loader.get_function_required_capabilities([], read_only=False)
-        assert capabilities == []
-
-    def test_get_function_required_capabilities_no_datasets(
-        self, env_vars_with_client_cheap: EnvironmentVariables
-    ) -> None:
-        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client())
-        items = [
-            FunctionWrite(external_id="function1", name="Function 1", file_id=1001),
-            FunctionWrite(external_id="function2", name="Function 2", file_id=1002),
-        ]
-
-        capabilities = loader.get_function_required_capabilities(items, read_only=False)
-        assert len(capabilities) == 2
-        assert isinstance(capabilities[1].scope, FilesAcl.Scope.All)
-
     @pytest.fixture()
-    def function_io_with_file(self, tmp_path: Path) -> Iterable[FunctionIO]:
+    def function_io_with_file(self, tmp_path: Path) -> Iterable[tuple[FunctionIO, ToolkitClientMock]]:
         with monkeypatch_toolkit_client() as client:
             loader = FunctionIO(client, file_upload_timeout_seconds=30.0)
             function_id = "my_func"
@@ -315,19 +267,21 @@ secrets:
             )
             client.filemetadata.create.return_value = [file_response]
             client.filemetadata.retrieve.return_value = [file_response]
-            yield loader
+            yield loader, client
 
     def test_replacing_file_mapping_updates_code_bundle(
-        self, function_io_with_file: FunctionIO, tmp_path: Path
+        self, function_io_with_file: tuple[FunctionIO, ToolkitClientMock], tmp_path: Path
     ) -> None:
+        function_io, _ = function_io_with_file
         replacement = tmp_path / "replacement.FileMetadata.yaml"
-        function_io_with_file.filemetadata_path_by_external_id = {"replacement": replacement}
+        function_io.filemetadata_path_by_external_id = {"replacement": replacement}
 
-        assert function_io_with_file._code_bundle.filemetadata_path_by_external_id == {"replacement": replacement}
+        assert function_io._code_bundle.filemetadata_path_by_external_id == {"replacement": replacement}
 
-    def test_create_succeeds_when_file_uploaded_within_timeout(self, function_io_with_file: FunctionIO) -> None:
-        function_io = function_io_with_file
-        client = function_io.client
+    def test_create_succeeds_when_file_uploaded_within_timeout(
+        self, function_io_with_file: tuple[FunctionIO, ToolkitClientMock]
+    ) -> None:
+        function_io, client = function_io_with_file
         client.filemetadata.await_file_uploaded.return_value = set(), 3.0
         created_response = FunctionResponse(
             id=1, name="my_func", external_id="my_func", file_id=42, created_time=0, status="Ready"
@@ -339,9 +293,10 @@ secrets:
 
         assert result == [created_response]
 
-    def test_create_raises_timeout_when_file_not_uploaded(self, function_io_with_file: FunctionIO) -> None:
-        function_io = function_io_with_file
-        client = function_io.client
+    def test_create_raises_timeout_when_file_not_uploaded(
+        self, function_io_with_file: tuple[FunctionIO, ToolkitClientMock]
+    ) -> None:
+        function_io, client = function_io_with_file
         client.filemetadata.await_file_uploaded.return_value = {InternalId(id=42)}, 0.0
 
         item = FunctionRequest(name="my_func", external_id="my_func", file_id=-1)

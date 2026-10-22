@@ -65,19 +65,26 @@ class AssetsAPI(CDFResourceAPI[AssetResponse]):
         return self._request_item_response(items, "create")
 
     def retrieve(
-        self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
+        self,
+        items: Sequence[InternalOrExternalId],
+        ignore_unknown_ids: bool = False,
+        *,
+        aggregated_properties: bool | Sequence[AggregatedAssetProperty] = False,
     ) -> builtins.list[AssetResponse]:
         """Retrieve assets from CDF.
 
         Args:
             items: List of InternalOrExternalId objects to retrieve.
             ignore_unknown_ids: Whether to ignore unknown IDs.
+            aggregated_properties: Includes ``childCount``, ``path``, and/or ``depth``. ``True`` includes all three.
         Returns:
             List of retrieved AssetResponse objects.
         """
-        return self._request_item_response(
-            items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
-        )
+        aggregated = aggregated_properties_normalized(aggregated_properties)
+        extra_body: dict[str, Any] = {"ignoreUnknownIds": ignore_unknown_ids}
+        if aggregated is not None:
+            extra_body["aggregatedProperties"] = aggregated
+        return self._request_item_response(items, method="retrieve", extra_body=extra_body)
 
     def update(
         self, items: Sequence[AssetRequest], mode: Literal["patch", "replace"] = "replace"

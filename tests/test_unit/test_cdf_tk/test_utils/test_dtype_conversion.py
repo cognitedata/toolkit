@@ -248,7 +248,7 @@ class TestConvertToContainerProperty:
         nullable: bool,
         expected_value: PropertyValueWrite,
     ):
-        cache = {
+        cache: dict[str | int, NodeId] = {
             1: NodeId(space="my_space", external_id="parent1"),
             2: NodeId(space="my_space", external_id="parent2"),
         }
@@ -414,7 +414,7 @@ class TestConvertToContainerProperty:
     def test_all_converters_registered(self) -> None:
         """Checks that all property types that are in the data modeling module have a corresponding converter."""
         existing_types: set[str] = set()
-        to_check: list[type] = [PropertyTypeDefinition]
+        to_check: list[type[PropertyTypeDefinition]] = [PropertyTypeDefinition]
         while to_check:
             current_type = to_check.pop()
             for subclass in current_type.__subclasses__():
@@ -492,7 +492,7 @@ class TestConvertToContainerProperty:
         source_property: tuple[AssetCentricType, str],
         expected: PropertyValueWrite,
     ):
-        cache = {
+        cache: dict[str | int, NodeId] = {
             "source1": NodeId(space="spaceA", external_id="source1"),
             "source2": NodeId(space="spaceB", external_id="source2"),
         }
@@ -601,6 +601,8 @@ class TestConvertStringToDataType:
             id="ISO timestamp to Timestamp",
         ),
         pytest.param("2025-07-22", "date", date(2025, 7, 22), id="ISO date to Date"),
+        pytest.param("1761955200000", "epoch", 1761955200000, id="Epoch ms string to epoch"),
+        pytest.param("2025-11-01T00:00:00Z", "epoch", 1761955200000, id="ISO timestamp to epoch"),
     )
 
     @pytest.mark.parametrize(

@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Any
@@ -38,6 +38,7 @@ from cognite_toolkit._cdf_tk.client.api.transformation_schedules import Transfor
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.alert_channel import AlertChannelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
@@ -208,7 +209,7 @@ class CDFResource:
     response_cls: type[ResponseResource]
     request_cls: type[RequestResource]
     example_data: dict[str, Any]
-    api_class: type[CDFResourceAPI] | None = None
+    api_class: Callable[[HTTPClient], CDFResourceAPI] | None = None
     is_dump_equal_to_example: bool = True
     is_as_request_possible: bool = True
 

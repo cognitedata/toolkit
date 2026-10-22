@@ -2,6 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
     AssetsAcl,
@@ -27,7 +28,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.token import (
     InspectProjectInfo,
     InspectResponse,
 )
-from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import AuthCommand
 from cognite_toolkit._cdf_tk.constants import TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
@@ -74,7 +75,7 @@ def _create_inspect_response() -> InspectResponse:
 
 
 def _setup_verify_mocks(
-    client: MagicMock,
+    client: ToolkitClientMock,
     user_groups: list[GroupResponse],
     all_cdf_groups: list[GroupResponse] | None = None,
     data_modeling_status: str = "HYBRID",
@@ -82,8 +83,7 @@ def _setup_verify_mocks(
     if all_cdf_groups is None:
         all_cdf_groups = list(user_groups)
 
-    client.config.project = CDF_PROJECT
-    client.config.is_private_link = False
+    client.config = MagicMock(spec=ToolkitClientConfig, project=CDF_PROJECT, is_private_link=False)
 
     client.token.inspect.return_value = _create_inspect_response()
     client.token.verify_acls.return_value = []

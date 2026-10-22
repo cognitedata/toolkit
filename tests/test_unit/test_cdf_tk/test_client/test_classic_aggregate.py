@@ -5,6 +5,7 @@ from typing import Any
 import httpx2
 import pytest
 import respx
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
@@ -12,7 +13,6 @@ from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.sequences import SequencesAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
-from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
@@ -54,7 +54,7 @@ def _aggregate_response(request: httpx2.Request) -> httpx2.Response:
     ],
 )
 def test_classic_aggregate_payloads(
-    api_cls: type[CDFResourceAPI[Any]],
+    api_cls: type[AssetsAPI] | type[EventsAPI] | type[TimeSeriesAPI] | type[SequencesAPI],
     value_property: tuple[str, ...],
     toolkit_config: ToolkitClientConfig,
     respx_mock: respx.MockRouter,
@@ -74,15 +74,15 @@ def test_classic_aggregate_payloads(
 
     respx_mock.post(aggregate_url).mock(side_effect=capture)
     strict_filter = ClassicFilter(data_set_ids=[InternalId(id=7)])
-    advanced_filter = {"prefix": {"property": ["name"], "value": "pump"}}
-    aggregate_filter = {"prefix": {"value": "t"}}
+    advanced_filter: dict[str, JsonValue] = {"prefix": {"property": ["name"], "value": "pump"}}
+    aggregate_filter: dict[str, JsonValue] = {"prefix": {"value": "t"}}
 
-    count = api.count()  # type: ignore[attr-defined]
-    filtered_count = api.count(filter=strict_filter, advanced_filter=advanced_filter)  # type: ignore[attr-defined]
-    value_cardinality = api.cardinality(value_property, aggregate_filter=aggregate_filter)  # type: ignore[attr-defined]
-    metadata_cardinality = api.cardinality(("metadata",))  # type: ignore[attr-defined]
-    value_unique = api.unique(value_property)  # type: ignore[attr-defined]
-    metadata_unique = api.unique(("metadata",), aggregate_filter=aggregate_filter)  # type: ignore[attr-defined]
+    count = api.count()
+    filtered_count = api.count(filter=strict_filter, advanced_filter=advanced_filter)
+    value_cardinality = api.cardinality(value_property, aggregate_filter=aggregate_filter)  # ty: ignore[invalid-argument-type]
+    metadata_cardinality = api.cardinality(("metadata",))
+    value_unique = api.unique(value_property)  # ty: ignore[invalid-argument-type]
+    metadata_unique = api.unique(("metadata",), aggregate_filter=aggregate_filter)
 
     assert {
         "results": {

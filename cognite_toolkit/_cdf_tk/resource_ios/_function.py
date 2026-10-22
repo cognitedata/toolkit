@@ -4,7 +4,6 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Literal, cast, final
 
-from cognite.client.data_classes import capabilities as cap
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
 from rich import print
 
@@ -24,17 +23,20 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
+    DataModelInstancesAcl,
     DataSetScope,
     FilesAcl,
     FunctionsAcl,
     ScopeDefinition,
     SessionsAcl,
+    SpaceIDScope,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitRequiredValueError,
+    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
@@ -42,7 +44,6 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     humanize_collection,
 )
-from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.file import (
     create_temporary_zip,
@@ -116,16 +117,42 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         return "functions"
 
     @classmethod
-    def get_minimum_scope(cls, items: Sequence[FunctionRequest]) -> ScopeDefinition:
-        return dataset_scoped_resource(items)
+    def get_minimum_scope(cls, items: Sequence[FunctionRequest]) -> ScopeDefinition | None:
+        scopes = list(cls.get_minimum_scopes(items))
+        if len(scopes) == 0:
+            return None
+        elif len(scopes) == 1:
+            return scopes[0]
+        raise ToolkitValueError("Toolkit does not support deploying functions with both dataset and space scoping.")
+
+    @classmethod
+    def get_minimum_scopes(cls, items: Sequence[FunctionRequest]) -> Iterable[ScopeDefinition]:
+        data_set_ids: set[int] = set()
+        spaces: set[str] = set()
+        for item in items:
+            if item.data_set_id is not None:
+                data_set_ids.add(item.data_set_id)
+            elif item.space is not None:
+                spaces.add(item.space)
+            else:
+                yield AllScope()
+                return
+        if spaces:
+            # CogniteFiles are always scoped and do not support unscoped
+            yield SpaceIDScope(space_ids=sorted(spaces))
+        if data_set_ids:
+            yield DataSetScope(ids=sorted(data_set_id for data_set_id in data_set_ids if data_set_id != DRY_RUN_ID))
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        if isinstance(scope, AllScope | DataSetScope):
-            # Functions ACLs do not support dataset scoping, so we always create them with AllScope.
+        if isinstance(scope, AllScope | DataSetScope | SpaceIDScope):
+            # Functions ACLs do not support dataset/space scoping, so we always create them with AllScope.
             yield FunctionsAcl(actions=sorted(actions), scope=AllScope())
+        if isinstance(scope, AllScope | DataSetScope):
             # The files ACL is needed to deploy the function code.
             yield FilesAcl(actions=sorted(actions), scope=scope)
+        if isinstance(scope, AllScope | SpaceIDScope):
+            yield DataModelInstancesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: FunctionResponse | FunctionRequest | ExternalId | dict) -> ExternalId:
@@ -180,47 +207,6 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
     @classmethod
     def _create_hash_values(cls, function_rootdir: Path) -> str:
         return FunctionCodeBundle.create_hash_values(function_rootdir)
-
-    def get_function_required_capabilities(
-        self, items: Sequence[FunctionRequest] | None, read_only: bool
-    ) -> list[cap.Capability]:
-        """
-        Get required capabilities for working with CDF Functions and their associated files.
-
-        This method determines the necessary permissions needed for function operations,
-        with dataset-scoped file access when possible. When functions are associated with
-        specific datasets, it will request file permissions only for those datasets
-        rather than requiring all-scope file access.
-        """
-        if items is not None and not items:
-            return []
-
-        function_actions = (
-            [cap.FunctionsAcl.Action.Read]
-            if read_only
-            else [cap.FunctionsAcl.Action.Read, cap.FunctionsAcl.Action.Write]
-        )
-        file_actions = (
-            [cap.FilesAcl.Action.Read] if read_only else [cap.FilesAcl.Action.Read, cap.FilesAcl.Action.Write]
-        )
-
-        file_scope: cap.AllScope | cap.DataSetScope = cap.FilesAcl.Scope.All()
-
-        if items and self.data_set_id_by_external_id:
-            dataset_ids = [
-                data_set_id
-                for item in items
-                if item.external_id
-                and (data_set_id := self.data_set_id_by_external_id.get(item.external_id)) is not None
-                and data_set_id != DRY_RUN_ID
-            ]
-            if dataset_ids:
-                file_scope = cap.FilesAcl.Scope.DataSet(dataset_ids)
-
-        return [
-            cap.FunctionsAcl(function_actions, cap.FunctionsAcl.Scope.All()),
-            cap.FilesAcl(file_actions, file_scope),  # Needed for uploading function artifacts
-        ]
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionRequest:
         item_id = self.get_id(resource)

@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, TypeVar
 from unittest.mock import MagicMock
 
 import pytest
@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.canvas import CANVAS_INSTANCE_SPACE, IndustrialCanvasResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.canvas import IndustrialCanvasResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -66,16 +66,25 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
 )
 from tests.test_unit.utils import MockQuestionary
 
+T = TypeVar("T")
+
+
+def _assert_value_type(choice: Choice, expected_type: type[T]) -> T:
+    """Returns the value of the choice, asserting it is of the expected type."""
+    value = choice.value
+    assert isinstance(value, expected_type), f"Expected {expected_type.__name__}, got {type(value).__name__}"
+    return value
+
 
 class TestInteractiveSelect:
     def test_interactive_select_assets(self, monkeypatch) -> None:
         def select_hierarchy(choices: list[Choice]) -> str:
             assert len(choices) == 2
-            return choices[1].value
+            return _assert_value_type(choices[1], str)
 
         def select_data_set(choices: list[Choice]) -> list[str]:
             assert len(choices) == 3 + 1  # +1 for "All Data Sets" option
-            return [choices[3].value]
+            return [_assert_value_type(choices[3], str)]
 
         answers = ["Hierarchy", select_hierarchy, select_data_set]
         with (
@@ -105,11 +114,11 @@ class TestInteractiveSelect:
     def test_interactive_select_filemetadata(self, monkeypatch) -> None:
         def select_data_set(choices: list[Choice]) -> str:
             assert len(choices) == 3
-            return choices[2].value
+            return _assert_value_type(choices[2], str)
 
         def select_hierarchy(choices: list[Choice]) -> list[str]:
             assert len(choices) == 2 + 1  # +1 for "All Hierarchies" option
-            return [choices[2].value]
+            return [_assert_value_type(choices[2], str)]
 
         answers = ["Data Set", select_data_set, select_hierarchy]
         with (
@@ -158,11 +167,11 @@ class TestInteractiveSelect:
     def test_interactive_select_timeseries(self, monkeypatch) -> None:
         def select_data_set(choices: list[Choice]) -> str:
             assert len(choices) == 3
-            return choices[2].value
+            return _assert_value_type(choices[2], str)
 
         def select_hierarchy(choices: list[Choice]) -> list[str]:
             assert len(choices) == 2 + 1  # +1 for "All Hierarchies" option
-            return [choices[2].value]
+            return [_assert_value_type(choices[2], str)]
 
         answers = ["Data Set", select_data_set, select_hierarchy]
         with (
@@ -188,11 +197,11 @@ class TestInteractiveSelect:
     def test_interactive_select_events(self, monkeypatch) -> None:
         def select_data_set(choices: list[Choice]) -> str:
             assert len(choices) == 3
-            return choices[2].value
+            return _assert_value_type(choices[2], str)
 
         def select_hierarchy(choices: list[Choice]) -> list[str]:
             assert len(choices) == 2 + 1  # +1 for "All Hierarchies" option
-            return [choices[2].value]
+            return [_assert_value_type(choices[2], str)]
 
         answers = ["Data Set", select_data_set, select_hierarchy]
         with (
@@ -218,7 +227,7 @@ class TestInteractiveSelect:
     def test_asset_centric_destination_select(self, monkeypatch) -> None:
         def select_destination(choices: list[Choice]) -> str:
             assert len(choices) == len(AssetCentricDestinationSelect.valid_destinations)
-            return choices[2].value
+            return _assert_value_type(choices[2], str)
 
         answers = [select_destination]
         with MockQuestionary(AssetCentricDestinationSelect.__module__, monkeypatch, answers):
@@ -381,11 +390,11 @@ class TestRawTableSelect:
     def test_interactive_select_raw_table(self, monkeypatch) -> None:
         def select_database(choices: list[Choice]) -> str:
             assert len(choices) == 3
-            return choices[2].value
+            return _assert_value_type(choices[2], str)
 
         def select_tables(choices: list[Choice]) -> list[RawTableId]:
             assert len(choices) == 23
-            return [choices[i].value for i in range(0, 24, 2)]
+            return [_assert_value_type(choices[i], RawTableId) for i in range(0, 24, 2)]
 
         answers = [select_database, select_tables]
 
@@ -454,27 +463,25 @@ class TestInteractiveCanvasSelect:
         expected_options: int | None,
         monkeypatch,
     ) -> None:
-        default_args = dict(
-            space=CANVAS_INSTANCE_SPACE,
-            version=1,
-            last_updated_time=1,
-            created_time=1,
-            updated_by="Irrelevant",
-            updated_at=datetime.now(),
-        )
+        updated_at = datetime.now()
         cdf_canvases = [
             IndustrialCanvasResponse(
-                external_id="Public1", name="Canvas 1", visibility="public", created_by="homer", **default_args
-            ),
-            IndustrialCanvasResponse(
-                external_id="Public2", name="Canvas 2", visibility="public", created_by="marge", **default_args
-            ),
-            IndustrialCanvasResponse(
-                external_id="Private1", name="Private 1", visibility="private", created_by="marge", **default_args
-            ),
-            IndustrialCanvasResponse(
-                external_id="Private2", name="Private 2", visibility="private", created_by="homer", **default_args
-            ),
+                external_id=external_id,
+                name=name,
+                visibility=visibility,
+                created_by=created_by,
+                version=1,
+                last_updated_time=1,
+                created_time=1,
+                updated_by="Irrelevant",
+                updated_at=updated_at,
+            )
+            for external_id, name, visibility, created_by in [
+                ("Public1", "Canvas 1", "public", "homer"),
+                ("Public2", "Canvas 2", "public", "marge"),
+                ("Private1", "Private 1", "private", "marge"),
+                ("Private2", "Private 2", "private", "homer"),
+            ]
         ]
         first_answer_by_choice_title = {c.title: c.value for c in InteractiveCanvasSelect.opening_choices}
         assert len(answers) >= 1, "At least one answer is required to select a canvas"
@@ -482,11 +489,11 @@ class TestInteractiveCanvasSelect:
         if "user" in answers[0] and len(answers) >= 2:
             user_title = answers[1]
 
-            def select_user(choices: list[Choice]) -> str:
+            def select_user(choices: list[Choice]) -> list[IndustrialCanvasResponse]:
                 assert len(choices) == 2
                 user_choice = next((c for c in choices if c.title == user_title), None)
                 assert user_choice is not None, f"Bug in test data. User choice '{user_title}' not found in choices"
-                return user_choice.value
+                return _assert_value_type(user_choice, list)
 
             answers[1] = select_user
         answers[0] = first_answer_by_choice_title[answers[0]]
@@ -499,7 +506,7 @@ class TestInteractiveCanvasSelect:
                 assert len(choices) == expected_options, (
                     f"Expected {expected_options} choices, but got {len(choices)} choices: {choices}"
                 )
-                return [choice.value for choice in choices if choice.value in last_selection]
+                return [_assert_value_type(choice, str) for choice in choices if choice.value in last_selection]
 
             answers[-1] = select_canvases
 
@@ -564,25 +571,23 @@ class TestInteractiveChartSelect:
         monkeypatch,
     ) -> None:
         # Use real Chart and ChartData objects instead of DummyChart
-        default_args = dict(
-            created_time=1,
-            last_updated_time=1,
-            visibility="PUBLIC",
-        )
-        chart_defaults = dict(version=1, date_from="2025-01-01T00:00:00.000Z", date_to="2025-12-31T23:59:59.999Z")
         cdf_charts = [
             ChartResponse(
-                external_id="homer1", data=ChartData(name="Homer 1", **chart_defaults), owner_id="homer", **default_args
-            ),
-            ChartResponse(
-                external_id="homer2", data=ChartData(name="Homer 2", **chart_defaults), owner_id="homer", **default_args
-            ),
-            ChartResponse(
-                external_id="marge1", data=ChartData(name="Marge 1", **chart_defaults), owner_id="marge", **default_args
-            ),
-            ChartResponse(
-                external_id="marge2", data=ChartData(name="Marge 2", **chart_defaults), owner_id="marge", **default_args
-            ),
+                external_id=external_id,
+                data=ChartData(
+                    name=name, version=1, date_from="2025-01-01T00:00:00.000Z", date_to="2025-12-31T23:59:59.999Z"
+                ),
+                owner_id=owner_id,
+                created_time=1,
+                last_updated_time=1,
+                visibility="PUBLIC",
+            )
+            for external_id, name, owner_id in [
+                ("homer1", "Homer 1", "homer"),
+                ("homer2", "Homer 2", "homer"),
+                ("marge1", "Marge 1", "marge"),
+                ("marge2", "Marge 2", "marge"),
+            ]
         ]
         # Map answer titles to opening_choices values
         first_answer_by_choice_title = {c.title: c.value for c in InteractiveChartSelect.opening_choices}
@@ -592,11 +597,11 @@ class TestInteractiveChartSelect:
         if "user" in answers[0] and len(answers) >= 2:
             user_title = answers[1]
 
-            def select_user(choices: list[Choice]) -> str:
+            def select_user(choices: list[Choice]) -> list[ChartResponse]:
                 assert len(choices) == 2
                 user_choice = next((c for c in choices if c.title == user_title), None)
                 assert user_choice is not None, f"Bug in test data. User choice '{user_title}' not found in choices"
-                return user_choice.value
+                return _assert_value_type(user_choice, list)
 
             answers[1] = select_user
         answers[0] = first_answer_by_choice_title[answers[0]]
@@ -607,7 +612,7 @@ class TestInteractiveChartSelect:
                 assert len(choices) == expected_options, (
                     f"Expected {expected_options} choices, but got {len(choices)} choices: {choices}"
                 )
-                return [choice.value for choice in choices if choice.value in last_selection]
+                return [_assert_value_type(choice, str) for choice in choices if choice.value in last_selection]
 
             answers[-1] = select_charts
         with (
@@ -738,7 +743,7 @@ class TestDataModelingInteractiveSelect:
 
         def select_view(choices: list[Choice]) -> ViewResponse:
             assert len(choices) == 1, "Expected one view to be filtered out."
-            return choices[0].value
+            return _assert_value_type(choices[0], ViewResponse)
 
         answers = [space, select_view]
 
@@ -826,7 +831,7 @@ class TestDataModelingInteractiveSelect:
 
         def select_space(choices: list[Choice]) -> list[str]:
             assert len(choices) == 1
-            return [choices[0].value]
+            return [_assert_value_type(choices[0], str)]
 
         with (
             monkeypatch_toolkit_client() as client,
@@ -855,7 +860,7 @@ class TestDataModelingInteractiveSelect:
 
         def select_space(choices: list[Choice]) -> list[str]:
             assert len(choices) == 3
-            return [choices[0].value, choices[2].value]
+            return [_assert_value_type(choices[0], str), _assert_value_type(choices[2], str)]
 
         answers = [select_space]
 
@@ -917,7 +922,7 @@ class TestDataModelingInteractiveSelect:
 
         def select_spaces(choices: list[Choice]) -> list[str]:
             assert len(choices) == 2  # Only the empty spaces should be presented
-            return [choices[1].value]  # Select space3
+            return [_assert_value_type(choices[1], str)]  # Select space3
 
         answers = [select_spaces]
 
@@ -947,7 +952,7 @@ class TestDataModelingInteractiveSelect:
 
         def select_space(choices: list[Choice]) -> list[str]:
             assert len(choices) == 1
-            return [choices[0].value]
+            return [_assert_value_type(choices[0], str)]
 
         with (
             monkeypatch_toolkit_client() as client,
@@ -1002,7 +1007,7 @@ class TestDataModelingInteractiveSelect:
 
         def select_spaces(choices: list[Choice]) -> list[str]:
             assert len(choices) == 2  # Only spaces with instances should be presented
-            return [choices[1].value]  # Select space3
+            return [_assert_value_type(choices[1], str)]  # Select space3
 
         answers = [select_spaces]
 
@@ -1032,7 +1037,7 @@ class TestDataModelingInteractiveSelect:
 
         def select_space(choices: list[Choice]) -> list[str]:
             assert len(choices) == 1
-            return [choices[0].value]
+            return [_assert_value_type(choices[0], str)]
 
         with (
             monkeypatch_toolkit_client() as client,
@@ -1124,7 +1129,7 @@ class TestResourceViewMappingInteractiveSelect:
     def test_interactive_select_resource_view_mapping(self, monkeypatch) -> None:
         def select_resource_view_mapping(choices: list[Choice]) -> ResourceViewMappingResponse:
             assert len(choices) == 2
-            selection = choices[1].value
+            selection = _assert_value_type(choices[1], ResourceViewMappingResponse)
             return selection
 
         answers = [select_resource_view_mapping]
@@ -1160,9 +1165,9 @@ class TestResourceViewMappingInteractiveSelect:
 
 class TestThreeDInteractiveSelect:
     def test_interactive_select_3d_models(self, monkeypatch) -> None:
-        def select_3d_models(choices: list[Choice]) -> list[str]:
+        def select_3d_models(choices: list[Choice]) -> list[ThreeDModelClassicResponse]:
             assert len(choices) == 2
-            return [choices[1].value]
+            return [_assert_value_type(choices[1], ThreeDModelClassicResponse)]
 
         answers = ["dm", None, select_3d_models]
         with (
@@ -1172,7 +1177,7 @@ class TestThreeDInteractiveSelect:
             selector = ThreeDInteractiveSelect(client, "test_operation")
             client.three_d.models_classic.list.return_value = [
                 ThreeDModelClassicResponse(
-                    name=f"Model {i}", id=i, createdTime=1, lastUpdatedTime=1, space="default" if i % 2 == 0 else None
+                    name=f"Model {i}", id=i, created_time=1, space="default" if i % 2 == 0 else None
                 )
                 for i in range(3)
             ]
@@ -1212,7 +1217,7 @@ class TestAPMConfigInteractiveSelect:
     def test_interactive_select_apm_configs(self, monkeypatch) -> None:
         def select_apm_configs(choices: list[Choice]) -> list[APMConfigResponse]:
             assert len(choices) == 3
-            return [choices[1].value]
+            return [_assert_value_type(choices[1], APMConfigResponse)]
 
         answers = [select_apm_configs]
         with (
@@ -1239,7 +1244,7 @@ class TestAPMConfigInteractiveSelect:
     def test_interactive_select_single_apm_config(self, monkeypatch) -> None:
         def select_apm_config(choices: list[Choice]) -> APMConfigResponse:
             assert len(choices) == 2
-            return choices[0].value
+            return _assert_value_type(choices[0], APMConfigResponse)
 
         answers = [select_apm_config]
         with (
@@ -1288,7 +1293,7 @@ class TestAPMConfigInteractiveSelect:
             assert len(choices) == 2
             assert choices[0].title == "(config_0)"  # No name
             assert choices[1].title == "Config 1 (config_1)"  # Has name
-            return [choices[0].value]
+            return [_assert_value_type(choices[0], APMConfigResponse)]
 
         answers = [select_apm_configs]
         with (
@@ -1374,7 +1379,7 @@ class TestDocumentsInteractiveSelect:
 
         def pick_documents(choices: list[Choice]) -> list[DocumentResponse]:
             assert len(choices) == 2
-            return [choices[0].value]
+            return [_assert_value_type(choices[0], DocumentResponse)]
 
         answers = ["name", pick_documents]
         with (
@@ -1397,11 +1402,11 @@ class TestDocumentsInteractiveSelect:
 
         def pick_mime_type(choices: list[Choice]) -> tuple[str, ...]:
             mime_choice = next(c for c in choices if c.value == ("mimeType",))
-            return mime_choice.value
+            return _assert_value_type(mime_choice, tuple)
 
         def pick_value(choices: list[Choice]) -> list[str]:
             assert len(choices) == 1
-            return [choices[0].value]
+            return [_assert_value_type(choices[0], str)]
 
         answers = ["filter-document-properties", pick_mime_type, pick_value, "finished"]
 
@@ -1412,7 +1417,7 @@ class TestDocumentsInteractiveSelect:
             if property == ("sourceFile", "metadata"):
                 return []
             if property == ("mimeType",):
-                return [DocumentUniqueBucket(count=4, value="application/pdf")]
+                return [DocumentUniqueBucket(count=4, values=["application/pdf"])]
             raise AssertionError(f"unexpected unique property: {property!r}")
 
         with (

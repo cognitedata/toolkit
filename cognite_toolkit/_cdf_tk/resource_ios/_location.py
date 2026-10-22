@@ -54,8 +54,8 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
         }
     )
     kind = "LocationFilter"
-    _doc_base_url = "https://api-docs.cogheim.net/redoc/#tag/"
-    _doc_url = "Location-Filters/operation/createLocationFilter"
+    _doc_base_url = "https://handbook.cogheim.net/20230101-internal/"
+    _doc_url = "location-filters/create-location-filter"
 
     subfilter_names = ("assets", "events", "files", "timeseries", "sequences")
 

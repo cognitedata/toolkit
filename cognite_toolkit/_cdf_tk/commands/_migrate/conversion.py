@@ -46,7 +46,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMet
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordId, RecordRequest, RecordSource
-from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
+    ResourceViewMappingRequest,
+    ResourceViewMappingResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.dataio.logger import Severity
@@ -251,7 +254,7 @@ class DirectRelationCache:
 def asset_centric_to_dm(
     resource: AssetCentricResourceExtended,
     instance_id: NodeId | EdgeId,
-    view_source: ResourceViewMappingRequest,
+    view_source: ResourceViewMappingRequest | ResourceViewMappingResponse,
     view_properties: dict[str, ViewResponseProperty],
     direct_relation_cache: DirectRelationCache,
     preferred_consumer_view: ViewId | None = None,

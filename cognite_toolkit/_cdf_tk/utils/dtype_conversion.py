@@ -570,6 +570,11 @@ class _EpochConverter(_ValueConverter):
             return int(value)
         elif isinstance(value, str):
             try:
+                # Fast path: string of milliseconds since epoch, e.g. "1761955200000".
+                return int(value)
+            except ValueError:
+                pass
+            try:
                 dt = parser.isoparse(value)
                 epoch = int(dt.timestamp() * 1000)
                 return epoch

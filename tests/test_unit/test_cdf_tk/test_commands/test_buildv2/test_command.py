@@ -25,7 +25,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     NonExistingModuleName,
     SuccessfulReadYAMLFile,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteDirPath, AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import FileMetadataIO, SearchConfigIO, SpaceIO
@@ -180,7 +179,7 @@ name: My Space
         assert {
             "resource_count": len(my_module.resources),
             "syntax_errors": len(my_module.syntax_errors_by_source),
-            "insight_codes": {i.code for i in folder.all_insights if i.code},
+            "insight_codes": {i.code for i in folder.all_insights},
         } == {
             "resource_count": 1,
             "syntax_errors": 1,
@@ -214,6 +213,111 @@ name: My Space
         assert file_by_suffix[".txt"].read_text() == expected_content
 
 
+class TestMultiConfigBuild:
+    @pytest.mark.parametrize(
+        "config_a, config_b, expected_error_fragment",
+        [
+            pytest.param(
+                """environment:
+  project: dev-project
+  validation-type: dev
+  selected:
+  - modules/
+""",
+                """environment:
+  name: dev
+  project: prod-project
+  validation-type: dev
+  selected:
+  - modules/
+""",
+                "different CDF projects",
+                id="Different CDF Projects",
+            ),
+            pytest.param(
+                """environment:
+  project: dev-project
+  validation-type: prod
+  selected:
+  - modules/
+""",
+                """environment:
+  name: dev
+  project: dev-project
+  validation-type: dev
+  selected:
+  - modules/
+""",
+                "different validation types",
+                id="Different Validation Types",
+            ),
+        ],
+    )
+    def test_invalid_config_yaml_raises(
+        self, config_a: str, config_b: str, expected_error_fragment, tmp_path: Path
+    ) -> None:
+        config_a_path = tmp_path / "config_a.yaml"
+        config_b_path = tmp_path / "config_b.yaml"
+        config_a_path.write_text(config_a)
+        config_b_path.write_text(config_b)
+
+        _ = create_resource_file(tmp_path, SpaceIO, SPACE_YAML)
+
+        parameters = BuildParameters(
+            organization_dir=tmp_path,
+            build_dir=Path("build"),
+            config_yamls=[config_a_path, config_b_path],
+        )
+
+        with pytest.raises(ToolkitValueError) as exc_info:
+            BuildV2Command._read_file_system(
+                parameters.organization_dir, parameters.config_yamls, parameters.user_selected_modules
+            )
+
+        assert expected_error_fragment in str(exc_info.value)
+
+    @staticmethod
+    def _create_config(variables: str) -> str:
+        return f"""environment:
+  name: dev
+  project: dev-project
+  validation-type: dev
+  selected:
+  - modules/
+variables:
+{variables}
+"""
+
+    def test_build_multiple_configs(self, tmp_path: Path, toolkit_client_cheap: ToolkitClient) -> None:
+        config_a_path = tmp_path / "config.siteA.yaml"
+        config_b_path = tmp_path / "config.siteB.yaml"
+
+        config_a_path.write_text(self._create_config("  site: siteA"))
+        config_b_path.write_text(self._create_config("  site: siteB"))
+
+        _ = create_resource_file(
+            tmp_path,
+            SpaceIO,
+            """space: {{ site }}
+name: {{ site }} Space
+""",
+        )
+        build_dir = tmp_path / "build"
+
+        parameters = BuildParameters(
+            organization_dir=tmp_path,
+            build_dir=build_dir,
+            config_yamls=[config_a_path, config_b_path],
+        )
+
+        _ = BuildV2Command().build(parameters, client=None)
+
+        built_spaces = list(build_dir.rglob(f"*.{SpaceIO.kind}.yaml"))
+        assert len(built_spaces) == 2
+        spaces = SpaceIO(toolkit_client_cheap).load_resource_files(built_spaces)
+        assert sorted(s.space for s in spaces) == ["siteA", "siteB"]
+
+
 class TestDependencyValidationSearchConfig:
     @staticmethod
     def _minimal_module(tmp_path: Path) -> tuple[BuiltModule, Path, Path]:
@@ -224,7 +328,7 @@ class TestDependencyValidationSearchConfig:
         build_file = mod_path / "1-x-out.SearchConfig.yaml"
         build_file.touch()
         module = BuiltModule(
-            module_id=ModuleId(id=RelativeDirPath(Path("modules/my")), path=AbsoluteDirPath(mod_path.resolve())),
+            module_id=ModuleId(id=Path("modules/my"), path=mod_path.resolve()),
             resources=[],
             yaml_line_count=2,
         )
@@ -238,8 +342,8 @@ class TestDependencyValidationSearchConfig:
                 identifier=ViewId(space="my_space", external_id="View1", version="v1"),
                 source_hash="h-view",
                 type=ResourceType(resource_folder=ViewIO.folder_name, kind=ViewIO.kind),
-                source_path=AbsoluteFilePath(source_file.resolve()),
-                build_path=AbsoluteFilePath(build_file.resolve()),
+                source_path=source_file.resolve(),
+                build_path=build_file.resolve(),
                 crud_cls=ViewIO,
                 dependencies=set(),
                 has_syntax_error=False,
@@ -254,8 +358,8 @@ class TestDependencyValidationSearchConfig:
                     resource_folder=SearchConfigIO.folder_name,
                     kind=SearchConfigIO.kind,
                 ),
-                source_path=AbsoluteFilePath(source_file.resolve()),
-                build_path=AbsoluteFilePath(build_file.resolve()),
+                source_path=source_file.resolve(),
+                build_path=build_file.resolve(),
                 crud_cls=SearchConfigIO,
                 dependencies={(ViewIO, view_ref)},
                 has_syntax_error=False,
@@ -283,7 +387,7 @@ class TestValidateBuildParameters:
                 # Actually Config file is at org/config.name.yaml.
                 # I should just specify list of paths to create.
                 # If I put "org/modules/" it has no suffix so created as dir.
-                BuildParameters(organization_dir=Path("org"), config_yaml=Path("org/config.dev.yaml")),
+                BuildParameters(organization_dir=Path("org"), config_yamls=[Path("org/config.dev.yaml")]),
                 ["cdf", "build", "-o", "org"],
                 "org/config.dev.yaml' not found",
                 id="Config YAML file not found",
@@ -312,7 +416,7 @@ class TestValidateBuildParameters:
             ),
             pytest.param(
                 [f"org/{MODULES}/", "org/config.dev.yaml"],
-                BuildParameters(organization_dir=Path("org"), config_yaml=Path("org/config.dev.yaml")),
+                BuildParameters(organization_dir=Path("org"), config_yamls=[Path("org/config.dev.yaml")]),
                 ["cdf", "build", "-o", "org"],
                 None,
                 id="Success with config",
@@ -363,21 +467,26 @@ class TestReadFileSystem:
         parameters = BuildParameters(
             organization_dir=tmp_path,
             build_dir=Path("build"),
-            config_yaml=config_yaml,
+            config_yamls=[config_yaml],
             user_selected_modules=["module1", "module2"],
         )
         build_files = BuildV2Command._read_file_system(
-            parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
+            parameters.organization_dir, parameters.config_yamls, parameters.user_selected_modules
         )
         assert build_files.model_dump() == {
             "yaml_files": [resource_file.relative_to(tmp_path)],
             # Since user_selected_modules are provided, they should be used instead of config selected modules.
-            "selected_modules": {"module1", "module2"},
-            "variables": {},
+            "user_selected_modules": {"module1", "module2"},
             "validation_type": "dev",
             "cdf_project": "my-project",
             "organization_dir": tmp_path.resolve(),
-            "config_path": config_yaml.resolve(),
+            "config_files": [
+                {
+                    "selected_modules": {"module1", "module2"},
+                    "variables": {},
+                    "path": config_yaml.resolve(),
+                }
+            ],
         }
 
     def test_invalid_config_yaml(self, tmp_path: Path) -> None:
@@ -390,10 +499,10 @@ class TestReadFileSystem:
     - modules/
 """)
         _ = create_resource_file(tmp_path, SpaceIO, SPACE_YAML)
-        parameters = BuildParameters(organization_dir=tmp_path, build_dir=Path("build"), config_yaml=config_yaml)
+        parameters = BuildParameters(organization_dir=tmp_path, build_dir=Path("build"), config_yamls=[config_yaml])
         with pytest.raises(ToolkitValueError) as exc_info:
             BuildV2Command._read_file_system(
-                parameters.organization_dir, parameters.config_yaml, parameters.user_selected_modules
+                parameters.organization_dir, parameters.config_yamls, parameters.user_selected_modules
             )
 
         assert (
@@ -489,7 +598,7 @@ class TestDisplayModuleSourcesOutput:
                 build_source,
                 console,
                 verbose=False,
-                selection_source="modules",
+                selection_source="cli-arg",
                 config_file_name="",
             )
 
@@ -517,7 +626,7 @@ class TestDisplayModuleSourcesOutput:
                 build_source,
                 console,
                 verbose=True,
-                selection_source="modules",
+                selection_source="cli-arg",
                 config_file_name="",
             )
 
@@ -541,7 +650,7 @@ class TestDisplayModuleSourcesOutput:
             build_source,
             console,
             verbose=True,
-            selection_source="modules",
+            selection_source="cli-arg",
             config_file_name="",
         )
 

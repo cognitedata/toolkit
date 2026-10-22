@@ -48,13 +48,14 @@ class TestGroupLoader:
         raw_list = loader.load_resource_file(LOAD_DATA / "auth" / "1.my_group_scoped.yaml", env_vars_with_client.dump())
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
         assert loaded.name == "scoped_group_name"
+        assert loaded.capabilities is not None
         assert len(loaded.capabilities) == 4
 
         caps = {type(cap.acl).__name__: cap.acl for cap in loaded.capabilities}
 
-        assert all(isinstance(item, int) for item in caps["DataSetsAcl"].scope.ids)
-        assert all(isinstance(item, int) for item in caps["AssetsAcl"].scope.ids)
-        assert all(isinstance(item, int) for item in caps["ExtractionConfigsAcl"].scope.ids)
+        assert all(isinstance(item, int) for item in caps["DataSetsAcl"].scope.model_dump()["ids"])
+        assert all(isinstance(item, int) for item in caps["AssetsAcl"].scope.model_dump()["ids"])
+        assert all(isinstance(item, int) for item in caps["ExtractionConfigsAcl"].scope.model_dump()["ids"])
         assert caps["SessionsAcl"].scope.scope_name == "all"
 
     def test_load_group_list_resource_scoped_only(
@@ -91,6 +92,7 @@ class TestGroupLoader:
         filepath = LOAD_DATA / "auth" / "1.my_group_scoped.yaml"
         raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
         loaded = loader.load_resource(deepcopy(raw_list[0]), is_dry_run=False)
+        assert loaded.capabilities is not None
 
         # Simulate that one group is already in CDF
         cdf_group = GroupResponse(
@@ -136,6 +138,7 @@ class TestGroupLoader:
         filepath = LOAD_DATA / "auth" / "1.my_group_scoped.yaml"
         raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
         loaded = loader.load_resource(deepcopy(raw_list[0]), is_dry_run=False)
+        assert loaded.capabilities is not None
 
         # Simulate that the group is already in CDF, but with fewer capabilities
         cdf_group = GroupResponse(

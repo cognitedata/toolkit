@@ -10,11 +10,6 @@ from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import (
-    AbsoluteDirPath,
-    AbsoluteFilePath,
-    RelativeDirPath,
-)
 from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._infield import _REQUIRED_PROPERTIES, InFieldCDMRuleSet
 
@@ -75,13 +70,13 @@ def create_built_resource() -> Callable[[Path, Path], BuiltResource]:
                 resource_folder=InFieldCDMLocationConfigIO.folder_name,
                 kind=InFieldCDMLocationConfigIO.kind,
             ),
-            source_path=AbsoluteFilePath(source_path.resolve()),
-            build_path=AbsoluteFilePath(build_path.resolve()),
+            source_path=source_path.resolve(),
+            build_path=build_path.resolve(),
             crud_cls=InFieldCDMLocationConfigIO,
             dependencies=set(),
             has_syntax_error=False,
             module_id=ModuleId(
-                id=RelativeDirPath(Path("modules/my")),
+                id=Path("modules/my"),
                 path=source_path.parent.resolve(),
             ),
         )
@@ -96,8 +91,8 @@ def create_module() -> Callable[[Path, list[BuiltResource]], BuiltModule]:
         mod_path.mkdir(parents=True, exist_ok=True)
         return BuiltModule(
             module_id=ModuleId(
-                id=RelativeDirPath(Path("modules/my")),
-                path=AbsoluteDirPath(mod_path.resolve()),
+                id=Path("modules/my"),
+                path=mod_path.resolve(),
             ),
             resources=resources,
             yaml_line_count=1,

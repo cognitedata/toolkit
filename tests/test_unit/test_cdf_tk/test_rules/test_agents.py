@@ -13,7 +13,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.agent import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO, ResourceType
 from cognite_toolkit._cdf_tk.rules._agents import AgentRuleSet
 
@@ -56,13 +55,13 @@ class TestAgentRuleSet:
             identifier=ExternalId(external_id=external_id),
             source_hash="test-hash",
             type=ResourceType(resource_folder=AgentIO.folder_name, kind=AgentIO.kind),
-            source_path=AbsoluteFilePath(source_path.resolve()),
-            build_path=AbsoluteFilePath(build_path.resolve()),
+            source_path=source_path.resolve(),
+            build_path=build_path.resolve(),
             crud_cls=AgentIO,
             dependencies=set(),
             has_syntax_error=False,
             module_id=ModuleId(
-                id=RelativeDirPath(Path("modules/my")),
+                id=Path("modules/my"),
                 path=source_path.parent.resolve(),
             ),
         )

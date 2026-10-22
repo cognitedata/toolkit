@@ -1,4 +1,3 @@
-import httpx2
 import pytest
 import respx
 
@@ -219,7 +218,7 @@ class TestViewLoader:
     ) -> None:
         """Test various dependency patterns: transitive chains, independent chains, and diamond dependencies."""
         loader = ViewIO.create_io(toolkit_client_approval.mock_client)
-        toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views)
+        toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views or [])
         toolkit_client_approval.append(ContainerResponse, cognite_core_containers_no_3D)
 
         sorted_views, cyclic_views = loader.topological_sort_container_constraints(view_ids)
@@ -322,7 +321,7 @@ class TestViewLoader:
     ) -> None:
         """Test that get_readonly_properties identifies readonly properties from containers."""
         loader = ViewIO.create_io(toolkit_client_approval.mock_client)
-        toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views)
+        toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views or [])
 
         readonly_props = loader.get_readonly_properties(view_id)
         assert readonly_props == expected_readonly_props
@@ -349,28 +348,26 @@ class TestRecordViewSupport:
             stream_id=["my_stream"],
         )
         upsert_url = toolkit_config.create_api_url("/models/views")
-        respx_mock.post(upsert_url).mock(
-            return_value=httpx2.Response(
-                status_code=200,
-                json={
-                    "items": [
-                        {
-                            "space": "my_space",
-                            "externalId": "my_record_view",
-                            "version": "1",
-                            "createdTime": 1,
-                            "lastUpdatedTime": 1,
-                            "writable": True,
-                            "queryable": True,
-                            "usedFor": "record",
-                            "isGlobal": False,
-                            "mappedContainers": [],
-                            "properties": {},
-                            "streamId": ["my_stream"],
-                        }
-                    ]
-                },
-            )
+        respx_mock.post(upsert_url).respond(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "space": "my_space",
+                        "externalId": "my_record_view",
+                        "version": "1",
+                        "createdTime": 1,
+                        "lastUpdatedTime": 1,
+                        "writable": True,
+                        "queryable": True,
+                        "usedFor": "record",
+                        "isGlobal": False,
+                        "mappedContainers": [],
+                        "properties": {},
+                        "streamId": ["my_stream"],
+                    }
+                ]
+            },
         )
 
         api.create([request])
@@ -386,30 +383,28 @@ class TestRecordViewSupport:
             views=[ViewId(space="my_space", external_id="my_record_view", version="1")],
         )
         upsert_url = toolkit_config.create_api_url("/models/datamodels")
-        respx_mock.post(upsert_url).mock(
-            return_value=httpx2.Response(
-                status_code=200,
-                json={
-                    "items": [
-                        {
-                            "space": "my_space",
-                            "externalId": "my_model",
-                            "version": "1",
-                            "createdTime": 1,
-                            "lastUpdatedTime": 1,
-                            "isGlobal": False,
-                            "views": [
-                                {
-                                    "type": "view",
-                                    "space": "my_space",
-                                    "externalId": "my_record_view",
-                                    "version": "1",
-                                }
-                            ],
-                        }
-                    ]
-                },
-            )
+        respx_mock.post(upsert_url).respond(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "space": "my_space",
+                        "externalId": "my_model",
+                        "version": "1",
+                        "createdTime": 1,
+                        "lastUpdatedTime": 1,
+                        "isGlobal": False,
+                        "views": [
+                            {
+                                "type": "view",
+                                "space": "my_space",
+                                "externalId": "my_record_view",
+                                "version": "1",
+                            }
+                        ],
+                    }
+                ]
+            },
         )
 
         api.create([request])

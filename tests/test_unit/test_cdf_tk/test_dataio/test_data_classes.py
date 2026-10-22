@@ -78,6 +78,8 @@ class TestInstanceCSVList:
         instance_list = InstanceIdCSVList.read_csv_file(csv_file)
 
         assert len(instance_list) == 2
-        assert instance_list[0] == InstanceIdRow(externalId="id1", space="mySpace")
-        assert instance_list[1] == InstanceIdRow(externalId="id2", space="mySpace", instanceType="edge")
+        assert instance_list[0] == InstanceIdRow.model_validate({"externalId": "id1", "space": "mySpace"})
+        assert instance_list[1] == InstanceIdRow.model_validate(
+            {"externalId": "id2", "space": "mySpace", "instanceType": "edge"}
+        )
         assert len(instance_list.invalid_rows) == 0

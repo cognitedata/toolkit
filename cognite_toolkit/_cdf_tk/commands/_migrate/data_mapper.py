@@ -2019,20 +2019,30 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         raise RuntimeError(f"Bug in Toolkit: no location-split resolver configured for node {node.as_id()}.")
 
     def _target_space_from_root_location(self, node: NodeResponse, view_id: ViewId) -> str:
+        node_label = f"{view_id.external_id} {node.as_id()!s}"
         root_location = as_external_id(get_view_property(node, view_id, "rootLocation"))
         if root_location is None:
             raise TargetSpaceResolutionError(
-                "rootLocation is missing.",
+                f"{node_label} is missing rootLocation.",
                 severity=Severity.failure,
             )
         target_space = self._target_by_root_asset.get(root_location)
         if target_space is None:
             raise TargetSpaceResolutionError(
-                f"rootLocation {root_location!r} has no CDM target space among "
+                f"{node_label} has rootLocation {root_location!r} which has no CDM target space among "
                 f"{humanize_collection(self._target_by_root_asset) or 'none'}.",
                 severity=Severity.failure,
             )
         return target_space
+
+    @staticmethod
+    def _humanize_ids(ids: Iterable[str], max_items: int = 10) -> str:
+        """Lists the given IDs, truncating the list if it is very long."""
+        sorted_ids = sorted(set(ids))
+        if len(sorted_ids) <= max_items:
+            return humanize_collection(sorted_ids, sort=False)
+        shown = humanize_collection(sorted_ids[:max_items], sort=False)
+        return f"{shown} and {len(sorted_ids) - max_items} more"
 
     def _target_space_from_parent_edge(
         self,
@@ -2040,36 +2050,54 @@ class LocationSplitFDMtoCDMMapper(FDMtoCDMMapper):
         parent_edge_type: EdgeTypeId,
         other_side_by_edge_type_and_direction: Mapping[EdgeTypeId, Sequence[EdgeOtherSide]],
     ) -> str:
+        node_label = f"{node.as_id()!s}"
+        edge_type_name = parent_edge_type.type.external_id
         parents = list(other_side_by_edge_type_and_direction.get(parent_edge_type, []))
         if not parents:
             raise TargetSpaceResolutionError(
-                f"Has no inbound {parent_edge_type!s} edge to a parent.",
+                f"{node_label} has no inbound {edge_type_name!r} edge to a parent.",
                 severity=Severity.failure,
             )
-        target_spaces: set[str] = set()
+        parent_ids_by_target_space: dict[str, list[str]] = defaultdict(list)
+        unresolved_parent_ids: list[str] = []
         for parent in parents:
-            target_space = self._instance_id_mapper.resolve_target_space(parent.other_side.external_id)
-            if target_space is not None:
-                target_spaces.add(target_space)
-        if len(target_spaces) != 1:
-            reason = "unresolved" if not target_spaces else "disagree on target space"
+            parent_external_id = parent.other_side.external_id
+            target_space = self._instance_id_mapper.resolve_target_space(parent_external_id)
+            if target_space is None:
+                unresolved_parent_ids.append(parent_external_id)
+            else:
+                parent_ids_by_target_space[target_space].append(parent_external_id)
+        if not parent_ids_by_target_space:
             raise TargetSpaceResolutionError(
-                f"Parent(s) via {parent_edge_type!s} are {reason}.",
+                f"{node_label}: parent(s) {self._humanize_ids(unresolved_parent_ids)} via {edge_type_name!r} "
+                "could not be assigned to a target space. Check that these parents exist and have a "
+                "rootLocation with a configured CDM target space.",
                 severity=Severity.failure,
             )
-        return next(iter(target_spaces))
+        if len(parent_ids_by_target_space) > 1:
+            details = "; ".join(
+                f"{space}: {self._humanize_ids(ids)}" for space, ids in sorted(parent_ids_by_target_space.items())
+            )
+            raise TargetSpaceResolutionError(
+                f"{node_label}: parents via {edge_type_name!r} disagree on target space ({details}).",
+                severity=Severity.failure,
+            )
+        return next(iter(parent_ids_by_target_space))
 
     def _target_space_from_parent_property(self, node: NodeResponse, view_id: ViewId, parent_property: str) -> str:
+        node_label = f"{view_id.external_id} {node.as_id()!s}"
         parent_external_id = as_external_id(get_view_property(node, view_id, parent_property))
         if parent_external_id is None:
             raise TargetSpaceResolutionError(
-                f"Is missing {parent_property}.",
+                f"{node_label} is missing {parent_property}.",
                 severity=Severity.failure,
             )
         target_space = self._instance_id_mapper.resolve_target_space(parent_external_id)
         if target_space is None:
             raise TargetSpaceResolutionError(
-                f"Parent {parent_external_id!r} via {parent_property} is unresolved.",
+                f"{node_label}: parent {parent_external_id!r} via {parent_property} could not be assigned to a "
+                "target space. Check that the parent exists and has a rootLocation with a configured CDM "
+                "target space.",
                 severity=Severity.failure,
             )
         return target_space

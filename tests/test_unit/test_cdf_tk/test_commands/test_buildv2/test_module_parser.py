@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     NonExistingModuleName,
 )
 from cognite_toolkit._cdf_tk.constants import DEFAULT_CONFIG_FILE
+from cognite_toolkit._cdf_tk.resource_ios import ResourceTypes
 from tests.data import PROJECT_FOR_TEST
 
 
@@ -234,7 +235,9 @@ class TestIsInCodeBundleSubdirectory:
             ),
         ],
     )
-    def test_is_in_code_bundle_subdirectory(self, yaml_file: Path, resource_folder: str, expected: bool) -> None:
+    def test_is_in_code_bundle_subdirectory(
+        self, yaml_file: Path, resource_folder: ResourceTypes, expected: bool
+    ) -> None:
         assert ModuleParser._is_in_code_bundle_subdirectory(yaml_file, resource_folder) is expected
 
 
@@ -499,6 +502,26 @@ class TestParseVariablesEdgeCases:
         assert len(errors) == 0
         assert Path("modules/team/project") in build_variables
         assert build_variables[Path("modules/team/project")][None][0].value == "value1"
+
+    def test_empty_key_on_valid_path_is_ignored(self) -> None:
+        variables = {"modules": {"moduleA": None}}
+        available_paths = {Path(""), Path("modules"), Path("modules/moduleA")}
+
+        build_variables, errors = ModuleParser._parse_variables(variables, available_paths, available_paths)
+
+        assert errors == []
+        assert not build_variables
+
+    def test_empty_key_on_invalid_path_is_reported(self) -> None:
+        variables = {"moduels": None}
+        available_paths = {Path(""), Path("modules")}
+
+        build_variables, errors = ModuleParser._parse_variables(
+            variables, available_paths, available_paths, config_path=Path("/config.dev.yaml")
+        )
+
+        assert [error.error.code for error in errors] == ["INVALID-VARIABLE-PATH"]
+        assert not build_variables
 
     def test_list_of_dicts_with_multiple_variables(self) -> None:
         variables = {"modules": {"moduleA": [{"var1": "a", "var2": "x"}, {"var1": "b", "var2": "y"}]}}

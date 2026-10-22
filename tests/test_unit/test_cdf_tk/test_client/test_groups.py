@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group.scopes import (
     InstancesScope,
     PartitionScope,
     PostgresGatewayUsersScope,
+    Scope,
     ScopeDefinition,
     SpaceIDScope,
     TableScope,
@@ -176,20 +177,20 @@ class TestScopeLogic:
     @pytest.mark.parametrize("scope1, scope2, intersection, union", list(scope_logic_test_cases()))
     def test_scope_intersection(
         self,
-        scope1: ScopeDefinition,
-        scope2: ScopeDefinition,
-        intersection: ScopeDefinition | None,
-        union: ScopeDefinition,
+        scope1: Scope,
+        scope2: Scope,
+        intersection: Scope | None,
+        union: Scope,
     ) -> None:
         assert scope_intersection(scope1, scope2) == intersection
 
     @pytest.mark.parametrize("scope1, scope2, intersection, union", list(scope_logic_test_cases()))
     def test_scope_union(
         self,
-        scope1: ScopeDefinition,
-        scope2: ScopeDefinition,
-        intersection: ScopeDefinition | None,
-        union: ScopeDefinition,
+        scope1: Scope,
+        scope2: Scope,
+        intersection: Scope | None,
+        union: Scope,
     ) -> None:
         assert scope_union(scope1, scope2) == union
 
@@ -314,7 +315,7 @@ class TestScopeLogic:
             (IDScopeLowerCase(ids=[1]), IDScopeLowerCase(ids=[2])),
         ],
     )
-    def test_scope_no_intersection(self, scope1: ScopeDefinition, scope2: ScopeDefinition) -> None:
+    def test_scope_no_intersection(self, scope1: Scope, scope2: Scope) -> None:
         assert scope_intersection(scope1, scope2) is None
 
     def test_intersection_no_args_returns_none(self) -> None:
