@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableRequest, RAWTableResponse
-from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.dataio import RawIO
@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRepeatedUploadFailureError
 from cognite_toolkit._cdf_tk.resource_ios import RawTableIO
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
+from tests.constants import CDF_CLUSTER
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -93,11 +94,11 @@ def raw_mock_client(
     toolkit_config: ToolkitClientConfig,
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
-) -> Iterator[tuple[ToolkitClient, respx.MockRouter]]:
+) -> Iterator[tuple[ToolkitClientMock, respx.MockRouter]]:
     config = toolkit_config
     insert_url = config.create_api_url("/raw/dbs/test_db/tables/test_table/rows")
     respx_mock.post(url=insert_url).respond(status_code=200)
-    monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
+    monkeypatch.setenv("CDF_CLUSTER", CDF_CLUSTER)
     monkeypatch.setenv("CDF_PROJECT", config.project)
     with monkeypatch_toolkit_client() as client:
         client.token.verify_acls.return_value = []
@@ -111,7 +112,7 @@ class TestUploadCommand:
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_upload_raw_rows_from_ndjson(
         self,
-        raw_mock_client: tuple[ToolkitClient, respx.MockRouter],
+        raw_mock_client: tuple[ToolkitClientMock, respx.MockRouter],
         raw_json_directory: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -125,7 +126,7 @@ class TestUploadCommand:
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_upload_raw_rows_from_csv(
         self,
-        raw_mock_client: tuple[ToolkitClient, respx.MockRouter],
+        raw_mock_client: tuple[ToolkitClientMock, respx.MockRouter],
         raw_csv_directory: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -136,7 +137,7 @@ class TestUploadCommand:
 
         self.assert_raw_rows_uploaded(client, respx_mock)
 
-    def assert_raw_rows_uploaded(self, client: ToolkitClient, respx_mock: respx.MockRouter) -> None:
+    def assert_raw_rows_uploaded(self, client: ToolkitClientMock, respx_mock: respx.MockRouter) -> None:
         assert len(respx_mock.calls) == 1
         call = respx_mock.calls[0]
         assert str(call.request.url).endswith("/raw/dbs/test_db/tables/test_table/rows")
@@ -169,6 +170,7 @@ class TestUploadCommand:
     ) -> None:
         """Test that _topological_sort_if_instance_selector sorts instance selectors by dependencies and preserves non-instance selectors."""
         cmd = UploadCommand(silent=True, skip_tracking=True)
+        assert cognite_core_no_3D.views is not None
         toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views)
         toolkit_client_approval.append(ContainerResponse, cognite_core_containers_no_3D)
 
@@ -206,7 +208,7 @@ class TestUploadCommand:
         # Check that all subclasses of InstanceSelector are part of the test data
         subclasses = set(get_concrete_subclasses(InstanceSelector))
         exceptions = {InstanceFileSelector, InstanceQuerySelector}
-        missing = subclasses - ({type(selector) for selector in data_files_by_selector.keys()} | exceptions)
+        missing = subclasses - ({type(selector) for selector in data_files_by_selector} | exceptions)
         # All instance selector subclasses should do topological sorting, except for the ones in exceptions
         assert not missing, f"Test data is missing selectors for the following InstanceSelector subclasses: {missing}"
 
@@ -224,18 +226,20 @@ class TestUploadCommand:
             DataItem(item=AssetRequest(external_id="asset_1", name="Asset 1"), tracking_id="row 1"),  # type: ignore[arg-type]
             DataItem(item=AssetRequest(external_id="asset_2", name="Asset 2"), tracking_id="row 2"),  # type: ignore[arg-type]
         ]
-        with HTTPClient(config=toolkit_config) as http_client:
-            with pytest.raises(
+        with (
+            HTTPClient(config=toolkit_config) as http_client,
+            pytest.raises(
                 ToolkitRepeatedUploadFailureError, match="Upload process was stopped due to repeatedly failed uploads"
-            ):
-                UploadCommand._upload_items(
-                    data_chunk=Page(worker_id="main", items=items),
-                    upload_client=http_client,
-                    io=AssetDataIO(ToolkitClient(toolkit_config)),  # type: ignore[arg-type]
-                    selector=DataSetSelector(data_set_external_id="dummy", kind="Assets"),
-                    dry_run=False,
-                    console=MagicMock(spec=Console),
-                    verbose=False,
-                    logger=NoOpLogger(),
-                    get_log_file=MagicMock(),
-                )
+            ),
+        ):
+            UploadCommand._upload_items(
+                data_chunk=Page(worker_id="main", items=items),
+                upload_client=http_client,
+                io=AssetDataIO(ToolkitClient(toolkit_config)),  # type: ignore[arg-type]
+                selector=DataSetSelector(data_set_external_id="dummy", kind="Assets"),
+                dry_run=False,
+                console=MagicMock(spec=Console),
+                verbose=False,
+                logger=NoOpLogger(),
+                get_log_file=MagicMock(),
+            )

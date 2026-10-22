@@ -12,7 +12,6 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeUntypedId
 # https://api-docs.cognite.com/20230101/tag/Documents/operation/documentsSearch
 DocumentPropertyPath: TypeAlias = (
     tuple[Literal["author"]]
-    | tuple[Literal["title"]]
     | tuple[Literal["mimeType"]]
     | tuple[Literal["extension"]]
     | tuple[Literal["pageCount"]]

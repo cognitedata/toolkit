@@ -481,15 +481,15 @@ class TestCDFResourceAPI:
         items = [item for batch in iterated for item in batch]
         assert items[0].dump() == instance.dump()
 
-        search_page = api.search(limit=10, query="q", filter={"equals": {"property": ["title"], "value": "x"}})
+        search_page = api.search(limit=10, query="q", filter={"equals": {"property": ["author"], "value": "x"}})
         assert len(search_page.items) == 1
         assert search_page.items[0].item.dump() == instance.dump()
 
         assert api.count() == 11
-        assert api.cardinality(("title",)) == 11
+        assert api.cardinality(("author",)) == 11
         assert api.cardinality(("sourceFile", "metadata")) == 11
 
-        unique_title = api.unique(("title",), limit=50)
+        unique_title = api.unique(("author",), limit=50)
         assert len(unique_title) == 1
         assert unique_title[0].count == 2
         assert unique_title[0].values == ["a"]
@@ -507,9 +507,9 @@ class TestCDFResourceAPI:
         with pytest.raises(ValueError, match="limit must be at most 20"):
             api.search(limit=21, highlight=True)
         with pytest.raises(ValueError, match="Limit must be between 1 and 10000"):
-            api.unique(("title",), limit=0)
+            api.unique(("author",), limit=0)
         with pytest.raises(ValueError, match="Limit must be between 1 and 10000"):
-            api.unique(("title",), limit=10001)
+            api.unique(("author",), limit=10001)
 
     def test_workflow_api_crud_list_methods(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
