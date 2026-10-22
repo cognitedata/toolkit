@@ -393,16 +393,10 @@ class LocationFiltersLookUpAPI(AllLookUpAPI):
     def _read_acl(self, ids: Sequence[int] | None = None) -> AclType:
         return LocationFiltersAcl(actions=["READ"], scope=AllScope() if ids is None else IDScope(ids=sorted(ids)))
 
-    def _id(self, external_id: list[str] | tuple[str, ...]) -> dict[str, int]:
-        if not self._has_looked_up:
-            self._lookup()
-        found_pairs = ((ext_id, self._cache[ext_id]) for ext_id in external_id if ext_id in self._cache)
-        return {k: v for k, v in found_pairs if v is not None}
-
 
 class UserLookUpAPI:
     def __init__(self, toolkit_client: "ToolkitClient") -> None:
-        self.client = toolkit_client
+        self._client = toolkit_client
         self._has_looked_up = False
         self._email_by_user_id: dict[str, str] = {}
         self._user_id_by_email: dict[str, str] = {}
@@ -415,7 +409,7 @@ class UserLookUpAPI:
         if self._has_looked_up:
             return
         try:
-            users: list[Principal] | list[UserProfile] = self.client.principals.list(types=["USER"], limit=None)
+            users: list[Principal] | list[UserProfile] = self._client.principals.list(types=["USER"], limit=None)
         except ToolkitAPIError as e:
             if e.code == 401:
                 # Requires to be authenticated by CogIdp, falling back to deprecated API.
@@ -434,12 +428,12 @@ class UserLookUpAPI:
 
     def _list_user_profiles(self) -> list[UserProfile]:
         try:
-            return self.client.user_profiles.list(identity_type="USER", limit=None)
+            return self._client.user_profiles.list(identity_type="USER", limit=None)
         except ToolkitAPIError as e:
             if e.code and 400 <= e.code < 500:
-                missing_capabilities = self.client.token.verify_acls([self._read_acl()])
+                missing_capabilities = self._client.token.verify_acls([self._read_acl()])
                 if missing_capabilities:
-                    raise self.client.token.create_error(missing_capabilities, "lookup users")
+                    raise self._client.token.create_error(missing_capabilities, "lookup users")
             raise
 
     @overload
@@ -494,7 +488,7 @@ class UserLookUpAPI:
             MediumSeverityWarning(
                 f"Failed to retrieve {value_name} for user{plural} with {key_name}{plural} "
                 f"{humanize_collection(missing)}. {plural2} not exist in CDF"
-            ).print_warning(console=self.client.console)
+            ).print_warning(console=self._client.console)
         if isinstance(keys, str):
             return mapping.get(keys)
         return [mapping[key] for key in key_list if key in mapping]
