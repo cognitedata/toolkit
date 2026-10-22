@@ -239,7 +239,7 @@ def write_connections(
                     } | set(direct_relation_ids)
                     after = len(all_connections)
                     entity_source.properties = {
-                        **entity_source.properties,
+                        **(entity_source.properties or {}),
                         direct_relation_property: [connection.dump() for connection in all_connections],
                     }
                     connection_count += after - before
