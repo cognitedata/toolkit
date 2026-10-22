@@ -74,6 +74,7 @@ class TestExternalDataSourceYAML:
     def test_load_valid_external_data_source(self) -> None:
         loaded = _YAML.validate_python(self.VALID)
         assert isinstance(loaded, OneLakeExternalDataSourceYAML)
+        assert "format" not in loaded.model_fields_set
         assert loaded.external_id == "fabric-lakehouse-prod"
         assert loaded.settings.credentials.client_secret is not None
         assert loaded.settings.credentials.client_secret.get_secret_value() == "azure-client-secret"
