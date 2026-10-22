@@ -262,7 +262,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         """The view followed by its ancestors in CDF's property precedence order.
 
         Follows implements through local views only; non-local views are kept as leaves. For a view
-        implementing [C, D], D takes precedence over C.
+        implementing [C, D], D takes precedence over C, matching CDF's internal resolution order.
         """
         postorder: list[ViewId] = []
         cls._visit_view(view_id, local_views, set(), postorder)
