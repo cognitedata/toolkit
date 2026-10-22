@@ -130,8 +130,8 @@ markers = [
 [tool.ty.src]
 include = ["cognite_toolkit", "tests_smoke", "tests"]
 exclude = [
-    "tests/data/",
-    "tests/test_unit/test_cdf_tk/approval_client",
+#    "tests/data/",
+#    "tests/test_unit/test_cdf_tk/approval_client",
 ]
 [tool.ty.environment]
 python-version = "3.14"
@@ -143,6 +143,15 @@ extra-paths = ["typings"]
 [tool.ty.rules]
 # This we do a lot intentionally when using the Discriminator pattern in pydantic.
 invalid-mutable-override = "ignore"
+
+# Test data contains user code for CDF Functions and Streamlit apps. Their dependencies
+# (e.g. streamlit, inflect, function-local packages) are not installed in the dev environment.
+[[tool.ty.overrides]]
+include = ["tests/data/**/functions/**", "tests/data/**/streamlit/**"]
+
+[tool.ty.overrides.rules]
+unresolved-import = "ignore"
+unresolved-attribute = "ignore"
 
 [tool.ruff]
 line-length = 120

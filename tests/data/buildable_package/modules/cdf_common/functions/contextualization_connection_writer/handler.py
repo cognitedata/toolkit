@@ -238,9 +238,10 @@ def write_connections(
                         dm.DirectRelationReference.load(connection) for connection in existing_connections
                     } | set(direct_relation_ids)
                     after = len(all_connections)
-                    entity_source.properties[direct_relation_property] = [  # type: ignore[index]
-                        connection.dump() for connection in all_connections
-                    ]
+                    entity_source.properties = {
+                        **entity_source.properties,
+                        direct_relation_property: [connection.dump() for connection in all_connections],
+                    }
                     connection_count += after - before
                     break
             updated_nodes.append(existing_node)
@@ -298,23 +299,23 @@ def to_direct_relations_by_source_by_node(
     return annotation_by_source_by_node
 
 
-def create_query(last_cursor: str | None, annotation_space: str) -> dm.query.Query:
+def create_query(last_cursor: str | None, annotation_space: str) -> dm.query.QuerySync:
     view_id = CogniteDiagramAnnotationApply.get_source()
     is_annotation = dm.filters.And(
         dm.filters.Equals(["edge", "space"], annotation_space),
         dm.filters.HasData(views=[view_id]),
         dm.filters.Equals(view_id.as_property_ref("status"), "Approved"),
     )
-    return dm.query.Query(
+    return dm.query.QuerySync(
         with_={
-            "annotations": dm.query.EdgeResultSetExpression(
+            "annotations": dm.query.EdgeResultSetExpressionSync(
                 from_=None,
                 filter=is_annotation,
                 limit=1000,
             )
         },
         select={
-            "annotations": dm.query.Select(
+            "annotations": dm.query.SelectSync(
                 [
                     dm.query.SourceSelector(
                         source=CogniteDiagramAnnotationApply.get_source(), properties=["sourceContext"]
