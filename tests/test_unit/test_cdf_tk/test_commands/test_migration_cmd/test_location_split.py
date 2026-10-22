@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
@@ -146,11 +148,11 @@ class TestAssetExternalIdTargetSpaceResolver:
     @staticmethod
     def _assets_retrieve_side_effect(
         location_assets: list[AssetResponse], assets_with_path: list[AssetResponse]
-    ) -> list[AssetResponse]:
+    ) -> Callable[..., list[AssetResponse]]:
         def _side_effect(*args: object, **kwargs: object) -> list[AssetResponse]:
             return assets_with_path if kwargs.get("aggregated_properties") else location_assets
 
-        return _side_effect  # type: ignore[return-value]
+        return _side_effect
 
     def test_resolves_location_asset_that_is_not_hierarchy_root(self) -> None:
         # PLANT (id=1) -> PLANT-UNIT-A (id=2, the configured location asset) -> the notification's asset (id=3).
