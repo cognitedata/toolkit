@@ -55,7 +55,7 @@ class DeployableContainer(ToolkitLocalRule):
     ```
     """
 
-    CODE = "INVALID-DIRECT-RELATION"
+    CODE = "INVALID-VALUE"
     insight_type = ConsistencyError
 
     def validate(self) -> Iterable[Insight]:
