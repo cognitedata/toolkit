@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     LocationFiltersAcl,
     SecurityCategoriesAcl,
     TimeSeriesAcl,
+    UserProfilesAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.principal import Principal, UserPrincipal
 from cognite_toolkit._cdf_tk.client.resource_classes.user_profile import UserProfile
@@ -405,6 +406,10 @@ class UserLookUpAPI:
         self._has_looked_up = False
         self._email_by_user_id: dict[str, str] = {}
         self._user_id_by_email: dict[str, str] = {}
+
+    @classmethod
+    def _read_acl(cls) -> AclType:
+        return UserProfilesAcl(actions=["READ"], scope=AllScope())
 
     def _lookup(self) -> None:
         if self._has_looked_up:
