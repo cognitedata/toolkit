@@ -89,7 +89,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                     f"Function limits validation requires READ access to Functions. "
                     f"The following ACLs are missing: {humanize_collection(missing)}."
                 ),
-                code="MISSING-ACCESS",
+                code="MISSING-READ-ACCESS",
                 fix="Ensure that the provided token has READ access to Functions.",
                 source_file=first_function,
             )
