@@ -293,7 +293,7 @@ class TestFunctionLimitsRule:
         errors = list(rule._validate_function(resource))
 
         assert len(errors) == 1
-        assert errors[0].code == "INVALID-FUNCTION-REQUIREMENTS"
+        assert errors[0].code == "INVALID-REQUIREMENTS"
         mock_validate_pip.assert_called_once()
 
     @patch("cognite_toolkit._cdf_tk.rules._functions.validate_requirements_with_pip")
