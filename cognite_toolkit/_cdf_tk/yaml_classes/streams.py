@@ -51,7 +51,7 @@ class StreamYAML(ToolkitResource):
                     code="INVALID-VALUE",
                     message=f"Stream template '{self.settings.template.name}' is not an officially supported template.\n"
                     f"Note if you are using a custom template, this warning can be ignored.\n"
-                    f"To make Toolkit not report this, add the following to you the top of"
+                    f"To suppress this warning, add the following to you the top of"
                     f"{relative_to_if_possible(source_file).as_posix()}:\n  `# rules: ignore[INVALID-VALUE]` ",
                     fix=f"Please use one of the following templates: {', '.join(AVAILABLE_STREAM_TEMPLATES)}",
                 )
