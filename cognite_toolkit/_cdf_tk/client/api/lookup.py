@@ -19,6 +19,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     SecurityCategoriesAcl,
     TimeSeriesAcl,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.principal import Principal, UserPrincipal
+from cognite_toolkit._cdf_tk.client.resource_classes.user_profile import UserProfile
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -397,6 +399,39 @@ class LocationFiltersLookUpAPI(AllLookUpAPI):
         return {k: v for k, v in found_pairs if v is not None}
 
 
+class UserLookUpAPI:
+    def __init__(self, toolkit_client: "ToolkitClient") -> None:
+        self.client = toolkit_client
+        self._has_looked_up = False
+        self._email_by_user_id: dict[str, str] = {}
+        self._user_id_by_email: dict[str, str] = {}
+
+    def _lookup(self) -> None:
+        if self._has_looked_up:
+            return
+        try:
+            users: list[Principal] | list[UserProfile] = self.client.principals.list(types=["USER"], limit=None)
+        except ToolkitAPIError as e:
+            if e.code == 401:
+                # Requires to be authenticated by CogIdp, falling back to deprecated API.
+                users = self.client.user_profiles.list(identity_type="USER", limit=None)
+            else:
+                raise e
+        for user in users:
+            if isinstance(user, UserPrincipal) and user.email:
+                self._email_by_user_id[user.id] = user.email
+                self._user_id_by_email[user.email] = user.id
+            elif isinstance(user, UserProfile):
+                if user.user_identifier and user.email:
+                    self._email_by_user_id[user.user_identifier] = user.email
+                    self._user_id_by_email[user.email] = user.user_identifier
+        self._has_looked_up = True
+
+    def email(self, user_id: str | list[str]) -> str | list[str] | None: ...
+
+    def user_id(self, email: str | list[str]) -> str | list[str] | None: ...
+
+
 class LookUpGroup:
     def __init__(self, toolkit_client: "ToolkitClient") -> None:
         self._toolkit_client = toolkit_client
@@ -409,3 +444,4 @@ class LookUpGroup:
         self.location_filters = LocationFiltersLookUpAPI(toolkit_client)
         self.extraction_pipelines = ExtractionPipelineLookUpAPI(toolkit_client)
         self.functions = FunctionLookUpAPI(toolkit_client)
+        self.users = UserLookUpAPI(toolkit_client)
