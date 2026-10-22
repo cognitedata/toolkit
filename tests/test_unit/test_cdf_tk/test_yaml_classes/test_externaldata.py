@@ -43,6 +43,7 @@ _YAML = TypeAdapter(ExternalDataSourceYAML)
 class TestExternalDataSourceYAML:
     VALID: ClassVar[dict[str, object]] = {
         "externalId": "fabric-lakehouse-prod",
+        "format": "one_lake",
         "name": "Production lakehouse",
         "dataSetExternalId": "my_dataset",
         "settings": {
@@ -74,7 +75,6 @@ class TestExternalDataSourceYAML:
     def test_load_valid_external_data_source(self) -> None:
         loaded = _YAML.validate_python(self.VALID)
         assert isinstance(loaded, OneLakeExternalDataSourceYAML)
-        assert "format" not in loaded.model_fields_set
         assert loaded.external_id == "fabric-lakehouse-prod"
         assert loaded.settings.credentials.client_secret is not None
         assert loaded.settings.credentials.client_secret.get_secret_value() == "azure-client-secret"
@@ -90,6 +90,7 @@ class TestExternalDataSourceYAML:
     def test_load_external_data_source_without_client_secret(self) -> None:
         data = {
             "externalId": "fabric-lakehouse-prod",
+            "format": "one_lake",
             "settings": {
                 "credentials": {
                     "clientId": "azure-client-id",
@@ -137,13 +138,19 @@ class TestExternalDataSourceYAML:
         "data, expected_errors",
         [
             pytest.param(
-                {"externalId": "fabric-lakehouse-prod"},
+                {"externalId": "fabric-lakehouse-prod", "settings": {}},
+                ["Missing required field: 'format'"],
+                id="missing_format",
+            ),
+            pytest.param(
+                {"externalId": "fabric-lakehouse-prod", "format": "one_lake"},
                 ["Missing required field: 'settings'"],
                 id="missing_settings",
             ),
             pytest.param(
                 {
                     "externalId": "fabric-lakehouse-prod",
+                    "format": "one_lake",
                     "settings": {
                         "credentials": {
                             "clientId": "azure-client-id",
@@ -169,12 +176,9 @@ class TestExternalDataSourceYAML:
 
 
 class TestExternalDataSourceResourceClasses:
-    def test_request_default_format(self) -> None:
-        request = ExternalDataSourceRequestAdapter.validate_python({"externalId": "fabric-lakehouse-prod"})
-        assert isinstance(request, OneLakeExternalDataSourceRequest)
-        assert request.format == "one_lake"
-        dumped = json.loads(request.model_dump_json(by_alias=True))
-        assert dumped["format"] == "one_lake"
+    def test_request_requires_format(self) -> None:
+        with pytest.raises(ValidationError, match="format"):
+            ExternalDataSourceRequestAdapter.validate_python({"externalId": "fabric-lakehouse-prod"})
 
     def test_request_unknown_format(self) -> None:
         request = ExternalDataSourceRequestAdapter.validate_python(

@@ -177,17 +177,14 @@ _RESPONSE_BY_FORMAT: dict[str, type[ExternalDataSourceResponse]] = {
 
 
 def _handle_request_union(value: Any) -> Any:
-    # A missing format is OneLake, the only format before Snowflake was added.
     if isinstance(value, dict):
-        source_format = value.get("format") or "one_lake"
-        return _REQUEST_BY_FORMAT.get(source_format, UnknownExternalDataSourceRequest).model_validate(value)
+        return _REQUEST_BY_FORMAT.get(value.get("format"), UnknownExternalDataSourceRequest).model_validate(value)
     return value
 
 
 def _handle_response_union(value: Any) -> Any:
     if isinstance(value, dict):
-        source_format = value.get("format") or "one_lake"
-        return _RESPONSE_BY_FORMAT.get(source_format, UnknownExternalDataSourceResponse).model_validate(value)
+        return _RESPONSE_BY_FORMAT.get(value.get("format"), UnknownExternalDataSourceResponse).model_validate(value)
     return value
 
 

@@ -1,6 +1,6 @@
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
-from pydantic import Discriminator, Field, SecretStr, Tag, field_serializer
+from pydantic import Field, SecretStr, field_serializer
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
@@ -73,29 +73,19 @@ class ExternalDataSource(ToolkitResource):
 class OneLakeExternalDataSourceYAML(ExternalDataSource):
     """Toolkit YAML for a OneLake external data source."""
 
-    format: Literal["one_lake"] = Field(default="one_lake", description="External data source format.")
+    format: Literal["one_lake"] = Field(description="External data source format.")
     settings: OneLakeSettingsYAML = Field(description="OneLake connection settings.")
 
 
 class SnowflakeExternalDataSourceYAML(ExternalDataSource):
     """Toolkit YAML for a Snowflake external data source."""
 
-    format: Literal["snowflake"] = Field(default="snowflake", description="External data source format.")
+    format: Literal["snowflake"] = Field(description="External data source format.")
     settings: SnowflakeSettingsYAML = Field(description="Snowflake connection settings.")
     expiry_time: int = Field(description="Expiry time in epoch milliseconds for the Snowflake RSA key pair.")
 
 
-def _discriminate_format(data: Any) -> str | None:
-    """A missing format is OneLake, the only format before Snowflake was added."""
-    if isinstance(data, ExternalDataSource):
-        return getattr(data, "format", None)
-    if isinstance(data, dict):
-        return data.get("format") or "one_lake"
-    return None
-
-
 ExternalDataSourceYAML = Annotated[
-    Annotated[OneLakeExternalDataSourceYAML, Tag("one_lake")]
-    | Annotated[SnowflakeExternalDataSourceYAML, Tag("snowflake")],
-    Discriminator(_discriminate_format),
+    OneLakeExternalDataSourceYAML | SnowflakeExternalDataSourceYAML,
+    Field(discriminator="format"),
 ]

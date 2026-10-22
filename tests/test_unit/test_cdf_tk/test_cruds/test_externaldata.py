@@ -37,6 +37,7 @@ from tests.utils import to_deploy_status
 
 _YAML = """
 externalId: fabric-lakehouse-prod
+format: one_lake
 name: Production lakehouse
 settings:
   credentials:
@@ -230,6 +231,7 @@ class TestExternalDataSourceIO:
         resource = TypeAdapter(ExternalDataSourceYAML).validate_python(
             {
                 "externalId": "fabric-lakehouse-prod",
+                "format": "one_lake",
                 "dataSetExternalId": "my_dataset",
                 "settings": {
                     "credentials": {"clientId": "id", "tenantId": "tenant", "clientSecret": "secret"},
@@ -283,6 +285,7 @@ class TestExternalDataSourceIO:
             loaded = loader.load_resource(
                 {
                     "externalId": "fabric-lakehouse-prod",
+                    "format": "one_lake",
                     "dataSetExternalId": "my_dataset",
                     "settings": {
                         "credentials": {"clientId": "id", "tenantId": "tenant", "clientSecret": "secret"},
