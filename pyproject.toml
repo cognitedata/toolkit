@@ -129,10 +129,8 @@ markers = [
 
 [tool.ty.src]
 include = ["cognite_toolkit", "tests_smoke", "tests"]
-exclude = [
-#    "tests/data/",
-#    "tests/test_unit/test_cdf_tk/approval_client",
-]
+exclude = []
+
 [tool.ty.environment]
 python-version = "3.14"
 python = ".venv"
