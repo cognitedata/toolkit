@@ -24,13 +24,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.token import FlatCapabiliti
 from cognite_toolkit._cdf_tk.commands.auth.data_classes import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.auth.data_classes._types import LoginFlow, Provider
 from cognite_toolkit._cdf_tk.commands.auth.session_store import StoredSession
+from cognite_toolkit._cdf_tk.commands.auth.utils import DATA_MODELING_ONLY_EXCLUDED_IOS
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
     AuthorizationError,
     ToolkitKeyError,
     ToolkitMissingValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios import AssetIO, GroupIO, RelationshipIO, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios import GroupIO, ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._auth import ReplaceMethod
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
@@ -251,10 +252,11 @@ def resources_from_capabilities(
 ) -> tuple[list[ResourceAccess], int]:
     """Map merged capabilities onto toolkit resource types and the scope of that access.
 
-    Assets and relationships are omitted on DATA_MODELING_ONLY projects, matching auth verify.
+    Legacy resources (assets, relationships, labels, files, security categories, time series, events,
+    sequences) are omitted on DATA_MODELING_ONLY projects, matching auth verify.
     Every checked type is returned, including types the identity cannot read or write.
     """
-    excluded = {AssetIO, RelationshipIO} if data_modeling_status == "DATA_MODELING_ONLY" else set()
+    excluded = DATA_MODELING_ONLY_EXCLUDED_IOS if data_modeling_status == "DATA_MODELING_ONLY" else frozenset()
     resources: list[ResourceAccess] = []
     checked = 0
     # data_models is an alias of data_modeling, so RESOURCE_CRUD_LIST contains those classes twice.

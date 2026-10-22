@@ -29,7 +29,6 @@
 import random
 import re
 import time
-import warnings
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from copy import deepcopy
@@ -576,9 +575,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     ) -> list[TransformationResponse]:
         results: list[TransformationResponse] = []
         for chunk in chunker(items, self._BATCH_SIZE):
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                self._update_nonce(chunk)
+            self._update_nonce(chunk)
             try:
                 chunk_results = api_call(chunk)
             except ToolkitAPIError as e:
