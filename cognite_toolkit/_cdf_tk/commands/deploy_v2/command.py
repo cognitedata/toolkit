@@ -274,7 +274,7 @@ class DeployV2Command(ToolkitCommand):
             client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
         module_locks: ModuleLockResult | None = None
-        if Flags.MODULE_LOCK.is_enabled():
+        if Flags.DEPLOY_PROTECTION.is_enabled():
             module_locks = self._acquire_module_locks(build_lineage, client)
 
         self._validate_cdf_project(build_dir, options.operation, options.cdf_project, client.config.project)
@@ -294,7 +294,7 @@ class DeployV2Command(ToolkitCommand):
             clean_result = self.apply_plan(
                 client, list(reversed(plan)), options, is_delete=True, insights_by_resource=insights_by_resource
             )
-            if Flags.MODULE_LOCK.is_enabled():
+            if Flags.DEPLOY_PROTECTION.is_enabled():
                 self._release_module_locks(module_locks, client)
 
             if options.operation == "clean":
@@ -303,7 +303,7 @@ class DeployV2Command(ToolkitCommand):
 
         results = self.apply_plan(client, plan, options, insights_by_resource=insights_by_resource)
 
-        if Flags.MODULE_LOCK.is_enabled():
+        if Flags.DEPLOY_PROTECTION.is_enabled():
             self._release_module_locks(module_locks, client)
 
         if clean_result is not None:
