@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.utils.file import (
     create_logfile_stem,
     create_temporary_zip,
     find_unique_match_position,
+    load_yaml_inject_variables,
     read_yaml_content,
     sanitize_filename,
     yaml_find_unique_position,
@@ -101,6 +102,7 @@ databases:
 -   connection-string: !keyvault db-connection-secret
     name: my_db"""
         result = read_yaml_content(yaml_content)
+        assert isinstance(result, dict)
         assert result["azure-keyvault"]["password"] == "!keyvault value-secret-name"
         assert result["databases"][0]["connection-string"] == "!keyvault db-connection-secret"
         assert result["databases"][0]["name"] == "my_db"
@@ -111,6 +113,7 @@ databases:
 secret2: !keyvault secret-name-2
 normal_value: regular-string"""
         result = read_yaml_content(yaml_content)
+        assert isinstance(result, dict)
         assert result["secret1"] == "!keyvault secret-name-1"
         assert result["secret2"] == "!keyvault secret-name-2"
         assert result["normal_value"] == "regular-string"
@@ -173,3 +176,22 @@ class TestFindUniqueMatchPosition:
 
     def test_no_match(self) -> None:
         assert find_unique_match_position(self.CONTENT, re.compile(r"\{\{ missing \}\}")) is None
+
+
+class TestLoadYamlInjectVariables:
+    PEM = "-----BEGIN CERTIFICATE-----\nMIIBszCCAVmgAwIBAgIU\n-----END CERTIFICATE-----"
+
+    YAML = "externalId: my_mqtt\nauthCertificate:\n  certificate: ${MQTT_CERT}\n"
+
+    def test_multiline_value_injected_from_env(self) -> None:
+        loaded = load_yaml_inject_variables(self.YAML, {"MQTT_CERT": self.PEM}, required_return_type="dict")
+
+        assert loaded["authCertificate"]["certificate"] == self.PEM
+        assert loaded["externalId"] == "my_mqtt"
+
+    def test_escaped_newlines_are_preserved(self) -> None:
+        # Unescaping is resource specific, e.g., done by HostedExtractorSourceIO for certificates.
+        escaped = self.PEM.replace("\n", "\\n")
+        loaded = load_yaml_inject_variables(self.YAML, {"MQTT_CERT": escaped}, required_return_type="dict")
+
+        assert loaded["authCertificate"]["certificate"] == escaped

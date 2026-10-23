@@ -1,7 +1,7 @@
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 from unittest import mock
 
 import pytest
@@ -15,7 +15,13 @@ from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_SESSION_VERSION
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, SessionExpiredError, ToolkitMissingValueError
 from tests.test_unit.utils import MockQuestionary
 
-PROJECT_AND_CLUSTER = {
+
+class ProjectAndCluster(TypedDict):
+    CDF_CLUSTER: str
+    CDF_PROJECT: str
+
+
+PROJECT_AND_CLUSTER: ProjectAndCluster = {
     "CDF_CLUSTER": "toolkit-cluster",
     "CDF_PROJECT": "the-toolkit-project",
 }
@@ -108,15 +114,13 @@ class TestEnvironmentVariables:
         assert not missing_env_vars, f"Missing environment variables: {missing_env_vars}"
 
     def test_get_missing_vars(self) -> None:
-        args = {
-            **PROJECT_AND_CLUSTER,
-            "LOGIN_FLOW": "client_credentials",
-            "PROVIDER": "entra_id",
-            "IDP_CLIENT_ID": "my-identifier",
-        }
-
         with pytest.raises(ToolkitMissingValueError) as error:
-            _ = EnvironmentVariables(**args).get_config(is_strict_validation=True)
+            _ = EnvironmentVariables(
+                **PROJECT_AND_CLUSTER,
+                LOGIN_FLOW="client_credentials",
+                PROVIDER="entra_id",
+                IDP_CLIENT_ID="my-identifier",
+            ).get_config(is_strict_validation=True)
 
         assert (
             str(error.value) == "The login flow 'client_credentials' requires the following environment variables: "
@@ -184,7 +188,7 @@ CDF_CLIENT_MAX_WORKERS=5
         )
 
     def test_get_credentials_session_uses_persisted_access_token(self, sample_keyring: Path, cli_home: Path) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         StoredSession(
             version=COGNITE_CLI_SESSION_VERSION,
             org="my-org",
@@ -208,7 +212,7 @@ CDF_CLIENT_MAX_WORKERS=5
         self, sample_keyring: Path, cli_home: Path, cogidp_http
     ) -> None:
         cogidp_http(token_json={"access_token": "new-access", "refresh_token": "refresh", "expires_in": 3600})
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         StoredSession(
             version=COGNITE_CLI_SESSION_VERSION,
             org="my-org",
@@ -241,7 +245,7 @@ CDF_CLIENT_MAX_WORKERS=5
             env_vars.get_credentials()
 
     def test_get_credentials_session_expired_raises(self, sample_keyring: Path, cli_home: Path) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         StoredSession(
             version=COGNITE_CLI_SESSION_VERSION,
             org="my-org",

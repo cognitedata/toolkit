@@ -28,7 +28,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, InternalId, RawTableId, SpaceId, ViewId
-from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, DataSetsAcl, DataSetScope, IDScope
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, AllScope, DataSetsAcl, DataSetScope, IDScope
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._utils import (
     confirm_by_typing_project_name,
@@ -59,6 +60,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_IO_BY_FOLDER_NAME,
     ContainerIO,
     EdgeIO,
+    FunctionIO,
     NodeIO,
     RawTableIO,
     ResourceContainerIO,
@@ -203,18 +205,30 @@ class ResourceToDeploy(Generic[T_Identifier, T_RequestResource]):
 class DeploymentResult:
     resource_name: str
     is_dry_run: bool
-    created_count: int
-    deleted_count: int
-    updated_count: int
-    unchanged_count: int
+    created_ids: list[Identifier]
+    updated_ids: list[Identifier]
+    deleted_ids: list[Identifier]
+    unchanged_ids: list[Identifier]
     is_missing_write_acl: bool
     is_missing_read_acl: bool = False
     is_write_acl_unknown: bool = False
     skipped: list[Skipped] = field(default_factory=list)
-    created_ids: list[Identifier] = field(default_factory=list)
-    updated_ids: list[Identifier] = field(default_factory=list)
-    deleted_ids: list[Identifier] = field(default_factory=list)
-    unchanged_ids: list[Identifier] = field(default_factory=list)
+
+    @property
+    def created_count(self) -> int:
+        return len(self.created_ids)
+
+    @property
+    def deleted_count(self) -> int:
+        return len(self.deleted_ids)
+
+    @property
+    def updated_count(self) -> int:
+        return len(self.updated_ids)
+
+    @property
+    def unchanged_count(self) -> int:
+        return len(self.unchanged_ids)
 
     @property
     def skipped_count(self) -> int:
@@ -225,10 +239,6 @@ class DeploymentResult:
         return self.created_count + self.deleted_count + self.updated_count + self.unchanged_count + self.skipped_count
 
     def __iadd__(self, other: "DeploymentResult") -> "DeploymentResult":
-        self.created_count += other.created_count
-        self.deleted_count += other.deleted_count
-        self.updated_count += other.updated_count
-        self.unchanged_count += other.unchanged_count
         self.is_missing_write_acl = self.is_missing_write_acl or other.is_missing_write_acl
         self.is_missing_read_acl = self.is_missing_read_acl or other.is_missing_read_acl
         self.is_write_acl_unknown = self.is_write_acl_unknown or other.is_write_acl_unknown
@@ -786,8 +796,8 @@ class DeployV2Command(ToolkitCommand):
                 resource_count = len(resource_by_id)
                 request_resources = [resource.request for resource in resource_by_id.values()]
 
-                is_missing_read, is_missing_write, is_write_acl_unknown = cls._validate_access(
-                    crud, request_resources, client, is_dry_run=options.dry_run
+                is_missing_read, is_missing_write, is_write_acl_unknown = cls.validate_access(
+                    crud, request_resources, is_dry_run=options.dry_run
                 )
                 if is_missing_read:
                     progress.update(task_id, description=f"Missing READ access for {resource_name}, skipping")
@@ -795,10 +805,10 @@ class DeployV2Command(ToolkitCommand):
                         DeploymentResult(
                             resource_name=resource_name,
                             is_dry_run=options.dry_run,
-                            created_count=0,
-                            deleted_count=0,
-                            updated_count=0,
-                            unchanged_count=0,
+                            created_ids=[],
+                            deleted_ids=[],
+                            updated_ids=[],
+                            unchanged_ids=[],
                             is_missing_write_acl=is_missing_write,
                             is_missing_read_acl=is_missing_read,
                             is_write_acl_unknown=is_write_acl_unknown,
@@ -915,11 +925,10 @@ class DeployV2Command(ToolkitCommand):
         return to_deploy_by_id
 
     @classmethod
-    def _validate_access(
+    def validate_access(
         cls,
         crud: ResourceIO[T_Identifier, T_RequestResource, T_ResponseResource, Any],
         resources: list[T_RequestResource],
-        client: ToolkitClient,
         is_dry_run: bool,
     ) -> tuple[bool, bool, bool]:
         """Validate that the user has access to the resources they are deploying.
@@ -931,42 +940,75 @@ class DeployV2Command(ToolkitCommand):
             only set in dry-run when resources reference datasets that are not yet in CDF (``DRY_RUN_ID``),
             so write-protected dataset ownership cannot be verified.
         """
-        minimum_scope = crud.get_minimum_scope(resources)
-        if minimum_scope is None:
-            return False, False, False
 
-        data_set_ids: list[int] | None = None
-        if isinstance(minimum_scope, DataSetScope):
-            data_set_ids = minimum_scope.ids
-        elif isinstance(minimum_scope, AllScope):
-            # If the minimum scope is AllScope, then at least one of the resources are unscoped. But there
-            # can still be resources that are scoped to a dataset, so we check for those and add the ownership ACLs
-            # for those datasets if they are write-protected.
-            data_set_ids = cls._get_data_set_ids(resources)
+        if not isinstance(crud, FunctionIO):
+            minimum_scope = crud.get_minimum_scope(resources)
+            if minimum_scope is None:
+                return False, False, False
+            minimum_scopes = [minimum_scope]
+        else:
+            # Special case for FunctionIO, as a function can be scoped to either a dataset or spaces,
+            # so we need to check both.
+            # We know that all the resources are FunctionRequest, so we can safely cast here.
+            minimum_scopes = list(crud.get_minimum_scopes(cast(list[FunctionRequest], resources)))
+            if not minimum_scopes:
+                return False, False, False
+
+        data_set_ids: list[int] = []
+        for scope in minimum_scopes:
+            if isinstance(scope, DataSetScope):
+                data_set_ids.extend(scope.ids)
+            elif isinstance(scope, AllScope):
+                # If the minimum scope is AllScope, then at least one of the resources are unscoped. But there
+                # can still be resources that are scoped to a dataset, so we check for those and add the ownership ACLs
+                # for those datasets if they are write-protected.
+                data_set_ids.extend(cls._get_data_set_ids(resources))
 
         dataset_owner: DataSetsAcl | None = None
-        if write_protected_ids := cls._write_protected_datasets(client, data_set_ids or []):
+        if write_protected_ids := cls._write_protected_datasets(crud.client, data_set_ids):
             dataset_owner = DataSetsAcl(actions=["OWNER"], scope=IDScope(ids=list(write_protected_ids)))
 
         if is_dry_run:
-            read_acl = list(crud.create_acl({"READ"}, minimum_scope))
-            write_acl = list(crud.create_acl({"WRITE"}, minimum_scope))
+            read_acl: list[AclType] = []
+            write_acl: list[AclType] = []
+            for scope in minimum_scopes:
+                read_acl.extend(crud.create_acl({"READ"}, scope))
+                write_acl.extend(crud.create_acl({"WRITE"}, scope))
+
             if dataset_owner:
                 write_acl.append(dataset_owner)
             is_write_acl_unknown = cls._resources_have_unresolved_data_set(resources)
             return (
-                bool(crud.client.token.verify_acls(read_acl)),
-                bool(crud.client.token.verify_acls(write_acl)),
+                bool(crud.client.token.verify_acls(cls._dedupe_acls(read_acl))),
+                bool(crud.client.token.verify_acls(cls._dedupe_acls(write_acl))),
                 is_write_acl_unknown,
             )
         else:
             # Is not dry run
-            read_write_acls = list(crud.create_acl({"READ", "WRITE"}, minimum_scope))
+            read_write_acls: list[AclType] = []
+            for scope in minimum_scopes:
+                read_write_acls.extend(crud.create_acl({"READ", "WRITE"}, scope))
             if dataset_owner:
                 read_write_acls.append(dataset_owner)
-            if missing := crud.client.token.verify_acls(read_write_acls):
+            if missing := crud.client.token.verify_acls(cls._dedupe_acls(read_write_acls)):
                 raise crud.client.token.create_error(missing, action=f"deploy {crud.display_name}")
             return False, False, False
+
+    @staticmethod
+    def _dedupe_acls(acls: list[AclType]) -> list[AclType]:
+        """Remove duplicate ACLs, preserving order.
+
+        AclType models are not hashable, so we key on a stable JSON representation.
+        """
+        seen: set[str] = set()
+        unique: list[AclType] = []
+        for acl in acls:
+            # ACL name is not included in the model_dump_json
+            key = acl.acl_name + acl.model_dump_json()  # stable, includes acl_name + actions + scope
+            if key not in seen:
+                seen.add(key)
+                unique.append(acl)
+        return unique
 
     @staticmethod
     def _resources_have_unresolved_data_set(resources: list[T_RequestResource]) -> bool:
@@ -1117,10 +1159,6 @@ class DeployV2Command(ToolkitCommand):
         return DeploymentResult(
             resource_name=crud.display_name,
             is_dry_run=True,
-            created_count=len(created_ids),
-            updated_count=len(updated_ids),
-            deleted_count=len(deleted_ids),
-            unchanged_count=len(unchanged_ids),
             skipped=resources.skipped,
             is_missing_write_acl=is_missing_write_acl,
             is_write_acl_unknown=is_write_acl_unknown,
@@ -1147,13 +1185,14 @@ class DeployV2Command(ToolkitCommand):
         deploy_dir: Path | None = None,
         insights_by_resource: InsightsByResource | None = None,
     ) -> DeploymentResult:
-        deleted: Sequence[T_Identifier] = []
-        created, updated = 0, 0
+        deleted_ids: list[T_Identifier] = []
+        created_ids: list[T_Identifier] = []
+        updated_ids: list[T_Identifier] = []
         action: Literal["create", "delete", "update", "upsert"] | None = None
         try:
             if resources.to_delete:
                 action = "delete"
-                deleted = crud.delete(resources.to_delete)
+                deleted_ids = list(crud.delete(resources.to_delete))
             if isinstance(crud, ViewIO) and (resources.to_create and resources.to_update):
                 # Since the upsert endpoint for views validates cross-references between views, we need to
                 # to combine the create and update operations to avoid dependency errors in
@@ -1161,35 +1200,31 @@ class DeployV2Command(ToolkitCommand):
                 action = "upsert"
                 to_create_ids = {crud.get_id(item) for item in resources.to_create}  # type: ignore[arg-type]
                 to_upsert = [*resources.to_create, *resources.to_update]
-                upserted = crud.create(to_upsert)  # type: ignore[arg-type]
-                created = sum(1 for item in upserted if crud.get_id(item) in to_create_ids)  # type: ignore[arg-type]
-                updated = len(upserted) - created
+                upserted_ids = list(crud.get_ids(crud.create(to_upsert)))
+                created_ids = [id_ for id_ in upserted_ids if id_ in to_create_ids]
+                updated_ids = [id_ for id_ in upserted_ids if id_ not in to_create_ids]
             else:
                 if resources.to_create:
                     action = "create"
-                    created = len(crud.create(resources.to_create))
+                    created_ids = list(crud.get_ids(crud.create(resources.to_create)))
                 if resources.to_update:
                     action = "update"
-                    updated = len(crud.update(resources.to_update))
+                    updated_ids = list(crud.get_ids(crud.update(resources.to_update)))
         except ToolkitAPIError as error:
             cls._handle_deploy_error(error, action, crud, resources, skipped_cruds, deploy_dir, insights_by_resource)
         except ValidationError as error:
             cls._handle_validation_error(error, action, crud, resources.to_create + resources.to_update, deploy_dir)
 
-        created_ids, updated_ids, deleted_ids, unchanged_ids = cls._collect_resource_ids(crud, resources)
         return DeploymentResult(
             resource_name=crud.display_name,
             is_dry_run=False,
-            created_count=created,
-            updated_count=updated,
-            deleted_count=len(deleted),
-            unchanged_count=len(unchanged_ids),
             skipped=resources.skipped,
             is_missing_write_acl=False,
-            created_ids=created_ids,
-            updated_ids=updated_ids,
-            deleted_ids=deleted_ids,
-            unchanged_ids=unchanged_ids,
+            # We know that the ID types are correct here.
+            created_ids=created_ids,  # ty: ignore[invalid-argument-type]
+            updated_ids=updated_ids,  # ty: ignore[invalid-argument-type]
+            deleted_ids=deleted_ids,  # ty: ignore[invalid-argument-type]
+            unchanged_ids=resources.unchanged,  # ty: ignore[invalid-argument-type]
         )
 
     @classmethod
@@ -1423,10 +1458,10 @@ class DeployV2Command(ToolkitCommand):
         total = DeploymentResult(
             "All",
             is_dry_run=is_dry_run,
-            created_count=0,
-            deleted_count=0,
-            updated_count=0,
-            unchanged_count=0,
+            created_ids=[],
+            deleted_ids=[],
+            updated_ids=[],
+            unchanged_ids=[],
             skipped=[],
             is_missing_write_acl=False,
         )

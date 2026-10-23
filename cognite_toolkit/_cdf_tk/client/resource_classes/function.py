@@ -36,6 +36,7 @@ class FunctionRequest(FunctionBase, RequestResource):
     # This is not part of the request payload, but we store the information such that we can use it
     # to check which acl is needed to deploy the function code.
     data_set_id: int | None = Field(None, exclude=True)
+    space: str | None = Field(None, exclude=True)
 
     def as_id(self) -> ExternalId:
         if self.external_id is None:

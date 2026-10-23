@@ -9,9 +9,9 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, BuiltResource
 from cognite_toolkit._cdf_tk.commands.pull import PullV2Command
-from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ResourceIO, ViewIO
 
 
 def _built_resource(identifier: Identifier, variables: list[BuildVariable] | None = None) -> MagicMock:
@@ -191,9 +191,9 @@ class TestPullV2Command:
         self,
         source: str,
         to_write: dict[Identifier, dict[str, Any]],
-        resources: list[MagicMock],
+        resources: list[BuiltResource],
         expected: str,
-        loader_type: type,
+        loader_type: type[ResourceIO],
         source_file: Path,
         toolkit_client_cheap: ToolkitClient,
     ) -> None:

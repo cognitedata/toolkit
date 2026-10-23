@@ -9,6 +9,18 @@ from questionary import Choice
 from rich import print
 
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitValueError
+from cognite_toolkit._cdf_tk.resource_ios import (
+    AssetIO,
+    EventIO,
+    FileMetadataIO,
+    LabelIO,
+    RelationshipIO,
+    ResourceIO,
+    SecurityCategoryIO,
+    SequenceIO,
+    SequenceRowIO,
+    TimeSeriesIO,
+)
 
 from .cogidp import SessionProject, fetch_session_user_info
 from .data_classes import (
@@ -19,6 +31,22 @@ from .data_classes import (
     Provider,
 )
 from .session_store import StoredSession
+
+# Legacy (asset-centric) resources that are not supported, or not suggested, on DATA_MODELING_ONLY projects.
+# Note that the ACLs can still be required by other resources, for example, FilesAcl by functions.
+DATA_MODELING_ONLY_EXCLUDED_IOS: frozenset[type[ResourceIO]] = frozenset(
+    {
+        AssetIO,
+        RelationshipIO,
+        LabelIO,
+        FileMetadataIO,
+        SecurityCategoryIO,
+        TimeSeriesIO,
+        EventIO,
+        SequenceIO,
+        SequenceRowIO,
+    }
+)
 
 
 def _available_project_names(projects: list[SessionProject]) -> str:

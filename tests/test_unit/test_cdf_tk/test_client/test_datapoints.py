@@ -362,10 +362,12 @@ class TestDatapointsAPI:
             ignore_unknown_ids=True,
         )
 
+        series = retrieved[0]
+        assert isinstance(series, NumericDatapointsResponse)
         assert {
             "request": _request_payload(respx_mock.calls[0]),
-            "series": type(retrieved[0]),
-            "value": retrieved[0].datapoints[0].value,
+            "series": type(series),
+            "value": series.datapoints[0].value,
         } == {
             "request": {
                 "url": api._make_url("/timeseries/data/latest"),
@@ -431,7 +433,7 @@ class TestDatapointsAPI:
 
     def test_delete_requires_inclusive_begin(self) -> None:
         with pytest.raises(ValidationError):
-            DatapointsDeleteRequest(external_id="ts_001", exclusive_end=20)
+            DatapointsDeleteRequest(external_id="ts_001", exclusive_end=20)  # ty: ignore[missing-argument]
 
     def test_series_requires_is_string_and_type(self) -> None:
         with pytest.raises(ValidationError):
@@ -455,6 +457,8 @@ class TestDatapointsAPI:
             }
         )
 
+        assert isinstance(numeric, NumericDatapointsResponse)
+        assert isinstance(string, StringDatapointsResponse)
         assert {
             "numeric": (type(numeric), numeric.datapoints[0].value),
             "string": (type(string), string.datapoints[0].value),

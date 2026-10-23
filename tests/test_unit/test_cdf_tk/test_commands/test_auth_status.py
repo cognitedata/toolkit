@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     FilesAcl,
     FunctionsAcl,
     GroupsAcl,
+    SpaceIDScope,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.project import (
     Claim,
@@ -102,6 +103,10 @@ def _inspect_response() -> InspectResponse:
             ),
             InspectCapability(
                 acl=FilesAcl(actions=["READ"], scope=DataSetScope(ids=[7])),
+                project_scope=AllProjects(all_projects={}),
+            ),
+            InspectCapability(
+                acl=DataModelInstancesAcl(actions=["READ"], scope=SpaceIDScope(space_ids=["space-1"])),
                 project_scope=AllProjects(all_projects={}),
             ),
             InspectCapability(
@@ -199,8 +204,7 @@ class TestAuthStatus:
             "asset_hidden_on_data_modeling_only": "AssetIO" not in other_resources,
             "function_read": format_action_access(current_resources["FunctionIO"].read),
             "group_read": format_action_access(current_resources["GroupAllScopedIO"].read),
-            "events_only_on_other": other_resources["EventIO"].read.granted
-            and not current_resources["EventIO"].read.granted,
+            "event_hidden_on_data_modeling_only": "EventIO" not in other_resources,
         } == {
             "authenticated": True,
             "method": "Service principal",
@@ -209,14 +213,14 @@ class TestAuthStatus:
             "subject": "principal-1",
             "cluster": "bluefield",
             "projects": [
-                (CDF_PROJECT, 4, 2, "HYBRID"),
-                ("other-project", 4, 1, "DATA_MODELING_ONLY"),
+                (CDF_PROJECT, 5, 2, "HYBRID"),
+                ("other-project", 5, 1, "DATA_MODELING_ONLY"),
             ],
             "asset_read": "all",
             "asset_hidden_on_data_modeling_only": True,
-            "function_read": "functionsAcl all | filesAcl datasetScope [7]",
+            "function_read": "functionsAcl all | filesAcl datasetScope [7] | dataModelInstancesAcl spaceIdScope [space-1]",
             "group_read": "all",
-            "events_only_on_other": True,
+            "event_hidden_on_data_modeling_only": True,
         }
 
     def test_invalid_token_is_not_authenticated(self) -> None:

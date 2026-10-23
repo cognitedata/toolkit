@@ -29,6 +29,7 @@ class TestLoadYamlInjectVariables:
 
         loaded = load_yaml_inject_variables(my_file, {"TEST": "my_injected_value"})
 
+        assert isinstance(loaded, dict)
         assert loaded["test"] == "my_injected_value"
 
     def test_warning_when_missing_env_variable(self) -> None:

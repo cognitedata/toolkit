@@ -138,13 +138,15 @@ class TestCDFResourceAPI:
 
         client = HTTPClient(toolkit_config)
         api = resource.api_class(client)
-        if hasattr(api, "create"):
+        create = getattr(api, "create", None)
+        if create is not None:
             self._mock_endpoint(api, "create", {"items": [resource.example_data]}, respx_mock)
             to_create = resource.request_instance
-            created = api.create([to_create])
+            created = create([to_create])
             assert len(created) == 1
             assert created[0].dump() == resource.example_data
-        if hasattr(api, "retrieve"):
+        retrieve = getattr(api, "retrieve", None)
+        if retrieve is not None:
             retrieve_endpoint = api._method_endpoint_map.get("retrieve")
             if retrieve_endpoint and "{" in retrieve_endpoint.path:
                 # Path-parameter retrieve (e.g. GET /dataproducts/{externalId}) returns a single object.
@@ -156,42 +158,47 @@ class TestCDFResourceAPI:
                 self._mock_endpoint(api, "retrieve", {"items": [resource.example_data]}, respx_mock)
             if retrieve_endpoint:
                 to_retrieve = resource.resource_id
-                retrieved = api.retrieve([to_retrieve])
+                retrieved = retrieve([to_retrieve])
                 assert len(retrieved) == 1
                 assert retrieved[0].dump() == resource.example_data
-        if hasattr(api, "update"):
+        update = getattr(api, "update", None)
+        if update is not None:
             self._mock_endpoint(api, "update", {"items": [resource.example_data]}, respx_mock)
             to_update = resource.request_instance
 
-            updated = api.update([to_update])
+            updated = update([to_update])
             assert len(updated) == 1
             assert updated[0].dump() == resource.example_data
-        if hasattr(api, "delete"):
+        delete = getattr(api, "delete", None)
+        if delete is not None:
             self._mock_endpoint(api, "delete", {"items": [resource.resource_id.dump()]}, respx_mock)
             to_delete = resource.resource_id
 
-            _ = api.delete([to_delete])
+            _ = delete([to_delete])
             assert len(respx_mock.calls) >= 1  # At least one call should have been made
-        if hasattr(api, "list"):
+        list_method = getattr(api, "list", None)
+        if list_method is not None:
             self._mock_endpoint(api, "list", {"items": [resource.example_data]}, respx_mock)
 
             try:
-                listed = api.list(limit=10)
+                listed = list_method(limit=10)
             except TypeError:
-                listed = api.list()  # Some APIs do not support limit parameter
+                listed = list_method()  # Some APIs do not support limit parameter
             assert len(listed) >= 1
             assert listed[0].dump() == resource.example_data
-        if hasattr(api, "paginate"):
+        paginate = getattr(api, "paginate", None)
+        if paginate is not None:
             self._mock_endpoint(api, "list", {"items": [resource.example_data]}, respx_mock)
 
-            page = api.paginate()
+            page = paginate()
             assert isinstance(page, PagedResponse)
             assert len(page.items) == 1
             assert page.items[0].dump() == resource.example_data
-        if hasattr(api, "iterate"):
+        iterate = getattr(api, "iterate", None)
+        if iterate is not None:
             self._mock_endpoint(api, "list", {"items": [resource.example_data]}, respx_mock)
 
-            batches = list(api.iterate())
+            batches = list(iterate())
             assert len(batches) >= 1
             items = [item for batch in batches for item in batch]
             assert items[0].dump() == resource.example_data
@@ -474,15 +481,15 @@ class TestCDFResourceAPI:
         items = [item for batch in iterated for item in batch]
         assert items[0].dump() == instance.dump()
 
-        search_page = api.search(limit=10, query="q", filter={"equals": {"property": ["title"], "value": "x"}})
+        search_page = api.search(limit=10, query="q", filter={"equals": {"property": ["author"], "value": "x"}})
         assert len(search_page.items) == 1
         assert search_page.items[0].item.dump() == instance.dump()
 
         assert api.count() == 11
-        assert api.cardinality(("title",)) == 11
+        assert api.cardinality(("author",)) == 11
         assert api.cardinality(("sourceFile", "metadata")) == 11
 
-        unique_title = api.unique(("title",), limit=50)
+        unique_title = api.unique(("author",), limit=50)
         assert len(unique_title) == 1
         assert unique_title[0].count == 2
         assert unique_title[0].values == ["a"]
@@ -500,9 +507,9 @@ class TestCDFResourceAPI:
         with pytest.raises(ValueError, match="limit must be at most 20"):
             api.search(limit=21, highlight=True)
         with pytest.raises(ValueError, match="Limit must be between 1 and 10000"):
-            api.unique(("title",), limit=0)
+            api.unique(("author",), limit=0)
         with pytest.raises(ValueError, match="Limit must be between 1 and 10000"):
-            api.unique(("title",), limit=10001)
+            api.unique(("author",), limit=10001)
 
     def test_workflow_api_crud_list_methods(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
@@ -1255,7 +1262,7 @@ class TestCDFResourceAPI:
 
         respx_mock.post(search_url).mock(side_effect=search_callback)
         view = ViewId(space="my_space", external_id="Asset", version="v1")
-        filter_ = {"equals": {"property": ["node", "space"], "value": "my_space"}}
+        filter_: dict[str, JsonValue] = {"equals": {"property": ["node", "space"], "value": "my_space"}}
         result = api.search(view=view, query="pump", filter=filter_, limit=25, instance_type="node")
 
         assert len(result) == 1
@@ -1309,7 +1316,7 @@ class TestCDFResourceAPI:
 
         respx_mock.post(aggregate_url).mock(side_effect=aggregate_callback)
         view = ViewId(space="my_space", external_id="Asset", version="v1")
-        filter_ = {"equals": {"property": ["node", "space"], "value": "my_space"}}
+        filter_: dict[str, JsonValue] = {"equals": {"property": ["node", "space"], "value": "my_space"}}
         result = api.aggregate(
             view,
             "pump",
@@ -1434,7 +1441,7 @@ class TestCDFResourceAPI:
                 status_code=200, json={"items": [record], "nextCursor": "abc", "hasNext": True}
             )
         )
-        sources = [
+        sources: list[dict[str, JsonValue]] = [
             {"source": {"type": "container", "space": "my_space", "externalId": "my_container"}, "properties": ["*"]}
         ]
         synced = api.sync("my_stream", sources=sources, filter=filter_body, limit=100, initialize_cursor="365d-ago")

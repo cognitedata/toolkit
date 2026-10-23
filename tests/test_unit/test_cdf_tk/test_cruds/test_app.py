@@ -1,12 +1,17 @@
 import io
 import zipfile
 from pathlib import Path
+from typing import Literal
 
 import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.app import AppResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersionRequest, AppVersionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.app_version import (
+    AppVersionRequest,
+    AppVersionResponse,
+    LifecycleState,
+)
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_ios._app import AppIO, AppVersionIO
@@ -16,8 +21,8 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, Succ
 def _make_app_version_request(
     app_external_id: str = "my-app",
     version: str = "1.0.0",
-    lifecycle_state: str = "PUBLISHED",
-    alias: str | None = None,
+    lifecycle_state: LifecycleState = "PUBLISHED",
+    alias: Literal["ACTIVE", "PREVIEW"] | None = None,
     entrypoint: str = "index.html",
 ) -> AppVersionRequest:
     return AppVersionRequest(
@@ -32,8 +37,8 @@ def _make_app_version_request(
 def _make_app_response(
     app_external_id: str = "my-app",
     version: str = "1.0.0",
-    lifecycle_state: str = "PUBLISHED",
-    alias: str | None = "ACTIVE",
+    lifecycle_state: LifecycleState = "PUBLISHED",
+    alias: Literal["ACTIVE", "PREVIEW"] | None = "ACTIVE",
 ) -> AppVersionResponse:
     return AppVersionResponse(
         app_external_id=app_external_id,
@@ -267,6 +272,7 @@ class TestAppVersionIOGetExtraFiles:
         )
 
         assert len(extras) == 1
+        assert isinstance(extras[0], SuccessExtra)
         assert extras[0].suffix == ".zip"
 
     def test_fails_when_entrypoint_missing_from_root_and_dist(self, tmp_path: Path):
@@ -348,6 +354,7 @@ class TestAppVersionIOGetExtraFiles:
         )
 
         assert len(extras) == 1
+        assert isinstance(extras[0], SuccessExtra)
         assert extras[0].suffix == ".zip"
 
     @pytest.mark.parametrize(

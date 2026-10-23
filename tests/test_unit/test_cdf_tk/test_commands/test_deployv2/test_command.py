@@ -1,10 +1,11 @@
 import io
 import json
 from collections.abc import Sequence
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import httpx2
 import pytest
@@ -12,27 +13,41 @@ import respx
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawTableId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceRequest, SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse, FunctionsActivation
+from cognite_toolkit._cdf_tk.client.resource_classes.function import (
+    FunctionRequest,
+    FunctionResponse,
+    FunctionsActivation,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleData,
     FunctionScheduleId,
     FunctionScheduleResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    AclType,
+    AllScope,
+    DataModelInstancesAcl,
     DataModelsAcl,
     DataSetsAcl,
     DataSetScope,
+    FilesAcl,
+    FunctionsAcl,
     IDScope,
     SpaceIDScope,
     TimeSeriesAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.token import AllProjects, InspectCapability
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
+    ScheduleTriggerRule,
+    WorkflowTriggerResponse,
+)
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployOptions, DeployV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
@@ -61,6 +76,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     CogniteFileIO,
     ContainerIO,
     DataSetsIO,
+    FunctionIO,
     FunctionScheduleIO,
     LabelIO,
     RawDatabaseIO,
@@ -68,8 +84,10 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ResourceIO,
     SpaceIO,
     TimeSeriesIO,
+    WorkflowTriggerIO,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
+from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestReadBuildDirectory:
@@ -146,7 +164,7 @@ class TestReadBuildDirectory:
     def test_read_build_directory(
         self,
         build_files_and_dir: list[str],
-        include: DeployOptions | list[str] | None,
+        include: list[str] | None,
         expected: type[Exception] | ReadBuildDirectory,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
@@ -280,12 +298,11 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="spaces",
                             is_dry_run=True,
-                            created_count=1,
-                            deleted_count=0,
-                            updated_count=0,
-                            unchanged_count=0,
                             is_missing_write_acl=False,
                             created_ids=[SpaceId(space="${MY_VAR}")],
+                            deleted_ids=[],
+                            updated_ids=[],
+                            unchanged_ids=[],
                         )
                     ],
                     expected_warning=EnvironmentVariableMissingWarning,
@@ -329,10 +346,9 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="spaces",
                             is_dry_run=True,
-                            created_count=1,
-                            deleted_count=0,
-                            updated_count=0,
-                            unchanged_count=0,
+                            deleted_ids=[],
+                            updated_ids=[],
+                            unchanged_ids=[],
                             is_missing_write_acl=False,
                             created_ids=[SpaceId(space="my_space")],
                             skipped=[
@@ -372,10 +388,8 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="function schedules",
                             is_dry_run=True,
-                            created_count=1,
-                            deleted_count=1,
-                            updated_count=0,
-                            unchanged_count=0,
+                            updated_ids=[],
+                            unchanged_ids=[],
                             is_missing_write_acl=False,
                             created_ids=[FunctionScheduleId(function_external_id="my_function", name="my schedule")],
                             deleted_ids=[FunctionScheduleId(function_external_id="my_function", name="my schedule")],
@@ -399,10 +413,9 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="spaces",
                             is_dry_run=True,
-                            created_count=0,
-                            deleted_count=0,
-                            updated_count=1,
-                            unchanged_count=0,
+                            created_ids=[],
+                            deleted_ids=[],
+                            unchanged_ids=[],
                             is_missing_write_acl=False,
                             updated_ids=[SpaceId(space="my_space")],
                         )
@@ -421,10 +434,9 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="spaces",
                             is_dry_run=True,
-                            created_count=1,
-                            deleted_count=0,
-                            updated_count=0,
-                            unchanged_count=0,
+                            deleted_ids=[],
+                            updated_ids=[],
+                            unchanged_ids=[],
                             is_missing_write_acl=False,
                             created_ids=[SpaceId(space="new_space")],
                         )
@@ -445,12 +457,11 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="spaces",
                             is_dry_run=True,
-                            created_count=0,
-                            deleted_count=0,
-                            updated_count=0,
-                            unchanged_count=1,
                             is_missing_write_acl=False,
                             unchanged_ids=[SpaceId(space="my_space")],
+                            created_ids=[],
+                            deleted_ids=[],
+                            updated_ids=[],
                         )
                     ],
                 ),
@@ -467,10 +478,10 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="raw databases",
                             is_dry_run=True,
-                            created_count=0,
-                            deleted_count=0,
-                            updated_count=0,
-                            unchanged_count=0,
+                            created_ids=[],
+                            deleted_ids=[],
+                            updated_ids=[],
+                            unchanged_ids=[],
                             is_missing_write_acl=False,
                             skipped=[
                                 Skipped(
@@ -497,10 +508,10 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="raw tables",
                             is_dry_run=True,
-                            created_count=0,
-                            deleted_count=0,
-                            updated_count=0,
-                            unchanged_count=0,
+                            created_ids=[],
+                            deleted_ids=[],
+                            updated_ids=[],
+                            unchanged_ids=[],
                             is_missing_write_acl=False,
                             skipped=[
                                 Skipped(
@@ -726,6 +737,53 @@ class TestCategorizeResources:
             "skipped": len(result.skipped),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 0, "skipped": 1}
 
+    def test_mask_sensitive_data(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
+        toolkit_client_approval.append(
+            WorkflowTriggerResponse,
+            WorkflowTriggerResponse(
+                external_id="my_trigger",
+                trigger_rule=ScheduleTriggerRule(cron_expression="* * * * *"),
+                workflow_external_id="my_workflow",
+                workflow_version="v1",
+                created_time=0,
+                last_updated_time=0,
+                is_paused=False,
+                metadata={
+                    WorkflowTriggerIO._MetadataKey.secret_hash: "outdated-hash",
+                },
+            ),
+        )
+        loader = WorkflowTriggerIO.create_io(toolkit_client_approval.mock_client)
+
+        local_file = MagicMock(spec=Path)
+        local_file.read_text.return_value = """externalId: my_trigger
+triggerRule:
+  triggerType: schedule
+  cronExpression: '* * * * *'
+workflowExternalId: my_workflow
+workflowVersion: v1
+authentication:
+  clientId: my_client_id
+  clientSecret: my_super_secret_42
+"""
+        resource_dict = loader.load_resource_file(local_file, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(deepcopy(resource_dict[0]))
+        resource_id = loader.get_id(resource)
+        existing_list = loader.retrieve([resource_id])
+        output_capture = io.StringIO()
+        console = Console(file=output_capture, highlight=False, color_system=None)
+        _ = DeployV2Command.categorize_resources(
+            loader,
+            resource_by_id={resource_id: ReadResource(resource, resource_dict[0], [local_file])},
+            cdf_by_id={resource_id: existing_list[0]},
+            console=console,
+            options=DeployOptions(verbose=True),
+        )
+
+        terminal_output = output_capture.getvalue()
+        assert "my_super_secret_42" not in terminal_output
+
 
 def _space_lineage_with_insights(
     tmp_path: Path, fmt: Literal["json", "csv"]
@@ -830,6 +888,16 @@ def _inspect_capability(acl: TimeSeriesAcl) -> dict[str, object]:
     return InspectCapability(acl=acl, project_scope=AllProjects(all_projects={})).dump()
 
 
+def _function_request(data_set_id: int | None = None, space: str | None = None) -> FunctionRequest:
+    return FunctionRequest(
+        external_id="my_function",
+        name="My Function",
+        file_id=1,
+        data_set_id=data_set_id,
+        space=space,
+    )
+
+
 class TestDryRunDataSetPlaceholders:
     def test_write_protected_datasets_skips_dry_run_id(self) -> None:
         client = MagicMock()
@@ -841,22 +909,79 @@ class TestDryRunDataSetPlaceholders:
         client.token.verify_acls.return_value = []
         loader = AssetIO.create_io(client)
         resource = AssetRequest(name="my_asset", external_id="my_asset", data_set_id=DRY_RUN_ID)
-        is_missing_read, is_missing_write, is_write_acl_unknown = DeployV2Command._validate_access(
-            loader, [resource], client, is_dry_run=True
+        is_missing_read, is_missing_write, is_write_acl_unknown = DeployV2Command.validate_access(
+            loader, [resource], is_dry_run=True
         )
         client.datasets.retrieve.assert_not_called()
         assert is_missing_read is False
         assert is_missing_write is False
         assert is_write_acl_unknown is True
 
+    @pytest.mark.parametrize(
+        "resources, expected_checked_acls",
+        [
+            pytest.param(
+                [_function_request(data_set_id=1), _function_request(space="my_space")],
+                [
+                    FunctionsAcl(actions=["READ", "WRITE"], scope=AllScope()),
+                    DataModelInstancesAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=["my_space"])),
+                    FilesAcl(actions=["READ", "WRITE"], scope=DataSetScope(ids=[1])),
+                ],
+                id="Mixed function scoped to data set and space",
+            ),
+            pytest.param(
+                [
+                    _function_request(),
+                ],
+                [
+                    FunctionsAcl(actions=["READ", "WRITE"], scope=AllScope()),
+                    FilesAcl(actions=["READ", "WRITE"], scope=AllScope()),
+                    DataModelInstancesAcl(actions=["READ", "WRITE"], scope=AllScope()),
+                ],
+                id="Unscoped function with no data set or space",
+            ),
+            pytest.param(
+                [
+                    _function_request(data_set_id=1),
+                    _function_request(data_set_id=2),
+                ],
+                [
+                    FunctionsAcl(actions=["READ", "WRITE"], scope=AllScope()),
+                    FilesAcl(actions=["READ", "WRITE"], scope=DataSetScope(ids=[1, 2])),
+                ],
+                id="Multiple functions scoped to different data sets",
+            ),
+            pytest.param(
+                [
+                    _function_request(space="my_space"),
+                    _function_request(space="my_space"),
+                ],
+                [
+                    FunctionsAcl(actions=["READ", "WRITE"], scope=AllScope()),
+                    DataModelInstancesAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=["my_space"])),
+                ],
+                id="Multiple functions scoped to the same space",
+            ),
+        ],
+    )
+    def test_validate_access_function(
+        self, resources: list[FunctionRequest], expected_checked_acls: Sequence[AclType]
+    ) -> None:
+        client = MagicMock()
+        client.token.verify_acls.return_value = []
+        io = FunctionIO.create_io(client)
+        _ = DeployV2Command.validate_access(io, resources, is_dry_run=False)
+
+        assert client.token.verify_acls.call_args_list == [call(expected_checked_acls)]
+
     def test_format_able_to_deploy_unknown(self) -> None:
         result = DeploymentResult(
             resource_name="assets",
             is_dry_run=True,
-            created_count=0,
-            deleted_count=0,
-            updated_count=0,
-            unchanged_count=0,
+            created_ids=[],
+            deleted_ids=[],
+            updated_ids=[],
+            unchanged_ids=[],
             is_missing_write_acl=False,
             is_write_acl_unknown=True,
         )
@@ -961,10 +1086,6 @@ class TestVerboseResourceOutcomes:
             DeploymentResult(
                 resource_name="spaces",
                 is_dry_run=True,
-                created_count=1,
-                deleted_count=1,
-                updated_count=1,
-                unchanged_count=1,
                 is_missing_write_acl=False,
                 created_ids=[SpaceId(space="new_space")],
                 updated_ids=[SpaceId(space="edited_space")],
@@ -982,13 +1103,11 @@ class TestVerboseResourceOutcomes:
             DeploymentResult(
                 resource_name="function schedules",
                 is_dry_run=True,
-                created_count=1,
-                deleted_count=1,
-                updated_count=0,
-                unchanged_count=0,
                 is_missing_write_acl=False,
                 created_ids=[schedule],
                 deleted_ids=[schedule],
+                unchanged_ids=[],
+                updated_ids=[],
             ),
         ]
 
@@ -1028,19 +1147,17 @@ class TestVerboseResourceOutcomes:
         }
 
     def test_verbose_keeps_every_id_when_there_are_many(self) -> None:
-        unchanged = [SpaceId(space=f"space_{index:03d}") for index in range(80)]
+        unchanged: list[Identifier] = [SpaceId(space=f"space_{index:03d}") for index in range(80)]
         long_id = "asset_" + ("external-id-" * 20)
         results = [
             DeploymentResult(
                 resource_name="spaces",
                 is_dry_run=False,
-                created_count=1,
-                deleted_count=0,
-                updated_count=0,
-                unchanged_count=len(unchanged),
                 is_missing_write_acl=False,
                 created_ids=[SpaceId(space=long_id)],
                 unchanged_ids=unchanged,
+                deleted_ids=[],
+                updated_ids=[],
             )
         ]
 
@@ -1065,14 +1182,14 @@ class TestVerboseResourceOutcomes:
         crud = MagicMock()
         crud.display_name = "spaces"
         crud.support_drop = True
-        crud.get_id.side_effect = lambda resource: resource
+        crud.get_id.side_effect = lambda resource: resource.as_id()
         new = SpaceId(space="new")
         edited = SpaceId(space="edited")
         same = SpaceId(space="same")
         old = SpaceId(space="old")
         resources = ResourceToDeploy(
-            to_create=[new],
-            to_update=[edited],
+            to_create=[SpaceRequest(space=new.space)],
+            to_update=[SpaceRequest(space=edited.space)],
             to_delete=[old],
             unchanged=[same],
         )
@@ -1104,14 +1221,14 @@ class TestVerboseResourceOutcomes:
     def test_deploy_resources_records_ids(self) -> None:
         crud = MagicMock()
         crud.display_name = "spaces"
-        crud.get_id.side_effect = lambda resource: resource
+        crud.get_ids.side_effect = lambda resources: [r for r in resources]
         created = SpaceId(space="new")
         updated = SpaceId(space="edited")
         deleted = SpaceId(space="old")
         unchanged = SpaceId(space="same")
         resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy(
-            to_create=[created],
-            to_update=[updated],
+            to_create=[SpaceRequest(space=created.space)],
+            to_update=[SpaceRequest(space=updated.space)],
             to_delete=[deleted],
             unchanged=[unchanged],
         )
@@ -1126,15 +1243,9 @@ class TestVerboseResourceOutcomes:
             "updated_ids": result.updated_ids,
             "deleted_ids": result.deleted_ids,
             "unchanged_ids": result.unchanged_ids,
-            "created_count": result.created_count,
-            "updated_count": result.updated_count,
-            "deleted_count": result.deleted_count,
         } == {
             "created_ids": [created],
             "updated_ids": [updated],
             "deleted_ids": [deleted],
             "unchanged_ids": [unchanged],
-            "created_count": 1,
-            "updated_count": 1,
-            "deleted_count": 1,
         }

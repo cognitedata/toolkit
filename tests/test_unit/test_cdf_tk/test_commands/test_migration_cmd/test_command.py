@@ -255,33 +255,21 @@ def _make_stream_response(
     )
 
 
-class _ChunkTrackingUploadIO:
-    CHUNK_SIZE = 1000
-    KIND = "Instances"
-
-    def __init__(self) -> None:
-        self.upload_chunk_sizes: list[int] = []
-        self.logger = MagicMock()
-
-    def upload_items(self, data_chunk: Page, http_client: object, selector: object | None = None) -> list:
-        self.upload_chunk_sizes.append(len(data_chunk))
-        return []
+def _mock_upload_io() -> MagicMock:
+    target = MagicMock()
+    target.CHUNK_SIZE = 1000
+    target.KIND = "Instances"
+    target.upload_items.return_value = []
+    return target
 
 
-class _FailingUploadIO:
-    CHUNK_SIZE = 1000
-    KIND = "Instances"
-
-    def __init__(self) -> None:
-        self.logger = MagicMock()
-
-    def upload_items(self, data_chunk: Page, http_client: object, selector: object | None = None) -> list:
-        return [
-            ItemsFailedRequest(
-                ids=[item.tracking_id for item in data_chunk.items],
-                error_message="Aborting further splitting of requests after 50 failed attempts.",
-            )
-        ]
+def _fail_all_items(data_chunk: Page, http_client: object, selector: object | None = None) -> list[ItemsFailedRequest]:
+    return [
+        ItemsFailedRequest(
+            ids=[item.tracking_id for item in data_chunk.items],
+            error_message="Aborting further splitting of requests after 50 failed attempts.",
+        )
+    ]
 
 
 def _project_statistics(instances_limit: int) -> ProjectStatisticsResponse:
@@ -407,7 +395,7 @@ class TestMigrationCommand:
         expected_instance = [
             NodeRequest(
                 space=space,
-                external_id=asset.external_id,
+                external_id=f"asset_{i}",
                 sources=[
                     InstanceSource(
                         source=ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
@@ -434,7 +422,7 @@ class TestMigrationCommand:
                     ),
                 ],
             ).dump()
-            for asset in assets
+            for i, asset in enumerate(assets)
         ]
         assert actual_instances == expected_instance
         result = results_by_selector[str(selector)]
@@ -1211,7 +1199,7 @@ class TestMigrationCommand:
 
     def test_upload_chunks_pages_larger_than_chunk_size(self, tmp_path: Path) -> None:
         command = MigrationCommand(silent=True)
-        target = _ChunkTrackingUploadIO()
+        target = _mock_upload_io()
         page = Page(
             worker_id="main",
             items=[DataItem(tracking_id=f"item-{index}", item=index) for index in range(1001)],
@@ -1219,20 +1207,22 @@ class TestMigrationCommand:
         upload = command._upload(
             selected=MagicMock(__str__=lambda self: "TestView"),
             write_client=MagicMock(),
-            target=target,  # type: ignore[arg-type]
+            target=target,
             destination="Instances",
             dry_run=False,
+            continue_on_error=False,
             log_dir=tmp_path,
             total_item_count=1001,
             start_item=0,
         )
         upload(page)
 
-        assert target.upload_chunk_sizes == [1000, 1]
+        assert [len(call.kwargs["data_chunk"]) for call in target.upload_items.call_args_list] == [1000, 1]
 
     def test_abort_when_all_items_in_chunk_fail(self, tmp_path: Path) -> None:
         command = MigrationCommand(silent=True)
-        target = _FailingUploadIO()
+        target = _mock_upload_io()
+        target.upload_items.side_effect = _fail_all_items
         page = Page(
             worker_id="main",
             items=[DataItem(tracking_id=f"item-{index}", item=index) for index in range(2)],
@@ -1240,9 +1230,10 @@ class TestMigrationCommand:
         upload = command._upload(
             selected=MagicMock(__str__=lambda self: "ChecklistItem_v7_node"),
             write_client=MagicMock(),
-            target=target,  # type: ignore[arg-type]
+            target=target,
             destination="Instances",
             dry_run=False,
+            continue_on_error=False,
             log_dir=tmp_path,
             total_item_count=2,
             start_item=0,
@@ -1286,6 +1277,7 @@ class TestMigrationCommand:
                 logger=logger,
                 write_client=MagicMock(),
                 log_dir=tmp_path,
+                continue_on_error=False,
                 dry_run=False,
                 verbose=False,
                 console=MagicMock(),

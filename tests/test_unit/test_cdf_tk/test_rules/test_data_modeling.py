@@ -30,7 +30,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     InternalValidatorException,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath, RelativeDirPath
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, ResourceIO, ResourceType, ViewIO
 from cognite_toolkit._cdf_tk.rules._data_modeling import DataModelingRuleSet
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
@@ -148,15 +147,15 @@ def _write(tmp_path: Path, name: str, content: str) -> Path:
     return path
 
 
-def _module(resources: list[tuple[Path, type[ResourceIO], ContainerId | ViewId]]) -> BuiltModule:
-    module_id = ModuleId(id=RelativeDirPath(Path("modules/my")), path=resources[0][0].parent.resolve())
+def _module(resources: list[tuple[Path, type[ResourceIO], ContainerId | ViewId | DataModelId]]) -> BuiltModule:
+    module_id = ModuleId(id=Path("modules/my"), path=resources[0][0].parent.resolve())
     built = [
         BuiltResource(
             identifier=identifier,
             source_hash="test-hash",
             type=ResourceType(resource_folder=crud_cls.folder_name, kind=crud_cls.kind),
-            source_path=AbsoluteFilePath(path.resolve()),
-            build_path=AbsoluteFilePath(path.resolve()),
+            source_path=path.resolve(),
+            build_path=path.resolve(),
             crud_cls=crud_cls,
             has_syntax_error=False,
             module_id=module_id,

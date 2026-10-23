@@ -1076,7 +1076,7 @@ class TestExtractionPipelineIO:
     def test_unchanged_no_redeploy(
         self, toolkit_client: ToolkitClient, toolkit_dataset: DataSet, populated_raw_table: RawTableId
     ) -> None:
-        definition_yaml = f"""externalId: test_extraction_pipeline_io_no_redeploy_{RUN_UNIQUE_ID}
+        definition_yaml = f"""externalId: test_extraction_pipeline_io_no_redeploy
 name: Test Extraction Pipeline IO No Redeploy
 dataSetExternalId: {toolkit_dataset.external_id}
 description: Export Data to CDF
@@ -1093,9 +1093,15 @@ source: here
 documentation: To Do
 createdBy: null
 """
-        loader = ExtractionPipelineIO.create_io(toolkit_client)
-
-        assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        io = ExtractionPipelineIO.create_io(toolkit_client)
+        raw_data = load_local_yaml(definition_yaml, io)
+        cdf_resource = io.load_resource(deepcopy(raw_data))
+        retrieved = io.retrieve([cdf_resource.as_id()])
+        if len(retrieved) == 0:
+            # Create the source if it doesn't exist, so we can test that it is not redeployed when unchanged
+            retrieved = io.create([cdf_resource])
+            assert len(retrieved) == 1
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)
 
 
 def _skill_content(*, name: str, description: str, body_suffix: str = "") -> str:

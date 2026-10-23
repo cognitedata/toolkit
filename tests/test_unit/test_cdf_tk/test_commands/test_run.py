@@ -151,7 +151,7 @@ class TestRunTransformationV2:
             _transformation_response("tr_files", "Files"),
         ]
 
-        def select_transformation(choices: list[Choice]) -> str:
+        def select_transformation(choices) -> str:
             assert len(choices) == 3
             return choices[1].value
 
@@ -336,9 +336,11 @@ class TestRunFunction:
     def test_get_call_args(
         self, data_source: str, expected: FunctionCallArgs, function_build_folder: BuildLineage
     ) -> None:
-        environment_variables = {
-            expected.client_id_env_name: expected.authentication.client_id,
-            expected.client_secret_env_name: expected.authentication.client_secret,
+        auth = expected.authentication
+        assert auth is not None and expected.client_id_env_name and expected.client_secret_env_name
+        environment_variables: dict[str, str | None] = {
+            expected.client_id_env_name: auth.client_id,
+            expected.client_secret_env_name: auth.client_secret,
         }
         actual = RunFunctionCommand._get_call_args(
             data_source, "fn_test3", function_build_folder, environment_variables, is_interactive=False

@@ -86,6 +86,14 @@ class Flags(Enum):
         visible=False,
         description="Enables local Function App development commands",
     )
+    MULTI_CONFIGS = FlagMetadata(
+        visible=True,
+        description="Enables support for passing multiple config.<>.yaml files into the build command",
+    )
+    GIT_DIFF_SELECT = FlagMetadata(
+        visible=True,
+        description="Enables support for selecting modules in a config.<>.yaml based on git diff.",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

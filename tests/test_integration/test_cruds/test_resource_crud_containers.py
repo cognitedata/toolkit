@@ -1,7 +1,7 @@
 from contextlib import suppress
+from datetime import UTC, datetime, timedelta
 from time import sleep
 
-import pandas as pd
 import pytest
 from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
@@ -10,6 +10,11 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NameId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId, ContainerRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import (
+    Datapoint,
+    DatapointsDeleteRequest,
+    DatapointsRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
@@ -30,16 +35,19 @@ def integration_space(cognite_client: CogniteClient) -> dm.Space:
 
 
 class TestTimeSeriesLoader:
-    def test_create_populate_count_drop_data(
-        self, toolkit_client: ToolkitClient, cognite_client: CogniteClient
-    ) -> None:
+    def test_create_populate_count_drop_data(self, toolkit_client: ToolkitClient) -> None:
         timeseries = TimeSeriesRequest(
             external_id=f"test_create_populate_count_drop_data{RUN_UNIQUE_ID}", is_string=False
         )
-        datapoints = pd.DataFrame(
-            [{"timestamp": 0, timeseries.external_id: 0}, {"timestamp": 1, timeseries.external_id: 1}]
-        ).set_index("timestamp")
-        datapoints.index = pd.to_datetime(datapoints.index, unit="s")
+        epoch_zero = datetime(1970, 1, 1, tzinfo=UTC)
+        datapoints = DatapointsRequest(
+            external_id=timeseries.external_id,
+            datapoints=[
+                Datapoint(timestamp=epoch_zero, value=0),
+                Datapoint(timestamp=epoch_zero + timedelta(days=1), value=1),
+            ],
+        )
+
         loader = TimeSeriesIO(toolkit_client)
         ts_ids = [timeseries.as_id()]
 
@@ -48,7 +56,7 @@ class TestTimeSeriesLoader:
             assert len(created) == 1
 
             assert loader.count(ts_ids) == 0
-            cognite_client.time_series.data.insert_dataframe(datapoints)
+            toolkit_client.timeseries.datapoints.create([datapoints])
 
             assert loader.count(ts_ids) == 2
 
@@ -60,7 +68,21 @@ class TestTimeSeriesLoader:
 
             assert not loader.retrieve(ts_ids)
         finally:
-            cognite_client.time_series.delete(external_id=timeseries.external_id, ignore_unknown_ids=True)
+            try:
+                toolkit_client.timeseries.datapoints.delete(
+                    [
+                        DatapointsDeleteRequest(
+                            external_id=timeseries.external_id,
+                            inclusive_begin=epoch_zero,
+                        )
+                    ]
+                )
+            except ToolkitAPIError as e:
+                if e.code == 400:
+                    # The datapoints were already deleted, so we can ignore this error
+                    pass
+                else:
+                    raise
 
 
 @pytest.fixture(scope="function")

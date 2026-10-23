@@ -27,6 +27,7 @@ dependencies = [
     "httpx2>=2.12.0",
     "pyyaml >=6.0.1",
     "typer >=0.12.0, <1.0.0",
+    "click>=8.2.0",
     "rich >=13.9.4",
     "questionary >=2.0.1",
     "packaging >=25",
@@ -58,17 +59,14 @@ dev = [
     "pytest-regressions >=2.4.2",
     "pytest-xdist >=3.6.1",
     "pytest-rerunfailures >=14.0",
+    "pytest-cov >=6.0.0",
+    "pytest-json-report>=1.5.0", # For generating JSON reports from tests, this is used in the smoke tests
     "types-PyYAML >=6",
     "types-toml >=0.10.8.20240310",
-    "twine >=6.0.0",
-    "pytest-cov >=6.0.0",
-    "types-requests >=2.32.0.20241016",
     "types-python-dateutil>=2.9.0.20250708",
+    "twine >=6.0.0",
     "marko >=2.1.2",
-    "numpy>=2.2",
-    "pandas>=2.2",
     "respx>=0.22.0",
-    "pytest-json-report>=1.5.0", # For generating JSON reports from tests, this is used in the smoke tests
 ]
 
 [project.optional-dependencies]
@@ -122,8 +120,7 @@ testpaths = [
 
 addopts = [
     # Must load before the respx plugin so import httpx resolves to httpx2.
-    "-p",
-    "tests.httpx2_alias_plugin",
+    "-p tests.httpx2_alias_plugin",
 ]
 
 markers = [
@@ -132,23 +129,27 @@ markers = [
 
 [tool.ty.src]
 include = ["cognite_toolkit", "tests_smoke", "tests"]
-exclude = [
-    "tests/data/",
-    "tests/test_unit/test_cdf_tk/approval_client",
-    "tests/test_unit/test_cdf_tk/test_client", # 258
-    "tests/test_unit/test_cdf_tk/test_commands", # 586
-    "tests/test_unit/test_cdf_tk/test_cruds", # 45
-    "tests/test_unit/test_cdf_tk/test_rules", # 21
-    "tests/test_unit/test_cdf_tk/test_storageio", # 71
-    "tests/test_unit/test_cdf_tk/test_utils", # 184
-]
+exclude = []
+
 [tool.ty.environment]
 python-version = "3.14"
 python = ".venv"
+# Stubs that alias httpx -> httpx2 and httpcore -> httpcore2 (mirrors httpx2.alias_httpx() at runtime),
+# so libraries typed against httpx (e.g. respx) accept httpx2 objects.
+extra-paths = ["typings"]
 
 [tool.ty.rules]
 # This we do a lot intentionally when using the Discriminator pattern in pydantic.
 invalid-mutable-override = "ignore"
+
+# Test data contains user code for CDF Functions and Streamlit apps. Their dependencies
+# (e.g. streamlit, inflect, function-local packages) are not installed in the dev environment.
+[[tool.ty.overrides]]
+include = ["tests/data/**/functions/**", "tests/data/**/streamlit/**"]
+
+[tool.ty.overrides.rules]
+unresolved-import = "ignore"
+unresolved-attribute = "ignore"
 
 [tool.ruff]
 line-length = 120

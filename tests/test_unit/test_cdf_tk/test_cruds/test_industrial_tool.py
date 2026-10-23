@@ -123,6 +123,8 @@ class TestStreamlitIOGetExtraFiles:
             for extra in extras
             if isinstance(extra, SuccessExtra) and extra.suffix == f".{FileMetadataIO.kind}.yaml"
         )
+        assert file_metadata_extra.content is not None
         file_metadata = read_yaml_content(file_metadata_extra.content)
+        assert isinstance(file_metadata, dict)
         assert file_metadata["dataSetExternalId"] == "my_dataset"
         assert "dataSetId" not in file_metadata

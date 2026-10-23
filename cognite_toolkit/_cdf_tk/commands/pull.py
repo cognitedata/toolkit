@@ -109,7 +109,7 @@ class PullV2Command(ToolkitCommand):
             parameters = BuildParameters(
                 organization_dir=organization_dir,
                 build_dir=build_dir,
-                config_yaml=config_yaml_input,
+                config_yamls=[config_yaml_input] if config_yaml_input else None,
                 user_selected_modules=user_selected_modules,
                 verbose=False,
                 write_insights=False,
