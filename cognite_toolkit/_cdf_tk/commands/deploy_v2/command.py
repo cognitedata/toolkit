@@ -40,6 +40,7 @@ from cognite_toolkit._cdf_tk.commands._utils import (
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList
+from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import ModuleLockResult
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable, Selector
@@ -56,6 +57,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitWrongResourceError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_IO_BY_FOLDER_NAME,
     ContainerIO,
@@ -271,6 +273,10 @@ class DeployV2Command(ToolkitCommand):
                 raise ToolkitValueError("Either env_vars or client must be provided.")
             client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
+        module_locks: ModuleLockResult | None = None
+        if Flags.MODULE_LOCK.is_enabled():
+            module_locks = self._acquire_module_locks(build_lineage, client)
+
         self._validate_cdf_project(build_dir, options.operation, options.cdf_project, client.config.project)
         plan = self._display_setup(options.operation, build_dir, client.config.project, client.console, options.verbose)
 
@@ -288,11 +294,17 @@ class DeployV2Command(ToolkitCommand):
             clean_result = self.apply_plan(
                 client, list(reversed(plan)), options, is_delete=True, insights_by_resource=insights_by_resource
             )
+            if Flags.MODULE_LOCK.is_enabled():
+                self._release_module_locks(module_locks, client)
+
             if options.operation == "clean":
                 self._display_results(clean_result, options.operation, client.console, options.verbose)
                 return clean_result
 
         results = self.apply_plan(client, plan, options, insights_by_resource=insights_by_resource)
+
+        if Flags.MODULE_LOCK.is_enabled():
+            self._release_module_locks(module_locks, client)
 
         if clean_result is not None:
             self._merge_clean_results(results, clean_result)
@@ -425,6 +437,14 @@ class DeployV2Command(ToolkitCommand):
             skipped_directories=skipped_resource_dirs,
             cdf_project=cdf_project,
         )
+
+    @classmethod
+    def _acquire_module_locks(cls, build_lineage: BuildLineage | None, client: ToolkitClient) -> ModuleLockResult:
+        raise NotImplementedError()
+
+    @classmethod
+    def _release_module_locks(cls, module_locks: ModuleLockResult | None, client: ToolkitClient) -> None:
+        raise NotImplementedError()
 
     def _display_setup(
         self,
