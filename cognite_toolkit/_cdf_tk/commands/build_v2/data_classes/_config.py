@@ -21,7 +21,7 @@ def _normalize_config_variables(value: Any) -> Any:
     return value
 
 
-DEPLOY_PROTECTION: TypeAlias = Literal["none", "block"]
+DeployProtection: TypeAlias = Literal["none", "block"]
 
 
 class Environment(BaseModel):
@@ -30,7 +30,7 @@ class Environment(BaseModel):
     validation_type: ValidationType = Field("dev", alias="validation-type")
     selection_type: Literal["path", "git-diff"] = Field("path", alias="selection-type")
     deploy_branch: str | None = Field(None, alias="deploy-branch")
-    deploy_protection: DEPLOY_PROTECTION = Field("none", alias="deploy-protection")
+    deploy_protection: DeployProtection | None = Field(None, alias="deploy-protection")
     selected: list[str] | None = None
 
     @field_validator("selection_type", mode="after")

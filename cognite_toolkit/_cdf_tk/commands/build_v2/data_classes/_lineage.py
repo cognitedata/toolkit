@@ -19,7 +19,7 @@ from pydantic.alias_generators import to_camel
 from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuiltModule
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuildInput, BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     ModelSyntaxError,
@@ -42,7 +42,7 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash_multi_file
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
-from ._config import DEPLOY_PROTECTION
+from ._config import DeployProtection
 from ._module import BuildVariable
 from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath
 
@@ -209,7 +209,7 @@ class BuildLineage(_BaseLineageModel):
         default=None,
         description="Git branch that is expected to deploy the build.",
     )
-    deploy_protection: DEPLOY_PROTECTION | None = Field(
+    deploy_protection: DeployProtection | None = Field(
         default=None,
         description="Whether the build is protected from deployment on non-deploy branches.",
     )
@@ -238,7 +238,11 @@ class BuildLineage(_BaseLineageModel):
 
     @classmethod
     def from_build(
-        cls, build: BuildFolder, cdf_project: str | None = None, config_yamls: list[Path] | None = None
+        cls,
+        build: BuildFolder,
+        cdf_project: str | None = None,
+        config_yamls: list[Path] | None = None,
+        build_input: BuildInput | None = None,
     ) -> "BuildLineage":
         """Construct lineage from build output folder."""
 
@@ -265,6 +269,8 @@ class BuildLineage(_BaseLineageModel):
             modules_summary=modules_summary,
             insights_summary=insights_summary,
             cdf_project=cdf_project,
+            deploy_branch=build_input.deploy_branch if build_input else None,
+            deploy_protection=build_input.deploy_protection if build_input else None,
             config_hash=calculate_hash_multi_file(config_yamls, shorten=True) if config_yamls else None,
         )
 

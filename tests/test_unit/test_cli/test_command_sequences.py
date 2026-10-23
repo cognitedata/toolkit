@@ -265,7 +265,7 @@ def test_build_deploy_v2_complete_orgs(
 
 
 def test_complete_org_is_complete() -> None:
-    module_scan, _ = BuildV2Command.read_filesystem_and_find_modules(
+    module_scan, *_ = BuildV2Command.read_filesystem_and_find_modules(
         organization_dir=COMPLETE_ORG,
         config_yamls=[COMPLETE_ORG / "config.dev.yaml"],
         user_selected_modules=[f"{MODULES}/"],
@@ -278,7 +278,7 @@ def test_complete_org_is_complete() -> None:
                 if any(loader.is_supported_file(file) for file in files):
                     used_loader_by_folder_name[resource_folder].add(loader)
 
-    alpha_dir_scan, _ = BuildV2Command.read_filesystem_and_find_modules(
+    alpha_dir_scan, *_ = BuildV2Command.read_filesystem_and_find_modules(
         COMPLETE_ORG_ALPHA_FLAGS,
         config_yamls=[COMPLETE_ORG_ALPHA_FLAGS / "config.dev.yaml"],
         user_selected_modules=[f"{MODULES}/"],
