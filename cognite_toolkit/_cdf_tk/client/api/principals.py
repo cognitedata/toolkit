@@ -187,7 +187,9 @@ class PrincipalsAPI(CDFResourceAPI[Principal]):
             params=self._create_list_parameters(types), endpoint_path=endpoint_path, limit=limit, cursor=cursor
         )
 
-    def list(self, types: builtins.list[PrincipalType] | None = None, limit: int = 10) -> builtins.list[Principal]:
+    def list(
+        self, types: builtins.list[PrincipalType] | None = None, limit: int | None = 10
+    ) -> builtins.list[Principal]:
         """List principals in the organization.
 
         Args:
