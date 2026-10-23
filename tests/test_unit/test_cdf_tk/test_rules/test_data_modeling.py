@@ -37,6 +37,10 @@ from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
 CONTAINER_ID = ContainerId(space="my_space", external_id="MyContainer")
 VIEW_ID = ViewId(space="my_space", external_id="MyView", version="v1")
 OTHER_VIEW_ID = ViewId(space="my_space", external_id="OtherView", version="v1")
+PARENT_VIEW_ID = ViewId(space="my_space", external_id="ParentView", version="v1")
+DIRECT_PARENT_ID = ViewId(space="my_space", external_id="DirectParent", version="v1")
+TEXT_PARENT_ID = ViewId(space="my_space", external_id="TextParent", version="v1")
+BASE_VIEW_ID = ViewId(space="my_space", external_id="BaseView", version="v1")
 DATA_MODEL_ID = DataModelId(space="my_space", external_id="MyModel", version="v1")
 
 CONTAINER_YAML = """space: my_space
@@ -106,6 +110,22 @@ properties:
         version: v1
       identifier: related
 """
+
+
+def _implements_view_yaml(*parents: ViewId) -> str:
+    implements = "".join(
+        f"  - type: view\n    space: {parent.space}\n    externalId: {parent.external_id}\n    version: {parent.version}\n"
+        for parent in parents
+    )
+    return f"space: my_space\nexternalId: OtherView\nversion: v1\nimplements:\n{implements}"
+
+
+LOCAL_PARENT_VIEW_YAML = MAPPED_VIEW_YAML.replace("OtherView", "ParentView")
+# Overrides `related` and implements ParentView.
+BASE_OVERRIDE_VIEW_YAML = MAPPED_VIEW_YAML.replace("OtherView", "BaseView") + (
+    "implements:\n  - type: view\n    space: my_space\n    externalId: ParentView\n    version: v1\n"
+)
+
 
 CONTAINER_REMOVED_PROPERTY_YAML = """space: my_space
 externalId: MyContainer
@@ -335,6 +355,100 @@ class TestReverseDirectRelations:
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [insight.code for insight in insights] == ["MISSING-REFERENCED-PROPERTY"]
+
+    @pytest.mark.parametrize(
+        "container_yaml, local_view_yamls, cdf_view_is_direct, implements, expected_codes",
+        [
+            pytest.param(
+                DIRECT_CONTAINER_YAML,
+                {PARENT_VIEW_ID: LOCAL_PARENT_VIEW_YAML},
+                {},
+                [PARENT_VIEW_ID],
+                [],
+                id="inherited-from-local-view",
+            ),
+            pytest.param(
+                DIRECT_CONTAINER_YAML, {}, {PARENT_VIEW_ID: True}, [PARENT_VIEW_ID], [], id="inherited-from-cdf-view"
+            ),
+            pytest.param(
+                DIRECT_CONTAINER_YAML,
+                {},
+                {DIRECT_PARENT_ID: True, TEXT_PARENT_ID: False},
+                [TEXT_PARENT_ID, DIRECT_PARENT_ID],
+                [],
+                id="last-implemented-cdf-view-wins-direct",
+            ),
+            pytest.param(
+                DIRECT_CONTAINER_YAML,
+                {},
+                {DIRECT_PARENT_ID: True, TEXT_PARENT_ID: False},
+                [DIRECT_PARENT_ID, TEXT_PARENT_ID],
+                ["INVALID-REFERENCED-PROPERTY"],
+                id="last-implemented-cdf-view-wins-not-direct",
+            ),
+            pytest.param(
+                DIRECT_CONTAINER_YAML,
+                {PARENT_VIEW_ID: LOCAL_PARENT_VIEW_YAML},
+                {TEXT_PARENT_ID: False},
+                [PARENT_VIEW_ID, TEXT_PARENT_ID],
+                ["INVALID-REFERENCED-PROPERTY"],
+                id="cdf-view-implemented-after-local-view-wins",
+            ),
+            pytest.param(
+                DIRECT_CONTAINER_YAML,
+                {PARENT_VIEW_ID: LOCAL_PARENT_VIEW_YAML},
+                {TEXT_PARENT_ID: False},
+                [TEXT_PARENT_ID, PARENT_VIEW_ID],
+                [],
+                id="local-view-implemented-after-cdf-view-wins",
+            ),
+            pytest.param(
+                TEXT_CONTAINER_YAML,
+                {BASE_VIEW_ID: BASE_OVERRIDE_VIEW_YAML},
+                {PARENT_VIEW_ID: True},
+                [BASE_VIEW_ID, PARENT_VIEW_ID],
+                [],
+                id="diamond-explicitly-listed-ancestor-wins",
+            ),
+            pytest.param(
+                TEXT_CONTAINER_YAML,
+                {BASE_VIEW_ID: BASE_OVERRIDE_VIEW_YAML},
+                {PARENT_VIEW_ID: True},
+                [PARENT_VIEW_ID, BASE_VIEW_ID],
+                ["INVALID-REFERENCED-PROPERTY"],
+                id="diamond-base-override-wins",
+            ),
+        ],
+    )
+    def test_reverse_relation_through_inherited_property(
+        self,
+        container_yaml: str,
+        local_view_yamls: dict[ViewId, str],
+        cdf_view_is_direct: dict[ViewId, bool],
+        implements: list[ViewId],
+        expected_codes: list[str],
+        tmp_path: Path,
+    ) -> None:
+        local_views: list[tuple[Path, type[ResourceIO], ContainerId | ViewId]] = [
+            (_write(tmp_path, f"{view_id.external_id}.view.yaml", yaml), ViewIO, view_id)
+            for view_id, yaml in local_view_yamls.items()
+        ]
+        module = _module(
+            [
+                (_write(tmp_path, "MyContainer.container.yaml", container_yaml), ContainerIO, CONTAINER_ID),
+                *local_views,
+                (_write(tmp_path, "OtherView.view.yaml", _implements_view_yaml(*implements)), ViewIO, OTHER_VIEW_ID),
+                (_write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML), ViewIO, VIEW_ID),
+            ]
+        )
+        cdf_views = [
+            _cdf_view(view_id, {"related": _view_property("related", direct=is_direct)})
+            for view_id, is_direct in cdf_view_is_direct.items()
+        ]
+        rule = DataModelingRuleSet(modules=[module], client=_client(views=cdf_views))
+
+        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        assert [insight.code for insight in insights] == expected_codes
 
 
 class TestDataModelingChangesMove:

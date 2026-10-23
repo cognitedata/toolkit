@@ -161,6 +161,11 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         for relation_ref in references.reverse_direct_relations:
             if contains_unresolved_variable(relation_ref.through):
                 continue
+            _, needed_view_ids = self._reverse_fetch_ids(relation_ref.through, local_views)
+            if needed_view_ids:
+                # Non-local views may override the local definition, so this can only be resolved with CDF.
+                missing_reverses.append(relation_ref)
+                continue
             status = self._reverse_status(relation_ref.through, local_views, local_containers, {}, {})
             if status == "not_direct":
                 invalid_reverses.append(relation_ref)
@@ -205,8 +210,8 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     yield from self._unknown_property_errors(property_ref)
 
         for relation_ref in missing_reverses:
-            needs_container, needs_view = self._reverse_remote_need(relation_ref.through, local_views)
-            if (needs_container and container_error is not None) or (needs_view and view_error is not None):
+            needed_container_ids, needed_view_ids = self._reverse_fetch_ids(relation_ref.through, local_views)
+            if (needed_container_ids and container_error is not None) or (needed_view_ids and view_error is not None):
                 continue
             status = self._reverse_status(
                 relation_ref.through, local_views, local_containers, cdf_views, cdf_containers
@@ -227,34 +232,69 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         container_ids = {ref.container_id for ref in missing_properties}
         view_ids: set[ViewId] = set()
         for ref in missing_reverses:
-            needs_container, needs_view = self._reverse_remote_need(ref.through, local_views)
-            if isinstance(ref.through, ContainerDirectId) and needs_container:
-                container_ids.add(ref.through.source)
-                continue
-            if not isinstance(ref.through, ViewDirectId):
-                continue
-            if needs_view:
-                view_ids.add(ref.through.source)
-                continue
-            local = local_views.get(ref.through.source)
-            prop = (local[1].properties or {}).get(ref.through.identifier) if local is not None else None
-            if isinstance(prop, ViewCorePropertyRequest):
-                container_ids.add(prop.container)
+            reverse_container_ids, reverse_view_ids = self._reverse_fetch_ids(ref.through, local_views)
+            container_ids.update(reverse_container_ids)
+            view_ids.update(reverse_view_ids)
         return container_ids, view_ids
 
-    @staticmethod
-    def _reverse_remote_need(
+    @classmethod
+    def _reverse_fetch_ids(
+        cls,
         through: ContainerDirectId | ViewDirectId,
         local_views: dict[ViewId, _LocalView],
-    ) -> tuple[bool, bool]:
-        """Whether a still-missing reverse relation must be resolved via a container or a view lookup."""
+    ) -> tuple[set[ContainerId], set[ViewId]]:
+        """The containers or views that must be fetched from CDF to resolve a still-missing reverse relation.
+
+        Only the non-local views in the implements chain are fetched. CDF expands their own inheritance.
+        """
         if isinstance(through, ContainerDirectId):
-            return True, False
-        local = local_views.get(through.source)
-        prop = (local[1].properties or {}).get(through.identifier) if local is not None else None
-        if isinstance(prop, ViewCorePropertyRequest):
-            return True, False
-        return False, True
+            return {through.source}, set()
+        # Non-local views earlier in the precedence order may override a later local definition,
+        # so they must be fetched even when the property is found locally further down.
+        higher_precedence_remote_ids: set[ViewId] = set()
+        for view_id in cls._view_precedence(through.source, local_views):
+            local = local_views.get(view_id)
+            if local is None:
+                higher_precedence_remote_ids.add(view_id)
+                continue
+            _, view_request = local
+            prop = (view_request.properties or {}).get(through.identifier)
+            if isinstance(prop, ViewCorePropertyRequest):
+                return {prop.container}, higher_precedence_remote_ids
+            if prop is not None:
+                return set(), higher_precedence_remote_ids
+        return set(), higher_precedence_remote_ids
+
+    @classmethod
+    def _view_precedence(cls, view_id: ViewId, local_views: dict[ViewId, _LocalView]) -> list[ViewId]:
+        """The view followed by its ancestors, highest property precedence first.
+
+        The last implemented view wins, and each parent's own ancestors are ranked right after it. For a view
+        implementing [C, D], the order is the view, D and D's ancestors, then C and C's ancestors. A view reachable
+        several times (diamond) keeps its first, highest-precedence, position. Follows implements through local
+        views only; non-local views are kept as leaves.
+        """
+        precedence: list[ViewId] = []
+        cls._visit_view(view_id, local_views, set(), precedence)
+        return precedence
+
+    @classmethod
+    def _visit_view(
+        cls,
+        view_id: ViewId,
+        local_views: dict[ViewId, _LocalView],
+        visited: set[ViewId],
+        precedence: list[ViewId],
+    ) -> None:
+        if view_id in visited:
+            return
+        visited.add(view_id)
+        precedence.append(view_id)
+        local = local_views.get(view_id)
+        if local is not None:
+            _, view_request = local
+            for parent_id in reversed(view_request.implements or []):
+                cls._visit_view(parent_id, local_views, visited, precedence)
 
     def _reverse_status(
         self,
@@ -303,22 +343,25 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             return "ok"
         return "not_direct"
 
-    @staticmethod
+    @classmethod
     def _find_view_property(
+        cls,
         view_id: ViewId,
         property_identifier: str,
         local_views: dict[ViewId, _LocalView],
         cdf_views: dict[ViewId, ViewResponse],
     ) -> ViewRequestProperty | ViewResponseProperty | None:
-        local = local_views.get(view_id)
-        if local is not None:
-            prop = (local[1].properties or {}).get(property_identifier)
+        for candidate_id in cls._view_precedence(view_id, local_views):
+            prop: ViewRequestProperty | ViewResponseProperty | None = None
+            local = local_views.get(candidate_id)
+            if local is not None:
+                _, view_request = local
+                prop = (view_request.properties or {}).get(property_identifier)
+            elif (cdf_view := cdf_views.get(candidate_id)) is not None:
+                prop = cdf_view.properties.get(property_identifier)
             if prop is not None:
                 return prop
-        cdf_view = cdf_views.get(view_id)
-        if cdf_view is None:
-            return None
-        return cdf_view.properties.get(property_identifier)
+        return None
 
     @staticmethod
     def _container_property(
@@ -379,7 +422,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         if not view_ids or self.client is None:
             return {}, None
         try:
-            items = ViewIO(self.client).retrieve(list(view_ids))
+            items = self.client.views.retrieve(list(view_ids), include_inherited_properties=True)
         except ToolkitAPIError as e:
             return {}, InternalValidatorException(
                 message=f"Failed to verify existence of {ViewIO.kind.lower()} in CDF: {e}",
