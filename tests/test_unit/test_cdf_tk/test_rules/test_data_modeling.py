@@ -407,6 +407,29 @@ class TestReverseDirectRelations:
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [insight.code for insight in insights] == expected_codes
 
+    def test_cdf_parent_implemented_after_local_parent_overrides_local_property(self, tmp_path: Path) -> None:
+        container_file = _write(tmp_path, "MyContainer.container.yaml", DIRECT_CONTAINER_YAML)
+        parent_view = _write(tmp_path, "ParentView.view.yaml", MAPPED_VIEW_YAML.replace("OtherView", "ParentView"))
+        child_view = _write(tmp_path, "OtherView.view.yaml", _implements_view_yaml(PARENT_VIEW_ID, TEXT_PARENT_ID))
+        reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
+        client = _client(views=[_cdf_view(TEXT_PARENT_ID, {"related": _view_property("related", direct=False)})])
+        rule = DataModelingRuleSet(
+            modules=[
+                _module(
+                    [
+                        (container_file, ContainerIO, CONTAINER_ID),
+                        (parent_view, ViewIO, PARENT_VIEW_ID),
+                        (child_view, ViewIO, OTHER_VIEW_ID),
+                        (reverse_view, ViewIO, VIEW_ID),
+                    ]
+                )
+            ],
+            client=client,
+        )
+
+        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        assert [insight.code for insight in insights] == ["INVALID-REFERENCED-PROPERTY"]
+
 
 class TestDataModelingChangesMove:
     def test_state_changes_run_here_and_are_skipped_by_dependency_rules(self, tmp_path: Path) -> None:

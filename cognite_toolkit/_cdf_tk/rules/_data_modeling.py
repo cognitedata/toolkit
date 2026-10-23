@@ -161,6 +161,11 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         for relation_ref in references.reverse_direct_relations:
             if contains_unresolved_variable(relation_ref.through):
                 continue
+            _, needed_view_ids = self._reverse_fetch_ids(relation_ref.through, local_views)
+            if needed_view_ids:
+                # Non-local views may override the local definition, so this can only be resolved with CDF.
+                missing_reverses.append(relation_ref)
+                continue
             status = self._reverse_status(relation_ref.through, local_views, local_containers, {}, {})
             if status == "not_direct":
                 invalid_reverses.append(relation_ref)
@@ -244,18 +249,21 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         """
         if isinstance(through, ContainerDirectId):
             return {through.source}, set()
-        precedence = cls._view_precedence(through.source, local_views)
-        for view_id in precedence:
+        # Non-local views earlier in the precedence order may override a later local definition,
+        # so they must be fetched even when the property is found locally further down.
+        higher_precedence_remote_ids: set[ViewId] = set()
+        for view_id in cls._view_precedence(through.source, local_views):
             local = local_views.get(view_id)
-            prop = None
-            if local is not None:
-                _, view_request = local
-                prop = (view_request.properties or {}).get(through.identifier)
+            if local is None:
+                higher_precedence_remote_ids.add(view_id)
+                continue
+            _, view_request = local
+            prop = (view_request.properties or {}).get(through.identifier)
             if isinstance(prop, ViewCorePropertyRequest):
-                return {prop.container}, set()
+                return {prop.container}, higher_precedence_remote_ids
             if prop is not None:
-                return set(), set()
-        return set(), {view_id for view_id in precedence if view_id not in local_views}
+                return set(), higher_precedence_remote_ids
+        return set(), higher_precedence_remote_ids
 
     @classmethod
     def _view_precedence(cls, view_id: ViewId, local_views: dict[ViewId, _LocalView]) -> list[ViewId]:
