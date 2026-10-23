@@ -40,7 +40,7 @@ from cognite_toolkit._cdf_tk.commands._utils import (
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList
-from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import ModuleLockResult
+from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import ModulesLockResult, ModuleLockManager
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable, Selector
@@ -86,6 +86,7 @@ from cognite_toolkit._cdf_tk.ui import (
     hanging_indent,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename, to_diff
+from cognite_toolkit._cdf_tk.utils.git_helpers import Git
 from cognite_toolkit._version import __version__
 
 Operation: TypeAlias = Literal["deploy", "clean"]
@@ -273,8 +274,8 @@ class DeployV2Command(ToolkitCommand):
                 raise ToolkitValueError("Either env_vars or client must be provided.")
             client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
-        module_locks: ModuleLockResult | None = None
-        if Flags.DEPLOY_PROTECTION.is_enabled():
+        module_locks: ModulesLockResult | None = None
+        if Flags.DEPLOY_PROTECTION.is_enabled() and build_lineage and build_lineage.deploy_protection == "block":
             module_locks = self._acquire_module_locks(build_lineage, client)
 
         self._validate_cdf_project(build_dir, options.operation, options.cdf_project, client.config.project)
@@ -294,7 +295,7 @@ class DeployV2Command(ToolkitCommand):
             clean_result = self.apply_plan(
                 client, list(reversed(plan)), options, is_delete=True, insights_by_resource=insights_by_resource
             )
-            if Flags.DEPLOY_PROTECTION.is_enabled():
+            if Flags.DEPLOY_PROTECTION.is_enabled() and module_locks:
                 self._release_module_locks(module_locks, client)
 
             if options.operation == "clean":
@@ -303,7 +304,7 @@ class DeployV2Command(ToolkitCommand):
 
         results = self.apply_plan(client, plan, options, insights_by_resource=insights_by_resource)
 
-        if Flags.DEPLOY_PROTECTION.is_enabled():
+        if Flags.DEPLOY_PROTECTION.is_enabled() and module_locks:
             self._release_module_locks(module_locks, client)
 
         if clean_result is not None:
@@ -439,12 +440,21 @@ class DeployV2Command(ToolkitCommand):
         )
 
     @classmethod
-    def _acquire_module_locks(cls, build_lineage: BuildLineage | None, client: ToolkitClient) -> ModuleLockResult:
-        raise NotImplementedError()
+    def _acquire_module_locks(cls, build_lineage: BuildLineage, client: ToolkitClient) -> ModulesLockResult:
+        module_ids = [module.module_id for module in build_lineage.module_lineage]
+        lock_result =  ModuleLockManager(client, Git()).try_lock(module_ids)
+        if lock_result.failed_locks:
+            raise ToolkitError(
+                f"Failed to acquire locks for modules: {', '.join(f'{lock.module_id} (owned by {lock.owner})' for lock in lock_result.failed_locks)}. "
+            )
+        client.console.print(ToolkitPanel(f"{'\n- '.join(lock_result.module_ids)}", title="Successfully acquired locks.", border_style=AuraColor.GREEN.rich))
+        return lock_result
+
 
     @classmethod
-    def _release_module_locks(cls, module_locks: ModuleLockResult | None, client: ToolkitClient) -> None:
-        raise NotImplementedError()
+    def _release_module_locks(cls, module_locks: ModulesLockResult, client: ToolkitClient) -> None:
+        ModuleLockManager(client, Git()).release_lock(module_locks)
+        client.console.print(ToolkitPanel(f"{'\n- '.join(module_locks.module_ids)}", title="Successfully released locks.", border_style=AuraColor.GREEN.rich))
 
     def _display_setup(
         self,
