@@ -23,7 +23,7 @@ classifiers = [
 ]
 dependencies = [
     "python-dotenv >=1.0.0",
-    "cognite-sdk>=8.8.0,<9.0.0",
+    "cognite-sdk>=8.21.0,<9.0.0",
     "httpx2>=2.12.0",
     "pyyaml >=6.0.1",
     "typer >=0.12.0, <1.0.0",
