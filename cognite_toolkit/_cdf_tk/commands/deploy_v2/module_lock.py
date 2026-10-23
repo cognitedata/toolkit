@@ -23,6 +23,8 @@ VERSION = "v1"
 VIEW_ID = ViewId(space=SPACE, external_id=EXTERNAL_ID, version=VERSION)
 
 HEARTBEAT_INTERVAL_SECONDS = 24 * 60 * 60  # 24 hours
+# Limit for the number of modules to lock at once to avoid hitting API limits or performance issues.
+MAX_MODULE_COUNT = 1000  # Maximum number of modules to lock at once
 
 
 @dataclass
@@ -64,6 +66,7 @@ class ModuleLock(BaseModel):
     timestamp: datetime
     git_name: str
     user_id: str
+    branch: str
     lock: bool
     existing_version: int | None = None
 
@@ -94,6 +97,8 @@ class ModuleLockManager:
         module_ids: list[str],
     ) -> ModulesLockResult:
         """Try to lock the modules in the list. Return a ModulesLockResult object containing the results."""
+        if len(module_ids) > MAX_MODULE_COUNT:
+            return ErrorLockResult(error_message=f"Cannot lock more than {MAX_MODULE_COUNT} modules at once.")
         return self._try_lock(module_ids, attempt=0)
 
     @cached_property
@@ -222,5 +227,6 @@ class ModuleLockManager:
             git_name=self._git_name,
             user_id=user_id,
             lock=True,
+            branch=self._current_branch,
             existing_version=existing_lock.existing_version if existing_lock else None,
         )
