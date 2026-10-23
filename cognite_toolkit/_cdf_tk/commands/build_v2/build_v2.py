@@ -801,7 +801,9 @@ class BuildV2Command(ToolkitCommand):
                     selected = parsed_user_selected
                 elif Flags.GIT_DIFF_SELECT.is_enabled() and config.environment.selection_type == "git-diff":
                     try:
-                        selected, uncommitted_changes = cls.parse_git_diff_selection(organization_dir, Git())
+                        selected, uncommitted_changes = cls.parse_git_diff_selection(
+                            organization_dir, Git(), config.environment.deploy_branch
+                        )
                     except RuntimeError as e:
                         raise ToolkitValueError(f"Failed to determine git changes: {e}") from e
                     if not selected:
@@ -889,7 +891,7 @@ class BuildV2Command(ToolkitCommand):
 
     @classmethod
     def parse_git_diff_selection(
-        cls, organization_dir: Path, git: Git
+        cls, organization_dir: Path, git: Git, user_deploy_branch: str | None = None
     ) -> tuple[set[RelativeDirPath | str], list[Path]]:
         """
         Parse the modules selected based on the Git diff.
@@ -903,12 +905,12 @@ class BuildV2Command(ToolkitCommand):
                 "Please run this command from within a Git repository."
             )
         module_absolute_path = (organization_dir / MODULES).resolve()
-        default_branch = git.get_default_branch()
+        deploy_branch = user_deploy_branch or git.get_default_branch()
         current_branch = git.get_current_branch()
-        if current_branch == default_branch:
+        if current_branch == deploy_branch:
             changed_files = git.get_changed_files_last_commit()
         else:
-            changed_files = git.get_changed_files(default_branch, current_branch)
+            changed_files = git.get_changed_files(deploy_branch, current_branch)
         changed_file_paths = {Path(file).resolve() for file in changed_files}
         selected, _ = cls._find_modules_from_files(changed_file_paths, module_absolute_path)
         if selected:
