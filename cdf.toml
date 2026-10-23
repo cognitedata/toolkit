@@ -23,6 +23,7 @@ api = true
 catalog-dataset = true
 multi-configs = true
 git-diff-select = true
+v010 = true
 
 [plugins]
 run = true

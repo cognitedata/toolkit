@@ -324,6 +324,7 @@ class CoreApp(typer.Typer):
                 "--drop",
                 "-d",
                 help="[Deprecated, use 'cdf clean' instead] Whether to drop existing configurations, drop per resource if present.",
+                hidden=Flags.v010.is_enabled(),
             ),
         ] = False,
         drop_data: Annotated[
@@ -331,6 +332,7 @@ class CoreApp(typer.Typer):
             typer.Option(
                 "--drop-data",
                 help="[Deprecated, use 'cdf clean --drop-data' instead] Only applicable if drop is set. Whether to drop configurations that contains data, such as data model containers and spaces. Use with caution.",
+                hidden=Flags.v010.is_enabled(),
             ),
         ] = False,
         include: Annotated[
@@ -378,14 +380,16 @@ class CoreApp(typer.Typer):
             ToolkitDeprecationWarning(
                 feature="--drop flag in cdf deploy",
                 alternative="cdf clean",
-                removal_version="0.9",
+                removal_version="0.10",
             ).print_warning()
         if drop_data:
             ToolkitDeprecationWarning(
                 feature="--drop-data flag in cdf deploy",
                 alternative="cdf clean --drop-data",
-                removal_version="0.9",
+                removal_version="0.10",
             ).print_warning()
+        if (drop or drop_data) and Flags.v010.is_enabled():
+            raise typer.Exit(1)
         env_vars = EnvironmentVariables.create_from_environment()
         cmd = DeployV2Command(print_warning=True, client=env_vars.get_client())
         cmd.run(

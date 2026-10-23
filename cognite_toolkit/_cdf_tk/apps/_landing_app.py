@@ -23,7 +23,9 @@ class LandingApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """Getting started checklist"""
+        """Wizard to initialize Toolkit. This includes setting up cdf.toml, and optionally,
+        set up auth, select modules/deployment packs, and initialize a git repository.
+        """
         client: ToolkitClient | None = None
         with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
             # Remove the Error message from failing to load the config
