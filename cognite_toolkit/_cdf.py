@@ -89,7 +89,8 @@ _app = CoreApp(**default_typer_kws)
 landing_app = LandingApp(**default_typer_kws)
 
 _app.add_typer(AuthApp(**default_typer_kws), name="auth")
-_app.add_typer(RepoApp(**default_typer_kws), name="repo")
+if not Flags.v010.is_enabled():
+    _app.add_typer(RepoApp(**default_typer_kws), name="repo")
 
 
 if Plugins.run.value.is_enabled():
