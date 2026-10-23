@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
 )
 from cognite_toolkit._cdf_tk.utils.file import find_unique_variable_position
 
+from ._config import DeployProtection
 from ._insights import (
     BuildError,
     BuildWarning,
@@ -130,6 +131,8 @@ class BuildInput(BaseModel):
     validation_type: ValidationType = "prod"
     cdf_project: str
     organization_dir: AbsoluteDirPath
+    deploy_branch: str | None = None
+    deploy_protection: DeployProtection | None = None
 
     user_selected_modules: set[RelativeDirPath | str] | None = Field(
         description="Set of modules to build. Either module names (folder names) or relative paths to the organization directory."
