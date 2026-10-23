@@ -40,6 +40,7 @@ from ._extraction_pipeline import ExtractionPipelineConfigIO, ExtractionPipeline
 from ._fieldops import InFieldCDMLocationConfigIO, InFieldLocationConfigIO, InfieldV1IO
 from ._file import CogniteFileIO, FileMetadataIO
 from ._function import FunctionIO, FunctionScheduleIO
+from ._function_app import FunctionAppIO
 from ._group_scoped import GroupResourceScopedIO
 from ._hosted_extractors import (
     HostedExtractorDestinationIO,
@@ -90,6 +91,8 @@ if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
 if not FeatureFlag.is_enabled(Flags.CUSTOM_APPS):
     _EXCLUDED_CRUDS.add(AppIO)
     _EXCLUDED_CRUDS.add(AppVersionIO)
+if not FeatureFlag.is_enabled(Flags.FUNCTION_APPS):
+    _EXCLUDED_CRUDS.add(FunctionAppIO)
 if not FeatureFlag.is_enabled(Flags.CATALOG_DATASET):
     _EXCLUDED_CRUDS.add(CatalogDataSetsIO)
 
@@ -207,6 +210,7 @@ __all__ = [
     "ExtractionPipelineConfigIO",
     "ExtractionPipelineIO",
     "FileMetadataIO",
+    "FunctionAppIO",
     "FunctionIO",
     "FunctionScheduleIO",
     "GroupAllScopedIO",
