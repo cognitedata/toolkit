@@ -267,14 +267,16 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
 
     @classmethod
     def _view_precedence(cls, view_id: ViewId, local_views: dict[ViewId, _LocalView]) -> list[ViewId]:
-        """The view followed by its ancestors in CDF's property precedence order.
+        """The view followed by its ancestors, highest property precedence first.
 
-        Follows implements through local views only; non-local views are kept as leaves. For a view
-        implementing [C, D], D takes precedence over C, matching CDF's internal resolution order.
+        The last implemented view wins, and each parent's own ancestors are ranked right after it. For a view
+        implementing [C, D], the order is the view, D and D's ancestors, then C and C's ancestors. A view reachable
+        several times (diamond) keeps its first, highest-precedence, position. Follows implements through local
+        views only; non-local views are kept as leaves.
         """
-        postorder: list[ViewId] = []
-        cls._visit_view(view_id, local_views, set(), postorder)
-        return postorder[::-1]
+        precedence: list[ViewId] = []
+        cls._visit_view(view_id, local_views, set(), precedence)
+        return precedence
 
     @classmethod
     def _visit_view(
@@ -282,17 +284,17 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         view_id: ViewId,
         local_views: dict[ViewId, _LocalView],
         visited: set[ViewId],
-        postorder: list[ViewId],
+        precedence: list[ViewId],
     ) -> None:
         if view_id in visited:
             return
         visited.add(view_id)
+        precedence.append(view_id)
         local = local_views.get(view_id)
         if local is not None:
             _, view_request = local
-            for parent_id in view_request.implements or []:
-                cls._visit_view(parent_id, local_views, visited, postorder)
-        postorder.append(view_id)
+            for parent_id in reversed(view_request.implements or []):
+                cls._visit_view(parent_id, local_views, visited, precedence)
 
     def _reverse_status(
         self,
