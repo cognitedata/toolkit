@@ -114,6 +114,23 @@ class ModuleLockManager:
         if not self._git.is_git_repo():
             return ErrorLockResult(error_message="Not a git repository. This is required to lock modules.")
         try:
+            user_id = UserInfo.load(self._client).id
+        except ToolkitAPIError as e:
+            return ErrorLockResult(
+                error_message=f"Failed to retrieve user info due to API error: {e.code} - {e.message}"
+            )
+        if user_id is None:
+            return ErrorLockResult(error_message="Failed to retrieve user info: user ID is None.")
+        if self.deploy_branch == self._current_branch:
+            # If the deploy branch is the same as the current branch, we always allow the lock to be acquired.
+            return SuccessfulLockResult(
+                module_ids=module_ids,
+                current_branch=self._current_branch,
+                deploy_branch=self.deploy_branch,
+                user_id=user_id,
+                git_name=self._git_name,
+            )
+        try:
             module_nodes = self._client.instances.retrieve(
                 [NodeId(space=SPACE, external_id=module_id) for module_id in module_ids], source=VIEW_ID
             )
@@ -126,15 +143,6 @@ class ModuleLockManager:
                     error_message=f"Failed to retrieve module locks due to API error: {e.code} - {e.message}"
                 )
         module_lock_by_id = {lock.module_id: lock for lock in ModuleLock.from_nodes(module_nodes)}
-
-        try:
-            user_id = UserInfo.load(self._client).id
-        except ToolkitAPIError as e:
-            return ErrorLockResult(
-                error_message=f"Failed to retrieve user info due to API error: {e.code} - {e.message}"
-            )
-        if user_id is None:
-            return ErrorLockResult(error_message="Failed to retrieve user info: user ID is None.")
 
         attempt_lock: list[ModuleLock] = []
         failed_locks: list[FailedLock] = []
@@ -174,6 +182,10 @@ class ModuleLockManager:
 
     def release_lock(self, lock: SuccessfulLockResult) -> None:
         """Release the locks on the modules in the list."""
+        if self.deploy_branch != self._current_branch:
+            return
+        # We only release locks if we are on the deploy branch, otherwise we assume the locks are still valid
+        # as we expect development is still ongoing on the current branch.
         try:
             self._client.instances.create(
                 [
@@ -187,6 +199,9 @@ class ModuleLockManager:
                 replace=False,
             )
         except ToolkitAPIError as e:
+            if e.code == 404:
+                # Mock view does not exist, so we don't need to release locks.
+                return
             self._client.console.print(f"Failed to release module locks due to API error: {e.code} - {e.message}")
 
     def _can_attempt_lock(self, lock: ModuleLock, user_id: str) -> bool:
