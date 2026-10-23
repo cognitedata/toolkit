@@ -1,7 +1,7 @@
 import os
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal, TypeAlias
 
 from pydantic import BaseModel, Field, JsonValue, field_validator
 from pydantic_core.core_schema import ValidationInfo
@@ -21,13 +21,16 @@ def _normalize_config_variables(value: Any) -> Any:
     return value
 
 
+DEPLOY_PROTECTION: TypeAlias = Literal["none", "block"]
+
+
 class Environment(BaseModel):
     name: str = "dev"
     project: str = Field(default_factory=lambda: os.environ.get("CDF_PROJECT", "UNKNOWN"))
     validation_type: ValidationType = Field("dev", alias="validation-type")
     selection_type: Literal["path", "git-diff"] = Field("path", alias="selection-type")
     deploy_branch: str | None = Field(None, alias="deploy-branch")
-    deploy_protection: Literal["none", "block"] = Field("none", alias="deploy-protection")
+    deploy_protection: DEPLOY_PROTECTION = Field("none", alias="deploy-protection")
     selected: list[str] | None = None
 
     @field_validator("selection_type", mode="after")

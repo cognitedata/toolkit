@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ResourceType, get_resource_build_io
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -41,6 +42,7 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash_multi_file
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
+from ._config import DEPLOY_PROTECTION
 from ._module import BuildVariable
 from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath
 
@@ -203,6 +205,14 @@ class BuildLineage(_BaseLineageModel):
         default=None,
         description="Hash of the config YAML file at build time. Used to invalidate the incremental rebuild cache when the config changes.",
     )
+    deploy_branch: str | None = Field(
+        default=None,
+        description="Git branch that is expected to deploy the build.",
+    )
+    deploy_protection: DEPLOY_PROTECTION | None = Field(
+        default=None,
+        description="Whether the build is protected from deployment on non-deploy branches.",
+    )
     modules_summary: dict[str, int] = Field(description="Summary of modules by build status")
     insights_summary: dict[str, int] = Field(description="Summary of insights by type across all modules")
 
@@ -260,11 +270,17 @@ class BuildLineage(_BaseLineageModel):
 
     def to_yaml(self) -> str:
         """Convert BuildLineage to YAML string representation."""
+        exclude: set[str] = set()
+        if not Flags.GIT_DIFF_SELECT.is_enabled() and not Flags.MODULE_LOCK.is_enabled():
+            exclude.add("deploy_branch")
+        if not Flags.MODULE_LOCK.is_enabled():
+            exclude.add("deploy_protection")
         data = self.model_dump(
             by_alias=True,
             exclude_none=False,
             mode="json",
             context={"organization_dir": self.organization_dir},
+            exclude=exclude,
         )
         return yaml.dump(data, default_flow_style=False, sort_keys=False)
 
