@@ -40,7 +40,13 @@ from cognite_toolkit._cdf_tk.commands._utils import (
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList
-from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import ModulesLockResult, ModuleLockManager
+from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import (
+    ErrorLockResult,
+    FailedLockResult,
+    ModuleLockManager,
+    ModulesLockResult,
+    SuccessfulLockResult,
+)
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable, Selector
@@ -442,19 +448,35 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def _acquire_module_locks(cls, build_lineage: BuildLineage, client: ToolkitClient) -> ModulesLockResult:
         module_ids = [module.module_id for module in build_lineage.module_lineage]
-        lock_result =  ModuleLockManager(client, Git()).try_lock(module_ids)
-        if lock_result.failed_locks:
+        lock_result = ModuleLockManager(client, Git()).try_lock(module_ids)
+        if isinstance(lock_result, ErrorLockResult):
+            raise ToolkitError(f"Failed to acquire locks for modules due to error: {lock_result.error_message}")
+        elif isinstance(lock_result, FailedLockResult):
             raise ToolkitError(
-                f"Failed to acquire locks for modules: {', '.join(f'{lock.module_id} (owned by {lock.owner})' for lock in lock_result.failed_locks)}. "
+                f"Failed to acquire locks for modules: {', '.join(f'{lock.module_id} (locked by {lock.git_name} <{lock.user_email}>)' for lock in lock_result.failed_locks)}"
             )
-        client.console.print(ToolkitPanel(f"{'\n- '.join(lock_result.module_ids)}", title="Successfully acquired locks.", border_style=AuraColor.GREEN.rich))
+        elif isinstance(lock_result, SuccessfulLockResult):
+            client.console.print(
+                ToolkitPanel(
+                    "\n- ".join(lock_result.module_ids),
+                    title="Successfully acquired locks.",
+                    border_style=AuraColor.GREEN.rich,
+                )
+            )
         return lock_result
-
 
     @classmethod
     def _release_module_locks(cls, module_locks: ModulesLockResult, client: ToolkitClient) -> None:
+        if not isinstance(module_locks, SuccessfulLockResult):
+            return
         ModuleLockManager(client, Git()).release_lock(module_locks)
-        client.console.print(ToolkitPanel(f"{'\n- '.join(module_locks.module_ids)}", title="Successfully released locks.", border_style=AuraColor.GREEN.rich))
+        client.console.print(
+            ToolkitPanel(
+                "\n- ".join(module_locks.module_ids),
+                title="Successfully released locks.",
+                border_style=AuraColor.GREEN.rich,
+            )
+        )
 
     def _display_setup(
         self,
