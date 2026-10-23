@@ -94,6 +94,10 @@ class Flags(Enum):
         visible=True,
         description="Enables support for selecting modules in a config.<>.yaml based on git diff.",
     )
+    v010 = FlagMetadata(
+        visible=True,
+        description="Enables all features that are part of the v0.10 release.",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
