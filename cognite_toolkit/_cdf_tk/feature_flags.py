@@ -98,7 +98,7 @@ class Flags(Enum):
         visible=True,
         description="Enables all features that are part of the v0.10 release.",
     )
-    MODULE_LOCK = FlagMetadata(
+    DEPLOY_PROTECTION = FlagMetadata(
         visible=True,
         description="Enables support for locking modules in cdf deploy/clean commands, preventing"
         "users from accidentally overwriting each other's work.",

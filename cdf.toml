@@ -24,6 +24,7 @@ catalog-dataset = true
 multi-configs = true
 git-diff-select = true
 v010 = true
+deploy-protection = true
 
 [plugins]
 run = true

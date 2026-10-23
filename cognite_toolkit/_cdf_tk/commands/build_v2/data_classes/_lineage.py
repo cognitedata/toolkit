@@ -277,9 +277,9 @@ class BuildLineage(_BaseLineageModel):
     def to_yaml(self) -> str:
         """Convert BuildLineage to YAML string representation."""
         exclude: set[str] = set()
-        if not Flags.GIT_DIFF_SELECT.is_enabled() and not Flags.MODULE_LOCK.is_enabled():
+        if not Flags.GIT_DIFF_SELECT.is_enabled() and not Flags.DEPLOY_PROTECTION.is_enabled():
             exclude.add("deploy_branch")
-        if not Flags.MODULE_LOCK.is_enabled():
+        if not Flags.DEPLOY_PROTECTION.is_enabled():
             exclude.add("deploy_protection")
         data = self.model_dump(
             by_alias=True,
