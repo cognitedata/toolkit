@@ -10,6 +10,8 @@ from cognite.client.data_classes import Event, FileMetadata
 from cognite.client.data_classes.capabilities import Capability, EventsAcl, FilesAcl
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.resource_classes.group import UserProfilesAcl
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
@@ -168,3 +170,114 @@ class TestLookup:
         rsps.post(config.create_api_url(f"{endpoint}/byids")).mock(side_effect=retrieve_multiple_callback)
         client = ToolkitClient(config)
         return client
+
+
+@pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+class TestUserLookup:
+    ORG_ID = "test-org"
+
+    @classmethod
+    def _create_client(cls, config: ToolkitClientConfig) -> ToolkitClient:
+        client = ToolkitClient(config=config)
+        # Avoid the organization lookup request.
+        client.project.get_organization_id = lambda: cls.ORG_ID  # ty: ignore[invalid-assignment]
+        return client
+
+    @classmethod
+    def _principals_url(cls, config: ToolkitClientConfig) -> str:
+        return config.create_auth_url(f"/orgs/{cls.ORG_ID}/principals")
+
+    @staticmethod
+    def _user_principal(id_: str, email: str | None) -> dict[str, Any]:
+        return {
+            "id": id_,
+            "type": "USER",
+            "name": f"User {id_}",
+            "pictureUrl": "https://example.com/picture.png",
+            "email": email,
+        }
+
+    @staticmethod
+    def _user_profile(user_identifier: str, email: str | None) -> dict[str, Any]:
+        return {
+            "userIdentifier": user_identifier,
+            "email": email,
+            "identityType": "USER",
+            "lastUpdatedTime": 1000000000000,
+        }
+
+    def test_lookup_email_and_user_id(self, toolkit_config: ToolkitClientConfig, rsps: respx.MockRouter) -> None:
+        rsps.get(self._principals_url(toolkit_config)).respond(
+            status_code=200,
+            json={
+                "items": [
+                    self._user_principal("user-1", "user1@example.com"),
+                    self._user_principal("user-2", "user2@example.com"),
+                    self._user_principal("user-3", None),
+                ]
+            },
+        )
+        client = self._create_client(toolkit_config)
+        users = client.lookup.users
+
+        assert users.email("user-1") == "user1@example.com"
+        assert users.email(["user-1", "user-2"]) == ["user1@example.com", "user2@example.com"]
+        assert users.user_id("user2@example.com") == "user-2"
+        assert users.user_id(["user1@example.com", "user2@example.com"]) == ["user-1", "user-2"]
+
+        assert len(rsps.calls) == 1  # Users are only listed once.
+
+    def test_lookup_missing_users(self, toolkit_config: ToolkitClientConfig, rsps: respx.MockRouter) -> None:
+        rsps.get(self._principals_url(toolkit_config)).respond(
+            status_code=200,
+            json={"items": [self._user_principal("user-1", "user1@example.com"), self._user_principal("user-2", None)]},
+        )
+        client = self._create_client(toolkit_config)
+        users = client.lookup.users
+
+        assert users.email("user-2") is None
+        assert users.email("non-existing") is None
+        assert users.email(["user-1", "non-existing"]) == ["user1@example.com"]
+        assert users.user_id("missing@example.com") is None
+        assert users.user_id(("user1@example.com", "missing@example.com")) == ["user-1"]
+
+    def test_fallback_to_user_profiles(self, toolkit_config: ToolkitClientConfig, rsps: respx.MockRouter) -> None:
+        rsps.get(self._principals_url(toolkit_config)).respond(status_code=401)
+        rsps.get(toolkit_config.create_api_url("/profiles")).respond(
+            status_code=200,
+            json={
+                "items": [
+                    self._user_profile("user-1", "user1@example.com"),
+                    self._user_profile("user-2", "user2@example.com"),
+                ]
+            },
+        )
+        client = self._create_client(toolkit_config)
+        users = client.lookup.users
+
+        assert users.email("user-1") == "user1@example.com"
+        assert users.user_id(["user2@example.com"]) == ["user-2"]
+
+    def test_principals_error_is_raised(self, toolkit_config: ToolkitClientConfig, rsps: respx.MockRouter) -> None:
+        rsps.get(self._principals_url(toolkit_config)).respond(status_code=500)
+        client = self._create_client(toolkit_config)
+
+        with pytest.raises(ToolkitAPIError):
+            client.lookup.users.email("user-1")
+
+    def test_missing_access(self, toolkit_config: ToolkitClientConfig, rsps: respx.MockRouter) -> None:
+        rsps.get(self._principals_url(toolkit_config)).respond(status_code=401)
+        rsps.get(toolkit_config.create_api_url("/profiles")).respond(status_code=403)
+        rsps.get(f"{toolkit_config.base_url}/api/v1/token/inspect").respond(
+            json={
+                "subject": "123",
+                "projects": [],
+                "capabilities": [],
+            }
+        )
+        client = self._create_client(toolkit_config)
+
+        with pytest.raises(AuthorizationError) as exc_info:
+            client.lookup.users.email("user-1")
+
+        assert UserProfilesAcl.__name__ in str(exc_info.value)
