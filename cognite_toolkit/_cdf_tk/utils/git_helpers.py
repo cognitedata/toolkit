@@ -95,3 +95,17 @@ class Git:
             return result.stdout.strip().splitlines()
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to get uncommitted changes: {e.stderr.strip()}") from e
+
+    @classmethod
+    def get_me(cls) -> str:
+        """Get the current git user name."""
+        try:
+            result = subprocess.run(
+                ["git", "config", "user.name"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return result.stdout.strip()
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Failed to get git user name: {e.stderr.strip()}") from e
