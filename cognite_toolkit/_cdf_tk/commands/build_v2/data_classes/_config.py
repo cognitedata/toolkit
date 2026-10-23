@@ -26,6 +26,8 @@ class Environment(BaseModel):
     project: str = Field(default_factory=lambda: os.environ.get("CDF_PROJECT", "UNKNOWN"))
     validation_type: ValidationType = Field("dev", alias="validation-type")
     selection_type: Literal["path", "git-diff"] = Field("path", alias="selection-type")
+    deploy_branch: str | None = Field(None, alias="deploy-branch")
+    deploy_protection: Literal["none", "block"] = Field("none", alias="deploy-protection")
     selected: list[str] | None = None
 
     @field_validator("selection_type", mode="after")
