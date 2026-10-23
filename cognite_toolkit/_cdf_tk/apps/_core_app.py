@@ -318,21 +318,6 @@ class CoreApp(typer.Typer):
                 " and provide a report of the changes that would be made.",
             ),
         ] = False,
-        drop: Annotated[
-            bool,
-            typer.Option(
-                "--drop",
-                "-d",
-                help="[Deprecated, use 'cdf clean' instead] Whether to drop existing configurations, drop per resource if present.",
-            ),
-        ] = False,
-        drop_data: Annotated[
-            bool,
-            typer.Option(
-                "--drop-data",
-                help="[Deprecated, use 'cdf clean --drop-data' instead] Only applicable if drop is set. Whether to drop configurations that contains data, such as data model containers and spaces. Use with caution.",
-            ),
-        ] = False,
         include: Annotated[
             list[str] | None,
             typer.Option(
@@ -374,18 +359,6 @@ class CoreApp(typer.Typer):
         ] = False,
     ) -> None:
         """Deploys the configuration files in the build directory to the CDF project."""
-        if drop:
-            ToolkitDeprecationWarning(
-                feature="--drop flag in cdf deploy",
-                alternative="cdf clean",
-                removal_version="0.9",
-            ).print_warning()
-        if drop_data:
-            ToolkitDeprecationWarning(
-                feature="--drop-data flag in cdf deploy",
-                alternative="cdf clean --drop-data",
-                removal_version="0.9",
-            ).print_warning()
         env_vars = EnvironmentVariables.create_from_environment()
         cmd = DeployV2Command(print_warning=True, client=env_vars.get_client())
         cmd.run(
@@ -395,8 +368,6 @@ class CoreApp(typer.Typer):
                 options=DeployOptions(
                     cdf_project=cdf_project,
                     dry_run=dry_run,
-                    drop=drop,
-                    drop_data=drop_data,
                     include=include,
                     force_update=force_update,
                     verbose=verbose,
