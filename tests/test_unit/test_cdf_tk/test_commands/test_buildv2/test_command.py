@@ -480,6 +480,8 @@ class TestReadFileSystem:
             "user_selected_modules": {"module1", "module2"},
             "validation_type": "dev",
             "cdf_project": "my-project",
+            "deploy_branch": None,
+            "deploy_protection": None,
             "organization_dir": tmp_path.resolve(),
             "config_files": [
                 {
