@@ -127,9 +127,10 @@ class ModuleLock(BaseModel, alias_generator=to_camel, populate_by_name=True):
 
 
 class ModuleLockManager:
-    def __init__(self, client: ToolkitClient, git: Git, deploy_branch: str | None = None) -> None:
+    def __init__(self, client: ToolkitClient, git: Git, dry_run: bool, deploy_branch: str | None = None) -> None:
         self._client = client
         self._git = git
+        self._dry_run = dry_run
         self._deploy_branch = deploy_branch
 
     def try_lock(
@@ -139,13 +140,21 @@ class ModuleLockManager:
         """Try to lock the modules in the list. Return a ModulesLockResult object containing the results."""
         if len(module_ids) > MAX_MODULE_COUNT:
             return ErrorLockResult(error_message=f"Cannot lock more than {MAX_MODULE_COUNT} modules at once.")
-        elif len(module_ids) == 0:
-            return ErrorLockResult(error_message="No modules specified to lock.")
         if not self._git.is_git_repo():
             return ErrorLockResult(error_message="Not a git repository. This is required to lock modules.")
         user_id = UserInfo.load(self._client).id
         if user_id is None:
             return ErrorLockResult(error_message="Failed to retrieve user info: user ID is None.")
+
+        if len(module_ids) == 0:
+            return SuccessfulLockResult(
+                module_ids=[],
+                is_deploy_branch=self.deploy_branch == self._current_branch,
+                user_id=user_id,
+                git_name=self._git_name,
+                current_branch=self._current_branch,
+            )
+
         module_ids = list(dict.fromkeys(module_ids))  # Remove duplicates while preserving order
         if self.deploy_branch == self._current_branch:
             # If the deploy branch is the same as the current branch, we always allow the lock to be acquired.
@@ -160,13 +169,23 @@ class ModuleLockManager:
 
     @cached_property
     def _current_branch(self) -> str:
-        return self._git.get_current_branch()
+        try:
+            return self._git.get_current_branch()
+        except RuntimeError:
+            raise ToolkitValueError(
+                "Failed to retrieve current git branch. You cannot use the lock feature without a valid git repository."
+            )
 
     @cached_property
     def deploy_branch(self) -> str:
         if self._deploy_branch is not None:
             return self._deploy_branch
-        return self._git.get_default_branch()
+        try:
+            return self._git.get_default_branch()
+        except RuntimeError:
+            raise ToolkitValueError(
+                "Failed to retrieve default git branch. You cannot use the lock feature without a valid git repository."
+            )
 
     @cached_property
     def _git_name(self) -> str:
@@ -197,7 +216,7 @@ class ModuleLockManager:
                 attempt_lock.append(self._create_lock(module_id, user_id))
                 continue
             lock = module_lock_by_id[module_id]
-            if self._can_attempt_lock(lock, user_id):
+            if self._can_attempt_lock(lock):
                 attempt_lock.append(self._create_lock(module_id, user_id, lock))
             else:
                 failed_locks.append(
@@ -212,6 +231,16 @@ class ModuleLockManager:
 
         if failed_locks:
             return FailedLockResult(failed_locks=failed_locks)
+
+        if self._dry_run:
+            return SuccessfulLockResult(
+                module_ids=module_ids,
+                is_deploy_branch=False,
+                user_id=user_id,
+                current_branch=self._current_branch,
+                git_name=self._git_name,
+            )
+
         try:
             _ = self._client.instances.create(ModuleLock.as_nodes(attempt_lock), replace=True)
         except ToolkitAPIError as e:
@@ -231,6 +260,8 @@ class ModuleLockManager:
         """Release the locks on the modules in the list."""
         if not lock.is_deploy_branch:
             return False
+        if self._dry_run or len(lock.module_ids) == 0:
+            return True
         # We only release locks if we are on the deploy branch, otherwise we assume the locks are still valid
         # as we expect development is still ongoing on the current branch.
         try:
@@ -258,13 +289,9 @@ class ModuleLockManager:
             existing_version=None,
         )
 
-    def _can_attempt_lock(self, lock: ModuleLock, user_id: str) -> bool:
+    def _can_attempt_lock(self, lock: ModuleLock) -> bool:
         """Check if the lock can be attempted."""
-        return (
-            lock.lock is False
-            or lock.is_expired
-            or (lock.branch == self._current_branch and lock.user_id == user_id and lock.git_name == self._git_name)
-        )
+        return lock.lock is False or lock.is_expired or lock.branch == self._current_branch
 
     def _create_lock_view(self) -> None:
         """Create the lock view if it does not exist."""
