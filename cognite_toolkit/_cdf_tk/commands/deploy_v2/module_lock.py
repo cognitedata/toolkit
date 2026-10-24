@@ -98,9 +98,8 @@ class ModuleLock(BaseModel, alias_generator=to_camel, populate_by_name=True):
             properties = node.properties.get(VIEW_ID)
             if properties is None:
                 continue
-            properties["existingVersion"] = node.version
             try:
-                lock = cls.model_validate(properties)
+                lock = cls.model_validate({**properties, "existingVersion": node.version})
             except ValidationError as e:
                 errors = humanize_validation_error(e, ModuleLock)
                 error_str = "\n - ".join(errors)
