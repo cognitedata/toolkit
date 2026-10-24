@@ -452,7 +452,7 @@ class DeployV2Command(ToolkitCommand):
     @classmethod
     def _acquire_module_locks(cls, build_lineage: BuildLineage, client: ToolkitClient) -> ModulesLockResult:
         module_ids = [module.module_id for module in build_lineage.module_lineage]
-        lock_result = ModuleLockManager(client, Git()).try_lock(module_ids)
+        lock_result = ModuleLockManager(client, Git(), build_lineage.deploy_branch).try_lock(module_ids)
         if isinstance(lock_result, ErrorLockResult):
             raise ToolkitError(f"Failed to acquire locks for modules due to error: {lock_result.error_message}")
         elif isinstance(lock_result, FailedLockResult):
