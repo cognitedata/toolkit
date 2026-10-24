@@ -10,9 +10,8 @@ from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
     InstanceResponse,
-    InstanceSource,
-    NodeRequest,
 )
+from cognite_toolkit._cdf_tk.utils import get_cicd_environment
 from cognite_toolkit._cdf_tk.utils.git_helpers import Git
 from cognite_toolkit._cdf_tk.utils.user import UserInfo
 
@@ -46,6 +45,7 @@ class SuccessfulLockResult(ModulesLockResult):
     is_deploy_branch: bool
     user_id: str
     git_name: str
+    current_branch: str
 
 
 @dataclass
@@ -67,7 +67,7 @@ class ModuleLock(BaseModel):
     user_id: str
     branch: str
     lock: bool
-    existing_version: int
+    existing_version: int | None
 
     @property
     def is_expired(self) -> bool:
@@ -112,9 +112,13 @@ class ModuleLockManager:
 
     @cached_property
     def _git_name(self) -> str:
-        return self._git.get_me()
+        try:
+            return self._git.get_me()
+        except RuntimeError:
+            return f"unknown-{get_cicd_environment()}"
 
     def _try_lock(self, module_ids: list[str], attempt: int = 0) -> ModulesLockResult:
+        module_ids = list(dict.fromkeys(module_ids))  # Remove duplicates while preserving order
         if not self._git.is_git_repo():
             return ErrorLockResult(error_message="Not a git repository. This is required to lock modules.")
         user_id = UserInfo.load(self._client).id
@@ -127,6 +131,7 @@ class ModuleLockManager:
                 is_deploy_branch=True,
                 user_id=user_id,
                 git_name=self._git_name,
+                current_branch=self._current_branch,
             )
         try:
             module_nodes = self._client.instances.retrieve(
@@ -157,7 +162,8 @@ class ModuleLockManager:
                         module_id=module_id,
                         git_name=lock.git_name,
                         user_id=lock.user_id,
-                        user_email=self._client.lookup.users.email(lock.user_id),
+                        # The user.email method already caches the result, so we can call it multiple times without performance issues.
+                        user_email=self._client.lookup.users.email(lock.user_id) or "unknown",
                     )
                 )
 
@@ -174,36 +180,48 @@ class ModuleLockManager:
             module_ids=module_ids,
             is_deploy_branch=False,
             user_id=user_id,
+            current_branch=self._current_branch,
             git_name=self._git_name,
         )
 
-    def release_lock(self, lock: SuccessfulLockResult) -> None:
+    def release_lock(self, lock: SuccessfulLockResult) -> bool:
         """Release the locks on the modules in the list."""
         if not lock.is_deploy_branch:
-            return
+            return False
         # We only release locks if we are on the deploy branch, otherwise we assume the locks are still valid
         # as we expect development is still ongoing on the current branch.
         try:
             self._client.instances.create(
-                [
-                    NodeRequest(
-                        space=SPACE,
-                        external_id=item,
-                        sources=[InstanceSource(source=VIEW_ID, properties={"lock": False})],
-                    )
-                    for item in lock.module_ids
-                ],
+                ModuleLock.as_nodes([self._create_lock_release(item, lock) for item in lock.module_ids]),
                 replace=True,
             )
         except ToolkitAPIError as e:
             if e.code == 404:
                 # Mock view does not exist, so we don't need to release locks.
-                return
+                return True
             self._client.console.print(f"Failed to release module locks due to API error: {e.code} - {e.message}")
+            return False
+        return True
+
+    @classmethod
+    def _create_lock_release(cls, module_id: str, lock: SuccessfulLockResult) -> ModuleLock:
+        return ModuleLock(
+            module_id=module_id,
+            timestamp=datetime.now(UTC),
+            git_name=lock.git_name,
+            user_id=lock.user_id,
+            branch=lock.current_branch,
+            lock=False,
+            existing_version=None,
+        )
 
     def _can_attempt_lock(self, lock: ModuleLock, user_id: str) -> bool:
         """Check if the lock can be attempted."""
-        return lock.lock is False or lock.is_expired or (lock.git_name == self._git_name and lock.user_id == user_id)
+        return (
+            lock.lock is False
+            or lock.is_expired
+            or (lock.branch == self._current_branch and lock.user_id == user_id and lock.git_name == self._git_name)
+        )
 
     def _create_lock_view(self) -> None:
         """Create the lock view if it does not exist."""
