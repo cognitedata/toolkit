@@ -140,7 +140,24 @@ class ModuleLockManager:
         """Try to lock the modules in the list. Return a ModulesLockResult object containing the results."""
         if len(module_ids) > MAX_MODULE_COUNT:
             return ErrorLockResult(error_message=f"Cannot lock more than {MAX_MODULE_COUNT} modules at once.")
-        return self._try_lock(module_ids, attempt=0)
+        elif len(module_ids) == 0:
+            return ErrorLockResult(error_message="No modules specified to lock.")
+        if not self._git.is_git_repo():
+            return ErrorLockResult(error_message="Not a git repository. This is required to lock modules.")
+        user_id = UserInfo.load(self._client).id
+        if user_id is None:
+            return ErrorLockResult(error_message="Failed to retrieve user info: user ID is None.")
+        module_ids = list(dict.fromkeys(module_ids))  # Remove duplicates while preserving order
+        if self.deploy_branch == self._current_branch:
+            # If the deploy branch is the same as the current branch, we always allow the lock to be acquired.
+            return SuccessfulLockResult(
+                module_ids=module_ids,
+                is_deploy_branch=True,
+                user_id=user_id,
+                git_name=self._git_name,
+                current_branch=self._current_branch,
+            )
+        return self._try_lock(module_ids, user_id, attempt=0)
 
     @cached_property
     def _current_branch(self) -> str:
@@ -159,22 +176,7 @@ class ModuleLockManager:
         except RuntimeError:
             return f"unknown-{get_cicd_environment()}"
 
-    def _try_lock(self, module_ids: list[str], attempt: int = 0) -> ModulesLockResult:
-        module_ids = list(dict.fromkeys(module_ids))  # Remove duplicates while preserving order
-        if not self._git.is_git_repo():
-            return ErrorLockResult(error_message="Not a git repository. This is required to lock modules.")
-        user_id = UserInfo.load(self._client).id
-        if user_id is None:
-            return ErrorLockResult(error_message="Failed to retrieve user info: user ID is None.")
-        if self.deploy_branch == self._current_branch:
-            # If the deploy branch is the same as the current branch, we always allow the lock to be acquired.
-            return SuccessfulLockResult(
-                module_ids=module_ids,
-                is_deploy_branch=True,
-                user_id=user_id,
-                git_name=self._git_name,
-                current_branch=self._current_branch,
-            )
+    def _try_lock(self, module_ids: list[str], user_id: str, attempt: int = 0) -> ModulesLockResult:
         try:
             module_nodes = self._client.instances.retrieve(
                 [NodeId(space=SPACE, external_id=module_id) for module_id in module_ids], source=VIEW_ID
@@ -182,7 +184,7 @@ class ModuleLockManager:
         except ToolkitAPIError as e:
             if e.code == 404 and attempt == 0:
                 self._create_lock_view()
-                return self._try_lock(module_ids, attempt=1)
+                return self._try_lock(module_ids, user_id, attempt=1)
             else:
                 return ErrorLockResult(
                     error_message=f"Failed to retrieve module locks due to API error: {e.code} - {e.message}"
