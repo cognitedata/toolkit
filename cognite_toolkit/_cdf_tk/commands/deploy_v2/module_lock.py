@@ -43,8 +43,7 @@ class ModulesLockResult:
 @dataclass
 class SuccessfulLockResult(ModulesLockResult):
     module_ids: list[str]
-    current_branch: str
-    deploy_branch: str
+    is_deploy_branch: bool
     user_id: str
     git_name: str
 
@@ -68,7 +67,7 @@ class ModuleLock(BaseModel):
     user_id: str
     branch: str
     lock: bool
-    existing_version: int | None = None
+    existing_version: int
 
     @property
     def is_expired(self) -> bool:
@@ -118,20 +117,14 @@ class ModuleLockManager:
     def _try_lock(self, module_ids: list[str], attempt: int = 0) -> ModulesLockResult:
         if not self._git.is_git_repo():
             return ErrorLockResult(error_message="Not a git repository. This is required to lock modules.")
-        try:
-            user_id = UserInfo.load(self._client).id
-        except ToolkitAPIError as e:
-            return ErrorLockResult(
-                error_message=f"Failed to retrieve user info due to API error: {e.code} - {e.message}"
-            )
+        user_id = UserInfo.load(self._client).id
         if user_id is None:
             return ErrorLockResult(error_message="Failed to retrieve user info: user ID is None.")
         if self.deploy_branch == self._current_branch:
             # If the deploy branch is the same as the current branch, we always allow the lock to be acquired.
             return SuccessfulLockResult(
                 module_ids=module_ids,
-                current_branch=self._current_branch,
-                deploy_branch=self.deploy_branch,
+                is_deploy_branch=True,
                 user_id=user_id,
                 git_name=self._git_name,
             )
@@ -179,15 +172,14 @@ class ModuleLockManager:
 
         return SuccessfulLockResult(
             module_ids=module_ids,
-            current_branch=self._current_branch,
-            deploy_branch=self.deploy_branch,
+            is_deploy_branch=False,
             user_id=user_id,
             git_name=self._git_name,
         )
 
     def release_lock(self, lock: SuccessfulLockResult) -> None:
         """Release the locks on the modules in the list."""
-        if self.deploy_branch != self._current_branch:
+        if not lock.is_deploy_branch:
             return
         # We only release locks if we are on the deploy branch, otherwise we assume the locks are still valid
         # as we expect development is still ongoing on the current branch.
@@ -201,7 +193,7 @@ class ModuleLockManager:
                     )
                     for item in lock.module_ids
                 ],
-                replace=False,
+                replace=True,
             )
         except ToolkitAPIError as e:
             if e.code == 404:
@@ -228,5 +220,5 @@ class ModuleLockManager:
             user_id=user_id,
             lock=True,
             branch=self._current_branch,
-            existing_version=existing_lock.existing_version if existing_lock else None,
+            existing_version=existing_lock.existing_version if existing_lock else 0,
         )
