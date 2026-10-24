@@ -11,6 +11,12 @@ Typical CI/CD pitfalls handled here:
 * Missing 'origin/HEAD': CI clones rarely set up the remote HEAD symbolic ref, so the default branch is read
   from the CI environment, or queried from the remote.
 * Missing git user configuration: the user is read from the CI environment instead.
+* Hanging commands: git never prompts for credentials (HTTPS or SSH), and all commands have a timeout.
+
+Note on Azure DevOps and Bitbucket: these do not expose the repository default branch as an environment
+variable. The default branch is then looked up on the remote ('git ls-remote'), which requires the checkout
+credentials to be available (e.g. 'persistCredentials: true' in Azure Pipelines). If that is not possible,
+specify the deploy branch explicitly.
 """
 
 import json
@@ -19,23 +25,30 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from cognite_toolkit._cdf_tk.tk_warnings.other import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.cicd import get_cicd_environment
 
 _NULL_SHA = "0" * 40
+# Timeouts in seconds. Local commands are fast, network commands (fetch, ls-remote) may be slow.
+_LOCAL_TIMEOUT = 60
+_NETWORK_TIMEOUT = 180
 
 
 class Git:
     @classmethod
-    def _run(cls, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+    def _run(cls, *args: str, check: bool = True, timeout: float = _LOCAL_TIMEOUT) -> subprocess.CompletedProcess[str]:
         """Run a git command and return the completed process.
 
         Raises:
             subprocess.CalledProcessError: If the command fails and check is True.
-            RuntimeError: If git is not installed.
+            RuntimeError: If git is not installed, or the command timed out.
         """
         env = os.environ.copy()
         # Never prompt for credentials, this would hang in a CI/CD environment.
         env["GIT_TERMINAL_PROMPT"] = "0"
+        if "GIT_SSH_COMMAND" not in env:
+            # BatchMode disables SSH passphrase/password/host-key prompts.
+            env["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes"
         try:
             return subprocess.run(
                 ["git", *args],
@@ -43,20 +56,28 @@ class Git:
                 text=True,
                 check=check,
                 env=env,
+                timeout=timeout,
             )
         except FileNotFoundError as e:
             raise RuntimeError("Git is not installed or not available on PATH.") from e
+        except subprocess.TimeoutExpired as e:
+            raise RuntimeError(f"Git command 'git {' '.join(args)}' timed out after {timeout} seconds.") from e
 
     @classmethod
-    def _output(cls, *args: str) -> str | None:
-        """Run a git command and return the stripped stdout, or None if the command failed."""
+    def _output(cls, *args: str, timeout: float = _LOCAL_TIMEOUT) -> str | None:
+        """Run a git command and return the stripped stdout, or None if the command failed or timed out."""
         try:
-            result = cls._run(*args, check=False)
+            result = cls._run(*args, check=False, timeout=timeout)
         except RuntimeError:
             return None
         if result.returncode != 0:
             return None
         return result.stdout.strip()
+
+    @classmethod
+    def _remote(cls, *args: str) -> str | None:
+        """Run a git command that talks to the remote (fetch, ls-remote) with a longer timeout."""
+        return cls._output(*args, timeout=_NETWORK_TIMEOUT)
 
     @staticmethod
     def _env(*names: str) -> str | None:
@@ -69,7 +90,7 @@ class Git:
 
     @staticmethod
     def _strip_ref_prefix(ref: str) -> str:
-        for prefix in ("refs/heads/", "refs/remotes/origin/", "origin/"):
+        for prefix in ("refs/heads/", "refs/remotes/origin/", "refs/tags/", "origin/"):
             if ref.startswith(prefix):
                 return ref[len(prefix) :]
         return ref
@@ -126,8 +147,11 @@ class Git:
         env = get_cicd_environment()
         sha: str | None = None
         if env == "github":
-            before = cls._github_event().get("before")
-            sha = before if isinstance(before, str) else None
+            # Only push events describe the previous commit of the branch. For example, 'pull_request'
+            # events also have a 'before' key, but HEAD is then a merge commit that includes the base branch.
+            if os.environ.get("GITHUB_EVENT_NAME") == "push":
+                before = cls._github_event().get("before")
+                sha = before if isinstance(before, str) else None
         elif env == "gitlab":
             sha = cls._env("CI_COMMIT_BEFORE_SHA")
         if not sha or sha == _NULL_SHA:
@@ -175,7 +199,7 @@ class Git:
         if name == cls.get_current_branch():
             return "HEAD"
         # Try to fetch the branch from the remote (typical for shallow clones in CI).
-        cls._output("fetch", "--no-tags", "origin", f"+refs/heads/{name}:refs/remotes/origin/{name}")
+        cls._remote("fetch", "--no-tags", "origin", f"+refs/heads/{name}:refs/remotes/origin/{name}")
         if cls._ref_exists(remote_ref):
             return remote_ref
         # Might be a commit SHA or tag, let git decide.
@@ -185,7 +209,7 @@ class Git:
     def _ensure_commit(cls, sha: str) -> bool:
         if cls._ref_exists(sha):
             return True
-        cls._output("fetch", "--no-tags", "origin", sha)
+        cls._remote("fetch", "--no-tags", "origin", sha)
         return cls._ref_exists(sha)
 
     @classmethod
@@ -213,7 +237,7 @@ class Git:
             return ref.split("/", 1)[-1] if "/" in ref else ref
 
         # CI clones rarely have origin/HEAD set, ask the remote directly.
-        remote = cls._output("ls-remote", "--symref", "origin", "HEAD")
+        remote = cls._remote("ls-remote", "--symref", "origin", "HEAD")
         if remote:
             for line in remote.splitlines():
                 # Format: "ref: refs/heads/main\tHEAD"
@@ -252,20 +276,45 @@ class Git:
         target_ref = cls._resolve_ref(target_branch)
 
         # Three-dot: changes on target since it diverged from base. Requires the merge base to be available.
-        changed = cls._diff_names(f"{base_ref}...{target_ref}")
+        three_dot = f"{base_ref}...{target_ref}"
+        changed = cls._diff_names(three_dot)
         if changed is None and cls._is_shallow():
-            # Shallow clone without the merge base, deepen the history and retry.
-            cls._output("fetch", "--no-tags", "--deepen=200", "origin")
-            changed = cls._diff_names(f"{base_ref}...{target_ref}")
+            # Shallow clone without the merge base. Deepen both refs explicitly (the checkout may have limited
+            # the fetch refspec), and retry.
+            cls._fetch_deepen(base_branch, target_branch, depth=200)
+            changed = cls._diff_names(three_dot)
+            if changed is None and cls._is_shallow():
+                # Still no merge base, fetch the full history.
+                cls._remote("fetch", "--no-tags", "--unshallow", "origin")
+                changed = cls._diff_names(three_dot)
         if changed is not None:
             return changed
 
-        # Fallback: compare the tips of the two refs directly.
+        # Fallback: compare the tips of the two refs directly. This also includes changes made on the base
+        # branch after the target branch diverged, i.e., it may report more changed files than expected.
+        MediumSeverityWarning(
+            f"Could not find a common ancestor of {base_branch!r} and {target_branch!r}. Comparing the latest "
+            "commits of the two branches instead, this may include changes that are not part of "
+            f"{target_branch!r}. Consider fetching the full git history (e.g. 'fetch-depth: 0' in GitHub Actions)."
+        ).print_warning()
         try:
             result = cls._run("diff", "--name-only", base_ref, target_ref)
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to get changed files: {e.stderr.strip()}") from e
         return result.stdout.strip().splitlines()
+
+    @classmethod
+    def _fetch_deepen(cls, *branches: str, depth: int) -> None:
+        """Deepen the history of the given branches in a shallow clone."""
+        refspecs = [
+            f"+refs/heads/{name}:refs/remotes/origin/{name}"
+            for name in dict.fromkeys(cls._strip_ref_prefix(branch) for branch in branches)
+            if name != "HEAD"
+        ]
+        if refspecs:
+            cls._remote("fetch", "--no-tags", f"--deepen={depth}", "origin", *refspecs)
+        # Also deepen the default refspec, which covers the checked-out commit in detached HEAD state.
+        cls._remote("fetch", "--no-tags", f"--deepen={depth}", "origin")
 
     @classmethod
     def get_changed_files_last_commit(cls) -> list[str]:
@@ -283,7 +332,7 @@ class Git:
 
         if not cls._ref_exists("HEAD~1") and cls._is_shallow():
             # Shallow clone (e.g. depth=1), fetch the parent commit.
-            cls._output("fetch", "--no-tags", "--deepen=1", "origin")
+            cls._remote("fetch", "--no-tags", "--deepen=1", "origin")
 
         if cls._ref_exists("HEAD~1"):
             changed = cls._diff_names("HEAD~1", "HEAD")
