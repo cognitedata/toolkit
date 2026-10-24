@@ -191,7 +191,7 @@ After:
 
     def do(self) -> set[Path]:
         changed: set[Path] = set()
-        scan, _ = BuildV2Command.read_filesystem_and_find_modules(self._organization_dir)
+        scan, *_ = BuildV2Command.read_filesystem_and_find_modules(self._organization_dir)
         for module in scan.modules:
             for resource_type, files in module.resource_files_by_folder.items():
                 if resource_type == "timeseries_datapoints":
@@ -362,7 +362,7 @@ After:
 
     def do(self) -> set[Path]:
         changed:  set[Path] = set()
-        scan, _ = BuildV2Command.read_filesystem_and_find_modules(self._organization_dir)
+        scan, *_ = BuildV2Command.read_filesystem_and_find_modules(self._organization_dir)
         for module in scan.modules:
             for resource_type, files in module.resource_files_by_folder.items():
                 if resource_type == "labels":
