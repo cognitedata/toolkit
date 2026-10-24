@@ -27,8 +27,6 @@ jobs:
         run: |
           pip install uv
           uv sync --all-extras
-      - name: Tmp test
-        run: uv run python tmp_script.py
       - name: Build the package
         run: uv build
       - name: Initialize project
