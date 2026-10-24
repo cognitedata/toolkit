@@ -285,7 +285,7 @@ class DeployV2Command(ToolkitCommand):
         module_locks: ModulesLockResult | None = None
         # Todo: only acquire locks on non-dry-run. For now, we acquire locks on dry-run while developing the feature
         if Flags.DEPLOY_PROTECTION.is_enabled() and build_lineage and build_lineage.deploy_protection == "block":
-            module_locks = self._acquire_module_locks(build_lineage, client)
+            module_locks = self._acquire_module_locks(build_lineage, client, options.dry_run)
 
         plan = self._display_setup(options.operation, build_dir, client.config.project, client.console, options.verbose)
 
@@ -295,7 +295,7 @@ class DeployV2Command(ToolkitCommand):
         if options.drop and options.drop_data and not options.dry_run:
             if not self._confirm_drop_data(client, plan, options):
                 if Flags.DEPLOY_PROTECTION.is_enabled() and module_locks:
-                    self._release_module_locks(module_locks, client)
+                    self._release_module_locks(module_locks, client, options.dry_run)
                 return []
 
         clean_result: Sequence[DeploymentResult] | None = None
@@ -308,7 +308,7 @@ class DeployV2Command(ToolkitCommand):
 
             if options.operation == "clean":
                 if Flags.DEPLOY_PROTECTION.is_enabled() and module_locks:
-                    self._release_module_locks(module_locks, client)
+                    self._release_module_locks(module_locks, client, options.dry_run)
                 self._display_results(clean_result, options.operation, client.console, options.verbose)
                 return clean_result
 
@@ -316,7 +316,7 @@ class DeployV2Command(ToolkitCommand):
             results = self.apply_plan(client, plan, options, insights_by_resource=insights_by_resource)
         finally:
             if Flags.DEPLOY_PROTECTION.is_enabled() and module_locks:
-                self._release_module_locks(module_locks, client)
+                self._release_module_locks(module_locks, client, options.dry_run)
 
         if clean_result is not None:
             self._merge_clean_results(results, clean_result)
@@ -451,9 +451,11 @@ class DeployV2Command(ToolkitCommand):
         )
 
     @classmethod
-    def _acquire_module_locks(cls, build_lineage: BuildLineage, client: ToolkitClient) -> ModulesLockResult:
+    def _acquire_module_locks(
+        cls, build_lineage: BuildLineage, client: ToolkitClient, dry_run: bool
+    ) -> ModulesLockResult:
         module_ids = [module.module_id for module in build_lineage.module_lineage]
-        lock_result = ModuleLockManager(client, Git(), build_lineage.deploy_branch).try_lock(module_ids)
+        lock_result = ModuleLockManager(client, Git(), dry_run, build_lineage.deploy_branch).try_lock(module_ids)
         if isinstance(lock_result, ErrorLockResult):
             raise ToolkitError(f"Failed to acquire locks for modules due to error: {lock_result.error_message}")
         elif isinstance(lock_result, FailedLockResult):
@@ -464,21 +466,25 @@ class DeployV2Command(ToolkitCommand):
             client.console.print(
                 ToolkitPanel(
                     "\n- ".join(lock_result.module_ids),
-                    title="Successfully acquired locks.",
+                    title="Successfully acquired locks."
+                    if not dry_run
+                    else "Dry-run: would acquire locks for modules.",
                     border_style=AuraColor.GREEN.rich,
                 )
             )
         return lock_result
 
     @classmethod
-    def _release_module_locks(cls, module_locks: ModulesLockResult, client: ToolkitClient) -> None:
+    def _release_module_locks(cls, module_locks: ModulesLockResult, client: ToolkitClient, dry_run: bool) -> None:
         if not isinstance(module_locks, SuccessfulLockResult) or not module_locks.is_deploy_branch:
             return
-        if ModuleLockManager(client, Git()).release_lock(module_locks):
+        if ModuleLockManager(client, Git(), dry_run).release_lock(module_locks):
             client.console.print(
                 ToolkitPanel(
                     "\n- ".join(module_locks.module_ids),
-                    title="Successfully released locks.",
+                    title="Successfully released locks."
+                    if not dry_run
+                    else "Dry-run: would release locks for modules.",
                     border_style=AuraColor.GREEN.rich,
                 )
             )
