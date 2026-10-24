@@ -280,11 +280,13 @@ class DeployV2Command(ToolkitCommand):
                 raise ToolkitValueError("Either env_vars or client must be provided.")
             client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
+        self._validate_cdf_project(build_dir, options.operation, options.cdf_project, client.config.project)
+
         module_locks: ModulesLockResult | None = None
+        # Todo: only acquire locks on non-dry-run. For now, we acquire locks on dry-run while developing the feature
         if Flags.DEPLOY_PROTECTION.is_enabled() and build_lineage and build_lineage.deploy_protection == "block":
             module_locks = self._acquire_module_locks(build_lineage, client)
 
-        self._validate_cdf_project(build_dir, options.operation, options.cdf_project, client.config.project)
         plan = self._display_setup(options.operation, build_dir, client.config.project, client.console, options.verbose)
 
         if options.drop:
@@ -292,6 +294,8 @@ class DeployV2Command(ToolkitCommand):
 
         if options.drop and options.drop_data and not options.dry_run:
             if not self._confirm_drop_data(client, plan, options):
+                if Flags.DEPLOY_PROTECTION.is_enabled() and module_locks:
+                    self._release_module_locks(module_locks, client)
                 return []
 
         clean_result: Sequence[DeploymentResult] | None = None
@@ -301,10 +305,10 @@ class DeployV2Command(ToolkitCommand):
             clean_result = self.apply_plan(
                 client, list(reversed(plan)), options, is_delete=True, insights_by_resource=insights_by_resource
             )
-            if Flags.DEPLOY_PROTECTION.is_enabled() and module_locks:
-                self._release_module_locks(module_locks, client)
 
             if options.operation == "clean":
+                if Flags.DEPLOY_PROTECTION.is_enabled() and module_locks:
+                    self._release_module_locks(module_locks, client)
                 self._display_results(clean_result, options.operation, client.console, options.verbose)
                 return clean_result
 
@@ -467,7 +471,7 @@ class DeployV2Command(ToolkitCommand):
 
     @classmethod
     def _release_module_locks(cls, module_locks: ModulesLockResult, client: ToolkitClient) -> None:
-        if not isinstance(module_locks, SuccessfulLockResult):
+        if not isinstance(module_locks, SuccessfulLockResult) or not module_locks.is_deploy_branch:
             return
         ModuleLockManager(client, Git()).release_lock(module_locks)
         client.console.print(
