@@ -2,18 +2,32 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cached_property
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
+from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._types import DMSTimestamp
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    BooleanProperty,
+    ContainerPropertyDefinition,
+    ContainerRequest,
     InstanceRequest,
     InstanceResponse,
+    InstanceSource,
+    NodeRequest,
+    SpaceRequest,
+    TextProperty,
+    TimestampProperty,
+    ViewCorePropertyRequest,
+    ViewRequest,
 )
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
 from cognite_toolkit._cdf_tk.utils.git_helpers import Git
 from cognite_toolkit._cdf_tk.utils.user import UserInfo
+from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
 SPACE = "cognite_toolkit"
 EXTERNAL_ID = "ModuleLock"
@@ -58,11 +72,11 @@ class ErrorLockResult(ModulesLockResult):
     error_message: str
 
 
-class ModuleLock(BaseModel):
+class ModuleLock(BaseModel, alias_generator=to_camel, populate_by_name=True):
     """Represents a lock on a module."""
 
     module_id: str
-    timestamp: datetime
+    timestamp: DMSTimestamp
     git_name: str
     user_id: str
     branch: str
@@ -77,12 +91,40 @@ class ModuleLock(BaseModel):
     @classmethod
     def from_nodes(cls, nodes: list[InstanceResponse]) -> list["ModuleLock"]:
         """Parse a list of nodes into a list of ModuleLock objects."""
-        raise NotImplementedError("This method should be implemented to parse nodes into ModuleLock objects.")
+        locks: list[ModuleLock] = []
+        for node in nodes:
+            if node.properties is None:
+                continue
+            properties = node.properties.get(VIEW_ID)
+            if properties is None:
+                continue
+            properties["existingVersion"] = node.version
+            try:
+                lock = cls.model_validate(properties)
+            except ValidationError as e:
+                errors = humanize_validation_error(e, ModuleLock)
+                error_str = "\n - ".join(errors)
+                raise ToolkitValueError(f"Failed to parse module lock from node {node.external_id}: {error_str}") from e
+            locks.append(lock)
+        return locks
 
     @classmethod
     def as_nodes(cls, locks: list["ModuleLock"]) -> list[InstanceRequest]:
         """Convert a list of ModuleLock objects into a list of nodes."""
-        raise NotImplementedError("This method should be implemented to convert ModuleLock objects into nodes.")
+        return [
+            NodeRequest(
+                space=SPACE,
+                external_id=lock.module_id,
+                existing_version=lock.existing_version,
+                sources=[
+                    InstanceSource(
+                        source=VIEW_ID,
+                        properties=lock.model_dump(mode="json", by_alias=True, exclude={"existing_version"}),
+                    )
+                ],
+            )
+            for lock in locks
+        ]
 
 
 class ModuleLockManager:
@@ -225,9 +267,58 @@ class ModuleLockManager:
 
     def _create_lock_view(self) -> None:
         """Create the lock view if it does not exist."""
-        raise NotImplementedError(
-            "Create the view used to store module locks. This should be implemented to create the view in the CDF."
-        )
+        container_properties: dict[str, ContainerPropertyDefinition] = {
+            "moduleId": ContainerPropertyDefinition(nullable=False, type=TextProperty()),
+            "timestamp": ContainerPropertyDefinition(nullable=False, type=TimestampProperty()),
+            "gitName": ContainerPropertyDefinition(nullable=False, type=TextProperty()),
+            "userId": ContainerPropertyDefinition(nullable=False, type=TextProperty()),
+            "branch": ContainerPropertyDefinition(nullable=False, type=TextProperty()),
+            "lock": ContainerPropertyDefinition(nullable=False, type=BooleanProperty()),
+        }
+        try:
+            self._client.spaces.create(
+                [
+                    SpaceRequest(
+                        space=SPACE,
+                        name="Cognite Toolkit",
+                        description="Cognite Toolkit internal space for module locks",
+                    )
+                ]
+            )
+            self._client.containers.create(
+                [
+                    ContainerRequest(
+                        space=SPACE,
+                        external_id=EXTERNAL_ID,
+                        name="Module Lock",
+                        description="Cognite Toolkit internal container for module locks",
+                        used_for="node",
+                        properties=container_properties,
+                    )
+                ]
+            )
+            self._client.views.create(
+                [
+                    ViewRequest(
+                        space=SPACE,
+                        external_id=EXTERNAL_ID,
+                        version=VERSION,
+                        name="Module Lock View",
+                        description="Cognite Toolkit internal view for module locks",
+                        properties={
+                            prop_id: ViewCorePropertyRequest(
+                                container=ContainerId(space=SPACE, external_id=EXTERNAL_ID),
+                                container_property_identifier=prop_id,
+                            )
+                            for prop_id in container_properties.keys()
+                        },
+                    )
+                ]
+            )
+        except ToolkitAPIError as e:
+            raise ToolkitValueError(
+                f"Failed to create view for module locks due to API error: {e.code} - {e.message}"
+            ) from e
 
     def _create_lock(self, module_id: str, user_id: str, existing_lock: ModuleLock | None = None) -> ModuleLock:
         """Create a lock for the module."""
