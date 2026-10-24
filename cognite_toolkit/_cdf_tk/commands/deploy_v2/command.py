@@ -312,10 +312,11 @@ class DeployV2Command(ToolkitCommand):
                 self._display_results(clean_result, options.operation, client.console, options.verbose)
                 return clean_result
 
-        results = self.apply_plan(client, plan, options, insights_by_resource=insights_by_resource)
-
-        if Flags.DEPLOY_PROTECTION.is_enabled() and module_locks:
-            self._release_module_locks(module_locks, client)
+        try:
+            results = self.apply_plan(client, plan, options, insights_by_resource=insights_by_resource)
+        finally:
+            if Flags.DEPLOY_PROTECTION.is_enabled() and module_locks:
+                self._release_module_locks(module_locks, client)
 
         if clean_result is not None:
             self._merge_clean_results(results, clean_result)
@@ -473,14 +474,14 @@ class DeployV2Command(ToolkitCommand):
     def _release_module_locks(cls, module_locks: ModulesLockResult, client: ToolkitClient) -> None:
         if not isinstance(module_locks, SuccessfulLockResult) or not module_locks.is_deploy_branch:
             return
-        ModuleLockManager(client, Git()).release_lock(module_locks)
-        client.console.print(
-            ToolkitPanel(
-                "\n- ".join(module_locks.module_ids),
-                title="Successfully released locks.",
-                border_style=AuraColor.GREEN.rich,
+        if ModuleLockManager(client, Git()).release_lock(module_locks):
+            client.console.print(
+                ToolkitPanel(
+                    "\n- ".join(module_locks.module_ids),
+                    title="Successfully released locks.",
+                    border_style=AuraColor.GREEN.rich,
+                )
             )
-        )
 
     def _display_setup(
         self,
