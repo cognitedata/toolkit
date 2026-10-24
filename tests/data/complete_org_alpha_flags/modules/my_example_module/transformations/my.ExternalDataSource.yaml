@@ -1,5 +1,6 @@
 externalId: my_onelake_source
 name: Example OneLake source
+format: one_lake
 dataSetExternalId: ds_complete_org
 settings:
   credentials:

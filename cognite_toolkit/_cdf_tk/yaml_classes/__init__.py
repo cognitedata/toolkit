@@ -20,7 +20,11 @@ from .data_product_version import DataProductVersionYAML
 from .datapoint_subscription import DatapointSubscriptionYAML
 from .dataset import DataSetYAML
 from .event import EventYAML
-from .externaldata import ExternalDataSourceYAML
+from .externaldata import (
+    ExternalDataSourceYAML,
+    OneLakeExternalDataSourceYAML,
+    SnowflakeExternalDataSourceYAML,
+)
 from .extraction_pipeline import ExtractionPipelineYAML
 from .extraction_pipeline_config import ExtractionPipelineConfigYAML
 from .filemetadata import FileMetadataYAML
@@ -105,6 +109,7 @@ __all__ = [
     "LabelsYAML",
     "LocationYAML",
     "NodeYAML",
+    "OneLakeExternalDataSourceYAML",
     "RelationshipYAML",
     "ResourceViewMappingYAML",
     "RuleSetVersionYAML",
@@ -123,6 +128,7 @@ __all__ = [
     "SimulatorRoutineRevisionYAML",
     "SimulatorRoutineYAML",
     "SkillYAML",
+    "SnowflakeExternalDataSourceYAML",
     "SpaceYAML",
     "StreamYAML",
     "StreamlitYAML",

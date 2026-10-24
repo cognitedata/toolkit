@@ -99,7 +99,7 @@ from cognite_toolkit._cdf_tk.utils import (
     sanitize_filename,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
-from cognite_toolkit._cdf_tk.utils.cdf import get_ext_onelake_source_ids, read_auth, try_find_error
+from cognite_toolkit._cdf_tk.utils.cdf import get_external_data_source_ids, read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 from cognite_toolkit._cdf_tk.yaml_classes import (
@@ -220,7 +220,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
         if resource.query:
-            for source_id in get_ext_onelake_source_ids(resource.query):
+            for source_id in get_external_data_source_ids(resource.query):
                 yield ExternalDataSourceIO, ExternalId(external_id=source_id)
         if destination := resource.destination:
             if isinstance(destination, RawDataSource):
