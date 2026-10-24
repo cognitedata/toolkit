@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cached_property
@@ -200,7 +201,7 @@ class ModuleLockManager:
                 [NodeId(space=SPACE, external_id=module_id) for module_id in module_ids], source=VIEW_ID
             )
         except ToolkitAPIError as e:
-            if e.code == 404 and attempt == 0:
+            if self._is_view_missing(attempt, e):
                 self._create_lock_view()
                 return self._try_lock(module_ids, user_id, attempt=1)
             else:
@@ -256,6 +257,15 @@ class ModuleLockManager:
             git_name=self._git_name,
         )
 
+    @staticmethod
+    def _is_view_missing(attempt: int, e: ToolkitAPIError) -> bool:
+        return (
+            e.code is not None
+            and 400 <= e.code < 500
+            and attempt == 0
+            and bool(re.search(r"views? do(es)? not exist", e.message.lower()))
+        )
+
     def release_lock(self, lock: SuccessfulLockResult) -> bool:
         """Release the locks on the modules in the list."""
         if not lock.is_deploy_branch:
@@ -270,7 +280,7 @@ class ModuleLockManager:
                 replace=True,
             )
         except ToolkitAPIError as e:
-            if e.code == 404:
+            if self._is_view_missing(0, e):
                 # Mock view does not exist, so we don't need to release locks.
                 return True
             self._client.console.print(f"Failed to release module locks due to API error: {e.code} - {e.message}")
