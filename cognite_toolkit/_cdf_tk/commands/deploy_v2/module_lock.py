@@ -147,25 +147,18 @@ class ModuleLockManager:
         if user_id is None:
             return ErrorLockResult(error_message="Failed to retrieve user info: user ID is None.")
 
-        if len(module_ids) == 0:
+        module_ids = list(dict.fromkeys(module_ids))  # Remove duplicates while preserving order
+        if len(module_ids) == 0 or self.deploy_branch == self._current_branch:
+            # If the deploy branch is the same as the current branch, we always allow the lock to be acquired.
+            # Or, if there are no modules to lock, we return a successful lock result with an empty list.
             return SuccessfulLockResult(
-                module_ids=[],
+                module_ids=module_ids,
                 is_deploy_branch=self.deploy_branch == self._current_branch,
                 user_id=user_id,
                 git_name=self._git_name,
                 current_branch=self._current_branch,
             )
 
-        module_ids = list(dict.fromkeys(module_ids))  # Remove duplicates while preserving order
-        if self.deploy_branch == self._current_branch:
-            # If the deploy branch is the same as the current branch, we always allow the lock to be acquired.
-            return SuccessfulLockResult(
-                module_ids=module_ids,
-                is_deploy_branch=True,
-                user_id=user_id,
-                git_name=self._git_name,
-                current_branch=self._current_branch,
-            )
         return self._try_lock(module_ids, user_id, attempt=0)
 
     @cached_property
