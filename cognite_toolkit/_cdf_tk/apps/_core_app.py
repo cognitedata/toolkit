@@ -5,7 +5,7 @@ import os
 import sys
 from dataclasses import dataclass
 from datetime import date
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, TypeAlias
 
@@ -44,7 +44,7 @@ CDF_TOML = CDFToml.load_module_context(Path.cwd())
 TODAY = date.today()
 
 
-class InsightFormat(str, Enum):
+class InsightFormat(StrEnum):
     csv = "csv"
     json = "json"
 

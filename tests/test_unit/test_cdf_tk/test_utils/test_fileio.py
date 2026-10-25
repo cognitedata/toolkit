@@ -4,7 +4,7 @@ import re
 import threading
 import time
 from collections.abc import Iterable, Iterator, Mapping
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from io import TextIOWrapper
 from itertools import product
 from pathlib import Path
@@ -63,7 +63,7 @@ def cell_chunks(
     json_rows, schema = json_chunks
     chunks: list[Mapping[str, CellValue]] = [
         *json_rows,
-        {"date": date(2023, 10, 1), "timestamp": datetime(2023, 10, 1, 12, 0, 0, tzinfo=timezone.utc)},
+        {"date": date(2023, 10, 1), "timestamp": datetime(2023, 10, 1, 12, 0, 0, tzinfo=UTC)},
     ]
     schema = [
         *schema,

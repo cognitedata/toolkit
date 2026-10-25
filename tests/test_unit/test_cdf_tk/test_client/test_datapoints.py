@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx2
@@ -155,7 +155,7 @@ class TestDatapointsAPI:
         )
         retrieved = api.retrieve(
             [DatapointsQueryRequest(external_id="ts_001", cursor="cursor-1")],
-            start=datetime(2020, 1, 1, tzinfo=timezone.utc),
+            start=datetime(2020, 1, 1, tzinfo=UTC),
             aggregates=["average", "max", "maxDatapoint", "count"],
             granularity="1h",
             time_zone="Europe/Oslo",
@@ -358,7 +358,7 @@ class TestDatapointsAPI:
             )
         )
         retrieved = api.latest(
-            [LatestDatapointRequest(id=7, before=datetime(2020, 1, 2, tzinfo=timezone.utc))],
+            [LatestDatapointRequest(id=7, before=datetime(2020, 1, 2, tzinfo=UTC))],
             ignore_unknown_ids=True,
         )
 
@@ -471,8 +471,8 @@ class TestDatapointsAPI:
 class TestTimestamp:
     def test_parses_epoch_and_string_formats(self) -> None:
         adapter = TypeAdapter(Timestamp)
-        epoch = datetime(2020, 1, 1, tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
+        epoch = datetime(2020, 1, 1, tzinfo=UTC)
+        now = datetime.now(UTC)
         parsed = {
             key: adapter.validate_python(value)
             for key, value in {
@@ -502,7 +502,7 @@ class TestTimestamp:
         } == {
             "parsed": {
                 "epoch": epoch,
-                "negative": datetime(1969, 12, 31, 23, 59, 59, tzinfo=timezone.utc),
+                "negative": datetime(1969, 12, 31, 23, 59, 59, tzinfo=UTC),
                 "float": epoch,
                 "digit_string": epoch,
                 "iso_z": epoch,

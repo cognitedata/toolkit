@@ -6,7 +6,7 @@ from collections import UserList
 from collections.abc import Collection, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from functools import total_ordering
 from typing import Any, ClassVar, Generic, TypeVar
@@ -78,7 +78,7 @@ class ToolkitWarning(ABC, UserWarning):
     def print_warning(self, include_timestamp: bool = False, console: Console | None = None) -> None:
         parts: tuple[str, ...] = self.print_prepare()
         if include_timestamp:
-            timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+            timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S+00:00")
             parts = (timestamp, *parts)
         if console is None:
             print(*parts)

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -67,7 +67,7 @@ def test_build_session_from_tokens_requires_refresh_token() -> None:
 
 
 def test_build_session_from_tokens_sets_expiry() -> None:
-    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    now = datetime(2026, 1, 1, tzinfo=UTC)
     session = build_session_from_tokens(
         "my-org",
         {"access_token": "access", "refresh_token": "refresh", "expires_in": 3600},
@@ -79,7 +79,7 @@ def test_build_session_from_tokens_sets_expiry() -> None:
 
 
 def test_token_state_expiring_within_leeway() -> None:
-    now = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
     metadata = SessionMetadata(
         version=1,
         org="org",
@@ -90,7 +90,7 @@ def test_token_state_expiring_within_leeway() -> None:
 
 
 def test_token_state_expired_when_refresh_past() -> None:
-    now = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
     metadata = SessionMetadata(
         version=1,
         org="org",
@@ -137,7 +137,7 @@ def test_unsupported_session_version_is_not_loaded(cli_home: Path) -> None:
 
 
 def test_missing_keyring_tokens_clears_stale_session_metadata(sample_keyring: Path, cli_home: Path) -> None:
-    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    now = datetime(2026, 1, 1, tzinfo=UTC)
     session = StoredSession(
         version=COGNITE_CLI_SESSION_VERSION,
         org="my-org",
@@ -155,7 +155,7 @@ def test_missing_keyring_tokens_clears_stale_session_metadata(sample_keyring: Pa
 
 
 def test_saving_session_for_new_org_clears_previous_org_tokens(sample_keyring: Path, cli_home: Path) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     old_session = StoredSession(
         version=COGNITE_CLI_SESSION_VERSION,
         org="old-org",
@@ -183,7 +183,7 @@ def test_saving_session_for_new_org_clears_previous_org_tokens(sample_keyring: P
 
 def test_saving_session_overwrites_corrupted_session_metadata(sample_keyring: Path, cli_home: Path) -> None:
     (cli_home / "session.json").write_text("{corrupted json\n")
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     session = StoredSession(
         version=COGNITE_CLI_SESSION_VERSION,
         org="my-org",
@@ -233,7 +233,7 @@ def test_ensure_fresh_session_refreshes_expiring_access_token(
     sample_keyring: Path, cli_home: Path, cogidp_http
 ) -> None:
     cogidp_http(token_json={"access_token": "new-access", "refresh_token": "refresh", "expires_in": 3600})
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     session = StoredSession(
         version=COGNITE_CLI_SESSION_VERSION,
         org="my-org",

@@ -1,5 +1,5 @@
 from abc import ABC
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -89,7 +89,7 @@ class TestConvertToContainerProperty:
                 "2025-07-22T12:34:56Z",
                 TimestampProperty(),
                 True,
-                datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc),
+                datetime(2025, 7, 22, 12, 34, 56, tzinfo=UTC),
                 id="String to Timestamp",
             ),
             pytest.param(
@@ -166,7 +166,7 @@ class TestConvertToContainerProperty:
                 "2025-01-01T00:00:00Z",
                 TimestampProperty(),
                 True,
-                datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+                datetime(2025, 1, 1, 0, 0, 0, tzinfo=UTC),
                 id="String to Timestamp (start of year)",
             ),
             pytest.param(
@@ -180,7 +180,7 @@ class TestConvertToContainerProperty:
                 1753193696789,
                 TimestampProperty(),
                 True,
-                datetime(2025, 7, 22, 14, 14, 56, 789000, tzinfo=timezone.utc),
+                datetime(2025, 7, 22, 14, 14, 56, 789000, tzinfo=UTC),
                 id="Epoch float with milliseconds to Timestamp",
             ),
             pytest.param(
@@ -195,8 +195,8 @@ class TestConvertToContainerProperty:
                 TimestampProperty(list=True),
                 True,
                 [
-                    datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc),
-                    datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+                    datetime(2025, 7, 22, 12, 34, 56, tzinfo=UTC),
+                    datetime(2025, 1, 1, 0, 0, 0, tzinfo=UTC),
                 ],
                 id="List of ISO timestamps to Timestamp list property",
             ),
@@ -213,8 +213,8 @@ class TestConvertToContainerProperty:
                 TimestampProperty(list=True),
                 True,
                 [
-                    datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc),
-                    datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+                    datetime(2025, 7, 22, 12, 34, 56, tzinfo=UTC),
+                    datetime(2025, 1, 1, 0, 0, 0, tzinfo=UTC),
                 ],
                 id="JSON string list to Timestamp list property",
             ),
@@ -229,7 +229,7 @@ class TestConvertToContainerProperty:
                 "2025-07-22T12:34:56Z",
                 TimestampProperty(list=True),
                 True,
-                [datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc)],
+                [datetime(2025, 7, 22, 12, 34, 56, tzinfo=UTC)],
                 id="Single ISO timestamp to Timestamp list property",
             ),
             pytest.param(
@@ -597,7 +597,7 @@ class TestConvertStringToDataType:
         pytest.param(
             "2025-07-22T12:34:56Z",
             "timestamp",
-            datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc),
+            datetime(2025, 7, 22, 12, 34, 56, tzinfo=UTC),
             id="ISO timestamp to Timestamp",
         ),
         pytest.param("2025-07-22", "date", date(2025, 7, 22), id="ISO date to Date"),

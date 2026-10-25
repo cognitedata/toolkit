@@ -1,14 +1,14 @@
 import re
 import sys
+import tomllib
 import urllib.parse
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
+from tomllib import TOMLDecodeError
 from typing import Any, ClassVar, Self
 
-import tomllib
 from rich import print
-from tomllib import TOMLDecodeError
 
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.constants import RESOURCES_PATH, EnvType, clean_name

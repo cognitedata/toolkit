@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from enum import Enum
+from enum import StrEnum
 from typing import Any, ClassVar, Literal
 
 import questionary
@@ -22,7 +22,7 @@ __all__ = [
 
 
 # https://cognitedata.github.io/aura/primitives/colors
-class AuraColor(str, Enum):
+class AuraColor(StrEnum):
     NORDIC = "#1a967a"
     FJORD = "#5f7def"
     DUSK = "#b765c4"

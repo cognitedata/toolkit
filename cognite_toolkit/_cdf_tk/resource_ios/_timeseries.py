@@ -1,6 +1,6 @@
 import json
 from collections.abc import Hashable, Iterable, Sequence
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from itertools import zip_longest
 from pathlib import Path
 from typing import Any, Literal, final
@@ -162,7 +162,7 @@ class TimeSeriesIO(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeries
             yield from timeseries
 
     def count(self, ids: Sequence[ExternalId]) -> int:
-        epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+        epoch = datetime(1970, 1, 1, tzinfo=UTC)
         datapoints = self.client.timeseries.datapoints.retrieve(
             [DatapointsQueryRequest(external_id=item.external_id) for item in ids],
             start=epoch + timedelta(milliseconds=MIN_TIMESTAMP_MS),

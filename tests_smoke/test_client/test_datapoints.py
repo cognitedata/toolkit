@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import TypeVar
 
 import pytest
@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSerie
 from tests_smoke.constants import TIMESERIES_NUMERIC_EXTERNAL_ID, TIMESERIES_STRING_EXTERNAL_ID
 from tests_smoke.exceptions import EndpointAssertionError
 
-_START = datetime(2020, 1, 1, tzinfo=timezone.utc)
+_START = datetime(2020, 1, 1, tzinfo=UTC)
 _END = _START + timedelta(hours=3)
 _NUMERIC_POINTS = (
     (_START, 1.0),

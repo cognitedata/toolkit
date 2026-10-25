@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 
 def serialize_dms(
@@ -32,9 +32,9 @@ def dms_datetime_iso(value: datetime) -> str:
         The serialized datetime in ISO format.
     """
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
+        value = value.replace(tzinfo=UTC)
 
-    dt_utc = value.astimezone(timezone.utc)
+    dt_utc = value.astimezone(UTC)
     iso_string = dt_utc.strftime("%Y-%m-%dT%H:%M:%S")
 
     # Add milliseconds with max 3 digits precision

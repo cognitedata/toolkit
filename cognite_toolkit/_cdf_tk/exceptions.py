@@ -1,9 +1,9 @@
 from collections.abc import Mapping
 from graphlib import CycleError
 from pathlib import Path
+from tomllib import TOMLDecodeError
 
 from rich.markup import escape
-from tomllib import TOMLDecodeError
 from yaml import YAMLError
 
 

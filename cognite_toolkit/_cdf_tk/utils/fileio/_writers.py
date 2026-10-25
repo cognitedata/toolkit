@@ -5,7 +5,7 @@ import threading
 from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from functools import lru_cache
 from io import IOBase, TextIOWrapper
 from pathlib import Path
@@ -353,10 +353,10 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):
             )
         if output is not None and output.tzinfo is None:
             # Ensure the datetime is in UTC
-            output = output.replace(tzinfo=timezone.utc)
+            output = output.replace(tzinfo=UTC)
         elif output is not None and output.tzinfo is not None:
             # Convert to UTC if it has a timezone
-            output = output.astimezone(timezone.utc)
+            output = output.astimezone(UTC)
         return output
 
     @classmethod
