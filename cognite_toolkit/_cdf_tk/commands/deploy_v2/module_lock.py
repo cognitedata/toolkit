@@ -225,7 +225,7 @@ class ModuleLockManager:
                         git_name=lock.git_name,
                         user_id=lock.user_id,
                         # The user.email method already caches the result, so we can call it multiple times without performance issues.
-                        user_email=self._client.lookup.users.email(lock.user_id),
+                        user_email=self._client.lookup.users.email(lock.user_id, warn=False),
                         branch=lock.branch,
                     )
                 )
