@@ -22,11 +22,23 @@ specify the deploy branch explicitly.
 import json
 import os
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from cognite_toolkit._cdf_tk.tk_warnings.other import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.cicd import get_cicd_environment
+
+
+@dataclass
+class _GitHubRepository:
+    default_branch: str | None = None
+
+
+@dataclass
+class _GitHubEvent:
+    before: str | None = None
+    repository: _GitHubRepository | None = None
+
 
 _NULL_SHA = "0" * 40
 # Timeouts in seconds. Local commands are fast, network commands (fetch, ls-remote) may be slow.
@@ -96,15 +108,23 @@ class Git:
         return ref
 
     @classmethod
-    def _github_event(cls) -> dict[str, Any]:
+    def _github_event(cls) -> _GitHubEvent:
         event_path = os.environ.get("GITHUB_EVENT_PATH")
         if not event_path:
-            return {}
+            return _GitHubEvent()
         try:
             data = json.loads(Path(event_path).read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                return _GitHubEvent()
+            repo_data = data.get("repository")
+            repository = (
+                _GitHubRepository(default_branch=repo_data.get("default_branch"))
+                if isinstance(repo_data, dict)
+                else None
+            )
+            return _GitHubEvent(before=data.get("before"), repository=repository)
         except (OSError, ValueError):
-            return {}
-        return data if isinstance(data, dict) else {}
+            return _GitHubEvent()
 
     # ---------- CI/CD environment lookups ----------
 
@@ -132,11 +152,9 @@ class Git:
     def _ci_default_branch(cls) -> str | None:
         env = get_cicd_environment()
         if env == "github":
-            repository = cls._github_event().get("repository")
-            if isinstance(repository, dict):
-                default_branch = repository.get("default_branch")
-                if isinstance(default_branch, str) and default_branch:
-                    return default_branch
+            event = cls._github_event()
+            if event.repository and event.repository.default_branch:
+                return event.repository.default_branch
         elif env == "gitlab":
             return cls._env("CI_DEFAULT_BRANCH")
         return None
@@ -150,8 +168,7 @@ class Git:
             # Only push events describe the previous commit of the branch. For example, 'pull_request'
             # events also have a 'before' key, but HEAD is then a merge commit that includes the base branch.
             if os.environ.get("GITHUB_EVENT_NAME") == "push":
-                before = cls._github_event().get("before")
-                sha = before if isinstance(before, str) else None
+                sha = cls._github_event().before
         elif env == "gitlab":
             sha = cls._env("CI_COMMIT_BEFORE_SHA")
         if not sha or sha == _NULL_SHA:
@@ -306,11 +323,19 @@ class Git:
     @classmethod
     def _fetch_deepen(cls, *branches: str, depth: int) -> None:
         """Deepen the history of the given branches in a shallow clone."""
-        refspecs = [
-            f"+refs/heads/{name}:refs/remotes/origin/{name}"
-            for name in dict.fromkeys(cls._strip_ref_prefix(branch) for branch in branches)
-            if name != "HEAD"
-        ]
+        refspecs = []
+        for branch in branches:
+            name = cls._strip_ref_prefix(branch)
+            if name == "HEAD":
+                continue
+            # Skip full commit SHAs as they cannot be fetched using branch refspecs
+            if len(name) == 40 and all(c in "0123456789abcdefABCDEF" for c in name):
+                continue
+            refspecs.append(f"+refs/heads/{name}:refs/remotes/origin/{name}")
+
+        # Remove duplicates while preserving order
+        refspecs = list(dict.fromkeys(refspecs))
+
         if refspecs:
             cls._remote("fetch", "--no-tags", f"--deepen={depth}", "origin", *refspecs)
         # Also deepen the default refspec, which covers the checked-out commit in detached HEAD state.
