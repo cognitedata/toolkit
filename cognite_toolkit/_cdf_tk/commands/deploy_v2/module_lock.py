@@ -52,7 +52,7 @@ class FailedLock:
     @property
     def display_email(self) -> str:
         """Return the user email in angle brackets if it exists, otherwise return an empty string."""
-        return f"<{self.user_email}>" if self.user_email else ""
+        return f" <{self.user_email}>" if self.user_email else ""
 
 
 @dataclass
