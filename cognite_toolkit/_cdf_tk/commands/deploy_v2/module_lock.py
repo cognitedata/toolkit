@@ -49,6 +49,11 @@ class FailedLock:
     branch: str
     user_email: str | None = None
 
+    @property
+    def display_email(self) -> str:
+        """Return the user email in angle brackets if it exists, otherwise return an empty string."""
+        return f"<{self.user_email}>" if self.user_email else ""
+
 
 @dataclass
 class ModulesLockResult:
@@ -220,7 +225,7 @@ class ModuleLockManager:
                         git_name=lock.git_name,
                         user_id=lock.user_id,
                         # The user.email method already caches the result, so we can call it multiple times without performance issues.
-                        user_email=self._client.lookup.users.email(lock.user_id) or "unknown",
+                        user_email=self._client.lookup.users.email(lock.user_id),
                         branch=lock.branch,
                     )
                 )

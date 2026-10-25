@@ -283,7 +283,6 @@ class DeployV2Command(ToolkitCommand):
         self._validate_cdf_project(build_dir, options.operation, options.cdf_project, client.config.project)
 
         module_locks: ModulesLockResult | None = None
-        # Todo: only acquire locks on non-dry-run. For now, we acquire locks on dry-run while developing the feature
         if Flags.DEPLOY_PROTECTION.is_enabled() and build_lineage and build_lineage.deploy_protection == "protected":
             module_locks = self._acquire_module_locks(build_lineage, client, options.dry_run)
 
@@ -460,7 +459,7 @@ class DeployV2Command(ToolkitCommand):
             raise ToolkitError(f"Failed to acquire locks for modules due to error: {lock_result.error_message}")
         elif isinstance(lock_result, FailedLockResult):
             raise ToolkitError(
-                f"Failed to acquire locks for modules: {', '.join(f'{lock.module_id} (locked by {lock.git_name} <{lock.user_email}> on {lock.branch})' for lock in lock_result.failed_locks)}"
+                f"Failed to acquire locks for modules: {', '.join(f'{lock.module_id} (locked by {lock.git_name} {lock.display_email} on branch {lock.branch!r})' for lock in lock_result.failed_locks)}"
             )
         elif isinstance(lock_result, SuccessfulLockResult):
             client.console.print(
