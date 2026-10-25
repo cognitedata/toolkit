@@ -789,8 +789,8 @@ class BuildV2Command(ToolkitCommand):
             config_files = []
             projects: Counter[str] = Counter()
             validation_types: Counter[ValidationType] = Counter()
-            deploy_branches: Counter[str] = Counter()
-            deploy_protections: Counter[DeployProtection] = Counter()
+            deploy_branches: Counter[str | None] = Counter()
+            deploy_protections: Counter[DeployProtection | None] = Counter()
             missing_selected: list[Path] = []
             for config_yaml in config_yamls:
                 config_path_resolved = config_yaml.resolve()
@@ -841,10 +841,8 @@ class BuildV2Command(ToolkitCommand):
 
                 projects.update([config.environment.project])
                 validation_types.update([config.environment.validation_type])
-                if config.environment.deploy_branch:
-                    deploy_branches.update([config.environment.deploy_branch])
-                if config.environment.deploy_protection:
-                    deploy_protections.update([config.environment.deploy_protection])
+                deploy_branches.update([config.environment.deploy_branch])
+                deploy_protections.update([config.environment.deploy_protection])
                 config_files.append(
                     ConfigFile(selected_modules=selected, variables=config.variables or {}, path=config_path_resolved)
                 )
