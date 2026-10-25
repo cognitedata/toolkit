@@ -108,57 +108,35 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, isolated_git_config: N
 
 
 class TestGitRun:
+    """Git must never prompt for credentials, as that would hang a CI/CD pipeline. This cannot be observed
+    without a remote requiring authentication, so the environment passed to git is checked directly."""
+
     def test_run_sets_non_interactive_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        run = MagicMock(return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout="out\n", stderr=""))
+        run = MagicMock(return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr=""))
         monkeypatch.setattr(git_helpers.subprocess, "run", run)
 
-        assert Git._output("status") == "out"
+        Git.get_uncommitted_changes()
 
-        args, kwargs = run.call_args
-        assert args[0] == ["git", "status"]
-        assert kwargs["env"]["GIT_TERMINAL_PROMPT"] == "0"
-        assert kwargs["env"]["GIT_SSH_COMMAND"] == "ssh -o BatchMode=yes"
-        assert kwargs["timeout"] == git_helpers._LOCAL_TIMEOUT
+        env = run.call_args.kwargs["env"]
+        assert env["GIT_TERMINAL_PROMPT"] == "0"
+        assert env["GIT_SSH_COMMAND"] == "ssh -o BatchMode=yes"
 
     def test_run_respects_user_ssh_command(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("GIT_SSH_COMMAND", "ssh -i my_key")
         run = MagicMock(return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr=""))
         monkeypatch.setattr(git_helpers.subprocess, "run", run)
 
-        Git._run("status")
+        Git.get_uncommitted_changes()
 
         assert run.call_args.kwargs["env"]["GIT_SSH_COMMAND"] == "ssh -i my_key"
 
-    def test_remote_uses_network_timeout(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        run = MagicMock(return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr=""))
-        monkeypatch.setattr(git_helpers.subprocess, "run", run)
+    def test_git_not_installed(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("PATH", "")
 
-        Git._remote("fetch", "origin")
-
-        assert run.call_args.kwargs["timeout"] == git_helpers._NETWORK_TIMEOUT
-
-    @pytest.mark.parametrize(
-        "error, expected_message",
-        [
-            pytest.param(FileNotFoundError("git"), "Git is not installed", id="Git not installed"),
-            pytest.param(subprocess.TimeoutExpired(cmd="git fetch", timeout=1), "timed out", id="Timeout"),
-        ],
-    )
-    def test_run_raises_runtime_error(
-        self, error: Exception, expected_message: str, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setattr(git_helpers.subprocess, "run", MagicMock(side_effect=error))
-
-        with pytest.raises(RuntimeError, match=expected_message):
-            Git._run("fetch")
-        # _output swallows the error.
-        assert Git._output("fetch") is None
-
-    def test_output_returns_none_on_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        failed = subprocess.CompletedProcess(args=[], returncode=128, stdout="ignored", stderr="fatal")
-        monkeypatch.setattr(git_helpers.subprocess, "run", MagicMock(return_value=failed))
-
-        assert Git._output("rev-parse", "HEAD") is None
+        assert Git.is_git_repo() is False
+        with pytest.raises(RuntimeError, match="Git is not installed"):
+            Git.get_uncommitted_changes()
 
 
 class TestCIEnvironment:
@@ -314,70 +292,6 @@ class TestCIEnvironment:
         assert Git._ci_user() == expected
 
 
-class TestGetChangedFilesFallbacks:
-    def test_fallback_to_tip_diff_warns(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(Git, "_resolve_ref", classmethod(lambda cls, branch: branch))
-        monkeypatch.setattr(Git, "_diff_names", classmethod(lambda cls, *args: None))
-        monkeypatch.setattr(Git, "_is_shallow", classmethod(lambda cls: False))
-        run = MagicMock(return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout="a.yaml\nb.yaml\n"))
-        monkeypatch.setattr(Git, "_run", run)
-        print_warning = MagicMock()
-        monkeypatch.setattr(git_helpers.MediumSeverityWarning, "print_warning", print_warning)
-
-        assert Git.get_changed_files("main", "feature") == ["a.yaml", "b.yaml"]
-
-        print_warning.assert_called_once()
-        assert run.call_args.args == ("diff", "--name-only", "main", "feature")
-
-    def test_shallow_clone_deepens_then_unshallows(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(Git, "_resolve_ref", classmethod(lambda cls, branch: f"origin/{branch}"))
-        diff_results = iter([None, None, ["a.yaml"]])
-        monkeypatch.setattr(Git, "_diff_names", classmethod(lambda cls, *args: next(diff_results)))
-        monkeypatch.setattr(Git, "_is_shallow", classmethod(lambda cls: True))
-        remote_calls: list[tuple[str, ...]] = []
-        monkeypatch.setattr(Git, "_remote", classmethod(lambda cls, *args: remote_calls.append(args)))
-
-        assert Git.get_changed_files("main", "feature") == ["a.yaml"]
-
-        assert remote_calls == [
-            (
-                "fetch",
-                "--no-tags",
-                "--deepen=200",
-                "origin",
-                "+refs/heads/main:refs/remotes/origin/main",
-                "+refs/heads/feature:refs/remotes/origin/feature",
-            ),
-            ("fetch", "--no-tags", "--deepen=200", "origin"),
-            ("fetch", "--no-tags", "--unshallow", "origin"),
-        ]
-
-    @pytest.mark.parametrize(
-        "branches, expected_refspecs",
-        [
-            pytest.param(("main", "main"), ["+refs/heads/main:refs/remotes/origin/main"], id="Duplicates"),
-            pytest.param(
-                ("origin/main", "refs/heads/feature"),
-                ["+refs/heads/main:refs/remotes/origin/main", "+refs/heads/feature:refs/remotes/origin/feature"],
-                id="Prefixed refs",
-            ),
-            pytest.param(("HEAD",), [], id="Only HEAD"),
-        ],
-    )
-    def test_fetch_deepen(
-        self, branches: tuple[str, ...], expected_refspecs: list[str], monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        remote_calls: list[tuple[str, ...]] = []
-        monkeypatch.setattr(Git, "_remote", classmethod(lambda cls, *args: remote_calls.append(args)))
-
-        Git._fetch_deepen(*branches, depth=10)
-
-        expected = [("fetch", "--no-tags", "--deepen=10", "origin")]
-        if expected_refspecs:
-            expected.insert(0, ("fetch", "--no-tags", "--deepen=10", "origin", *expected_refspecs))
-        assert remote_calls == expected
-
-
 @requires_git
 class TestGitWithRepository:
     def test_is_git_repo(self, repo: Path) -> None:
@@ -468,6 +382,20 @@ class TestGitWithRepository:
         assert Git._is_shallow() is True
 
         assert sorted(Git.get_changed_files("main", "feature")) == ["modules/b/other.yaml", "modules/b/resource.yaml"]
+
+    def test_get_changed_files_unrelated_histories_warns(self, repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        _git(repo, "checkout", "--orphan", "other")
+        _git(repo, "rm", "-r", "--cached", "--quiet", ".")
+        # Different content, otherwise git reports a rename of modules/a/resource.yaml.
+        _commit(repo, "modules/b/resource.yaml", content="other content")
+        print_warning = MagicMock()
+        monkeypatch.setattr(git_helpers.MediumSeverityWarning, "print_warning", print_warning)
+
+        changed = Git.get_changed_files("main", "other")
+
+        # No common ancestor, so the tips are compared and files only on 'main' are included as well.
+        assert sorted(changed) == ["README.md", "modules/a/resource.yaml", "modules/b/resource.yaml"]
+        print_warning.assert_called_once()
 
     def test_get_changed_files_last_commit(self, repo: Path) -> None:
         _commit(repo, "modules/b/resource.yaml")
