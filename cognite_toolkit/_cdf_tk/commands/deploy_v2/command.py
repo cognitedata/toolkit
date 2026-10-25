@@ -284,7 +284,7 @@ class DeployV2Command(ToolkitCommand):
 
         module_locks: ModulesLockResult | None = None
         # Todo: only acquire locks on non-dry-run. For now, we acquire locks on dry-run while developing the feature
-        if Flags.DEPLOY_PROTECTION.is_enabled() and build_lineage and build_lineage.deploy_protection == "block":
+        if Flags.DEPLOY_PROTECTION.is_enabled() and build_lineage and build_lineage.deploy_protection == "protected":
             module_locks = self._acquire_module_locks(build_lineage, client, options.dry_run)
 
         plan = self._display_setup(options.operation, build_dir, client.config.project, client.console, options.verbose)

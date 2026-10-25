@@ -21,7 +21,7 @@ def _normalize_config_variables(value: Any) -> Any:
     return value
 
 
-DeployProtection: TypeAlias = Literal["none", "block"]
+DeployProtection: TypeAlias = Literal["none", "protected"]
 
 
 class Environment(BaseModel):
