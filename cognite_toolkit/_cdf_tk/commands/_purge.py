@@ -847,7 +847,14 @@ class PurgeCommand(ToolkitCommand):
             )
             if not confirm_purge:
                 return DeleteResults()
-
+            if "prod" in client.config.project.lower():
+                confirm_prod = questionary.confirm(
+                    f"You are about to purge instances in {client.config.project} - this looks like a production project. "
+                    "Are you [bold]really[/bold] sure you want to continue?",
+                    default=False,
+                ).ask()
+                if not confirm_prod:
+                    return DeleteResults()
         with (
             HTTPClient(config=client.config) as delete_client,
             NDJsonWriter(
