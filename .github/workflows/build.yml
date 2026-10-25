@@ -155,8 +155,6 @@ jobs:
           uv sync --all-extras
       - name: Build the package
         run: uv build
-      - name: Tmp test
-        run: uv run python tmp_script.py
       - name: Initialize project
         run: uv run cdf modules init demo_project --clean --all --library-url "https://github.com/cognitedata/toolkit-data/releases/download/latest/packages.zip"
       - name: "Pre-processing for demo environment"
