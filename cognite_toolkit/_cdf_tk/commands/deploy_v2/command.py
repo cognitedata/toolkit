@@ -460,7 +460,7 @@ class DeployV2Command(ToolkitCommand):
             raise ToolkitError(f"Failed to acquire locks for modules due to error: {lock_result.error_message}")
         elif isinstance(lock_result, FailedLockResult):
             raise ToolkitError(
-                f"Failed to acquire locks for modules: {', '.join(f'{lock.module_id} (locked by {lock.git_name} <{lock.user_email}>)' for lock in lock_result.failed_locks)}"
+                f"Failed to acquire locks for modules: {', '.join(f'{lock.module_id} (locked by {lock.git_name} <{lock.user_email}> on {lock.branch})' for lock in lock_result.failed_locks)}"
             )
         elif isinstance(lock_result, SuccessfulLockResult):
             client.console.print(

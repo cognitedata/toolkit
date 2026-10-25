@@ -46,6 +46,7 @@ class FailedLock:
     module_id: str
     git_name: str
     user_id: str
+    branch: str
     user_email: str | None = None
 
 
@@ -220,6 +221,7 @@ class ModuleLockManager:
                         user_id=lock.user_id,
                         # The user.email method already caches the result, so we can call it multiple times without performance issues.
                         user_email=self._client.lookup.users.email(lock.user_id) or "unknown",
+                        branch=lock.branch,
                     )
                 )
 

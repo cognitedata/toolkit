@@ -368,7 +368,11 @@ class TestModuleLockManagerTryLock:
         result = ModuleLockManager(client, git, dry_run=False).try_lock(["m1", "m2", "m3"])
 
         assert result == FailedLockResult(
-            failed_locks=[FailedLock(module_id="m1", git_name="bob", user_id="user-456", user_email="unknown")]
+            failed_locks=[
+                FailedLock(
+                    module_id="m1", git_name="bob", user_id="user-456", user_email="unknown", branch="feature/other"
+                )
+            ],
         )
         client.instances.create.assert_not_called()
 
