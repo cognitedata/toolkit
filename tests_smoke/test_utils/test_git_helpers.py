@@ -32,7 +32,7 @@ class TestGit:
         assert not uncommitted_changes, f"There are uncommitted changes:\n{uncommitted_changes}"
 
     def test_get_changed_files_since_commit(self, git: Git) -> None:
-        """Test that there are no changed files sdince the last commit."""
+        """Test that there are some changed files since the last commit."""
         changed_files = git.get_changed_files_last_commit()
         print(f"Changed files since last commit: {changed_files}")
-        assert changed_files, f"There are changed files since the last commit:\n{changed_files}"
+        assert changed_files, "There should be some changed files since the last commit, however none were found"
