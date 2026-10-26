@@ -1242,6 +1242,7 @@ capabilities:
     assert "my_non_existent_space" in unknown_refs[0].message
 
 
+@pytest.mark.skipif(not Flags.CDF_GROUP_EMAILS.is_enabled(), reason="CDF_GROUP_EMAILS feature flag is not enabled")
 def test_build_deploy_cdf_group_with_member_emails(tmp_path: Path) -> None:
     """Test that a group with member emails can be built and deployed successfully."""
     group_yaml = """name: group_with_emails

@@ -1,11 +1,12 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from pydantic import Discriminator, Field, Tag, model_validator
+from pydantic import Discriminator, Field, Tag, field_validator, model_validator
 from pydantic.functional_validators import BeforeValidator
 
 from cognite_toolkit._cdf_tk.client.identifiers import NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupAttributes
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 from .base import ToolkitResource
 from .capabilities import CapabilityType, UnknownCapability
@@ -68,6 +69,17 @@ class CDFGroupYAML(BaseGroupYAML):
                 "Invalid group definition: 'memberEmails' can only be specified when 'members' is set to 'emails'."
             )
         return self
+
+    @field_validator("member_emails")
+    @classmethod
+    def _alpha_flag_enables(cls, v: list[str] | None) -> list[str] | None:
+        if v is not None and not Flags.CDF_GROUP_EMAILS.is_enabled():
+            raise ValueError(
+                "The 'memberEmails' field is currently behind an alpha feature flag and is not enabled. "
+                "Please enable the flag `cdf-group-emails` to use this feature, or remove the 'memberEmails' "
+                "field from the group definition."
+            )
+        return v
 
 
 def _check_group_definition(data: Any) -> Any:
