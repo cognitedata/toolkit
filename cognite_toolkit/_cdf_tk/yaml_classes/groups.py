@@ -55,26 +55,26 @@ class ExternalGroupYAML(BaseGroupYAML):
 
 class CDFGroupYAML(BaseGroupYAML):
     group_type: Literal["cdf"] = Field("cdf", exclude=True)
-    members: list[str] | Literal["allUserAccounts", "email"]
+    members: list[str] | Literal["allUserAccounts", "emails"]
     member_emails: list[str] | None = None
 
     @field_validator("members", mode="after")
     @classmethod
     def _validate_members(
-        cls, v: list[str] | Literal["allUserAccounts", "email"], info: ValidationInfo
-    ) -> list[str] | Literal["allUserAccounts", "email"]:
-        if v == "email" and not info.data.get("member_emails"):
+        cls, v: list[str] | Literal["allUserAccounts", "emails"], info: ValidationInfo
+    ) -> list[str] | Literal["allUserAccounts", "emails"]:
+        if v == "emails" and not info.data.get("member_emails"):
             raise ValueError(
-                "Invalid group definition: 'members' is set to 'email', but no 'member_emails' are provided."
+                "Invalid group definition: 'members' is set to 'emails', but no 'member_emails' are provided."
             )
         return v
 
     @field_validator("member_emails", mode="after")
     @classmethod
     def _validate_member_emails(cls, v: list[str] | None, info: ValidationInfo) -> list[str] | None:
-        if v is not None and info.data.get("members") != "email":
+        if v is not None and info.data.get("members") != "emails":
             raise ValueError(
-                "Invalid group definition: 'member_emails' can only be specified when 'members' is set to 'email'."
+                "Invalid group definition: 'member_emails' can only be specified when 'members' is set to 'emails'."
             )
         return v
 
