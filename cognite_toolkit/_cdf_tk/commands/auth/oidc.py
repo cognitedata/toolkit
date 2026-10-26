@@ -6,7 +6,7 @@ import threading
 import time
 import webbrowser
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -100,7 +100,7 @@ def _token_ttl_seconds(value: Any, default: int) -> int:
 
 
 def build_session_from_tokens(org: str, tokens: dict[str, Any], now: datetime | None = None) -> StoredSession:
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     access_token = tokens.get("access_token")
     if not access_token:
         raise AuthenticationError("Login succeeded but no access token was returned. Please try logging in again.")

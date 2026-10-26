@@ -1,12 +1,12 @@
 import ast
 import re
+import tomllib
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
 import pytest
-import tomllib
 
 from tests.constants import REPO_ROOT
 

@@ -3,7 +3,7 @@
 import urllib.parse
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from itertools import product
 from typing import Any, Literal
 
@@ -823,8 +823,8 @@ def _format_timestamp(value: str) -> str:
     except ValueError:
         return value
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
 
 def _key_values(rows: list[tuple[str, str]]) -> Table:

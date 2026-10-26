@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 import typer
@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 DEFAULT_LIST_LIMIT = 25
 
 
-class InstanceTypeEnum(str, Enum):
+class InstanceTypeEnum(StrEnum):
     node = "node"
     edge = "edge"
 

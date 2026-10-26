@@ -3,7 +3,7 @@
 import os
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, TypeAlias
 
@@ -22,7 +22,7 @@ class Context:
     slack_webhook_url: str
     github_repo_url: str
     cluster: str
-    now: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    now: datetime = field(default_factory=lambda: datetime.now(UTC))
     send_messages: bool = True
 
 

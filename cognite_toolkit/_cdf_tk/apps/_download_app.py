@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from enum import Enum
+from enum import Enum, StrEnum
 from pathlib import Path
 from typing import Annotated, Any, TypeVar
 
@@ -74,64 +74,64 @@ from ._helpers import print_help_if_no_subcommand
 T_Format = TypeVar("T_Format", bound=Enum)
 
 
-class RawFormats(str, Enum):
+class RawFormats(StrEnum):
     ndjson = "ndjson"
     yaml = "yaml"
 
 
-class AssetCentricFormats(str, Enum):
+class AssetCentricFormats(StrEnum):
     csv = "csv"
     parquet = "parquet"
     ndjson = "ndjson"
 
 
-class FileContentFormats(str, Enum):
+class FileContentFormats(StrEnum):
     ndjson = "ndjson"
 
 
-class HierarchyFormats(str, Enum):
+class HierarchyFormats(StrEnum):
     ndjson = "ndjson"
 
 
-class DatapointFormats(str, Enum):
+class DatapointFormats(StrEnum):
     csv = "csv"
     parquet = "parquet"
 
 
-class DatapointsDataTypes(str, Enum):
+class DatapointsDataTypes(StrEnum):
     numeric = "numeric"
     string = "string"
 
 
-class InstanceFormats(str, Enum):
+class InstanceFormats(StrEnum):
     ndjson = "ndjson"
     csv = "csv"
     parquet = "parquet"
 
 
-class ChartFormats(str, Enum):
+class ChartFormats(StrEnum):
     ndjson = "ndjson"
 
 
-class CanvasFormats(str, Enum):
+class CanvasFormats(StrEnum):
     ndjson = "ndjson"
 
 
-class RecordFormats(str, Enum):
+class RecordFormats(StrEnum):
     ndjson = "ndjson"
 
 
-class InstanceTypes(str, Enum):
+class InstanceTypes(StrEnum):
     node = "node"
     edge = "edge"
 
 
-class ApiFormat(str, Enum):
+class ApiFormat(StrEnum):
     request = "request"
     response = "response"
 
 
-class CompressionFormat(str, Enum):
+class CompressionFormat(StrEnum):
     gzip = "gzip"
     none = "none"
 

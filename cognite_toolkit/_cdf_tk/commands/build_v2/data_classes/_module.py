@@ -1,5 +1,6 @@
 import json
 import re
+import tomllib as toml
 import uuid
 from collections.abc import Callable
 from datetime import datetime
@@ -7,7 +8,6 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, ClassVar, Generic, Literal, Self, TypeAlias, get_args
 
-import tomllib as toml
 from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue, field_validator
 from pydantic.alias_generators import to_camel
 
