@@ -170,6 +170,13 @@ authentication:
         deps = list(TransformationIO.get_dependencies(resource))
         assert (ExternalDataSourceIO, ExternalId(external_id="fabric-prod")) in deps
 
+    def test_get_dependencies_ext_snowflake(self) -> None:
+        resource = _ext_onelake_transformation_yaml().model_copy(
+            update={"query": "select * from ext_snowflake('snowflake-prod', 'db', 'schema', 'table')"}
+        )
+        deps = list(TransformationIO.get_dependencies(resource))
+        assert (ExternalDataSourceIO, ExternalId(external_id="snowflake-prod")) in deps
+
     def test_create_session_nonce_error(self) -> None:
         transformations = [
             TransformationRequest(

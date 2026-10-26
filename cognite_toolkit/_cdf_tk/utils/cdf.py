@@ -1,12 +1,11 @@
 import re
-import sys
 import tempfile
 import time
 from collections.abc import Hashable
 from dataclasses import dataclass
 from pathlib import Path
 from threading import RLock
-from typing import Any, Literal, overload
+from typing import Any, Literal, Self, overload
 from urllib.parse import urlparse
 
 from cognite.client.credentials import OAuthClientCredentials
@@ -35,18 +34,12 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from .file import sanitize_filename
 from .sql_parser import SQLParser
 
-EXT_ONELAKE_SOURCE_RE = re.compile(r"ext_onelake\s*\(\s*['\"]([^'\"]+)['\"]", re.IGNORECASE)
+EXTERNAL_DATA_SOURCE_RE = re.compile(r"ext_(?:onelake|snowflake)\s*\(\s*['\"]([^'\"]+)['\"]", re.IGNORECASE)
 
 
-def get_ext_onelake_source_ids(query: str) -> list[str]:
-    """Return external data source IDs referenced by ext_onelake() in a SQL query."""
-    return EXT_ONELAKE_SOURCE_RE.findall(query)
-
-
-if sys.version_info < (3, 11):
-    from typing_extensions import Self
-else:
-    from typing import Self
+def get_external_data_source_ids(query: str) -> list[str]:
+    """Return external data source IDs referenced by external source functions in a SQL query."""
+    return EXTERNAL_DATA_SOURCE_RE.findall(query)
 
 
 def try_find_error(

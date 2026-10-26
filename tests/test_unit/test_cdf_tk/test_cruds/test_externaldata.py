@@ -3,24 +3,33 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
-    ExternalDataSourceRequest,
     ExternalDataSourceResponse,
     OneLakeCredentialsRead,
     OneLakeCredentialsWrite,
+    OneLakeExternalDataSourceRequest,
+    OneLakeExternalDataSourceResponse,
     OneLakeLocationDescription,
     OneLakeSettingsRead,
     OneLakeSettingsWrite,
+    SnowflakeCredentialsRead,
+    SnowflakeCredentialsWrite,
+    SnowflakeExternalDataSourceRequest,
+    SnowflakeExternalDataSourceResponse,
+    SnowflakeLocationDescription,
+    SnowflakeSettingsRead,
+    SnowflakeSettingsWrite,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, DataSetScope
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import TransformationsExternalDataSourcesAcl
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployV2Command
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ExternalDataSourceIO
 from cognite_toolkit._cdf_tk.yaml_classes import ExternalDataSourceYAML
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -28,6 +37,7 @@ from tests.utils import to_deploy_status
 
 _YAML = """
 externalId: fabric-lakehouse-prod
+format: one_lake
 name: Production lakehouse
 settings:
   credentials:
@@ -39,11 +49,25 @@ settings:
     containerId: lakehouse-guid
 """
 
+_SNOWFLAKE_YAML = """
+externalId: snowflake-prod
+name: Production Snowflake
+format: snowflake
+expiryTime: 2000000000000
+settings:
+  credentials:
+    accountIdentifier: myorg-myaccount
+    userName: cdf_user
+    roleName: CDF_ROLE
+  locationDescription:
+    warehouseName: CDF_WH
+"""
+
 
 def _make_request(
     external_id: str = "fabric-lakehouse-prod", data_set_id: int | None = None
-) -> ExternalDataSourceRequest:
-    return ExternalDataSourceRequest(
+) -> OneLakeExternalDataSourceRequest:
+    return OneLakeExternalDataSourceRequest(
         external_id=external_id,
         data_set_id=data_set_id,
         settings=OneLakeSettingsWrite(
@@ -62,8 +86,8 @@ def _make_request(
 
 def _make_response(
     external_id: str = "fabric-lakehouse-prod", data_set_id: int | None = None
-) -> ExternalDataSourceResponse:
-    return ExternalDataSourceResponse(
+) -> OneLakeExternalDataSourceResponse:
+    return OneLakeExternalDataSourceResponse(
         external_id=external_id,
         data_set_id=data_set_id,
         format="one_lake",
@@ -79,11 +103,52 @@ def _make_response(
     )
 
 
+def _make_snowflake_request() -> SnowflakeExternalDataSourceRequest:
+    return SnowflakeExternalDataSourceRequest(
+        external_id="snowflake-prod",
+        name="Production Snowflake",
+        expiry_time=2_000_000_000_000,
+        settings=SnowflakeSettingsWrite(
+            credentials=SnowflakeCredentialsWrite(
+                account_identifier="myorg-myaccount",
+                user_name="cdf_user",
+                role_name="CDF_ROLE",
+            ),
+            location_description=SnowflakeLocationDescription(warehouse_name="CDF_WH"),
+        ),
+    )
+
+
+def _make_snowflake_response() -> SnowflakeExternalDataSourceResponse:
+    return SnowflakeExternalDataSourceResponse(
+        external_id="snowflake-prod",
+        name="Production Snowflake",
+        expiry_time=2_000_000_000_000,
+        created_time=1,
+        last_updated_time=2,
+        settings=SnowflakeSettingsRead(
+            credentials=SnowflakeCredentialsRead(
+                account_identifier="myorg-myaccount",
+                user_name="cdf_user",
+                role_name="CDF_ROLE",
+                public_key="public-key",
+            ),
+            location_description=SnowflakeLocationDescription(warehouse_name="CDF_WH"),
+        ),
+    )
+
+
 class TestExternalDataSourceIO:
     def test_sensitive_strings(self) -> None:
         item = _make_request()
         loader = ExternalDataSourceIO(MagicMock())
         assert list(loader.sensitive_strings(item)) == ["secret"]
+        assert list(loader.sensitive_strings(_make_snowflake_request())) == []
+
+    def test_load_resource_rejects_unknown_format(self) -> None:
+        loader = ExternalDataSourceIO(MagicMock())
+        with pytest.raises(ToolkitNotSupported, match="databricks"):
+            loader.load_resource({"externalId": "x", "format": "databricks"})
 
     def test_dump_resource_without_local_omits_client_secret(self, toolkit_client_cheap: ToolkitClient) -> None:
         loader = ExternalDataSourceIO.create_io(toolkit_client_cheap)
@@ -105,6 +170,24 @@ class TestExternalDataSourceIO:
         }
         dumped = loader.dump_resource(_make_response(), local)
         assert dumped == {"externalId": "fabric-lakehouse-prod"}
+
+    def test_dump_snowflake_omits_public_key(self, toolkit_client_cheap: ToolkitClient) -> None:
+        loader = ExternalDataSourceIO.create_io(toolkit_client_cheap)
+        dumped = loader.dump_resource(_make_snowflake_response(), {"externalId": "snowflake-prod"})
+        assert dumped == {
+            "externalId": "snowflake-prod",
+            "name": "Production Snowflake",
+            "format": "snowflake",
+            "expiryTime": 2_000_000_000_000,
+            "settings": {
+                "credentials": {
+                    "accountIdentifier": "myorg-myaccount",
+                    "userName": "cdf_user",
+                    "roleName": "CDF_ROLE",
+                },
+                "locationDescription": {"warehouseName": "CDF_WH"},
+            },
+        }
 
     def test_prepare_resources_create(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
         local_file = MagicMock(spec=Path)
@@ -132,10 +215,23 @@ class TestExternalDataSourceIO:
         loader = ExternalDataSourceIO.create_io(toolkit_client_approval.mock_client)
         assert to_deploy_status(_YAML, loader) == {"create": 1, "change": 0, "delete": 1, "unchanged": 0}
 
+    def test_prepare_resources_existing_snowflake_is_unchanged(
+        self, toolkit_client_approval: ApprovalToolkitClient
+    ) -> None:
+        toolkit_client_approval.append(ExternalDataSourceResponse, _make_snowflake_response())
+        loader = ExternalDataSourceIO.create_io(toolkit_client_approval.mock_client)
+        assert to_deploy_status(_SNOWFLAKE_YAML, loader) == {
+            "create": 0,
+            "change": 0,
+            "delete": 0,
+            "unchanged": 1,
+        }
+
     def test_get_dependencies_dataset(self) -> None:
-        resource = ExternalDataSourceYAML.model_validate(
+        resource = TypeAdapter(ExternalDataSourceYAML).validate_python(
             {
                 "externalId": "fabric-lakehouse-prod",
+                "format": "one_lake",
                 "dataSetExternalId": "my_dataset",
                 "settings": {
                     "credentials": {"clientId": "id", "tenantId": "tenant", "clientSecret": "secret"},
@@ -189,6 +285,7 @@ class TestExternalDataSourceIO:
             loaded = loader.load_resource(
                 {
                     "externalId": "fabric-lakehouse-prod",
+                    "format": "one_lake",
                     "dataSetExternalId": "my_dataset",
                     "settings": {
                         "credentials": {"clientId": "id", "tenantId": "tenant", "clientSecret": "secret"},
@@ -205,10 +302,13 @@ class TestExternalDataSourceIO:
             response = _make_response()
             api = client.transformations.external_data_sources
             api.create.return_value = [response]
-            api.list.return_value = [response]
+            api.retrieve.return_value = [response]
 
             assert loader.create([item]) == [response]
             assert loader.retrieve([ExternalId(external_id="fabric-lakehouse-prod")]) == [response]
+            api.retrieve.assert_called_once_with(
+                [ExternalId(external_id="fabric-lakehouse-prod")], ignore_unknown_ids=True
+            )
             assert loader.retrieve([]) == []
             assert loader.delete([ExternalId(external_id="fabric-lakehouse-prod")]) == [
                 ExternalId(external_id="fabric-lakehouse-prod")
