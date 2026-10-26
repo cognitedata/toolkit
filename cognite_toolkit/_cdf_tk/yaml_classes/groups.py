@@ -55,15 +55,16 @@ class ExternalGroupYAML(BaseGroupYAML):
 
 class CDFGroupYAML(BaseGroupYAML):
     group_type: Literal["cdf"] = Field("cdf", exclude=True)
-    members: list[str] | Literal["allUserAccounts"] | None
+    members: list[str] | Literal["allUserAccounts", "email"]
     membersByEmail: list[str] | None = None
 
-    @field_validator("members", mode="after")
+    @field_validator("membersByEmail", mode="after")
     @classmethod
-    def _must_be_set_unless_members_by_email(cls, v, info: ValidationInfo) -> Any:
-        if v is None and info.data.get("membersByEmail") is None:
-            # membersByEmail is an alpha feature, so we don't want to mention it in the error message for now.
-            raise ValueError("Missing required field: 'members'.")
+    def _validate_members_by_email(cls, v: list[str] | None, info: ValidationInfo) -> list[str] | None:
+        if v is not None and info.data.get("members") != "email":
+            raise ValueError(
+                "Invalid group definition: 'membersByEmail' can only be specified when 'members' is set to 'email'."
+            )
         return v
 
 
