@@ -228,8 +228,29 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
     )
 
 
+def valid_hosted_extractor_job_test_cases() -> Iterable:
+    yield pytest.param(
+        {
+            "externalId": "myJob",
+            "destinationId": "myDest",
+            "sourceId": "mySource",
+            "format": {"type": "cognite", "encoding": "utf8", "dataModels": {"space": "mySpace"}},
+            "config": {
+                "interval": "1h",
+                "path": "/some/path",
+                "method": "get",
+                "incrementalLoad": {"type": "body", "value": "some_value"},
+                "pagination": {"type": "body", "value": "some_value"},
+            },
+        },
+        id="Valid hosted extractor job with body incremental load and pagination",
+    )
+
+
 class TestHostedExtractorJobYAML:
-    @pytest.mark.parametrize("data", list(find_resources("Job", resource_dir="hosted_extractors")))
+    @pytest.mark.parametrize(
+        "data", [*find_resources("Job", resource_dir="hosted_extractors"), *valid_hosted_extractor_job_test_cases()]
+    )
     def test_load_valid_hosted_extractor_job(self, data: dict[str, object]) -> None:
         loaded = HostedExtractorJobYAML.model_validate(data)
 
