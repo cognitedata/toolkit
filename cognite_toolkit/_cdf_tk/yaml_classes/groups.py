@@ -1,8 +1,9 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from pydantic import Discriminator, Field, Tag
+from pydantic import Discriminator, Field, Tag, field_validator
 from pydantic.functional_validators import BeforeValidator
+from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client.identifiers import NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupAttributes
@@ -54,7 +55,16 @@ class ExternalGroupYAML(BaseGroupYAML):
 
 class CDFGroupYAML(BaseGroupYAML):
     group_type: Literal["cdf"] = Field("cdf", exclude=True)
-    members: list[str] | Literal["allUserAccounts"]
+    members: list[str] | Literal["allUserAccounts"] | None
+    membersByEmail: list[str] | None = None
+
+    @field_validator("members", mode="after")
+    @classmethod
+    def _must_be_set_unless_members_by_email(cls, v, info: ValidationInfo) -> Any:
+        if v is None and info.data.get("membersByEmail") is None:
+            # membersByEmail is an alpha feature, so we don't want to mention it in the error message for now.
+            raise ValueError("Missing required field: 'members'.")
+        return v
 
 
 def _check_group_definition(data: Any) -> Any:
