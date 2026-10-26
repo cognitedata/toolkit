@@ -10,6 +10,7 @@ import questionary
 import typer
 from questionary import Choice
 from rich import print
+from rich.markup import escape
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
@@ -177,12 +178,14 @@ class InitCommand(ToolkitCommand):
             except ToolkitError as e:
                 # Catch expected toolkit errors
                 selected_item.status = InitItemStatus.FAILED
-                print(f"✗ {selected_item.description} failed: {e}")
+                print(f"✗ {selected_item.description} failed: {escape(str(e))}")
             except Exception as e:
-                # Catch unexpected errors and log full traceback for debugging
+                # Unexpected errors are bugs. We keep the loop alive so the user can retry other steps,
+                # and always show the traceback since it is needed for a useful bug report.
                 selected_item.status = InitItemStatus.FAILED
-                print(f"✗ {selected_item.description} failed: {e}")
-                print(f"Unexpected error occurred. Full traceback:\n{traceback.format_exc()}")
+                print(f"✗ {selected_item.description} failed unexpectedly: {escape(f'{type(e).__name__}: {e}')}")
+                print(Panel(escape(traceback.format_exc()), title="Traceback", expand=False))
+                print("Please report this issue to the Cognite Toolkit team, including the traceback above.")
 
     def _init_toml(self, dry_run: bool = False) -> None:
         if self.organization_dir is None:
