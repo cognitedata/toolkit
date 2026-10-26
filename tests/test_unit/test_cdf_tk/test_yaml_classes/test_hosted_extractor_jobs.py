@@ -137,10 +137,11 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "externalId": "myJob",
             "destinationId": "myDest",
             "sourceId": "mySource",
-            "format": {"type": "cognite", "dataModels": [{"space": f"space{i}"} for i in range(11)]},
+            "format": {"type": "cognite", "dataModels": [{"space": "space1"}]},
         },
         {
-            "Invalid value at format.dataModels: List should have at most 10 items after validation, not 11",
+            "Invalid value at format.dataModels: Input should be a valid SpaceRef object. "
+            "Got [{'space': 'space1'}] of type list."
         },
         id="CogniteFormat too many data models",
     )
@@ -151,10 +152,10 @@ def invalid_hosted_extractor_job_test_cases() -> Iterable:
             "externalId": "myJob",
             "destinationId": "myDest",
             "sourceId": "mySource",
-            "format": {"type": "cognite", "dataModels": [{}]},
+            "format": {"type": "cognite", "dataModels": {}},
         },
         {
-            "Missing required field in format.dataModels[1]: 'space'",
+            "Missing required field in format.dataModels: 'space'",
         },
         id="CogniteFormat missing space in dataModels",
     )
