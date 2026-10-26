@@ -100,7 +100,7 @@ class Flags(Enum):
     )
     DEPLOY_PROTECTION = FlagMetadata(
         visible=True,
-        description="Enables support for locking modules in cdf deploy/clean commands, preventing"
+        description="Enables support for locking modules in cdf deploy/clean commands, preventing "
         "users from accidentally overwriting each other's work.",
     )
 
