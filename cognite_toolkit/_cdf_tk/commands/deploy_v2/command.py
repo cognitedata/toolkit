@@ -285,33 +285,29 @@ class DeployV2Command(ToolkitCommand):
         module_locks: ModulesLockResult | None = None
         if Flags.DEPLOY_PROTECTION.is_enabled() and build_lineage and build_lineage.deploy_protection == "protected":
             module_locks = self._acquire_module_locks(build_lineage, client, options.dry_run)
-
-        plan = self._display_setup(options.operation, build_dir, client.config.project, client.console, options.verbose)
-
-        if options.drop:
-            self._validate_plan_container_references(client, plan, options)
-
-        if options.drop and options.drop_data and not options.dry_run:
-            if not self._confirm_drop_data(client, plan, options):
-                if Flags.DEPLOY_PROTECTION.is_enabled() and module_locks:
-                    self._release_module_locks(module_locks, client, options.dry_run)
-                return []
-
-        clean_result: Sequence[DeploymentResult] | None = None
-        if options.drop and (options.operation == "clean" or not options.dry_run):
-            # If we are deploying, and it is dry-run, we skip this step, as apply_plan accounts
-            # for drop in dry-run mode.
-            clean_result = self.apply_plan(
-                client, list(reversed(plan)), options, is_delete=True, insights_by_resource=insights_by_resource
+        try:
+            plan = self._display_setup(
+                options.operation, build_dir, client.config.project, client.console, options.verbose
             )
 
-            if options.operation == "clean":
-                if Flags.DEPLOY_PROTECTION.is_enabled() and module_locks:
-                    self._release_module_locks(module_locks, client, options.dry_run)
-                self._display_results(clean_result, options.operation, client.console, options.verbose)
-                return clean_result
+            if options.drop:
+                self._validate_plan_container_references(client, plan, options)
 
-        try:
+            if options.drop and options.drop_data and not options.dry_run:
+                if not self._confirm_drop_data(client, plan, options):
+                    return []
+
+            clean_result: Sequence[DeploymentResult] | None = None
+            if options.drop and (options.operation == "clean" or not options.dry_run):
+                # If we are deploying, and it is dry-run, we skip this step, as apply_plan accounts
+                # for drop in dry-run mode.
+                clean_result = self.apply_plan(
+                    client, list(reversed(plan)), options, is_delete=True, insights_by_resource=insights_by_resource
+                )
+
+                if options.operation == "clean":
+                    self._display_results(clean_result, options.operation, client.console, options.verbose)
+                    return clean_result
             results = self.apply_plan(client, plan, options, insights_by_resource=insights_by_resource)
         finally:
             if Flags.DEPLOY_PROTECTION.is_enabled() and module_locks:
