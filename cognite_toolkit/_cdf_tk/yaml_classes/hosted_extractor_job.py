@@ -51,7 +51,6 @@ class DataModelFormat(JobFormat, ABC):
     data_models: SpaceRef | None = Field(
         None,
         description="Data models configuration to specify the space for all instances.",
-        max_length=10,
     )
 
 
@@ -154,7 +153,15 @@ class RestConfig(BaseModelResource):
     )
 
 
-def _determine_config_type(config: dict | None) -> str:
+def _determine_config_type(config: object) -> str:
+    # The discriminator is called with the raw input (dict) during validation,
+    # and with the model instance during serialization.
+    if isinstance(config, MQTTConfig):
+        return "mqtt"
+    elif isinstance(config, KafkaConfig):
+        return "kafka"
+    elif isinstance(config, RestConfig):
+        return "rest"
     if not isinstance(config, dict):
         return "none"
     if "topicFilter" in config:
