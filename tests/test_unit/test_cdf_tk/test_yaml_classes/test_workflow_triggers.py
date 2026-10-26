@@ -96,13 +96,13 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
                 "triggerType": "dataModeling",
                 "dataModelingQuery": {},
                 "batchSize": 100,
-                "batchTimeout": 10,
+                "batchTimeout": 5,
             },
             "workflowExternalId": "wf",
             "workflowVersion": "v1",
             "authentication": {"clientId": "id", "clientSecret": "secret"},
         },
-        {"Invalid value at triggerRule.batchTimeout: Input should be greater than or equal to 60"},
+        {"Invalid value at triggerRule.batchTimeout: Input should be greater than or equal to 10"},
         id="Invalid value for batchTimeout in dataModeling trigger",
     )
     # Invalid Json input
