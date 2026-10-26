@@ -1257,20 +1257,13 @@ memberEmails:
     yaml_filepath.write_text(group_yaml, encoding="utf-8")
 
     # Mock client
-    def lookup(email: list[str] | tuple[str, ...], warn: bool = True) -> str | list[str]:
-        if not isinstance(email, list):
-            assert False, f"Expected a list of emails, got {type(email)}"
-        try:
-            return [
-                {
-                    "bob@example.com": "123",
-                    "alice@example.com": "456",
-                }[e]
-                for e in email
-                if isinstance(e, str)
-            ]
-        except KeyError as e:
-            assert False, f"Unexpected email {e.args[0]} in lookup"
+    def lookup(email: list[str] | tuple[str, ...], warn: bool = True) -> None | str | list[str]:
+        if not isinstance(email, str):
+            assert False, f"Expected a single email string, got {email}"
+        return {
+            "bob@example.com": "123",
+            "alice@example.com": "456",
+        }.get(email)
 
     client = MagicMock(spec=ToolkitClient)
     client.console = Console()
