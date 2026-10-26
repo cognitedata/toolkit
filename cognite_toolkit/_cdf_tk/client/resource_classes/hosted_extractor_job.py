@@ -30,7 +30,7 @@ class CogniteFormat(JobFormatDefinition):
     encoding: str | None = None
     compression: str | None = None
     prefix: PrefixConfig | None = None
-    data_models: list[SpaceRef] | None = None
+    data_models: SpaceRef | None = None
 
 
 class CustomFormat(JobFormatDefinition):
@@ -45,7 +45,7 @@ class RockwellFormat(JobFormatDefinition):
     encoding: str | None = None
     compression: str | None = None
     prefix: PrefixConfig | None = None
-    data_models: list[SpaceRef] | None = None
+    data_models: SpaceRef | None = None
 
 
 class ValueFormat(JobFormatDefinition):
@@ -53,7 +53,7 @@ class ValueFormat(JobFormatDefinition):
     encoding: str | None = None
     compression: str | None = None
     prefix: PrefixConfig | None = None
-    data_models: list[SpaceRef] | None = None
+    data_models: SpaceRef | None = None
 
 
 class SparkplugFormat(JobFormatDefinition):
@@ -61,7 +61,7 @@ class SparkplugFormat(JobFormatDefinition):
     encoding: str | None = None
     compression: str | None = None
     prefix: PrefixConfig | None = None
-    data_models: list[SpaceRef] | None = None
+    data_models: SpaceRef | None = None
 
 
 class UnknownJobFormat(JobFormatDefinition):
