@@ -82,7 +82,7 @@ class ExtractionPipelineIO(
     kind = "ExtractionPipeline"
     dependencies = frozenset({DataSetsIO, RawDatabaseIO, RawTableIO, GroupAllScopedIO})
     yaml_cls = ExtractionPipelineYAML
-    _doc_url = "Extraction-Pipelines/operation/createExtPipes"
+    _doc_url = "Extraction-Pipelines#operation/createExtPipes"
 
     @property
     def display_name(self) -> str:
@@ -257,7 +257,7 @@ class ExtractionPipelineConfigIO(
     resource_write_cls = ExtractionPipelineConfigRequest
     kind = "Config"
     dependencies = frozenset({ExtractionPipelineIO})
-    _doc_url = "Extraction-Pipelines-Config/operation/createExtPipeConfig"
+    _doc_url = "Extraction-Pipelines-Config#operation/createExtPipeConfig"
     parent_resource = frozenset({ExtractionPipelineIO})
     yaml_cls = ExtractionPipelineConfigYAML
 

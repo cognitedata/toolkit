@@ -29,7 +29,7 @@ class DataProductVersionIO(
     parent_resource = frozenset({DataProductIO})
     support_drop = True
     support_update = True
-    _doc_url = "Data-Products/operation/createDataProductVersions"
+    _doc_url = "Data-Products#operation/createDataProductVersions"
 
     @property
     def display_name(self) -> str:
