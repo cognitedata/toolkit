@@ -19,7 +19,7 @@ from pydantic.alias_generators import to_camel
 from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuiltModule
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuildInput, BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     ModelSyntaxError,
@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ResourceType, get_resource_build_io
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -41,6 +42,7 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash_multi_file
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
+from ._config import DeployProtection
 from ._module import BuildVariable
 from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath
 
@@ -203,6 +205,14 @@ class BuildLineage(_BaseLineageModel):
         default=None,
         description="Hash of the config YAML file at build time. Used to invalidate the incremental rebuild cache when the config changes.",
     )
+    deploy_branch: str | None = Field(
+        default=None,
+        description="Git branch that is expected to deploy the build.",
+    )
+    deploy_protection: DeployProtection | None = Field(
+        default=None,
+        description="Whether the build is protected from deployment on non-deploy branches.",
+    )
     modules_summary: dict[str, int] = Field(description="Summary of modules by build status")
     insights_summary: dict[str, int] = Field(description="Summary of insights by type across all modules")
 
@@ -228,7 +238,11 @@ class BuildLineage(_BaseLineageModel):
 
     @classmethod
     def from_build(
-        cls, build: BuildFolder, cdf_project: str | None = None, config_yamls: list[Path] | None = None
+        cls,
+        build: BuildFolder,
+        cdf_project: str | None = None,
+        config_yamls: list[Path] | None = None,
+        build_input: BuildInput | None = None,
     ) -> "BuildLineage":
         """Construct lineage from build output folder."""
 
@@ -255,16 +269,24 @@ class BuildLineage(_BaseLineageModel):
             modules_summary=modules_summary,
             insights_summary=insights_summary,
             cdf_project=cdf_project,
+            deploy_branch=build_input.deploy_branch if build_input else None,
+            deploy_protection=build_input.deploy_protection if build_input else None,
             config_hash=calculate_hash_multi_file(config_yamls, shorten=True) if config_yamls else None,
         )
 
     def to_yaml(self) -> str:
         """Convert BuildLineage to YAML string representation."""
+        exclude: set[str] = set()
+        if not Flags.GIT_DIFF_SELECT.is_enabled() and not Flags.DEPLOY_PROTECTION.is_enabled():
+            exclude.add("deploy_branch")
+        if not Flags.DEPLOY_PROTECTION.is_enabled():
+            exclude.add("deploy_protection")
         data = self.model_dump(
             by_alias=True,
             exclude_none=False,
             mode="json",
             context={"organization_dir": self.organization_dir},
+            exclude=exclude,
         )
         return yaml.dump(data, default_flow_style=False, sort_keys=False)
 

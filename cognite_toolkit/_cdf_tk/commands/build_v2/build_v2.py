@@ -46,6 +46,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     ConfigFile,
     ValidationResult,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._config import DeployProtection
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildError,
     BuildWarning,
@@ -146,7 +147,7 @@ class BuildV2Command(ToolkitCommand):
 
         self.validate_build_parameters(parameters, console, sys.argv)
 
-        module_scan_result, selection_source = self.read_filesystem_and_find_modules(
+        module_scan_result, selection_source, build_files = self.read_filesystem_and_find_modules(
             parameters.organization_dir, parameters.config_yamls, parameters.user_selected_modules, parameters.operation
         )
 
@@ -188,7 +189,9 @@ class BuildV2Command(ToolkitCommand):
         # We write all found insights to the build folder, even if they are ignored by the user.
         # This is so that they can be used in the deploy command to improve error messages when the API
         # fails to deploy a resource.
-        self._write_results(found_insights, build_folder, parameters, client.config.project if client else None)
+        self._write_results(
+            found_insights, build_folder, parameters, build_files, client.config.project if client else None
+        )
 
         if parameters.rules_enforce:
             self._enforce_rules(report_insights)
@@ -235,7 +238,7 @@ class BuildV2Command(ToolkitCommand):
         config_yamls: list[Path] | None = None,
         user_selected_modules: list[str] | None = None,
         operation: str | None = None,
-    ) -> tuple[ModuleScanResult, SelectionSource]:
+    ) -> tuple[ModuleScanResult, SelectionSource, BuildInput]:
         """Reads the file system to find the YAML files to build along with config.<name>.yaml if it exists,
         and then finds the modules to build.
 
@@ -252,7 +255,7 @@ class BuildV2Command(ToolkitCommand):
             selection_source = "interactive"
 
         module_scan_result = cls._find_modules(build_files, operation or "build")
-        return module_scan_result, selection_source
+        return module_scan_result, selection_source, build_files
 
     @classmethod
     def select_module(
@@ -264,7 +267,7 @@ class BuildV2Command(ToolkitCommand):
         module_scan_result: ModuleScanResult | None = None,
     ) -> ModuleDirectory:
         if module_scan_result is None:
-            results, _ = cls.read_filesystem_and_find_modules(
+            results, *_ = cls.read_filesystem_and_find_modules(
                 organization_dir,
                 user_selected_modules=[selected_module] if selected_module else [f"{MODULES}/"],
                 operation=operation,
@@ -761,6 +764,8 @@ class BuildV2Command(ToolkitCommand):
         """Reads the file system to find the YAML files to build along with config.<name>.yaml if they exists."""
         cdf_project: str = os.environ.get("CDF_PROJECT", "UNKNOWN")
         validation_type: ValidationType = "prod"
+        deploy_branch: str | None = None
+        deploy_protection: DeployProtection | None = None
 
         if config_yamls and len(config_yamls) > 1 and user_selected_modules is not None:
             # This should have been caught a lot earlier, but keep it for safety.
@@ -784,6 +789,8 @@ class BuildV2Command(ToolkitCommand):
             config_files = []
             projects: Counter[str] = Counter()
             validation_types: Counter[ValidationType] = Counter()
+            deploy_branches: Counter[str | None] = Counter()
+            deploy_protections: Counter[DeployProtection | None] = Counter()
             missing_selected: list[Path] = []
             for config_yaml in config_yamls:
                 config_path_resolved = config_yaml.resolve()
@@ -801,7 +808,9 @@ class BuildV2Command(ToolkitCommand):
                     selected = parsed_user_selected
                 elif Flags.GIT_DIFF_SELECT.is_enabled() and config.environment.selection_type == "git-diff":
                     try:
-                        selected, uncommitted_changes = cls.parse_git_diff_selection(organization_dir, Git())
+                        selected, uncommitted_changes = cls.parse_git_diff_selection(
+                            organization_dir, Git(), config.environment.deploy_branch
+                        )
                     except RuntimeError as e:
                         raise ToolkitValueError(f"Failed to determine git changes: {e}") from e
                     if not selected:
@@ -832,6 +841,8 @@ class BuildV2Command(ToolkitCommand):
 
                 projects.update([config.environment.project])
                 validation_types.update([config.environment.validation_type])
+                deploy_branches.update([config.environment.deploy_branch])
+                deploy_protections.update([config.environment.deploy_protection])
                 config_files.append(
                     ConfigFile(selected_modules=selected, variables=config.variables or {}, path=config_path_resolved)
                 )
@@ -856,9 +867,25 @@ class BuildV2Command(ToolkitCommand):
                     f"{', '.join(f'{validation_type} ({count})' for validation_type, count in validation_types.items())}. "
                     f"Please ensure all config YAML files specify the same validation type."
                 )
+            if len(deploy_branches) > 1:
+                raise ToolkitValueError(
+                    f"Multiple config YAML files provided with different deploy branches: "
+                    f"{', '.join(f'{deploy_branch} ({count})' for deploy_branch, count in deploy_branches.items())}. "
+                    f"Please ensure all config YAML files specify the same deploy branch."
+                )
+            if len(deploy_protections) > 1:
+                raise ToolkitValueError(
+                    f"Multiple config YAML files provided with different deploy protections: "
+                    f"{', '.join(f'{deploy_protection} ({count})' for deploy_protection, count in deploy_protections.items())}. "
+                    f"Please ensure all config YAML files specify the same deploy protection."
+                )
 
             validation_type = validation_types.most_common(1)[0][0]
             cdf_project = projects.most_common(1)[0][0]
+            if deploy_branches:
+                deploy_branch = deploy_branches.most_common(1)[0][0]
+            if deploy_protections:
+                deploy_protection = deploy_protections.most_common(1)[0][0]
 
         yaml_files = [
             yaml_file.relative_to(organization_dir) for yaml_file in (organization_dir / MODULES).rglob("*.y*ml")
@@ -871,6 +898,8 @@ class BuildV2Command(ToolkitCommand):
             cdf_project=cdf_project,
             organization_dir=organization_dir.resolve(),
             config_files=config_files,
+            deploy_branch=deploy_branch,
+            deploy_protection=deploy_protection,
         )
 
     @classmethod
@@ -889,7 +918,7 @@ class BuildV2Command(ToolkitCommand):
 
     @classmethod
     def parse_git_diff_selection(
-        cls, organization_dir: Path, git: Git
+        cls, organization_dir: Path, git: Git, user_deploy_branch: str | None = None
     ) -> tuple[set[RelativeDirPath | str], list[Path]]:
         """
         Parse the modules selected based on the Git diff.
@@ -903,12 +932,12 @@ class BuildV2Command(ToolkitCommand):
                 "Please run this command from within a Git repository."
             )
         module_absolute_path = (organization_dir / MODULES).resolve()
-        default_branch = git.get_default_branch()
+        deploy_branch = user_deploy_branch or git.get_default_branch()
         current_branch = git.get_current_branch()
-        if current_branch == default_branch:
+        if current_branch == deploy_branch:
             changed_files = git.get_changed_files_last_commit()
         else:
-            changed_files = git.get_changed_files(default_branch, current_branch)
+            changed_files = git.get_changed_files(deploy_branch, current_branch)
         changed_file_paths = {Path(file).resolve() for file in changed_files}
         selected, _ = cls._find_modules_from_files(changed_file_paths, module_absolute_path)
         if selected:
@@ -1753,7 +1782,12 @@ class BuildV2Command(ToolkitCommand):
         self.tracker.track(event, client)
 
     def _write_results(
-        self, insights: InsightList, build: BuildFolder, parameters: BuildParameters, cdf_project: str | None = None
+        self,
+        insights: InsightList,
+        build: BuildFolder,
+        parameters: BuildParameters,
+        build_files: BuildInput,
+        cdf_project: str | None = None,
     ) -> None:
         """Write build results including lineage information and insights to the build folder."""
         if parameters.write_insights:
@@ -1767,5 +1801,5 @@ class BuildV2Command(ToolkitCommand):
 
         if parameters.write_lineage:
             lineage_file = build.build_dir / BuildLineage.filename
-            lineage = BuildLineage.from_build(build, cdf_project, parameters.config_yamls).to_yaml()
+            lineage = BuildLineage.from_build(build, cdf_project, parameters.config_yamls, build_files).to_yaml()
             safe_write(lineage_file, lineage)

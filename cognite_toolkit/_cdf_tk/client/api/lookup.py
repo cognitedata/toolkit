@@ -437,40 +437,42 @@ class UserLookUpAPI:
             raise
 
     @overload
-    def email(self, user_id: str) -> str | None: ...
+    def email(self, user_id: str, warn: bool = True) -> str | None: ...
 
     @overload
-    def email(self, user_id: list[str] | tuple[str, ...]) -> list[str]: ...
+    def email(self, user_id: list[str] | tuple[str, ...], warn: bool = True) -> list[str]: ...
 
-    def email(self, user_id: str | list[str] | tuple[str, ...]) -> str | list[str] | None:
+    def email(self, user_id: str | list[str] | tuple[str, ...], warn: bool = True) -> str | list[str] | None:
         """Lookup the email of users given their user IDs.
 
         Args:
             user_id: A user ID or a sequence of user IDs to look up.
+            warn: If True, print a warning for any user IDs that are not found.
 
         Returns:
             The corresponding email if a single user ID is provided (None if not found),
             or a list of emails if a sequence of user IDs is provided (missing users are skipped).
         """
-        return self._lookup_values(user_id, self._email_by_user_id, "user ID", "email")
+        return self._lookup_values(user_id, self._email_by_user_id, "user ID", "email", warn)
 
     @overload
-    def user_id(self, email: str) -> str | None: ...
+    def user_id(self, email: str, warn: bool = True) -> str | None: ...
 
     @overload
-    def user_id(self, email: list[str] | tuple[str, ...]) -> list[str]: ...
+    def user_id(self, email: list[str] | tuple[str, ...], warn: bool = True) -> list[str]: ...
 
-    def user_id(self, email: str | list[str] | tuple[str, ...]) -> str | list[str] | None:
+    def user_id(self, email: str | list[str] | tuple[str, ...], warn: bool = True) -> str | list[str] | None:
         """Lookup the user IDs of users given their emails.
 
         Args:
             email: An email or a sequence of emails to look up.
+            warn: If True, print a warning for any emails that are not found.
 
         Returns:
             The corresponding user ID if a single email is provided (None if not found),
             or a list of user IDs if a sequence of emails is provided (missing users are skipped).
         """
-        return self._lookup_values(email, self._user_id_by_email, "email", "user ID")
+        return self._lookup_values(email, self._user_id_by_email, "email", "user ID", warn)
 
     def _lookup_values(
         self,
@@ -478,11 +480,12 @@ class UserLookUpAPI:
         mapping: dict[str, str],
         key_name: str,
         value_name: str,
+        warn: bool = True,
     ) -> str | list[str] | None:
         self._lookup()
         key_list = [keys] if isinstance(keys, str) else list(keys)
         missing = [key for key in key_list if key not in mapping]
-        if missing:
+        if missing and warn:
             plural = "s" if len(missing) > 1 else ""
             plural2 = "They do" if len(missing) > 1 else "It does"
             MediumSeverityWarning(

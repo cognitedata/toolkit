@@ -40,6 +40,13 @@ from cognite_toolkit._cdf_tk.commands._utils import (
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList
+from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import (
+    ErrorLockResult,
+    FailedLockResult,
+    ModuleLockManager,
+    ModulesLockResult,
+    SuccessfulLockResult,
+)
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable, Selector
@@ -56,6 +63,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitWrongResourceError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_IO_BY_FOLDER_NAME,
     ContainerIO,
@@ -84,6 +92,7 @@ from cognite_toolkit._cdf_tk.ui import (
     hanging_indent,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename, to_diff
+from cognite_toolkit._cdf_tk.utils.git_helpers import Git
 from cognite_toolkit._version import __version__
 
 Operation: TypeAlias = Literal["deploy", "clean"]
@@ -272,27 +281,37 @@ class DeployV2Command(ToolkitCommand):
             client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
         self._validate_cdf_project(build_dir, options.operation, options.cdf_project, client.config.project)
-        plan = self._display_setup(options.operation, build_dir, client.config.project, client.console, options.verbose)
 
-        if options.drop:
-            self._validate_plan_container_references(client, plan, options)
-
-        if options.drop and options.drop_data and not options.dry_run:
-            if not self._confirm_drop_data(client, plan, options):
-                return []
-
-        clean_result: Sequence[DeploymentResult] | None = None
-        if options.drop and (options.operation == "clean" or not options.dry_run):
-            # If we are deploying, and it is dry-run, we skip this step, as apply_plan accounts
-            # for drop in dry-run mode.
-            clean_result = self.apply_plan(
-                client, list(reversed(plan)), options, is_delete=True, insights_by_resource=insights_by_resource
+        module_locks: ModulesLockResult | None = None
+        if Flags.DEPLOY_PROTECTION.is_enabled() and build_lineage and build_lineage.deploy_protection == "protected":
+            module_locks = self._acquire_module_locks(build_lineage, client, options.dry_run)
+        try:
+            plan = self._display_setup(
+                options.operation, build_dir, client.config.project, client.console, options.verbose
             )
-            if options.operation == "clean":
-                self._display_results(clean_result, options.operation, client.console, options.verbose)
-                return clean_result
 
-        results = self.apply_plan(client, plan, options, insights_by_resource=insights_by_resource)
+            if options.drop:
+                self._validate_plan_container_references(client, plan, options)
+
+            if options.drop and options.drop_data and not options.dry_run:
+                if not self._confirm_drop_data(client, plan, options):
+                    return []
+
+            clean_result: Sequence[DeploymentResult] | None = None
+            if options.drop and (options.operation == "clean" or not options.dry_run):
+                # If we are deploying, and it is dry-run, we skip this step, as apply_plan accounts
+                # for drop in dry-run mode.
+                clean_result = self.apply_plan(
+                    client, list(reversed(plan)), options, is_delete=True, insights_by_resource=insights_by_resource
+                )
+
+                if options.operation == "clean":
+                    self._display_results(clean_result, options.operation, client.console, options.verbose)
+                    return clean_result
+            results = self.apply_plan(client, plan, options, insights_by_resource=insights_by_resource)
+        finally:
+            if Flags.DEPLOY_PROTECTION.is_enabled() and module_locks:
+                self._release_module_locks(module_locks, client, options.dry_run)
 
         if clean_result is not None:
             self._merge_clean_results(results, clean_result)
@@ -425,6 +444,46 @@ class DeployV2Command(ToolkitCommand):
             skipped_directories=skipped_resource_dirs,
             cdf_project=cdf_project,
         )
+
+    @classmethod
+    def _acquire_module_locks(
+        cls, build_lineage: BuildLineage, client: ToolkitClient, dry_run: bool
+    ) -> ModulesLockResult:
+        module_ids = [module.module_id for module in build_lineage.module_lineage]
+        lock_result = ModuleLockManager(client, Git(), dry_run, build_lineage.deploy_branch).try_lock(module_ids)
+        if isinstance(lock_result, ErrorLockResult):
+            raise ToolkitError(f"Failed to acquire locks for modules due to error: {lock_result.error_message}")
+        elif isinstance(lock_result, FailedLockResult):
+            newline = "\n  -"
+            raise ToolkitError(
+                f"Failed to acquire locks for modules: {newline}{newline.join(f'{lock.module_id} (locked by {lock.git_name}{lock.display_email} on branch {lock.branch!r})' for lock in lock_result.failed_locks)}"
+            )
+        elif isinstance(lock_result, SuccessfulLockResult):
+            client.console.print(
+                ToolkitPanel(
+                    "\n- ".join(lock_result.module_ids),
+                    title="Successfully acquired locks."
+                    if not dry_run
+                    else "Dry-run: would acquire locks for modules.",
+                    border_style=AuraColor.GREEN.rich,
+                )
+            )
+        return lock_result
+
+    @classmethod
+    def _release_module_locks(cls, module_locks: ModulesLockResult, client: ToolkitClient, dry_run: bool) -> None:
+        if not isinstance(module_locks, SuccessfulLockResult) or not module_locks.is_deploy_branch:
+            return
+        if ModuleLockManager(client, Git(), dry_run).release_lock(module_locks):
+            client.console.print(
+                ToolkitPanel(
+                    "\n- ".join(module_locks.module_ids),
+                    title="Successfully released locks."
+                    if not dry_run
+                    else "Dry-run: would release locks for modules.",
+                    border_style=AuraColor.GREEN.rich,
+                )
+            )
 
     def _display_setup(
         self,
