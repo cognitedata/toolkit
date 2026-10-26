@@ -393,6 +393,7 @@ class PurgeCommand(ToolkitCommand):
             confirm = confirm_by_typing_project_name(f"You are about purge the {selected_space!r} space", client)
             if not confirm:
                 return DeployResults([], "purge", dry_run=dry_run)
+            self._validate_production(client, "space")
 
         # ValidateAuth
         # We check for write even in dry-run mode. This is because dry-run is expected to fail
@@ -625,6 +626,7 @@ class PurgeCommand(ToolkitCommand):
             )
             if not confirm:
                 return DeployResults([], "purge", dry_run=dry_run)
+            self._validate_production(client, "dataset")
 
         # Validate Auth
         data_set_id = client.lookup.data_sets.id(selected_data_set_external_id)
@@ -847,7 +849,7 @@ class PurgeCommand(ToolkitCommand):
             )
             if not confirm_purge:
                 return DeleteResults()
-
+            self._validate_production(client, "instances")
         with (
             HTTPClient(config=client.config) as delete_client,
             NDJsonWriter(
@@ -888,6 +890,17 @@ class PurgeCommand(ToolkitCommand):
     def _log_filestem(self) -> str:
         log_filestem = f"purge_{date.today().strftime('%Y%m%d')}"
         return log_filestem
+
+    @classmethod
+    def _validate_production(cls, client: ToolkitClient, resource_type: str) -> None:
+        if "prod" in client.config.project.lower():
+            confirm_prod = questionary.confirm(
+                f"You are about to purge {resource_type} in {client.config.project} - this looks like a production project. "
+                "Are you [bold]really[/bold] sure you want to continue?",
+                default=False,
+            ).ask()
+            if not confirm_prod:
+                raise ToolkitValueError(f"Aborted purge of {resource_type} in production project.")
 
     def validate_not_purging_through_denied_view(self, selector: InstanceSelector) -> None:
         view: SelectedView | None = None
