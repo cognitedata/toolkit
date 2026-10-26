@@ -26,11 +26,9 @@ class ScheduleTrigger(TriggerRuleYAML):
 class DataModelingTrigger(TriggerRuleYAML):
     trigger_type: Literal["dataModeling"] = Field("dataModeling")
     data_modeling_query: JsonValue
-    batch_size: int = Field(
-        ge=100, le=1_000, description="The maximum number of items to pass to a workflow execution."
-    )
+    batch_size: int = Field(ge=1, le=1_000, description="The maximum number of items to pass to a workflow execution.")
     batch_timeout: int = Field(
-        ge=60,
+        ge=10,
         le=86_400,
         description="The maximum time in seconds to wait for the batch to be filled before passing it to a workflow execution.",
     )
