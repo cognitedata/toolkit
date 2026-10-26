@@ -178,7 +178,7 @@ class InitCommand(ToolkitCommand):
             except ToolkitError as e:
                 # Catch expected toolkit errors
                 selected_item.status = InitItemStatus.FAILED
-                print(f"✗ {selected_item.description} failed: {escape(str(e))}")
+                print(f"✗ {selected_item.description} failed: {e}")
             except Exception as e:
                 # Unexpected errors are bugs. We keep the loop alive so the user can retry other steps,
                 # and always show the traceback since it is needed for a useful bug report.

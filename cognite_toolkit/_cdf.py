@@ -225,6 +225,18 @@ def app() -> NoReturn:
 
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
         raise SystemExit(1)
+    except Exception as err:
+        # Anything that is not a ToolkitError is a bug in Toolkit. The traceback is always shown,
+        # as it is required for a useful bug report. We report to Sentry explicitly, since catching
+        # the exception here bypasses Sentry's uncaught-exception hook.
+        if USE_SENTRY:
+            sentry_sdk.capture_exception(err)
+        print(Panel(escape(traceback.format_exc()), title="Traceback", expand=False, border_style="red"))
+        print(
+            f"  [bold red]UNEXPECTED ERROR ([/][red]{escape(type(err).__name__)}[/][bold red]):[/] {escape(str(err))}"
+        )
+        print(f"{HINT_LEAD_TEXT}This is likely a bug in Toolkit. Please report it, including the traceback above.")
+        raise SystemExit(1)
     except SystemExit as exit_err:
         if cmd := _get_unknown_command(exit_err):
             if cmd in Plugins.list():

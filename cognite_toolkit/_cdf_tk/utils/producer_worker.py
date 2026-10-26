@@ -255,14 +255,14 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         self.error_traceback = traceback.format_exc()
         self.error_exception = error
         if not isinstance(error, ToolkitRepeatedUploadFailureError):
-            self.console.print(f"[red]Error[/red] occurred while {description}: {self.error_message}")
+            self.console.print(f"[red]Error[/red] occurred while {description}: {escape(self.error_message)}")
 
     def print_traceback(self) -> None:
         """Prints the traceback if an error occurred during execution."""
         if self.error_traceback:
             self.console.print(
                 Panel(
-                    self.error_traceback,
+                    escape(self.error_traceback),
                     title="Traceback",
                     expand=False,
                     border_style="red",
@@ -276,7 +276,9 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         except TypeError as e:
             self._error_event.set()
             self.error_message = str(e)
-            self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
+            self.console.print(
+                f"[red]Error[/red] occurred while {self.download_description}: {escape(self.error_message)}"
+            )
             return
         self.downloaded_items = start_item
         progress.update(download_task, advance=start_item)
