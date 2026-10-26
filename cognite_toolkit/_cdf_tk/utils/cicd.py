@@ -1,7 +1,12 @@
 import os
+from typing import Literal, TypeAlias
+
+CIEnvironment: TypeAlias = Literal[
+    "local", "bitbucket", "circleci", "travis", "github", "gitlab", "azure", "google-cloud-build"
+]
 
 
-def get_cicd_environment() -> str:
+def get_cicd_environment() -> CIEnvironment:
     if "CI" in os.environ and os.getenv("GITHUB_ACTIONS"):
         return "github"
     if os.getenv("GITLAB_CI"):
