@@ -1,9 +1,8 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from pydantic import Discriminator, Field, Tag, field_validator
+from pydantic import Discriminator, Field, Tag, model_validator
 from pydantic.functional_validators import BeforeValidator
-from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client.identifiers import NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupAttributes
@@ -58,25 +57,17 @@ class CDFGroupYAML(BaseGroupYAML):
     members: list[str] | Literal["allUserAccounts", "emails"]
     member_emails: list[str] | None = None
 
-    @field_validator("members", mode="after")
-    @classmethod
-    def _validate_members(
-        cls, v: list[str] | Literal["allUserAccounts", "emails"], info: ValidationInfo
-    ) -> list[str] | Literal["allUserAccounts", "emails"]:
-        if v == "emails" and not info.data.get("member_emails"):
+    @model_validator(mode="after")
+    def _validate_members_and_member_emails(self) -> "CDFGroupYAML":
+        if self.members == "emails" and not self.member_emails:
             raise ValueError(
-                "Invalid group definition: 'members' is set to 'emails', but no 'member_emails' are provided."
+                "Invalid group definition: 'members' is set to 'emails', but no 'memberEmails' are provided."
             )
-        return v
-
-    @field_validator("member_emails", mode="after")
-    @classmethod
-    def _validate_member_emails(cls, v: list[str] | None, info: ValidationInfo) -> list[str] | None:
-        if v is not None and info.data.get("members") != "emails":
+        if self.member_emails is not None and self.members != "emails":
             raise ValueError(
-                "Invalid group definition: 'member_emails' can only be specified when 'members' is set to 'emails'."
+                "Invalid group definition: 'memberEmails' can only be specified when 'members' is set to 'emails'."
             )
-        return v
+        return self
 
 
 def _check_group_definition(data: Any) -> Any:
