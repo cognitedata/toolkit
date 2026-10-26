@@ -2,6 +2,7 @@ import json
 import sys
 from pathlib import Path
 from typing import cast
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
@@ -9,9 +10,13 @@ from cognite.client.data_classes import (
     DataSet,
 )
 from pytest import MonkeyPatch
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk import cdf_toml
-from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.api.groups import GroupsAPI
+from cognite_toolkit._cdf_tk.client.api.lookup import LookUpGroup, UserLookUpAPI
+from cognite_toolkit._cdf_tk.client.api.project import ProjectAPI
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -1234,3 +1239,73 @@ capabilities:
         "Expected MISSING-REFERENCED-RESOURCE for 'my_non_existent_space' even when group has an unknown capability"
     )
     assert "my_non_existent_space" in unknown_refs[0].message
+
+
+def test_build_deploy_cdf_group_with_member_emails(tmp_path: Path) -> None:
+    """Test that a group with member emails can be built and deployed successfully."""
+    group_yaml = """name: group_with_emails
+members: "emails"
+memberEmails:
+- bob@example.com
+- alice@example.com
+"""
+
+    my_org = tmp_path / "my_org"
+    yaml_filepath = my_org / "modules" / "my_module" / "auth" / "group_with_emails.Group.yaml"
+    yaml_filepath.parent.mkdir(parents=True, exist_ok=True)
+    yaml_filepath.write_text(group_yaml, encoding="utf-8")
+
+    # Mock client
+    def lookup(email: list[str] | tuple[str, ...], warn: bool = True) -> str | list[str]:
+        if not isinstance(email, list):
+            assert False, f"Expected a list of emails, got {type(email)}"
+        try:
+            return [
+                {
+                    "bob@example.com": "123",
+                    "alice@example.com": "456",
+                }[e]
+                for e in email
+                if isinstance(e, str)
+            ]
+        except KeyError as e:
+            assert False, f"Unexpected email {e.args[0]} in lookup"
+
+    client = MagicMock(spec=ToolkitClient)
+    client.console = Console()
+    client.config = MagicMock(spec=ToolkitClientConfig)
+    client.config.project = CDF_PROJECT
+    client.project = MagicMock(spec=ProjectAPI)
+    client.lookup = MagicMock(spec=LookUpGroup)
+    client.lookup.user = MagicMock(spec=UserLookUpAPI)
+    client.lookup.user.user_id.side_effect = lookup
+    client.groups = MagicMock(spec=GroupsAPI)
+    client.groups.create.return_value = [
+        GroupResponse(name="group_with_emails", members=["123", "456"], id=1, is_deleted=False)
+    ]
+
+    # Build the project
+    build_dir = tmp_path / "build"
+    BuildV2Command(silent=True, skip_tracking=True).build(
+        client=client,
+        parameters=BuildParameters(organization_dir=my_org, build_dir=build_dir, user_selected_modules=["modules/"]),
+    )
+
+    # Deploy the project
+    DeployV2Command(silent=True, skip_tracking=True).deploy(
+        user_build_dir=build_dir,
+        env_vars=None,
+        client=client,
+        options=DeployOptions(
+            cdf_project=CDF_PROJECT,
+            dry_run=False,
+            drop=False,
+            drop_data=False,
+            include=None,
+            force_update=False,
+            verbose=False,
+            environment_variables=None,
+        ),
+    )
+
+    assert client.groups.create.call_count == 1
