@@ -48,7 +48,7 @@ class DataModelFormat(JobFormat, ABC):
         None,
         description="Generate a prefix for resources created using this format. If both prefix and fromTopic are set, the generated ID will be on the form [prefix][topic][id].",
     )
-    data_models: list[SpaceRef] | None = Field(
+    data_models: SpaceRef | None = Field(
         None,
         description="Data models configuration to specify the space for all instances.",
         max_length=10,
