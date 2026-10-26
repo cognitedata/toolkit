@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.api.groups import GroupsAPI
 from cognite_toolkit._cdf_tk.client.api.lookup import LookUpGroup, UserLookUpAPI
 from cognite_toolkit._cdf_tk.client.api.project import ProjectAPI
+from cognite_toolkit._cdf_tk.client.api.token import ToolkitTokenAPI
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -1277,9 +1278,22 @@ memberEmails:
     client.config.project = CDF_PROJECT
     client.project = MagicMock(spec=ProjectAPI)
     client.lookup = MagicMock(spec=LookUpGroup)
-    client.lookup.user = MagicMock(spec=UserLookUpAPI)
-    client.lookup.user.user_id.side_effect = lookup
+    # Instance attributes set in LookUpGroup.__init__ are not part of the class spec, so set them explicitly.
+    for lookup_name in [
+        "data_sets",
+        "extraction_pipelines",
+        "location_filters",
+        "security_categories",
+        "time_series",
+        "assets",
+    ]:
+        setattr(client.lookup, lookup_name, MagicMock())
+    client.lookup.users = MagicMock(spec=UserLookUpAPI)
+    client.lookup.users.user_id.side_effect = lookup
     client.groups = MagicMock(spec=GroupsAPI)
+    client.groups.list.return_value = []
+    client.token = MagicMock(spec=ToolkitTokenAPI)
+    client.token.verify_acls.return_value = []
     client.groups.create.return_value = [
         GroupResponse(name="group_with_emails", members=["123", "456"], id=1, is_deleted=False)
     ]
@@ -1309,3 +1323,6 @@ memberEmails:
     )
 
     assert client.groups.create.call_count == 1
+    created_groups = client.groups.create.call_args.args[0]
+    assert len(created_groups) == 1
+    assert created_groups[0].dump() == {"name": "group_with_emails", "members": ["123", "456"]}
