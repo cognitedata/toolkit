@@ -179,10 +179,13 @@ class TestRunTransformationV2:
 
 @pytest.fixture(scope="session")
 def function_build_folder() -> BuildLineage:
-    return BuildV2Command(print_warning=False, silent=True).tmp_build(
-        RUN_DATA,
-        RUN_DATA / "config.dev.yaml",
-    )
+    # Session-scoped fixtures run before the function-scoped autouse fixture that unsets CDF_PROJECT.
+    with pytest.MonkeyPatch.context() as mp:
+        mp.delenv("CDF_PROJECT", raising=False)
+        return BuildV2Command(print_warning=False, silent=True).tmp_build(
+            RUN_DATA,
+            RUN_DATA / "config.dev.yaml",
+        )
 
 
 @pytest.fixture

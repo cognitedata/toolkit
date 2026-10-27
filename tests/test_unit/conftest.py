@@ -46,17 +46,16 @@ TMP_FOLDER = THIS_FOLDER / "tmp"
 TMP_FOLDER.mkdir(exist_ok=True)
 
 
-@pytest.fixture(scope="session", autouse=True)
-def _isolate_cdf_project_env() -> Iterator[None]:
+@pytest.fixture(autouse=True)
+def _isolate_cdf_project_env(monkeypatch: MonkeyPatch) -> None:
     """Unit tests must not depend on the CDF project of the surrounding environment.
 
     CI sets CDF_PROJECT, which would otherwise leak into the build command's config-vs-environment
-    project validation. Session-scoped so it also applies to session-scoped fixtures that run a build.
-    Tests that need CDF_PROJECT should set it explicitly, e.g., with monkeypatch.setenv or patch.dict.
+    project validation. Function-scoped so the variable is restored afterward, as integration tests may
+    run in the same session and need it. Session-scoped fixtures that run a build must
+    unset it themselves. Tests that need CDF_PROJECT should set it explicitly.
     """
-    with MonkeyPatch.context() as mp:
-        mp.delenv("CDF_PROJECT", raising=False)
-        yield
+    monkeypatch.delenv("CDF_PROJECT", raising=False)
 
 
 @pytest.fixture
