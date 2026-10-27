@@ -763,7 +763,7 @@ class BuildV2Command(ToolkitCommand):
     ) -> BuildInput:
         """Reads the file system to find the YAML files to build along with config.<name>.yaml if they exists."""
         env_cdf_project: str | None = os.environ.get("CDF_PROJECT")
-        cdf_project: str = env_cdf_project if env_cdf_project else "UNSET"
+        cdf_project: str = env_cdf_project if env_cdf_project else "UNKNOWN"
         validation_type: ValidationType = "prod"
         deploy_branch: str | None = None
         deploy_protection: DeployProtection | None = None
@@ -815,9 +815,9 @@ class BuildV2Command(ToolkitCommand):
                     except RuntimeError as e:
                         raise ToolkitValueError(f"Failed to determine git changes: {e}") from e
                     if not selected:
-                        plural = ""
+                        suffix = ""
                         if uncommitted_changes:
-                            plural = (
+                            suffix = (
                                 f"{HINT_LEAD_TEXT}The following uncommitted changes were found. To build based on the git diff selection, please commit these changes:\n"
                                 + "\n".join(
                                     f"- {relative_to_if_possible(file).as_posix()}" for file in uncommitted_changes
@@ -827,7 +827,7 @@ class BuildV2Command(ToolkitCommand):
                             f"No modules were found to build based on the git diff selection in "
                             f"{relative_to_if_possible(config_path_resolved).as_posix()}. "
                             "Please ensure you are running this command from within a Git repository and that there are "
-                            f"changes in the modules directory compared to the default branch.\n{plural}"
+                            f"changes in the modules directory compared to the default branch.\n{suffix}"
                         )
                 elif config.environment.selected:
                     selected, errors = cls.parse_user_selection(config.environment.selected, organization_dir)
@@ -884,13 +884,13 @@ class BuildV2Command(ToolkitCommand):
             validation_type = validation_types.most_common(1)[0][0]
             cdf_project = projects.most_common(1)[0][0]
             if env_cdf_project is not None and env_cdf_project != cdf_project:
-                plural = "" if len(projects) == 1 else "s"
+                suffix = "" if len(projects) == 1 else "s"
                 yaml_files_display = humanize_collection(
                     [relative_to_if_possible(yaml_path).as_posix() for yaml_path in config_yamls]
                 )
                 raise ToolkitValueError(
                     f"Environment variable CDF_PROJECT is set to '{env_cdf_project}',\n    "
-                    f"but the config YAML file{plural} {yaml_files_display} specify "
+                    f"but the config YAML file{suffix} {yaml_files_display} specify "
                     f"the CDF project '{cdf_project}'. Please ensure they match."
                 )
             if deploy_branches:
