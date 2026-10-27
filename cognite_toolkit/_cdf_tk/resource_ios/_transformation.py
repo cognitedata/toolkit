@@ -162,7 +162,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
         }
     )
 
-    _doc_url = "Transformations/operation/createTransformations"
+    _doc_url = "Transformations#operation/createTransformations"
     _hash_key = "-- cdf-auth"
 
     # The API supports creating/updating 1000 transformations in a single request,
@@ -706,7 +706,7 @@ class TransformationScheduleIO(
     kind = "Schedule"
     yaml_cls = TransformationScheduleYAML
     dependencies = frozenset({TransformationIO})
-    _doc_url = "Transformation-Schedules/operation/createTransformationSchedules"
+    _doc_url = "Transformation-Schedules#operation/createTransformationSchedules"
     parent_resource = frozenset({TransformationIO})
 
     @property
@@ -802,7 +802,7 @@ class TransformationNotificationIO(
     resource_write_cls = TransformationNotificationRequest
     kind = "Notification"
     dependencies = frozenset({TransformationIO})
-    _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
+    _doc_url = "Transformation-Notifications#operation/createTransformationNotifications"
     parent_resource = frozenset({TransformationIO})
     yaml_cls = TransformationNotificationYAML
 

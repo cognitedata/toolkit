@@ -24,7 +24,7 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
     dependencies = frozenset({GroupAllScopedIO, SpaceIO})
     support_drop = True
     support_update = True
-    _doc_url = "Data-Products/operation/createDataProduct"
+    _doc_url = "Data-Products#operation/createDataProduct"
 
     @property
     def display_name(self) -> str:

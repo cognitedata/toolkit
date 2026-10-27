@@ -505,6 +505,7 @@ class PurgeCommand(ToolkitCommand):
                     process_description=f"Preparing {step.display_name} for deletion",
                     write_description=f"Deleting {step.display_name}",
                     console=console,
+                    verbose=verbose,
                 )
                 executor.run()
                 item_result = logger.finalize(is_dry_run=False)
@@ -876,6 +877,7 @@ class PurgeCommand(ToolkitCommand):
                 process_description=f"{process_str} instances from files/timeseries" if unlink else "",
                 write_description=f"{write_str} instances",
                 console=console,
+                verbose=verbose,
             )
             executor.run()
             items_results = logger.finalize(is_dry_run=dry_run)

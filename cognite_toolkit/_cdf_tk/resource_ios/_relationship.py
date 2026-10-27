@@ -31,7 +31,7 @@ class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipRes
     kind = "Relationship"
     yaml_cls = RelationshipYAML
     dependencies = frozenset({DataSetsIO, AssetIO, EventIO, SequenceIO, FileMetadataIO, TimeSeriesIO, LabelIO})
-    _doc_url = "Relationships/operation/createRelationships"
+    _doc_url = "Relationships#operation/createRelationships"
 
     @property
     def display_name(self) -> str:

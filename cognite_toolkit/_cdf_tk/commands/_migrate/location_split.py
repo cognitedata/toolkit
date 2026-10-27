@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.apm_source_data_mappings import g
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import TargetSpaceResolutionError
 from cognite_toolkit._cdf_tk.dataio.logger import Severity
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.text import fix_invalid_space_name
 
 CDM_SPACE_SUFFIX = "_cdm"
@@ -215,11 +216,11 @@ def build_target_by_root_asset(
             f"{target_space!r} is shared by {', '.join(sorted(root_assets))}"
             for target_space, root_assets in sorted(duplicated.items())
         )
-        raise ToolkitMigrationError(
-            f"Legacy instance space {source_space!r} is shared by multiple root locations, but (some of) the deployed "
-            f"CDM location configs use the same {space_kind}: {conflicts}. Each root location "
-            f"sharing this space must be configured with its own unique {space_kind}."
-        )
+        HighSeverityWarning(
+            f"Legacy instance space {source_space!r} is shared by multiple root locations, and some of the "
+            f"deployed CDM location configs use the same {space_kind}: {conflicts}. Instances for these root "
+            f"locations will be migrated into the same {space_kind}."
+        ).print_warning(console=client.console)
     return target_by_root_asset
 
 

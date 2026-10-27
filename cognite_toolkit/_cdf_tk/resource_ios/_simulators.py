@@ -58,7 +58,7 @@ class SimulatorModelIO(ResourceIO[ExternalId, SimulatorModelRequest, SimulatorMo
     yaml_cls = SimulatorModelYAML
     kind = "SimulatorModel"
     dependencies = frozenset({DataSetsIO})
-    _doc_url = "Simulator-Models/operation/create_simulator_model_simulators_models_post"
+    _doc_url = "Simulator-Models#operation/create_simulator_model_simulators_models_post"
 
     @property
     def display_name(self) -> str:
@@ -176,7 +176,7 @@ class SimulatorModelRevisionIO(
     kind = "SimulatorModelRevision"
     dependencies = frozenset({SimulatorModelIO, FileMetadataIO})
     parent_resource = frozenset({SimulatorModelIO})
-    _doc_url = "Simulator-Models/operation/create_simulator_model_revision_simulators_models_revisions_post"
+    _doc_url = "Simulator-Models#operation/create_simulator_model_revision_simulators_models_revisions_post"
 
     def __init__(
         self,
@@ -300,7 +300,7 @@ class SimulatorRoutineIO(
     yaml_cls = SimulatorRoutineYAML
     kind = "SimulatorRoutine"
     dependencies = frozenset({SimulatorModelIO})
-    _doc_url = "Simulator-Routines/operation/create_simulator_routine_simulators_routines_post"
+    _doc_url = "Simulator-Routines#operation/create_simulator_routine_simulators_routines_post"
 
     support_update = False
 
@@ -398,7 +398,7 @@ class SimulatorRoutineRevisionIO(
     kind = "SimulatorRoutineRevision"
     dependencies = frozenset({SimulatorRoutineIO, TimeSeriesIO})
     parent_resource = frozenset({SimulatorRoutineIO})
-    _doc_url = "Simulator-Routines/operation/create_simulator_routine_revision_simulators_routines_revisions_post"
+    _doc_url = "Simulator-Routines#operation/create_simulator_routine_revision_simulators_routines_revisions_post"
 
     @property
     def display_name(self) -> str:
