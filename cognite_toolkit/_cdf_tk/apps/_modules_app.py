@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._version import __version__
 
-from ._helpers import print_help_if_no_subcommand
+from ._helpers import print_help_if_no_subcommand, warn_if_missing_credentials
 
 CDF_TOML = CDFToml.load_module_context(Path.cwd())
 
@@ -23,6 +23,9 @@ class ModulesListFormats(StrEnum):
 
 
 class ModulesApp(typer.Typer):
+    # Subcommands that need CDF credentials (the rest work offline).
+    COMMANDS_REQUIRING_CREDENTIALS: frozenset[str] = frozenset({"pull"})
+
     def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.main)
@@ -35,6 +38,8 @@ class ModulesApp(typer.Typer):
     def main(self, ctx: typer.Context) -> None:
         """Commands to manage modules"""
         print_help_if_no_subcommand(ctx)
+        if ctx.invoked_subcommand in self.COMMANDS_REQUIRING_CREDENTIALS:
+            warn_if_missing_credentials(ctx)
 
     def init(
         self,

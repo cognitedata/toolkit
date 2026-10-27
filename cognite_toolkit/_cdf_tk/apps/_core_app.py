@@ -2,7 +2,6 @@
 
 import contextlib
 import os
-import sys
 from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
@@ -33,11 +32,14 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 from cognite_toolkit._version import __version__ as current_version
 
+from ._helpers import warn_if_missing_credentials
+
 
 # Common parameters handled in common callback
 @dataclass
 class Common:
     override_env: bool
+    env_file_found: bool = False
 
 
 CDF_TOML = CDFToml.load_module_context(Path.cwd())
@@ -89,6 +91,10 @@ else:
 
 
 class CoreApp(typer.Typer):
+    # Top-level commands that work without CDF credentials. A missing .env file
+    # should not trigger a warning for these.
+    COMMANDS_NOT_REQUIRING_CREDENTIALS: frozenset[str] = frozenset({"build", "modules", "repo", "init", "about"})
+
     def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.common)
@@ -162,23 +168,16 @@ class CoreApp(typer.Typer):
                     env_path = candidate
                     break
             else:
-                # Did not find .env file
-                try:
-                    env_vars = EnvironmentVariables.create_from_environment()
-                except (ValueError, KeyError):
-                    warn = True
-                else:
-                    warn = bool(env_vars.get_missing_vars())
-                if warn:
-                    print(
-                        "[bold yellow]WARNING:[/] No .env file found and missing required environment variables. "
-                        "Searched current or parent directory.",
-                        file=sys.stderr,
-                    )
+                # Did not find .env file. Command groups that contain both commands that
+                # need credentials and commands that do not (e.g., 'modules') are listed in
+                # COMMANDS_NOT_REQUIRING_CREDENTIALS and warn in their own callback.
+                if ctx.invoked_subcommand not in self.COMMANDS_NOT_REQUIRING_CREDENTIALS:
+                    warn_if_missing_credentials(ctx)
                 return
 
         if not env_path.is_file():
             raise ToolkitFileNotFoundError(env_path)
+        ctx.obj.env_file_found = True
 
         if override_env:
             dotenv_vars = dotenv_values(env_path)
