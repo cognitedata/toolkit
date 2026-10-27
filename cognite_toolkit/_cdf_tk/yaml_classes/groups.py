@@ -59,7 +59,7 @@ class CDFGroupYAML(BaseGroupYAML):
     member_emails: list[str] | None = None
 
     @model_validator(mode="after")
-    def _validate_members_and_member_emails(self) -> "CDFGroupYAML":
+    def _validate_members_and_member_emails(self) -> Self:
         if self.members == "emails" and not self.member_emails:
             raise ValueError(
                 "Invalid group definition: 'members' is set to 'emails', but no 'memberEmails' are provided."
