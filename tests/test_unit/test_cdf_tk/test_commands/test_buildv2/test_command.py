@@ -39,6 +39,13 @@ from tests.test_unit.utils import MockQuestionary
 BASE_URL = "http://neat.cognitedata.com"
 
 
+@pytest.fixture(autouse=True)
+def _unset_cdf_project_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The build command validates the CDF_PROJECT environment variable against the config YAML.
+    CI sets CDF_PROJECT, so we ensure it is unset to keep these tests independent of the environment."""
+    monkeypatch.delenv("CDF_PROJECT", raising=False)
+
+
 @pytest.fixture()
 def tlk_client(toolkit_config: ToolkitClientConfig) -> ToolkitClient:
     return ToolkitClient(config=toolkit_config)
