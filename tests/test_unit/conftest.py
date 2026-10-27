@@ -46,6 +46,19 @@ TMP_FOLDER = THIS_FOLDER / "tmp"
 TMP_FOLDER.mkdir(exist_ok=True)
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _isolate_cdf_project_env() -> Iterator[None]:
+    """Unit tests must not depend on the CDF project of the surrounding environment.
+
+    CI sets CDF_PROJECT, which would otherwise leak into the build command's config-vs-environment
+    project validation. Session-scoped so it also applies to session-scoped fixtures that run a build.
+    Tests that need CDF_PROJECT should set it explicitly, e.g., with monkeypatch.setenv or patch.dict.
+    """
+    with MonkeyPatch.context() as mp:
+        mp.delenv("CDF_PROJECT", raising=False)
+        yield
+
+
 @pytest.fixture
 def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
     """Fixture that provides an ApprovalToolkitClient with a mocked ToolkitClient.
