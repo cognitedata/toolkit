@@ -8,13 +8,19 @@ from pathlib import Path
 from typing import Literal, TypeAlias
 
 import httpx2
+from dotenv import load_dotenv
 from pydantic import BaseModel, JsonValue
 from rich import print
+from rich.markup import escape
 
+load_dotenv(".env")  # Load environment variables from .env file if it exists
 # Environment variable names
 SLACK_WEBHOOK_URL_NAME = "SLACK_WEBHOOK_URL"
 GITHUB_REPO_URL_NAME = "GITHUB_REPO_URL"
 CDF_CLUSTER_NAME = "CDF_CLUSTER"
+
+# Maximum number of lines a single failure may occupy in the summary message
+MAX_LINES_PER_FAILURE = 5
 
 
 @dataclass
@@ -24,35 +30,6 @@ class Context:
     cluster: str
     now: datetime = field(default_factory=lambda: datetime.now(UTC))
     send_messages: bool = True
-
-
-class SlackMessage(BaseModel):
-    topic: Literal["Smoke Test Execution", "CDF API"]
-    message: str
-
-
-def check_smoke_tests_results(pytest_report: Path, context: Context) -> None:
-    """Check the smoke tests results from a pytest report file.
-
-    Args:
-        pytest_report (Path): Path to the pytest report file.
-        context (Context): Context object that contains information about the test run.
-    """
-    report = _load_pytest_report(pytest_report, context)
-    if report is None:
-        print("[red]Failed to load pytest report. Exiting.[/red]")
-        return None
-
-    messages = _check_results(report, context)
-    print(f"[blue]Found {len(messages)} issues in smoke tests.[/blue]")
-    if not messages:
-        if alive_message := _alive_message(context):
-            print("[green]No issues found. Sending alive message.[/green]")
-            _notify_slack([alive_message], context)
-        return None
-
-    _notify_slack(messages, context)
-    return None
 
 
 Outcome: TypeAlias = Literal["passed", "failed", "skipped", "error", "xfailed", "xpassed"]
@@ -108,6 +85,66 @@ class PytestReportModel(BaseModel):
     warnings: list[JsonValue] | None = None
 
 
+class SlackMessage(BaseModel):
+    topic: Literal["Smoke Test Execution", "CDF API"]
+    message: str
+
+
+def check_smoke_tests_results(pytest_report: Path, context: Context) -> None:
+    """Check the smoke tests results from a pytest report file.
+
+    Args:
+        pytest_report (Path): Path to the pytest report file.
+        context (Context): Context object that contains information about the test run.
+    """
+    report = _load_pytest_report(pytest_report, context)
+    if report is None:
+        print("[red]Failed to load pytest report. Exiting.[/red]")
+        return None
+
+    messages = _check_results(report, context)
+    print(f"[blue]Found {len(messages)} issues in smoke tests.[/blue]")
+    if not messages:
+        if alive_message := _alive_message(context):
+            print("[green]No issues found. Sending alive message.[/green]")
+            _notify_slack([alive_message], context)
+        return None
+
+    _notify_slack([_create_summary_message(messages, report, context)], context)
+    return None
+
+
+def _create_summary_message(messages: list[SlackMessage], report: PytestReportModel, context: Context) -> SlackMessage:
+    """Aggregate all failure messages into a single summary Slack message."""
+    topic: Literal["Smoke Test Execution", "CDF API"] = (
+        "CDF API" if any(msg.topic == "CDF API" for msg in messages) else "Smoke Test Execution"
+    )
+    prefix = f"[{context.cluster}] "
+    summary = report.summary
+    header = (
+        f"{prefix}Smoke tests: {len(messages)} issue(s) detected "
+        f"(passed: {summary.passed}, failed: {summary.failed}, errors: {summary.errors}, "
+        f"skipped: {summary.skipped}, total: {summary.total})."
+    )
+    lines = [header]
+    for no, msg in enumerate(messages, start=1):
+        failure_text = _truncate_lines(msg.message.removeprefix(prefix), MAX_LINES_PER_FAILURE)
+        lines.append(f"{no}. ({msg.topic}) {failure_text}")
+    lines.append(f"Go to {context.github_repo_url} to investigate.")
+    return SlackMessage(topic=topic, message="\n".join(lines))
+
+
+def _truncate_lines(text: str, max_lines: int) -> str:
+    """Limit text to max_lines lines (including the truncation indicator line)."""
+    text_lines = text.splitlines()
+    if len(text_lines) <= max_lines:
+        return text
+    kept = text_lines[: max_lines - 1]
+    omitted = len(text_lines) - len(kept)
+    kept.append(f"... ({omitted} more line(s) truncated)")
+    return "\n".join(kept)
+
+
 def _load_pytest_report(pytest_report: Path, context: Context) -> PytestReportModel | None:
     if not pytest_report.is_file():
         _notify_slack(
@@ -145,7 +182,7 @@ def _check_results(report: PytestReportModel, context: Context) -> list[SlackMes
             messages.append(
                 SlackMessage(
                     topic="Smoke Test Execution",
-                    message=f"[{context.cluster}] Test {test.nodeid!r} failed without a crash message. Please investigate and fix the issue. Go to {context.github_repo_url} to investigate.",
+                    message=f"[{context.cluster}] Test {test.nodeid!r} failed without a crash message.",
                 )
             )
             continue
@@ -177,7 +214,11 @@ def _notify_slack(messages: list[SlackMessage], context: Context) -> None:
             except httpx2.HTTPError as e:
                 print(f"[red]Failed to send message to Slack: {e}[/red]")
         else:
-            print(f"[yellow]Dry run: would send message to Slack:[/yellow] {message.model_dump_json()}")
+            print(
+                f"[yellow]Dry run: would send message to Slack[/yellow]\n"
+                f"[bold]Topic:[/bold] {escape(message.topic)}\n"
+                f"[bold]Message:[/bold]\n{escape(message.message)}\n"
+            )
 
 
 if __name__ == "__main__":
@@ -188,22 +229,22 @@ if __name__ == "__main__":
     if len(sys.argv) >= 3 and sys.argv[2].lower() == "--dry-run":
         send_messages = False
 
-    if SLACK_WEBHOOK_URL_NAME not in os.environ:
+    if send_messages and SLACK_WEBHOOK_URL_NAME not in os.environ:
         print(f"Environment variable {SLACK_WEBHOOK_URL_NAME} is not set.")
         sys.exit(1)
     if GITHUB_REPO_URL_NAME not in os.environ:
         print(f"Environment variable {GITHUB_REPO_URL_NAME} is not set.")
         sys.exit(1)
-    if CDF_CLUSTER_NAME not in os.environ:
+    if send_messages and CDF_CLUSTER_NAME not in os.environ:
         print(f"Environment variable {CDF_CLUSTER_NAME} is not set.")
         sys.exit(1)
 
     check_smoke_tests_results(
         Path(sys.argv[1]),
         Context(
-            slack_webhook_url=os.environ[SLACK_WEBHOOK_URL_NAME],
+            slack_webhook_url=os.environ.get(SLACK_WEBHOOK_URL_NAME, ""),
             github_repo_url=os.environ[GITHUB_REPO_URL_NAME],
-            cluster=os.environ[CDF_CLUSTER_NAME],
+            cluster=os.environ.get(CDF_CLUSTER_NAME, ""),
             send_messages=send_messages,
         ),
     )
