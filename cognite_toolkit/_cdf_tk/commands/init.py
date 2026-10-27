@@ -7,6 +7,7 @@ from enum import Enum
 from pathlib import Path
 
 import questionary
+import sentry_sdk
 import typer
 from questionary import Choice
 from rich import print
@@ -19,6 +20,7 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.auth import AuthCommand
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.commands.repo import RepoCommand
+from cognite_toolkit._cdf_tk.constants import USE_SENTRY
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag
 
@@ -182,6 +184,8 @@ class InitCommand(ToolkitCommand):
             except Exception as e:
                 # Unexpected errors are bugs. We keep the loop alive so the user can retry other steps,
                 # and always show the traceback since it is needed for a useful bug report.
+                if USE_SENTRY:
+                    sentry_sdk.capture_exception(e)
                 selected_item.status = InitItemStatus.FAILED
                 print(f"✗ {selected_item.description} failed unexpectedly: {escape(f'{type(e).__name__}: {e}')}")
                 print(Panel(escape(traceback.format_exc()), title="Traceback", expand=False))
