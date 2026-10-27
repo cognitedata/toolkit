@@ -26,35 +26,6 @@ class Context:
     send_messages: bool = True
 
 
-class SlackMessage(BaseModel):
-    topic: Literal["Smoke Test Execution", "CDF API"]
-    message: str
-
-
-def check_smoke_tests_results(pytest_report: Path, context: Context) -> None:
-    """Check the smoke tests results from a pytest report file.
-
-    Args:
-        pytest_report (Path): Path to the pytest report file.
-        context (Context): Context object that contains information about the test run.
-    """
-    report = _load_pytest_report(pytest_report, context)
-    if report is None:
-        print("[red]Failed to load pytest report. Exiting.[/red]")
-        return None
-
-    messages = _check_results(report, context)
-    print(f"[blue]Found {len(messages)} issues in smoke tests.[/blue]")
-    if not messages:
-        if alive_message := _alive_message(context):
-            print("[green]No issues found. Sending alive message.[/green]")
-            _notify_slack([alive_message], context)
-        return None
-
-    _notify_slack(messages, context)
-    return None
-
-
 Outcome: TypeAlias = Literal["passed", "failed", "skipped", "error", "xfailed", "xpassed"]
 
 
@@ -108,6 +79,54 @@ class PytestReportModel(BaseModel):
     warnings: list[JsonValue] | None = None
 
 
+class SlackMessage(BaseModel):
+    topic: Literal["Smoke Test Execution", "CDF API"]
+    message: str
+
+
+def check_smoke_tests_results(pytest_report: Path, context: Context) -> None:
+    """Check the smoke tests results from a pytest report file.
+
+    Args:
+        pytest_report (Path): Path to the pytest report file.
+        context (Context): Context object that contains information about the test run.
+    """
+    report = _load_pytest_report(pytest_report, context)
+    if report is None:
+        print("[red]Failed to load pytest report. Exiting.[/red]")
+        return None
+
+    messages = _check_results(report, context)
+    print(f"[blue]Found {len(messages)} issues in smoke tests.[/blue]")
+    if not messages:
+        if alive_message := _alive_message(context):
+            print("[green]No issues found. Sending alive message.[/green]")
+            _notify_slack([alive_message], context)
+        return None
+
+    _notify_slack([_create_summary_message(messages, report, context)], context)
+    return None
+
+
+def _create_summary_message(messages: list[SlackMessage], report: PytestReportModel, context: Context) -> SlackMessage:
+    """Aggregate all failure messages into a single summary Slack message."""
+    topic: Literal["Smoke Test Execution", "CDF API"] = (
+        "CDF API" if any(msg.topic == "CDF API" for msg in messages) else "Smoke Test Execution"
+    )
+    prefix = f"[{context.cluster}] "
+    summary = report.summary
+    header = (
+        f"{prefix}Smoke tests: {len(messages)} issue(s) detected "
+        f"(passed: {summary.passed}, failed: {summary.failed}, errors: {summary.errors}, "
+        f"skipped: {summary.skipped}, total: {summary.total})."
+    )
+    lines = [header]
+    for no, msg in enumerate(messages, start=1):
+        lines.append(f"{no}. ({msg.topic}) {msg.message.removeprefix(prefix)}")
+    lines.append(f"Go to {context.github_repo_url} to investigate.")
+    return SlackMessage(topic=topic, message="\n".join(lines))
+
+
 def _load_pytest_report(pytest_report: Path, context: Context) -> PytestReportModel | None:
     if not pytest_report.is_file():
         _notify_slack(
@@ -145,7 +164,7 @@ def _check_results(report: PytestReportModel, context: Context) -> list[SlackMes
             messages.append(
                 SlackMessage(
                     topic="Smoke Test Execution",
-                    message=f"[{context.cluster}] Test {test.nodeid!r} failed without a crash message. Please investigate and fix the issue. Go to {context.github_repo_url} to investigate.",
+                    message=f"[{context.cluster}] Test {test.nodeid!r} failed without a crash message.",
                 )
             )
             continue
