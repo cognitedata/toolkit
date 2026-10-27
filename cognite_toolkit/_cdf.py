@@ -221,7 +221,7 @@ def app() -> NoReturn:
         _app()
     except ToolkitError as err:
         if show_traceback:
-            print(Panel(traceback.format_exc(), title="Traceback", expand=False))
+            print(Panel(escape(traceback.format_exc()), title="Traceback", expand=False))
 
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
         raise SystemExit(1)
