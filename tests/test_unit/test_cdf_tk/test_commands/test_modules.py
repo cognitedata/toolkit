@@ -177,7 +177,7 @@ class TestModulesCommand:
 
         answers = [select_package, select_first_module, False, False]
 
-        with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers):
+        with MockQuestionary(ModulesCommand.__module__, answers):
             cmd.add(my_org)
 
         yaml_file_count = len(list(modules.rglob("*.yaml")))
@@ -191,7 +191,7 @@ class TestModulesCommand:
 
         answers = [select_package, select_second_module, False, False]
 
-        with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers):
+        with MockQuestionary(ModulesCommand.__module__, answers):
             cmd.add(my_org)
 
         new_yaml_file_count = len(list(modules.rglob("*.yaml")))

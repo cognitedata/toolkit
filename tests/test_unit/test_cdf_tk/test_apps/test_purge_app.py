@@ -85,11 +85,7 @@ class TestPurgeInteractiveOptions:
         _mock_environment(monkeypatch)
         monkeypatch.setattr("cognite_toolkit._cdf_tk.apps._purge.DataModelingSelect", _Select)
         monkeypatch.setattr(PurgeCommand, "space", capture_space)
-        with MockQuestionary(
-            "cognite_toolkit._cdf_tk.apps._purge",
-            monkeypatch,
-            [False, True, True, False, True],
-        ):
+        with MockQuestionary("cognite_toolkit._cdf_tk.apps._purge", [False, True, True, False, True]):
             PurgeApp.purge_space(MagicMock(), space=None)
 
         assert {
@@ -127,11 +123,7 @@ class TestPurgeInteractiveOptions:
         _mock_environment(monkeypatch)
         monkeypatch.setattr("cognite_toolkit._cdf_tk.apps._purge.DataModelingSelect", _Select)
         monkeypatch.setattr(PurgeCommand, "space", capture_space)
-        with MockQuestionary(
-            "cognite_toolkit._cdf_tk.apps._purge",
-            monkeypatch,
-            [True, True, False],
-        ):
+        with MockQuestionary("cognite_toolkit._cdf_tk.apps._purge", [True, True, False]):
             PurgeApp.purge_space(MagicMock(), space=None)
 
         assert {
@@ -181,11 +173,7 @@ class TestPurgeInteractiveOptions:
         _mock_environment(monkeypatch)
         monkeypatch.setattr("cognite_toolkit._cdf_tk.apps._purge.DataModelingSelect", _Select)
         monkeypatch.setattr(PurgeCommand, "instances", capture_instances)
-        with MockQuestionary(
-            "cognite_toolkit._cdf_tk.apps._purge",
-            monkeypatch,
-            [False, False, True],
-        ):
+        with MockQuestionary("cognite_toolkit._cdf_tk.apps._purge", [False, False, True]):
             PurgeApp.purge_instances(view=None)
 
         assert {

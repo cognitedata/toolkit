@@ -114,7 +114,7 @@ class TestResourcesCreateCommand:
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
         organization_dir, modules_dir = _make_org_module(tmp_path, "existing_module")
 
-        with MockQuestionary(BuildV2Command.__module__, monkeypatch, [_select_existing_module]):
+        with MockQuestionary(BuildV2Command.__module__, [_select_existing_module]):
             cmd.create(
                 organization_dir=organization_dir,
                 module_name=None,
@@ -129,7 +129,7 @@ class TestResourcesCreateCommand:
         organization_dir = tmp_path / "my_org"
         (organization_dir / MODULES).mkdir(parents=True)
 
-        with MockQuestionary(BuildV2Command.__module__, monkeypatch, ["NEW", "created_module"]):
+        with MockQuestionary(BuildV2Command.__module__, ["NEW", "created_module"]):
             cmd.create(
                 organization_dir=organization_dir,
                 module_name=None,
@@ -148,7 +148,7 @@ class TestResourcesCreateCommand:
         def return_space_crud(*args: object) -> type[SpaceIO]:
             return SpaceIO
 
-        with MockQuestionary(ResourcesCommand.__module__, monkeypatch, [return_space_crud]):
+        with MockQuestionary(ResourcesCommand.__module__, [return_space_crud]):
             cmd.create(
                 organization_dir=organization_dir,
                 module_name="test_module",
@@ -189,7 +189,7 @@ class TestResourcesCreateCommand:
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
         organization_dir, _ = _make_org_module(tmp_path)
 
-        with pytest.raises(typer.Exit), MockQuestionary(ResourcesCommand.__module__, monkeypatch, [None]):
+        with pytest.raises(typer.Exit), MockQuestionary(ResourcesCommand.__module__, [None]):
             cmd.create(
                 organization_dir=organization_dir,
                 module_name="test_module",
@@ -235,7 +235,7 @@ class TestResourcesCreateCommand:
 
         organization_dir, _ = _make_org_module(tmp_path)
 
-        with MockQuestionary(ResourcesCommand.__module__, monkeypatch, [capture_and_select]):
+        with MockQuestionary(ResourcesCommand.__module__, [capture_and_select]):
             cmd.create(
                 organization_dir=organization_dir,
                 module_name="test_module",
@@ -254,7 +254,7 @@ class TestResourcesCreateCommand:
 
         organization_dir, _ = _make_org_module(tmp_path)
 
-        with MockQuestionary(ResourcesCommand.__module__, monkeypatch, [capture_and_select]):
+        with MockQuestionary(ResourcesCommand.__module__, [capture_and_select]):
             cmd.create(
                 organization_dir=organization_dir,
                 module_name="test_module",

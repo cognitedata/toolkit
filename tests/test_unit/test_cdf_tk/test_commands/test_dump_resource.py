@@ -200,7 +200,7 @@ class TestTransformationFinder:
 
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary(TransformationFinder.__module__, monkeypatch, answers),
+            MockQuestionary(TransformationFinder.__module__, answers),
         ):
             client.transformations.list.return_value = three_transformations
             finder = TransformationFinder(client, None)
@@ -274,7 +274,7 @@ class TestWorkflowFinder:
 
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary(WorkflowFinder.__module__, monkeypatch, answers),
+            MockQuestionary(WorkflowFinder.__module__, answers),
         ):
             client.workflows.list.return_value = three_workflows
             client.workflows.versions.list.side_effect = lambda workflow_external_id, limit=None: [
@@ -303,7 +303,7 @@ class TestWorkflowFinder:
 
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary(WorkflowFinder.__module__, monkeypatch, answers),
+            MockQuestionary(WorkflowFinder.__module__, answers),
         ):
             client.workflows.list.return_value = three_workflows
             client.workflows.versions.list.side_effect = lambda workflow_external_id, limit=None: [
@@ -409,7 +409,7 @@ class TestLocationFilterFinder:
 
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary(LocationFilterFinder.__module__, monkeypatch, answers),
+            MockQuestionary(LocationFilterFinder.__module__, answers),
         ):
             client.location_filters.list.return_value = three_location_filters
             finder = LocationFilterFinder(client, None)
@@ -492,7 +492,7 @@ class TestDumpAgents:
 
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary(AgentFinder.__module__, monkeypatch, answers),
+            MockQuestionary(AgentFinder.__module__, answers),
         ):
             client.agents.list.return_value = three_agents
             finder = AgentFinder(client, None)
@@ -528,7 +528,7 @@ class TestExtractionPipelineFinder:
 
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary(ExtractionPipelineFinder.__module__, monkeypatch, answers),
+            MockQuestionary(ExtractionPipelineFinder.__module__, answers),
         ):
             client.extraction_pipelines.list.return_value = three_extraction_pipelines
             finder = ExtractionPipelineFinder(client, None)
@@ -609,7 +609,7 @@ class TestHostedExtractorFinder:
 
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary(HostedExtractorFinder.__module__, monkeypatch, answers),
+            MockQuestionary(HostedExtractorFinder.__module__, answers),
         ):
             client.hosted_extractors.sources.list.return_value = three_hosted_extractor_sources
             finder = HostedExtractorFinder(client, None)
@@ -747,7 +747,7 @@ class TestGroupFinder:
 
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary(GroupFinder.__module__, monkeypatch, answers),
+            MockQuestionary(GroupFinder.__module__, answers),
         ):
             client.groups.list.return_value = three_groups
             finder = GroupFinder(client, None)
@@ -873,7 +873,7 @@ class TestDumpFunctions:
 
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary(FunctionFinder.__module__, monkeypatch, answers),
+            MockQuestionary(FunctionFinder.__module__, answers),
         ):
             client.functions.list.return_value = three_functions
             finder = FunctionFinder(client, None)
@@ -901,7 +901,7 @@ class TestDataSetFinder:
 
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary(DataSetFinder.__module__, monkeypatch, answers),
+            MockQuestionary(DataSetFinder.__module__, answers),
         ):
             client.datasets.list.return_value = three_datasets
             finder = DataSetFinder(client, None)
@@ -982,7 +982,7 @@ class TestDumpStreamlitApps:
 
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary(StreamlitFinder.__module__, monkeypatch, answers),
+            MockQuestionary(StreamlitFinder.__module__, answers),
         ):
             client.streamlit.list.return_value = three_streamlit_apps
             finder = StreamlitFinder(client, None)
@@ -1194,7 +1194,7 @@ class TestSpaceFinder:
         answers = [select_spaces]
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary("cognite_toolkit._cdf_tk.utils.interactive_select", monkeypatch, answers),
+            MockQuestionary("cognite_toolkit._cdf_tk.utils.interactive_select", answers),
         ):
             monkeypatch.setattr(
                 "cognite_toolkit._cdf_tk.utils.interactive_select.DataModelingSelect.stats_by_space",
@@ -1266,7 +1266,7 @@ class TestSearchConfigFinder:
 
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary(SearchConfigFinder.__module__, monkeypatch, answers),
+            MockQuestionary(SearchConfigFinder.__module__, answers),
         ):
             client.search_configurations.list.return_value = three_search_configs
             finder = SearchConfigFinder(client, None)
@@ -1352,7 +1352,7 @@ class TestResourceViewMappingFinder:
 
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary(ResourceViewMappingFinder.__module__, monkeypatch, answers),
+            MockQuestionary(ResourceViewMappingFinder.__module__, answers),
         ):
             client.migration.resource_view_mapping.list.return_value = three_resource_view_mappings
             finder = ResourceViewMappingFinder(client, None)
@@ -1427,7 +1427,7 @@ class TestSAPWritebackFinder:
 
         with (
             monkeypatch_toolkit_client() as client,
-            MockQuestionary(SAPWritebackFinder.__module__, monkeypatch, answers),
+            MockQuestionary(SAPWritebackFinder.__module__, answers),
         ):
             client.sap_writeback.endpoints.list.return_value = three_sap_endpoints
             finder = SAPWritebackFinder(client, None)

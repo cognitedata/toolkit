@@ -47,7 +47,6 @@ class TestInitCommand:
                         "cognite_toolkit._cdf_tk.commands.init",
                         "cognite_toolkit._cdf_tk.commands.modules",
                     ],
-                    monkeypatch,
                     user_input,
                 ),
             ):
@@ -79,7 +78,6 @@ class TestInitCommand:
                         "cognite_toolkit._cdf_tk.commands.modules",
                         "cognite_toolkit._cdf_tk.commands.repo",
                     ],
-                    monkeypatch,
                     user_input,
                 ),
             ):
@@ -104,11 +102,7 @@ class TestInitCommand:
         with monkeypatch.context() as m:
             m.chdir(tmp_path)
             user_input = ["__exit__"]
-            with MockQuestionary(
-                ["cognite_toolkit._cdf_tk.commands.init"],
-                monkeypatch,
-                user_input,
-            ):
+            with MockQuestionary(["cognite_toolkit._cdf_tk.commands.init"], user_input):
                 cmd = InitCommand(print_warning=False, skip_tracking=True)
                 cmd.execute()
 

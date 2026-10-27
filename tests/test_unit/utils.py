@@ -547,17 +547,15 @@ class MockQuestion:
 
 
 class MockQuestionary:
-    def __init__(self, module_target: str | list[str], monkeypatch: MonkeyPatch, answers: list[Any]) -> None:
+    def __init__(self, module_target: str | list[str], answers: list[Any]) -> None:
         """Initialize MockQuestionary to patch questionary methods for one or more module targets.
 
         Args:
             module_target: Single module path string or list of module paths to patch
-            monkeypatch: Pytest monkeypatch fixture
             answers: List of answers to return for each questionary call
         """
         self.module_targets = [module_target] if isinstance(module_target, str) else module_target
         self.answers = answers
-        self.monkeypatch = monkeypatch
 
     def select(self, _: str, choices: list[Choice] | None = None, **__: Any) -> MockQuestion:
         return MockQuestion(self.answers.pop(0), choices)

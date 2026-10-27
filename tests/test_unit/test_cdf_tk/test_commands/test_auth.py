@@ -206,11 +206,7 @@ class TestAuthCommand:
             client.groups.delete.return_value = None
 
             monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.auth.command.Prompt.ask", lambda *a, **k: None)
-            with MockQuestionary(
-                "cognite_toolkit._cdf_tk.commands.auth.command",
-                monkeypatch,
-                answers=[True],
-            ):
+            with MockQuestionary("cognite_toolkit._cdf_tk.commands.auth.command", answers=[True]):
                 cmd = AuthCommand(print_warning=False)
                 result = cmd.verify(client, dry_run=False, no_prompt=False)
 

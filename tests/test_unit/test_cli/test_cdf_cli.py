@@ -52,7 +52,7 @@ class TestCommandNotFound:
         self, minimal_app: typer.Typer, monkeypatch: MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
         monkeypatch.chdir(tmp_path)
-        with MockQuestionary(_cdf.__name__, monkeypatch, []):
+        with MockQuestionary(_cdf.__name__, []):
             exit_err = _run_cli(monkeypatch, "notacommand")
 
         assert exit_err.code != 0
@@ -65,7 +65,7 @@ class TestCommandNotFound:
         cdf_toml.write_text(CDF_TOML_WITH_COMMENTS, encoding="utf-8")
         monkeypatch.chdir(tmp_path)
 
-        with MockQuestionary(_cdf.__name__, monkeypatch, [False]) as mock:
+        with MockQuestionary(_cdf.__name__, [False]) as mock:
             exit_err = _run_cli(monkeypatch, "data")
             remaining = list(mock.answers)
 
@@ -81,7 +81,7 @@ class TestCommandNotFound:
         cdf_toml.write_text(CDF_TOML_WITH_COMMENTS, encoding="utf-8")
         monkeypatch.chdir(tmp_path)
 
-        with MockQuestionary(_cdf.__name__, monkeypatch, [True]) as mock:
+        with MockQuestionary(_cdf.__name__, [True]) as mock:
             _run_cli(monkeypatch, "data")
             remaining = list(mock.answers)
 
@@ -97,7 +97,7 @@ class TestCommandNotFound:
         cdf_toml.write_text(CDF_TOML_WITH_COMMENTS, encoding="utf-8")
         monkeypatch.chdir(tmp_path)
 
-        with MockQuestionary(_cdf.__name__, monkeypatch, [True]):
+        with MockQuestionary(_cdf.__name__, [True]):
             _run_cli(monkeypatch, "dump")
 
         assert cdf_toml.read_text(encoding="utf-8") == CDF_TOML_WITH_COMMENTS.replace(
@@ -112,7 +112,7 @@ class TestCommandNotFound:
         cdf_toml.write_text(content, encoding="utf-8")
         monkeypatch.chdir(tmp_path)
 
-        with MockQuestionary(_cdf.__name__, monkeypatch, [True]):
+        with MockQuestionary(_cdf.__name__, [True]):
             _run_cli(monkeypatch, "data")
 
         assert cdf_toml.read_text(encoding="utf-8") == content.replace(
@@ -127,7 +127,7 @@ class TestCommandNotFound:
         cdf_toml.write_text(content, encoding="utf-8")
         monkeypatch.chdir(tmp_path)
 
-        with MockQuestionary(_cdf.__name__, monkeypatch, [True]):
+        with MockQuestionary(_cdf.__name__, [True]):
             _run_cli(monkeypatch, "dev")
 
         assert cdf_toml.read_text(encoding="utf-8") == content + "\n[plugins]\ndev = true\n"
