@@ -34,7 +34,7 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
     kind = "App"
     yaml_cls = AppYAML
     dependencies = frozenset({GroupAllScopedIO})
-    _doc_url = "Apps/operation/appsCreate"
+    _doc_url = "Apps#operation/appsCreate"
     drop_confirmation_message = (
         "WARNING: Apps are soft-deleted for up to 30 days after deletion. "
         "During this period an app with the same external ID cannot be recreated, "
@@ -122,7 +122,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
     kind = "AppVersion"
     yaml_cls = AppVersionYAML
     dependencies = frozenset({AppIO, GroupAllScopedIO})
-    _doc_url = "Apps/operation/appsCreate"
+    _doc_url = "Apps#operation/appsCreate"
 
     def __init__(self, client: ToolkitClient):
         super().__init__(client)

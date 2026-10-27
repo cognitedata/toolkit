@@ -55,7 +55,7 @@ class RawDatabaseIO(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDa
     yaml_cls = DatabaseYAML
     dependencies = frozenset({GroupAllScopedIO})
     support_update = False
-    _doc_url = "Raw/operation/createDBs"
+    _doc_url = "Raw#operation/createDBs"
 
     def __init__(self, client: ToolkitClient):
         super().__init__(client)
@@ -161,7 +161,7 @@ class RawTableIO(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableRespon
     yaml_cls = TableYAML
     support_update = False
     dependencies = frozenset({RawDatabaseIO, GroupAllScopedIO})
-    _doc_url = "Raw/operation/createTables"
+    _doc_url = "Raw#operation/createTables"
     parent_resource = frozenset({RawDatabaseIO})
 
     def __init__(self, client: ToolkitClient):

@@ -159,7 +159,7 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
     kind = "Space"
     yaml_cls = SpaceYAML
     dependencies = frozenset({GroupAllScopedIO})
-    _doc_url = "Spaces/operation/ApplySpaces"
+    _doc_url = "Spaces#operation/ApplySpaces"
     delete_recreate_limit_seconds: int = 10
 
     def __init__(self, client: ToolkitClient) -> None:
@@ -295,7 +295,7 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
     kind = "Container"
     dependencies = frozenset({SpaceIO})
     yaml_cls = ContainerYAML
-    _doc_url = "Containers/operation/ApplyContainers"
+    _doc_url = "Containers#operation/ApplyContainers"
     sub_folder_name = "containers"
 
     def __init__(self, client: ToolkitClient) -> None:
@@ -656,7 +656,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
     kind = "View"
     dependencies = frozenset({SpaceIO, ContainerIO})
     yaml_cls = ViewYAML
-    _doc_url = "Views/operation/ApplyViews"
+    _doc_url = "Views#operation/ApplyViews"
     sub_folder_name = "views"
 
     def __init__(
@@ -1051,7 +1051,7 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
     kind = "DataModel"
     dependencies = frozenset({SpaceIO, ViewIO})
     yaml_cls = DataModelYAML
-    _doc_url = "Data-models/operation/createDataModels"
+    _doc_url = "Data-models#operation/createDataModels"
 
     @property
     def display_name(self) -> str:
@@ -1188,7 +1188,7 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
     kind = "Node"
     yaml_cls = NodeYAML
     dependencies = frozenset({SpaceIO, ViewIO, ContainerIO})
-    _doc_url = "Instances/operation/applyNodeAndEdges"
+    _doc_url = "Instances#operation/applyNodeAndEdges"
     sub_folder_name = "nodes"
 
     def __init__(
@@ -1446,7 +1446,7 @@ class GraphQLIO(
     dependencies = frozenset({SpaceIO, ContainerIO})
     item_name = "views"
     yaml_cls = GraphQLDataModelYAML
-    _doc_url = "Data-models/operation/createDataModels"
+    _doc_url = "Data-models#operation/createDataModels"
     _hash_name = "CDFToolkitHash:"
 
     def __init__(self, client: ToolkitClient) -> None:
@@ -1709,7 +1709,7 @@ class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
     kind = "Edge"
     yaml_cls = EdgeYAML
     dependencies = frozenset({SpaceIO, ViewIO, ContainerIO, NodeIO})
-    _doc_url = "Instances/operation/applyNodeAndEdges"
+    _doc_url = "Instances#operation/applyNodeAndEdges"
 
     @property
     def display_name(self) -> str:

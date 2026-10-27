@@ -54,7 +54,7 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSet
     yaml_cls = DataSetYAML
     kind = "DataSet"
     dependencies = frozenset({GroupAllScopedIO})
-    _doc_url = "Data-sets/operation/createDataSets"
+    _doc_url = "Data-sets#operation/createDataSets"
 
     @property
     def display_name(self) -> str:
@@ -156,7 +156,7 @@ class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse, LabelsYAML]):
     yaml_cls = LabelsYAML
     kind = "Label"
     dependencies = frozenset({DataSetsIO, GroupAllScopedIO})
-    _doc_url = "Labels/operation/createLabelDefinitions"
+    _doc_url = "Labels#operation/createLabelDefinitions"
     support_update = False
 
     @property
