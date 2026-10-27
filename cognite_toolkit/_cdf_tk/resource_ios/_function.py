@@ -70,7 +70,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
     kind = "Function"
     yaml_cls = FunctionsYAML
     dependencies = frozenset({DataSetsIO, GroupAllScopedIO})
-    _doc_url = "Functions/operation/postFunctions"
+    _doc_url = "Functions#operation/postFunctions"
     metadata_value_limit = 512
     support_update = False
     extra_kinds = frozenset({FileMetadataIO.kind, CogniteFileIO.kind})
@@ -494,7 +494,7 @@ class FunctionScheduleIO(
     kind = "Schedule"
     yaml_cls = FunctionScheduleYAML
     dependencies = frozenset({FunctionIO, GroupResourceScopedIO, GroupAllScopedIO})
-    _doc_url = "Function-schedules/operation/postFunctionSchedules"
+    _doc_url = "Function-schedules#operation/postFunctionSchedules"
     parent_resource = frozenset({FunctionIO})
     support_update = False
 
