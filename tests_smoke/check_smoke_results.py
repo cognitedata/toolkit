@@ -8,14 +8,19 @@ from pathlib import Path
 from typing import Literal, TypeAlias
 
 import httpx2
+from dotenv import load_dotenv
 from pydantic import BaseModel, JsonValue
 from rich import print
 from rich.markup import escape
 
+load_dotenv(".env")  # Load environment variables from .env file if it exists
 # Environment variable names
 SLACK_WEBHOOK_URL_NAME = "SLACK_WEBHOOK_URL"
 GITHUB_REPO_URL_NAME = "GITHUB_REPO_URL"
 CDF_CLUSTER_NAME = "CDF_CLUSTER"
+
+# Maximum number of lines a single failure may occupy in the summary message
+MAX_LINES_PER_FAILURE = 5
 
 
 @dataclass
@@ -123,9 +128,21 @@ def _create_summary_message(messages: list[SlackMessage], report: PytestReportMo
     )
     lines = [header]
     for no, msg in enumerate(messages, start=1):
-        lines.append(f"{no}. ({msg.topic}) {msg.message.removeprefix(prefix)}")
+        failure_text = _truncate_lines(msg.message.removeprefix(prefix), MAX_LINES_PER_FAILURE)
+        lines.append(f"{no}. ({msg.topic}) {failure_text}")
     lines.append(f"Go to {context.github_repo_url} to investigate.")
     return SlackMessage(topic=topic, message="\n".join(lines))
+
+
+def _truncate_lines(text: str, max_lines: int) -> str:
+    """Limit text to max_lines lines (including the truncation indicator line)."""
+    text_lines = text.splitlines()
+    if len(text_lines) <= max_lines:
+        return text
+    kept = text_lines[: max_lines - 1]
+    omitted = len(text_lines) - len(kept)
+    kept.append(f"... ({omitted} more line(s) truncated)")
+    return "\n".join(kept)
 
 
 def _load_pytest_report(pytest_report: Path, context: Context) -> PytestReportModel | None:
@@ -215,7 +232,7 @@ if __name__ == "__main__":
     if send_messages and SLACK_WEBHOOK_URL_NAME not in os.environ:
         print(f"Environment variable {SLACK_WEBHOOK_URL_NAME} is not set.")
         sys.exit(1)
-    if send_messages and GITHUB_REPO_URL_NAME not in os.environ:
+    if GITHUB_REPO_URL_NAME not in os.environ:
         print(f"Environment variable {GITHUB_REPO_URL_NAME} is not set.")
         sys.exit(1)
     if send_messages and CDF_CLUSTER_NAME not in os.environ:
@@ -226,7 +243,7 @@ if __name__ == "__main__":
         Path(sys.argv[1]),
         Context(
             slack_webhook_url=os.environ.get(SLACK_WEBHOOK_URL_NAME, ""),
-            github_repo_url=os.environ.get(GITHUB_REPO_URL_NAME, ""),
+            github_repo_url=os.environ[GITHUB_REPO_URL_NAME],
             cluster=os.environ.get(CDF_CLUSTER_NAME, ""),
             send_messages=send_messages,
         ),
