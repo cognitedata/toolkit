@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
 
 from pydantic import Discriminator, Field, Tag, field_validator, model_validator
 from pydantic.functional_validators import BeforeValidator
