@@ -1,6 +1,6 @@
 environment:
   name: dev
-  project: some-project
+  project: project-loader-dev
   type: dev
   selected:
     - modules/

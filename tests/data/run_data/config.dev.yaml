@@ -1,6 +1,6 @@
 environment:
   name: dev
-  project: <my-project>
+  project: project-loader-dev
   type: dev
   selected:
   - run_local_functions

@@ -1,6 +1,6 @@
 environment:
   name: dev
-  project: pytest-project
+  project: project-loader-dev
   type: dev
   selected:
     - modules/
