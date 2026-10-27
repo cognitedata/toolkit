@@ -89,6 +89,10 @@ else:
 
 
 class CoreApp(typer.Typer):
+    # Top-level commands that work without CDF credentials. A missing .env file
+    # should not trigger a warning for these.
+    COMMANDS_NOT_REQUIRING_CREDENTIALS = frozenset({"build", "modules", "repo", "init", "about"})
+
     def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.common)
@@ -163,6 +167,8 @@ class CoreApp(typer.Typer):
                     break
             else:
                 # Did not find .env file
+                if ctx.invoked_subcommand in self.COMMANDS_NOT_REQUIRING_CREDENTIALS:
+                    return
                 try:
                     env_vars = EnvironmentVariables.create_from_environment()
                 except (ValueError, KeyError):
