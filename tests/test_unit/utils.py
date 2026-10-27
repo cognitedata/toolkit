@@ -575,13 +575,16 @@ class MockQuestionary:
         return MockQuestion(self.answers.pop(0))
 
     def __enter__(self) -> MockQuestionary:
+        # Use a dedicated MonkeyPatch so that exiting only undoes the questionary patches, and not
+        # other patches on the test's monkeypatch fixture (e.g., the autouse CDF_PROJECT isolation).
+        self._questionary_patch = MonkeyPatch()
         for method in [self.select, self.confirm, self.checkbox, self.text, self.path]:
             for module_target in self.module_targets:
-                self.monkeypatch.setattr(f"{module_target}.questionary.{method.__name__}", method)
+                self._questionary_patch.setattr(f"{module_target}.questionary.{method.__name__}", method)
         return self
 
     def __exit__(self, *args: object) -> Literal[False]:
-        self.monkeypatch.undo()
+        self._questionary_patch.undo()
         return False
 
     @staticmethod
