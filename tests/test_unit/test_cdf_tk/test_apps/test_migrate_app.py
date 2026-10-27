@@ -14,7 +14,7 @@ class TestValidateCdfProject:
         ],
     )
     def test_happy_path(self, cli_cdf_project: str | None, answers: list[str], monkeypatch: pytest.MonkeyPatch) -> None:
-        with MockQuestionary(_validate_cdf_project.__module__, monkeypatch, answers):
+        with MockQuestionary(_validate_cdf_project.__module__, answers):
             _validate_cdf_project(cli_cdf_project, "my-project")
 
     @pytest.mark.parametrize(
@@ -44,7 +44,7 @@ class TestValidateCdfProject:
     ) -> None:
         with (
             pytest.raises(ToolkitValidationError) as exc_info,
-            MockQuestionary(_validate_cdf_project.__module__, monkeypatch, answers),
+            MockQuestionary(_validate_cdf_project.__module__, answers),
         ):
             _validate_cdf_project(cli_cdf_project, "my-project")
         assert str(exc_info.value) == expected_message

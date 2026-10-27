@@ -46,17 +46,21 @@ SKIPPED_ALPHA_CRUDS = {
     sys.version_info < (3, 11), reason="We only run this test on Python 3.11+ to avoid parallelism issues"
 )
 @pytest.mark.usefixtures("simulator", "simulator_integration", "three_d_file")
-def test_deploy_complete_org(env_vars: EnvironmentVariables, build_dir: Path) -> None:
+def test_deploy_complete_org(env_vars: EnvironmentVariables, build_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     build = BuildV2Command(silent=True, skip_tracking=True)
 
-    build.build(
-        client=env_vars.get_client(),
-        parameters=BuildParameters(
-            organization_dir=data.COMPLETE_ORG,
-            build_dir=build_dir,
-            config_yamls=[data.COMPLETE_ORG / "config.dev.yaml"],
-        ),
-    )
+    with monkeypatch.context() as mp:
+        # The complete_org test data is shared with unit tests and specifies a placeholder project, so we
+        # skip the config-vs-environment project validation. The deploy below targets env_vars.CDF_PROJECT.
+        mp.delenv("CDF_PROJECT", raising=False)
+        build.build(
+            client=env_vars.get_client(),
+            parameters=BuildParameters(
+                organization_dir=data.COMPLETE_ORG,
+                build_dir=build_dir,
+                config_yamls=[data.COMPLETE_ORG / "config.dev.yaml"],
+            ),
+        )
 
     deploy_command = DeployV2Command(silent=False, skip_tracking=True)
     client_id = os.environ["IDP_CLIENT_ID"]
@@ -88,17 +92,22 @@ def test_deploy_complete_org(env_vars: EnvironmentVariables, build_dir: Path) ->
     sys.version_info < (3, 11), reason="We only run this test on Python 3.11+ to avoid parallelism issues"
 )
 @pytest.mark.usefixtures("simulator", "simulator_integration", "three_d_file")
-def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Path) -> None:
+def test_deploy_complete_org_alpha(
+    env_vars: EnvironmentVariables, build_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     build = BuildV2Command(silent=True, skip_tracking=True)
 
-    build.build(
-        client=env_vars.get_client(),
-        parameters=BuildParameters(
-            organization_dir=data.COMPLETE_ORG_ALPHA_FLAGS,
-            build_dir=build_dir,
-            config_yamls=[data.COMPLETE_ORG_ALPHA_FLAGS / "config.dev.yaml"],
-        ),
-    )
+    with monkeypatch.context() as mp:
+        # See test_deploy_complete_org for why CDF_PROJECT is unset during the build.
+        mp.delenv("CDF_PROJECT", raising=False)
+        build.build(
+            client=env_vars.get_client(),
+            parameters=BuildParameters(
+                organization_dir=data.COMPLETE_ORG_ALPHA_FLAGS,
+                build_dir=build_dir,
+                config_yamls=[data.COMPLETE_ORG_ALPHA_FLAGS / "config.dev.yaml"],
+            ),
+        )
 
     deploy_command = DeployV2Command(silent=False, skip_tracking=True)
     client_id = os.environ["IDP_CLIENT_ID"]

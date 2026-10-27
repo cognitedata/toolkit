@@ -275,7 +275,6 @@ class TestPromptUserEnvironmentVariables:
         # IDP_TENANT_ID=my-tenant, optional vars unchanged
         with MockQuestionary(
             AUTH_MODULE,
-            monkeypatch,
             answers=[
                 "entra_id",  # provider select
                 "device_code",  # login flow select — this is the new default

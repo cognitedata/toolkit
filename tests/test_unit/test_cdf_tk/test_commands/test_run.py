@@ -156,7 +156,7 @@ class TestRunTransformationV2:
             return choices[1].value
 
         answers = [select_transformation, False, False]
-        with MockQuestionary(RunTransformationV2Command.__module__, monkeypatch, answers):
+        with MockQuestionary(RunTransformationV2Command.__module__, answers):
             client = self._mock_client()
             client.transformations.list.return_value = transformations
 
@@ -179,10 +179,13 @@ class TestRunTransformationV2:
 
 @pytest.fixture(scope="session")
 def function_build_folder() -> BuildLineage:
-    return BuildV2Command(print_warning=False, silent=True).tmp_build(
-        RUN_DATA,
-        RUN_DATA / "config.dev.yaml",
-    )
+    # Session-scoped fixtures run before the function-scoped autouse fixture that unsets CDF_PROJECT.
+    with pytest.MonkeyPatch.context() as mp:
+        mp.delenv("CDF_PROJECT", raising=False)
+        return BuildV2Command(print_warning=False, silent=True).tmp_build(
+            RUN_DATA,
+            RUN_DATA / "config.dev.yaml",
+        )
 
 
 @pytest.fixture
@@ -502,7 +505,7 @@ class TestRunWorkflowV2:
 
         # 1. Select the workflow, 2. confirm using the trigger input, 3. confirm not to wait.
         answers = [select_workflow, True, False]
-        with MockQuestionary(RunWorkflowV2Command.__module__, monkeypatch, answers):
+        with MockQuestionary(RunWorkflowV2Command.__module__, answers):
             RunWorkflowV2Command().run_workflow(
                 client,
                 external_id=None,

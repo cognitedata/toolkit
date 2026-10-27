@@ -1140,7 +1140,7 @@ class TestSelectModule:
 
         answers = [module if a == "__MODULE__" else a for a in answers_template]
 
-        with MockQuestionary(BuildV2Command.__module__, monkeypatch, answers):
+        with MockQuestionary(BuildV2Command.__module__, answers):
             result = BuildV2Command.select_module(
                 organization_dir=org,
                 selected_module=selected_module,
@@ -1160,7 +1160,7 @@ class TestSelectModule:
         org = self._org(tmp_path)
         scan = ModuleScanResult(module_dir=org / MODULES, modules=[])
 
-        with MockQuestionary(BuildV2Command.__module__, monkeypatch, ["NEW", "created_module"]):
+        with MockQuestionary(BuildV2Command.__module__, ["NEW", "created_module"]):
             result = BuildV2Command.select_module(
                 organization_dir=org,
                 selected_module=None,
@@ -1213,7 +1213,7 @@ class TestSelectModule:
         org = self._org(tmp_path)
         scan = ModuleScanResult(module_dir=org / MODULES, **scan_kwargs)
 
-        with MockQuestionary(BuildV2Command.__module__, monkeypatch, answers):
+        with MockQuestionary(BuildV2Command.__module__, answers):
             with pytest.raises(ToolkitValueError, match=match):
                 BuildV2Command.select_module(
                     organization_dir=org,

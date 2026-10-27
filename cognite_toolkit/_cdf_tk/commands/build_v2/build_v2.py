@@ -762,7 +762,8 @@ class BuildV2Command(ToolkitCommand):
         user_selected_modules: list[str] | None,
     ) -> BuildInput:
         """Reads the file system to find the YAML files to build along with config.<name>.yaml if they exists."""
-        cdf_project: str = os.environ.get("CDF_PROJECT", "UNKNOWN")
+        env_cdf_project: str | None = os.environ.get("CDF_PROJECT")
+        cdf_project: str = env_cdf_project if env_cdf_project else "UNKNOWN"
         validation_type: ValidationType = "prod"
         deploy_branch: str | None = None
         deploy_protection: DeployProtection | None = None
@@ -882,6 +883,16 @@ class BuildV2Command(ToolkitCommand):
 
             validation_type = validation_types.most_common(1)[0][0]
             cdf_project = projects.most_common(1)[0][0]
+            if env_cdf_project is not None and env_cdf_project != cdf_project:
+                suffix = "" if len(projects) == 1 else "s"
+                yaml_files_display = humanize_collection(
+                    [relative_to_if_possible(yaml_path).as_posix() for yaml_path in config_yamls]
+                )
+                raise ToolkitValueError(
+                    f"Environment variable CDF_PROJECT is set to '{env_cdf_project}',\n    "
+                    f"but the config YAML file{suffix} {yaml_files_display} specify "
+                    f"the CDF project '{cdf_project}'. Please ensure they match."
+                )
             if deploy_branches:
                 deploy_branch = deploy_branches.most_common(1)[0][0]
             if deploy_protections:

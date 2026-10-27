@@ -1,8 +1,9 @@
 import json
+import os
 import sys
 from pathlib import Path
 from typing import cast
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
@@ -1141,6 +1142,32 @@ capabilities:
     assert insight.message.startswith("The space 'my_non_existent_space' does not exist locally or in CDF.")
     assert insight.source_file == yaml_filepath
     assert (insight.line, insight.column) == (12, 11)
+
+
+def test_build_config_and_env_mismatch(tmp_path: Path) -> None:
+    """Test that a mismatch between config and environment variables is detected."""
+    config_yaml = """
+environment:
+  name: dev
+  project: projectA
+  selected:
+  - modules/
+"""
+    config_path = tmp_path / "config.dev.yaml"
+    config_path.write_text(config_yaml, encoding="utf-8")
+    workflow_file = tmp_path / MODULES / "my_module" / "workflows" / "my_workflow.Workflow.yaml"
+    workflow_file.parent.mkdir(parents=True, exist_ok=True)
+    workflow_file.write_text("externalId: myWorkflow\n")
+
+    with patch.dict(os.environ, {"CDF_PROJECT": "projectB"}), pytest.raises(ToolkitValueError) as exc_info:
+        BuildV2Command(silent=True, skip_tracking=True).build(
+            client=None,
+            parameters=BuildParameters(
+                organization_dir=tmp_path, build_dir=tmp_path / "build", config_yamls=[config_path]
+            ),
+        )
+    assert str(exc_info.value).startswith("Environment variable CDF_PROJECT is set to 'projectB'")
+    assert "projectA" in str(exc_info.value)
 
 
 def test_unresolved_variable_does_not_cause_unknown_reference(

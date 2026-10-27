@@ -547,17 +547,15 @@ class MockQuestion:
 
 
 class MockQuestionary:
-    def __init__(self, module_target: str | list[str], monkeypatch: MonkeyPatch, answers: list[Any]) -> None:
+    def __init__(self, module_target: str | list[str], answers: list[Any]) -> None:
         """Initialize MockQuestionary to patch questionary methods for one or more module targets.
 
         Args:
             module_target: Single module path string or list of module paths to patch
-            monkeypatch: Pytest monkeypatch fixture
             answers: List of answers to return for each questionary call
         """
         self.module_targets = [module_target] if isinstance(module_target, str) else module_target
         self.answers = answers
-        self.monkeypatch = monkeypatch
 
     def select(self, _: str, choices: list[Choice] | None = None, **__: Any) -> MockQuestion:
         return MockQuestion(self.answers.pop(0), choices)
@@ -575,13 +573,16 @@ class MockQuestionary:
         return MockQuestion(self.answers.pop(0))
 
     def __enter__(self) -> MockQuestionary:
+        # Use a dedicated MonkeyPatch so that exiting only undoes the questionary patches, and not
+        # other patches on the test's monkeypatch fixture (e.g., the autouse CDF_PROJECT isolation).
+        self._questionary_patch = MonkeyPatch()
         for method in [self.select, self.confirm, self.checkbox, self.text, self.path]:
             for module_target in self.module_targets:
-                self.monkeypatch.setattr(f"{module_target}.questionary.{method.__name__}", method)
+                self._questionary_patch.setattr(f"{module_target}.questionary.{method.__name__}", method)
         return self
 
     def __exit__(self, *args: object) -> Literal[False]:
-        self.monkeypatch.undo()
+        self._questionary_patch.undo()
         return False
 
     @staticmethod
