@@ -24,7 +24,7 @@ class ModulesListFormats(StrEnum):
 
 class ModulesApp(typer.Typer):
     # Subcommands that need CDF credentials (the rest work offline).
-    COMMANDS_REQUIRING_CREDENTIALS = frozenset({"pull"})
+    COMMANDS_REQUIRING_CREDENTIALS: frozenset[str] = frozenset({"pull"})
 
     def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
         super().__init__(*args, **kwargs)

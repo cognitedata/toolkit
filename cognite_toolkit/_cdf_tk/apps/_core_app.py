@@ -93,7 +93,7 @@ else:
 class CoreApp(typer.Typer):
     # Top-level commands that work without CDF credentials. A missing .env file
     # should not trigger a warning for these.
-    COMMANDS_NOT_REQUIRING_CREDENTIALS = frozenset({"build", "modules", "repo", "init", "about"})
+    COMMANDS_NOT_REQUIRING_CREDENTIALS: frozenset[str] = frozenset({"build", "modules", "repo", "init", "about"})
 
     def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
         super().__init__(*args, **kwargs)
