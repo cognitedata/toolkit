@@ -1,11 +1,12 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
 
-from pydantic import Discriminator, Field, Tag
+from pydantic import Discriminator, Field, Tag, field_validator, model_validator
 from pydantic.functional_validators import BeforeValidator
 
 from cognite_toolkit._cdf_tk.client.identifiers import NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupAttributes
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 from .base import ToolkitResource
 from .capabilities import CapabilityType, UnknownCapability
@@ -54,7 +55,31 @@ class ExternalGroupYAML(BaseGroupYAML):
 
 class CDFGroupYAML(BaseGroupYAML):
     group_type: Literal["cdf"] = Field("cdf", exclude=True)
-    members: list[str] | Literal["allUserAccounts"]
+    members: list[str] | Literal["allUserAccounts", "emails"]
+    member_emails: list[str] | None = None
+
+    @model_validator(mode="after")
+    def _validate_members_and_member_emails(self) -> Self:
+        if self.members == "emails" and not self.member_emails:
+            raise ValueError(
+                "Invalid group definition: 'members' is set to 'emails', but no 'memberEmails' are provided."
+            )
+        if self.member_emails is not None and self.members != "emails":
+            raise ValueError(
+                "Invalid group definition: 'memberEmails' can only be specified when 'members' is set to 'emails'."
+            )
+        return self
+
+    @field_validator("member_emails")
+    @classmethod
+    def _alpha_flag_enables(cls, v: list[str] | None) -> list[str] | None:
+        if v is not None and not Flags.CDF_GROUP_EMAILS.is_enabled():
+            raise ValueError(
+                "The 'memberEmails' field is currently behind an alpha feature flag and is not enabled. "
+                "Please enable the flag `cdf-group-emails` to use this feature, or remove the 'memberEmails' "
+                "field from the group definition."
+            )
+        return v
 
 
 def _check_group_definition(data: Any) -> Any:

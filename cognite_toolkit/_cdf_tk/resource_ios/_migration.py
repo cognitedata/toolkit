@@ -35,7 +35,7 @@ class ResourceViewMappingIO(
     resource_write_cls = ResourceViewMappingRequest
     kind = "ResourceViewMapping"
     dependencies = frozenset({SpaceIO, ViewIO})
-    _doc_url = "Instances/operation/applyNodeAndEdges"
+    _doc_url = "Instances#operation/applyNodeAndEdges"
     yaml_cls = ResourceViewMappingYAML
 
     @property

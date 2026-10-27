@@ -38,7 +38,7 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
     kind = "Skill"
     yaml_cls = SkillYAML
     _doc_base_url = ""
-    _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Skills/operation/skill_create_ai_skills_post/"
+    _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Skills/#operation/skill_create_ai_skills_post/"
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)

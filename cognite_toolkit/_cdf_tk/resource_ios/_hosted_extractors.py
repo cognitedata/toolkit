@@ -73,7 +73,7 @@ class HostedExtractorSourceIO(
     kind = "Source"
     yaml_cls = HostedExtractorSourceYAML
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
-    _doc_url = "Sources/operation/create_sources"
+    _doc_url = "Sources#operation/create_sources"
     _SupportedSources = (
         MQTTSourceRequest,
         KafkaSourceRequest,
@@ -336,7 +336,7 @@ class HostedExtractorDestinationIO(
     dependencies = frozenset({DataSetsIO})
     kind = "Destination"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
-    _doc_url = "Destinations/operation/create_destinations"
+    _doc_url = "Destinations#operation/create_destinations"
     yaml_cls = HostedExtractorDestinationYAML
 
     def __init__(self, client: ToolkitClient):
@@ -460,7 +460,7 @@ class HostedExtractorJobIO(
     kind = "Job"
     yaml_cls = HostedExtractorJobYAML
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
-    _doc_url = "Jobs/operation/create_jobs"
+    _doc_url = "Jobs#operation/create_jobs"
 
     @property
     def display_name(self) -> str:
@@ -560,7 +560,7 @@ class HostedExtractorMappingIO(
     dependencies = frozenset({HostedExtractorSourceIO})
     kind = "Mapping"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
-    _doc_url = "Mappings/operation/create_mappings"
+    _doc_url = "Mappings#operation/create_mappings"
     yaml_cls = HostedExtractorMappingYAML
 
     @property

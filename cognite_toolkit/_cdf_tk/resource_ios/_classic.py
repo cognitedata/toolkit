@@ -46,7 +46,7 @@ class AssetIO(ResourceIO[ExternalId, AssetRequest, AssetResponse, AssetYAML]):
     yaml_cls = AssetYAML
     kind = "Asset"
     dependencies = frozenset({DataSetsIO, LabelIO})
-    _doc_url = "Assets/operation/createAssets"
+    _doc_url = "Assets#operation/createAssets"
 
     @property
     def display_name(self) -> str:
@@ -173,7 +173,7 @@ class SequenceIO(ResourceIO[ExternalId, SequenceRequest, SequenceResponse, Seque
     kind = "Sequence"
     dependencies = frozenset({DataSetsIO, AssetIO})
     yaml_cls = SequenceYAML
-    _doc_url = "Sequences/operation/createSequence"
+    _doc_url = "Sequences#operation/createSequence"
 
     @property
     def display_name(self) -> str:
@@ -286,7 +286,7 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
     kind = "SequenceRow"
     dependencies = frozenset({SequenceIO})
     parent_resource = frozenset({SequenceIO})
-    _doc_url = "Sequences/operation/postSequenceData"
+    _doc_url = "Sequences#operation/postSequenceData"
     yaml_cls = SequenceRowYAML
     support_update = False
 
@@ -423,7 +423,7 @@ class EventIO(ResourceIO[ExternalId, EventRequest, EventResponse, EventYAML]):
     yaml_cls = EventYAML
     kind = "Event"
     dependencies = frozenset({DataSetsIO, AssetIO})
-    _doc_url = "Events/operation/createEvents"
+    _doc_url = "Events#operation/createEvents"
 
     @property
     def display_name(self) -> str:

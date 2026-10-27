@@ -36,7 +36,7 @@ class StreamIO(ResourceContainerIO[ExternalId, StreamRequest, StreamResponse, St
     kind = "Streams"
     yaml_cls = StreamYAML
     dependencies = frozenset({ContainerIO})
-    _doc_url = "Streams/operation/createStream"
+    _doc_url = "Streams#operation/createStream"
     support_update = False
     drop_confirmation_message = (
         "WARNING: Streams are soft-deleted for 6 weeks after deletion. "

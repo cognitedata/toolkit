@@ -61,7 +61,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryRequest,
     SecurityCategoryResponse,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitWrongResourceError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
@@ -104,7 +105,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         }
     )
     resource_scope_names = frozenset({scope.model_fields["scope_name"].default for scope in resource_scopes})
-    _doc_url = "Groups/operation/createGroups"
+    _doc_url = "Groups#operation/createGroups"
 
     def __init__(
         self,
@@ -319,6 +320,24 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
         substituted = self._substitute_scope_ids(resource, is_dry_run)
 
+        if Flags.CDF_GROUP_EMAILS.is_enabled():
+            member_emails = substituted.pop("memberEmails", None)
+            if substituted.get("members") == "emails":
+                missing_ids: list[str] = []
+                member_ids: list[str] = []
+                for email in member_emails or []:
+                    user_id = self.client.lookup.users.user_id(email)
+                    if user_id:
+                        member_ids.append(user_id)
+                    else:
+                        missing_ids.append(email)
+                if missing_ids:
+                    raise ToolkitMissingResourceError(
+                        f"The following member emails could not be found in CDF: {missing_ids}."
+                        f" Please ensure that the users exist in CDF before deploying the group {self.get_id(substituted)!r}."
+                    )
+                substituted["members"] = member_ids
+
         return GroupRequest._load(substituted)
 
     def dump_resource(self, resource: GroupResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -501,7 +520,7 @@ class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCat
     yaml_cls = SecurityCategoriesYAML
     folder_name = "auth"
     dependencies = frozenset({GroupAllScopedIO})
-    _doc_url = "Security-categories/operation/createSecurityCategories"
+    _doc_url = "Security-categories#operation/createSecurityCategories"
     support_update = False
 
     @property

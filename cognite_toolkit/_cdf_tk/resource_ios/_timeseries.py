@@ -62,7 +62,7 @@ class TimeSeriesIO(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeries
     yaml_cls = TimeSeriesYAML
     kind = "TimeSeries"
     dependencies = frozenset({DataSetsIO, GroupAllScopedIO, AssetIO})
-    _doc_url = "Time-series/operation/postTimeSeries"
+    _doc_url = "Time-series#operation/postTimeSeries"
 
     @property
     def display_name(self) -> str:
@@ -207,7 +207,7 @@ class DatapointSubscriptionIO(
     resource_cls = DatapointSubscriptionResponse
     resource_write_cls = DatapointSubscriptionRequest
     kind = "DatapointSubscription"
-    _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
+    _doc_url = "Data-point-subscriptions#operation/postSubscriptions"
     dependencies = frozenset({TimeSeriesIO, GroupAllScopedIO, NodeIO})
     yaml_cls = DatapointSubscriptionYAML
 

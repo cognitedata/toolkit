@@ -55,7 +55,7 @@ class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse, In
     kind = "InfieldV1"
     yaml_cls = InfieldV1YAML
     dependencies = frozenset({DataSetsIO, AssetIO, SpaceIO, GroupAllScopedIO, GroupResourceScopedIO})
-    _doc_url = "Instances/operation/applyNodeAndEdges"
+    _doc_url = "Instances#operation/applyNodeAndEdges"
     _root_location_filters: tuple[str, ...] = ("general", "assets", "files", "timeseries")
     _group_keys: tuple[str, ...] = ("templateAdmins", "checklistAdmins")
 
@@ -255,7 +255,7 @@ class InFieldLocationConfigIO(
     kind = "InFieldLocationConfig"
     yaml_cls = InfieldLocationConfigYAML
     dependencies = frozenset({SpaceIO, GroupAllScopedIO, GroupResourceScopedIO})
-    _doc_url = "Instances/operation/applyNodeAndEdges"
+    _doc_url = "Instances#operation/applyNodeAndEdges"
 
     @property
     def display_name(self) -> str:
@@ -368,7 +368,7 @@ class InFieldCDMLocationConfigIO(
     kind = "InFieldCDMLocationConfig"
     yaml_cls = InFieldCDMLocationConfigYAML
     dependencies = frozenset({SpaceIO, GroupAllScopedIO, GroupResourceScopedIO, ViewIO})
-    _doc_url = "Instances/operation/applyNodeAndEdges"
+    _doc_url = "Instances#operation/applyNodeAndEdges"
 
     @property
     def display_name(self) -> str:
