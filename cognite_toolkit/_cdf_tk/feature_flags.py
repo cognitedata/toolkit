@@ -103,6 +103,10 @@ class Flags(Enum):
         description="Enables support for locking modules in cdf deploy/clean commands, preventing "
         "users from accidentally overwriting each other's work.",
     )
+    CDF_GROUP_EMAILS = FlagMetadata(
+        visible=True,
+        description="Enables support for CDF group resources with members set to 'emails' and memberEmails set to a list of email addresses.",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
