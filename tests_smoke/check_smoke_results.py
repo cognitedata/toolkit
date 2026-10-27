@@ -10,6 +10,7 @@ from typing import Literal, TypeAlias
 import httpx2
 from pydantic import BaseModel, JsonValue
 from rich import print
+from rich.markup import escape
 
 # Environment variable names
 SLACK_WEBHOOK_URL_NAME = "SLACK_WEBHOOK_URL"
@@ -196,7 +197,11 @@ def _notify_slack(messages: list[SlackMessage], context: Context) -> None:
             except httpx2.HTTPError as e:
                 print(f"[red]Failed to send message to Slack: {e}[/red]")
         else:
-            print(f"[yellow]Dry run: would send message to Slack:[/yellow] {message.model_dump_json()}")
+            print(
+                f"[yellow]Dry run: would send message to Slack[/yellow]\n"
+                f"[bold]Topic:[/bold] {escape(message.topic)}\n"
+                f"[bold]Message:[/bold]\n{escape(message.message)}\n"
+            )
 
 
 if __name__ == "__main__":
@@ -207,22 +212,22 @@ if __name__ == "__main__":
     if len(sys.argv) >= 3 and sys.argv[2].lower() == "--dry-run":
         send_messages = False
 
-    if SLACK_WEBHOOK_URL_NAME not in os.environ:
+    if send_messages and SLACK_WEBHOOK_URL_NAME not in os.environ:
         print(f"Environment variable {SLACK_WEBHOOK_URL_NAME} is not set.")
         sys.exit(1)
-    if GITHUB_REPO_URL_NAME not in os.environ:
+    if send_messages and GITHUB_REPO_URL_NAME not in os.environ:
         print(f"Environment variable {GITHUB_REPO_URL_NAME} is not set.")
         sys.exit(1)
-    if CDF_CLUSTER_NAME not in os.environ:
+    if send_messages and CDF_CLUSTER_NAME not in os.environ:
         print(f"Environment variable {CDF_CLUSTER_NAME} is not set.")
         sys.exit(1)
 
     check_smoke_tests_results(
         Path(sys.argv[1]),
         Context(
-            slack_webhook_url=os.environ[SLACK_WEBHOOK_URL_NAME],
-            github_repo_url=os.environ[GITHUB_REPO_URL_NAME],
-            cluster=os.environ[CDF_CLUSTER_NAME],
+            slack_webhook_url=os.environ.get(SLACK_WEBHOOK_URL_NAME, ""),
+            github_repo_url=os.environ.get(GITHUB_REPO_URL_NAME, ""),
+            cluster=os.environ.get(CDF_CLUSTER_NAME, ""),
             send_messages=send_messages,
         ),
     )
