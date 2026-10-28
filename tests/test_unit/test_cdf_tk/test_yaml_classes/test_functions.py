@@ -54,8 +54,8 @@ def invalid_function_test_cases() -> Iterable:
             "envVars": {"invalid env var name": "value", "ANOTHER-INVALID": "value"},
         },
         {
-            "Invalid value at envVars.ANOTHER-INVALID[key]: String should match pattern '^[A-Z0-9_]+$'",
-            "Invalid value at envVars.invalid env var name[key]: String should match pattern '^[A-Z0-9_]+$'",
+            "Invalid value at envVars.ANOTHER-INVALID[key]: String should match pattern '^[a-zA-Z0-9_]+$'",
+            "Invalid value at envVars.invalid env var name[key]: String should match pattern '^[a-zA-Z0-9_]+$'",
         },
         id="Invalid env var name",
     )
