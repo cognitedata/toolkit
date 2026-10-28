@@ -459,26 +459,20 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             item_id = self.get_id(item)
             if item_id not in cdf_container:
                 continue
-            cdf_item = cdf_container[item_id]
-            local_constraints = item.constraints or {}
-            cdf_constraints = cdf_item.constraints or {}
-            for constraint_id, cdf_constraint in cdf_constraints.items():
-                if constraint_id not in local_constraints:
+            local_dict = item.dump()
+            # dump_resource normalizes server-set default values to match the local representation.
+            cdf_dict = self.dump_resource(cdf_container[item_id], local_dict)
+
+            local_constraints = local_dict.get("constraints") or {}
+            for constraint_id, cdf_constraint in (cdf_dict.get("constraints") or {}).items():
+                if local_constraints.get(constraint_id) != cdf_constraint:
                     modified_deleted_constraints.add(
                         ContainerConstraintId(space=item.space, external_id=item.external_id, identifier=constraint_id)
                     )
-                elif local_constraints[constraint_id] != cdf_constraint:
-                    modified_deleted_constraints.add(
-                        ContainerConstraintId(space=item.space, external_id=item.external_id, identifier=constraint_id)
-                    )
-            local_indexes = item.indexes or {}
-            cdf_indexes = cdf_item.indexes or {}
-            for index_id, cdf_index in cdf_indexes.items():
-                if index_id not in local_indexes:
-                    modified_deleted_indexes.add(
-                        ContainerIndexId(space=item.space, external_id=item.external_id, identifier=index_id)
-                    )
-                elif local_indexes[index_id] != cdf_index:
+
+            local_indexes = local_dict.get("indexes") or {}
+            for index_id, cdf_index in (cdf_dict.get("indexes") or {}).items():
+                if local_indexes.get(index_id) != cdf_index:
                     modified_deleted_indexes.add(
                         ContainerIndexId(space=item.space, external_id=item.external_id, identifier=index_id)
                     )
