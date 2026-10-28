@@ -105,6 +105,16 @@ class CurrentUserScope(Scope):
     scope_name: Literal["currentuserscope"] = Field("currentuserscope", exclude=True)
 
 
+class SignalsCurrentUserScope(Scope):
+    """Current-user scope used by SubscribeSignalsAcl.
+
+    Unlike most other ACLs (e.g. groupsAcl), which use ``currentuserscope``, this
+    ACL's scope field is named ``currentuser``.
+    """
+
+    scope_name: Literal["currentuser"] = Field("currentuser", exclude=True)
+
+
 class IDScope(Scope):
     scope_name: Literal["idScope"] = Field("idScope", exclude=True)
     ids: list[str]
@@ -184,6 +194,9 @@ AllOrAppExternalIdScope = Annotated[AllScope | AppExternalIdScope, Field(discrim
 AllOrCurrentUserScope = Annotated[AllScope | CurrentUserScope, Field(discriminator="scope_name"), _LiftScopeName]
 AllOrDataProductScope = Annotated[AllScope | DataProductScope, Field(discriminator="scope_name"), _LiftScopeName]
 AllOrDataSetScope = Annotated[AllScope | DataSetScope, Field(discriminator="scope_name"), _LiftScopeName]
+AllOrSignalsCurrentUserScope = Annotated[
+    AllScope | SignalsCurrentUserScope, Field(discriminator="scope_name"), _LiftScopeName
+]
 AllOrIDScope = Annotated[AllScope | IDScope, Field(discriminator="scope_name"), _LiftScopeName]
 AllOrIDScopeLowerCase = Annotated[AllScope | IDScopeLowerCase, Field(discriminator="scope_name"), _LiftScopeName]
 AllOrInstancesScope = Annotated[AllScope | InstancesScope, Field(discriminator="scope_name"), _LiftScopeName]
@@ -609,7 +622,7 @@ class SimulatorsAcl(Capability):
 class SubscribeSignalsAcl(Capability):
     capability_name: Literal["subscribeSignalsAcl"] = Field("subscribeSignalsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllOrCurrentUserScope
+    scope: AllOrSignalsCurrentUserScope
 
 
 class StreamsAcl(Capability):
@@ -658,6 +671,7 @@ ScopeType = Annotated[
     | LegacySpaceScope
     | PartitionScope
     | PostgresGatewayUsersScope
+    | SignalsCurrentUserScope
     | SpaceIDScope
     | TableScope
     | UnknownScope,
