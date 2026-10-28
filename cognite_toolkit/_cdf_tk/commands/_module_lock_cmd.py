@@ -70,8 +70,8 @@ class ModuleLockCommand(ToolkitCommand):
             choices=choices,
         ).unsafe_ask()
 
-        if not selected or all(lock == "cancel" for lock in selected):
-            print("No locks selected.")
+        if not selected or "cancel" in selected:
+            print("Operation cancelled.")
             return []
 
         if dry_run:
