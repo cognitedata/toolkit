@@ -86,8 +86,10 @@ from .group import (
     TokenAttributes,
 )
 from .scopes import (
+    AgentExternalIdScope,
     AllScope,
     AppConfigScope,
+    AppExternalIdScope,
     AssetRootIDScope,
     CurrentUserScope,
     DataProductScope,
@@ -109,12 +111,14 @@ from .scopes import (
 __all__ = [
     "Acl",
     "AclType",
+    "AgentExternalIdScope",
     "AgentsAcl",
     "AllScope",
     "AnalyticsAcl",
     "AnnotationsAcl",
     "AppConfigAcl",
     "AppConfigScope",
+    "AppExternalIdScope",
     "AppHostingAcl",
     "AssetRootIDScope",
     "AssetsAcl",

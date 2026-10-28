@@ -79,7 +79,7 @@ class SignalSubscriptionIO(
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[SignalSubscriptionRequest]) -> ScopeDefinition:
-        return AllScope()
+        return CurrentUserScope()
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:

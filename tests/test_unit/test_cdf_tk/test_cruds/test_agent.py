@@ -8,6 +8,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse, SubagentConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AgentExternalIdScope, AgentsAcl, AllScope
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.resource_ios import DataModelIO, FunctionIO
@@ -193,6 +194,25 @@ class TestAgentIODiffList:
 
         assert local_by_cdf == {0: 0}
         assert added == [1]
+
+
+class TestAgentIOScope:
+    def test_get_minimum_scope_returns_agent_external_id_scope(self) -> None:
+        agents = [AgentRequest(external_id="a", name="A"), AgentRequest(external_id="b", name="B")]
+
+        scope = AgentIO.get_minimum_scope(agents)
+
+        assert scope == AgentExternalIdScope(external_ids=["a", "b"])
+
+    @pytest.mark.parametrize(
+        "scope", [AllScope(), AgentExternalIdScope(external_ids=["a"])], ids=["all-scope", "agent-external-id-scope"]
+    )
+    def test_create_acl_accepts_all_and_agent_external_id_scope(self, scope) -> None:
+        acls = list(AgentIO.create_acl({"READ", "WRITE"}, scope))
+
+        assert len(acls) == 1
+        assert isinstance(acls[0], AgentsAcl)
+        assert acls[0].scope == scope
 
 
 class TestAgentIOTopologicalSort:

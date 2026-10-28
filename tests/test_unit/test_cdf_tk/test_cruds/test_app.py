@@ -6,12 +6,13 @@ from typing import Literal
 import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import AppVersionId
-from cognite_toolkit._cdf_tk.client.resource_classes.app import AppResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.app import AppRequest, AppResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.app_version import (
     AppVersionRequest,
     AppVersionResponse,
     LifecycleState,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, AppExternalIdScope, AppHostingAcl
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_ios._app import AppIO, AppVersionIO
@@ -89,6 +90,34 @@ class TestAppIODumpResource:
 
         assert dumped["name"] == "Local Name"
         assert dumped["description"] == "Local desc"
+
+
+class TestAppIOScope:
+    def test_get_minimum_scope_returns_app_external_id_scope(self) -> None:
+        apps = [AppRequest(external_id="my-app", name="My App")]
+
+        scope = AppIO.get_minimum_scope(apps)
+
+        assert scope == AppExternalIdScope(external_ids=["my-app"])
+
+    @pytest.mark.parametrize(
+        "scope", [AllScope(), AppExternalIdScope(external_ids=["my-app"])], ids=["all-scope", "app-external-id-scope"]
+    )
+    def test_create_acl_accepts_all_and_app_external_id_scope(self, scope) -> None:
+        acls = list(AppIO.create_acl({"READ", "WRITE"}, scope))
+
+        assert len(acls) == 1
+        assert isinstance(acls[0], AppHostingAcl)
+        assert acls[0].scope == scope
+
+
+class TestAppVersionIOScope:
+    def test_get_minimum_scope_returns_app_external_id_scope(self) -> None:
+        versions = [_make_app_version_request(app_external_id="my-app")]
+
+        scope = AppVersionIO.get_minimum_scope(versions)
+
+        assert scope == AppExternalIdScope(external_ids=["my-app"])
 
 
 class TestAppVersionIODeploy:

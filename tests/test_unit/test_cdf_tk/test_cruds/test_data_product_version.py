@@ -2,13 +2,18 @@
 
 from typing import ClassVar
 
+import pytest
+
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import (
     DataProductVersionQuality,
     DataProductVersionRequest,
     DataProductVersionResponse,
     DataProductVersionView,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, DataProductScope
+from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import DataProductsAcl
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.resource_ios._data_product import DataProductIO
 from cognite_toolkit._cdf_tk.resource_ios._data_product_version import DataProductVersionIO
@@ -42,6 +47,48 @@ class TestDataProductVersionIODependencies:
             (DataProductIO, ExternalId(external_id="my-product")),
             (ViewIO, ViewId(space="my-space", external_id="MyView", version="1")),
         ]
+
+
+class TestDataProductIOScope:
+    def test_get_minimum_scope_returns_data_product_scope(self) -> None:
+        products = [DataProductRequest(external_id="my-product", name="My Product")]
+
+        scope = DataProductIO.get_minimum_scope(products)
+
+        assert scope == DataProductScope(external_ids=["my-product"])
+
+    @pytest.mark.parametrize(
+        "scope",
+        [AllScope(), DataProductScope(external_ids=["my-product"])],
+        ids=["all-scope", "data-product-scope"],
+    )
+    def test_create_acl_accepts_all_and_data_product_scope(self, scope) -> None:
+        acls = list(DataProductIO.create_acl({"READ", "WRITE"}, scope))
+
+        assert len(acls) == 1
+        assert isinstance(acls[0], DataProductsAcl)
+        assert acls[0].scope == scope
+
+
+class TestDataProductVersionIOScope:
+    def test_get_minimum_scope_returns_parent_data_product_scope(self) -> None:
+        request = DataProductVersionRequest.model_validate({"dataProductExternalId": "my-product", "version": "1.0.0"})
+
+        scope = DataProductVersionIO.get_minimum_scope([request])
+
+        assert scope == DataProductScope(external_ids=["my-product"])
+
+    @pytest.mark.parametrize(
+        "scope",
+        [AllScope(), DataProductScope(external_ids=["my-product"])],
+        ids=["all-scope", "data-product-scope"],
+    )
+    def test_create_acl_accepts_all_and_data_product_scope(self, scope) -> None:
+        acls = list(DataProductVersionIO.create_acl({"READ", "WRITE"}, scope))
+
+        assert len(acls) == 1
+        assert isinstance(acls[0], DataProductsAcl)
+        assert acls[0].scope == scope
 
 
 class TestDataProductVersionIODumpResource:
