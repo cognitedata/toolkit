@@ -10,7 +10,6 @@ from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatc
 from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import (
     EXTERNAL_ID,
     HEARTBEAT_INTERVAL_SECONDS,
-    LEGACY_VIEW_IDS,
     MAX_MODULE_COUNT,
     SPACE,
     VERSION,
@@ -206,22 +205,6 @@ class TestModuleLock:
         assert set(source.properties.keys()) == {"moduleId", "timestamp", "gitName", "userId", "branch", "lock", "repo"}
         assert source.properties["branch"] == FEATURE_BRANCH
         assert source.properties["lock"] is True
-
-    def test_as_nodes_legacy_view_excludes_repo(self) -> None:
-        lock = ModuleLock(
-            module_id="my_module",
-            timestamp=datetime(2026, 10, 24, 12, 0, tzinfo=UTC),
-            git_name=GIT_NAME,
-            user_id=USER_ID,
-            branch=FEATURE_BRANCH,
-            lock=False,
-            existing_version=1,
-            repo=REPO,
-        )
-        node = ModuleLock.as_nodes([lock], LEGACY_VIEW_IDS[0])[0]
-        assert node.sources is not None and node.sources[0].source == LEGACY_VIEW_IDS[0]
-        assert node.sources[0].properties is not None
-        assert "repo" not in node.sources[0].properties
 
     def test_as_nodes_from_nodes_round_trip(self) -> None:
         lock = ModuleLock(

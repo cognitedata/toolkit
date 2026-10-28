@@ -101,7 +101,7 @@ class ModuleLock(BaseModel, alias_generator=to_camel, populate_by_name=True):
     @classmethod
     def from_nodes(cls, nodes: list[InstanceResponse]) -> list[Self]:
         """Parse a list of nodes into a list of ModuleLock objects."""
-        locks: list[ModuleLock] = []
+        locks: list[Self] = []
         for node in nodes:
             if node.properties is None:
                 continue

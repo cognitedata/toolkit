@@ -5,7 +5,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import ModuleLockCommand
@@ -16,15 +15,7 @@ from tests.test_unit.utils import MockQuestionary
 REPO = "github.com/cognitedata/toolkit"
 
 
-def _view(view_id: ViewId) -> MagicMock:
-    view = MagicMock()
-    view.as_id.return_value = view_id
-    return view
-
-
-def _lock_node(
-    module_id: str, *, lock: bool = True, age: timedelta = timedelta(hours=1), view_id: ViewId = VIEW_ID
-) -> NodeResponse:
+def _lock_node(module_id: str, *, lock: bool = True, age: timedelta = timedelta(hours=1)) -> NodeResponse:
     properties: dict[str, object] = {
         "moduleId": module_id,
         "timestamp": (datetime.now(UTC) - age).isoformat(),
@@ -32,9 +23,8 @@ def _lock_node(
         "userId": "user-456",
         "branch": "feature/x",
         "lock": lock,
+        "repo": REPO,
     }
-    if view_id == VIEW_ID:
-        properties["repo"] = REPO
     return NodeResponse.model_validate(
         {
             "instanceType": "node",
@@ -43,7 +33,7 @@ def _lock_node(
             "version": 3,
             "createdTime": 0,
             "lastUpdatedTime": 0,
-            "properties": {SPACE: {f"{view_id.external_id}/{view_id.version}": properties}},
+            "properties": {SPACE: {f"{VIEW_ID.external_id}/{VIEW_ID.version}": properties}},
         }
     )
 
@@ -59,37 +49,32 @@ def client() -> Iterator[ToolkitClientMock]:
     with monkeypatch_toolkit_client() as client:
         client.lookup.users = MagicMock()
         client.lookup.users.email.return_value = "bob@example.com"
-        client.views.retrieve.return_value = [_view(VIEW_ID)]
         client.instances.list.return_value = []
         client.instances.create.return_value = []
         yield client
 
 
 class TestModuleLockCommand:
-    def test_no_view_deployed(self, client: ToolkitClientMock, capsys: pytest.CaptureFixture[str]) -> None:
-        client.views.retrieve.return_value = []
+    def test_view_does_not_exist(self, client: ToolkitClientMock, capsys: pytest.CaptureFixture[str]) -> None:
+        client.instances.list.side_effect = ToolkitAPIError("View does not exist", code=400)
 
         released = ModuleLockCommand(skip_tracking=True).locks(client)
 
         assert released == []
         assert "not been set up" in capsys.readouterr().out
-        client.instances.list.assert_not_called()
+        client.instances.create.assert_not_called()
 
-    def test_space_does_not_exist(self, client: ToolkitClientMock, capsys: pytest.CaptureFixture[str]) -> None:
-        client.views.retrieve.side_effect = ToolkitAPIError("Space does not exist", code=400)
-
-        assert ModuleLockCommand(skip_tracking=True).locks(client) == []
-        assert "not been set up" in capsys.readouterr().out
-
-    def test_view_lookup_server_error_raises(self, client: ToolkitClientMock) -> None:
-        client.views.retrieve.side_effect = ToolkitAPIError("Internal error", code=500)
+    def test_list_server_error_raises(self, client: ToolkitClientMock) -> None:
+        client.instances.list.side_effect = ToolkitAPIError("Internal error", code=500)
 
         with pytest.raises(ToolkitValueError, match="500"):
             ModuleLockCommand(skip_tracking=True).locks(client)
 
     def test_no_locks(self, client: ToolkitClientMock, capsys: pytest.CaptureFixture[str]) -> None:
         assert ModuleLockCommand(skip_tracking=True).locks(client) == []
-        assert "No module locks found" in capsys.readouterr().out
+        out = capsys.readouterr().out
+        assert "Found 0 module lock(s)" in out
+        assert "No active locks to release" in out
 
     def test_list_only(self, client: ToolkitClientMock, capsys: pytest.CaptureFixture[str]) -> None:
         client.instances.list.return_value = [
@@ -134,19 +119,6 @@ class TestModuleLockCommand:
         assert source.source == VIEW_ID
         assert source.properties["lock"] is False
         assert source.properties["repo"] == REPO
-
-    def test_release_with_legacy_view(self, client: ToolkitClientMock) -> None:
-        legacy = LEGACY_VIEW_IDS[0]
-        client.views.retrieve.return_value = [_view(legacy)]
-        client.instances.list.return_value = [_lock_node("a", view_id=legacy)]
-
-        with MockQuestionary(ModuleLockCommand.__module__, [lambda choices: [choices[0].value], True]):
-            released = ModuleLockCommand(skip_tracking=True).locks(client)
-
-        assert [lock.module_id for lock in released] == ["a"]
-        source = client.instances.create.call_args.args[0][0].sources[0]
-        assert source.source == legacy
-        assert "repo" not in source.properties
 
     def test_dry_run_does_not_release(self, client: ToolkitClientMock) -> None:
         client.instances.list.return_value = [_lock_node("a")]
