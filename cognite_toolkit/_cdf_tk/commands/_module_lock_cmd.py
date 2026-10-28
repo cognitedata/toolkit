@@ -90,8 +90,13 @@ class ModuleLockCommand(ToolkitCommand):
                 filter=InstanceFilter(instance_type="node", source=VIEW_ID, space=[SPACE]), limit=None
             )
         except ToolkitAPIError as e:
-            if e.code is not None and 400 <= e.code < 500 and "not exist" in e.message.lower():
-                # The view was removed between the lookup and the listing, there are no locks.
+            # The error message is not consistent, its seems sometimes "not exist" and sometimes "unknown" is used. So we check for both.
+            if (
+                e.code is not None
+                and 400 <= e.code < 500
+                and ("not exist" in e.message.lower() or "unknown" in e.message.lower())
+            ):
+                # The view does not exist, which means module locking has not been set up yet.
                 return None
             raise ToolkitValueError(f"Failed to retrieve module locks due to API error: {e.code} - {e.message}") from e
         return sorted(ModuleLock.from_nodes(nodes), key=lambda lock: (lock.repo or "", lock.module_id))
