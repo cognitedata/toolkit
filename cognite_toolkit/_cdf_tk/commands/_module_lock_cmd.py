@@ -7,10 +7,9 @@ from rich.table import Table
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
+from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import SPACE, VIEW_ID, ModuleLock
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
-
-from ._base import ToolkitCommand
-from .deploy_v2.module_lock import SPACE, VIEW_ID, ModuleLock
 
 
 class ModuleLockCommand(ToolkitCommand):
