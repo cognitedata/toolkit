@@ -70,6 +70,16 @@ class CurrentUserScope(ScopeDefinition):
     scope_name: Literal["currentuserscope"] = Field("currentuserscope", exclude=True)
 
 
+class SignalsCurrentUserScope(ScopeDefinition):
+    """Scope that applies to the current user only, used by SubscribeSignalsAcl.
+
+    The proto field for this ACL's current-user scope is named ``currentuser``, unlike
+    other / older ACLs (e.g. groupsAcl) which use ``currentuserscope``.
+    """
+
+    scope_name: Literal["currentuser"] = Field("currentuser", exclude=True)
+
+
 class DataSetScope(ScopeDefinition):
     """Scope limited to specific data sets by ID."""
 
@@ -231,6 +241,7 @@ Scope: TypeAlias = Annotated[
         | AgentExternalIdScope
         | AppExternalIdScope
         | DataProductScope
+        | SignalsCurrentUserScope
         | UnknownScope
     ),
     BeforeValidator(_handle_unknown_scope),

@@ -5,7 +5,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, AllScope, ScopeDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, AllScope, DataProductScope, ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import DataProductsAcl
 from cognite_toolkit._cdf_tk.resource_ios._auth import GroupAllScopedIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
@@ -51,11 +51,11 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[DataProductRequest]) -> ScopeDefinition | None:
-        return AllScope()
+        return DataProductScope(external_ids=sorted({item.external_id for item in items}))
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        if isinstance(scope, AllScope):
+        if isinstance(scope, AllScope | DataProductScope):
             yield DataProductsAcl(
                 actions=as_read_create_update_delete_actions(actions),
                 scope=scope,
