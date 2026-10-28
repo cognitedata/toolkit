@@ -48,20 +48,29 @@ class ModuleLockCommand(ToolkitCommand):
             print("No active locks to release.")
             return []
 
+        choices = [
+            questionary.Choice(
+                title=(
+                    f"{lock.module_id} (repo: {lock.repo or 'unknown'}, branch: {lock.branch}, "
+                    f"by: {self._display_user(lock, email_by_user_id)}, {self._humanize_age(lock.timestamp)})"
+                ),
+                value=lock,
+            )
+            for lock in active_locks
+        ]
+        choices.append(
+            questionary.Choice(
+                title="Cancel (do not release any locks)",
+                value="cancel",
+            )
+        )
+
         selected: list[ModuleLock] | None = questionary.checkbox(
             "Select the module locks you want to release:",
-            choices=[
-                questionary.Choice(
-                    title=(
-                        f"{lock.module_id} (repo: {lock.repo or 'unknown'}, branch: {lock.branch}, "
-                        f"by: {self._display_user(lock, email_by_user_id)}, {self._humanize_age(lock.timestamp)})"
-                    ),
-                    value=lock,
-                )
-                for lock in active_locks
-            ],
+            choices=choices,
         ).unsafe_ask()
-        if not selected:
+
+        if not selected or all(lock == "cancel" for lock in selected):
             print("No locks selected.")
             return []
 
