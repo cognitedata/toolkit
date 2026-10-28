@@ -311,6 +311,18 @@ class ContainerConstraintId(ContainerId):
         return f"{super()._as_filename(include_type)}.{self.identifier}"
 
 
+class ContainerPropertyId(ContainerId):
+    identifier: str
+
+    def __str__(self) -> str:
+        return f"{self.space}:{self.external_id}(property={self.identifier})"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"{super()._as_filename(include_type)}.identifier-{self.identifier}"
+        return f"{super()._as_filename(include_type)}.{self.identifier}"
+
+
 class DatapointSubscriptionTimeSeriesId(Identifier):
     external_id: str | None = None
     id: int | None = None
