@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatc
 from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import (
     EXTERNAL_ID,
     HEARTBEAT_INTERVAL_SECONDS,
+    LEGACY_VIEW_IDS,
     MAX_MODULE_COUNT,
     SPACE,
     VERSION,
@@ -29,6 +30,7 @@ USER_ID = "user-123"
 GIT_NAME = "alice"
 FEATURE_BRANCH = "feature/my-change"
 DEPLOY_BRANCH = "main"
+REPO = "github.com/cognitedata/toolkit"
 
 
 def _lock_node(
@@ -40,6 +42,7 @@ def _lock_node(
     version: int = 3,
     git_name: str = "bob",
     user_id: str = "user-456",
+    repo: str | None = None,
 ) -> NodeResponse:
     timestamp = timestamp or datetime.now(UTC)
     return NodeResponse.model_validate(
@@ -59,6 +62,7 @@ def _lock_node(
                         "userId": user_id,
                         "branch": branch,
                         "lock": lock,
+                        "repo": repo,
                     }
                 }
             },
@@ -87,6 +91,7 @@ def git() -> MagicMock:
     git.get_current_branch.return_value = FEATURE_BRANCH
     git.get_default_branch.return_value = DEPLOY_BRANCH
     git.get_me.return_value = GIT_NAME
+    git.get_remote_repo.return_value = REPO
     return git
 
 
@@ -198,9 +203,25 @@ class TestModuleLock:
         source = node.sources[0]
         assert source.source == VIEW_ID
         assert source.properties is not None
-        assert set(source.properties.keys()) == {"moduleId", "timestamp", "gitName", "userId", "branch", "lock"}
+        assert set(source.properties.keys()) == {"moduleId", "timestamp", "gitName", "userId", "branch", "lock", "repo"}
         assert source.properties["branch"] == FEATURE_BRANCH
         assert source.properties["lock"] is True
+
+    def test_as_nodes_legacy_view_excludes_repo(self) -> None:
+        lock = ModuleLock(
+            module_id="my_module",
+            timestamp=datetime(2026, 10, 24, 12, 0, tzinfo=UTC),
+            git_name=GIT_NAME,
+            user_id=USER_ID,
+            branch=FEATURE_BRANCH,
+            lock=False,
+            existing_version=1,
+            repo=REPO,
+        )
+        node = ModuleLock.as_nodes([lock], LEGACY_VIEW_IDS[0])[0]
+        assert node.sources is not None and node.sources[0].source == LEGACY_VIEW_IDS[0]
+        assert node.sources[0].properties is not None
+        assert "repo" not in node.sources[0].properties
 
     def test_as_nodes_from_nodes_round_trip(self) -> None:
         lock = ModuleLock(
@@ -277,6 +298,7 @@ class TestModuleLockManagerTryLock:
             user_id=USER_ID,
             git_name=GIT_NAME,
             current_branch=current_branch,
+            repo=REPO,
         )
         client.instances.retrieve.assert_not_called()
         client.instances.create.assert_not_called()
@@ -292,6 +314,7 @@ class TestModuleLockManagerTryLock:
             user_id=USER_ID,
             git_name=GIT_NAME,
             current_branch=DEPLOY_BRANCH,
+            repo=REPO,
         )
         client.instances.retrieve.assert_not_called()
         client.instances.create.assert_not_called()
@@ -314,6 +337,7 @@ class TestModuleLockManagerTryLock:
             user_id=USER_ID,
             git_name=GIT_NAME,
             current_branch=FEATURE_BRANCH,
+            repo=REPO,
         )
         nodes = _created_nodes(client)
         assert [node.external_id for node in nodes] == ["m1", "m2"]
@@ -327,6 +351,7 @@ class TestModuleLockManagerTryLock:
         assert properties["branch"] == FEATURE_BRANCH
         assert properties["userId"] == USER_ID
         assert properties["gitName"] == GIT_NAME
+        assert properties["repo"] == REPO
 
     @pytest.mark.parametrize(
         "existing",
@@ -343,6 +368,7 @@ class TestModuleLockManagerTryLock:
                 _lock_node("m1", branch=FEATURE_BRANCH, git_name="someone-else", user_id="other", version=5),
                 id="Same branch other user",
             ),
+            pytest.param(_lock_node("m1", branch=FEATURE_BRANCH, repo=REPO, version=5), id="Same branch same repo"),
         ],
     )
     def test_try_lock_existing_lock_can_be_taken(
@@ -373,6 +399,18 @@ class TestModuleLockManagerTryLock:
             ],
         )
         client.instances.create.assert_not_called()
+
+    def test_try_lock_same_branch_other_repo_fails(self, client: ToolkitClientMock, git: MagicMock) -> None:
+        client.instances.retrieve.return_value = [_lock_node("m1", branch=FEATURE_BRANCH, repo="github.com/other/repo")]
+        result = ModuleLockManager(client, git, dry_run=False).try_lock(["m1"])
+        assert isinstance(result, FailedLockResult)
+        client.instances.create.assert_not_called()
+
+    def test_try_lock_repo_lookup_fails(self, client: ToolkitClientMock, git: MagicMock) -> None:
+        git.get_remote_repo.side_effect = RuntimeError("git failed")
+        result = ModuleLockManager(client, git, dry_run=False).try_lock(["m1"])
+        assert isinstance(result, SuccessfulLockResult)
+        assert result.repo is None
 
     def test_try_lock_dry_run_does_not_write(self, client: ToolkitClientMock, git: MagicMock) -> None:
         result = ModuleLockManager(client, git, dry_run=True).try_lock(["m1"])

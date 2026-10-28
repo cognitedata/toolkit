@@ -15,6 +15,7 @@ from .entity_matching import EntityMatchingCommand
 from .functions import FunctionsCommand
 from .init import InitCommand
 from .instances import InstancesAPICommand
+from .module_lock import ModuleLockCommand
 from .modules import ModulesCommand
 from .pull import PullV2Command
 from .repo import RepoCommand
@@ -41,6 +42,7 @@ __all__ = [
     "InstancesAPICommand",
     "MigrationCommand",
     "MigrationPrepareCommand",
+    "ModuleLockCommand",
     "ModulesCommand",
     "PullV2Command",
     "PurgeCommand",
