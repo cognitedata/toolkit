@@ -35,7 +35,7 @@ EnvVarKey = Annotated[
     str,
     Field(
         pattern=r"^[A-Z0-9_]+$",
-        description="Environment variable key name (uppercase letters, numbers, and underscores only, 1-50 characters, must start with a letter or underscore).",
+        description="Environment variable key name (uppercase letters, numbers, and underscores only).",
     ),
 ]
 
