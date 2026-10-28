@@ -31,6 +31,7 @@ from .scopes import (
     PartitionScope,
     PostgresGatewayUsersScope,
     Scope,
+    SignalsCurrentUserScope,
     SpaceIDScope,
     TableScope,
 )
@@ -618,7 +619,7 @@ class SubscribeSignalsAcl(Acl):
 
     acl_name: Literal["subscribeSignalsAcl"] = Field("subscribeSignalsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
-    scope: AllScope | CurrentUserScope
+    scope: AllScope | SignalsCurrentUserScope
 
 
 class UnknownAcl(Acl):

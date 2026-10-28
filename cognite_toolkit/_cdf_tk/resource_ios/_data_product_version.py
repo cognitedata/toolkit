@@ -7,9 +7,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import
     DataProductVersionRequest,
     DataProductVersionResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, ScopeDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    AclType,
+    AllScope,
+    DataProductScope,
+    ScopeDefinition,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import DataProductsAcl
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._datamodel import ViewIO
+from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductVersionYAML
 
 from ._data_product import DataProductIO
@@ -54,11 +61,15 @@ class DataProductVersionIO(
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[DataProductVersionRequest]) -> ScopeDefinition | None:
-        return None
+        return DataProductScope(external_ids=sorted({item.data_product_external_id for item in items}))
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        yield from ()
+        if isinstance(scope, AllScope | DataProductScope):
+            yield DataProductsAcl(
+                actions=as_read_create_update_delete_actions(actions),
+                scope=scope,
+            )
 
     @classmethod
     def get_dependencies(cls, resource: DataProductVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

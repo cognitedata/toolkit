@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.app_version import AppVersi
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
+    AppExternalIdScope,
     AppHostingAcl,
     ScopeDefinition,
 )
@@ -48,11 +49,11 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[AppRequest]) -> ScopeDefinition:
-        return AllScope()
+        return AppExternalIdScope(external_ids=sorted({item.external_id for item in items}))
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        if isinstance(scope, AllScope):
+        if isinstance(scope, AllScope | AppExternalIdScope):
             yield AppHostingAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
@@ -134,11 +135,11 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[AppVersionRequest]) -> ScopeDefinition:
-        return AllScope()
+        return AppExternalIdScope(external_ids=sorted({item.app_external_id for item in items}))
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        if isinstance(scope, AllScope):
+        if isinstance(scope, AllScope | AppExternalIdScope):
             yield AppHostingAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
