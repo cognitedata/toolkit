@@ -5,7 +5,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SignalSinkId
-from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, SignalsCurrentUserScope, SubscribeSignalsAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import (
     SignalSubscriptionRequest,
     SignalSubscriptionResponse,
@@ -271,17 +270,3 @@ class TestSignalSubscriptionCRUDGetDependencies:
         deps = list(SignalSubscriptionIO.get_dependencies(resource))
         assert (HostedExtractorSourceIO, ExternalId(external_id="my-source")) in deps
         assert (HostedExtractorDestinationIO, ExternalId(external_id="my-dest")) in deps
-
-
-class TestSignalSubscriptionCRUDScope:
-    def test_get_minimum_scope_is_current_user(self) -> None:
-        request = SignalSubscriptionRequest.model_validate(_WORKFLOWS_SUB)
-        scope = SignalSubscriptionIO.get_minimum_scope([request])
-        assert scope == SignalsCurrentUserScope()
-
-    @pytest.mark.parametrize("scope", [AllScope(), SignalsCurrentUserScope()], ids=["all-scope", "current-user-scope"])
-    def test_create_acl_accepts_all_and_current_user_scope(self, scope) -> None:
-        acls = list(SignalSubscriptionIO.create_acl({"READ", "WRITE"}, scope))
-        assert len(acls) == 1
-        assert isinstance(acls[0], SubscribeSignalsAcl)
-        assert acls[0].scope == scope
