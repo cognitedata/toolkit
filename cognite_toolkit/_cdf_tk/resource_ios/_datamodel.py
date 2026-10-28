@@ -423,7 +423,11 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
                 self.client.containers.delete_indexes(
                     sorted(index_ids, key=lambda x: (x.space, x.external_id, x.identifier))
                 )
-            created.extend(self.client.containers.create(batch))
+            responses = self.client.containers.create(batch)
+            # Keep the lookup cache in sync, otherwise retrieve() would return stale containers.
+            for response in responses:
+                self._container_by_id[response.as_id()] = response
+            created.extend(responses)
         return created
 
     def _compute_deploy_batches(self, items: Sequence[ContainerRequest]) -> list[list[ContainerRequest]]:
@@ -556,6 +560,8 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
     def delete(self, ids: Sequence[ContainerId]) -> list[ContainerId]:
         id_list = list(ids)
         self.client.containers.delete(id_list)
+        for container_id in id_list:
+            self._container_by_id.pop(container_id, None)
         return id_list
 
     def _iterate(
