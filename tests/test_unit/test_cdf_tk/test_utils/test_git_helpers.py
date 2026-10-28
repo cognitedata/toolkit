@@ -44,6 +44,13 @@ CI_ENV_VARS = [
     "TRAVIS_BRANCH",
     "BUILD_ID",
     "GIT_SSH_COMMAND",
+    "GITHUB_REPOSITORY",
+    "GITHUB_SERVER_URL",
+    "CI_PROJECT_URL",
+    "BUILD_REPOSITORY_URI",
+    "BITBUCKET_GIT_HTTP_ORIGIN",
+    "CIRCLE_REPOSITORY_URL",
+    "TRAVIS_REPO_SLUG",
 ]
 
 CI_MARKERS: dict[str, dict[str, str]] = {
@@ -444,3 +451,80 @@ class TestGitWithRepository:
     def test_get_me_not_configured(self, repo: Path) -> None:
         with pytest.raises(RuntimeError, match=r"user.name"):
             Git.get_me()
+
+
+class TestGetRemoteRepo:
+    @pytest.mark.parametrize(
+        "url, expected",
+        [
+            pytest.param("https://github.com/cognitedata/toolkit.git", "github.com/cognitedata/toolkit", id="HTTPS"),
+            pytest.param(
+                "https://github.com/cognitedata/toolkit", "github.com/cognitedata/toolkit", id="HTTPS no .git"
+            ),
+            pytest.param(
+                "https://user:secret-token@github.com/cognitedata/toolkit.git",
+                "github.com/cognitedata/toolkit",
+                id="HTTPS with credentials",
+            ),
+            pytest.param("git@github.com:cognitedata/toolkit.git", "github.com/cognitedata/toolkit", id="SSH scp-like"),
+            pytest.param(
+                "ssh://git@GitHub.com:22/cognitedata/toolkit.git",
+                "github.com/cognitedata/toolkit",
+                id="SSH URL with port",
+            ),
+            pytest.param(
+                "https://org@dev.azure.com/org/project/_git/repo",
+                "dev.azure.com/org/project/_git/repo",
+                id="Azure DevOps",
+            ),
+            pytest.param("/srv/git/repo.git", "/srv/git/repo", id="Local path"),
+        ],
+    )
+    def test_normalize_remote_url(self, url: str, expected: str) -> None:
+        assert Git._normalize_remote_url(url) == expected
+
+    def test_get_remote_repo_from_git(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(Git, "_output", classmethod(lambda cls, *args, **kwargs: "git@github.com:org/repo.git"))
+        assert Git.get_remote_repo() == "github.com/org/repo"
+
+    @pytest.mark.parametrize(
+        "ci, env, expected",
+        [
+            pytest.param("github", {"GITHUB_REPOSITORY": "org/repo"}, "github.com/org/repo", id="GitHub"),
+            pytest.param(
+                "github",
+                {"GITHUB_REPOSITORY": "org/repo", "GITHUB_SERVER_URL": "https://ghe.example.com"},
+                "ghe.example.com/org/repo",
+                id="GitHub Enterprise",
+            ),
+            pytest.param(
+                "gitlab", {"CI_PROJECT_URL": "https://gitlab.com/org/repo"}, "gitlab.com/org/repo", id="GitLab"
+            ),
+            pytest.param(
+                "azure",
+                {"BUILD_REPOSITORY_URI": "https://dev.azure.com/org/project/_git/repo"},
+                "dev.azure.com/org/project/_git/repo",
+                id="Azure",
+            ),
+            pytest.param("travis", {"TRAVIS_REPO_SLUG": "org/repo"}, "github.com/org/repo", id="Travis"),
+        ],
+    )
+    def test_get_remote_repo_falls_back_to_ci(
+        self, ci: str, env: dict[str, str], expected: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _set_ci(monkeypatch, ci, env)
+        monkeypatch.setattr(Git, "_output", classmethod(lambda cls, *args, **kwargs: None))
+        assert Git.get_remote_repo() == expected
+
+    def test_get_remote_repo_unknown(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(Git, "_output", classmethod(lambda cls, *args, **kwargs: None))
+        assert Git.get_remote_repo() is None
+
+    @requires_git
+    def test_get_remote_repo_in_repository(self, repo: Path) -> None:
+        _git(repo, "remote", "add", "origin", "https://github.com/cognitedata/toolkit.git")
+        assert Git.get_remote_repo() == "github.com/cognitedata/toolkit"
+
+    @requires_git
+    def test_get_remote_repo_no_remote(self, repo: Path) -> None:
+        assert Git.get_remote_repo() is None

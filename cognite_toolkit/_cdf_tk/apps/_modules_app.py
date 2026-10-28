@@ -7,7 +7,7 @@ import typer
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.commands import ModulesCommand, PullV2Command
+from cognite_toolkit._cdf_tk.commands import ModuleLockCommand, ModulesCommand, PullV2Command
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._version import __version__
@@ -24,7 +24,7 @@ class ModulesListFormats(StrEnum):
 
 class ModulesApp(typer.Typer):
     # Subcommands that need CDF credentials (the rest work offline).
-    COMMANDS_REQUIRING_CREDENTIALS: frozenset[str] = frozenset({"pull"})
+    COMMANDS_REQUIRING_CREDENTIALS: frozenset[str] = frozenset({"pull", "locks"})
 
     def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
         super().__init__(*args, **kwargs)
@@ -34,6 +34,8 @@ class ModulesApp(typer.Typer):
         self.command()(self.pull)
         self.command()(self.list)
         self.command()(self.add)
+        if Flags.DEPLOY_PROTECTION.is_enabled():
+            self.command()(self.locks)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands to manage modules"""
@@ -248,6 +250,37 @@ class ModulesApp(typer.Typer):
                 build_env_name=build_env,
             )
         )
+
+    def locks(
+        self,
+        no_unlock: Annotated[
+            bool,
+            typer.Option(
+                "--no-unlock",
+                help="Only list the module locks, do not prompt to release any of them.",
+            ),
+        ] = False,
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="Show which locks would be released without releasing them.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """List all module locks with their status and optionally release (unlock) them."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = ModuleLockCommand(client=client)
+        cmd.run(lambda: cmd.locks(client=client, unlock=not no_unlock, dry_run=dry_run))
 
     def list(
         self,
