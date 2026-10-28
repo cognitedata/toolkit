@@ -79,7 +79,7 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
     kind: str = "FileMetadata"
     dependencies = frozenset({DataSetsIO, GroupAllScopedIO, LabelIO, AssetIO})
 
-    _doc_url = "Files#operation/initFileUpload"
+    _doc_url = "Files/operation/initFileUpload"
 
     class _MetadataKey:
         FILECONTENT_HASH = "cognite-toolkit-hash"
@@ -345,7 +345,7 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
     yaml_cls = CogniteFileYAML
     dependencies = frozenset({GroupAllScopedIO, SpaceIO, ViewIO})
 
-    _doc_url = "Files#operation/initFileUpload"
+    _doc_url = "Files/operation/initFileUpload"
     # 128,000 bytes (UTF-8) is the maximum, worse case utf-8 will use 4 bytes per character
     TEXT_FIELD_MAX_LENGTH = 32_000
 

@@ -107,7 +107,7 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
     )
     yaml_cls = WorkflowYAML
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
-    _doc_url = "Workflows#operation/CreateOrUpdateWorkflow"
+    _doc_url = "Workflows/operation/CreateOrUpdateWorkflow"
 
     @property
     def display_name(self) -> str:
@@ -207,7 +207,7 @@ class WorkflowVersionIO(
     yaml_cls = WorkflowVersionYAML
 
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
-    _doc_url = "Workflow-versions#operation/CreateOrUpdateWorkflowVersion"
+    _doc_url = "Workflow-versions/operation/CreateOrUpdateWorkflowVersion"
     # The /list endpoint has a limit of 100 workflow ids per request.
     _list_workflow_filter_limit = 100
 
@@ -525,7 +525,7 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
     parent_resource = frozenset({WorkflowIO})
     yaml_cls = WorkflowTriggerYAML
 
-    _doc_url = "Workflow-triggers#operation/CreateOrUpdateTriggers"
+    _doc_url = "Workflow-triggers/operation/CreateOrUpdateTriggers"
 
     class _MetadataKey:
         secret_hash = "cognite-toolkit-auth-hash"

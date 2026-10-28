@@ -48,7 +48,7 @@ class IntegrationsIO(ResourceIO[ExternalId, IntegrationRequest, IntegrationRespo
     yaml_cls = IntegrationYAML
     dependencies = frozenset()
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
-    _doc_url = "Integrations#operation/create_integrations"
+    _doc_url = "Integrations/operation/create_integrations"
 
     @property
     def display_name(self) -> str:
@@ -128,7 +128,7 @@ class IntegrationConfigsIO(
     # Revisions cannot be deleted. Deleting the integration removes them.
     support_drop = False
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
-    _doc_url = "Integration-Configuration#operation/new_integration_config"
+    _doc_url = "Integration-Configuration/operation/new_integration_config"
 
     @property
     def display_name(self) -> str:

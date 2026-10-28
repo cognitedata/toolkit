@@ -242,7 +242,7 @@ class MyThingIO(ResourceIO[ExternalId, MyThingRequest, MyThingResponse, MyThingY
     resource_write_cls = MyThingRequest
     yaml_cls = MyThingYAML
     dependencies = frozenset({DataSetsIO})   # IOs that must be deployed first
-    _doc_url = "MyThings#operation/createMyThings"   # override _doc_base_url for alpha/beta docs
+    _doc_url = "MyThings/operation/createMyThings"   # override _doc_base_url for alpha/beta docs
 
     @property
     def display_name(self) -> str:
