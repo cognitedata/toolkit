@@ -417,8 +417,12 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
         for batch in self._compute_deploy_batches(items):
             if Flags.v010.is_enabled() and mode == "update":
                 constraint_ids, index_ids = self._find_modified_or_deleted_constraints_and_indexes(batch)
-                self.client.containers.delete_constraints(list(constraint_ids))
-                self.client.containers.delete_indexes(list(index_ids))
+                self.client.containers.delete_constraints(
+                    sorted(constraint_ids, key=lambda x: (x.space, x.external_id, x.identifier))
+                )
+                self.client.containers.delete_indexes(
+                    sorted(index_ids, key=lambda x: (x.space, x.external_id, x.identifier))
+                )
             created.extend(self.client.containers.create(batch))
         return created
 
