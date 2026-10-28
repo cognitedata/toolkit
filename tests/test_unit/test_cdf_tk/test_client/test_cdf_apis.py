@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.api.app_versions import AppVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.apps import AppsAPI
 from cognite_toolkit._cdf_tk.client.api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
 from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobsAPI
+from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
@@ -40,6 +41,9 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import (
     AppVersionId,
+    ContainerConstraintId,
+    ContainerIndexId,
+    ContainerPropertyId,
     ExternalId,
     InternalId,
     PrincipalId,
@@ -1785,6 +1789,58 @@ description: Smoke test skill
         assert listed[0].dump() == listed_session
         assert isinstance(listed[0], SessionResponse)
         assert dict(respx_mock.calls[-1].request.url.params) == {"status": "ACTIVE", "limit": "25"}
+
+    @pytest.mark.parametrize(
+        "method_name, path, id_cls",
+        [
+            pytest.param(
+                "delete_constraints",
+                "/models/containers/constraints/delete",
+                ContainerConstraintId,
+                id="delete_constraints",
+            ),
+            pytest.param("delete_indexes", "/models/containers/indexes/delete", ContainerIndexId, id="delete_indexes"),
+            pytest.param(
+                "retry_constraints",
+                "/models/containers/constraints/retry",
+                ContainerConstraintId,
+                id="retry_constraints",
+            ),
+            pytest.param("retry_indexes", "/models/containers/indexes/retry", ContainerIndexId, id="retry_indexes"),
+            pytest.param(
+                "retry_property_constraints",
+                "/models/containers/properties/constraints/retry",
+                ContainerPropertyId,
+                id="retry_property_constraints",
+            ),
+        ],
+    )
+    def test_containers_api_constraint_and_index_endpoints(
+        self,
+        method_name: str,
+        path: str,
+        id_cls: type[ContainerConstraintId | ContainerIndexId | ContainerPropertyId],
+        toolkit_config: ToolkitClientConfig,
+        respx_mock: respx.MockRouter,
+    ) -> None:
+        config = toolkit_config
+        api = ContainersAPI(HTTPClient(config))
+        ids = [id_cls(space="my_space", external_id="my_container", identifier=f"id_{i}") for i in range(12)]
+
+        def echo(request: httpx2.Request) -> httpx2.Response:
+            return httpx2.Response(status_code=200, json=_request_json(request))
+
+        route = respx_mock.post(config.create_api_url(path)).mock(side_effect=echo)
+
+        result = getattr(api, method_name)(ids)
+
+        assert route.call_count == 2  # Chunked by 10
+        assert _request_json(route.calls[0].request) == {
+            "items": [
+                {"space": "my_space", "containerExternalId": "my_container", "identifier": f"id_{i}"} for i in range(10)
+            ]
+        }
+        assert result == ids
 
 
 def _request_json(request: httpx2.Request) -> JsonValue:
