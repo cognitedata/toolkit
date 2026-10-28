@@ -6,12 +6,11 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
 
 from ._base import ToolkitCommand
-from .deploy_v2.module_lock import LEGACY_VIEW_IDS, SPACE, VIEW_ID, ModuleLock
+from .deploy_v2.module_lock import SPACE, VIEW_ID, ModuleLock
 
 
 class ModuleLockCommand(ToolkitCommand):
@@ -28,17 +27,13 @@ class ModuleLockCommand(ToolkitCommand):
         Returns:
             The list of locks that were released (or would be released in dry-run mode).
         """
-        view_id = self._find_lock_view(client)
-        if view_id is None:
+        locks = self._list_locks(client)
+        if locks is None:
             print(
                 "[yellow]Module locking has not been set up in this CDF project[/yellow] "
                 f"(the view {VIEW_ID!s} is not deployed). No modules are locked.\n"
                 "The view is created automatically the first time modules are locked during deploy."
             )
-            return []
-        locks = self._list_locks(client, view_id)
-        if not locks:
-            print("No module locks found.")
             return []
 
         email_by_user_id = self._lookup_emails(client, locks)
@@ -82,40 +77,24 @@ class ModuleLockCommand(ToolkitCommand):
 
         released = [lock.model_copy(update={"lock": False, "timestamp": datetime.now(UTC)}) for lock in selected]
         try:
-            client.instances.create(ModuleLock.as_nodes(released, view_id), replace=True)
+            client.instances.create(ModuleLock.as_nodes(released), replace=True)
         except ToolkitAPIError as e:
             raise ToolkitValueError(f"Failed to release module locks due to API error: {e.code} - {e.message}") from e
         print(f"Released {len(released)} lock(s): {', '.join(lock.module_id for lock in released)}")
         return released
 
     @staticmethod
-    def _find_lock_view(client: ToolkitClient) -> ViewId | None:
-        """Find the newest deployed version of the module lock view, or None if no version is deployed."""
-        candidates = [VIEW_ID, *LEGACY_VIEW_IDS]
-        try:
-            views = client.views.retrieve(candidates, include_inherited_properties=False)
-        except ToolkitAPIError as e:
-            if e.code is not None and 400 <= e.code < 500 and "not exist" in e.message.lower():
-                # For example, the space does not exist.
-                return None
-            raise ToolkitValueError(
-                f"Failed to look up the module lock view due to API error: {e.code} - {e.message}"
-            ) from e
-        deployed = {view.as_id() for view in views}
-        return next((view_id for view_id in candidates if view_id in deployed), None)
-
-    @staticmethod
-    def _list_locks(client: ToolkitClient, view_id: ViewId) -> list[ModuleLock]:
+    def _list_locks(client: ToolkitClient) -> list[ModuleLock] | None:
         try:
             nodes = client.instances.list(
-                filter=InstanceFilter(instance_type="node", source=view_id, space=[SPACE]), limit=None
+                filter=InstanceFilter(instance_type="node", source=VIEW_ID, space=[SPACE]), limit=None
             )
         except ToolkitAPIError as e:
             if e.code is not None and 400 <= e.code < 500 and "not exist" in e.message.lower():
                 # The view was removed between the lookup and the listing, there are no locks.
-                return []
+                return None
             raise ToolkitValueError(f"Failed to retrieve module locks due to API error: {e.code} - {e.message}") from e
-        return sorted(ModuleLock.from_nodes(nodes, view_id), key=lambda lock: (lock.repo or "", lock.module_id))
+        return sorted(ModuleLock.from_nodes(nodes), key=lambda lock: (lock.repo or "", lock.module_id))
 
     @staticmethod
     def _is_active(lock: ModuleLock) -> bool:

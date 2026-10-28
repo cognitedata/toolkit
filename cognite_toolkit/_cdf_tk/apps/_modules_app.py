@@ -34,7 +34,8 @@ class ModulesApp(typer.Typer):
         self.command()(self.pull)
         self.command()(self.list)
         self.command()(self.add)
-        self.command()(self.locks)
+        if Flags.DEPLOY_PROTECTION.is_enabled():
+            self.command()(self.locks)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands to manage modules"""

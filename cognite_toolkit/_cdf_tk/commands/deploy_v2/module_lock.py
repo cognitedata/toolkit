@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cached_property
+from typing import Self
 
 from pydantic import BaseModel, ValidationError
 from pydantic.alias_generators import to_camel
@@ -98,7 +99,7 @@ class ModuleLock(BaseModel, alias_generator=to_camel, populate_by_name=True):
         return (datetime.now(UTC) - self.timestamp).total_seconds() > HEARTBEAT_INTERVAL_SECONDS
 
     @classmethod
-    def from_nodes(cls, nodes: list[InstanceResponse]) -> list["ModuleLock"]:
+    def from_nodes(cls, nodes: list[InstanceResponse]) -> list[Self]:
         """Parse a list of nodes into a list of ModuleLock objects."""
         locks: list[ModuleLock] = []
         for node in nodes:

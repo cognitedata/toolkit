@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import ModuleLockCommand
-from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import LEGACY_VIEW_IDS, SPACE, VIEW_ID
+from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import SPACE, VIEW_ID
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from tests.test_unit.utils import MockQuestionary
 

@@ -3,6 +3,7 @@ from ._migrate import (
     MigrationCommand,
     MigrationPrepareCommand,
 )
+from ._module_lock_cmd import ModuleLockCommand
 from ._purge import PurgeCommand
 from ._respace import RespaceCommand
 from ._upload import UploadCommand
@@ -15,7 +16,6 @@ from .entity_matching import EntityMatchingCommand
 from .functions import FunctionsCommand
 from .init import InitCommand
 from .instances import InstancesAPICommand
-from .module_lock import ModuleLockCommand
 from .modules import ModulesCommand
 from .pull import PullV2Command
 from .repo import RepoCommand
