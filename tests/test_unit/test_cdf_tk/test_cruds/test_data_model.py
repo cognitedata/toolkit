@@ -372,7 +372,7 @@ class TestContainerIO:
                     ContainerConstraintId(space=self.SPACE, external_id=self.EXTERNAL_ID, identifier="uniqueCode"),
                     ContainerConstraintId(space=self.SPACE, external_id=self.EXTERNAL_ID, identifier="requiresOther"),
                 ],
-                key=lambda x: x.external_id,
+                key=lambda x: (x.space, x.external_id, x.identifier),
             )
         )
         client.containers.delete_indexes.assert_called_once_with(
@@ -381,7 +381,7 @@ class TestContainerIO:
                     ContainerIndexId(space=self.SPACE, external_id=self.EXTERNAL_ID, identifier="codeIndex"),
                     ContainerIndexId(space=self.SPACE, external_id=self.EXTERNAL_ID, identifier="invertedIndex"),
                 ],
-                key=lambda x: x.external_id,
+                key=lambda x: (x.space, x.external_id, x.identifier),
             )
         )
         client.containers.create.assert_called_once()
