@@ -3,6 +3,7 @@ from ._migrate import (
     MigrationCommand,
     MigrationPrepareCommand,
 )
+from ._module_lock_cmd import ModuleLockCommand
 from ._purge import PurgeCommand
 from ._respace import RespaceCommand
 from ._upload import UploadCommand
@@ -41,6 +42,7 @@ __all__ = [
     "InstancesAPICommand",
     "MigrationCommand",
     "MigrationPrepareCommand",
+    "ModuleLockCommand",
     "ModulesCommand",
     "PullV2Command",
     "PurgeCommand",

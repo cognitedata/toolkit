@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cached_property
+from typing import Self
 
 from pydantic import BaseModel, ValidationError
 from pydantic.alias_generators import to_camel
@@ -67,6 +68,7 @@ class SuccessfulLockResult(ModulesLockResult):
     user_id: str
     git_name: str
     current_branch: str
+    repo: str | None = None
 
 
 @dataclass
@@ -89,6 +91,7 @@ class ModuleLock(BaseModel, alias_generator=to_camel, populate_by_name=True):
     branch: str
     lock: bool
     existing_version: int | None
+    repo: str | None = None
 
     @property
     def is_expired(self) -> bool:
@@ -96,9 +99,9 @@ class ModuleLock(BaseModel, alias_generator=to_camel, populate_by_name=True):
         return (datetime.now(UTC) - self.timestamp).total_seconds() > HEARTBEAT_INTERVAL_SECONDS
 
     @classmethod
-    def from_nodes(cls, nodes: list[InstanceResponse]) -> list["ModuleLock"]:
+    def from_nodes(cls, nodes: list[InstanceResponse]) -> list[Self]:
         """Parse a list of nodes into a list of ModuleLock objects."""
-        locks: list[ModuleLock] = []
+        locks: list[Self] = []
         for node in nodes:
             if node.properties is None:
                 continue
@@ -163,6 +166,7 @@ class ModuleLockManager:
                 user_id=user_id,
                 git_name=self._git_name,
                 current_branch=self._current_branch,
+                repo=self._repo,
             )
 
         return self._try_lock(module_ids, user_id, attempt=0)
@@ -186,6 +190,13 @@ class ModuleLockManager:
             raise ToolkitValueError(
                 "Failed to retrieve default git branch. You cannot use the lock feature without a valid git repository."
             )
+
+    @cached_property
+    def _repo(self) -> str | None:
+        try:
+            return self._git.get_remote_repo()
+        except RuntimeError:
+            return None
 
     @cached_property
     def _git_name(self) -> str:
@@ -239,6 +250,7 @@ class ModuleLockManager:
                 is_deploy_branch=False,
                 user_id=user_id,
                 current_branch=self._current_branch,
+                repo=self._repo,
                 git_name=self._git_name,
             )
 
@@ -254,6 +266,7 @@ class ModuleLockManager:
             is_deploy_branch=False,
             user_id=user_id,
             current_branch=self._current_branch,
+            repo=self._repo,
             git_name=self._git_name,
         )
 
@@ -295,13 +308,21 @@ class ModuleLockManager:
             git_name=lock.git_name,
             user_id=lock.user_id,
             branch=lock.current_branch,
+            repo=lock.repo,
             lock=False,
             existing_version=None,
         )
 
     def _can_attempt_lock(self, lock: ModuleLock) -> bool:
         """Check if the lock can be attempted."""
-        return lock.lock is False or lock.is_expired or lock.branch == self._current_branch
+        return lock.lock is False or lock.is_expired or self._is_same_branch(lock)
+
+    def _is_same_branch(self, lock: ModuleLock) -> bool:
+        """The lock is held by the current branch. If both the lock and the current repository are known,
+        the repository must match as well, as two repositories may have branches with the same name."""
+        if lock.branch != self._current_branch:
+            return False
+        return lock.repo is None or self._repo is None or lock.repo == self._repo
 
     def _create_lock_view(self) -> None:
         """Create the lock view if it does not exist."""
@@ -312,6 +333,7 @@ class ModuleLockManager:
             "userId": ContainerPropertyDefinition(nullable=False, type=TextProperty()),
             "branch": ContainerPropertyDefinition(nullable=False, type=TextProperty()),
             "lock": ContainerPropertyDefinition(nullable=False, type=BooleanProperty()),
+            "repo": ContainerPropertyDefinition(nullable=True, type=TextProperty()),
         }
         try:
             self._client.spaces.create(
@@ -367,5 +389,6 @@ class ModuleLockManager:
             user_id=user_id,
             lock=True,
             branch=self._current_branch,
+            repo=self._repo,
             existing_version=existing_lock.existing_version if existing_lock else 0,
         )

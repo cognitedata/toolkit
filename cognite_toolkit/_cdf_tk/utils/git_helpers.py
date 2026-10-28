@@ -24,6 +24,7 @@ import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 from cognite_toolkit._cdf_tk.tk_warnings.other import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.cicd import get_cicd_environment
@@ -379,6 +380,69 @@ class Git:
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to get uncommitted changes: {e.stderr.strip()}") from e
         return result.stdout.strip().splitlines()
+
+    @classmethod
+    def get_remote_repo(cls, remote: str = "origin") -> str | None:
+        """Get the remote repository of the current git repository.
+
+        The URL is normalized to '<host>/<path>' (e.g. 'github.com/cognitedata/toolkit'), such that the
+        same repository gives the same value independent of whether it is cloned using HTTPS or SSH, and
+        any credentials embedded in the URL are removed.
+
+        Args:
+            remote: The name of the git remote to look up.
+
+        Returns:
+            The normalized remote repository, or None if it could not be determined.
+        """
+        url = cls._output("remote", "get-url", remote) or cls._ci_remote_url()
+        if not url:
+            return None
+        return cls._normalize_remote_url(url)
+
+    @classmethod
+    def _ci_remote_url(cls) -> str | None:
+        env = get_cicd_environment()
+        if env == "github":
+            repository = cls._env("GITHUB_REPOSITORY")
+            if repository:
+                server = cls._env("GITHUB_SERVER_URL") or "https://github.com"
+                return f"{server.rstrip('/')}/{repository}"
+        elif env == "gitlab":
+            return cls._env("CI_PROJECT_URL")
+        elif env == "azure":
+            return cls._env("BUILD_REPOSITORY_URI")
+        elif env == "bitbucket":
+            return cls._env("BITBUCKET_GIT_HTTP_ORIGIN")
+        elif env == "circleci":
+            return cls._env("CIRCLE_REPOSITORY_URL")
+        elif env == "travis":
+            slug = cls._env("TRAVIS_REPO_SLUG")
+            return f"https://github.com/{slug}" if slug else None
+        return None
+
+    @staticmethod
+    def _normalize_remote_url(url: str) -> str:
+        """Normalize a git remote URL to '<host>/<path>' without scheme, credentials, port, or '.git' suffix.
+
+        Examples:
+            https://user:token@github.com/org/repo.git -> github.com/org/repo
+            git@github.com:org/repo.git -> github.com/org/repo
+            ssh://git@ssh.dev.azure.com:22/v3/org/project/repo -> ssh.dev.azure.com/v3/org/project/repo
+        """
+        url = url.strip()
+        if "://" in url:
+            parsed = urlparse(url)
+            host = parsed.hostname or ""
+            path = parsed.path
+        elif "@" in url and ":" in url.split("@", 1)[1]:
+            # scp-like SSH syntax: [user@]host:path
+            host, path = url.split("@", 1)[1].split(":", 1)
+        else:
+            # Local path or unknown format, keep as is.
+            return url.removesuffix(".git").rstrip("/")
+        path = path.strip("/").removesuffix(".git")
+        return f"{host.lower()}/{path}" if path else host.lower()
 
     @classmethod
     def get_me(cls) -> str:
