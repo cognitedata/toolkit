@@ -3,6 +3,8 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
+import rich
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeResponse
@@ -40,8 +42,12 @@ def _lock_node(module_id: str, *, lock: bool = True, age: timedelta = timedelta(
 
 @pytest.fixture(autouse=True)
 def wide_console(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Avoid that rich wraps the table cells, which makes the output hard to assert on."""
-    monkeypatch.setenv("COLUMNS", "300")
+    """Avoid that rich wraps the table cells, which makes the output hard to assert on.
+
+    rich.print uses a global console singleton whose width is fixed when it is first created, so setting
+    the COLUMNS environment variable is not enough if another test already created it. Replace it instead.
+    """
+    monkeypatch.setattr(rich, "_console", Console(width=300))
 
 
 @pytest.fixture
