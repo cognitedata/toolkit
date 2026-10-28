@@ -105,7 +105,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         }
     )
     resource_scope_names = frozenset({scope.model_fields["scope_name"].default for scope in resource_scopes})
-    _doc_url = "Groups#operation/createGroups"
+    _doc_url = "Groups/operation/createGroups"
 
     def __init__(
         self,
@@ -520,7 +520,7 @@ class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCat
     yaml_cls = SecurityCategoriesYAML
     folder_name = "auth"
     dependencies = frozenset({GroupAllScopedIO})
-    _doc_url = "Security-categories#operation/createSecurityCategories"
+    _doc_url = "Security-categories/operation/createSecurityCategories"
     support_update = False
 
     @property

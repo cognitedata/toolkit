@@ -39,7 +39,7 @@ class SchemaMappingIO(ResourceIO[ExternalId, SchemaMappingRequest, SchemaMapping
     kind = "SchemaMapping"
     yaml_cls = SchemaMappingYAML
     support_update = False
-    _doc_url = "Schema-Mappings#operation/create_schema_mappings"
+    _doc_url = "Schema-Mappings/operation/create_schema_mappings"
 
     @property
     def display_name(self) -> str:
@@ -111,7 +111,7 @@ class SAPInstanceIO(ResourceIO[ExternalId, SAPInstanceRequest, SAPInstanceRespon
     kind = "SAPInstance"
     yaml_cls = SAPInstanceYAML
     support_update = False
-    _doc_url = "SAP-Instances#operation/create_instances"
+    _doc_url = "SAP-Instances/operation/create_instances"
 
     @property
     def display_name(self) -> str:
@@ -188,7 +188,7 @@ class SAPEndpointIO(ResourceIO[ExternalId, SAPEndpointRequest, SAPEndpointRespon
     yaml_cls = SAPEndpointYAML
     dependencies = frozenset({SAPInstanceIO, SchemaMappingIO})
     support_update = False
-    _doc_url = "SAP-Endpoints#operation/create_endpoints"
+    _doc_url = "SAP-Endpoints/operation/create_endpoints"
 
     @property
     def display_name(self) -> str:

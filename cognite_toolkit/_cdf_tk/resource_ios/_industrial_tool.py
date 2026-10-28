@@ -52,7 +52,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
     resource_write_cls = StreamlitRequest
     kind = "Streamlit"
     dependencies = frozenset({DataSetsIO, GroupAllScopedIO})
-    _doc_url = "Files#operation/initFileUpload"
+    _doc_url = "Files/operation/initFileUpload"
     _metadata_hash_key = "cdf-toolkit-app-hash"
     yaml_cls = StreamlitYAML
 

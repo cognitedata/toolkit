@@ -37,7 +37,7 @@ class ThreeDModelIO(
     kind = "3DModel"
     yaml_cls = ThreeDModelYAML
     dependencies = frozenset({DataSetsIO})
-    _doc_url = "3D-Models#operation/create3DModels"
+    _doc_url = "3D-Models/operation/create3DModels"
     item_name = "revisions"
 
     @property
