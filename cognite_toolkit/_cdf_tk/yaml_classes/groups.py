@@ -12,7 +12,7 @@ from .base import ToolkitResource
 from .capabilities import CapabilityType, UnknownCapability
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning, ModelSyntaxWarning
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning
 
 
 class BaseGroupYAML(ToolkitResource):
@@ -27,7 +27,7 @@ class BaseGroupYAML(ToolkitResource):
     def as_id(self) -> NameId:
         return NameId(name=self.name)
 
-    def syntax_warnings(self, source_file: Path) -> "list[ModelSyntaxWarning | BuildWarning]":
+    def syntax_warnings(self, source_file: Path) -> "list[BuildWarning]":
         # Lazy import to avoid circular dependency (yaml_classes → commands.build_v2 → resource_ios → yaml_classes).
         from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
             BuildWarning,

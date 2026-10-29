@@ -8,7 +8,6 @@ from typing import Annotated, Any, ClassVar, Literal, Self, TypeAlias, TypeVar
 from pydantic import (
     BaseModel,
     Field,
-    StringConstraints,
     TypeAdapter,
     field_serializer,
     field_validator,
@@ -20,6 +19,9 @@ from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_modules
 
+ERROR_TYPE: Literal["Error"] = "Error"
+WARNING_TYPE: Literal["Warning"] = "Warning"
+RECOMMENDATION_TYPE: Literal["Recommendation"] = "Recommendation"
 T_Insight = TypeVar("T_Insight", bound="InsightDefinition")
 PATH_SEP_CSV = " | "  # Separator for multiple source files in CSV output
 
@@ -51,9 +53,6 @@ InsightCode: TypeAlias = Literal[
     "UNVERIFIED-REFERENCED-PROPERTY",
     "UNVERIFIED-REFERENCED-RESOURCE",
 ]
-# NEAT issues come with codes defined by the neat package.
-# Remove this once NEAT support is removed from Toolkit.
-NeatInsightCode: TypeAlias = Annotated[str, StringConstraints(pattern=r"^NEAT-")]
 
 
 class InsightDefinition(BaseModel):
@@ -133,33 +132,6 @@ class InsightDefinition(BaseModel):
         return _normalize_csv_cell(value)
 
 
-class FileReadError(InsightDefinition):
-    insight_type: Literal["FileReadError"] = "FileReadError"
-    severity = 60
-
-
-class ModelSyntaxError(InsightDefinition):
-    """If any syntax error is found. Stop validation
-    and ask user to fix the syntax error first."""
-
-    insight_type: Literal["ModelSyntaxError"] = "ModelSyntaxError"
-    severity = 40
-
-
-class ModelSyntaxWarning(InsightDefinition):
-    """A non-blocking syntax issue, such as an unrecognized field. The resource is still built and deployed."""
-
-    insight_type: Literal["ModelSyntaxWarning"] = "ModelSyntaxWarning"
-    severity = 15
-
-
-class ConsistencyError(InsightDefinition):
-    """If any consistency error is found, the deployment of the CDF resource will fail."""
-
-    insight_type: Literal["ConsistencyError"] = "ConsistencyError"
-    severity = 45
-
-
 class InternalValidatorException(BaseModel):
     """A validator threw an unexpected exception and could not complete.
 
@@ -187,43 +159,29 @@ class InternalValidatorException(BaseModel):
         return message[: cls.MAX_MESSAGE_LENGTH] + "... (truncated)"
 
 
-class IgnoredFileWarning(InsightDefinition):
-    """A file was ignored because it was not recognized as a valid resource file."""
-
-    insight_type: Literal["IgnoredFileWarning"] = "IgnoredFileWarning"
-    severity = 20
-
-
 class Recommendation(InsightDefinition):
     """Best practice recommendation."""
 
-    insight_type: Literal["Recommendation"] = "Recommendation"
+    insight_type: Literal["Recommendation"] = RECOMMENDATION_TYPE
     severity = 10
 
 
 class BuildError(InsightDefinition):
     """A confirmed problem. The resource cannot be built or deployed as configured."""
 
-    insight_type: Literal["Error"] = "Error"
+    insight_type: Literal["Error"] = ERROR_TYPE
     severity = 50
 
 
 class BuildWarning(InsightDefinition):
     """A potential problem that could not be confirmed, or an issue that does not block the build."""
 
-    insight_type: Literal["Warning"] = "Warning"
+    insight_type: Literal["Warning"] = WARNING_TYPE
     severity = 20
 
 
 Insight = Annotated[
-    ModelSyntaxError
-    | ModelSyntaxWarning
-    | ConsistencyError
-    | Recommendation
-    | FileReadError
-    | IgnoredFileWarning
-    | BuildError
-    | BuildWarning,
+    Recommendation | BuildError | BuildWarning,
     Field(discriminator="insight_type"),
 ]
 
@@ -265,14 +223,9 @@ class InsightList(UserList[Insight]):
         return dict(result)
 
     @property
-    def has_model_syntax_errors(self) -> bool:
-        """Returns True if there are any model syntax errors in the insights."""
-        return any(isinstance(insight, (ModelSyntaxError, BuildError)) for insight in self.data)
-
-    @property
     def has_errors(self) -> bool:
-        """Returns True if there are any errors (model syntax or consistency) in the insights."""
-        return any(isinstance(insight, (ModelSyntaxError, ConsistencyError, BuildError)) for insight in self.data)
+        """Returns True if there are any errors in the insights."""
+        return any(isinstance(insight, BuildError) for insight in self.data)
 
     @property
     def summary(self) -> dict[str, int]:

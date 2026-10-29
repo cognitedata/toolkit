@@ -20,10 +20,7 @@ from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuildInput, BuiltModule
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
-    ConsistencyError,
-    ModelSyntaxError,
-)
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ERROR_TYPE
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingResourceError,
@@ -142,12 +139,7 @@ class ModuleLineageItem(_BaseLineageModel):
     @property
     def is_success(self) -> bool:
         """Determine if module build was successful based on insights summary."""
-        return (
-            self.insights_summary.get(ModelSyntaxError.__name__, 0) == 0
-            and self.insights_summary.get(ConsistencyError.__name__, 0) == 0
-            and self.insights_summary.get("Error", 0) == 0
-            and bool(self.resource_lineage)
-        )
+        return self.insights_summary.get(ERROR_TYPE, 0) == 0 and bool(self.resource_lineage)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -155,14 +147,9 @@ class ModuleLineageItem(_BaseLineageModel):
         """Overall status of the module build based on insights summary."""
         if self.is_success:
             return "SUCCESS"
-        elif self.insights_summary.get(ModelSyntaxError.__name__, 0) > 0:
-            return "FAILED: ModelSyntaxError"
-        elif self.insights_summary.get(ConsistencyError.__name__, 0) > 0:
-            return "FAILED: ConsistencyError"
-        elif self.insights_summary.get("Error", 0) > 0:
-            return "FAILED: Error"
-        else:
-            return "FAILED: Unknown reason"
+        if self.insights_summary.get(ERROR_TYPE, 0) > 0:
+            return f"FAILED: {ERROR_TYPE}"
+        return "FAILED: Unknown reason"
 
     @classmethod
     def from_built_module(
