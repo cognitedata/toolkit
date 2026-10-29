@@ -11,11 +11,11 @@ from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 
 def _rulesets_or_dataproducts_api_disabled(exc: ToolkitAPIError) -> bool:
-    """CDF returns 403 when Rule Sets / Data products is not enabled on the project."""
+    """CDF returns 403 when Rule Sets / Data products / Data domains is not enabled on the project."""
     if exc.code != 403 and "403" not in str(exc):
         return False
     msg = str(exc)
-    return "Rule Sets API is not enabled" in msg or "Data products service" in msg
+    return "Rule Sets API is not enabled" in msg or "Data products service" in msg or "Data domains service" in msg
 
 
 def _simulator_on_orangefield(exc: ToolkitAPIError, config: ToolkitClientConfig) -> bool:

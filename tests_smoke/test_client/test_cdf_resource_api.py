@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.client.api.datapoint_subscription import DatapointS
 from cognite_toolkit._cdf_tk.client.api.datapoints import DatapointsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
+from cognite_toolkit._cdf_tk.client.api.domains import DomainsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
 from cognite_toolkit._cdf_tk.client.api.function_calls import FunctionCallsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
@@ -124,6 +125,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription impo
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import DOCUMENT_PROPERTY_OPTIONS, DocumentPropertyPath
+from cognite_toolkit._cdf_tk.client.resource_classes.domain import DomainRequest, DomainResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
     ExternalDataSourceRequest,
@@ -340,7 +342,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # GraphQLDataModelsAPI,
         # List method requires an argument,
         SequenceRowsAPI,
-        # The dataproduct API is not yet supported in CDF.
+        # The dataproduct and domain APIs are not yet supported in all CDF projects.
+        DomainsAPI,
         DataProductsAPI,
         DataProductVersionsAPI,
         # Datapoints subscription has a special update method
@@ -655,6 +658,9 @@ Used by toolkit smoke tests.
                 "model3dId": 1,
                 "nodeId": "smoke-test-node",
             }
+        ],
+        DomainResponse: [
+            {"externalId": "smoke-test-domain", "name": "Smoke Test Domain"},
         ],
         RuleSetResponse: [
             {"externalId": "smoke-test-ruleset", "name": "Smoke Test Rule Set"},
@@ -2039,6 +2045,53 @@ class TestCDFResourceAPI:
             self.cancel_running_executions(client, workflow_version_id)
             client.workflows.versions.delete([workflow_version_id])
             retry_api_call(lambda: client.workflows.delete([workflow_id]), timeout_seconds=10.0)
+
+    def test_domains_crudl(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        domain_example = get_examples_minimum_requests(DomainResponse)[0]
+        domain_request = DomainRequest.model_validate(domain_example)
+        domain_id = domain_request.as_id()
+
+        try:
+            # Probe: skip if Domains API is not enabled on the project
+            client.domains.list(limit=1)
+        except ToolkitAPIError as e:
+            if "403" in str(e) and "Data domains service is not enabled" in str(e):
+                pytest.skip("Domains API is not enabled for this project")
+            raise
+
+        try:
+            create_endpoint = client.domains._method_endpoint_map["create"]
+            self.assert_endpoint_method(
+                lambda: client.domains.create([domain_request]),
+                "create",
+                create_endpoint,
+                domain_id,
+            )
+
+            retrieve_endpoint = client.domains._method_endpoint_map["retrieve"]
+            self.assert_endpoint_method(
+                lambda: client.domains.retrieve([domain_id], ignore_unknown_ids=True),
+                "retrieve",
+                retrieve_endpoint,
+                domain_id,
+            )
+
+            update_endpoint = client.domains._method_endpoint_map["update"]
+            self.assert_endpoint_method(
+                lambda: client.domains.update([domain_request]),
+                "update",
+                update_endpoint,
+                domain_id,
+            )
+
+            list_endpoint = client.domains._method_endpoint_map["list"]
+            listed_domains = client.domains.list(limit=1)
+            if len(listed_domains) == 0:
+                raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed domain, got 0")
+        finally:
+            client.domains.delete([domain_id])
 
     def test_rulesets_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client

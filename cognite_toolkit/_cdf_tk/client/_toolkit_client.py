@@ -17,6 +17,7 @@ from .api.data_products import DataProductsAPI
 from .api.datapoint_subscription import DatapointSubscriptionsAPI
 from .api.datasets import DataSetsAPI
 from .api.documents import DocumentsAPI
+from .api.domains import DomainsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
 from .api.filemetadata import FileMetadataAPI
@@ -104,6 +105,7 @@ class ToolkitClient:
         self.timeseries = TimeSeriesAPI(http_client)
         self.transformations = TransformationsAPI(http_client)
         self.workflows = WorkflowsAPI(http_client)
+        self.domains = DomainsAPI(http_client)
         self.data_products = DataProductsAPI(http_client)
         self.signal_sinks = SignalSinksAPI(http_client)
         self.signal_subscriptions = SignalSubscriptionsAPI(http_client)

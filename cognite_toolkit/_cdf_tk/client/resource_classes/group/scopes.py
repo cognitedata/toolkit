@@ -51,6 +51,13 @@ class AppExternalIdScope(ScopeDefinition):
     external_ids: list[str]
 
 
+class DataDomainScope(ScopeDefinition):
+    """Scope limited to specific Data Domains by External ID."""
+
+    scope_name: Literal["dataDomainScope"] = Field("dataDomainScope", exclude=True)
+    external_ids: list[str]
+
+
 class DataProductScope(ScopeDefinition):
     """Scope limited to specific Data Products by External ID."""
 
@@ -240,6 +247,7 @@ Scope: TypeAlias = Annotated[
         | PostgresGatewayUsersScope
         | AgentExternalIdScope
         | AppExternalIdScope
+        | DataDomainScope
         | DataProductScope
         | SignalsCurrentUserScope
         | UnknownScope

@@ -17,6 +17,7 @@ infield = true
 migrate = true
 create = true
 data-products = true
+domains = true
 entity-matching = false
 custom-apps = true
 api = true

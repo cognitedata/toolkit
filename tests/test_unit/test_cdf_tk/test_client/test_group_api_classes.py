@@ -26,6 +26,13 @@ def all_acls() -> Iterable[tuple]:
         {"assetsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"assetsAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": [123]}}}},
         {"auditlogAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+        {"dataDomainsAcl": {"actions": ["CREATE", "READ", "UPDATE", "DELETE"], "scope": {"all": {}}}},
+        {
+            "dataDomainsAcl": {
+                "actions": ["READ"],
+                "scope": {"dataDomainScope": {"externalIds": ["my-data-domain"]}},
+            }
+        },
         {"dataModelInstancesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"dataModelInstancesAcl": {"actions": ["READ"], "scope": {"spaceIdScope": {"spaceIds": ["maintain"]}}}},
         {
@@ -83,7 +90,19 @@ def all_acls() -> Iterable[tuple]:
         {"groupsAcl": {"actions": ["READ", "CREATE", "UPDATE", "DELETE"], "scope": {"currentuserscope": {}}}},
         {"hostedExtractorsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"integrationConfigsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {
+            "integrationConfigsAcl": {
+                "actions": ["READ", "WRITE"],
+                "scope": {"dataDomainScope": {"externalIds": ["my-data-domain"]}},
+            }
+        },
         {"integrationsAcl": {"actions": ["READ", "WRITE", "USE"], "scope": {"all": {}}}},
+        {
+            "integrationsAcl": {
+                "actions": ["READ", "WRITE", "USE"],
+                "scope": {"dataDomainScope": {"externalIds": ["my-data-domain"]}},
+            }
+        },
         {"labelsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"locationFiltersAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {
@@ -114,6 +133,12 @@ def all_acls() -> Iterable[tuple]:
             "rawAcl": {
                 "actions": ["READ", "WRITE", "LIST"],
                 "scope": {"tableScope": {"dbsToTables": {"test db 1": {"tables": ["empty tbl", "test tbl 1"]}}}},
+            }
+        },
+        {
+            "rawAcl": {
+                "actions": ["READ", "WRITE", "LIST"],
+                "scope": {"dataDomainScope": {"externalIds": ["my-data-domain"]}},
             }
         },
         {"relationshipsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
@@ -174,6 +199,12 @@ def all_acls() -> Iterable[tuple]:
         {"timeSeriesAcl": {"actions": ["WRITE", "READ"], "scope": {"assetRootIdScope": {"rootIds": [987]}}}},
         {"transformationsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"transformationsAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": [123]}}}},
+        {
+            "transformationsAcl": {
+                "actions": ["READ", "WRITE"],
+                "scope": {"dataDomainScope": {"externalIds": ["my-data-domain"]}},
+            }
+        },
         {"transformationsExternalDataSourcesAcl": {"actions": ["READ", "WRITE", "USE"], "scope": {"all": {}}}},
         {
             "transformationsExternalDataSourcesAcl": {
@@ -188,6 +219,12 @@ def all_acls() -> Iterable[tuple]:
             "workflowOrchestrationAcl": {
                 "actions": ["READ", "WRITE"],
                 "scope": {"datasetScope": {"ids": [123, 456]}},
+            }
+        },
+        {
+            "workflowOrchestrationAcl": {
+                "actions": ["READ", "WRITE"],
+                "scope": {"dataDomainScope": {"externalIds": ["my-data-domain"]}},
             }
         },
         {"streamsAcl": {"actions": ["READ", "CREATE", "DELETE"], "scope": {"all": {}}}},

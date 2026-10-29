@@ -60,6 +60,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
+    DataDomainScope,
     DataSetScope,
     ScopeDefinition,
     TransformationsAcl,
@@ -116,6 +117,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.transformation_destination import (
 from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
 from ._datamodel import DataModelIO, SpaceIO, ViewIO
+from ._domain import DomainIO
 from ._externaldata import ExternalDataSourceIO
 from ._group_scoped import GroupResourceScopedIO
 from ._raw import RawDatabaseIO, RawTableIO
@@ -149,6 +151,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     yaml_cls = TransformationYAML
     dependencies = frozenset(
         {
+            DomainIO,
             DataSetsIO,
             RawDatabaseIO,
             GroupAllScopedIO,
@@ -186,7 +189,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        if isinstance(scope, AllScope | DataSetScope):
+        if isinstance(scope, AllScope | DataSetScope | DataDomainScope):
             yield TransformationsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
@@ -219,6 +222,8 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     def get_dependencies(cls, resource: TransformationYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
+        if resource.data_domain_external_id and resource.data_domain_external_id.upper() != "UNGOVERNED":
+            yield DomainIO, ExternalId(external_id=resource.data_domain_external_id)
         if resource.query:
             for source_id in get_ext_onelake_source_ids(resource.query):
                 yield ExternalDataSourceIO, ExternalId(external_id=source_id)

@@ -19,6 +19,7 @@ from .data_product import DataProductYAML
 from .data_product_version import DataProductVersionYAML
 from .datapoint_subscription import DatapointSubscriptionYAML
 from .dataset import DataSetYAML
+from .domain import DomainYAML
 from .event import EventYAML
 from .externaldata import ExternalDataSourceYAML
 from .extraction_pipeline import ExtractionPipelineYAML
@@ -82,6 +83,7 @@ __all__ = [
     "DataSetYAML",
     "DatabaseYAML",
     "DatapointSubscriptionYAML",
+    "DomainYAML",
     "EdgeYAML",
     "EmailSinkYAML",
     "EventYAML",
