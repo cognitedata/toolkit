@@ -966,12 +966,10 @@ class BuildV2Command(ToolkitCommand):
         module_paths: set[RelativeDirPath | str] = set()
         module_files: set[Path] = set()
         for changed_file_path in changed_file_paths:
-            if not changed_file_path.is_relative_to(module_absolute_path) or changed_file_path.suffix not in (
-                ".yaml",
-                ".yml",
-            ):
-                # We only care about changed files that are YAML files under the organization modules directory.
+            if not changed_file_path.is_relative_to(module_absolute_path):
                 continue
+            # Note that we look for changes in YAML files as well as python, sql, markdown, and other side care
+            # files that can be part of a resource that belongs to a module.
             module_path, _ = ModuleParser.get_module_path_from_resource_file_path(changed_file_path)
             if module_path is not None:
                 # We want the module path relative to the organization modules directory, not the absolute path.
