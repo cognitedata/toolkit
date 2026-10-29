@@ -109,6 +109,9 @@ class Flags(Enum):
     )
 
     def is_enabled(self) -> bool:
+        if self == Flags.CDF_GROUP_EMAILS:
+            # The CDF_GROUP_EMAILS flag will be released in v0.10.
+            return FeatureFlag.is_enabled(Flags.v010) or FeatureFlag.is_enabled(self)
         return FeatureFlag.is_enabled(self)
 
 
