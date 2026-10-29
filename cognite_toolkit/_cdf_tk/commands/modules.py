@@ -41,6 +41,9 @@ from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParse
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ModuleDirectory
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    ERROR_TYPE,
+    RECOMMENDATION_TYPE,
+    WARNING_TYPE,
     BuildError,
     BuildWarning,
     InsightDefinition,
@@ -78,20 +81,17 @@ from cognite_toolkit._version import __version__
 INDENT = "  "
 POINTER = INDENT + "▶"
 
-_ERROR_TYPE: str = BuildError.model_fields["insight_type"].default
-_WARNING_TYPE: str = BuildWarning.model_fields["insight_type"].default
-_RECOMMENDATION_TYPE: str = Recommendation.model_fields["insight_type"].default
 
 # Named Rich colors so Windows terminals show green/yellow/red without truecolor.
 _INSIGHT_STYLE: dict[str, tuple[str, str]] = {
-    _ERROR_TYPE: ("red", "✗"),
-    _WARNING_TYPE: ("yellow", "!"),
-    _RECOMMENDATION_TYPE: ("green", "*"),
+    ERROR_TYPE: ("red", "✗"),
+    WARNING_TYPE: ("yellow", "!"),
+    RECOMMENDATION_TYPE: ("green", "*"),
 }
 _INSIGHT_SEVERITY: dict[str, int] = {
-    _ERROR_TYPE: BuildError.severity,
-    _WARNING_TYPE: BuildWarning.severity,
-    _RECOMMENDATION_TYPE: Recommendation.severity,
+    ERROR_TYPE: BuildError.severity,
+    WARNING_TYPE: BuildWarning.severity,
+    RECOMMENDATION_TYPE: Recommendation.severity,
 }
 _INSIGHT_ORDER: tuple[str, ...] = tuple(
     name for name, _ in sorted(_INSIGHT_SEVERITY.items(), key=lambda item: item[1], reverse=True)
@@ -872,7 +872,7 @@ class ModulesCommand(ToolkitCommand):
             "resource_folders": len(resource_folders),
             "resources": len(module.resource_lineage),
             "insights": {name: count for name, count in sorted(module.insights_summary.items()) if count},
-            "syntax_warnings": module.insights_summary.get(_WARNING_TYPE, 0),
+            "syntax_warnings": module.insights_summary.get(WARNING_TYPE, 0),
             "build_result": "Success" if module.is_success else module.status,
             "location": cls._module_location_display(module.module_path, organization_dir),
         }
@@ -1002,7 +1002,7 @@ class ModulesCommand(ToolkitCommand):
                 self._format_module_status(module),
                 f"{len(module.resource_lineage):,}",
                 self._format_module_insights(module.insights_summary),
-                self._format_syntax_warnings(module.insights_summary.get(_WARNING_TYPE, 0)),
+                self._format_syntax_warnings(module.insights_summary.get(WARNING_TYPE, 0)),
             )
 
         print(table)
@@ -1024,7 +1024,7 @@ class ModulesCommand(ToolkitCommand):
     def _format_module_insights(cls, insights_summary: dict[str, int]) -> str:
         lines = []
         for insight_type, count in cls._ordered_insight_counts(insights_summary):
-            if insight_type == _WARNING_TYPE:
+            if insight_type == WARNING_TYPE:
                 continue
             lines.append(cls._format_insight_line(insight_type, count))
         if not lines:
@@ -1035,7 +1035,7 @@ class ModulesCommand(ToolkitCommand):
     def _format_syntax_warnings(count: int) -> str:
         if count == 0:
             return "[green]0[/]"
-        style, icon = _INSIGHT_STYLE[_WARNING_TYPE]
+        style, icon = _INSIGHT_STYLE[WARNING_TYPE]
         return f"[{style}]{icon} {count:,}[/]"
 
     @classmethod

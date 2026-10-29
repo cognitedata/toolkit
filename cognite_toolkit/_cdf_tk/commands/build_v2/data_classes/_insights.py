@@ -19,6 +19,9 @@ from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_modules
 
+ERROR_TYPE: Literal["Error"] = "Error"
+WARNING_TYPE: Literal["Warning"] = "Warning"
+RECOMMENDATION_TYPE: Literal["Recommendation"] = "Recommendation"
 T_Insight = TypeVar("T_Insight", bound="InsightDefinition")
 PATH_SEP_CSV = " | "  # Separator for multiple source files in CSV output
 
@@ -159,21 +162,21 @@ class InternalValidatorException(BaseModel):
 class Recommendation(InsightDefinition):
     """Best practice recommendation."""
 
-    insight_type: Literal["Recommendation"] = "Recommendation"
+    insight_type: Literal["Recommendation"] = RECOMMENDATION_TYPE
     severity = 10
 
 
 class BuildError(InsightDefinition):
     """A confirmed problem. The resource cannot be built or deployed as configured."""
 
-    insight_type: Literal["Error"] = "Error"
+    insight_type: Literal["Error"] = ERROR_TYPE
     severity = 50
 
 
 class BuildWarning(InsightDefinition):
     """A potential problem that could not be confirmed, or an issue that does not block the build."""
 
-    insight_type: Literal["Warning"] = "Warning"
+    insight_type: Literal["Warning"] = WARNING_TYPE
     severity = 20
 
 

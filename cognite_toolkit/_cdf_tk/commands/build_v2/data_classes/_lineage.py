@@ -20,7 +20,7 @@ from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuildInput, BuiltModule
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ERROR_TYPE
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingResourceError,
@@ -139,8 +139,7 @@ class ModuleLineageItem(_BaseLineageModel):
     @property
     def is_success(self) -> bool:
         """Determine if module build was successful based on insights summary."""
-        error_type = BuildError.model_fields["insight_type"].default
-        return self.insights_summary.get(error_type, 0) == 0 and bool(self.resource_lineage)
+        return self.insights_summary.get(ERROR_TYPE, 0) == 0 and bool(self.resource_lineage)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -148,9 +147,8 @@ class ModuleLineageItem(_BaseLineageModel):
         """Overall status of the module build based on insights summary."""
         if self.is_success:
             return "SUCCESS"
-        error_type = BuildError.model_fields["insight_type"].default
-        if self.insights_summary.get(error_type, 0) > 0:
-            return f"FAILED: {error_type}"
+        if self.insights_summary.get(ERROR_TYPE, 0) > 0:
+            return f"FAILED: {ERROR_TYPE}"
         return "FAILED: Unknown reason"
 
     @classmethod
