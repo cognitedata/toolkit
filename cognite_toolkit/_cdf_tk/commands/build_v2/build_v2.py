@@ -65,7 +65,13 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     ReadYAMLFile,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
-from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, BUILD_MODULE_ARG, HINT_LEAD_TEXT, MODULES
+from cognite_toolkit._cdf_tk.constants import (
+    BUILD_FOLDER_ENCODING,
+    BUILD_MODULE_ARG,
+    EXCL_FILES,
+    HINT_LEAD_TEXT,
+    MODULES,
+)
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import BuildTracking, ResourceBuildStat
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
@@ -965,16 +971,24 @@ class BuildV2Command(ToolkitCommand):
     ) -> tuple[set[RelativeDirPath | str], set[Path]]:
         module_paths: set[RelativeDirPath | str] = set()
         module_files: set[Path] = set()
-        for changed_file_path in changed_file_paths:
-            if not changed_file_path.is_relative_to(module_absolute_path) or changed_file_path.suffix not in (
-                ".yaml",
-                ".yml",
-            ):
-                # We only care about changed files that are YAML files under the organization modules directory.
-                continue
-            module_path, _ = ModuleParser.get_module_path_from_resource_file_path(changed_file_path)
+        relevant_files = {
+            file
+            for file in changed_file_paths
+            if file.is_relative_to(module_absolute_path) and file.name not in EXCL_FILES
+        }
+        if not relevant_files:
+            return module_paths, module_files
+        # We anchor changed files to the modules that actually exist on disk, using the same discovery logic
+        # as the build. This lets any file type (YAML, SQL, Python, CSV, ...) select its module, and avoids
+        # misattributing files in code bundles (e.g. functions/<fn>/auth/x.py) whose subdirectories happen
+        # to share a name with a resource folder.
+        source_by_module_id, _ = ModuleParser.find_modules(module_absolute_path)
+        absolute_module_paths = {(module_absolute_path / module_id).resolve() for module_id in source_by_module_id}
+        for changed_file_path in relevant_files:
+            # Parents are ordered from innermost to outermost, so the first match is the closest module.
+            module_path = next((p for p in changed_file_path.parents if p in absolute_module_paths), None)
             if module_path is not None:
-                # We want the module path relative to the organization modules directory, not the absolute path.
+                # We want the module path relative to the organization directory, e.g. modules/my_module.
                 module_paths.add(module_path.relative_to(module_absolute_path.parent))
                 module_files.add(changed_file_path)
         return module_paths, module_files
