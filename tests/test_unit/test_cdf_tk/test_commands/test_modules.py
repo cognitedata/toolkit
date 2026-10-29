@@ -16,7 +16,7 @@ from questionary import Choice
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ModuleDirectory
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxWarning, Recommendation
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning, Recommendation
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ModuleLineageItem, ResourceLineageItem
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
@@ -371,14 +371,14 @@ class TestModulesCommand:
         assert payload == {
             "environment": "dev",
             "insights_summary": {
-                ModelSyntaxWarning.__name__: 1,
+                BuildWarning.model_fields["insight_type"].default: 1,
                 Recommendation.__name__: 2,
             },
             "modules": [
                 {
                     "build_result": "Success",
                     "insights": {
-                        ModelSyntaxWarning.__name__: 1,
+                        BuildWarning.model_fields["insight_type"].default: 1,
                         Recommendation.__name__: 2,
                     },
                     "location": "modules/my_module",
@@ -402,7 +402,7 @@ class TestModulesCommand:
         output = capsys.readouterr().out
         assert "my_module" in output
         assert "Syntax warnings" in output
-        assert ModelSyntaxWarning.__name__ in output
+        assert BuildWarning.model_fields["insight_type"].default in output
         assert Recommendation.__name__ in output
         assert "modules/my_module" not in output
 
@@ -628,7 +628,7 @@ def _module_list_lineage(tmp_path: Path) -> BuildLineage:
         build_dir=build_dir,
         modules_summary={"processed": 1, "succeeded": 1, "failed": 0},
         insights_summary={
-            ModelSyntaxWarning.__name__: 1,
+            BuildWarning.model_fields["insight_type"].default: 1,
             Recommendation.__name__: 2,
         },
         module_lineage=[
@@ -636,7 +636,7 @@ def _module_list_lineage(tmp_path: Path) -> BuildLineage:
                 module_id="modules/my_module",
                 module_path=module_path.relative_to(tmp_path),
                 insights_summary={
-                    ModelSyntaxWarning.__name__: 1,
+                    BuildWarning.model_fields["insight_type"].default: 1,
                     Recommendation.__name__: 2,
                 },
                 resource_lineage=[*views, file_item],

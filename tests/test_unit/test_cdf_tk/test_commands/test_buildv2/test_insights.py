@@ -6,7 +6,6 @@ import pytest
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildError,
     BuildWarning,
-    ConsistencyError,
     InsightList,
     Recommendation,
 )
@@ -17,7 +16,7 @@ from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file
 def some_insights(valid_yaml_absolute_path) -> InsightList:
     return InsightList(
         [
-            ConsistencyError(
+            BuildError(
                 message="summary line\nnext line",
                 code="INVALID-FIELD",
                 fix="do this\r\nthen that",
@@ -92,7 +91,7 @@ class TestInsightList:
         rows = list(csv.DictReader(io.StringIO(csv_text), dialect=csv.unix_dialect))
         assert rows == [
             {
-                "insight_type": "ConsistencyError",
+                "insight_type": "Error",
                 "code": "INVALID-FIELD",
                 "source_file": format_insight_source_file(valid_yaml_absolute_path),
                 "line": "",
