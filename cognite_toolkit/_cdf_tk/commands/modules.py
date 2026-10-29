@@ -41,14 +41,12 @@ from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParse
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ModuleDirectory
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    ERROR_TYPE,
+    RECOMMENDATION_TYPE,
+    WARNING_TYPE,
     BuildError,
     BuildWarning,
-    ConsistencyError,
-    FileReadError,
-    IgnoredFileWarning,
     InsightDefinition,
-    ModelSyntaxError,
-    ModelSyntaxWarning,
     Recommendation,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ModuleLineageItem
@@ -83,26 +81,17 @@ from cognite_toolkit._version import __version__
 INDENT = "  "
 POINTER = INDENT + "▶"
 
+
 # Named Rich colors so Windows terminals show green/yellow/red without truecolor.
 _INSIGHT_STYLE: dict[str, tuple[str, str]] = {
-    FileReadError.__name__: ("red", "✗"),
-    ConsistencyError.__name__: ("red", "✗"),
-    ModelSyntaxError.__name__: ("red", "✗"),
-    IgnoredFileWarning.__name__: ("yellow", "○"),
-    ModelSyntaxWarning.__name__: ("yellow", "!"),
-    "Error": ("red", "✗"),
-    "Warning": ("yellow", "!"),
-    Recommendation.__name__: ("green", "*"),
+    ERROR_TYPE: ("red", "✗"),
+    WARNING_TYPE: ("yellow", "!"),
+    RECOMMENDATION_TYPE: ("green", "*"),
 }
 _INSIGHT_SEVERITY: dict[str, int] = {
-    FileReadError.__name__: FileReadError.severity,
-    ConsistencyError.__name__: ConsistencyError.severity,
-    ModelSyntaxError.__name__: ModelSyntaxError.severity,
-    IgnoredFileWarning.__name__: IgnoredFileWarning.severity,
-    ModelSyntaxWarning.__name__: ModelSyntaxWarning.severity,
-    "Error": BuildError.severity,
-    "Warning": BuildWarning.severity,
-    Recommendation.__name__: Recommendation.severity,
+    ERROR_TYPE: BuildError.severity,
+    WARNING_TYPE: BuildWarning.severity,
+    RECOMMENDATION_TYPE: Recommendation.severity,
 }
 _INSIGHT_ORDER: tuple[str, ...] = tuple(
     name for name, _ in sorted(_INSIGHT_SEVERITY.items(), key=lambda item: item[1], reverse=True)
@@ -883,7 +872,7 @@ class ModulesCommand(ToolkitCommand):
             "resource_folders": len(resource_folders),
             "resources": len(module.resource_lineage),
             "insights": {name: count for name, count in sorted(module.insights_summary.items()) if count},
-            "syntax_warnings": module.insights_summary.get(ModelSyntaxWarning.__name__, 0),
+            "syntax_warnings": module.insights_summary.get(WARNING_TYPE, 0),
             "build_result": "Success" if module.is_success else module.status,
             "location": cls._module_location_display(module.module_path, organization_dir),
         }
@@ -964,7 +953,7 @@ class ModulesCommand(ToolkitCommand):
             insight_lines.append("[green]✓[/] No insights")
 
         if failed:
-            max_severity = max(max_severity, ModelSyntaxError.severity)
+            max_severity = max(max_severity, BuildError.severity)
 
         match max_severity:
             case severity if severity < 15:
@@ -1013,7 +1002,7 @@ class ModulesCommand(ToolkitCommand):
                 self._format_module_status(module),
                 f"{len(module.resource_lineage):,}",
                 self._format_module_insights(module.insights_summary),
-                self._format_syntax_warnings(module.insights_summary.get(ModelSyntaxWarning.__name__, 0)),
+                self._format_syntax_warnings(module.insights_summary.get(WARNING_TYPE, 0)),
             )
 
         print(table)
@@ -1035,7 +1024,7 @@ class ModulesCommand(ToolkitCommand):
     def _format_module_insights(cls, insights_summary: dict[str, int]) -> str:
         lines = []
         for insight_type, count in cls._ordered_insight_counts(insights_summary):
-            if insight_type == ModelSyntaxWarning.__name__:
+            if insight_type == WARNING_TYPE:
                 continue
             lines.append(cls._format_insight_line(insight_type, count))
         if not lines:
@@ -1046,7 +1035,7 @@ class ModulesCommand(ToolkitCommand):
     def _format_syntax_warnings(count: int) -> str:
         if count == 0:
             return "[green]0[/]"
-        style, icon = _INSIGHT_STYLE[ModelSyntaxWarning.__name__]
+        style, icon = _INSIGHT_STYLE[WARNING_TYPE]
         return f"[{style}]{icon} {count:,}[/]"
 
     @classmethod

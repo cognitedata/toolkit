@@ -26,7 +26,7 @@ multi-configs = true
 git-diff-select = true
 v010 = true
 deploy-protection = true
-cdf-group-emails = true
+cdf-group-emails = false
 
 [plugins]
 run = true

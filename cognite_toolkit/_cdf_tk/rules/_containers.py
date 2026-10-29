@@ -2,7 +2,6 @@ from collections.abc import Iterable
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildError,
-    ConsistencyError,
     Insight,
 )
 from cognite_toolkit._cdf_tk.rules._base import ToolkitLocalRule, with_position
@@ -56,7 +55,7 @@ class DeployableContainer(ToolkitLocalRule):
     """
 
     CODE = "INVALID-VALUE"
-    insight_type = ConsistencyError
+    insight_type = BuildError
 
     def validate(self) -> Iterable[Insight]:
         for resource, source_file in self._get_validated_resources_with_file():
