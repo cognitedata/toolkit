@@ -1,8 +1,7 @@
 from pydantic import Field, field_validator
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-
-from .base import ToolkitResource
+from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
 
 class DomainYAML(ToolkitResource):
