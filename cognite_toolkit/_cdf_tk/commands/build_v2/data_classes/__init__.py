@@ -9,11 +9,8 @@ from ._config import ConfigYAML
 from ._insights import (
     BuildError,
     BuildWarning,
-    ConsistencyError,
     InsightDefinition,
     InsightList,
-    ModelSyntaxError,
-    ModelSyntaxWarning,
     Recommendation,
 )
 from ._lineage import BuildLineage, ResourceLineageItem
@@ -40,13 +37,10 @@ __all__ = [
     "BuiltModule",
     "BuiltResource",
     "ConfigYAML",
-    "ConsistencyError",
     "FailedReadYAMLFile",
     "FileSuffix",
     "InsightDefinition",
     "InsightList",
-    "ModelSyntaxError",
-    "ModelSyntaxWarning",
     "Module",
     "ModuleDirectory",
     "ReadYAMLFile",
