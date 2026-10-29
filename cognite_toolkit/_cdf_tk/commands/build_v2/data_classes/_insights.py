@@ -133,33 +133,6 @@ class InsightDefinition(BaseModel):
         return _normalize_csv_cell(value)
 
 
-class FileReadError(InsightDefinition):
-    insight_type: Literal["FileReadError"] = "FileReadError"
-    severity = 60
-
-
-class ModelSyntaxError(InsightDefinition):
-    """If any syntax error is found. Stop validation
-    and ask user to fix the syntax error first."""
-
-    insight_type: Literal["ModelSyntaxError"] = "ModelSyntaxError"
-    severity = 40
-
-
-class ModelSyntaxWarning(InsightDefinition):
-    """A non-blocking syntax issue, such as an unrecognized field. The resource is still built and deployed."""
-
-    insight_type: Literal["ModelSyntaxWarning"] = "ModelSyntaxWarning"
-    severity = 15
-
-
-class ConsistencyError(InsightDefinition):
-    """If any consistency error is found, the deployment of the CDF resource will fail."""
-
-    insight_type: Literal["ConsistencyError"] = "ConsistencyError"
-    severity = 45
-
-
 class InternalValidatorException(BaseModel):
     """A validator threw an unexpected exception and could not complete.
 
@@ -187,13 +160,6 @@ class InternalValidatorException(BaseModel):
         return message[: cls.MAX_MESSAGE_LENGTH] + "... (truncated)"
 
 
-class IgnoredFileWarning(InsightDefinition):
-    """A file was ignored because it was not recognized as a valid resource file."""
-
-    insight_type: Literal["IgnoredFileWarning"] = "IgnoredFileWarning"
-    severity = 20
-
-
 class Recommendation(InsightDefinition):
     """Best practice recommendation."""
 
@@ -216,14 +182,7 @@ class BuildWarning(InsightDefinition):
 
 
 Insight = Annotated[
-    ModelSyntaxError
-    | ModelSyntaxWarning
-    | ConsistencyError
-    | Recommendation
-    | FileReadError
-    | IgnoredFileWarning
-    | BuildError
-    | BuildWarning,
+    Recommendation | BuildError | BuildWarning,
     Field(discriminator="insight_type"),
 ]
 
@@ -265,14 +224,9 @@ class InsightList(UserList[Insight]):
         return dict(result)
 
     @property
-    def has_model_syntax_errors(self) -> bool:
-        """Returns True if there are any model syntax errors in the insights."""
-        return any(isinstance(insight, (ModelSyntaxError, BuildError)) for insight in self.data)
-
-    @property
     def has_errors(self) -> bool:
-        """Returns True if there are any errors (model syntax or consistency) in the insights."""
-        return any(isinstance(insight, (ModelSyntaxError, ConsistencyError, BuildError)) for insight in self.data)
+        """Returns True if there are any errors in the insights."""
+        return any(isinstance(insight, BuildError) for insight in self.data)
 
     @property
     def summary(self) -> dict[str, int]:
