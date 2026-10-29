@@ -8,7 +8,6 @@ from typing import Annotated, Any, ClassVar, Literal, Self, TypeAlias, TypeVar
 from pydantic import (
     BaseModel,
     Field,
-    StringConstraints,
     TypeAdapter,
     field_serializer,
     field_validator,
@@ -51,9 +50,6 @@ InsightCode: TypeAlias = Literal[
     "UNVERIFIED-REFERENCED-PROPERTY",
     "UNVERIFIED-REFERENCED-RESOURCE",
 ]
-# NEAT issues come with codes defined by the neat package.
-# Remove this once NEAT support is removed from Toolkit.
-NeatInsightCode: TypeAlias = Annotated[str, StringConstraints(pattern=r"^NEAT-")]
 
 
 class InsightDefinition(BaseModel):
