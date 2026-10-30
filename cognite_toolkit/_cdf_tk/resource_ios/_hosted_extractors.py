@@ -434,6 +434,7 @@ class HostedExtractorDestinationIO(
         return credentials
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> HostedExtractorDestinationRequest:
+        resource = resource.copy()
         if raw_auth := resource.pop("credentials", None):
             credentials = self._read_credentials(resource, raw_auth)
             if is_dry_run:

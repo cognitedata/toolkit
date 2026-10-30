@@ -709,6 +709,22 @@ class TestDumpHostedExtractor:
             dumped = HostedExtractorDestinationIO.create_io(client).dump_resource(destination)
         assert dumped == {"externalId": "destA", "targetDataSetExternalId": "ds_files"}
 
+    def test_dump_destination_with_local_credentials_preserves_credentials(self) -> None:
+        destination = HostedExtractorDestinationResponse(
+            external_id="destA",
+            metadata={"toolkit-hash-credentials": "abc12345"},
+            created_time=1,
+            last_updated_time=1,
+        )
+        local = {
+            "externalId": "destA",
+            "metadata": {"toolkit-hash-credentials": "abc12345"},
+            "credentials": {"clientId": "client_id", "clientSecret": "client_secret"},
+        }
+        with monkeypatch_toolkit_client() as client:
+            dumped = HostedExtractorDestinationIO.create_io(client).dump_resource(destination, local)
+        assert dumped == local
+
 
 @pytest.fixture()
 def three_groups() -> list[GroupResponse]:
