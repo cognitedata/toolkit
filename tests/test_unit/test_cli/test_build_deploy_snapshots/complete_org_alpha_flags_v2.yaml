@@ -133,6 +133,10 @@ DataSetResponse:
       "This was done with Postman"}]'
   name: Ice Cream API
   writeProtected: false
+DomainResponse:
+- description: Example domain.
+  externalId: my_domain
+  name: My Domain
 ExternalDataSourceResponse:
 - dataSetId: 7982613576047462211
   externalId: my_onelake_source

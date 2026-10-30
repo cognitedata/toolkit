@@ -38,6 +38,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
     AssetRootIDScope,
     CurrentUserScope,
+    DataDomainScope,
     DataProductScope,
     DataSetsAcl,
     DataSetScope,
@@ -101,6 +102,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             AssetRootIDScope,
             ExtractionPipelineScope,
             IDScopeLowerCase,
+            DataDomainScope,
             DataProductScope,
         }
     )
@@ -158,6 +160,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         from ._data_organization import DataSetsIO
         from ._data_product import DataProductIO
         from ._datamodel import SpaceIO
+        from ._domain import DomainIO
         from ._extraction_pipeline import ExtractionPipelineIO
         from ._location import LocationFilterIO
         from ._raw import RawDatabaseIO, RawTableIO
@@ -173,6 +176,10 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             if isinstance(scope, yaml_cap.SpaceIDScope):
                 for space_id in scope.space_ids:
                     yield SpaceIO, SpaceId(space=space_id)
+            elif isinstance(scope, yaml_cap.DataDomainScope):
+                for data_domain_external_id in scope.external_ids:
+                    if data_domain_external_id.upper() != "UNGOVERNED":
+                        yield DomainIO, ExternalId(external_id=data_domain_external_id)
             elif isinstance(scope, yaml_cap.DataProductScope):
                 for data_product_external_id in scope.external_ids:
                     yield DataProductIO, ExternalId(external_id=data_product_external_id)

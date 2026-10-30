@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
 from cognite_toolkit._cdf_tk.client.api.data_models import DataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
+from cognite_toolkit._cdf_tk.client.api.domains import DomainsAPI
 from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipelines import ExtractionPipelinesAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
@@ -75,6 +76,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import (
     NumericDatapointsResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.domain import DomainRequest, DomainResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
@@ -740,6 +742,11 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "name": "Example 3D Model",
             "createdTime": 1622547800000,
         },
+        DomainResponse: {
+            "externalId": "dd_001",
+            "name": "Example Domain",
+            "description": "A test domain",
+        },
         DataProductResponse: {
             "externalId": "dp_001",
             "name": "Example Data Product",
@@ -1362,6 +1369,15 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             # Needs custom mocking due to the retrieve method requires modelId in the path parameter.
         ),
         id="ThreeDClassicModel",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=DomainResponse,
+            request_cls=DomainRequest,
+            example_data=get_example_minimum_responses(DomainResponse),
+            api_class=DomainsAPI,
+        ),
+        id="Domain",
     )
     yield pytest.param(
         CDFResource(

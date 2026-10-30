@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import NameId, RawDatabaseId, Ra
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
+    DataDomainScope,
     RawAcl,
     ScopeDefinition,
     TableScope,
@@ -71,7 +72,7 @@ class RawDatabaseIO(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDa
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        if isinstance(scope, AllScope | TableScope):
+        if isinstance(scope, AllScope | TableScope | DataDomainScope):
             yield RawAcl(actions=as_read_list_write_actions(actions), scope=scope)
 
     @classmethod
@@ -181,7 +182,7 @@ class RawTableIO(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableRespon
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        if isinstance(scope, AllScope | TableScope):
+        if isinstance(scope, AllScope | TableScope | DataDomainScope):
             yield RawAcl(actions=as_read_list_write_actions(actions), scope=scope)
 
     @classmethod

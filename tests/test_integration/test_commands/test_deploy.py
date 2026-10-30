@@ -26,13 +26,15 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 )
 from cognite_toolkit._cdf_tk.resource_ios._data_product import DataProductIO
 from cognite_toolkit._cdf_tk.resource_ios._data_product_version import DataProductVersionIO
+from cognite_toolkit._cdf_tk.resource_ios._domain import DomainIO
 from cognite_toolkit._cdf_tk.resource_ios._rulesets import RuleSetIO, RuleSetVersionIO
 from cognite_toolkit._cdf_tk.resource_ios._signal_sink import SignalSinkIO
 from cognite_toolkit._cdf_tk.resource_ios._signal_subscription import SignalSubscriptionIO
 from tests import data
 
 SKIPPED_ALPHA_CRUDS = {
-    DataProductIO,  # Data Products and Rule Sets APIs are not yet available on the test server.
+    DomainIO,  # Domains, Data Products, and Rule Sets APIs are not yet available on the test server.
+    DataProductIO,
     DataProductVersionIO,
     RuleSetIO,
     RuleSetVersionIO,

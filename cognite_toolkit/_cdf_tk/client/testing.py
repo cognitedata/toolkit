@@ -37,6 +37,7 @@ from .api.datapoint_subscription import DatapointSubscriptionsAPI
 from .api.datapoints import DatapointsAPI
 from .api.datasets import DataSetsAPI
 from .api.documents import DocumentsAPI
+from .api.domains import DomainsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
@@ -173,6 +174,7 @@ class ToolkitClientMock(ToolkitClient):
     streamlit: MagicMock
     token: MagicMock
     workflows: MagicMock
+    domains: MagicMock
     data_products: MagicMock
     rulesets: MagicMock
     records: MagicMock
@@ -324,6 +326,7 @@ class ToolkitClientMock(ToolkitClient):
         self.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)
         self.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)
         self.workflows.executions = MagicMock(spec_set=WorkflowExecutionsAPI)
+        self.domains = MagicMock(spec_set=DomainsAPI)
         self.data_products = MagicMock(spec=DataProductsAPI)
         self.data_products.versions = MagicMock(spec_set=DataProductVersionsAPI)
         self.rulesets = MagicMock(spec=RuleSetsAPI)

@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, IntegrationCo
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
+    DataDomainScope,
     IntegrationConfigsAcl,
     IntegrationsAcl,
     ScopeDefinition,
@@ -76,7 +77,7 @@ class IntegrationsIO(ResourceIO[ExternalId, IntegrationRequest, IntegrationRespo
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        if isinstance(scope, AllScope):
+        if isinstance(scope, AllScope | DataDomainScope):
             yield IntegrationsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
@@ -160,7 +161,7 @@ class IntegrationConfigsIO(
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        if isinstance(scope, AllScope):
+        if isinstance(scope, AllScope | DataDomainScope):
             yield IntegrationConfigsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod

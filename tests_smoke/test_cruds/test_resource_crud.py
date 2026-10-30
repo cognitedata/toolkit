@@ -9,12 +9,14 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     AppVersionIO,
     DataProductIO,
     DataProductVersionIO,
+    DomainIO,
     ResourceIO,
 )
 
 # APIs excluded from the doc_url test: either unofficial/internal APIs not publicly documented,
 # or APIs whose public documentation is not yet available.
 INTERNAL_DOCS = {
+    DomainIO,
     DataProductIO,
     DataProductVersionIO,
     AppIO,

@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersi
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
+    DataDomainScope,
     DataSetScope,
     ScopeDefinition,
     WorkflowOrchestrationAcl,
@@ -76,6 +77,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import (
 
 from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
+from ._domain import DomainIO
 from ._function import FunctionIO
 from ._group_scoped import GroupResourceScopedIO
 from ._simulators import SimulatorRoutineIO
@@ -102,6 +104,7 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
             GroupAllScopedIO,
             TransformationIO,
             FunctionIO,
+            DomainIO,
             DataSetsIO,
         }
     )
@@ -119,7 +122,7 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        if isinstance(scope, AllScope | DataSetScope):
+        if isinstance(scope, AllScope | DataSetScope | DataDomainScope):
             yield WorkflowOrchestrationAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
@@ -192,6 +195,8 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
     def get_dependencies(cls, resource: WorkflowYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
+        if resource.data_domain_external_id and resource.data_domain_external_id.upper() != "UNGOVERNED":
+            yield DomainIO, ExternalId(external_id=resource.data_domain_external_id)
 
 
 @final

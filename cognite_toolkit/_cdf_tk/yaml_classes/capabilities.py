@@ -96,6 +96,11 @@ class AppExternalIdScope(Scope):
     external_ids: list[str]
 
 
+class DataDomainScope(Scope):
+    scope_name: Literal["dataDomainScope"] = Field("dataDomainScope", exclude=True)
+    external_ids: list[str]
+
+
 class DataProductScope(Scope):
     scope_name: Literal["dataProductScope"] = Field("dataProductScope", exclude=True)
     external_ids: list[str]
@@ -192,8 +197,12 @@ AllOrAgentExternalIdScope = Annotated[
 AllOrAppConfigScope = Annotated[AllScope | AppConfigScope, Field(discriminator="scope_name"), _LiftScopeName]
 AllOrAppExternalIdScope = Annotated[AllScope | AppExternalIdScope, Field(discriminator="scope_name"), _LiftScopeName]
 AllOrCurrentUserScope = Annotated[AllScope | CurrentUserScope, Field(discriminator="scope_name"), _LiftScopeName]
+AllOrDataDomainScope = Annotated[AllScope | DataDomainScope, Field(discriminator="scope_name"), _LiftScopeName]
 AllOrDataProductScope = Annotated[AllScope | DataProductScope, Field(discriminator="scope_name"), _LiftScopeName]
 AllOrDataSetScope = Annotated[AllScope | DataSetScope, Field(discriminator="scope_name"), _LiftScopeName]
+AllDataSetOrDataDomainScope = Annotated[
+    AllScope | DataSetScope | DataDomainScope, Field(discriminator="scope_name"), _LiftScopeName
+]
 AllOrSignalsCurrentUserScope = Annotated[
     AllScope | SignalsCurrentUserScope, Field(discriminator="scope_name"), _LiftScopeName
 ]
@@ -206,6 +215,9 @@ AllOrPostgresGatewayUsersScope = Annotated[
 ]
 AllOrSpaceIDScope = Annotated[AllScope | SpaceIDScope, Field(discriminator="scope_name"), _LiftScopeName]
 AllOrTableScope = Annotated[AllScope | TableScope, Field(discriminator="scope_name"), _LiftScopeName]
+AllTableOrDataDomainScope = Annotated[
+    AllScope | TableScope | DataDomainScope, Field(discriminator="scope_name"), _LiftScopeName
+]
 AllIDOrDataSetScope = Annotated[AllScope | IDScope | DataSetScope, Field(discriminator="scope_name"), _LiftScopeName]
 AllDataSetOrExtractionPipelineScope = Annotated[
     AllScope | DataSetScope | ExtractionPipelineScope, Field(discriminator="scope_name"), _LiftScopeName
@@ -265,6 +277,14 @@ class ChartsAdminAcl(Capability):
     capability_name: Literal["chartsAdminAcl"] = Field("chartsAdminAcl", exclude=True)
     actions: list[Literal["READ", "UPDATE", "DELETE"]]
     scope: AllScopeType
+
+
+class DataDomainsAcl(Capability):
+    """ACL for Data Domains resources."""
+
+    capability_name: Literal["dataDomainsAcl"] = Field("dataDomainsAcl", exclude=True)
+    actions: list[Literal["CREATE", "READ", "UPDATE", "DELETE"]]
+    scope: AllOrDataDomainScope
 
 
 class DataProductsAcl(Capability):
@@ -374,7 +394,7 @@ class ProjectsAcl(Capability):
 class RawAcl(Capability):
     capability_name: Literal["rawAcl"] = Field("rawAcl", exclude=True)
     actions: list[Literal["READ", "WRITE", "LIST"]]
-    scope: AllOrTableScope
+    scope: AllTableOrDataDomainScope
 
 
 class RelationshipsAcl(Capability):
@@ -452,7 +472,7 @@ class TimeSeriesSubscriptionsAcl(Capability):
 class TransformationsAcl(Capability):
     capability_name: Literal["transformationsAcl"] = Field("transformationsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllOrDataSetScope
+    scope: AllDataSetOrDataDomainScope
 
 
 class TransformationsExternalDataSourcesAcl(Capability):
@@ -550,13 +570,13 @@ class HostedExtractorsAcl(Capability):
 class IntegrationConfigsAcl(Capability):
     capability_name: Literal["integrationConfigsAcl"] = Field("integrationConfigsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScopeType
+    scope: AllOrDataDomainScope
 
 
 class IntegrationsAcl(Capability):
     capability_name: Literal["integrationsAcl"] = Field("integrationsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE", "USE"]]
-    scope: AllScopeType
+    scope: AllOrDataDomainScope
 
 
 class VisionModelAcl(Capability):
@@ -574,7 +594,7 @@ class DocumentFeedbackAcl(Capability):
 class WorkflowOrchestrationAcl(Capability):
     capability_name: Literal["workflowOrchestrationAcl"] = Field("workflowOrchestrationAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllOrDataSetScope
+    scope: AllDataSetOrDataDomainScope
 
 
 class PostgresGatewayAcl(Capability):
@@ -660,6 +680,7 @@ ScopeType = Annotated[
     | AppExternalIdScope
     | AssetRootIDScope
     | CurrentUserScope
+    | DataDomainScope
     | DataProductScope
     | DataSetScope
     | ExperimentScope
@@ -712,6 +733,7 @@ CapabilityType = Annotated[
     | AssetsAcl
     | AuditlogAcl
     | ChartsAdminAcl
+    | DataDomainsAcl
     | DataModelInstancesAcl
     | DataModelsAcl
     | DataProductsAcl

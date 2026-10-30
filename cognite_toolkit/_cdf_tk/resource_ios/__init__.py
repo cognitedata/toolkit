@@ -35,6 +35,7 @@ from ._datamodel import (
     SpaceIO,
     ViewIO,
 )
+from ._domain import DomainIO
 from ._externaldata import ExternalDataSourceIO
 from ._extraction_pipeline import ExtractionPipelineConfigIO, ExtractionPipelineIO
 from ._fieldops import InFieldCDMLocationConfigIO, InFieldLocationConfigIO, InfieldV1IO
@@ -87,6 +88,8 @@ if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
     _EXCLUDED_CRUDS.add(DataProductVersionIO)
     _EXCLUDED_CRUDS.add(RuleSetIO)
     _EXCLUDED_CRUDS.add(RuleSetVersionIO)
+if not FeatureFlag.is_enabled(Flags.DOMAINS):
+    _EXCLUDED_CRUDS.add(DomainIO)
 if not FeatureFlag.is_enabled(Flags.CUSTOM_APPS):
     _EXCLUDED_CRUDS.add(AppIO)
     _EXCLUDED_CRUDS.add(AppVersionIO)
@@ -154,6 +157,7 @@ ResourceTypes: TypeAlias = Literal[
     "data_models",  # Todo: Remove in v1.0
     "data_products",
     "data_sets",
+    "domains",
     "hosted_extractors",
     "integrations",
     "locations",
@@ -201,6 +205,7 @@ __all__ = [
     "DataProductVersionIO",
     "DataSetsIO",
     "DatapointSubscriptionIO",
+    "DomainIO",
     "EdgeIO",
     "EventIO",
     "ExternalDataSourceIO",
