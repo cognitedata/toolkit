@@ -26,6 +26,7 @@ _DEV_CLIENT_ID = "e26f94fb-bac4-4915-aa91-456668004185"
 
 _PROD_IDP_BASE_URL = "https://auth.cognite.com"
 _DEV_IDP_BASE_URL = "https://auth-dev.cognitedata-development.cognite.ai"
+_STAGING_IDP_BASE_URL = "https://auth-staging.gc-bru-001.cogheim.net"
 _SESSION_SCOPES = "openid profile email offline_access"
 _DEFAULT_CALLBACK_PORT = 3000
 _CALLBACK_PORTS = (_DEFAULT_CALLBACK_PORT, *range(3100, 3111))
@@ -38,10 +39,14 @@ def _is_dev_org(org: str) -> bool:
     return org.startswith("cog-dev-")
 
 
-def _resolve_idp_base_url(org: str) -> str:
+def resolve_idp_base_url(org: str) -> str:
     if env_base_url := os.environ.get("COGNITE_IDP_BASE_URL", "").strip():
         return env_base_url.rstrip("/")
-    return _DEV_IDP_BASE_URL if _is_dev_org(org) else _PROD_IDP_BASE_URL
+    if _is_dev_org(org):
+        return _DEV_IDP_BASE_URL
+    if org.startswith("cog-staging-"):
+        return _STAGING_IDP_BASE_URL
+    return _PROD_IDP_BASE_URL
 
 
 def _resolve_client_id(org: str) -> str:
@@ -292,7 +297,7 @@ class _OAuthCallbackServer:
 
 
 def _login_for_session_at_port(org: str, callback_port: int) -> StoredSession:
-    idp_base_url = _resolve_idp_base_url(org)
+    idp_base_url = resolve_idp_base_url(org)
     client_id = _resolve_client_id(org)
     oidc = fetch_openid_configuration(idp_base_url)
 
@@ -363,7 +368,7 @@ def login_for_session(org: str, port: int | None = None) -> StoredSession:
 
 
 def refresh_session_tokens(session: StoredSession) -> StoredSession:
-    idp_base_url = _resolve_idp_base_url(session.org)
+    idp_base_url = resolve_idp_base_url(session.org)
     client_id = _resolve_client_id(session.org)
     oidc = fetch_openid_configuration(idp_base_url)
     try:
@@ -393,7 +398,7 @@ def refresh_session_tokens(session: StoredSession) -> StoredSession:
 
 
 def revoke_refresh_token(refresh_token: str, org: str) -> None:
-    oidc = fetch_openid_configuration(_resolve_idp_base_url(org))
+    oidc = fetch_openid_configuration(resolve_idp_base_url(org))
     if not oidc.revocation_endpoint:
         return
     try:

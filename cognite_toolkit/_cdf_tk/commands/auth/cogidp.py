@@ -6,8 +6,9 @@ from urllib.parse import quote, urlparse
 
 import httpx2 as httpx
 
-from cognite_toolkit._cdf_tk.constants import COGNITE_IDP_BASE_URL
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
+
+from .oidc import resolve_idp_base_url
 
 
 @dataclass(frozen=True)
@@ -56,7 +57,7 @@ def _cluster_from_api_url(api_url: str | None) -> str | None:
 
 
 def fetch_session_user_info(org: str, access_token: str) -> SessionUserInfo:
-    url = f"{COGNITE_IDP_BASE_URL}/api/v1/orgs/{quote(org, safe='')}/projects"
+    url = f"{resolve_idp_base_url(org)}/api/v1/orgs/{quote(org, safe='')}/projects"
     try:
         response = httpx.get(
             url,

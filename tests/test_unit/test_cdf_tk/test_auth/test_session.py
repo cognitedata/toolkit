@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.commands.auth.oidc import (
     build_session_from_tokens,
     login_for_session,
     refresh_session_tokens,
+    resolve_idp_base_url,
 )
 from cognite_toolkit._cdf_tk.commands.auth.session_keyring import delete_session_token, read_session_token
 from cognite_toolkit._cdf_tk.commands.auth.session_store import (
@@ -64,6 +65,19 @@ def test_session_login_prints_authorize_url_when_browser_unavailable(
 def test_build_session_from_tokens_requires_refresh_token() -> None:
     with pytest.raises(AuthenticationError, match="refresh token"):
         build_session_from_tokens("my-org", {"access_token": "abc"})
+
+
+@pytest.mark.parametrize(
+    "org, expected",
+    [
+        ("cog-dev-me", "https://auth-dev.cognitedata-development.cognite.ai"),
+        ("cog-staging-me", "https://auth-staging.gc-bru-001.cogheim.net"),
+        ("my-org", "https://auth.cognite.com"),
+    ],
+)
+def test_resolve_idp_base_url(org: str, expected: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("COGNITE_IDP_BASE_URL", raising=False)
+    assert resolve_idp_base_url(org) == expected
 
 
 def test_build_session_from_tokens_sets_expiry() -> None:
