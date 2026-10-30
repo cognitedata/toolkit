@@ -153,6 +153,23 @@ class TestEnvironmentVariables:
         assert env_vars.CDF_CLIENT_TIMEOUT == 10
         assert env_vars.CDF_CLIENT_MAX_WORKERS == 5000
 
+    @pytest.mark.parametrize(
+        "token_url, expected",
+        [
+            pytest.param(None, "https://auth.cognite.com/oauth2/token", id="cdf default"),
+            pytest.param("https://my-idp.example.com/token", "https://my-idp.example.com/token", id="explicit url"),
+        ],
+    )
+    def test_idp_token_url_cdf_provider(self, token_url: str | None, expected: str) -> None:
+        env_vars = EnvironmentVariables(
+            **PROJECT_AND_CLUSTER,
+            PROVIDER="cdf",
+            LOGIN_FLOW="client_credentials",
+            IDP_TOKEN_URL=token_url,
+        )
+
+        assert env_vars.idp_token_url == expected
+
     def test_create_dot_env_file(self) -> None:
         env_vars = EnvironmentVariables(
             "bluefield",
