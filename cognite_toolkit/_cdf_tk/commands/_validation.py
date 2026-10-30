@@ -1,4 +1,5 @@
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from rich.console import Console
@@ -7,10 +8,11 @@ from rich.progress import Progress
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
-    BuiltModule,
     InsightList,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
+    BuiltResource,
+    BuiltResourceList,
     ValidationResult,
     ValidationResultList,
 )
@@ -34,23 +36,23 @@ class ValidationStep:
 
 class ValidationCommand(ToolkitCommand):
     def validate(
-        self, modules: list[BuiltModule], client: ToolkitClient | None = None, display: bool = True
+        self, resources: Sequence[BuiltResource], client: ToolkitClient | None = None, display: bool = True
     ) -> ValidationResultList:
         """Validates the built modules in the build folder."""
         console = client.console if client else Console(markup=True)
-        plan = self._create_validation_plan(modules, client)
+        plan = self._create_validation_plan(resources, client)
         if display:
             self._display_validation_plan(plan, console)
         return self._run_validation(plan, console)
 
     @classmethod
     def _create_validation_plan(
-        cls, built_modules: list[BuiltModule], client: ToolkitClient | None
+        cls, resources: Sequence[BuiltResource], client: ToolkitClient | None
     ) -> list[ValidationStep]:
         all_rules = get_global_rules_registry()
         plan: list[ValidationStep] = []
         for rule_cls in all_rules:
-            rule = rule_cls(built_modules, client=client)
+            rule = rule_cls(BuiltResourceList(resources), client=client)
 
             status = rule.get_status()
             plan.append(ValidationStep(status=status, rule=rule))

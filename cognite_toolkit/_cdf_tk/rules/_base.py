@@ -7,8 +7,10 @@ from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuiltModule
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import UNRESOLVED_VARIABLE_PATTERN
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
+    UNRESOLVED_VARIABLE_PATTERN,
+    BuiltResourceList,
+)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
     InsightCode,
@@ -123,15 +125,15 @@ class ToolkitGlobalRuleSet(ABC):
     This can output different
 
     Args:
-        module: The module to validate.
+        resources: The resources to validate.
         client: The ToolkitClient to use. This is required by some rules.
     """
 
     CODE_PREFIX: ClassVar[str]
     DISPLAY_NAME: ClassVar[str]
 
-    def __init__(self, modules: list[BuiltModule], client: ToolkitClient | None = None) -> None:
-        self.modules = modules
+    def __init__(self, resources: BuiltResourceList, client: ToolkitClient | None = None) -> None:
+        self.resources = resources
         self.client = client
 
     @abstractmethod

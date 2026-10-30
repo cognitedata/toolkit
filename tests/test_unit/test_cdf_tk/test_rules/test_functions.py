@@ -87,7 +87,7 @@ class TestFunctionLimitsRule:
     ) -> None:
         """Test get_status depending on whether a client is available."""
         client = request.getfixturevalue(client_fixture) if client_fixture else None
-        rule = FunctionRuleSet(modules=[], client=client)
+        rule = FunctionRuleSet(resources=[], client=client)
         status = rule.get_status()
         assert status.code == expected_code
         assert status.message is not None

@@ -71,7 +71,7 @@ class TestAgentRuleSet:
         """Create an AgentRuleSet with a mocked client."""
         mock_client = MagicMock()
         mock_client.agents.service_availability.return_value = service_availability
-        return AgentRuleSet(modules=[], client=mock_client)
+        return AgentRuleSet(resources=[], client=mock_client)
 
     @pytest.mark.parametrize(
         "with_client, expected_code",
@@ -86,12 +86,12 @@ class TestAgentRuleSet:
         with_client: bool,
         expected_code: str,
     ) -> None:
-        rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet(modules=[])
+        rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet(resources=[])
         status = rule.get_status()
         assert status.code == expected_code
 
     def test_service_availability_returns_none_without_client(self) -> None:
-        rule = AgentRuleSet(modules=[])
+        rule = AgentRuleSet(resources=[])
         assert rule.service_availability is None
 
     @pytest.mark.parametrize(
@@ -117,7 +117,7 @@ class TestAgentRuleSet:
         yaml_file = tmp_path / "agents" / "agent.yaml"
         self._write_agent_yaml(yaml_file, content)
         resource = self._create_built_resource(yaml_file, yaml_file)
-        rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet(modules=[])
+        rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet(resources=[])
         errors = list(rule._validate_agent(resource))
         assert [error.code for error in errors] == expected_codes
         assert all(isinstance(error, BuildError) for error in errors)
@@ -207,6 +207,6 @@ class TestAgentRuleSet:
             },
         )
         resource = self._create_built_resource(yaml_file, yaml_file, external_id="supervisor")
-        rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet(modules=[])
+        rule = self._create_rule_with_client(service_availability) if with_client else AgentRuleSet(resources=[])
         errors = list(rule._validate_agent(resource))
         assert [error.code for error in errors] == expected_codes

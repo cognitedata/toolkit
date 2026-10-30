@@ -103,12 +103,12 @@ def create_module() -> Callable[[Path, list[BuiltResource]], BuiltModule]:
 
 class TestInFieldCDMRuleSet:
     def test_get_status_with_client(self) -> None:
-        rule = InFieldCDMRuleSet(modules=[], client=MagicMock())
+        rule = InFieldCDMRuleSet(resources=[], client=MagicMock())
         status = rule.get_status()
         assert status.code == "ready"
 
     def test_get_status_without_client(self) -> None:
-        rule = InFieldCDMRuleSet(modules=[])
+        rule = InFieldCDMRuleSet(resources=[])
         status = rule.get_status()
         assert status.code == "reduced"
 
@@ -137,7 +137,7 @@ class TestInFieldCDMRuleSet:
 
         mock_client = MagicMock()
         mock_client.views.retrieve.side_effect = lambda ids, **_: [view_map[v] for v in ids if v in view_map]
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=[module], client=mock_client)
         results = list(rule.validate())
         assert results == []
         mock_client.views.retrieve.assert_called_once()
@@ -171,7 +171,7 @@ class TestInFieldCDMRuleSet:
         activities_required = _REQUIRED_PROPERTIES["assetActivitiesCardView"]
         mock_client = MagicMock()
         mock_client.views.retrieve.return_value = [mock_view(activities_id, activities_required - {"mainAsset"})]
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=[module], client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
         assert errors[0].code == "INVALID-REFERENCED-RESOURCE"
@@ -203,7 +203,7 @@ class TestInFieldCDMRuleSet:
         module = create_module(tmp_path, [resource])
         mock_client = MagicMock()
         mock_client.views.retrieve.return_value = []
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=[module], client=mock_client)
         assert list(rule.validate()) == []
 
     def test_retrieve_called_once_for_multiple_resources(
@@ -234,7 +234,7 @@ class TestInFieldCDMRuleSet:
             mock_view(notifications_id, _REQUIRED_PROPERTIES["assetNotificationsCardView"]),
             mock_view(documents_id, _REQUIRED_PROPERTIES["assetDocumentsCardView"]),
         ]
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=[module], client=mock_client)
         list(rule.validate())
         mock_client.views.retrieve.assert_called_once()
         call_view_ids = mock_client.views.retrieve.call_args[0][0]
@@ -276,7 +276,7 @@ class TestInFieldCDMRuleSet:
         observation_id = ViewId(space="customer_idm", external_id="ObservationView", version="v2")
         mock_client = MagicMock()
         mock_client.views.retrieve.return_value = [mock_view(observation_id, frozenset({"assets", "files"}))]
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=[module], client=mock_client)
         assert list(rule.validate()) == []
 
     def test_observation_fields_config_unknown_property(
@@ -315,7 +315,7 @@ class TestInFieldCDMRuleSet:
         observation_id = ViewId(space="customer_idm", external_id="ObservationView", version="v2")
         mock_client = MagicMock()
         mock_client.views.retrieve.return_value = [mock_view(observation_id, frozenset({"assets"}))]
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=[module], client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
         assert errors[0].code == "MISSING-REFERENCED-PROPERTY"
@@ -351,7 +351,7 @@ class TestInFieldCDMRuleSet:
         resource = create_built_resource(yaml_file, yaml_file)
         module = create_module(tmp_path, [resource])
         mock_client = MagicMock()
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=[module], client=mock_client)
         assert list(rule.validate()) == []
         mock_client.views.retrieve.assert_not_called()
 
@@ -389,7 +389,7 @@ class TestInFieldCDMRuleSet:
         asset_id = ViewId(space="cdf_core", external_id="CogniteAsset", version="v1")
         mock_client = MagicMock()
         mock_client.views.retrieve.return_value = [mock_view(asset_id, frozenset({"name", "description"}))]
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=[module], client=mock_client)
         assert list(rule.validate()) == []
 
     def test_asset_properties_card_config_unknown_property(
@@ -426,7 +426,7 @@ class TestInFieldCDMRuleSet:
         asset_id = ViewId(space="cdf_core", external_id="CogniteAsset", version="v1")
         mock_client = MagicMock()
         mock_client.views.retrieve.return_value = [mock_view(asset_id, frozenset({"name"}))]
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=[module], client=mock_client)
         errors = list(rule.validate())
         assert len(errors) == 1
         assert errors[0].code == "MISSING-REFERENCED-PROPERTY"
@@ -459,7 +459,7 @@ class TestInFieldCDMRuleSet:
         default_asset_id = ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")
         mock_client = MagicMock()
         mock_client.views.retrieve.return_value = [mock_view(default_asset_id, frozenset({"name"}))]
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=[module], client=mock_client)
         assert list(rule.validate()) == []
         mock_client.views.retrieve.assert_called_once_with([default_asset_id], include_inherited_properties=True)
 
@@ -477,6 +477,6 @@ class TestInFieldCDMRuleSet:
         module = create_module(tmp_path, [resource])
         mock_client = MagicMock()
         mock_client.views.retrieve.side_effect = ToolkitAPIError("Server error", code=500)
-        rule = InFieldCDMRuleSet(modules=[module], client=mock_client)
+        rule = InFieldCDMRuleSet(resources=[module], client=mock_client)
         with pytest.raises(ToolkitAPIError, match="Server error"):
             list(rule.validate())
