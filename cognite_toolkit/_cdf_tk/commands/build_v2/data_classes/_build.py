@@ -309,6 +309,14 @@ class BuildFolder(BaseModel):
     all_variables: list[BuildVariable] = Field(default_factory=list)
 
     @property
+    def module_insights(self) -> InsightList:
+        """Insights from all built modules."""
+        insights = InsightList()
+        for module in self.built_modules:
+            insights.extend(module.all_insights)
+        return insights
+
+    @property
     def all_insights(self) -> InsightList:
         """Insights from all built modules."""
         insights = InsightList()

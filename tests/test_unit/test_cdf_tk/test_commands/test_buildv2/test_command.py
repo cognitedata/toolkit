@@ -180,7 +180,7 @@ name: My Space
         assert {
             "resource_count": len(my_module.resources),
             "syntax_errors": len(my_module.syntax_errors_by_source),
-            "insight_codes": {i.code for i in folder.all_insights},
+            "insight_codes": {i.code for i in folder.module_insights},
         } == {
             "resource_count": 1,
             "syntax_errors": 1,

@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands._validation import ValidationCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildFolder,
@@ -44,7 +45,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     UNRESOLVED_VARIABLE_PATTERN,
     BuiltResource,
     ConfigFile,
-    ValidationResult,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._config import DeployProtection
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
@@ -52,7 +52,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildWarning,
     Insight,
     InsightDefinition,
-    InternalValidatorException,
     Recommendation,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
@@ -89,8 +88,8 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     ResourceType,
     SuccessExtra,
 )
-from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
-from cognite_toolkit._cdf_tk.rules._base import EXECUTE_RULE_STATUS, RuleSetStatus
+from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -165,10 +164,8 @@ class BuildV2Command(ToolkitCommand):
         self._prepare_build_directory(parameters.build_dir)
         built_modules = self._build_modules(module_scan_result.modules, parameters.build_dir.resolve(), console)
 
-        plan = self._create_validation_plan(built_modules, client)
-        if display:
-            self._display_validation_plan(plan, console)
-        validation_results = self._run_validation(plan, console)
+        validation_cmd = ValidationCommand(client=client)
+        validation_results = validation_cmd.validate(built_modules, client, display)
 
         build_folder = BuildFolder(
             organization_dir=parameters.organization_dir.resolve(),
@@ -181,7 +178,9 @@ class BuildV2Command(ToolkitCommand):
         )
 
         # We report all insights in Mixpanel, but only display to the user the insights they have not ignored.
-        found_insights = build_folder.all_insights
+        found_insights = build_folder.module_insights + [
+            insight for result in validation_results for insight in result.insights
+        ]
         report_insights = self._filter_to_reported_insights(
             found_insights, build_folder.rules_ignored_by_source, parameters.rules_ignore
         )
@@ -1481,75 +1480,6 @@ class BuildV2Command(ToolkitCommand):
                 to_write.pop(remove_field, None)
 
         safe_write(destination_path, yaml_safe_dump(to_write), encoding=BUILD_FOLDER_ENCODING)
-
-    def _create_validation_plan(
-        self, built_modules: list[BuiltModule], client: ToolkitClient | None
-    ) -> list[ValidationStep]:
-        all_rules = get_global_rules_registry()
-        plan: list[ValidationStep] = []
-        for rule_cls in all_rules:
-            rule = rule_cls(built_modules, client=client)
-
-            status = rule.get_status()
-            plan.append(ValidationStep(status=status, rule=rule))
-        return plan
-
-    def _display_validation_plan(self, plan: list[ValidationStep], console: Console) -> None:
-        skip_count = sum(1 for step in plan if step.status.code == "skip")
-        unavailable_count = sum(1 for step in plan if step.status.code == "unavailable")
-
-        border_color = 0
-        if skip_count:
-            border_color = max(border_color, 1)
-        if unavailable_count:
-            border_color = max(border_color, 1)
-
-        table = ToolkitTable(*["Validating", "Status", "Message"])
-        for step in plan:
-            status_style = {"ready": "green", "reduced": "yellow", "skip": "yellow", "unavailable": "red"}[
-                step.status.code
-            ]
-            status_display = f"[{status_style}]{step.status.code.capitalize()}[/]"
-            message = step.status.message or "-"
-            table.add_row(step.rule.DISPLAY_NAME, status_display, message)
-
-        border_style = {0: AuraColor.GREEN.rich, 1: AuraColor.AMBER.rich, 2: AuraColor.RED.rich}[border_color]
-
-        console.print(
-            ToolkitPanel(
-                table,
-                title="Planning validation",
-                border_style=border_style,
-            )
-        )
-
-    def _run_validation(self, plan: list[ValidationStep], console: Console) -> list[ValidationResult]:
-        with Progress(console=console) as progress:
-            ready_step_count = sum(1 for step in plan if step.status.code in EXECUTE_RULE_STATUS)
-            validating_task = progress.add_task("Checking modules", total=ready_step_count)
-            validation_results: list[ValidationResult] = []
-            for step in plan:
-                if step.status.code not in EXECUTE_RULE_STATUS:
-                    continue
-                display_name = step.rule.DISPLAY_NAME
-                progress.update(validating_task, description=f"Running '{display_name}'...")
-
-                insights: list[Insight] = []
-                errors: list[InternalValidatorException] = []
-                for result in step.rule.validate():
-                    if isinstance(result, InternalValidatorException):
-                        errors.append(result)
-                    else:
-                        insights.append(result)
-
-                validation_results.append(ValidationResult(name=display_name, insights=insights, errors=errors))
-                progress.update(
-                    validating_task,
-                    advance=1,
-                    description=f"Finished validating {display_name}. Found {len(insights)} insights.",
-                )
-            progress.update(validating_task, description=f"Finished validating. Ran {ready_step_count} validations.")
-        return validation_results
 
     def _display_insights(self, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None:
         if not insights:
