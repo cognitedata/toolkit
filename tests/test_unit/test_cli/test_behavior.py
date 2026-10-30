@@ -1201,7 +1201,7 @@ capabilities:
             config_yamls=[my_org / "config.dev.yaml"],
         ),
     )
-    codes = {insight.code for insight in folder.all_insights}
+    codes = {insight.code for insight in folder.module_insights}
     assert "UNRESOLVED-VARIABLE" in codes
     assert "MISSING-REFERENCED-RESOURCE" not in codes
 
