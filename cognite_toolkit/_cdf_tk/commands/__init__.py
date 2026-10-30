@@ -7,6 +7,7 @@ from ._module_lock_cmd import ModuleLockCommand
 from ._purge import PurgeCommand
 from ._respace import RespaceCommand
 from ._upload import UploadCommand
+from ._validation import ValidationCommand
 from .about import AboutCommand
 from .auth.command import AuthCommand
 from .build_v2.build_v2 import BuildV2Command
@@ -54,4 +55,5 @@ __all__ = [
     "RunTransformationV2Command",
     "RunWorkflowV2Command",
     "UploadCommand",
+    "ValidationCommand",
 ]

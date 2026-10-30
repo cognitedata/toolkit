@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     ValidationResult,
+    ValidationResultList,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
@@ -34,7 +35,7 @@ class ValidationStep:
 class ValidationCommand(ToolkitCommand):
     def validate(
         self, modules: list[BuiltModule], client: ToolkitClient | None = None, display: bool = True
-    ) -> list[ValidationResult]:
+    ) -> ValidationResultList:
         """Validates the built modules in the build folder."""
         console = client.console if client else Console(markup=True)
         plan = self._create_validation_plan(modules, client)
@@ -86,11 +87,11 @@ class ValidationCommand(ToolkitCommand):
         )
 
     @classmethod
-    def _run_validation(cls, plan: list[ValidationStep], console: Console) -> list[ValidationResult]:
+    def _run_validation(cls, plan: list[ValidationStep], console: Console) -> ValidationResultList:
         with Progress(console=console) as progress:
             ready_step_count = sum(1 for step in plan if step.status.code in EXECUTE_RULE_STATUS)
             validating_task = progress.add_task("Checking modules", total=ready_step_count)
-            validation_results: list[ValidationResult] = []
+            validation_results = ValidationResultList()
             for step in plan:
                 if step.status.code not in EXECUTE_RULE_STATUS:
                     continue

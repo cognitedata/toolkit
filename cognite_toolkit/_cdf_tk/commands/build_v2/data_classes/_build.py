@@ -1,5 +1,6 @@
 import builtins
 import re
+from collections import UserList
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -72,6 +73,10 @@ class BuildParameters(BaseModel):
     rules_enforce: bool = Field(
         default=False,
         description="Whether to enforce rules during validation. If True, any rule violations will cause the build to fail. If False, rule violations will be reported as warnings.",
+    )
+    skip_validation: bool = Field(
+        default=False,
+        description="Whether to skip validation of the built resources. If True, no validation will be performed. If False, validation will be performed after the build.",
     )
 
     @field_validator("user_selected_modules", mode="after")
@@ -295,6 +300,16 @@ class ValidationResult(BaseModel):
     errors: list[InternalValidatorException]
 
 
+class ValidationResultList(UserList[ValidationResult]):
+    @property
+    def insights(self) -> InsightList:
+        """Aggregates all insights from the validation results."""
+        insights = InsightList()
+        for result in self.data:
+            insights.extend(result.insights)
+        return insights
+
+
 class BuildFolder(BaseModel):
     """Built folder acts as a container holding all built modules and insights from the build process."""
 
@@ -305,7 +320,6 @@ class BuildFolder(BaseModel):
     finished_at: datetime
 
     built_modules: list[BuiltModule] = Field(default_factory=list)
-    validation_results: list[ValidationResult] = Field(default_factory=list)
     all_variables: list[BuildVariable] = Field(default_factory=list)
 
     @property
@@ -314,17 +328,6 @@ class BuildFolder(BaseModel):
         insights = InsightList()
         for module in self.built_modules:
             insights.extend(module.all_insights)
-        return insights
-
-    @property
-    def all_insights(self) -> InsightList:
-        """Insights from all built modules."""
-        insights = InsightList()
-        for module in self.built_modules:
-            insights.extend(module.all_insights)
-        for result in self.validation_results:
-            insights.extend(result.insights)
-
         return insights
 
     @property

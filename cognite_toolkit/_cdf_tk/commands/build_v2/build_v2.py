@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     UNRESOLVED_VARIABLE_PATTERN,
     BuiltResource,
     ConfigFile,
+    ValidationResultList,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._config import DeployProtection
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
@@ -164,30 +165,30 @@ class BuildV2Command(ToolkitCommand):
         self._prepare_build_directory(parameters.build_dir)
         built_modules = self._build_modules(module_scan_result.modules, parameters.build_dir.resolve(), console)
 
-        validation_cmd = ValidationCommand(client=client)
-        validation_results = validation_cmd.validate(built_modules, client, display)
+        if parameters.skip_validation:
+            validation_cmd = ValidationCommand(client=client)
+            validation_results = validation_cmd.validate(built_modules, client, display)
+        else:
+            validation_results = ValidationResultList()
 
         build_folder = BuildFolder(
             organization_dir=parameters.organization_dir.resolve(),
             build_dir=parameters.build_dir.resolve(),
             built_modules=built_modules,
-            validation_results=validation_results,
             all_variables=module_scan_result.all_variables,
             started_at=build_start_time,
             finished_at=datetime.now(UTC),
         )
 
         # We report all insights in Mixpanel, but only display to the user the insights they have not ignored.
-        found_insights = build_folder.module_insights + [
-            insight for result in validation_results for insight in result.insights
-        ]
+        found_insights = build_folder.module_insights + validation_results.insights
         report_insights = self._filter_to_reported_insights(
             found_insights, build_folder.rules_ignored_by_source, parameters.rules_ignore
         )
 
         if display:
             self._display_insights(report_insights, parameters.insight_path, console, parameters.verbose)
-            self._display_build_summary(build_folder, report_insights, console, parameters.verbose)
+            self._display_build_summary(build_folder, validation_results, report_insights, console, parameters.verbose)
 
         self._track_build_results(build_folder, found_insights, client)
 
@@ -1624,7 +1625,12 @@ class BuildV2Command(ToolkitCommand):
         return f"[{AuraColor.RED.rich}]✗[/]"
 
     def _display_build_summary(
-        self, build_folder: BuildFolder, insights: InsightList, console: Console, verbose: bool
+        self,
+        build_folder: BuildFolder,
+        validation_results: ValidationResultList,
+        insights: InsightList,
+        console: Console,
+        verbose: bool,
     ) -> None:
         module_count = len(build_folder.built_modules)
         resource_count = sum(len(module.resources) for module in build_folder.built_modules)
@@ -1644,11 +1650,11 @@ class BuildV2Command(ToolkitCommand):
             insight_label = insight_type if count == 1 else f"{insight_type}s"
             summary_lines.append(f"{insight_style} [bold]{count}[/] {insight_label}")
 
-        validation_errors = [error for result in build_folder.validation_results for error in result.errors]
+        validation_errors = [error for result in validation_results for error in result.errors]
         if validation_errors:
             errors_by_validator: Counter[str] = Counter()
             first_error_by_validator: dict[str, str] = {}
-            for result in build_folder.validation_results:
+            for result in validation_results:
                 if result.errors:
                     errors_by_validator[result.name] += len(result.errors)
                     if result.name not in first_error_by_validator:
