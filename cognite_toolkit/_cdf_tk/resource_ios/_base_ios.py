@@ -37,6 +37,7 @@ class FailedReadExtra(ReadExtra):
         "MISSING-REFERENCED-FILE",
         "MISSING-REFERENCED-DIRECTORY",
         "INVALID-FILE-CONTENT",
+        "SYNTAX-ERROR",
     ]
     error: str
 
@@ -245,8 +246,10 @@ class ResourceIO(
     # Optional to set in the subclass
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
+    support_deploy = True
     support_drop = True
     support_update = True
+    deploy_not_supported_message: ClassVar[str | None] = None
     drop_confirmation_message: ClassVar[str | None] = None
     dependencies: "frozenset[type[ResourceIO]]" = frozenset()
     # For example, TransformationNotification and Schedule has Transformation as the parent resource
