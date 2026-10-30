@@ -416,6 +416,8 @@ HostedExtractorDestinationRequest:
 - credentials:
     nonce: '123'
   externalId: EventHubTarget
+  metadata:
+    toolkit-hash-credentials: 9cb98d84
   targetDataSetId: 7982613576047462211
 HostedExtractorJobRequest:
 - destinationId: EventHubTarget

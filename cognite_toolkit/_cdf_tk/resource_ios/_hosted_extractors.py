@@ -339,6 +339,9 @@ class HostedExtractorDestinationIO(
     _doc_url = "Destinations/operation/create_destinations"
     yaml_cls = HostedExtractorDestinationYAML
 
+    class _MetadataKey:
+        AUTH_HASH = "toolkit-hash-credentials"
+
     def __init__(self, client: ToolkitClient):
         super().__init__(client)
         self._authentication_by_id: dict[str, ClientCredentialsSessionRequest] = {}
@@ -399,17 +402,40 @@ class HostedExtractorDestinationIO(
         for destinations in self.client.hosted_extractors.destinations.iterate(limit=None):
             yield from destinations
 
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        raw_data_list = super().load_resource_file(filepath, environment_variables)
+        # The hash of the credentials is calculated here, as the output of load_resource_file
+        # is used to compare with the CDF resource. The API never returns the credentials, so
+        # the hash stored in metadata is used to detect changes.
+        for raw_data in raw_data_list:
+            raw_auth = raw_data.get("credentials")
+            if not raw_auth:
+                continue
+            credentials = self._read_credentials(raw_data, raw_auth)
+            metadata = raw_data.get("metadata") or {}
+            metadata[self._MetadataKey.AUTH_HASH] = calculate_secure_hash(
+                credentials.dump(camel_case=True), shorten=True
+            )
+            raw_data["metadata"] = metadata
+        return raw_data_list
+
+    def _read_credentials(self, resource: dict[str, Any], raw_auth: Any) -> ClientCredentialsSessionRequest:
+        external_id = self.get_id(resource).external_id
+        credentials = read_auth(
+            raw_auth,
+            self.client.config,
+            external_id,
+            "hosted extractor destination",
+            console=self.console,
+        )
+        self._authentication_by_id[external_id] = credentials
+        return credentials
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> HostedExtractorDestinationRequest:
         if raw_auth := resource.pop("credentials", None):
-            external_id = self.get_id(resource).external_id
-            credentials = read_auth(
-                raw_auth,
-                self.client.config,
-                external_id,
-                "hosted extractor destination",
-                console=self.console,
-            )
-            self._authentication_by_id[external_id] = credentials
+            credentials = self._read_credentials(resource, raw_auth)
             if is_dry_run:
                 resource["credentials"] = {"nonce": "dummy_nonce"}
             else:
@@ -422,16 +448,14 @@ class HostedExtractorDestinationIO(
     def dump_resource(
         self, resource: HostedExtractorDestinationResponse, local: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        # Credentials cannot be compared (API never returns them). Dumping only the identifier
-        # when a local YAML exists makes deploy always upsert.
-        if local:
-            HighSeverityWarning(
-                "Destinations that contain credentials are always considered as changed and will be redeployed every time"
-            ).print_warning(console=self.client.console)
-            return self.dump_id(self.get_id(resource))
         dumped = resource.as_request_resource().dump()
+        dumped.pop("credentials", None)
         if data_set_id := dumped.pop("targetDataSetId", None):
             dumped["targetDataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        if local and "credentials" in local:
+            # The API never returns the credentials. Any change to the credentials is detected
+            # by the hash stored in metadata, so we set them equal to the local credentials.
+            dumped["credentials"] = local["credentials"]
         return dumped
 
     @classmethod
