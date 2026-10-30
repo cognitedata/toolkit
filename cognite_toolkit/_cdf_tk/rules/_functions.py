@@ -40,13 +40,12 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
         functions: list[BuiltResource] = []
         function_type = ResourceType(resource_folder=FunctionIO.folder_name, kind=FunctionIO.kind)
-        for module in self.modules:
-            for resource in module.resources:
-                if not resource.can_verify:
-                    # We do not do further validation if there are syntax errors.
-                    continue
-                if resource.type == function_type:
-                    functions.append(resource)
+        for resource in self.resources:
+            if not resource.can_verify:
+                # We do not do further validation if there are syntax errors.
+                continue
+            if resource.type == function_type:
+                functions.append(resource)
 
         if not functions:
             return

@@ -54,19 +54,18 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
         agent_type = ResourceType(resource_folder=AgentIO.folder_name, kind=AgentIO.kind)
-        for module in self.modules:
-            for resource in module.resources:
-                if not resource.can_verify:
-                    # We do not do further validation if there are syntax errors.
-                    continue
-                if resource.type == agent_type:
-                    try:
-                        yield from self._validate_agent(resource)
-                    except Exception as e:
-                        yield InternalValidatorException(
-                            message=f"Agent validation failed for agent definition {resource.build_path.name!r}: {e}",
-                            source=str(resource.identifier),
-                        )
+        for resource in self.resources:
+            if not resource.can_verify:
+                # We do not do further validation if there are syntax errors.
+                continue
+            if resource.type == agent_type:
+                try:
+                    yield from self._validate_agent(resource)
+                except Exception as e:
+                    yield InternalValidatorException(
+                        message=f"Agent validation failed for agent definition {resource.build_path.name!r}: {e}",
+                        source=str(resource.identifier),
+                    )
 
     def _validate_agent(self, resource: BuiltResource) -> Iterable[Insight]:
         """Validate an agent definition against the CDF project's AI service availability.
