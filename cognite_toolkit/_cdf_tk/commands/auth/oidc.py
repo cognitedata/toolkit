@@ -22,6 +22,7 @@ from .session_store import StoredSession, format_session_timestamp
 
 # OAuth public client IDs for @cognite/cli on Cognite IdP. These are not secrets.
 _PROD_CLIENT_ID = "0404baaa-0a90-43a2-aba7-a110b53fb41c"
+_STAGING_CLIENT_ID = "c85d258a-bd3c-4014-8a4f-9ac08be4ebc4"
 _DEV_CLIENT_ID = "e26f94fb-bac4-4915-aa91-456668004185"
 
 _PROD_IDP_BASE_URL = "https://auth.cognite.com"
@@ -39,18 +40,26 @@ def _is_dev_org(org: str) -> bool:
     return org.startswith("cog-dev-")
 
 
+def _is_staging_org(org: str) -> bool:
+    return org.startswith("cog-staging-")
+
+
 def resolve_idp_base_url(org: str) -> str:
     if env_base_url := os.environ.get("COGNITE_IDP_BASE_URL", "").strip():
         return env_base_url.rstrip("/")
     if _is_dev_org(org):
         return _DEV_IDP_BASE_URL
-    if org.startswith("cog-staging-"):
+    if _is_staging_org(org):
         return _STAGING_IDP_BASE_URL
     return _PROD_IDP_BASE_URL
 
 
 def _resolve_client_id(org: str) -> str:
-    return _DEV_CLIENT_ID if _is_dev_org(org) else _PROD_CLIENT_ID
+    if _is_dev_org(org):
+        return _DEV_CLIENT_ID
+    if _is_staging_org(org):
+        return _STAGING_CLIENT_ID
+    return _PROD_CLIENT_ID
 
 
 @dataclass(frozen=True)
