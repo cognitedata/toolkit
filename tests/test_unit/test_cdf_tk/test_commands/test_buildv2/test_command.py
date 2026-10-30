@@ -187,7 +187,7 @@ name: My Space
             "insight_codes": {"INVALID-FIELD"},
         }
 
-        syntax_insight = next(i for i in folder.all_insights if i.code == "INVALID-FIELD")
+        syntax_insight = next(i for i in folder.module_insights if i.code == "INVALID-FIELD")
         assert syntax_insight.source_file == resource_file
 
         insights_csv = (build_dir / "insights.csv").read_text()
