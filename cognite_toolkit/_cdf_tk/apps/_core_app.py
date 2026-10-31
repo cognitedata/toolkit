@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.commands import (
 from cognite_toolkit._cdf_tk.commands._base import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConfigYAML
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import PostBuildParameters
 from cognite_toolkit._cdf_tk.constants import BUILD_MODULE_ARG, LOGS_DIRECTORY
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -285,6 +286,8 @@ class CoreApp(typer.Typer):
             config_yamls=config_yamls,
             user_selected_modules=selected,
             verbose=verbose,
+        )
+        post_parameters = PostBuildParameters(
             insight_format=insight_format.value,
             rules_ignore=set(CDF_TOML.rules.ignore),
             rules_enforce=CDF_TOML.rules.enforce,
@@ -293,6 +296,8 @@ class CoreApp(typer.Typer):
         cmd.run(
             lambda: cmd.build(
                 parameters=parameter,
+                post_parameters=post_parameters,
+                context="stand-alone",
                 client=client,
             )
         )

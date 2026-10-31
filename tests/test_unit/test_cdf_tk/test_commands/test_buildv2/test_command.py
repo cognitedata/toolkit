@@ -140,7 +140,7 @@ class TestBuildCommand:
         build_dir = tmp_path / "build"
         parameters = BuildParameters(organization_dir=org, build_dir=build_dir, user_selected_modules=[f"{MODULES}/"])
 
-        _ = cmd.build(parameters, tlk_client)
+        _ = cmd.build(parameters, client=tlk_client)
 
         built_space = list(build_dir.rglob(f"*.{SpaceIO.kind}.yaml"))
         assert len(built_space) == 1
@@ -174,7 +174,7 @@ name: My Space
         build_dir = tmp_path / "build"
         parameters = BuildParameters(organization_dir=org, build_dir=build_dir, user_selected_modules=[f"{MODULES}/"])
 
-        folder = cmd.build(parameters, tlk_client)
+        folder = cmd.build(parameters, client=tlk_client)
 
         my_module = next(m for m in folder.built_modules if m.module_id.name == "my_module")
         assert {
