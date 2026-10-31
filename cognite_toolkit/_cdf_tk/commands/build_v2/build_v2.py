@@ -134,7 +134,7 @@ class BuildV2Command(ToolkitCommand):
     def build(
         self,
         parameters: BuildParameters,
-        context: Literal["stand-alone", "integrated"],
+        context: Literal["stand-alone", "integrated"] = "stand-alone",
         post_parameters: PostBuildParameters | None = None,
         client: ToolkitClient | None = None,
         display: bool = True,
@@ -430,7 +430,7 @@ class BuildV2Command(ToolkitCommand):
                 config_yamls=[config_yaml_path] if config_yaml_path else [],
                 user_selected_modules=user_selected_modules,
             )
-            build_folder = self.build(build_parameters, client, display=False)
+            build_folder = self.build(build_parameters, context="stand-alone", client=client, display=False)
             cdf_project = client.config.project if client else None
             lineage = BuildLineage.from_build(
                 build_folder, cdf_project, [config_yaml_path] if config_yaml_path else None

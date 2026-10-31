@@ -1134,7 +1134,6 @@ capabilities:
             organization_dir=my_org,
             build_dir=tmp_path / "build",
             config_yamls=[my_org / "config.dev.yaml"],
-            skip_validation=True,
         ),
     )
     validation_result = ValidationCommand(silent=True, skip_tracking=True).validate(
@@ -1260,7 +1259,6 @@ capabilities:
             organization_dir=my_org,
             build_dir=tmp_path / "build",
             config_yamls=[my_org / "config.dev.yaml"],
-            skip_validation=True,
         ),
     )
 
