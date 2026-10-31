@@ -44,7 +44,8 @@ class BuildDeployValidateCommand(ToolkitCommand):
                 "Please use 'local' or 'remote' validation modes instead."
             )
 
-        validation_results = validate_cmd.validate(build_folder.built_modules, client, display=True)
+        resources = [resource for module in build_folder.built_modules for resource in module.resources]
+        validation_results = validate_cmd.validate(resources, client, display=True)
 
         build_cmd.post_build(
             build_folder,
