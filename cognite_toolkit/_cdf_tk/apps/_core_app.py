@@ -17,7 +17,7 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import (
-    BuildV2Command,
+    BuildDeployValidateCommand,
     DeployOptions,
     DeployV2Command,
 )
@@ -257,7 +257,7 @@ class CoreApp(typer.Typer):
             # This is verified in check_auth
             client = EnvironmentVariables.create_from_environment().get_client(console=console)
 
-        cmd = BuildV2Command(print_warning=True, client=client)
+        cmd = BuildDeployValidateCommand(print_warning=True, client=client)
 
         if build_env_name is not None and config_yaml is None:
             ToolkitDeprecationWarning(
@@ -294,10 +294,10 @@ class CoreApp(typer.Typer):
         )
 
         cmd.run(
-            lambda: cmd.build(
+            lambda: cmd.pre_flight(
                 parameters=parameter,
-                post_parameters=post_parameters,
-                context="stand-alone",
+                post_build=post_parameters,
+                validation="auto",
                 client=client,
             )
         )
