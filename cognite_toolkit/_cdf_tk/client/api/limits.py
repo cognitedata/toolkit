@@ -1,140 +1,118 @@
-"""Limits API for project-level usage limits.
+"""Limits API for project-level limit values.
 
 Based on the alpha API specification at:
 https://api-docs.cognite.com/20230101-alpha/tag/Limits
 """
 
 import builtins
-from collections.abc import Iterator
+from collections.abc import Iterable, Sequence
+from typing import Any
 from urllib.parse import quote
 
-from pydantic import JsonValue
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
+from cognite_toolkit._cdf_tk.client.http_client import (
+    FailedResponse,
+    HTTPClient,
+    ItemsSuccessResponse,
+    RequestMessage,
+    SuccessResponse,
+)
+from cognite_toolkit._cdf_tk.client.identifiers import LimitId
+from cognite_toolkit._cdf_tk.client.resource_classes.limits import LimitValueResponse
 
-from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
-from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.limits import LimitValue
 
-_API_VERSION = "alpha"
-
-
-class LimitsAPI(CDFResourceAPI[LimitValue]):
-    """API for project limit values."""
-
+class LimitsAPI(CDFResourceAPI[LimitValueResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
-            http_client,
+            http_client=http_client,
             method_endpoint_map={
-                "list": Endpoint(method="GET", path="/limits/values", item_limit=1000),
-                "search": Endpoint(method="POST", path="/limits/values/list", item_limit=1000),
-                "retrieve": Endpoint(method="GET", path="/limits/values", item_limit=1),
+                # The API only supports retrieving one limit at a time: GET /limits/values/{limitId}.
+                "retrieve": Endpoint(method="GET", path="/limits/values/{limitId}", item_limit=1),
+                "list": Endpoint(method="POST", path="/limits/values/list", item_limit=1000),
             },
-            api_version=_API_VERSION,
+            api_version="alpha",
         )
 
-    def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[LimitValue]:
-        return PagedResponse[LimitValue].model_validate_json(response.body)
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[LimitValueResponse]:
+        return PagedResponse[LimitValueResponse].model_validate_json(response.body)
 
-    def _get_page(self, endpoint: Endpoint, cursor: str | None, limit: int) -> PagedResponse[LimitValue]:
-        parameters: dict[str, str | int | float | bool] = {"limit": limit}
-        if cursor is not None:
-            parameters["cursor"] = cursor
-        request = RequestMessage(
-            endpoint_url=self._make_url(endpoint.path),
-            method="GET",
-            parameters=parameters,
-            api_version=self._api_version,
-        )
-        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
-        return self._validate_page_response(response)
-
-    def _search_page(self, body: dict[str, JsonValue]) -> PagedResponse[LimitValue]:
-        endpoint = self._method_endpoint_map["search"]
-        request = RequestMessage(
-            endpoint_url=self._make_url(endpoint.path),
-            method="POST",
-            body_content=body,
-            api_version=self._api_version,
-        )
-        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
-        return self._validate_page_response(response)
-
-    def retrieve(self, limit_id: str) -> LimitValue:
-        """Fetch a single limit value by its ID.
+    def retrieve(self, items: Sequence[LimitId], ignore_unknown_ids: bool = False) -> builtins.list[LimitValueResponse]:
+        """Retrieve limit values by ID.
 
         Args:
-            limit_id: The ID of the limit, for example ``atlas.ai_requests``.
+            items: The limit IDs to retrieve, e.g. ``LimitId(limit_id="atlas.monthly_ai_tokens")``.
+            ignore_unknown_ids: Skip limits that do not exist. When False, a missing limit raises.
 
         Returns:
-            The limit value.
+            The retrieved limit values.
         """
         endpoint = self._method_endpoint_map["retrieve"]
-        request = RequestMessage(
-            endpoint_url=self._make_url(f"{endpoint.path}/{quote(limit_id, safe='')}"),
-            method="GET",
-            api_version=self._api_version,
-        )
-        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
-        return LimitValue.model_validate_json(response.body)
+        results: builtins.list[LimitValueResponse] = []
+        for item in items:
+            request = RequestMessage(
+                endpoint_url=self._make_url(endpoint.path.format(limitId=quote(item.limit_id, safe=""))),
+                method=endpoint.method,
+                api_version=self._api_version,
+            )
+            response = self._http_client.request_single_retries(request)
+            if isinstance(response, SuccessResponse):
+                results.append(LimitValueResponse.model_validate_json(response.body))
+            elif (
+                ignore_unknown_ids
+                and isinstance(response, FailedResponse)
+                and 400 <= response.status_code < 500
+                and response.status_code != 429
+            ):
+                continue
+            else:
+                _ = response.get_success_or_raise(request)
+        return results
 
-    def paginate(self, cursor: str | None = None, limit: int = 1000) -> PagedResponse[LimitValue]:
+    @staticmethod
+    def _create_body(prefix: str | None) -> dict[str, Any] | None:
+        if prefix is None:
+            return None
+        return {"filter": {"prefix": {"property": ["limitId"], "value": prefix}}}
+
+    def paginate(
+        self, prefix: str | None = None, limit: int = 1000, cursor: str | None = None
+    ) -> PagedResponse[LimitValueResponse]:
         """Fetch a single page of limit values.
 
         Args:
-            cursor: Cursor from a previous page, if any.
-            limit: Maximum number of items to return. The API maximum is 1000.
+            prefix: Only return limits whose ID starts with this prefix, e.g. ``atlas.`` for all atlas limits.
+            limit: Maximum number of items to return.
+            cursor: Cursor for pagination.
 
         Returns:
-            A page of limit values with the next cursor, if any.
+            A page of limit values.
         """
-        return self._get_page(self._method_endpoint_map["list"], cursor, limit)
+        return self._paginate(limit=limit, cursor=cursor, body=self._create_body(prefix))
 
-    def list(self) -> builtins.list[LimitValue]:
-        """Retrieve all limit values in the project.
-
-        Returns:
-            All limit values, across all pages.
-        """
-        return builtins.list(self.iterate())
-
-    def iterate(self, limit: int = 1000) -> Iterator[LimitValue]:
-        """Iterate over all limit values, following cursors across pages.
+    def iterate(
+        self, prefix: str | None = None, limit: int | None = None
+    ) -> Iterable[builtins.list[LimitValueResponse]]:
+        """Iterate over limit values.
 
         Args:
-            limit: Page size. The API maximum is 1000.
-
-        Yields:
-            Each limit value in the project.
-        """
-        cursor: str | None = None
-        while True:
-            page = self.paginate(cursor=cursor, limit=limit)
-            yield from page.items
-            if not page.next_cursor:
-                return
-            cursor = page.next_cursor
-
-    def search(self, prefix: str, limit: int = 1000) -> builtins.list[LimitValue]:
-        """Retrieve limit values whose ID starts with the given prefix.
-
-        Args:
-            prefix: The limit ID prefix to match, for example ``atlas.``.
-            limit: Page size. The API maximum is 1000.
+            prefix: Only return limits whose ID starts with this prefix, e.g. ``atlas.`` for all atlas limits.
+            limit: Maximum number of items to return. None returns all.
 
         Returns:
-            All matching limit values, across all pages.
+            Iterable of batches of limit values.
         """
-        results: builtins.list[LimitValue] = []
-        cursor: str | None = None
-        while True:
-            body: dict[str, JsonValue] = {
-                "filter": {"prefix": {"property": ["limitId"], "value": prefix}},
-                "limit": limit,
-            }
-            if cursor is not None:
-                body["cursor"] = cursor
-            page = self._search_page(body)
-            results.extend(page.items)
-            if not page.next_cursor:
-                return results
-            cursor = page.next_cursor
+        return self._iterate(limit=limit, body=self._create_body(prefix))
+
+    def list(self, prefix: str | None = None, limit: int | None = None) -> builtins.list[LimitValueResponse]:
+        """List limit values.
+
+        Args:
+            prefix: Only return limits whose ID starts with this prefix, e.g. ``atlas.`` for all atlas limits.
+            limit: Maximum number of items to return. None returns all.
+
+        Returns:
+            The limit values.
+        """
+        return self._list(limit=limit, body=self._create_body(prefix))

@@ -2965,6 +2965,35 @@ class TestCDFResourceAPI:
                 f"Expected statistics for space {SMOKE_SPACE}, got {[item.space for item in retrieved]}.",
             )
 
+    def test_limits_list_retrieve(self, toolkit_client: ToolkitClient) -> None:
+        """Smoke-test the read-only Limits API (alpha)."""
+        client = toolkit_client
+        endpoints = client.limits._method_endpoint_map
+        try:
+            listed = client.limits.list(limit=1)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(endpoints["list"].path, f"Listing limits failed: {e!s}") from e
+        if not listed:
+            raise EndpointAssertionError(endpoints["list"].path, "Expected at least 1 listed limit, got 0")
+        limit_id = listed[0].as_id()
+
+        service_prefix = limit_id.limit_id.split(".", maxsplit=1)[0] + "."
+        try:
+            filtered = client.limits.list(prefix=service_prefix, limit=10)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(endpoints["list"].path, f"Listing limits by prefix failed: {e!s}") from e
+        if not filtered or not all(item.limit_id.startswith(service_prefix) for item in filtered):
+            raise EndpointAssertionError(
+                endpoints["list"].path, f"Expected only limits with prefix {service_prefix!r}, got {filtered}"
+            )
+
+        try:
+            retrieved = client.limits.retrieve([limit_id])
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(endpoints["retrieve"].path, f"Retrieving limit failed: {e!s}") from e
+        if len(retrieved) != 1 or retrieved[0].as_id() != limit_id:
+            raise EndpointAssertionError(endpoints["retrieve"].path, f"Expected {limit_id}, got {retrieved}")
+
     def test_documents_list_search_aggregate(self, toolkit_client: ToolkitClient) -> None:
         """Smoke-test Documents API list, search, and aggregate helpers (read-only)."""
         client = toolkit_client

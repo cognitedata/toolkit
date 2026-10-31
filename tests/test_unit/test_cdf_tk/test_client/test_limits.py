@@ -7,73 +7,52 @@ import respx
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.api.limits import LimitsAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
-from cognite_toolkit._cdf_tk.client.resource_classes.limits import LimitValue
+from cognite_toolkit._cdf_tk.client.identifiers import LimitId
+from cognite_toolkit._cdf_tk.client.resource_classes.limits import LimitValueResponse
 
 
 @pytest.mark.usefixtures("disable_gzip")
 class TestLimitsAPI:
-    def test_retrieve_limit_by_id(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
-        url = toolkit_config.create_api_url("/limits/values/atlas.ai_requests")
-        route = respx_mock.get(url).mock(
-            return_value=httpx2.Response(status_code=200, json={"limitId": "atlas.ai_requests", "value": 1000.0})
-        )
-
-        limit = LimitsAPI(HTTPClient(toolkit_config)).retrieve("atlas.ai_requests")
-
-        assert limit == LimitValue(limit_id="atlas.ai_requests", value=1000.0)
-        assert route.calls[0].request.headers["cdf-version"] == "20230101-alpha"
-
-    def test_retrieve_url_encodes_limit_id(
+    def test_retrieve_multiple_ignore_unknown(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
     ) -> None:
-        url = toolkit_config.create_api_url("/limits/values/a%2Fb")
-        respx_mock.get(url).mock(return_value=httpx2.Response(status_code=200, json={"limitId": "a/b", "value": 1.0}))
-
-        LimitsAPI(HTTPClient(toolkit_config)).retrieve("a/b")
-
-    def test_list_limits_follows_cursor(
-        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
-    ) -> None:
-        url = toolkit_config.create_api_url("/limits/values")
-        respx_mock.get(url, params={"limit": "1000"}).mock(
-            return_value=httpx2.Response(
-                status_code=200,
-                json={"items": [{"limitId": "a", "value": 1}], "nextCursor": "c1"},
-            )
+        respx_mock.get(toolkit_config.create_api_url("/limits/values/atlas.monthly_ai_tokens")).mock(
+            return_value=httpx2.Response(200, json={"limitId": "atlas.monthly_ai_tokens", "value": 1000})
         )
-        respx_mock.get(url, params={"limit": "1000", "cursor": "c1"}).mock(
-            return_value=httpx2.Response(
-                status_code=200,
-                json={"items": [{"limitId": "b", "value": 2}], "nextCursor": None},
-            )
+        respx_mock.get(toolkit_config.create_api_url("/limits/values/files.storage_bytes")).mock(
+            return_value=httpx2.Response(200, json={"limitId": "files.storage_bytes", "value": 500})
+        )
+        missing = respx_mock.get(toolkit_config.create_api_url("/limits/values/does.not_exist")).mock(
+            return_value=httpx2.Response(404, json={"error": {"code": 404, "message": "Not found"}})
         )
 
-        limits = LimitsAPI(HTTPClient(toolkit_config)).list()
+        result = LimitsAPI(HTTPClient(toolkit_config)).retrieve(
+            [
+                LimitId(limit_id="atlas.monthly_ai_tokens"),
+                LimitId(limit_id="does.not_exist"),
+                LimitId(limit_id="files.storage_bytes"),
+            ],
+            ignore_unknown_ids=True,
+        )
 
-        assert limits == [LimitValue(limit_id="a", value=1.0), LimitValue(limit_id="b", value=2.0)]
+        assert result == [
+            LimitValueResponse(limit_id="atlas.monthly_ai_tokens", value=1000),
+            LimitValueResponse(limit_id="files.storage_bytes", value=500),
+        ]
+        assert missing.calls[0].request.headers["cdf-version"] == "alpha"
 
-    def test_search_by_prefix_sends_filter_and_cursor(
-        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
-    ) -> None:
-        url = toolkit_config.create_api_url("/limits/values/list")
-        route = respx_mock.post(url).mock(
+    def test_list_with_prefix(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        route = respx_mock.post(toolkit_config.create_api_url("/limits/values/list")).mock(
             side_effect=[
-                httpx2.Response(
-                    status_code=200,
-                    json={"items": [{"limitId": "atlas.a", "value": 5}], "nextCursor": "c1"},
-                ),
-                httpx2.Response(
-                    status_code=200,
-                    json={"items": [{"limitId": "atlas.b", "value": 6}], "nextCursor": None},
-                ),
+                httpx2.Response(200, json={"items": [{"limitId": "atlas.a", "value": 1}], "nextCursor": "c1"}),
+                httpx2.Response(200, json={"items": [{"limitId": "atlas.b", "value": 2}]}),
             ]
         )
 
-        limits = LimitsAPI(HTTPClient(toolkit_config)).search("atlas.")
+        result = LimitsAPI(HTTPClient(toolkit_config)).list(prefix="atlas.")
 
-        assert limits == [LimitValue(limit_id="atlas.a", value=5.0), LimitValue(limit_id="atlas.b", value=6.0)]
-        first_body = json.loads(route.calls[0].request.content)
-        assert first_body["filter"] == {"prefix": {"property": ["limitId"], "value": "atlas."}}
-        assert "cursor" not in first_body
-        assert json.loads(route.calls[1].request.content)["cursor"] == "c1"
-        assert route.calls[0].request.headers["cdf-version"] == "20230101-alpha"
+        assert [item.limit_id for item in result] == ["atlas.a", "atlas.b"]
+        first, second = (json.loads(call.request.content) for call in route.calls)
+        assert first == {"filter": {"prefix": {"property": ["limitId"], "value": "atlas."}}, "limit": 1000}
+        assert second["cursor"] == "c1"
+        assert route.calls[0].request.headers["cdf-version"] == "alpha"
