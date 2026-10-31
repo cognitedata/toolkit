@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.client.api.integrations import (
     IntegrationErrorsAPI,
     IntegrationTasksAPI,
 )
+from cognite_toolkit._cdf_tk.client.api.limits import LimitsAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.migration import ResourceViewMappingsAPI
 from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
@@ -348,6 +349,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # Statistics are read-only and have no items to create, update, or delete.
         StatisticsAPI,
         SpaceStatisticsAPI,
+        # Limits are read-only and have no items to create, update, or delete.
+        LimitsAPI,
         # No create methods
         PrincipalsAPI,
         # Create payload is not a response resource, and delete is revoke.
