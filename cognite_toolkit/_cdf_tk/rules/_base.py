@@ -9,7 +9,8 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     UNRESOLVED_VARIABLE_PATTERN,
-    BuiltResourceList, BuiltResource,
+    BuiltResource,
+    BuiltResourceList,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
@@ -117,7 +118,6 @@ class ToolkitLocalRule(ABC):
 class RuleSetStatus(BaseModel):
     code: Literal["ready", "reduced", "skip", "unavailable"]
     message: str | None = None
-
 
 
 class ToolkitGlobalRuleSet(ABC):
