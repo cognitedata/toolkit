@@ -1,3 +1,4 @@
+from ._build_deploy_validate import BuildDeployValidateCommand
 from ._download import DownloadCommand
 from ._migrate import (
     MigrationCommand,
@@ -31,6 +32,7 @@ from .run_function_app import RunFunctionAppCommand
 __all__ = [
     "AboutCommand",
     "AuthCommand",
+    "BuildDeployValidateCommand",
     "BuildV2Command",
     "DeployOptions",
     "DeployV2Command",
