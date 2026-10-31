@@ -30,7 +30,7 @@ class LimitsAPI(CDFResourceAPI[LimitValueResponse]):
                 "retrieve": Endpoint(method="GET", path="/limits/values/{limitId}", item_limit=1),
                 "list": Endpoint(method="POST", path="/limits/values/list", item_limit=1000),
             },
-            api_version="alpha",
+            api_version="20230101-alpha",
         )
 
     def _validate_page_response(
