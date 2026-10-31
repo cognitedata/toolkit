@@ -190,9 +190,10 @@ class BuildV2Command(ToolkitCommand):
         if context == "integrated":
             return build_folder
 
-        return self.post_build(
+        self.post_build(
             build_folder, ValidationResultList(), client, post_parameters, console, display, parameters.verbose
         )
+        return build_folder
 
     def _create_console(self, client: ToolkitClient | None) -> Console:
         return client.console if client else Console(markup=True)
@@ -206,7 +207,7 @@ class BuildV2Command(ToolkitCommand):
         console: Console | None = None,
         display: bool = True,
         verbose: bool = False,
-    ) -> BuildFolder:
+    ) -> None:
         """Performs post-build actions:
 
         - Writes insights to the build folder if requested.
@@ -252,8 +253,6 @@ class BuildV2Command(ToolkitCommand):
 
         if parameters.rules_enforce:
             self._enforce_rules(report_insights)
-
-        return build_folder
 
     @classmethod
     def _filter_to_reported_insights(
