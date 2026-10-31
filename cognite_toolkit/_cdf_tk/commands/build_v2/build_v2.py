@@ -44,7 +44,8 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     UNRESOLVED_VARIABLE_PATTERN,
     BuiltResource,
     ConfigFile,
-    ValidationResult,
+    PostBuildParameters,
+    ValidationResultList,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._config import DeployProtection
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
@@ -52,7 +53,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildWarning,
     Insight,
     InsightDefinition,
-    InternalValidatorException,
     Recommendation,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
@@ -89,8 +89,8 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     ResourceType,
     SuccessExtra,
 )
-from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
-from cognite_toolkit._cdf_tk.rules._base import EXECUTE_RULE_STATUS, RuleSetStatus
+from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -132,12 +132,20 @@ _IGNORE_RULE_PATTERN = re.compile(r"#\s*rules?\s*:\s*ignore\s*\[([^\]]*)\]")
 
 class BuildV2Command(ToolkitCommand):
     def build(
-        self, parameters: BuildParameters, client: ToolkitClient | None = None, display: bool = True
+        self,
+        parameters: BuildParameters,
+        context: Literal["stand-alone", "integrated"] = "stand-alone",
+        post_parameters: PostBuildParameters | None = None,
+        client: ToolkitClient | None = None,
+        display: bool = True,
     ) -> BuildFolder:
         """Builds modules from the source system and returns the results.
 
         Args:
             parameters: The build parameters.
+            context: The context in which the build is being run. "stand-alone" means the build is being run as a standalone command,
+                while "integrated" means the build is being run as part of a larger command (e.g. build, dry-run, validate).
+            post_parameters: The post-build parameters, including whether to write insights and lineage, and whether to enforce rules. Only used when context is "stand-alone".
             client: The ToolkitClient to use for validation. If None, no validation that depends on
                 the client will be performed.
             display: Whether to display the build progress and results in the console. If False,
@@ -146,7 +154,7 @@ class BuildV2Command(ToolkitCommand):
             BuildFolder: The result of the build, including the source files, source modules, and build folder.
 
         """
-        console = client.console if client else Console(markup=True)
+        console = self._create_console(client)
 
         # Track build duration
         build_start_time = datetime.now(UTC)
@@ -165,30 +173,74 @@ class BuildV2Command(ToolkitCommand):
         self._prepare_build_directory(parameters.build_dir)
         built_modules = self._build_modules(module_scan_result.modules, parameters.build_dir.resolve(), console)
 
-        plan = self._create_validation_plan(built_modules, client)
-        if display:
-            self._display_validation_plan(plan, console)
-        validation_results = self._run_validation(plan, console)
-
         build_folder = BuildFolder(
             organization_dir=parameters.organization_dir.resolve(),
             build_dir=parameters.build_dir.resolve(),
             built_modules=built_modules,
-            validation_results=validation_results,
             all_variables=module_scan_result.all_variables,
             started_at=build_start_time,
             finished_at=datetime.now(UTC),
+            deploy_branch=build_files.deploy_branch if build_files else None,
+            deploy_protection=build_files.deploy_protection if build_files else None,
+            config_hash=calculate_hash_multi_file(parameters.config_yamls, shorten=True)
+            if parameters.config_yamls
+            else None,
         )
 
+        if context == "integrated":
+            return build_folder
+
+        self.post_build(
+            build_folder, ValidationResultList(), client, post_parameters, console, display, parameters.verbose
+        )
+        return build_folder
+
+    def _create_console(self, client: ToolkitClient | None) -> Console:
+        return client.console if client else Console(markup=True)
+
+    def post_build(
+        self,
+        build_folder: BuildFolder,
+        validation_results: ValidationResultList,
+        client: ToolkitClient | None = None,
+        parameters: PostBuildParameters | None = None,
+        console: Console | None = None,
+        display: bool = True,
+        verbose: bool = False,
+    ) -> None:
+        """Performs post-build actions:
+
+        - Writes insights to the build folder if requested.
+        - Writes lineage to the build folder if requested.
+        - Tracks build results to Mixpanel if a client is provided.
+        - Enforces rules if requested.
+        - Displays insights and build summary if requested.
+
+        Args:
+            build_folder: The result of the build, including the source files, source modules, and build folder.
+            validation_results: The results of the validation, if any.
+            client: The ToolkitClient to use for tracking build results.
+            parameters: The post-build parameters, including whether to write insights and lineage, and whether to enforce rules.
+            console: The console to use for displaying insights and build summary.
+            display: Whether to display insights and build summary in the console.
+            verbose: Whether to display verbose output in the console.
+
+        Returns:
+
+        """
+        console = console or self._create_console(client)
+        parameters = parameters or PostBuildParameters()
+
         # We report all insights in Mixpanel, but only display to the user the insights they have not ignored.
-        found_insights = build_folder.all_insights
+        found_insights = build_folder.module_insights
         report_insights = self._filter_to_reported_insights(
             found_insights, build_folder.rules_ignored_by_source, parameters.rules_ignore
         )
 
+        insight_path = build_folder.build_dir / f"insights.{parameters.insight_format}"
         if display:
-            self._display_insights(report_insights, parameters.insight_path, console, parameters.verbose)
-            self._display_build_summary(build_folder, report_insights, console, parameters.verbose)
+            self._display_insights(report_insights, insight_path, console, verbose)
+            self._display_build_summary(build_folder, validation_results, report_insights, console, verbose)
 
         self._track_build_results(build_folder, found_insights, client)
 
@@ -196,13 +248,11 @@ class BuildV2Command(ToolkitCommand):
         # This is so that they can be used in the deploy command to improve error messages when the API
         # fails to deploy a resource.
         self._write_results(
-            found_insights, build_folder, parameters, build_files, client.config.project if client else None
+            found_insights, build_folder, parameters, insight_path, client.config.project if client else None
         )
 
         if parameters.rules_enforce:
             self._enforce_rules(report_insights)
-
-        return build_folder
 
     @classmethod
     def _filter_to_reported_insights(
@@ -338,7 +388,7 @@ class BuildV2Command(ToolkitCommand):
         modules that have changed since the last run. If a config YAML is passed and its
         content has changed, the entire cache is invalidated and all modules are rebuilt.
         """
-        console = client.console if client else Console(markup=True)
+        console = self._create_console(client)
         self.validate_build_parameters(
             BuildParameters(organization_dir=organization_dir, config_yamls=[config_yaml] if config_yaml else None),
             console,
@@ -379,7 +429,7 @@ class BuildV2Command(ToolkitCommand):
                 config_yamls=[config_yaml_path] if config_yaml_path else [],
                 user_selected_modules=user_selected_modules,
             )
-            build_folder = self.build(build_parameters, client, display=False)
+            build_folder = self.build(build_parameters, context="stand-alone", client=client, display=False)
             cdf_project = client.config.project if client else None
             lineage = BuildLineage.from_build(
                 build_folder, cdf_project, [config_yaml_path] if config_yaml_path else None
@@ -1482,75 +1532,6 @@ class BuildV2Command(ToolkitCommand):
 
         safe_write(destination_path, yaml_safe_dump(to_write), encoding=BUILD_FOLDER_ENCODING)
 
-    def _create_validation_plan(
-        self, built_modules: list[BuiltModule], client: ToolkitClient | None
-    ) -> list[ValidationStep]:
-        all_rules = get_global_rules_registry()
-        plan: list[ValidationStep] = []
-        for rule_cls in all_rules:
-            rule = rule_cls(built_modules, client=client)
-
-            status = rule.get_status()
-            plan.append(ValidationStep(status=status, rule=rule))
-        return plan
-
-    def _display_validation_plan(self, plan: list[ValidationStep], console: Console) -> None:
-        skip_count = sum(1 for step in plan if step.status.code == "skip")
-        unavailable_count = sum(1 for step in plan if step.status.code == "unavailable")
-
-        border_color = 0
-        if skip_count:
-            border_color = max(border_color, 1)
-        if unavailable_count:
-            border_color = max(border_color, 1)
-
-        table = ToolkitTable(*["Validating", "Status", "Message"])
-        for step in plan:
-            status_style = {"ready": "green", "reduced": "yellow", "skip": "yellow", "unavailable": "red"}[
-                step.status.code
-            ]
-            status_display = f"[{status_style}]{step.status.code.capitalize()}[/]"
-            message = step.status.message or "-"
-            table.add_row(step.rule.DISPLAY_NAME, status_display, message)
-
-        border_style = {0: AuraColor.GREEN.rich, 1: AuraColor.AMBER.rich, 2: AuraColor.RED.rich}[border_color]
-
-        console.print(
-            ToolkitPanel(
-                table,
-                title="Planning validation",
-                border_style=border_style,
-            )
-        )
-
-    def _run_validation(self, plan: list[ValidationStep], console: Console) -> list[ValidationResult]:
-        with Progress(console=console) as progress:
-            ready_step_count = sum(1 for step in plan if step.status.code in EXECUTE_RULE_STATUS)
-            validating_task = progress.add_task("Checking modules", total=ready_step_count)
-            validation_results: list[ValidationResult] = []
-            for step in plan:
-                if step.status.code not in EXECUTE_RULE_STATUS:
-                    continue
-                display_name = step.rule.DISPLAY_NAME
-                progress.update(validating_task, description=f"Running '{display_name}'...")
-
-                insights: list[Insight] = []
-                errors: list[InternalValidatorException] = []
-                for result in step.rule.validate():
-                    if isinstance(result, InternalValidatorException):
-                        errors.append(result)
-                    else:
-                        insights.append(result)
-
-                validation_results.append(ValidationResult(name=display_name, insights=insights, errors=errors))
-                progress.update(
-                    validating_task,
-                    advance=1,
-                    description=f"Finished validating {display_name}. Found {len(insights)} insights.",
-                )
-            progress.update(validating_task, description=f"Finished validating. Ran {ready_step_count} validations.")
-        return validation_results
-
     def _display_insights(self, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None:
         if not insights:
             return
@@ -1694,7 +1675,12 @@ class BuildV2Command(ToolkitCommand):
         return f"[{AuraColor.RED.rich}]✗[/]"
 
     def _display_build_summary(
-        self, build_folder: BuildFolder, insights: InsightList, console: Console, verbose: bool
+        self,
+        build_folder: BuildFolder,
+        validation_results: ValidationResultList,
+        insights: InsightList,
+        console: Console,
+        verbose: bool,
     ) -> None:
         module_count = len(build_folder.built_modules)
         resource_count = sum(len(module.resources) for module in build_folder.built_modules)
@@ -1714,11 +1700,11 @@ class BuildV2Command(ToolkitCommand):
             insight_label = insight_type if count == 1 else f"{insight_type}s"
             summary_lines.append(f"{insight_style} [bold]{count}[/] {insight_label}")
 
-        validation_errors = [error for result in build_folder.validation_results for error in result.errors]
+        validation_errors = [error for result in validation_results for error in result.errors]
         if validation_errors:
             errors_by_validator: Counter[str] = Counter()
             first_error_by_validator: dict[str, str] = {}
-            for result in build_folder.validation_results:
+            for result in validation_results:
                 if result.errors:
                     errors_by_validator[result.name] += len(result.errors)
                     if result.name not in first_error_by_validator:
@@ -1810,21 +1796,20 @@ class BuildV2Command(ToolkitCommand):
         self,
         insights: InsightList,
         build: BuildFolder,
-        parameters: BuildParameters,
-        build_files: BuildInput,
+        parameters: PostBuildParameters,
+        insight_path: Path,
         cdf_project: str | None = None,
     ) -> None:
         """Write build results including lineage information and insights to the build folder."""
         if parameters.write_insights:
-            insight_file = parameters.insight_path
             if parameters.insight_format == "csv":
                 insight_file_content = insights.to_csv()
             else:
                 insight_file_content = insights.to_json()
             if insight_file_content.strip():
-                safe_write(insight_file, insight_file_content, encoding=BUILD_FOLDER_ENCODING)
+                safe_write(insight_path, insight_file_content, encoding=BUILD_FOLDER_ENCODING)
 
         if parameters.write_lineage:
             lineage_file = build.build_dir / BuildLineage.filename
-            lineage = BuildLineage.from_build(build, cdf_project, parameters.config_yamls, build_files).to_yaml()
+            lineage = BuildLineage.from_build(build, cdf_project).to_yaml()
             safe_write(lineage_file, lineage)

@@ -17,13 +17,14 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import (
-    BuildV2Command,
+    BuildDeployValidateCommand,
     DeployOptions,
     DeployV2Command,
 )
 from cognite_toolkit._cdf_tk.commands._base import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConfigYAML
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import PostBuildParameters
 from cognite_toolkit._cdf_tk.constants import BUILD_MODULE_ARG, LOGS_DIRECTORY
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -256,7 +257,7 @@ class CoreApp(typer.Typer):
             # This is verified in check_auth
             client = EnvironmentVariables.create_from_environment().get_client(console=console)
 
-        cmd = BuildV2Command(print_warning=True, client=client)
+        cmd = BuildDeployValidateCommand(print_warning=True, client=client)
 
         if build_env_name is not None and config_yaml is None:
             ToolkitDeprecationWarning(
@@ -285,14 +286,18 @@ class CoreApp(typer.Typer):
             config_yamls=config_yamls,
             user_selected_modules=selected,
             verbose=verbose,
+        )
+        post_parameters = PostBuildParameters(
             insight_format=insight_format.value,
             rules_ignore=set(CDF_TOML.rules.ignore),
             rules_enforce=CDF_TOML.rules.enforce,
         )
 
         cmd.run(
-            lambda: cmd.build(
+            lambda: cmd.pre_flight(
                 parameters=parameter,
+                post_build=post_parameters,
+                validation="auto",
                 client=client,
             )
         )
