@@ -50,33 +50,9 @@ class BuildParameters(BaseModel):
         "to build",
     )
     verbose: bool = False
-    insight_format: Literal["csv", "json"] = Field(
-        default="csv",
-        description="Format for the insights file written to the build directory.",
-    )
-    write_insights: bool = Field(
-        default=True,
-        description="Whether to write insights to a file in the build directory.",
-    )
-    write_lineage: bool = Field(
-        default=True,
-        description="Whether to write lineage information to a file in the build directory.",
-    )
     operation: str = Field(
         default="build",
         description="The operation being performed. Used when prompting the user for input. For example, 'Which modules do you want to build?'",
-    )
-    rules_ignore: set[str] = Field(
-        default_factory=set,
-        description="Set of rule codes to ignore during validation.",
-    )
-    rules_enforce: bool = Field(
-        default=False,
-        description="Whether to enforce rules during validation. If True, any rule violations will cause the build to fail. If False, rule violations will be reported as warnings.",
-    )
-    skip_validation: bool = Field(
-        default=False,
-        description="Whether to skip validation of the built resources. If True, no validation will be performed. If False, validation will be performed after the build.",
     )
 
     @field_validator("user_selected_modules", mode="after")
@@ -96,12 +72,31 @@ class BuildParameters(BaseModel):
         return self.organization_dir / MODULES
 
     @property
-    def insight_path(self) -> Path:
-        return self.build_dir / f"insights.{self.insight_format}"
-
-    @property
     def config_file_name(self) -> str:
         return self.config_yamls[0].name if self.config_yamls else ""
+
+
+class PostBuildParameters(BaseModel):
+    insight_format: Literal["csv", "json"] = Field(
+        default="csv",
+        description="Format for the insights file written to the build directory.",
+    )
+    write_insights: bool = Field(
+        default=True,
+        description="Whether to write insights to a file in the build directory.",
+    )
+    write_lineage: bool = Field(
+        default=True,
+        description="Whether to write lineage information to a file in the build directory.",
+    )
+    rules_ignore: set[str] = Field(
+        default_factory=set,
+        description="Set of rule codes to ignore during validation.",
+    )
+    rules_enforce: bool = Field(
+        default=False,
+        description="Whether to enforce rules during validation. If True, any rule violations will cause the build to fail. If False, rule violations will be reported as warnings.",
+    )
 
 
 class ConfigFile(BaseModel):
@@ -318,6 +313,15 @@ class BuildFolder(BaseModel):
     build_dir: AbsoluteDirPath
     started_at: datetime
     finished_at: datetime
+    deploy_branch: str | None = Field(
+        default=None,
+        description="Git branch that is expected to deploy the build.",
+    )
+    deploy_protection: DeployProtection | None = Field(
+        default=None,
+        description="Whether the build is protected from deployment on non-deploy branches.",
+    )
+    config_hash: str | None = None
 
     built_modules: list[BuiltModule] = Field(default_factory=list)
     all_variables: list[BuildVariable] = Field(default_factory=list)
