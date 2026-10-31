@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.resource_ios import StreamIO
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes.streams import StreamYAML
@@ -98,7 +99,7 @@ class TestStreamYAML:
     def test_load_valid_stream(self, data: dict[str, object]) -> None:
         loaded = StreamYAML.model_validate(data)
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
-        assert loaded.syntax_warnings(Path("test.yaml")) == []
+        assert loaded.syntax_warnings(Path("test.yaml"), StreamIO.as_resource_type()) == []
 
     def test_custom_template_syntax_warning(self) -> None:
         stream = StreamYAML.model_validate(
@@ -107,5 +108,5 @@ class TestStreamYAML:
                 "settings": {"template": {"name": "CustomTemplate"}},
             }
         )
-        warnings = stream.syntax_warnings(Path("test.yaml"))
+        warnings = stream.syntax_warnings(Path("test.yaml"), StreamIO.as_resource_type())
         assert len(warnings) == 1

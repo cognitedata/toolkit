@@ -11,13 +11,12 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import UNRESOLVED_VARIABLE_PATTERN
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
-    InsightCode,
     InternalValidatorException,
     T_Insight,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable, Module, SuccessfulReadYAMLFile
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.file import yaml_find_unique_position
-from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
 
 def quote_identifier(identifier: Identifier) -> str:
@@ -85,33 +84,6 @@ EXECUTE_RULE_STATUS: tuple[Literal["ready", "reduced", "skip", "unavailable"], .
 )
 
 
-class ToolkitLocalRule(ABC):
-    """Rule validating a module
-
-    Args:
-        module: The module to validate.
-    """
-
-    CODE: ClassVar[InsightCode]
-    IS_ALPHA: ClassVar[bool] = False
-    IS_FIXABLE: ClassVar[bool] = False
-
-    def __init__(self, module: Module) -> None:
-        self.module = module
-
-    @abstractmethod
-    def validate(self) -> Iterable[Insight]:
-        raise NotImplementedError()
-
-    def _get_validated_resources_with_file(self) -> Iterable[tuple[ToolkitResource, SuccessfulReadYAMLFile]]:
-        for file in self.module.files:
-            if not isinstance(file, SuccessfulReadYAMLFile):
-                continue
-            for resource in file.resources:
-                if resource.validated is not None:
-                    yield resource.validated, file
-
-
 class RuleSetStatus(BaseModel):
     code: Literal["ready", "reduced", "skip", "unavailable"]
     message: str | None = None
@@ -141,3 +113,14 @@ class ToolkitGlobalRuleSet(ABC):
     @abstractmethod
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
         raise NotImplementedError()
+
+
+_GLOBAL_RULES_REGISTRY: list[type[ToolkitGlobalRuleSet]] | None = None
+
+
+def get_global_rules_registry(force_reload: bool = False) -> list[type[ToolkitGlobalRuleSet]]:
+    """Get the registry of rules, optionally forcing a reload."""
+    global _GLOBAL_RULES_REGISTRY
+    if _GLOBAL_RULES_REGISTRY is None or force_reload:
+        _GLOBAL_RULES_REGISTRY = list(get_concrete_subclasses(ToolkitGlobalRuleSet))  # type: ignore[type-abstract]
+    return _GLOBAL_RULES_REGISTRY

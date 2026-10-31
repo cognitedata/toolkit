@@ -1,7 +1,8 @@
 from abc import ABC
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
+from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client import identifiers
 from cognite_toolkit._cdf_tk.constants import (
@@ -220,3 +221,12 @@ class ContainerPropertyDefinition(BaseModelResource):
         max_length=255,
     )
     type: PropertyType = Field(description="The type of data you can store in this property.")
+
+    @field_validator("type", mode="after")
+    @classmethod
+    def direct_relations_must_be_nullable(
+        cls, val: PropertyTypeDefinition, info: ValidationInfo
+    ) -> PropertyTypeDefinition:
+        if isinstance(val, DirectNodeRelation) and info.data.get("nullable") is False:
+            raise ValueError("Direct relations must be nullable. Set 'nullable' to true or remove it.")
+        return val

@@ -9,7 +9,8 @@ from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
 from .base import BaseModelResource, ToolkitResource
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning, Recommendation
+    from cognite_toolkit._cdf_tk.resource_ios import ResourceType
 
 
 StreamTemplate = Literal["ImmutableTestStream", "BasicArchive", "BasicLiveData"]
@@ -41,7 +42,9 @@ class StreamYAML(ToolkitResource):
         description="Stream settings which should be applied to a stream.",
     )
 
-    def syntax_warnings(self, source_file: Path) -> "list[BuildWarning]":
+    def syntax_warnings(
+        self, source_file: Path, resource_type: "ResourceType"
+    ) -> "list[BuildWarning | Recommendation]":
         if self.settings.template.name not in AVAILABLE_STREAM_TEMPLATES:
             from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning
 

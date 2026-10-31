@@ -3,6 +3,8 @@ from pathlib import Path
 
 import pytest
 
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import Recommendation
+from cognite_toolkit._cdf_tk.resource_ios import WorkflowIO
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes.workflow import WorkflowYAML
@@ -37,3 +39,19 @@ class TestWorkflowYAML:
         assert isinstance(format_warning, ResourceFormatWarning)
 
         assert set(format_warning.errors) == expected_errors
+
+    def test_missing_data_set_recommendation(self) -> None:
+        source = Path("workflow.yaml")
+        resource_type = WorkflowIO.as_resource_type()
+        assert (
+            WorkflowYAML.model_validate({"externalId": "wf", "dataSetExternalId": "ds"}).syntax_warnings(
+                source, resource_type
+            )
+            == []
+        )
+
+        insights = WorkflowYAML.model_validate({"externalId": "wf"}).syntax_warnings(source, resource_type)
+
+        assert [(type(i), i.code, i.message) for i in insights] == [
+            (Recommendation, "UNGOVERNED-RESOURCE", "Workflow 'wf' is not assigned to a data set.")
+        ]

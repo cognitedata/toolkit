@@ -24,6 +24,7 @@ from ._insights import (
     Insight,
     InsightList,
     InternalValidatorException,
+    Recommendation,
 )
 from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
@@ -179,7 +180,7 @@ class BuiltModule(BaseModel):
     resources: list[BuiltResource] = Field(default_factory=list)
     insights: list[Insight] = Field(default_factory=list)
     syntax_errors_by_source: dict[Path, BuildError] = Field(default_factory=dict)
-    syntax_warnings_by_source: dict[Path, list[BuildWarning]] = Field(default_factory=dict)
+    syntax_warnings_by_source: dict[Path, list[BuildWarning | Recommendation]] = Field(default_factory=dict)
     unresolved_variables_by_source: dict[Path, list[str]] = Field(default_factory=dict)
     failed_files: list[FailedReadYAMLFile] = Field(default_factory=list)
     ignored_files: list[IgnoredFile] = Field(default_factory=list)

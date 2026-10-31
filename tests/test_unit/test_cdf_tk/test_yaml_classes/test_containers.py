@@ -205,6 +205,15 @@ def invalid_container_cases() -> Iterable:
         "External CDF references are not supported for record containers.",
         id="InvalidRecordContainer",
     )
+    yield pytest.param(
+        {
+            "space": "my_space",
+            "externalId": "my_container",
+            "properties": {"pointer": {"nullable": False, "type": {"type": "direct"}}},
+        },
+        "Direct relations must be nullable",
+        id="NonNullableDirectRelation",
+    )
 
 
 class TestContainerYAML:

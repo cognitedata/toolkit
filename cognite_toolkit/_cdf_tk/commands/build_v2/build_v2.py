@@ -89,7 +89,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     ResourceType,
     SuccessExtra,
 )
-from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet, get_global_rules_registry
+from cognite_toolkit._cdf_tk.rules import ToolkitGlobalRuleSet, get_global_rules_registry
 from cognite_toolkit._cdf_tk.rules._base import EXECUTE_RULE_STATUS, RuleSetStatus
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
 from cognite_toolkit._cdf_tk.utils import (
@@ -1027,8 +1027,6 @@ class BuildV2Command(ToolkitCommand):
         built_modules: list[BuiltModule] = []
         # If parallelizing the build, this should be a multiprocessing.Manager().Counter() or similar.
         resource_counter: Counter = Counter()
-        # and use one orchestrator per process
-        validator = LocalRulesOrchestrator()
 
         with Progress(console=console) as progress:
             total_files = sum(source.total_files for source in module_sources)
@@ -1040,8 +1038,6 @@ class BuildV2Command(ToolkitCommand):
                 # Inside this loop, do not raise exceptions.
                 module = self._import_module(source)
 
-                # Local validation of module
-                insights = validator.run(module)
                 built_resources = self._export_resources(
                     module.files, resource_counter, build_dir, source.variables, source.as_id()
                 )
@@ -1050,7 +1046,6 @@ class BuildV2Command(ToolkitCommand):
                     BuiltModule(
                         module_id=module.id,
                         resources=built_resources,
-                        insights=insights,
                         syntax_errors_by_source={
                             file.source_path: file.syntax_error
                             for file in module.files
@@ -1235,7 +1230,9 @@ class BuildV2Command(ToolkitCommand):
         try:
             toolkit_resource = crud_class.validate_object(parsed_yaml, extra="forbid")
             identifier = toolkit_resource.as_id()
-            result.syntax_warnings.extend(toolkit_resource.syntax_warnings(resource_file))
+            result.syntax_warnings.extend(
+                toolkit_resource.syntax_warnings(resource_file, crud_class.as_resource_type())
+            )
         except ValidationError as errors:
             syntax_error, syntax_warnings = self._create_syntax_insights(
                 errors, resource_file, content, crud_class.yaml_cls
@@ -1297,7 +1294,7 @@ class BuildV2Command(ToolkitCommand):
                     )
             else:
                 identifier = tk_resource.as_id()
-                result.syntax_warnings.extend(tk_resource.syntax_warnings(resource_file))
+                result.syntax_warnings.extend(tk_resource.syntax_warnings(resource_file, crud_class.as_resource_type()))
 
             extra_files = self._substitute_variables_extra_content(
                 crud_class.get_extra_files(resource_file, identifier, raw_dict), variables
