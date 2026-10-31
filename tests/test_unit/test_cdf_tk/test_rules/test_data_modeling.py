@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_propert
     ConstraintOrIndexState,
     SingleEdgeProperty,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildError,
     BuildWarning,
@@ -147,9 +147,11 @@ def _write(tmp_path: Path, name: str, content: str) -> Path:
     return path
 
 
-def _module(resources: list[tuple[Path, type[ResourceIO], ContainerId | ViewId | DataModelId]]) -> BuiltModule:
+def _resources(
+    resources: list[tuple[Path, type[ResourceIO], ContainerId | ViewId | DataModelId]],
+) -> list[BuiltResource]:
     module_id = ModuleId(id=Path("modules/my"), path=resources[0][0].parent.resolve())
-    built = [
+    return [
         BuiltResource(
             identifier=identifier,
             source_hash="test-hash",
@@ -162,7 +164,6 @@ def _module(resources: list[tuple[Path, type[ResourceIO], ContainerId | ViewId |
         )
         for path, crud_cls, identifier in resources
     ]
-    return BuiltModule(module_id=module_id, yaml_line_count=0, resources=built)
 
 
 def _client(
@@ -221,11 +222,11 @@ def _view_property(container_property_identifier: str, direct: bool) -> ViewCore
 
 class TestDataModelingRuleSetStatus:
     def test_get_status_reduced_without_client(self) -> None:
-        status = DataModelingRuleSet(modules=[]).get_status()
+        status = DataModelingRuleSet(resources=[]).get_status()
         assert (status.code, "within the provided modules" in (status.message or "")) == ("reduced", True)
 
     def test_get_status_ready_with_client(self) -> None:
-        status = DataModelingRuleSet(modules=[], client=MagicMock()).get_status()
+        status = DataModelingRuleSet(resources=[], client=MagicMock()).get_status()
         assert (status.code, "state changes" in (status.message or "")) == ("ready", True)
 
 
@@ -234,21 +235,19 @@ class TestContainerPropertyReferences:
         container_file = _write(tmp_path, "MyContainer.container.yaml", CONTAINER_YAML)
         view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
         rule = DataModelingRuleSet(
-            modules=[
-                _module(
-                    [
-                        (container_file, ContainerIO, CONTAINER_ID),
-                        (view_file, ViewIO, VIEW_ID),
-                    ]
-                )
-            ]
+            resources=_resources(
+                [
+                    (container_file, ContainerIO, CONTAINER_ID),
+                    (view_file, ViewIO, VIEW_ID),
+                ]
+            )
         )
 
         assert list(rule.validate()) == []
 
     def test_missing_local_property_without_client_is_unverified(self, tmp_path: Path) -> None:
         view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
-        rule = DataModelingRuleSet(modules=[_module([(view_file, ViewIO, VIEW_ID)])])
+        rule = DataModelingRuleSet(resources=_resources([(view_file, ViewIO, VIEW_ID)]))
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "my_space:MyContainer.name" in insight.message) for insight in insights] == [
@@ -258,14 +257,14 @@ class TestContainerPropertyReferences:
     def test_property_found_in_cdf_is_accepted(self, tmp_path: Path) -> None:
         view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
         client = _client(containers=[_cdf_container({"name": ContainerPropertyDefinition(type=TextProperty())})])
-        rule = DataModelingRuleSet(modules=[_module([(view_file, ViewIO, VIEW_ID)])], client=client)
+        rule = DataModelingRuleSet(resources=_resources([(view_file, ViewIO, VIEW_ID)]), client=client)
 
         assert list(rule.validate()) == []
 
     def test_property_missing_in_cdf_is_unknown(self, tmp_path: Path) -> None:
         view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
         client = _client(containers=[_cdf_container({})])
-        rule = DataModelingRuleSet(modules=[_module([(view_file, ViewIO, VIEW_ID)])], client=client)
+        rule = DataModelingRuleSet(resources=_resources([(view_file, ViewIO, VIEW_ID)]), client=client)
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "my_space:MyContainer.name" in insight.message) for insight in insights] == [
@@ -276,7 +275,7 @@ class TestContainerPropertyReferences:
         view_file = _write(tmp_path, "MyView.view.yaml", VIEW_YAML)
         client = _client()
         client.containers.retrieve.side_effect = ToolkitAPIError("403 Forbidden", code=403)
-        rule = DataModelingRuleSet(modules=[_module([(view_file, ViewIO, VIEW_ID)])], client=client)
+        rule = DataModelingRuleSet(resources=_resources([(view_file, ViewIO, VIEW_ID)]), client=client)
 
         results = list(rule.validate())
         assert [(type(result), getattr(result, "source", None)) for result in results] == [
@@ -290,15 +289,13 @@ class TestReverseDirectRelations:
         mapped_view = _write(tmp_path, "OtherView.view.yaml", MAPPED_VIEW_YAML)
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
         rule = DataModelingRuleSet(
-            modules=[
-                _module(
-                    [
-                        (container_file, ContainerIO, CONTAINER_ID),
-                        (mapped_view, ViewIO, OTHER_VIEW_ID),
-                        (reverse_view, ViewIO, VIEW_ID),
-                    ]
-                )
-            ]
+            resources=_resources(
+                [
+                    (container_file, ContainerIO, CONTAINER_ID),
+                    (mapped_view, ViewIO, OTHER_VIEW_ID),
+                    (reverse_view, ViewIO, VIEW_ID),
+                ]
+            )
         )
 
         assert list(rule.validate()) == []
@@ -308,15 +305,13 @@ class TestReverseDirectRelations:
         mapped_view = _write(tmp_path, "OtherView.view.yaml", MAPPED_VIEW_YAML)
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
         rule = DataModelingRuleSet(
-            modules=[
-                _module(
-                    [
-                        (container_file, ContainerIO, CONTAINER_ID),
-                        (mapped_view, ViewIO, OTHER_VIEW_ID),
-                        (reverse_view, ViewIO, VIEW_ID),
-                    ]
-                )
-            ]
+            resources=_resources(
+                [
+                    (container_file, ContainerIO, CONTAINER_ID),
+                    (mapped_view, ViewIO, OTHER_VIEW_ID),
+                    (reverse_view, ViewIO, VIEW_ID),
+                ]
+            )
         )
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
@@ -326,7 +321,7 @@ class TestReverseDirectRelations:
 
     def test_missing_reverse_without_client_is_unverified(self, tmp_path: Path) -> None:
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
-        rule = DataModelingRuleSet(modules=[_module([(reverse_view, ViewIO, VIEW_ID)])])
+        rule = DataModelingRuleSet(resources=_resources([(reverse_view, ViewIO, VIEW_ID)]))
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "direct relation" in insight.message) for insight in insights] == [
@@ -336,14 +331,14 @@ class TestReverseDirectRelations:
     def test_direct_relation_found_on_cdf_view_is_accepted(self, tmp_path: Path) -> None:
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
         client = _client(views=[_cdf_view(OTHER_VIEW_ID, {"related": _view_property("related", direct=True)})])
-        rule = DataModelingRuleSet(modules=[_module([(reverse_view, ViewIO, VIEW_ID)])], client=client)
+        rule = DataModelingRuleSet(resources=_resources([(reverse_view, ViewIO, VIEW_ID)]), client=client)
 
         assert list(rule.validate()) == []
 
     def test_cdf_view_property_that_is_not_direct_is_rejected(self, tmp_path: Path) -> None:
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
         client = _client(views=[_cdf_view(OTHER_VIEW_ID, {"related": _view_property("related", direct=False)})])
-        rule = DataModelingRuleSet(modules=[_module([(reverse_view, ViewIO, VIEW_ID)])], client=client)
+        rule = DataModelingRuleSet(resources=_resources([(reverse_view, ViewIO, VIEW_ID)]), client=client)
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [insight.code for insight in insights] == ["INVALID-REFERENCED-PROPERTY"]
@@ -351,7 +346,7 @@ class TestReverseDirectRelations:
     def test_reverse_missing_in_cdf_is_unknown(self, tmp_path: Path) -> None:
         reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
         client = _client(views=[_cdf_view(OTHER_VIEW_ID, {})])
-        rule = DataModelingRuleSet(modules=[_module([(reverse_view, ViewIO, VIEW_ID)])], client=client)
+        rule = DataModelingRuleSet(resources=_resources([(reverse_view, ViewIO, VIEW_ID)]), client=client)
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [insight.code for insight in insights] == ["MISSING-REFERENCED-PROPERTY"]
@@ -433,7 +428,7 @@ class TestReverseDirectRelations:
             (_write(tmp_path, f"{view_id.external_id}.view.yaml", yaml), ViewIO, view_id)
             for view_id, yaml in local_view_yamls.items()
         ]
-        module = _module(
+        module = _resources(
             [
                 (_write(tmp_path, "MyContainer.container.yaml", container_yaml), ContainerIO, CONTAINER_ID),
                 *local_views,
@@ -445,7 +440,7 @@ class TestReverseDirectRelations:
             _cdf_view(view_id, {"related": _view_property("related", direct=is_direct)})
             for view_id, is_direct in cdf_view_is_direct.items()
         ]
-        rule = DataModelingRuleSet(modules=[module], client=_client(views=cdf_views))
+        rule = DataModelingRuleSet(resources=module, client=_client(views=cdf_views))
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [insight.code for insight in insights] == expected_codes
@@ -454,7 +449,7 @@ class TestReverseDirectRelations:
 class TestDataModelingChangesMove:
     def test_state_changes_run_here_and_are_skipped_by_dependency_rules(self, tmp_path: Path) -> None:
         container_file = _write(tmp_path, "MyContainer.container.yaml", CONTAINER_REMOVED_PROPERTY_YAML)
-        module = _module([(container_file, ContainerIO, CONTAINER_ID)])
+        resources = _resources([(container_file, ContainerIO, CONTAINER_ID)])
         deployed_property = ContainerPropertyDefinition(
             type=TextProperty(list=False, collation="ucs_basic"),
             immutable=False,
@@ -465,10 +460,10 @@ class TestDataModelingChangesMove:
 
         data_modeling = [
             insight
-            for insight in DataModelingRuleSet(modules=[module], client=client).validate()
+            for insight in DataModelingRuleSet(resources=resources, client=client).validate()
             if isinstance(insight, InsightDefinition)
         ]
-        dependencies = list(DependencyRuleSet(modules=[module], client=client).validate())
+        dependencies = list(DependencyRuleSet(resources=resources, client=client).validate())
 
         assert (
             [insight.code for insight in data_modeling],
@@ -815,7 +810,7 @@ class TestDataModelingStateChanges:
         client = _client(
             containers=[_cdf_container(cdf_properties, description=cdf_description, used_for=cdf_used_for)]
         )
-        rule = DataModelingRuleSet(modules=[_module([(yaml_file, ContainerIO, CONTAINER_ID)])], client=client)
+        rule = DataModelingRuleSet(resources=_resources([(yaml_file, ContainerIO, CONTAINER_ID)]), client=client)
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert (
@@ -844,7 +839,7 @@ class TestDataModelingStateChanges:
     ) -> None:
         yaml_file = _write(tmp_path, "MyContainer.container.yaml", CHANGE_CONTAINER_YAML)
         client = _client(containers=[_cdf_container(cdf_properties, used_for=cdf_used_for)])
-        rule = DataModelingRuleSet(modules=[_module([(yaml_file, ContainerIO, CONTAINER_ID)])], client=client)
+        rule = DataModelingRuleSet(resources=_resources([(yaml_file, ContainerIO, CONTAINER_ID)]), client=client)
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [type(insight) for insight in insights] == [expected_insight_type]
@@ -928,7 +923,7 @@ class TestDataModelingStateChanges:
             containers=[_referenced_container()],
             views=[_deployed_view(cdf_properties, cdf_description, cdf_implements)],
         )
-        rule = DataModelingRuleSet(modules=[_module([(yaml_file, ViewIO, VIEW_ID)])], client=client)
+        rule = DataModelingRuleSet(resources=_resources([(yaml_file, ViewIO, VIEW_ID)]), client=client)
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert (
@@ -963,7 +958,7 @@ class TestDataModelingStateChanges:
     ) -> None:
         yaml_file = _write(tmp_path, "MyModel.datamodel.yaml", DATA_MODEL_YAML)
         client = _client(data_models=[_cdf_data_model(cdf_views)])
-        rule = DataModelingRuleSet(modules=[_module([(yaml_file, DataModelIO, DATA_MODEL_ID)])], client=client)
+        rule = DataModelingRuleSet(resources=_resources([(yaml_file, DataModelIO, DATA_MODEL_ID)]), client=client)
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert (
@@ -973,5 +968,5 @@ class TestDataModelingStateChanges:
 
     def test_state_changes_are_skipped_without_client(self, tmp_path: Path) -> None:
         yaml_file = _write(tmp_path, "MyContainer.container.yaml", CHANGE_CONTAINER_YAML)
-        rule = DataModelingRuleSet(modules=[_module([(yaml_file, ContainerIO, CONTAINER_ID)])])
+        rule = DataModelingRuleSet(resources=_resources([(yaml_file, ContainerIO, CONTAINER_ID)]))
         assert list(rule.validate()) == []

@@ -63,15 +63,14 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
         card_view_refs: list[_CardViewRef] = []
         field_config_refs: list[_FieldConfigRef] = []
 
-        for module in self.modules:
-            for resource in module.resources:
-                if not resource.can_verify:
-                    continue
-                if resource.type != config_type:
-                    continue
-                card_refs, field_refs = self._collect_refs(resource)
-                card_view_refs.extend(card_refs)
-                field_config_refs.extend(field_refs)
+        for resource in self.resources:
+            if not resource.can_verify:
+                continue
+            if resource.type != config_type:
+                continue
+            card_refs, field_refs = self._collect_refs(resource)
+            card_view_refs.extend(card_refs)
+            field_config_refs.extend(field_refs)
 
         if not card_view_refs and not field_config_refs:
             return

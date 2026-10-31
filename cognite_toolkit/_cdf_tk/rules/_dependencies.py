@@ -48,16 +48,15 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
         """CDF dependency validations are validations that require checking the existence of resources in CDF."""
         built_resource_ids: set[tuple[type[ResourceIO], Identifier]] = {
-            (resource.crud_cls, resource.identifier) for module in self.modules for resource in module.resources
+            (resource.crud_cls, resource.identifier) for resource in self.resources
         }
         missing_locally_by_crud_cls: dict[type[ResourceIO], dict[Identifier, list[BuiltResource]]] = defaultdict(
             lambda: defaultdict(list)
         )
-        for module in self.modules:
-            for resource in module.resources:
-                for crud_cls, dependency_id in resource.dependencies:
-                    if (crud_cls, dependency_id) not in built_resource_ids and not self._is_unresolved(dependency_id):
-                        missing_locally_by_crud_cls[crud_cls][dependency_id].append(resource)
+        for resource in self.resources:
+            for crud_cls, dependency_id in resource.dependencies:
+                if (crud_cls, dependency_id) not in built_resource_ids and not self._is_unresolved(dependency_id):
+                    missing_locally_by_crud_cls[crud_cls][dependency_id].append(resource)
 
         if self.client:
             for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():

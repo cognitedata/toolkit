@@ -367,7 +367,7 @@ class TestDependencyValidationSearchConfig:
                 module_id=module.module_id,
             )
         )
-        result = list(DependencyRuleSet([module]).validate())
+        result = list(DependencyRuleSet(module.resources).validate())
         assert len(result) == 0
 
 
