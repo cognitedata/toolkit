@@ -44,13 +44,13 @@ class TestWorkflowYAML:
         source = Path("workflow.yaml")
         resource_type = WorkflowIO.as_resource_type()
         assert (
-            WorkflowYAML.model_validate({"externalId": "wf", "dataSetExternalId": "ds"}).syntax_warnings(
+            WorkflowYAML.model_validate({"externalId": "wf", "dataSetExternalId": "ds"}).extra_insights(
                 source, resource_type
             )
             == []
         )
 
-        insights = WorkflowYAML.model_validate({"externalId": "wf"}).syntax_warnings(source, resource_type)
+        insights = WorkflowYAML.model_validate({"externalId": "wf"}).extra_insights(source, resource_type)
 
         assert [(type(i), i.code, i.message) for i in insights] == [
             (Recommendation, "UNGOVERNED-RESOURCE", "Workflow 'wf' is not assigned to a data set.")

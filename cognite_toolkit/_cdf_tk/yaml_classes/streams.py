@@ -42,9 +42,7 @@ class StreamYAML(ToolkitResource):
         description="Stream settings which should be applied to a stream.",
     )
 
-    def syntax_warnings(
-        self, source_file: Path, resource_type: "ResourceType"
-    ) -> "list[BuildWarning | Recommendation]":
+    def extra_insights(self, source_file: Path, resource_type: "ResourceType") -> "list[BuildWarning | Recommendation]":
         if self.settings.template.name not in AVAILABLE_STREAM_TEMPLATES:
             from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning
 

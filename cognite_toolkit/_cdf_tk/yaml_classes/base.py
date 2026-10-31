@@ -21,9 +21,7 @@ class ToolkitResource(BaseModelResource):
         """Return an identifier for this resource."""
         raise NotImplementedError()
 
-    def syntax_warnings(
-        self, source_file: Path, resource_type: "ResourceType"
-    ) -> "list[BuildWarning | Recommendation]":
+    def extra_insights(self, source_file: Path, resource_type: "ResourceType") -> "list[BuildWarning | Recommendation]":
         """Return build-time syntax warnings and recommendations after a successful ``model_validate``."""
         return self._missing_data_set_recommendations(source_file, resource_type)
 

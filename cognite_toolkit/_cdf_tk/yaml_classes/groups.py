@@ -28,9 +28,7 @@ class BaseGroupYAML(ToolkitResource):
     def as_id(self) -> NameId:
         return NameId(name=self.name)
 
-    def syntax_warnings(
-        self, source_file: Path, resource_type: "ResourceType"
-    ) -> "list[BuildWarning | Recommendation]":
+    def extra_insights(self, source_file: Path, resource_type: "ResourceType") -> "list[BuildWarning | Recommendation]":
         # Lazy import to avoid circular dependency (yaml_classes → commands.build_v2 → resource_ios → yaml_classes).
         from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
             BuildWarning,

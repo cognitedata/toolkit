@@ -1230,9 +1230,7 @@ class BuildV2Command(ToolkitCommand):
         try:
             toolkit_resource = crud_class.validate_object(parsed_yaml, extra="forbid")
             identifier = toolkit_resource.as_id()
-            result.syntax_warnings.extend(
-                toolkit_resource.syntax_warnings(resource_file, crud_class.as_resource_type())
-            )
+            result.syntax_warnings.extend(toolkit_resource.extra_insights(resource_file, crud_class.as_resource_type()))
         except ValidationError as errors:
             syntax_error, syntax_warnings = self._create_syntax_insights(
                 errors, resource_file, content, crud_class.yaml_cls
@@ -1294,7 +1292,7 @@ class BuildV2Command(ToolkitCommand):
                     )
             else:
                 identifier = tk_resource.as_id()
-                result.syntax_warnings.extend(tk_resource.syntax_warnings(resource_file, crud_class.as_resource_type()))
+                result.syntax_warnings.extend(tk_resource.extra_insights(resource_file, crud_class.as_resource_type()))
 
             extra_files = self._substitute_variables_extra_content(
                 crud_class.get_extra_files(resource_file, identifier, raw_dict), variables
