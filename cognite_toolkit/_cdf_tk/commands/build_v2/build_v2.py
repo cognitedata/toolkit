@@ -1182,11 +1182,9 @@ class BuildV2Command(ToolkitCommand):
                 error="The YAML file is empty. Please add content to the file or remove it if it is not needed.",
                 unresolved_variables=unresolved_variables,
             )
-        resource_type = crud_class.as_crud_type()
         result = SuccessfulReadYAMLFile(
             source_path=resource_file,
             source_hash=file_hash,
-            resource_type=resource_type,
             source_type=crud_class.as_resource_type(),
             line_count=line_count,
             unresolved_variables=unresolved_variables,
@@ -1259,7 +1257,13 @@ class BuildV2Command(ToolkitCommand):
             parsed_yaml = crud_class.to_crud_type(parsed_yaml)
 
         result.resources.append(
-            ReadResource(raw=parsed_yaml, identifier=identifier, validated=toolkit_resource, extra_files=extra_files)
+            ReadResource(
+                raw=parsed_yaml,
+                identifier=identifier,
+                resource_type=crud_class.as_crud_type(),
+                validated=toolkit_resource,
+                extra_files=extra_files,
+            )
         )
         return result
 
@@ -1309,6 +1313,7 @@ class BuildV2Command(ToolkitCommand):
                 ReadResource(
                     raw=raw_dict,
                     identifier=identifier,
+                    resource_type=crud_class.as_crud_type(),
                     validated=tk_resource,
                     extra_files=extra_files,
                 )
@@ -1405,31 +1410,32 @@ class BuildV2Command(ToolkitCommand):
         for file in files:
             if not isinstance(file, SuccessfulReadYAMLFile):
                 continue
-            folder = build_dir / file.resource_type.resource_folder
-            folder.mkdir(parents=True, exist_ok=True)
             for resource in file.resources:
+                resource_type = resource.resource_type
+                folder = build_dir / resource_type.resource_folder
+                folder.mkdir(parents=True, exist_ok=True)
                 # Count the number of resources of this type to create a unique filename for each resource.
-                resource_counter.update([file.resource_type])
+                resource_counter.update([resource_type])
 
                 filestem = self._create_filestem(
-                    resource.identifier, file.source_path, index=resource_counter[file.resource_type]
+                    resource.identifier, file.source_path, index=resource_counter[resource_type]
                 )
-                destination_path = folder / f"{filestem}.{file.resource_type.kind}.yaml"
+                destination_path = folder / f"{filestem}.{resource_type.kind}.yaml"
                 self._write_to_build_dir(resource, destination_path, filestem, folder)
 
                 dependencies: set[tuple[type[ResourceIO], Identifier]] = set()
                 if resource.validated:
-                    dependencies = set(file.resource_type.crud_cls.get_dependencies(resource.validated))
+                    dependencies = set(resource_type.crud_cls.get_dependencies(resource.validated))
 
                 built_resources.append(
                     BuiltResource(
                         identifier=resource.identifier,
-                        type=file.resource_type,
+                        type=resource_type,
                         source_type=file.source_type,
                         source_hash=file.source_hash,
                         source_path=file.source_path,
                         build_path=destination_path,
-                        crud_cls=file.resource_type.crud_cls,
+                        crud_cls=resource_type.crud_cls,
                         dependencies=dependencies,
                         failed_extra=[extra for extra in resource.extra_files if isinstance(extra, FailedReadExtra)],
                         extra_files=[extra for extra in resource.extra_files if isinstance(extra, SuccessExtra)],
