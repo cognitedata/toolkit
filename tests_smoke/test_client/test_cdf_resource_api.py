@@ -38,6 +38,7 @@ from cognite_toolkit._cdf_tk.client.api.integrations import (
     IntegrationTasksAPI,
 )
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
+from cognite_toolkit._cdf_tk.client.api.metering import MeteringAPI
 from cognite_toolkit._cdf_tk.client.api.migration import ResourceViewMappingsAPI
 from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawRowsAPI, RawTablesAPI
@@ -354,6 +355,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         SessionAPI,
         PrincipalLoginSessionsAPI,
         UserProfilesAPI,
+        # Metering is read-only (list/retrieve) and alpha.
+        MeteringAPI,
         # Search/list/aggregate only; no request examples for generic CRUDL.
         DocumentsAPI,
         # Special handling due to need for file Id and update.
@@ -2924,6 +2927,31 @@ class TestCDFResourceAPI:
                 client.user_profiles._search_endpoint.path, f"Searching user profiles failed: {e!s}"
             ) from None
         # We only care about a 200 response, not whether we got a hit.
+
+    def test_metering_list_retrieve(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+        endpoints = client.metering._method_endpoint_map
+        try:
+            listed = client.metering.list(limit=1)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(endpoints["list"].path, f"Listing meters failed: {e!s}") from None
+        if not listed:
+            pytest.skip("No meters available in the project")
+
+        meter_id = listed[0].as_id()
+        now = int(time.time() * 1000)
+        try:
+            retrieved = client.metering.retrieve(
+                [meter_id], start=now - 7 * 24 * 60 * 60 * 1000, end=now, number_of_datapoints=7
+            )
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                endpoints["retrieve"].path, f"Retrieving meter {meter_id} failed: {e!s}"
+            ) from None
+        if len(retrieved) != 1 or retrieved[0].as_id() != meter_id:
+            raise EndpointAssertionError(
+                endpoints["retrieve"].path, f"Expected to retrieve meter {meter_id}, got {len(retrieved)} items"
+            )
 
     def test_statistics(self, toolkit_client: ToolkitClient) -> None:
         """Smoke-test project and space statistics endpoints (read-only)."""
