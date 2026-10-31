@@ -1,8 +1,8 @@
 from typing import Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.commands import ValidationCommand
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands._validation import ValidationCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildFolder, BuildParameters, PostBuildParameters
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import ValidationResultList
