@@ -59,12 +59,7 @@ class LimitsAPI(CDFResourceAPI[LimitValueResponse]):
             response = self._http_client.request_single_retries(request)
             if isinstance(response, SuccessResponse):
                 results.append(LimitValueResponse.model_validate_json(response.body))
-            elif (
-                ignore_unknown_ids
-                and isinstance(response, FailedResponse)
-                and 400 <= response.status_code < 500
-                and response.status_code != 429
-            ):
+            elif ignore_unknown_ids and isinstance(response, FailedResponse) and response.status_code in (400, 404):
                 continue
             else:
                 _ = response.get_success_or_raise(request)

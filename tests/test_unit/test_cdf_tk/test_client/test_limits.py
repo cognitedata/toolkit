@@ -39,7 +39,7 @@ class TestLimitsAPI:
             LimitValueResponse(limit_id="atlas.monthly_ai_tokens", value=1000),
             LimitValueResponse(limit_id="files.storage_bytes", value=500),
         ]
-        assert missing.calls[0].request.headers["cdf-version"] == "alpha"
+        assert missing.calls[0].request.headers["cdf-version"] == "20230101-alpha"
 
     def test_list_with_prefix(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         route = respx_mock.post(toolkit_config.create_api_url("/limits/values/list")).mock(
@@ -55,4 +55,4 @@ class TestLimitsAPI:
         first, second = (json.loads(call.request.content) for call in route.calls)
         assert first == {"filter": {"prefix": {"property": ["limitId"], "value": "atlas."}}, "limit": 1000}
         assert second["cursor"] == "c1"
-        assert route.calls[0].request.headers["cdf-version"] == "alpha"
+        assert route.calls[0].request.headers["cdf-version"] == "20230101-alpha"
