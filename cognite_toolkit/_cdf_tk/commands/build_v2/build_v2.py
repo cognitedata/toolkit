@@ -24,7 +24,6 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.commands._validation import ValidationCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildFolder,
@@ -45,6 +44,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     UNRESOLVED_VARIABLE_PATTERN,
     BuiltResource,
     ConfigFile,
+    PostBuildParameters,
     ValidationResultList,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._config import DeployProtection
@@ -132,12 +132,20 @@ _IGNORE_RULE_PATTERN = re.compile(r"#\s*rules?\s*:\s*ignore\s*\[([^\]]*)\]")
 
 class BuildV2Command(ToolkitCommand):
     def build(
-        self, parameters: BuildParameters, client: ToolkitClient | None = None, display: bool = True
+        self,
+        parameters: BuildParameters,
+        context: Literal["stand-alone", "integrated"],
+        post_parameters: PostBuildParameters | None = None,
+        client: ToolkitClient | None = None,
+        display: bool = True,
     ) -> BuildFolder:
         """Builds modules from the source system and returns the results.
 
         Args:
             parameters: The build parameters.
+            context: The context in which the build is being run. "stand-alone" means the build is being run as a standalone command,
+                while "integrated" means the build is being run as part of a larger command (e.g. build, dry-run, validate).
+            post_parameters: The post-build parameters, including whether to write insights and lineage, and whether to enforce rules. Only used when context is "stand-alone".
             client: The ToolkitClient to use for validation. If None, no validation that depends on
                 the client will be performed.
             display: Whether to display the build progress and results in the console. If False,
@@ -146,7 +154,7 @@ class BuildV2Command(ToolkitCommand):
             BuildFolder: The result of the build, including the source files, source modules, and build folder.
 
         """
-        console = client.console if client else Console(markup=True)
+        console = self._create_console(client)
 
         # Track build duration
         build_start_time = datetime.now(UTC)
@@ -165,12 +173,6 @@ class BuildV2Command(ToolkitCommand):
         self._prepare_build_directory(parameters.build_dir)
         built_modules = self._build_modules(module_scan_result.modules, parameters.build_dir.resolve(), console)
 
-        if parameters.skip_validation:
-            validation_cmd = ValidationCommand(client=client)
-            validation_results = validation_cmd.validate(built_modules, client, display)
-        else:
-            validation_results = ValidationResultList()
-
         build_folder = BuildFolder(
             organization_dir=parameters.organization_dir.resolve(),
             build_dir=parameters.build_dir.resolve(),
@@ -178,17 +180,66 @@ class BuildV2Command(ToolkitCommand):
             all_variables=module_scan_result.all_variables,
             started_at=build_start_time,
             finished_at=datetime.now(UTC),
+            deploy_branch=build_files.deploy_branch if build_files else None,
+            deploy_protection=build_files.deploy_protection if build_files else None,
+            config_hash=calculate_hash_multi_file(parameters.config_yamls, shorten=True)
+            if parameters.config_yamls
+            else None,
         )
 
+        if context == "integrated":
+            return build_folder
+
+        return self.post_build(
+            build_folder, ValidationResultList(), client, post_parameters, console, display, parameters.verbose
+        )
+
+    def _create_console(self, client: ToolkitClient | None) -> Console:
+        return client.console if client else Console(markup=True)
+
+    def post_build(
+        self,
+        build_folder: BuildFolder,
+        validation_results: ValidationResultList,
+        client: ToolkitClient | None = None,
+        parameters: PostBuildParameters | None = None,
+        console: Console | None = None,
+        display: bool = True,
+        verbose: bool = False,
+    ) -> BuildFolder:
+        """Performs post-build actions:
+
+        - Writes insights to the build folder if requested.
+        - Writes lineage to the build folder if requested.
+        - Tracks build results to Mixpanel if a client is provided.
+        - Enforces rules if requested.
+        - Displays insights and build summary if requested.
+
+        Args:
+            build_folder: The result of the build, including the source files, source modules, and build folder.
+            validation_results: The results of the validation, if any.
+            client: The ToolkitClient to use for tracking build results.
+            parameters: The post-build parameters, including whether to write insights and lineage, and whether to enforce rules.
+            console: The console to use for displaying insights and build summary.
+            display: Whether to display insights and build summary in the console.
+            verbose: Whether to display verbose output in the console.
+
+        Returns:
+
+        """
+        console = console or self._create_console(client)
+        parameters = parameters or PostBuildParameters()
+
         # We report all insights in Mixpanel, but only display to the user the insights they have not ignored.
-        found_insights = build_folder.module_insights + validation_results.insights
+        found_insights = build_folder.module_insights
         report_insights = self._filter_to_reported_insights(
             found_insights, build_folder.rules_ignored_by_source, parameters.rules_ignore
         )
 
+        insight_path = build_folder.build_dir / f"insights.{parameters.insight_format}"
         if display:
-            self._display_insights(report_insights, parameters.insight_path, console, parameters.verbose)
-            self._display_build_summary(build_folder, validation_results, report_insights, console, parameters.verbose)
+            self._display_insights(report_insights, insight_path, console, verbose)
+            self._display_build_summary(build_folder, validation_results, report_insights, console, verbose)
 
         self._track_build_results(build_folder, found_insights, client)
 
@@ -196,7 +247,7 @@ class BuildV2Command(ToolkitCommand):
         # This is so that they can be used in the deploy command to improve error messages when the API
         # fails to deploy a resource.
         self._write_results(
-            found_insights, build_folder, parameters, build_files, client.config.project if client else None
+            found_insights, build_folder, parameters, insight_path, client.config.project if client else None
         )
 
         if parameters.rules_enforce:
@@ -338,7 +389,7 @@ class BuildV2Command(ToolkitCommand):
         modules that have changed since the last run. If a config YAML is passed and its
         content has changed, the entire cache is invalidated and all modules are rebuilt.
         """
-        console = client.console if client else Console(markup=True)
+        console = self._create_console(client)
         self.validate_build_parameters(
             BuildParameters(organization_dir=organization_dir, config_yamls=[config_yaml] if config_yaml else None),
             console,
@@ -1746,21 +1797,20 @@ class BuildV2Command(ToolkitCommand):
         self,
         insights: InsightList,
         build: BuildFolder,
-        parameters: BuildParameters,
-        build_files: BuildInput,
+        parameters: PostBuildParameters,
+        insight_path: Path,
         cdf_project: str | None = None,
     ) -> None:
         """Write build results including lineage information and insights to the build folder."""
         if parameters.write_insights:
-            insight_file = parameters.insight_path
             if parameters.insight_format == "csv":
                 insight_file_content = insights.to_csv()
             else:
                 insight_file_content = insights.to_json()
             if insight_file_content.strip():
-                safe_write(insight_file, insight_file_content, encoding=BUILD_FOLDER_ENCODING)
+                safe_write(insight_path, insight_file_content, encoding=BUILD_FOLDER_ENCODING)
 
         if parameters.write_lineage:
             lineage_file = build.build_dir / BuildLineage.filename
-            lineage = BuildLineage.from_build(build, cdf_project, parameters.config_yamls, build_files).to_yaml()
+            lineage = BuildLineage.from_build(build, cdf_project).to_yaml()
             safe_write(lineage_file, lineage)
