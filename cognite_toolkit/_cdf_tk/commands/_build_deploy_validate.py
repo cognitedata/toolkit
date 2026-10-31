@@ -6,6 +6,7 @@ from cognite_toolkit._cdf_tk.commands._validation import ValidationCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildFolder, BuildParameters, PostBuildParameters
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import ValidationResultList
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
 
 class BuildDeployValidateCommand(ToolkitCommand):
@@ -18,6 +19,8 @@ class BuildDeployValidateCommand(ToolkitCommand):
         validation: Literal["none", "syntax-only", "local", "remote", "capacity", "auto"] = "auto",
         client: ToolkitClient | None = None,
     ) -> tuple[BuildFolder, ValidationResultList]:
+        if validation == "remote" and not client:
+            raise ToolkitValueError("Client must be provided for remote validation.")
         build_cmd = BuildV2Command(
             silent=self.silent,
             skip_tracking=self.tracker.skip_tracking,
@@ -37,7 +40,8 @@ class BuildDeployValidateCommand(ToolkitCommand):
 
         if validation == "capacity":
             raise NotImplementedError(
-                "The 'capacity' validation mode is not yet implemented. Please use 'local' or 'remote' validation modes instead."
+                "The 'capacity' validation mode is not yet implemented. "
+                "Please use 'local' or 'remote' validation modes instead."
             )
 
         validation_results = validate_cmd.validate(build_folder.built_modules, client, display=True)
