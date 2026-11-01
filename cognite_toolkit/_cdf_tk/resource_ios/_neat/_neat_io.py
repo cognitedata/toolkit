@@ -19,20 +19,23 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ResourceFileIO, ResourceIO, ResourceType
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import CrudResource
-from cognite_toolkit._cdf_tk.yaml_classes import NeatYAML
+from cognite_toolkit._cdf_tk.yaml_classes.neat import NeatFormat, NeatSpreadsheet, NeatYAML
+from cognite_toolkit._cdf_tk.yaml_classes.neat._spreadsheet import read_neat_spreadsheet
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError, BuildWarning
 
 
 @final
-class NeatIO(ResourceFileIO[DataModelId, NeatYAML]):
+class NeatIO(ResourceFileIO[DataModelId, NeatYAML | NeatSpreadsheet]):
     folder_name = "data_modeling"
     kind = "Neat"
-    yaml_cls = NeatYAML
+    yaml_cls = NeatFormat
 
     @classmethod
     def get_id(cls, item: dict) -> DataModelId:
+        if any(isinstance(key, str) and key.casefold() == "spreadsheet" for key in item):
+            return DataModelId(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
         metadata = _metadata(item)
         return DataModelId(
             space=_required_metadata(metadata, "space"),
@@ -45,12 +48,12 @@ class NeatIO(ResourceFileIO[DataModelId, NeatYAML]):
         raise RuntimeError("Bug in Toolkit: NeatIO is multiple crud types, use the to_crud_types methods instead")
 
     @classmethod
-    def get_dependencies(cls, resource: NeatYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+    def get_dependencies(cls, resource: NeatYAML | NeatSpreadsheet) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
         return []
 
     @classmethod
     def to_crud_types(
-        cls, raw: dict[str, Any], source_file: Path, resource: NeatYAML | None = None
+        cls, raw: dict[str, Any], source_file: Path, resource: NeatYAML | NeatSpreadsheet | None = None
     ) -> "Iterable[CrudResource[Identifier] | BuildError | BuildWarning]":
         if resource is None:
             from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
@@ -63,7 +66,8 @@ class NeatIO(ResourceFileIO[DataModelId, NeatYAML]):
             )
             return
         try:
-            converted = _NeatTableConverter(raw).convert()
+            table_resource, warnings = cls._read_table_resource(resource, source_file)
+            converted = _NeatTableConverter(table_resource.model_dump(by_alias=True)).convert()
         except NeatTableError as error:
             from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
 
@@ -74,6 +78,15 @@ class NeatIO(ResourceFileIO[DataModelId, NeatYAML]):
                 alpha=Flags.NEAT.is_enabled(),
             )
             return
+        for warning in warnings:
+            from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning
+
+            yield BuildWarning(
+                code="INVALID-VALUE",
+                message=warning,
+                source_file=source_file,
+                alpha=Flags.NEAT.is_enabled(),
+            )
 
         from cognite_toolkit._cdf_tk.resource_ios._datamodel import ContainerIO, DataModelIO, NodeIO, SpaceIO, ViewIO
 
@@ -103,9 +116,22 @@ class NeatIO(ResourceFileIO[DataModelId, NeatYAML]):
             )
         yield CrudResource(
             raw=converted.data_model,
-            identifier=cls.get_id(raw),
+            identifier=table_resource.as_id(),
             type_=ResourceType(resource_folder=DataModelIO.folder_name, kind=DataModelIO.kind),
         )
+
+    @staticmethod
+    def _read_table_resource(resource: NeatYAML | NeatSpreadsheet, source_file: Path) -> tuple[NeatYAML, list[str]]:
+        if isinstance(resource, NeatYAML):
+            return resource, []
+        spreadsheet = source_file.parent / resource.spreadsheet
+        if not spreadsheet.is_file():
+            raise NeatTableError(f"Referenced NEAT spreadsheet {resource.spreadsheet.as_posix()!r} does not exist.")
+        try:
+            table_resource, warnings = read_neat_spreadsheet(spreadsheet)
+        except ValueError as error:
+            raise NeatTableError(str(error)) from error
+        return table_resource, [warning.message for warning in warnings]
 
     @classmethod
     def from_crud_types(cls, resources: Iterable[CrudResource[Identifier]]) -> dict[str, Any]:

@@ -43,6 +43,7 @@ dependencies = [
     "filelock>=3.18.0",
     "keyring>=25.0.0",
     "authlib>=1.3.0",
+    "openpyxl>=3.1.5",
 ]
 
 [project.urls]
@@ -72,6 +73,9 @@ dev = [
 [project.optional-dependencies]
 table = [
     "pyarrow>=26.0.0",
+]
+neat = [
+    "openpyxl"
 ]
 sql = [
     "sqlparse >=0.5.3",

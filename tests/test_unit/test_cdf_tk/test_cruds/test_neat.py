@@ -1,8 +1,11 @@
 from pathlib import Path
 
+from openpyxl import Workbook
+
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import CrudResource
 from cognite_toolkit._cdf_tk.resource_ios._neat import NeatIO
-from cognite_toolkit._cdf_tk.yaml_classes.neat import NeatYAML
+from cognite_toolkit._cdf_tk.yaml_classes.neat import NeatSpreadsheet, NeatYAML
 
 
 def test_neat_table_is_converted_to_data_model_resources() -> None:
@@ -46,50 +49,53 @@ def test_neat_table_is_converted_to_data_model_resources() -> None:
         if isinstance(item, CrudResource)
     ]
 
-    assert [(resource.type_.kind, resource.raw) for resource in resources] == [
-        ("Space", {"space": "test"}),
-        (
-            "Container",
-            {
-                "space": "test",
-                "externalId": "Asset",
-                "usedFor": "node",
-                "properties": {
-                    "name": {"nullable": True, "type": {"type": "text", "list": False, "maxTextSize": 400}},
-                    "parent": {"nullable": True, "type": {"type": "direct", "list": False}},
-                },
-                "constraints": {},
-                "indexes": {"name": {"indexType": "btree", "properties": ["name"], "cursorable": True}},
-            },
-        ),
-        (
+    assert [item.type_.kind for item in resources] == ["Space", "Container", "View", "Node", "DataModel"]
+
+
+def test_neat_spreadsheet_is_converted_to_data_model_resources(tmp_path: Path) -> None:
+    spreadsheet = tmp_path / "asset.xlsx"
+    workbook = Workbook()
+    metadata = workbook.active
+    metadata.title = "Metadata"
+    metadata.append(["space", "test"])
+    metadata.append(["externalId", "assetModel"])
+    metadata.append(["version", "v1"])
+    properties = workbook.create_sheet("Properties")
+    properties.append(["Definition of Properties"])
+    properties.append(
+        [
             "View",
-            {
-                "space": "test",
-                "externalId": "Asset",
-                "version": "v1",
-                "implements": [],
-                "properties": {
-                    "name": {
-                        "container": {"type": "container", "space": "test", "externalId": "Asset"},
-                        "containerPropertyIdentifier": "name",
-                    },
-                    "parent": {
-                        "container": {"type": "container", "space": "test", "externalId": "Asset"},
-                        "containerPropertyIdentifier": "parent",
-                        "source": {"type": "view", "space": "test", "externalId": "Asset", "version": "v1"},
-                    },
-                },
-            },
-        ),
-        ("Node", {"instanceType": "node", "space": "test", "externalId": "AssetType"}),
-        (
-            "DataModel",
-            {
-                "space": "test",
-                "externalId": "assetModel",
-                "version": "v1",
-                "views": [{"type": "view", "space": "test", "externalId": "Asset", "version": "v1"}],
-            },
-        ),
-    ]
+            "View Property",
+            "Connection",
+            "Value Type",
+            "Min Count",
+            "Max Count",
+            "Container",
+            "Container Property",
+        ]
+    )
+    properties.append(["Asset", "name", None, "text", 0, 1, "Asset", "name"])
+    views = workbook.create_sheet("Views")
+    views.append(["Definition of Views"])
+    views.append(["View"])
+    views.append(["Asset"])
+    containers = workbook.create_sheet("Containers")
+    containers.append(["Definition of Containers"])
+    containers.append(["Container"])
+    containers.append(["Asset"])
+    enum = workbook.create_sheet("Enum")
+    enum.append(["Definition of Enum"])
+    enum.append(["Collection", "Value"])
+    workbook.save(spreadsheet)
+
+    resource = NeatSpreadsheet(spreadsheet=Path(spreadsheet.name), space="test", external_id="assetModel", version="v1")
+    results = list(NeatIO.to_crud_types(resource.model_dump(by_alias=True), tmp_path / "asset.Neat.yaml", resource))
+    resources = [item for item in results if isinstance(item, CrudResource)]
+
+    assert (
+        [item.type_.kind for item in resources],
+        [item.message for item in results if isinstance(item, BuildWarning)],
+    ) == (
+        ["Space", "Container", "View", "DataModel"],
+        ["Spreadsheet table 'Enum': contains no data rows."],
+    )

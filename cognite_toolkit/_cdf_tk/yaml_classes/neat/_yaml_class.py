@@ -1,9 +1,8 @@
 from pathlib import Path
 from typing import Annotated, Any
 
-from pydantic import Discriminator, Field, Tag, model_validator
+from pydantic import ConfigDict, Discriminator, Field, Tag, field_validator, model_validator
 
-from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
@@ -40,13 +39,22 @@ class NeatYAML(ToolkitResource):
 
 
 class NeatSpreadsheet(ToolkitResource):
+    model_config = ConfigDict(populate_by_name=True)
+
     spreadsheet: Path
     space: str
     external_id: str
     version: str
 
-    def as_id(self) -> Identifier:
-        raise ToolkitValueError("NeatSpreadsheet does not have an identifier.")
+    @field_validator("spreadsheet")
+    @classmethod
+    def validate_spreadsheet_suffix(cls, value: Path) -> Path:
+        if value.suffix.casefold() != ".xlsx":
+            raise ValueError("Spreadsheet must reference an .xlsx file.")
+        return value
+
+    def as_id(self) -> DataModelId:
+        return DataModelId(space=self.space, external_id=self.external_id, version=self.version)
 
 
 def _discriminate_neat_format(value: Any) -> str:
@@ -54,9 +62,10 @@ def _discriminate_neat_format(value: Any) -> str:
         raise ToolkitValueError(
             f"Invalid NEAT format. Expected either a YAML file or a spreadsheet file, got {type(value).__name__}."
         )
-    if "spreadsheet" in value:
+    keys = {key.casefold() for key in value if isinstance(key, str)}
+    if "spreadsheet" in keys:
         return "spreadsheet"
-    if "metadata" in value:
+    if "metadata" in keys:
         return "yaml"
     raise ToolkitValueError(
         "Invalid NEAT format. Expected either a YAML file or a spreadsheet file, but could not find the required keys 'metadata' or 'spreadsheet'."
