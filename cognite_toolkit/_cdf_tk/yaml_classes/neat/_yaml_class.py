@@ -1,13 +1,14 @@
 from pathlib import Path
 from typing import Annotated, Any
 
-from pydantic import ConfigDict, Discriminator, Field, Tag, field_validator, model_validator
+from pydantic import ConfigDict, Discriminator, Field, Tag, field_validator, model_validator, FilePath
 
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 from ._table import DMSContainer, DMSEnum, DMSNode, DMSProperty, DMSView, MetadataValue, normalize_table_names
+
 
 
 class NeatYAML(ToolkitResource):
@@ -41,10 +42,7 @@ class NeatYAML(ToolkitResource):
 class NeatSpreadsheet(ToolkitResource):
     model_config = ConfigDict(populate_by_name=True)
 
-    spreadsheet: Path
-    space: str
-    external_id: str
-    version: str
+    spreadsheet: FilePath
 
     @field_validator("spreadsheet")
     @classmethod
@@ -54,7 +52,7 @@ class NeatSpreadsheet(ToolkitResource):
         return value
 
     def as_id(self) -> DataModelId:
-        return DataModelId(space=self.space, external_id=self.external_id, version=self.version)
+        raise NotImplementedError()
 
 
 def _discriminate_neat_format(value: Any) -> str:
