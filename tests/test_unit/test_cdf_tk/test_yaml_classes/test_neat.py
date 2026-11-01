@@ -1,5 +1,14 @@
-import pytest
+from pathlib import Path
+from typing import Any
 
+import pytest
+from pydantic import TypeAdapter, ValidationError
+
+from cognite_toolkit._cdf_tk.client.identifiers import DataModelId
+from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
+from cognite_toolkit._cdf_tk.yaml_classes import NeatFormat
+from cognite_toolkit._cdf_tk.yaml_classes.neat import NeatSpreadsheet, NeatYAML
 from cognite_toolkit._cdf_tk.yaml_classes.neat._entities import ParsedEntity, parse_entities, parse_entity
 
 
@@ -253,3 +262,154 @@ class TestEntityParser:
     )
     def test_entity_str_representation(self, entity: ParsedEntity, expected_str: str) -> None:
         assert str(entity) == expected_str
+
+
+class TestNeatFormat:
+    @pytest.mark.parametrize(
+        "data, expected_id",
+        [
+            pytest.param(
+                {
+                    "Metadata": {"space": "my_space", "external_id": "MyModel", "version": "v1"},
+                    "Properties": [],
+                    "Views": [],
+                },
+                DataModelId(space="my_space", external_id="MyModel", version="v1"),
+                id="Minimal YAML with title case keys",
+            ),
+            pytest.param(
+                {
+                    "metadata": [
+                        {"key": "space", "value": "my_space"},
+                        {"key": "external_id", "value": "MyModel"},
+                        {"key": "version", "value": "v1"},
+                        {"key": "name", "value": "My Model"},
+                    ],
+                    "properties": [
+                        {
+                            "View": "MyView",
+                            "View Property": "name",
+                            "Value Type": "text",
+                            "Min Count": 0,
+                            "Max Count": 1,
+                            "Connection": None,
+                            "Container": "MyContainer",
+                            "Container Property": "name",
+                        }
+                    ],
+                    "views": [{"View": "MyView", "Filter": "hasData(MyContainer)"}],
+                    "containers": [{"Container": "MyContainer"}],
+                    "enum": [{"Collection": "Status", "Value": "active"}],
+                    "nodes": [{"Node": "my_space:MyNode"}],
+                },
+                DataModelId(space="my_space", external_id="MyModel", version="v1"),
+                id="Full YAML with lowercase keys and key-value metadata",
+            ),
+        ],
+    )
+    def test_load_valid_neat_yaml(self, data: dict[str, Any], expected_id: DataModelId) -> None:
+        loaded = TypeAdapter(NeatFormat).validate_python(data)
+
+        assert isinstance(loaded, NeatYAML)
+        assert loaded.as_id() == expected_id
+
+    def test_load_valid_neat_spreadsheet(self, tmp_path: Path) -> None:
+        spreadsheet = tmp_path / "model.xlsx"
+        spreadsheet.touch()
+
+        loaded = TypeAdapter(NeatFormat).validate_python({"spreadsheet": str(spreadsheet)})
+
+        assert isinstance(loaded, NeatSpreadsheet)
+        assert loaded.spreadsheet == spreadsheet
+
+    @pytest.mark.parametrize(
+        "filename, create, error_msg",
+        [
+            pytest.param("model.csv", True, "Spreadsheet must reference an .xlsx file.", id="Wrong suffix"),
+            pytest.param("missing.xlsx", False, "Path does not point to a file", id="Missing file"),
+        ],
+    )
+    def test_invalid_neat_spreadsheet(self, filename: str, create: bool, error_msg: str, tmp_path: Path) -> None:
+        spreadsheet = tmp_path / filename
+        if create:
+            spreadsheet.touch()
+
+        with pytest.raises(ValidationError, match=error_msg):
+            TypeAdapter(NeatFormat).validate_python({"spreadsheet": str(spreadsheet)})
+
+    @pytest.mark.parametrize(
+        "data, expected_errors",
+        [
+            pytest.param(
+                {"Views": []},
+                [
+                    "Invalid NEAT format. Expected either a 'Metadata' key (YAML format) or a "
+                    "'spreadsheet' key (spreadsheet format)."
+                ],
+                id="Neither metadata nor spreadsheet key",
+            ),
+            pytest.param(
+                {
+                    "Metadata": {"space": "my_space", "external_id": "MyModel"},
+                    "Properties": [],
+                    "Views": [],
+                },
+                ["Missing required field in Metadata: 'version'"],
+                id="Metadata missing version",
+            ),
+            pytest.param(
+                {
+                    "Metadata": {"space": "", "external_id": "MyModel", "version": "v1"},
+                    "Properties": [],
+                    "Views": [],
+                },
+                ["Invalid value at Metadata.space: String should have at least 1 character"],
+                id="Metadata empty space",
+            ),
+            pytest.param(
+                {
+                    "Metadata": {"space": "my_space", "external_id": "MyModel", "version": "v1"},
+                    "Views": [],
+                },
+                ["Missing required field: 'Properties'"],
+                id="Missing Properties table",
+            ),
+            pytest.param(
+                {
+                    "Metadata": {"space": "my_space", "external_id": "MyModel", "version": "v1"},
+                    "Properties": [
+                        {
+                            "View": "MyView(",
+                            "View Property": "name",
+                            "Value Type": "text",
+                            "Min Count": None,
+                            "Max Count": None,
+                            "Connection": None,
+                        }
+                    ],
+                    "Views": [],
+                },
+                [
+                    "Invalid value at Properties[1].View: Invalid entity syntax: "
+                    "Expected ')' to close properties at position 7"
+                ],
+                id="Invalid entity syntax in Properties",
+            ),
+            pytest.param(
+                {
+                    "Metadata": {"space": "my_space", "external_id": "MyModel", "version": "v1"},
+                    "Properties": [],
+                    "Views": [],
+                    "unknown_table": [],
+                },
+                ["Unrecognized field: 'Unknown Table'"],
+                id="Unknown table",
+            ),
+        ],
+    )
+    def test_invalid_neat_yaml(self, data: dict[str, Any], expected_errors: list[str]) -> None:
+        warning_list = validate_resource_yaml_pydantic(data, NeatFormat, Path("test.yaml"))
+        assert len(warning_list) == 1
+        format_warning = warning_list[0]
+        assert isinstance(format_warning, ResourceFormatWarning)
+        assert list(format_warning.errors) == expected_errors

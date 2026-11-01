@@ -40,7 +40,7 @@ from .integration import IntegrationConfigYAML, IntegrationYAML
 from .labels import LabelsYAML
 from .location import LocationYAML
 from .migration import ResourceViewMappingYAML
-from .neat._yaml_class import NeatFormat
+from .neat import NeatFormat
 from .raw_database_table import DatabaseYAML, TableYAML
 from .relationship import RelationshipYAML
 from .ruleset import RuleSetYAML
