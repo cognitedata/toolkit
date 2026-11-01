@@ -265,7 +265,7 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
 
     @classmethod
     def to_crud_types(
-        cls, raw: dict[str, Any], resource: CatalogDataSetYAML
+        cls, raw: dict[str, Any], resource: CatalogDataSetYAML | None = None
     ) -> "Iterable[CrudResource[ExternalId] | BuildError | BuildWarning]":
         """Convert a catalog data set to a CRUD data set."""
         metadata: dict[str, str] = {}

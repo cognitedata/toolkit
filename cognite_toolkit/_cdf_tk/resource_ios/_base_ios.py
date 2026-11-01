@@ -205,7 +205,7 @@ class ResourceFileIO(BaseResourceIO[T_Identifier, T_YamlResource]):
     @classmethod
     @abstractmethod
     def to_crud_types(
-        cls, raw: dict[str, Any], resource: T_YamlResource
+        cls, raw: dict[str, Any], resource: T_YamlResource | None = None
     ) -> "Iterable[CrudResource[T_Identifier] | BuildError | BuildWarning]":
         raise NotImplementedError(f"to_crud_types must be implemented for {cls.__name__}.")
 
