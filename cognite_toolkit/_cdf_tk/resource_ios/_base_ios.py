@@ -18,12 +18,12 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError, BuildWarning
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError, BuildWarning
 
 from typing import Self
 
@@ -204,16 +204,9 @@ class CrudResource(Generic[T_Identifier]):
 class ResourceFileIO(BaseResourceIO[T_Identifier, T_YamlResource]):
     @classmethod
     @abstractmethod
-    def to_crud_type(cls, raw: dict[str, Any]) -> dict[str, Any]:
-        """Converts the raw resource to the CRUD type. This is used to convert the resource from the build format to
-        the CRUD format. For example, a DataCatalog DataSet is a dataset and this does the conversion."""
-        raise NotImplementedError(f"to_crud_type must be implemented for {cls.__name__}.")
-
-    @classmethod
-    @abstractmethod
     def to_crud_types(
         cls, raw: dict[str, Any], resource: T_YamlResource
-    ) -> Iterable[CrudResource[T_Identifier] | BuildError | BuildWarning]:
+    ) -> "Iterable[CrudResource[T_Identifier] | BuildError | BuildWarning]":
         raise NotImplementedError(f"to_crud_types must be implemented for {cls.__name__}.")
 
     @classmethod
@@ -222,13 +215,6 @@ class ResourceFileIO(BaseResourceIO[T_Identifier, T_YamlResource]):
         """Converts the CRUD resources to the raw type. This is used to convert the resource from the CRUD format to
         the build format. For example, a DataCatalog DataSet is a dataset and this does the conversion."""
         raise NotImplementedError(f"from_crud_types must be implemented for {cls.__name__}.")
-
-    @classmethod
-    @abstractmethod
-    def from_crud_type(cls, crud: dict[str, Any]) -> dict[str, Any]:
-        """Converts the CRUD resource to the raw type. This is used to convert the resource from the CRUD format to
-        the build format. For example, a DataCatalog DataSet is a dataset and this does the conversion."""
-        raise NotImplementedError(f"from_crud_type must be implemented for {cls.__name__}.")
 
 
 class ResourceIO(
