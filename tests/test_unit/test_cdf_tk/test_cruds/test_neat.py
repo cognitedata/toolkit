@@ -16,6 +16,7 @@ def test_neat_table_is_converted_to_data_model_resources() -> None:
             {
                 "View": "Asset",
                 "View Property": "name",
+                "Connection": None,
                 "Value Type": "text(maxTextSize=400)",
                 "Min Count": 0,
                 "Max Count": 1,
