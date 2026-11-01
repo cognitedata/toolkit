@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from pydantic import TypeAdapter, ValidationError
+from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -313,29 +313,20 @@ class TestNeatFormat:
         assert isinstance(loaded, NeatYAML)
         assert loaded.as_id() == expected_id
 
-    def test_load_valid_neat_spreadsheet(self, tmp_path: Path) -> None:
-        spreadsheet = tmp_path / "model.xlsx"
-        spreadsheet.touch()
-
-        loaded = TypeAdapter(NeatFormat).validate_python({"spreadsheet": str(spreadsheet)})
-
-        assert isinstance(loaded, NeatSpreadsheet)
-        assert loaded.spreadsheet == spreadsheet
-
     @pytest.mark.parametrize(
-        "filename, create, error_msg",
+        "data",
         [
-            pytest.param("model.csv", True, "Spreadsheet must reference an .xlsx file.", id="Wrong suffix"),
-            pytest.param("missing.xlsx", False, "Path does not point to a file", id="Missing file"),
+            pytest.param({"spreadsheet": "model.xlsx"}, id="Relative path"),
+            pytest.param({"spreadsheet": "models/MODEL.XLSX"}, id="Uppercase suffix in subdirectory"),
         ],
     )
-    def test_invalid_neat_spreadsheet(self, filename: str, create: bool, error_msg: str, tmp_path: Path) -> None:
-        spreadsheet = tmp_path / filename
-        if create:
-            spreadsheet.touch()
+    def test_load_valid_neat_spreadsheet(self, data: dict[str, Any]) -> None:
+        assert validate_resource_yaml_pydantic(data, NeatFormat, Path("test.yaml")) == []
 
-        with pytest.raises(ValidationError, match=error_msg):
-            TypeAdapter(NeatFormat).validate_python({"spreadsheet": str(spreadsheet)})
+        loaded = TypeAdapter(NeatFormat).validate_python(data)
+
+        assert isinstance(loaded, NeatSpreadsheet)
+        assert loaded.spreadsheet == Path(data["spreadsheet"])
 
     @pytest.mark.parametrize(
         "data, expected_errors",
@@ -347,6 +338,19 @@ class TestNeatFormat:
                     "'spreadsheet' key (spreadsheet format)."
                 ],
                 id="Neither metadata nor spreadsheet key",
+            ),
+            pytest.param(
+                {"Spreadsheet": "model.xlsx"},
+                [
+                    "Invalid NEAT format. Expected either a 'Metadata' key (YAML format) or a "
+                    "'spreadsheet' key (spreadsheet format)."
+                ],
+                id="Spreadsheet key is not lowercase",
+            ),
+            pytest.param(
+                {"spreadsheet": "model.csv"},
+                ["Invalid value for spreadsheet: Spreadsheet must reference an .xlsx file."],
+                id="Spreadsheet with wrong suffix",
             ),
             pytest.param(
                 {
@@ -407,7 +411,7 @@ class TestNeatFormat:
             ),
         ],
     )
-    def test_invalid_neat_yaml(self, data: dict[str, Any], expected_errors: list[str]) -> None:
+    def test_invalid_neat_format(self, data: dict[str, Any], expected_errors: list[str]) -> None:
         warning_list = validate_resource_yaml_pydantic(data, NeatFormat, Path("test.yaml"))
         assert len(warning_list) == 1
         format_warning = warning_list[0]

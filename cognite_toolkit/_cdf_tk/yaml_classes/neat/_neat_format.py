@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, FilePath, Tag, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, field_validator, model_validator
 
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
@@ -81,7 +81,15 @@ class NeatYAML(ToolkitResource):
 class NeatSpreadsheet(ToolkitResource):
     model_config = ConfigDict(populate_by_name=True)
 
-    spreadsheet: FilePath
+    spreadsheet: Path
+
+    @field_validator("spreadsheet", mode="before")
+    @classmethod
+    def convert_str_to_path(cls, value: Any) -> Any:
+        # Strict validation rejects str for Path, but YAML always provides text.
+        if isinstance(value, str):
+            return Path(value)
+        return value
 
     @field_validator("spreadsheet")
     @classmethod
@@ -102,10 +110,9 @@ def _discriminate_neat_format(value: Any) -> str | None:
         return "spreadsheet"
     if not isinstance(value, dict):
         return None
-    keys = {key.casefold() for key in value if isinstance(key, str)}
-    if "spreadsheet" in keys:
+    if "spreadsheet" in value:
         return "spreadsheet"
-    if "metadata" in keys:
+    if "metadata" in {key.casefold() for key in value if isinstance(key, str)}:
         return "yaml"
     # Returning None makes pydantic raise the custom 'invalid_neat_format' error.
     return None
