@@ -15,6 +15,7 @@
 
 import json
 from collections.abc import Hashable, Iterable, Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, final
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -265,8 +266,8 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
 
     @classmethod
     def to_crud_types(
-        cls, raw: dict[str, Any], resource: CatalogDataSetYAML | None = None
-    ) -> "Iterable[CrudResource[ExternalId] | BuildError | BuildWarning]":
+        cls, raw: dict[str, Any], source_file: Path, resource: CatalogDataSetYAML | None = None
+    ) -> "Iterable[CrudResource[Identifier] | BuildError | BuildWarning]":
         """Convert a catalog data set to a CRUD data set."""
         metadata: dict[str, str] = {}
         crud_resource: dict[str, Any] = {}
@@ -286,7 +287,7 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
         yield CrudResource(raw=crud_resource, identifier=cls.get_id(raw), type_=cls.as_crud_type())
 
     @classmethod
-    def from_crud_types(cls, resources: Iterable[CrudResource[ExternalId]]) -> dict[str, Any]:
+    def from_crud_types(cls, resources: Iterable[CrudResource[Identifier]]) -> dict[str, Any]:
         """Convert a CRUD data set to a catalog data set."""
         resource_list = list(resources)
         if len(resource_list) != 1:

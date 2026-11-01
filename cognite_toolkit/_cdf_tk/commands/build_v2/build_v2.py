@@ -1254,7 +1254,7 @@ class BuildV2Command(ToolkitCommand):
             crud_class.get_extra_files(resource_file, identifier, parsed_yaml), variables
         )
         if issubclass(crud_class, ResourceFileIO):
-            self._append_resources(result, crud_class, parsed_yaml, toolkit_resource, extra_files)
+            self._append_resources(result, crud_class, parsed_yaml, toolkit_resource, extra_files, resource_file)
         else:
             result.resources.append(
                 ReadResource(
@@ -1307,7 +1307,7 @@ class BuildV2Command(ToolkitCommand):
                 crud_class.get_extra_files(resource_file, identifier, raw_dict), variables
             )
             if issubclass(crud_class, ResourceFileIO):
-                self._append_resources(result, crud_class, raw_dict, tk_resource, extra_files)
+                self._append_resources(result, crud_class, raw_dict, tk_resource, extra_files, resource_file)
             else:
                 result.resources.append(
                     ReadResource(
@@ -1328,8 +1328,9 @@ class BuildV2Command(ToolkitCommand):
         parsed_yaml: dict[str, Any],
         toolkit_resource: ToolkitResource | None,
         extra_files: list[ReadExtra],
+        resource_file: Path,
     ) -> None:
-        for crud_result in crud_class.to_crud_types(parsed_yaml, toolkit_resource):
+        for crud_result in crud_class.to_crud_types(parsed_yaml, resource_file, toolkit_resource):
             if isinstance(crud_result, BuildError):
                 result.syntax_error = crud_result
                 break

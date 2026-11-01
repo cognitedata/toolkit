@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import CrudResource
 from cognite_toolkit._cdf_tk.resource_ios._data_organization import CatalogDataSetsIO
 from cognite_toolkit._cdf_tk.yaml_classes.catalog_dataset import CatalogDataSetYAML
@@ -24,7 +26,9 @@ def test_catalog_data_set_crud_roundtrip() -> None:
 
     crud_resources = [
         resource
-        for resource in CatalogDataSetsIO.to_crud_types(catalog, CatalogDataSetYAML.model_validate(catalog))
+        for resource in CatalogDataSetsIO.to_crud_types(
+            catalog, Path("dummy"), CatalogDataSetYAML.model_validate(catalog)
+        )
         if isinstance(resource, CrudResource)
     ]
 

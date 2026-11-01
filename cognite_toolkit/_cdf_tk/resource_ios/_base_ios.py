@@ -205,13 +205,13 @@ class ResourceFileIO(BaseResourceIO[T_Identifier, T_YamlResource]):
     @classmethod
     @abstractmethod
     def to_crud_types(
-        cls, raw: dict[str, Any], resource: T_YamlResource | None = None
-    ) -> "Iterable[CrudResource[T_Identifier] | BuildError | BuildWarning]":
+        cls, raw: dict[str, Any], source_file: Path, resource: T_YamlResource | None = None
+    ) -> "Iterable[CrudResource[Identifier] | BuildError | BuildWarning]":
         raise NotImplementedError(f"to_crud_types must be implemented for {cls.__name__}.")
 
     @classmethod
     @abstractmethod
-    def from_crud_types(cls, resources: Iterable[CrudResource[T_Identifier]]) -> dict[str, Any]:
+    def from_crud_types(cls, resources: Iterable[CrudResource[Identifier]]) -> dict[str, Any]:
         """Converts the CRUD resources to the raw type. This is used to convert the resource from the CRUD format to
         the build format. For example, a DataCatalog DataSet is a dataset and this does the conversion."""
         raise NotImplementedError(f"from_crud_types must be implemented for {cls.__name__}.")
