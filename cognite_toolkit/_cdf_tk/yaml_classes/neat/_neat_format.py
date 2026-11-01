@@ -5,7 +5,6 @@ from pydantic import BaseModel, ConfigDict, Discriminator, Field, FilePath, Tag,
 
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 from ._table import DMSContainer, DMSEnum, DMSNode, DMSProperty, DMSView, normalize_table_names
@@ -96,25 +95,28 @@ class NeatSpreadsheet(ToolkitResource):
         raise NotImplementedError()
 
 
-def _discriminate_neat_format(value: Any) -> str:
+def _discriminate_neat_format(value: Any) -> str | None:
+    if isinstance(value, NeatYAML):
+        return "yaml"
+    if isinstance(value, NeatSpreadsheet):
+        return "spreadsheet"
     if not isinstance(value, dict):
-        raise ToolkitValueError(f"Invalid NEAT format. Expected a mapping (dict) but got {type(value).__name__}.")
+        return None
     keys = {key.casefold() for key in value if isinstance(key, str)}
     if "spreadsheet" in keys:
         return "spreadsheet"
     if "metadata" in keys:
         return "yaml"
-    raise ToolkitValueError(
-        "Invalid NEAT format. Expected either a YAML file or a spreadsheet file, but could not find the required keys 'metadata' or 'spreadsheet'."
-    )
+    # Returning None makes pydantic raise the custom 'invalid_neat_format' error.
+    return None
 
 
 NeatFormat = Annotated[
-    Annotated[NeatYAML, Tag("yaml")],
-    Annotated[NeatSpreadsheet, Tag("spreadsheet")],
+    Annotated[NeatYAML, Tag("yaml")] | Annotated[NeatSpreadsheet, Tag("spreadsheet")],
     Discriminator(
         _discriminate_neat_format,
         custom_error_type="invalid_neat_format",
-        custom_error_message="Invalid NEAT format. Expected either a YAML file or a spreadsheet file.",
+        custom_error_message="Invalid NEAT format. Expected either a 'Metadata' key (YAML format) or a "
+        "'spreadsheet' key (spreadsheet format).",
     ),
 ]
