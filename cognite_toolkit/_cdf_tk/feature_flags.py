@@ -107,6 +107,10 @@ class Flags(Enum):
         visible=True,
         description="Enables support for CDF group resources with members set to 'emails' and memberEmails set to a list of email addresses.",
     )
+    NEAT = FlagMetadata(
+        visible=True,
+        description="Enables support for NEAT format for data models",
+    )
 
     def is_enabled(self) -> bool:
         if self == Flags.CDF_GROUP_EMAILS:
