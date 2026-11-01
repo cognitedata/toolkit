@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence
+from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 from types import GenericAlias
@@ -17,6 +18,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError, BuildWarning
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
 
@@ -192,6 +194,13 @@ class BaseResourceIO(ABC, Generic[T_Identifier, T_YamlResource]):
         return BuildVariable.substitute(content, variables, ".yaml")
 
 
+@dataclass
+class CrudResource(Generic[T_Identifier]):
+    raw: dict[str, Any]
+    identifier: T_Identifier
+    type_: ResourceType
+
+
 class ResourceFileIO(BaseResourceIO[T_Identifier, T_YamlResource]):
     @classmethod
     @abstractmethod
@@ -199,6 +208,20 @@ class ResourceFileIO(BaseResourceIO[T_Identifier, T_YamlResource]):
         """Converts the raw resource to the CRUD type. This is used to convert the resource from the build format to
         the CRUD format. For example, a DataCatalog DataSet is a dataset and this does the conversion."""
         raise NotImplementedError(f"to_crud_type must be implemented for {cls.__name__}.")
+
+    @classmethod
+    @abstractmethod
+    def to_crud_types(
+        cls, raw: dict[str, Any], resource: T_YamlResource
+    ) -> Iterable[CrudResource[T_Identifier] | BuildError | BuildWarning]:
+        raise NotImplementedError(f"to_crud_types must be implemented for {cls.__name__}.")
+
+    @classmethod
+    @abstractmethod
+    def from_crud_types(cls, resources: Iterable[CrudResource[T_Identifier]]) -> dict[str, Any]:
+        """Converts the CRUD resources to the raw type. This is used to convert the resource from the CRUD format to
+        the build format. For example, a DataCatalog DataSet is a dataset and this does the conversion."""
+        raise NotImplementedError(f"from_crud_types must be implemented for {cls.__name__}.")
 
     @classmethod
     @abstractmethod

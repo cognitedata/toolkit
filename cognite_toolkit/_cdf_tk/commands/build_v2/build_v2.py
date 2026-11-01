@@ -1232,8 +1232,6 @@ class BuildV2Command(ToolkitCommand):
         toolkit_resource: ToolkitResource | None = None
         try:
             toolkit_resource = crud_class.validate_object(parsed_yaml, extra="forbid")
-            identifier = toolkit_resource.as_id()
-            result.syntax_warnings.extend(toolkit_resource.syntax_warnings(resource_file))
         except ValidationError as errors:
             syntax_error, syntax_warnings = self._create_syntax_insights(
                 errors, resource_file, content, crud_class.yaml_cls
@@ -1248,23 +1246,25 @@ class BuildV2Command(ToolkitCommand):
                     code="UNREADABLE-FILE",
                     error=f"Failed to get identifier for resource file '{resource_file.name!r}' after validation error: {errors!s}",
                 )
+        else:
+            identifier = toolkit_resource.as_id()
+            result.syntax_warnings.extend(toolkit_resource.syntax_warnings(resource_file))
 
         extra_files = self._substitute_variables_extra_content(
             crud_class.get_extra_files(resource_file, identifier, parsed_yaml), variables
         )
-
         if issubclass(crud_class, ResourceFileIO):
-            parsed_yaml = crud_class.to_crud_type(parsed_yaml)
-
-        result.resources.append(
-            ReadResource(
-                raw=parsed_yaml,
-                identifier=identifier,
-                resource_type=crud_class.as_crud_type(),
-                validated=toolkit_resource,
-                extra_files=extra_files,
+            self._append_resources(result, crud_class, parsed_yaml, toolkit_resource, extra_files)
+        else:
+            result.resources.append(
+                ReadResource(
+                    raw=parsed_yaml,
+                    identifier=identifier,
+                    resource_type=crud_class.as_crud_type(),
+                    validated=toolkit_resource,
+                    extra_files=extra_files,
+                )
             )
-        )
         return result
 
     def _validate_multi_resource(
@@ -1307,18 +1307,45 @@ class BuildV2Command(ToolkitCommand):
                 crud_class.get_extra_files(resource_file, identifier, raw_dict), variables
             )
             if issubclass(crud_class, ResourceFileIO):
-                raw_dict = crud_class.to_crud_type(raw_dict)
-
-            result.resources.append(
-                ReadResource(
-                    raw=raw_dict,
-                    identifier=identifier,
-                    resource_type=crud_class.as_crud_type(),
-                    validated=tk_resource,
-                    extra_files=extra_files,
+                self._append_resources(result, crud_class, raw_dict, tk_resource, extra_files)
+            else:
+                result.resources.append(
+                    ReadResource(
+                        raw=raw_dict,
+                        identifier=identifier,
+                        resource_type=crud_class.as_crud_type(),
+                        validated=tk_resource,
+                        extra_files=extra_files,
+                    )
                 )
-            )
         return result
+
+    @classmethod
+    def _append_resources(
+        cls,
+        result: SuccessfulReadYAMLFile,
+        crud_class: type[ResourceFileIO],
+        parsed_yaml: dict[str, Any],
+        toolkit_resource: ToolkitResource | None,
+        extra_files: list[ReadExtra],
+    ) -> None:
+        for crud_result in crud_class.to_crud_types(parsed_yaml, toolkit_resource):
+            if isinstance(crud_result, BuildError):
+                result.syntax_error = crud_result
+                break
+            elif isinstance(crud_result, BuildWarning):
+                result.syntax_warnings.append(crud_result)
+                continue
+            else:
+                result.resources.append(
+                    ReadResource(
+                        raw=crud_result.raw,
+                        identifier=crud_result.identifier,
+                        resource_type=crud_result.type_,
+                        validated=toolkit_resource,
+                        extra_files=extra_files,
+                    )
+                )
 
     @classmethod
     def _get_ignore_rule_codes(cls, content: str) -> set[str]:
