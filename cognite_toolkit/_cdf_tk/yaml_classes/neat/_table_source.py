@@ -45,41 +45,41 @@ class NeatTableSource:
     source: str
     table_read: dict[str, SpreadsheetReadContext] = field(default_factory=dict)
 
-    def location(self, path: tuple[int | str, ...]) -> str:
-        table_id: str | None = None
-        row_no: int | None = None
-        column: str | None = None
-        if len(path) >= 1 and isinstance(path[0], str):
-            table_id = path[0]
-        if len(path) >= 2 and isinstance(path[1], int):
-            row_no = path[1]
-        if len(path) >= 3 and isinstance(path[2], str):
-            column = path[2]
-            column = self.field_to_column(table_id, column)
-        if isinstance(row_no, int):
-            row_no = self.adjust_row_number(table_id, row_no)
-        location_parts = []
-        if table_id is not None:
-            location_parts.append(f"table {table_id!r}")
-        if row_no is not None:
-            location_parts.append(f"row {row_no}")
-        if column is not None:
-            location_parts.append(f"column {column!r}")
-        if len(path) >= 4:
-            location_parts.append("-> " + ".".join(str(p) for p in path[3:]))
-
-        return " ".join(location_parts)
-
-    def adjust_row_number(self, table_id: str | None, row_no: int) -> int:
-        table_read = table_id and self.table_read.get(table_id)
-        if table_read:
-            return table_read.adjusted_row_number(row_no)
-        return row_no + 1  # Convert to 1-indexed if no table read info is available
-
-    @classmethod
-    def field_to_column(cls, table_id: str | None, field_: str) -> str:
-        """Maps the field name used in the DMS API to the column named used by Neat."""
-        mapping = cls.field_mapping(table_id)
-        if mapping is not None:
-            return mapping.get(field_, field_)
-        return field_
+    # def location(self, path: tuple[int | str, ...]) -> str:
+    #     table_id: str | None = None
+    #     row_no: int | None = None
+    #     column: str | None = None
+    #     if len(path) >= 1 and isinstance(path[0], str):
+    #         table_id = path[0]
+    #     if len(path) >= 2 and isinstance(path[1], int):
+    #         row_no = path[1]
+    #     if len(path) >= 3 and isinstance(path[2], str):
+    #         column = path[2]
+    #         column = self.field_to_column(table_id, column)
+    #     if isinstance(row_no, int):
+    #         row_no = self.adjust_row_number(table_id, row_no)
+    #     location_parts = []
+    #     if table_id is not None:
+    #         location_parts.append(f"table {table_id!r}")
+    #     if row_no is not None:
+    #         location_parts.append(f"row {row_no}")
+    #     if column is not None:
+    #         location_parts.append(f"column {column!r}")
+    #     if len(path) >= 4:
+    #         location_parts.append("-> " + ".".join(str(p) for p in path[3:]))
+    #
+    #     return " ".join(location_parts)
+    #
+    # def adjust_row_number(self, table_id: str | None, row_no: int) -> int:
+    #     table_read = table_id and self.table_read.get(table_id)
+    #     if table_read:
+    #         return table_read.adjusted_row_number(row_no)
+    #     return row_no + 1  # Convert to 1-indexed if no table read info is available
+    #
+    # @classmethod
+    # def field_to_column(cls, table_id: str | None, field_: str) -> str:
+    #     """Maps the field name used in the DMS API to the column named used by Neat."""
+    #     mapping = cls.field_mapping(table_id)
+    #     if mapping is not None:
+    #         return mapping.get(field_, field_)
+    #     return field_

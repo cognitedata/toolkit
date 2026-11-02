@@ -49,13 +49,10 @@ class NeatIO(ResourceFileIO[DataModelId, NeatYAML | NeatSpreadsheet]):
             return
 
         if isinstance(resource, NeatSpreadsheet):
-            neat_yaml = resource.neat_yaml
-            source = resource.source
+            reader = NeatTableReader(resource.neat_yaml, resource.source)
         else:
-            neat_yaml = resource
-            source = NeatTableSource(source=source_file.as_posix())
+            reader = NeatTableReader(resource, NeatTableSource(source=source_file.as_posix()))
 
-        reader = NeatTableReader(neat_yaml, source)
         try:
             results = reader.read()
         except NeatTableError as e:
