@@ -140,7 +140,7 @@ class TestBuildCommand:
         build_dir = tmp_path / "build"
         parameters = BuildParameters(organization_dir=org, build_dir=build_dir, user_selected_modules=[f"{MODULES}/"])
 
-        _ = cmd.build(parameters, tlk_client)
+        _ = cmd.build(parameters, client=tlk_client)
 
         built_space = list(build_dir.rglob(f"*.{SpaceIO.kind}.yaml"))
         assert len(built_space) == 1
@@ -174,20 +174,20 @@ name: My Space
         build_dir = tmp_path / "build"
         parameters = BuildParameters(organization_dir=org, build_dir=build_dir, user_selected_modules=[f"{MODULES}/"])
 
-        folder = cmd.build(parameters, tlk_client)
+        folder = cmd.build(parameters, client=tlk_client)
 
         my_module = next(m for m in folder.built_modules if m.module_id.name == "my_module")
         assert {
             "resource_count": len(my_module.resources),
             "syntax_errors": len(my_module.syntax_errors_by_source),
-            "insight_codes": {i.code for i in folder.all_insights},
+            "insight_codes": {i.code for i in folder.module_insights},
         } == {
             "resource_count": 1,
             "syntax_errors": 1,
             "insight_codes": {"INVALID-FIELD"},
         }
 
-        syntax_insight = next(i for i in folder.all_insights if i.code == "INVALID-FIELD")
+        syntax_insight = next(i for i in folder.module_insights if i.code == "INVALID-FIELD")
         assert syntax_insight.source_file == resource_file
 
         insights_csv = (build_dir / "insights.csv").read_text()
