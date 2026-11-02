@@ -232,7 +232,9 @@ class BuildV2Command(ToolkitCommand):
         parameters = parameters or PostBuildParameters()
 
         # We report all insights in Mixpanel, but only display to the user the insights they have not ignored.
-        found_insights = build_folder.module_insights
+        found_insights = build_folder.module_insights + [
+            insight for result in validation_results for insight in result.insights
+        ]
         report_insights = self._filter_to_reported_insights(
             found_insights, build_folder.rules_ignored_by_source, parameters.rules_ignore
         )
