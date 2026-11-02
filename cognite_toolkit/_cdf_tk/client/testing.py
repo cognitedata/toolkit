@@ -59,6 +59,7 @@ from .api.integrations import (
     IntegrationTasksAPI,
 )
 from .api.labels import LabelsAPI
+from .api.limits import LimitsAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import (
     AssetLookUpAPI,
@@ -338,6 +339,7 @@ class ToolkitClientMock(ToolkitClient):
         self.sap_writeback.endpoints = MagicMock(spec_set=SAPEndpointsAPI)
         self.sap_writeback.mappings = MagicMock(spec_set=SchemaMappingsAPI)
         self.integrations = MagicMock(spec=IntegrationsAPI)
+        self.limits = MagicMock(spec=LimitsAPI)
         self.integrations.tasks = MagicMock(spec_set=IntegrationTasksAPI)
         self.integrations.actions = MagicMock(spec_set=IntegrationActionsAPI)
         self.integrations.configuration = MagicMock(spec_set=IntegrationConfigurationAPI)
