@@ -1,3 +1,4 @@
+from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -101,6 +102,15 @@ class NeatSpreadsheet(ToolkitResource):
         if value.suffix.casefold() != ".xlsx":
             raise ValueError("Spreadsheet must reference an .xlsx file.")
         return value
+
+    @cached_property
+    def neat_yaml(self) -> NeatYAML:
+        """Return the NEAT YAML representation of the spreadsheet."""
+        # from openpyxl import load_workbook
+        #
+        #
+        #
+        # return NeatIO.read_spreadsheet(self.spreadsheet)
 
     def as_id(self) -> DataModelId:
         # Todo: read the spreadsheet and extract the metadata to return a DataModelId. This is not implemented yet.
