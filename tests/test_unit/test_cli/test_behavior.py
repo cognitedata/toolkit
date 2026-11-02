@@ -1137,7 +1137,9 @@ capabilities:
         ),
     )
     validation_result = ValidationCommand(silent=True, skip_tracking=True).validate(
-        folder.built_modules, env_vars_with_client.get_client(), display=False
+        [resource for module in folder.built_modules for resource in module.resources],
+        env_vars_with_client.get_client(),
+        display=False,
     )
 
     insights = [insight for insight in validation_result.insights if insight.code == "MISSING-REFERENCED-RESOURCE"]
@@ -1268,7 +1270,9 @@ capabilities:
     assert len(syntax_warnings) >= 1, "Expected an UNRECOGNIZED-VALUE for the unknown capability"
 
     validation_result = ValidationCommand(silent=True, skip_tracking=True).validate(
-        folder.built_modules, env_vars_with_client.get_client(), display=False
+        [resource for module in folder.built_modules for resource in module.resources],
+        env_vars_with_client.get_client(),
+        display=False,
     )
     # The space reference in the VALID sibling capability must still be checked against CDF.
     unknown_refs = [i for i in validation_result.insights if i.code == "MISSING-REFERENCED-RESOURCE"]
