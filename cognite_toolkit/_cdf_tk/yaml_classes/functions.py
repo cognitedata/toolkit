@@ -1,4 +1,4 @@
-from typing import Annotated, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, Field, model_validator
 
@@ -77,7 +77,7 @@ class FunctionsYAML(ToolkitResource):
     )
     cpu: float | None = Field(default=None, description="Number of CPU cores per function.")
     memory: float | None = Field(default=None, description="Memory per function measured in GB.")
-    runtime: str | None = Field(
+    runtime: Literal["py311", "py312", "py313", "py314"] | str | None = Field(
         default=None,
         description="Runtime of the function. Defaults to the CDF project's default runtime if not set.",
     )
