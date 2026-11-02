@@ -98,7 +98,13 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 from cognite_toolkit._cdf_tk.tk_warnings import FileExistsWarning, HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.cdf import get_ext_onelake_source_ids
-from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, sanitize_filename, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import (
+    safe_rmtree,
+    safe_write,
+    sanitize_filename,
+    validate_safe_path,
+    yaml_safe_dump,
+)
 from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
@@ -750,6 +756,8 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
         yield [], list(schedules), schedule_loader, None
 
     def dump_function_code(self, function: FunctionResponse, folder: Path) -> None:
+        external_id = function.external_id or "unknown_external_id"
+        validate_safe_path(external_id)
         try:
             zip_bytes = _download_file_bytes(self.client, function.file_id)
         except ToolkitAPIError as e:
@@ -760,12 +768,17 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
                 return
             raise
         try:
-            top_level = f"{sanitize_filename(function.external_id or 'unknown_external_id')}/"
+            top_level = f"{sanitize_filename(external_id)}/"
             with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
-                if all(name.startswith(top_level) for name in zf.namelist()):
-                    zf.extractall(folder)
-                else:
-                    zf.extractall(folder / top_level)
+                destination = (
+                    folder if all(name.startswith(top_level) for name in zf.namelist()) else folder / top_level
+                )
+                destination = destination.resolve()
+                for member in zf.infolist():
+                    target_path = Path(destination, member.filename).resolve()
+                    if not target_path.is_relative_to(destination):
+                        raise ValueError(f"Malicious zip member path detected: {member.filename}")
+                zf.extractall(destination)
         except zipfile.BadZipFile as e:
             HighSeverityWarning(
                 f"The function {function.external_id!r} has a corrupted code zip file. Unable to extract code: {e!s}"

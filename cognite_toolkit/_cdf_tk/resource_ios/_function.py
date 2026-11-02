@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, NodeId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, NodeId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
@@ -54,6 +54,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import FunctionScheduleYAML, Functions
 
 from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
+from ._datamodel import SpaceIO
 from ._file import CogniteFileIO, FileMetadataIO
 from ._function_code_bundle import FunctionCodeBundle
 from ._group_scoped import GroupResourceScopedIO
@@ -69,7 +70,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
     resource_write_cls = FunctionRequest
     kind = "Function"
     yaml_cls = FunctionsYAML
-    dependencies = frozenset({DataSetsIO, GroupAllScopedIO})
+    dependencies = frozenset({DataSetsIO, GroupAllScopedIO, SpaceIO})
     _doc_url = "Functions/operation/postFunctions"
     metadata_value_limit = 512
     support_update = False
@@ -176,6 +177,8 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
     def get_dependencies(cls, resource: FunctionsYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
+        if resource.space:
+            yield SpaceIO, SpaceId(space=resource.space)
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None

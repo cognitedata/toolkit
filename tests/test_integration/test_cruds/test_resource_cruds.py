@@ -89,6 +89,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     FunctionIO,
     FunctionScheduleIO,
     GroupIO,
+    HostedExtractorDestinationIO,
     HostedExtractorJobIO,
     HostedExtractorSourceIO,
     InFieldCDMLocationConfigIO,
@@ -1427,6 +1428,34 @@ def persistent_hosted_extractor_destination(toolkit_client: ToolkitClient) -> Ho
     created = toolkit_client.hosted_extractors.destinations.create([destination])
     assert len(created) == 1
     return created[0]
+
+
+class TestHostedExtractorDestinationIO:
+    def test_no_redeploy_unchanged(self, toolkit_client: ToolkitClient) -> None:
+        credentials = toolkit_client.config.credentials
+        if not isinstance(credentials, OAuthClientCredentials):
+            pytest.skip("This test requires OAuthClientCredentials to run")
+
+        io = HostedExtractorDestinationIO(toolkit_client)
+
+        content = f"""externalId: test_no_redeploy_unchanged_destination
+name: Test No Redeploy Unchanged Destination
+description: Integration test destination
+credentials:
+  clientId: {credentials.client_id}
+  clientSecret: {credentials.client_secret}
+"""
+        raw_data = load_local_yaml(content, io)
+        cdf_destination = io.load_resource(raw_data)
+        retrieved = io.retrieve([cdf_destination.as_id()])
+        if len(retrieved) == 0:
+            # Create the destination if it doesn't exist, so we can test that it is not redeployed when unchanged
+            retrieved = io.create([cdf_destination])
+            assert len(retrieved) == 1
+        elif retrieved[0].metadata != cdf_destination.metadata:
+            retrieved = io.update([cdf_destination])
+            assert len(retrieved) == 1
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)
 
 
 class TestHosedExtractorJobIO:
