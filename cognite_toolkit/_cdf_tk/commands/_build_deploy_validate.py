@@ -16,7 +16,7 @@ class BuildDeployValidateCommand(ToolkitCommand):
         self,
         parameters: BuildParameters,
         post_build: PostBuildParameters,
-        validation: Literal["none", "syntax-only", "local", "remote", "capacity", "auto"] = "auto",
+        validation: Literal["syntax-only", "local", "remote", "auto"] = "auto",
         client: ToolkitClient | None = None,
     ) -> tuple[BuildFolder, ValidationResultList]:
         if validation == "remote" and not client:
