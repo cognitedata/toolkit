@@ -913,6 +913,20 @@ class TestDumpFunctions:
             with pytest.raises(ValueError, match=r"Invalid identifier '\.\.'"):
                 finder.dump_function_code(function, tmp_path / "functions")
 
+    def test_dump_function_code_rejects_zip_slip(self, tmp_path: Path) -> None:
+        function = FunctionResponse(id=1, external_id="my_function", name="EvilZip", created_time=1, file_id=123)
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as zf:
+            zf.writestr("../../evil.py", "print('hacked')")
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            patch(f"{FunctionFinder.__module__}._download_file_bytes", return_value=buffer.getvalue()),
+        ):
+            finder = FunctionFinder(client, None)
+            with pytest.raises(ValueError, match=r"Malicious zip member path detected"):
+                finder.dump_function_code(function, tmp_path / "functions")
+
 
 @pytest.fixture()
 def three_datasets() -> list[DataSetResponse]:

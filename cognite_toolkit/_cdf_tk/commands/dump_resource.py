@@ -770,10 +770,15 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
         try:
             top_level = f"{sanitize_filename(external_id)}/"
             with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
-                if all(name.startswith(top_level) for name in zf.namelist()):
-                    zf.extractall(folder)
-                else:
-                    zf.extractall(folder / top_level)
+                destination = (
+                    folder if all(name.startswith(top_level) for name in zf.namelist()) else folder / top_level
+                )
+                destination = destination.resolve()
+                for member in zf.infolist():
+                    target_path = Path(destination, member.filename).resolve()
+                    if not target_path.is_relative_to(destination):
+                        raise ValueError(f"Malicious zip member path detected: {member.filename}")
+                zf.extractall(destination)
         except zipfile.BadZipFile as e:
             HighSeverityWarning(
                 f"The function {function.external_id!r} has a corrupted code zip file. Unable to extract code: {e!s}"
