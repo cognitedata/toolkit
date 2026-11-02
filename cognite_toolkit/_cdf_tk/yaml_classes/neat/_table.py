@@ -14,28 +14,36 @@ def title_case(value: str) -> str:
     return " ".join(word.capitalize() for word in value.replace("_", " ").replace("-", " ").split())
 
 
-def parse_entity_str(value: str) -> ParsedEntity:
+def parse_entity_str(value: Any) -> ParsedEntity | None:
+    if value is None:
+        return None
     if isinstance(value, ParsedEntity):
         return value
+    if not isinstance(value, str):
+        raise ValueError("Expected string or ParsedEntity")
     try:
         return parse_entity(value)
     except ValueError as error:
         raise ValueError(f"Invalid entity syntax: {error}") from error
 
 
-def parse_entities_str(value: str) -> list[ParsedEntity] | None:
+def parse_entities_str(value: Any) -> list[ParsedEntity] | None:
+    if value is None:
+        return None
     if isinstance(value, list) and all(isinstance(item, ParsedEntity) for item in value):
         return value
+    if not isinstance(value, str):
+        raise ValueError("Expected string or list of ParsedEntity")
     try:
         return parse_entities(value)
     except ValueError as error:
         raise ValueError(f"Invalid entity list syntax: {error}") from error
 
 
-Entity = Annotated[ParsedEntity, BeforeValidator(parse_entity_str, str), PlainSerializer(func=str)]
+Entity = Annotated[ParsedEntity, BeforeValidator(parse_entity_str), PlainSerializer(func=str)]
 EntityList = Annotated[
     list[ParsedEntity],
-    BeforeValidator(parse_entities_str, str),
+    BeforeValidator(parse_entities_str),
     PlainSerializer(func=lambda values: ",".join(str(item) for item in values)),
 ]
 
@@ -62,10 +70,10 @@ class DMSProperty(TableObj):
     view_property: str
     name: str | None = None
     description: str | None = None
-    connection: Entity | None
+    connection: Entity | None = None
     value_type: Entity
-    min_count: int | None
-    max_count: int | None
+    min_count: int | None = None
+    max_count: int | None = None
     immutable: bool | None = None
     default: CellValueType | None = None
     auto_increment: bool | None = None
@@ -98,8 +106,12 @@ class RAWFilterTableFilter(BaseModel):
         return f"rawFilter({self.filter})"
 
 
-def _parse_table_filter(value: str) -> dict[str, str] | EntityTableFilter | RAWFilterTableFilter:
+def _parse_table_filter(value: Any) -> dict[str, str] | EntityTableFilter | RAWFilterTableFilter | None:
+    if value is None:
+        return None
     if isinstance(value, EntityTableFilter | RAWFilterTableFilter):
+        return value
+    if not isinstance(value, str):
         return value
     filter_configs = {
         "hasdata(": ("hasData", "entities"),
@@ -116,7 +128,7 @@ def _parse_table_filter(value: str) -> dict[str, str] | EntityTableFilter | RAWF
 TableViewFilter = Annotated[
     EntityTableFilter | RAWFilterTableFilter,
     Field(discriminator="type"),
-    BeforeValidator(_parse_table_filter, str),
+    BeforeValidator(_parse_table_filter),
     PlainSerializer(func=str),
 ]
 
