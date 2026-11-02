@@ -61,6 +61,7 @@ from cognite_toolkit._cdf_tk.commands import (
     DeployV2Command,
     DumpResourceCommand,
     PullV2Command,
+    ValidationCommand,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildError, BuildParameters
@@ -1135,7 +1136,11 @@ capabilities:
             config_yamls=[my_org / "config.dev.yaml"],
         ),
     )
-    insights = [insight for insight in folder.all_insights if insight.code == "MISSING-REFERENCED-RESOURCE"]
+    validation_result = ValidationCommand(silent=True, skip_tracking=True).validate(
+        folder.built_modules, env_vars_with_client.get_client(), display=False
+    )
+
+    insights = [insight for insight in validation_result.insights if insight.code == "MISSING-REFERENCED-RESOURCE"]
     assert len(insights) == 1
     insight = insights[0]
     assert isinstance(insight, BuildError)
@@ -1201,7 +1206,7 @@ capabilities:
             config_yamls=[my_org / "config.dev.yaml"],
         ),
     )
-    codes = {insight.code for insight in folder.all_insights}
+    codes = {insight.code for insight in folder.module_insights}
     assert "UNRESOLVED-VARIABLE" in codes
     assert "MISSING-REFERENCED-RESOURCE" not in codes
 
@@ -1256,13 +1261,17 @@ capabilities:
             config_yamls=[my_org / "config.dev.yaml"],
         ),
     )
+
     # The unknown capability should produce an UNRECOGNIZED-VALUE (not an error — the YAML
     # is still valid from the build perspective; CDF may or may not accept it at deploy time).
-    syntax_warnings = [i for i in folder.all_insights if i.code == "UNRECOGNIZED-VALUE"]
+    syntax_warnings = [i for i in folder.module_insights if i.code == "UNRECOGNIZED-VALUE"]
     assert len(syntax_warnings) >= 1, "Expected an UNRECOGNIZED-VALUE for the unknown capability"
 
+    validation_result = ValidationCommand(silent=True, skip_tracking=True).validate(
+        folder.built_modules, env_vars_with_client.get_client(), display=False
+    )
     # The space reference in the VALID sibling capability must still be checked against CDF.
-    unknown_refs = [i for i in folder.all_insights if i.code == "MISSING-REFERENCED-RESOURCE"]
+    unknown_refs = [i for i in validation_result.insights if i.code == "MISSING-REFERENCED-RESOURCE"]
     assert len(unknown_refs) == 1, (
         "Expected MISSING-REFERENCED-RESOURCE for 'my_non_existent_space' even when group has an unknown capability"
     )

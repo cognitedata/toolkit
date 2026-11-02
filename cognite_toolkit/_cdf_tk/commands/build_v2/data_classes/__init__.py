@@ -4,6 +4,7 @@ from ._build import (
     BuildParameters,
     BuiltModule,
     BuiltResource,
+    PostBuildParameters,
 )
 from ._config import ConfigYAML
 from ._insights import (
@@ -43,6 +44,7 @@ __all__ = [
     "InsightList",
     "Module",
     "ModuleDirectory",
+    "PostBuildParameters",
     "ReadYAMLFile",
     "Recommendation",
     "RelativeDirPath",
