@@ -38,7 +38,6 @@ class BuildDeployValidateCommand(ToolkitCommand):
         if validation in ("none", "syntax-only"):
             return build_folder, ValidationResultList()
 
-
         validation_results = validate_cmd.validate(build_folder.built_modules, client, display=True)
 
         build_cmd.post_build(
