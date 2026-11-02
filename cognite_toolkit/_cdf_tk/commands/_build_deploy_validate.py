@@ -16,7 +16,7 @@ class BuildDeployValidateCommand(ToolkitCommand):
         self,
         parameters: BuildParameters,
         post_build: PostBuildParameters,
-        validation: Literal["none", "syntax-only", "local", "remote", "capacity", "auto"] = "auto",
+        validation: Literal["syntax-only", "local", "remote", "auto"] = "auto",
         client: ToolkitClient | None = None,
     ) -> tuple[BuildFolder, ValidationResultList]:
         if validation == "remote" and not client:
@@ -37,12 +37,6 @@ class BuildDeployValidateCommand(ToolkitCommand):
         build_folder = build_cmd.build(parameters, context="integrated", client=client, display=True)
         if validation in ("none", "syntax-only"):
             return build_folder, ValidationResultList()
-
-        if validation == "capacity":
-            raise NotImplementedError(
-                "The 'capacity' validation mode is not yet implemented. "
-                "Please use 'local' or 'remote' validation modes instead."
-            )
 
         resources = [resource for module in build_folder.built_modules for resource in module.resources]
         validation_results = validate_cmd.validate(resources, client, display=True)
