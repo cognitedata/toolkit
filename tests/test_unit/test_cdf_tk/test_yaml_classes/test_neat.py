@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes import NeatFormat
 from cognite_toolkit._cdf_tk.yaml_classes.neat import NeatSpreadsheet, NeatYAML
 from cognite_toolkit._cdf_tk.yaml_classes.neat._entities import ParsedEntity, parse_entities, parse_entity
+from cognite_toolkit._cdf_tk.yaml_classes.neat._table_source import NeatTableSource, SpreadsheetReadContext
 
 
 class TestEntityParser:
@@ -262,6 +263,23 @@ class TestEntityParser:
     )
     def test_entity_str_representation(self, entity: ParsedEntity, expected_str: str) -> None:
         assert str(entity) == expected_str
+
+
+class TestNeatTableSource:
+    def test_location_for_yaml_source_uses_list_index(self) -> None:
+        source = NeatTableSource(source="test.yaml")
+
+        assert source.location(("Properties", 0)) == "table 'Properties' row 1"
+        assert source.location(("Properties", 0, "View")) == "table 'Properties' row 1 column 'View'"
+
+    def test_location_for_spreadsheet_source_adjusts_for_header_and_empty_rows(self) -> None:
+        source = NeatTableSource(
+            source="test.xlsx",
+            table_read={"Properties": SpreadsheetReadContext(header_row=1, empty_rows=[3])},
+        )
+
+        # Row 0 (first data row) lands on Excel row 4: header on row 2, plus one empty row pushed in.
+        assert source.location(("Properties", 0)) == "table 'Properties' row 4"
 
 
 class TestNeatFormat:
