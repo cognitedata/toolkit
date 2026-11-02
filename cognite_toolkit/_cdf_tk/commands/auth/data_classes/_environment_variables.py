@@ -158,10 +158,10 @@ class EnvironmentVariables:
 
     @property
     def idp_token_url(self) -> str:
-        if self.PROVIDER == "cdf":
-            return "https://auth.cognite.com/oauth2/token"
         if self.IDP_TOKEN_URL:
             return self.IDP_TOKEN_URL
+        if self.PROVIDER == "cdf":
+            return "https://auth.cognite.com/oauth2/token"
         if self.PROVIDER == "entra_id" and self.IDP_TENANT_ID:
             return f"https://login.microsoftonline.com/{self.IDP_TENANT_ID}/oauth2/v2.0/token"
         alternative = ""
