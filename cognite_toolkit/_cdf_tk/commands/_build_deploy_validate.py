@@ -38,11 +38,6 @@ class BuildDeployValidateCommand(ToolkitCommand):
         if validation in ("none", "syntax-only"):
             return build_folder, ValidationResultList()
 
-        if validation == "capacity":
-            raise NotImplementedError(
-                "The 'capacity' validation mode is not yet implemented. "
-                "Please use 'local' or 'remote' validation modes instead."
-            )
 
         validation_results = validate_cmd.validate(build_folder.built_modules, client, display=True)
 
