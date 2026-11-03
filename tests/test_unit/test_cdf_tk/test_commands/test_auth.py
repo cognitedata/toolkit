@@ -10,9 +10,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupCapability,
     GroupResponse,
     LabelsAcl,
+    ProjectsAcl,
     RelationshipsAcl,
     SecurityCategoriesAcl,
     SequencesAcl,
+    SessionsAcl,
     StreamsAcl,
     TimeSeriesAcl,
 )
@@ -227,6 +229,11 @@ def test_get_capabilities_by_loader_hybrid_project() -> None:
     assert EventsAcl in acl_types_hybrid
     assert SequencesAcl in acl_types_hybrid
 
+    projects_acl = next(acl for acl in acls_hybrid if isinstance(acl, ProjectsAcl))
+    assert set(projects_acl.actions) == {"LIST", "READ"}
+    sessions_acl = next(acl for acl in acls_hybrid if isinstance(acl, SessionsAcl))
+    assert set(sessions_acl.actions) == {"CREATE", "DELETE", "LIST"}
+
 
 def test_get_capabilities_by_loader_dm_only_project() -> None:
     with monkeypatch_toolkit_client() as client:
@@ -240,6 +247,8 @@ def test_get_capabilities_by_loader_dm_only_project() -> None:
     assert TimeSeriesAcl not in acl_types_dm_only
     assert EventsAcl not in acl_types_dm_only
     assert SequencesAcl not in acl_types_dm_only
+    assert ProjectsAcl in acl_types_dm_only
+    assert SessionsAcl in acl_types_dm_only
 
 
 def test_update_missing_capabilities_dm_only_project() -> None:
