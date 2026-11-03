@@ -333,13 +333,13 @@ class FailedReadYAMLFile(ReadYAMLFile):
 class ReadResource(BaseModel, Generic[T_Resource]):
     raw: dict[str, JsonValue | datetime]
     identifier: Identifier
+    resource_type: ResourceType
     validated: ToolkitResource | None = None
     extra_files: list[ReadExtra] = Field(default_factory=list)
 
 
 class SuccessfulReadYAMLFile(ReadYAMLFile):
     source_hash: str
-    resource_type: ResourceType
     source_type: ResourceType
     resources: list[ReadResource[ToolkitResource]]
     syntax_error: BuildError | None = None
