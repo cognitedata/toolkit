@@ -37,7 +37,7 @@ VALID_SPREADSHEET: dict[str, list[tuple[Any, ...]]] = {
         ("version", "v1"),
     ],
     "Properties": [
-        ("Data model properties", None, None),
+        ("Data model properties", None, None),  # Invalid header row, skipped.
         ("View", "View Property", "Value Type"),
         ("MyView", "name", "text"),
         (None, None, None),
