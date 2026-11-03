@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any, final
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ResourceFileIO, ResourceIO, ResourceType
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import CrudResource
 from cognite_toolkit._cdf_tk.resource_ios._neat._reader import NeatTableError, NeatTableReader
@@ -41,15 +40,9 @@ class NeatIO(ResourceFileIO[DataModelId, NeatYAML | NeatSpreadsheet]):
     def to_crud_types(
         cls, raw: dict[str, Any], source_file: Path, resource: NeatYAML | NeatSpreadsheet | None = None
     ) -> "Iterable[CrudResource[Identifier] | BuildError | BuildWarning]":
-        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
-
         if resource is None:
-            yield BuildError(
-                code="INVALID-VALUE",
-                message="Neat requires valid syntax to be converted to API format.",
-                source_file=source_file,
-                alpha=Flags.NEAT.is_enabled(),
-            )
+            # We cannot convert to crud types without a valid NeatYAML or NeatSpreadsheet resource,
+            # this already should have been validated and give errors.
             return
 
         if isinstance(resource, NeatSpreadsheet):
@@ -59,15 +52,9 @@ class NeatIO(ResourceFileIO[DataModelId, NeatYAML | NeatSpreadsheet]):
 
         try:
             results = reader.read()
-        except NeatTableError as e:
+        except NeatTableError:
             yield from reader.get_warnings()
             yield from reader.get_errors()
-            yield BuildError(
-                code="INVALID-VALUE",
-                message=str(e),
-                source_file=source_file,
-                alpha=Flags.NEAT.is_enabled(),
-            )
             return
         yield from reader.get_warnings()
         yield from reader.get_errors()
