@@ -73,6 +73,7 @@ from ._transformation import (
     TransformationScheduleIO,
 )
 from ._workflow import WorkflowIO, WorkflowTriggerIO, WorkflowVersionIO
+from ._neat import NeatIO
 
 _EXCLUDED_CRUDS: set[type[BaseResourceIO]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
@@ -92,6 +93,8 @@ if not FeatureFlag.is_enabled(Flags.CUSTOM_APPS):
     _EXCLUDED_CRUDS.add(AppVersionIO)
 if not FeatureFlag.is_enabled(Flags.CATALOG_DATASET):
     _EXCLUDED_CRUDS.add(CatalogDataSetsIO)
+if not FeatureFlag.is_enabled(Flags.NEAT):
+    _EXCLUDED_CRUDS.add(NeatIO)
 
 RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[BaseResourceIO]]] = defaultdict(list)
 RESOURCE_IO_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)

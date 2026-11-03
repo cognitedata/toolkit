@@ -6,7 +6,7 @@ from pydantic.fields import FieldInfo
 
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
-from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
+from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource, BaseModelResource
 
 from ._constant import SHEET_CONTAINERS, SHEET_ENUM, SHEET_METADATA, SHEET_NODES, SHEET_PROPERTIES, SHEET_VIEWS
 from ._spreadsheet_loader import _load_spreadsheet
@@ -16,7 +16,7 @@ from ._table_source import NeatTableSource
 Space = Annotated[str, Field(min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)]
 
 
-class NeatMetadata(BaseModel):
+class NeatMetadata(BaseModelResource):
     space: Space = Field(
         description="The Space identifier (id).",
     )

@@ -1,0 +1,14 @@
+metadata:
+  space: sp_schema
+  externalId: neat_data_model
+  version: v1
+properties:
+  view: NeatView
+  viewProperty: name
+  valueType: text
+  container: NeatContainer
+  containerProperty: name
+view:
+  view: NeatView
+containers:
+  container: NeatContainer

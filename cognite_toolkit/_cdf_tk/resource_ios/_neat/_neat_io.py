@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.resource_ios import ResourceFileIO, ResourceIO, Res
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import CrudResource
 from cognite_toolkit._cdf_tk.resource_ios._neat._reader import NeatTableError, NeatTableReader
 from cognite_toolkit._cdf_tk.yaml_classes.neat import NeatFormat, NeatSpreadsheet, NeatYAML
+from cognite_toolkit._cdf_tk.yaml_classes.neat._constant import SHEET_METADATA
 from cognite_toolkit._cdf_tk.yaml_classes.neat._table_source import NeatYAMLSource
 
 if TYPE_CHECKING:
@@ -23,7 +24,10 @@ class NeatIO(ResourceFileIO[DataModelId, NeatYAML | NeatSpreadsheet]):
 
     @classmethod
     def get_id(cls, item: dict) -> DataModelId:
-        raise NotImplementedError()
+        metadata = item.get(SHEET_METADATA)
+        if not metadata or "space" not in metadata or "externalId" not in metadata or "version" not in metadata:
+            raise KeyError("Neat resource must have a metadata section with space and externalId")
+        return DataModelId(space=metadata["space"], external_id=metadata["externalId"], version=metadata["version"])
 
     @classmethod
     def as_crud_type(cls) -> ResourceType:
