@@ -59,6 +59,7 @@ from .api.integrations import (
     IntegrationTasksAPI,
 )
 from .api.labels import LabelsAPI
+from .api.limits import LimitsAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import (
     AssetLookUpAPI,
@@ -72,6 +73,7 @@ from .api.lookup import (
     SecurityCategoriesLookUpAPI,
     TimeSeriesLookUpAPI,
 )
+from .api.metering import MeteringAPI
 from .api.migration import (
     CreatedSourceSystemAPI,
     InstanceSourceAPI,
@@ -180,6 +182,7 @@ class ToolkitClientMock(ToolkitClient):
     streams: MagicMock
     sap_writeback: MagicMock
     integrations: MagicMock
+    metering: MagicMock
     user_profiles: MagicMock
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -338,10 +341,12 @@ class ToolkitClientMock(ToolkitClient):
         self.sap_writeback.endpoints = MagicMock(spec_set=SAPEndpointsAPI)
         self.sap_writeback.mappings = MagicMock(spec_set=SchemaMappingsAPI)
         self.integrations = MagicMock(spec=IntegrationsAPI)
+        self.limits = MagicMock(spec=LimitsAPI)
         self.integrations.tasks = MagicMock(spec_set=IntegrationTasksAPI)
         self.integrations.actions = MagicMock(spec_set=IntegrationActionsAPI)
         self.integrations.configuration = MagicMock(spec_set=IntegrationConfigurationAPI)
         self.integrations.errors = MagicMock(spec_set=IntegrationErrorsAPI)
+        self.metering = MagicMock(spec_set=MeteringAPI)
         self.user_profiles = MagicMock(spec_set=UserProfilesAPI)
 
 

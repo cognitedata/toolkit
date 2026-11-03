@@ -28,7 +28,9 @@ from .api.infield import InfieldAPI
 from .api.instances import InstancesAPI
 from .api.integrations import IntegrationsAPI
 from .api.labels import LabelsAPI
+from .api.limits import LimitsAPI
 from .api.lookup import LookUpGroup
+from .api.metering import MeteringAPI
 from .api.migration import MigrationAPI
 from .api.principals import PrincipalsAPI
 from .api.project import ProjectAPI
@@ -123,3 +125,5 @@ class ToolkitClient:
         self.alerts = AlertsAPI(http_client)
         self.sap_writeback = SAPWritebackAPI(http_client)
         self.integrations = IntegrationsAPI(http_client)
+        self.limits = LimitsAPI(http_client)
+        self.metering = MeteringAPI(http_client)

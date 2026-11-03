@@ -1,5 +1,6 @@
 import builtins
 import re
+from collections import UserList
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -24,6 +25,7 @@ from ._insights import (
     Insight,
     InsightList,
     InternalValidatorException,
+    Recommendation,
 )
 from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
@@ -49,29 +51,9 @@ class BuildParameters(BaseModel):
         "to build",
     )
     verbose: bool = False
-    insight_format: Literal["csv", "json"] = Field(
-        default="csv",
-        description="Format for the insights file written to the build directory.",
-    )
-    write_insights: bool = Field(
-        default=True,
-        description="Whether to write insights to a file in the build directory.",
-    )
-    write_lineage: bool = Field(
-        default=True,
-        description="Whether to write lineage information to a file in the build directory.",
-    )
     operation: str = Field(
         default="build",
         description="The operation being performed. Used when prompting the user for input. For example, 'Which modules do you want to build?'",
-    )
-    rules_ignore: set[str] = Field(
-        default_factory=set,
-        description="Set of rule codes to ignore during validation.",
-    )
-    rules_enforce: bool = Field(
-        default=False,
-        description="Whether to enforce rules during validation. If True, any rule violations will cause the build to fail. If False, rule violations will be reported as warnings.",
     )
 
     @field_validator("user_selected_modules", mode="after")
@@ -91,12 +73,31 @@ class BuildParameters(BaseModel):
         return self.organization_dir / MODULES
 
     @property
-    def insight_path(self) -> Path:
-        return self.build_dir / f"insights.{self.insight_format}"
-
-    @property
     def config_file_name(self) -> str:
         return self.config_yamls[0].name if self.config_yamls else ""
+
+
+class PostBuildParameters(BaseModel):
+    insight_format: Literal["csv", "json"] = Field(
+        default="csv",
+        description="Format for the insights file written to the build directory.",
+    )
+    write_insights: bool = Field(
+        default=True,
+        description="Whether to write insights to a file in the build directory.",
+    )
+    write_lineage: bool = Field(
+        default=True,
+        description="Whether to write lineage information to a file in the build directory.",
+    )
+    rules_ignore: set[str] = Field(
+        default_factory=set,
+        description="Set of rule codes to ignore during validation.",
+    )
+    rules_enforce: bool = Field(
+        default=False,
+        description="Whether to enforce rules during validation. If True, any rule violations will cause the build to fail. If False, rule violations will be reported as warnings.",
+    )
 
 
 class ConfigFile(BaseModel):
@@ -174,12 +175,40 @@ class BuiltResource(BaseModel):
         return not self.has_syntax_error and not self.failed_extra
 
 
+class BuiltResourceList(UserList[BuiltResource]):
+    def load_resource_of_type(
+        self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any]
+    ) -> dict[T_Identifier, tuple[BuiltResource, T_RequestResource]]:
+        """Reload this module's built resources for the given CRUD, the same way ``cdf deploy`` does.
+
+        Only resources matching the CRUD's resource type and without syntax/read errors are considered.
+        """
+        resource_type = crud.as_resource_type()
+        resource_by_id = {
+            resource.identifier: resource
+            for resource in self.data
+            if resource.type == resource_type and resource.can_verify
+        }
+        if not resource_by_id:
+            return {}
+
+        build_paths = {resource.build_path for resource in resource_by_id.values()}
+        local_by_id: dict[T_Identifier, tuple[BuiltResource, T_RequestResource]] = {}
+        for build_path in build_paths:
+            for raw in crud.load_resource_file(build_path):
+                request = crud.load_resource(raw)
+                item_id = crud.get_id(request)
+                if item_id in resource_by_id:
+                    local_by_id[item_id] = (resource_by_id[item_id], request)
+        return local_by_id
+
+
 class BuiltModule(BaseModel):
     module_id: ModuleId
     resources: list[BuiltResource] = Field(default_factory=list)
     insights: list[Insight] = Field(default_factory=list)
     syntax_errors_by_source: dict[Path, BuildError] = Field(default_factory=dict)
-    syntax_warnings_by_source: dict[Path, list[BuildWarning]] = Field(default_factory=dict)
+    syntax_warnings_by_source: dict[Path, list[BuildWarning | Recommendation]] = Field(default_factory=dict)
     unresolved_variables_by_source: dict[Path, list[str]] = Field(default_factory=dict)
     failed_files: list[FailedReadYAMLFile] = Field(default_factory=list)
     ignored_files: list[IgnoredFile] = Field(default_factory=list)
@@ -196,32 +225,6 @@ class BuiltModule(BaseModel):
     def is_success(self) -> bool:
         """Determines if the module build was successful based on the presence of built file and validation errors."""
         return self.files_built
-
-    def load_local_resources(
-        self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any]
-    ) -> dict[T_Identifier, tuple[BuiltResource, T_RequestResource]]:
-        """Reload this module's built resources for the given CRUD, the same way ``cdf deploy`` does.
-
-        Only resources matching the CRUD's resource type and without syntax/read errors are considered.
-        """
-        resource_type = ResourceType(resource_folder=crud.folder_name, kind=crud.kind)
-        resource_by_id = {
-            resource.identifier: resource
-            for resource in self.resources
-            if resource.type == resource_type and resource.can_verify
-        }
-        if not resource_by_id:
-            return {}
-
-        build_paths = {resource.build_path for resource in resource_by_id.values()}
-        local_by_id: dict[T_Identifier, tuple[BuiltResource, T_RequestResource]] = {}
-        for build_path in build_paths:
-            for raw in crud.load_resource_file(build_path):
-                request = crud.load_resource(raw)
-                item_id = crud.get_id(request)
-                if item_id in resource_by_id:
-                    local_by_id[item_id] = (resource_by_id[item_id], request)
-        return local_by_id
 
     @property
     def all_insights(self) -> InsightList:
@@ -295,6 +298,16 @@ class ValidationResult(BaseModel):
     errors: list[InternalValidatorException]
 
 
+class ValidationResultList(UserList[ValidationResult]):
+    @property
+    def insights(self) -> InsightList:
+        """Aggregates all insights from the validation results."""
+        insights = InsightList()
+        for result in self.data:
+            insights.extend(result.insights)
+        return insights
+
+
 class BuildFolder(BaseModel):
     """Built folder acts as a container holding all built modules and insights from the build process."""
 
@@ -303,20 +316,25 @@ class BuildFolder(BaseModel):
     build_dir: AbsoluteDirPath
     started_at: datetime
     finished_at: datetime
+    deploy_branch: str | None = Field(
+        default=None,
+        description="Git branch that is expected to deploy the build.",
+    )
+    deploy_protection: DeployProtection | None = Field(
+        default=None,
+        description="Whether the build is protected from deployment on non-deploy branches.",
+    )
+    config_hash: str | None = None
 
     built_modules: list[BuiltModule] = Field(default_factory=list)
-    validation_results: list[ValidationResult] = Field(default_factory=list)
     all_variables: list[BuildVariable] = Field(default_factory=list)
 
     @property
-    def all_insights(self) -> InsightList:
+    def module_insights(self) -> InsightList:
         """Insights from all built modules."""
         insights = InsightList()
         for module in self.built_modules:
             insights.extend(module.all_insights)
-        for result in self.validation_results:
-            insights.extend(result.insights)
-
         return insights
 
     @property
