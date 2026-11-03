@@ -50,8 +50,12 @@ class NeatIO(ResourceFileIO[DataModelId, NeatYAML | NeatSpreadsheet]):
 
         if isinstance(resource, NeatSpreadsheet):
             reader = NeatTableReader(resource.neat_yaml, resource.source)
+            governed_spaces = set(resource.neat_yaml.metadata.governed_spaces or []) | {
+                resource.neat_yaml.metadata.space
+            }
         else:
             reader = NeatTableReader(resource, NeatTableSource(source=source_file.as_posix()))
+            governed_spaces = set(resource.metadata.governed_spaces or []) | {resource.metadata.space}
 
         try:
             results = reader.read()
@@ -65,11 +69,21 @@ class NeatIO(ResourceFileIO[DataModelId, NeatYAML | NeatSpreadsheet]):
             )
             return
         yield from reader.get_warnings()
-        yield results.space
-        yield from results.containers
-        yield from results.views
-        yield from results.node_types
-        yield results.data_model
+        if results.space.identifier.space in governed_spaces:
+            # Should always be true, but we check anyway to avoid returning resources outside the governed spaces.
+            yield results.space
+        for container in results.containers:
+            if container.identifier.space in governed_spaces:
+                yield container
+        for view in results.views:
+            if view.identifier.space in governed_spaces:
+                yield view
+        for node_type in results.node_types:
+            if node_type.identifier.space in governed_spaces:
+                yield node_type
+        if results.data_model.identifier.space in governed_spaces:
+            # Should always be true, but we check anyway to avoid returning resources outside the governed spaces.
+            yield results.data_model
 
     @classmethod
     def from_crud_types(cls, resources: Iterable[CrudResource[Identifier]]) -> dict[str, Any]:
