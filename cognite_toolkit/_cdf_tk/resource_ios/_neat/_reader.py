@@ -639,7 +639,7 @@ class NeatTableReader:
             try:
                 container_yaml = ContainerYAML.model_validate(data)
             except ValidationError as e:
-                self._create_error((SHEET_CONTAINERS, row_no), e, ContainerYAML, "INVALID-VALUE")
+                self._create_error((SHEET_CONTAINERS, row_no, "Container"), e, ContainerYAML, "INVALID-VALUE")
                 continue
 
             rows_by_ref[ref].append(row_no)

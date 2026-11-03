@@ -427,7 +427,7 @@ class TestNeatTableReader:
                     (
                         BuildError,
                         "INVALID-VALUE",
-                        "table 'Containers' row 3: Unrecognized value for usedFor: "
+                        "table 'Containers' row 3 column 'Container': Unrecognized value for usedFor: "
                         "Expected one of 'node', 'edge', 'record' or 'all'. Got 'nothing'.",
                     )
                 ],
