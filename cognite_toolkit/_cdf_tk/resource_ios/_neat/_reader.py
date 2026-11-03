@@ -1,6 +1,5 @@
 import json
 from collections import defaultdict
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
@@ -18,6 +17,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import ContainerYAML, DataModelYAML, N
 from cognite_toolkit._cdf_tk.yaml_classes.container_field_definitions import (
     ConstraintType,
     ContainerPropertyDefinition,
+    IndexDefinition,
     IndexType,
     UniquenessConstraintDefinition,
 )
@@ -317,10 +317,8 @@ class NeatTableReader:
 
         container_props = self._finalize_container_properties(container_reads)
         view_props = self._finalize_view_properties(view_reads)
-        indices = self._finalize_ordered(index_reads, "index", "Index", lambda _: True)
-        constraints = self._finalize_ordered(
-            constraint_reads, "constraint", "Constraint", lambda d: isinstance(d, UniquenessConstraintDefinition)
-        )
+        indices = self._finalize_ordered(index_reads, "index", "Index")
+        constraints = self._finalize_ordered(constraint_reads, "constraint", "Constraint")
         return container_props, view_props, indices, constraints
 
     def _read_view_property(
@@ -565,14 +563,13 @@ class NeatTableReader:
         reads: dict[tuple[ContainerRef, str], list[_ReadOrdered[_T]]],
         kind: str,
         column: str,
-        requires_order: Callable[[_T], bool],
     ) -> dict[ContainerRef, dict[str, _T]]:
         result: dict[ContainerRef, dict[str, _T]] = defaultdict(dict)
         for (container_ref, identifier), entries in reads.items():
             # Deduplicate by property identifier, keeping the first occurrence.
             unique_entries = list({entry.prop_id: entry for entry in entries}.values())
             definition = unique_entries[0].definition
-            if len(unique_entries) == 1 or not requires_order(definition):
+            if len(unique_entries) == 1 or not isinstance(definition, IndexDefinition | UniquenessConstraintDefinition):
                 result[container_ref][identifier] = definition
                 continue
             if missing_order := [entry for entry in unique_entries if entry.order is None]:
