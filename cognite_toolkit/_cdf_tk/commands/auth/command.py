@@ -44,6 +44,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupsAcl,
     ProjectsAcl,
     RelationshipsAcl,
+    SessionsAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
 from cognite_toolkit._cdf_tk.client.resource_classes.token import FlatCapabilities, InspectResponse
@@ -497,6 +498,14 @@ class AuthCommand(ToolkitCommand):
                 required_acls.append(acl)
                 io_name_by_acl_type[type(acl)].append(crud.display_name)
 
+        required_acls.extend(
+            [
+                # The Toolkit needs to look up the CDF project it is connected to.
+                ProjectsAcl(actions=["LIST", "READ"], scope=AllScope()),
+                # Required for CogIDP service principals to create sessions.
+                SessionsAcl(actions=["CREATE", "DELETE", "LIST"], scope=AllScope()),
+            ]
+        )
         required_acls = list(FlatCapabilities.merge_acls(required_acls))
         return required_acls, io_name_by_acl_type
 
