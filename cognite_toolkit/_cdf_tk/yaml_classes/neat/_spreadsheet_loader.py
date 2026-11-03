@@ -58,24 +58,24 @@ def _read_rows(
     # Metadata sheet is just a key-value pair of the first two columns.
     # For other sheets, we need to find the column header row first.
     columns: list[str] = [] if sheet.title != METADATA_SHEET else required_columns
-    # Ignore warnings about Data Validation extension not being supported in read-only mode.
-    warnings.filterwarnings("ignore", category=UserWarning, message="Data Validation extension is not supported*")
     # The .iter_rows with values_only=True raises the warning `UserWarning: Data Validation extension is
     # not supported and will be removed`
     # which confuses the user and we do not depend on data validation here, so we suppress it.
-    for row_no, row in enumerate(sheet.iter_rows(values_only=True)):
-        if columns:
-            # We have found the column header row, read the data rows.
-            if all(cell is None for cell in row):
-                context.empty_rows.append(row_no)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=UserWarning, message="Data Validation extension is not supported*")
+        for row_no, row in enumerate(sheet.iter_rows(values_only=True)):
+            if columns:
+                # We have found the column header row, read the data rows.
+                if all(cell is None for cell in row):
+                    context.empty_rows.append(row_no)
+                else:
+                    record = dict(zip(columns, row, strict=False))
+                    table_rows.append(record)
             else:
-                record = dict(zip(columns, row, strict=False))
-                table_rows.append(record)
-        else:
-            # Look for the column header row.
-            row_values = [str(cell) for cell in row]
-            if set(row_values).intersection(required_columns):
-                columns = row_values
-                context.header_row = row_no
+                # Look for the column header row.
+                row_values = [str(cell) for cell in row]
+                if set(row_values).intersection(required_columns):
+                    columns = row_values
+                    context.header_row = row_no
 
     return table_rows
