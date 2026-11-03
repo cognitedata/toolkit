@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, TypeAlias, cast
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError
 
-from ._constant import METADATA_SHEET
+from ._constant import SHEET_METADATA
 from ._table_source import NeatSpreadsheetSource, NeatTableSource, SpreadsheetReadContext
 
 if TYPE_CHECKING:
@@ -54,7 +54,7 @@ def _read_rows(
     table_rows: list[dict[str, CellValueType]] = []
     # Metadata sheet is just a key-value pair of the first two columns.
     # For other sheets, we need to find the column header row first.
-    columns: list[str] = [] if sheet.title != METADATA_SHEET else required_columns
+    columns: list[str] = [] if sheet.title != SHEET_METADATA else required_columns
     # The .iter_rows with values_only=True raises the warning `UserWarning: Data Validation extension is
     # not supported and will be removed`
     # which confuses the user and we do not depend on data validation here, so we suppress it.
