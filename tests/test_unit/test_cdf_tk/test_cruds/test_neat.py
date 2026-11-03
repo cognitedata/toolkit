@@ -587,6 +587,10 @@ class TestNeatIO:
             NodeId(space="my_space", external_id="EquipmentType"),
             DataModelId(space="my_space", external_id="MyModel", version="v1"),
         ]
+        crud_resources = [result for result in results if isinstance(result, CrudResource)]
+        assert all(
+            result.validated is not None and result.validated.as_id() == result.identifier for result in crud_resources
+        )
 
     def test_to_crud_types_fatal_error(self, tmp_path: Path) -> None:
         data = copy.deepcopy(VALID_NEAT_TABLE)

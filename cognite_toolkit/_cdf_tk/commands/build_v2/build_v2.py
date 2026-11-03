@@ -1391,8 +1391,7 @@ class BuildV2Command(ToolkitCommand):
                         raw=crud_result.raw,
                         identifier=crud_result.identifier,
                         resource_type=crud_result.type_,
-                        # Todo: The to_crud_types must return validated crud type resoruce.
-                        validated=None,
+                        validated=crud_result.validated,
                         extra_files=extra_files,
                     )
                 )

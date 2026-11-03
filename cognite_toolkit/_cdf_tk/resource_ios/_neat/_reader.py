@@ -261,9 +261,10 @@ class NeatTableReader:
             self._create_error((SHEET_METADATA, "space"), e, SpaceYAML)
             raise NeatTableError("Invalid space")
         return CrudResource(
-            raw=space.model_dump(),
+            raw=space.model_dump(exclude_unset=True),
             identifier=SpaceId(space=self.neat_yaml.metadata.space),
             type_=SpaceIO.as_crud_type(),
+            validated=space,
         )
 
     # --- Enum ------------------------------------------------------------------------------------
@@ -659,6 +660,7 @@ class NeatTableReader:
                     raw=container_yaml.model_dump(by_alias=True, exclude_none=True),
                     identifier=container_yaml.as_id(),
                     type_=ContainerIO.as_crud_type(),
+                    validated=container_yaml,
                 )
             )
         return results
@@ -748,6 +750,7 @@ class NeatTableReader:
                     raw=view_yaml.model_dump(by_alias=True, exclude_none=True),
                     identifier=view_yaml.as_id(),
                     type_=ViewIO.as_crud_type(),
+                    validated=view_yaml,
                 )
             )
         return results, valid_refs
@@ -792,6 +795,7 @@ class NeatTableReader:
                     raw=node_yaml.model_dump(by_alias=True, exclude_none=True),
                     identifier=node_yaml.as_id(),
                     type_=NodeIO.as_crud_type(),
+                    validated=node_yaml,
                 )
             )
         return results
@@ -827,4 +831,5 @@ class NeatTableReader:
             raw=data_model_yaml.model_dump(by_alias=True, exclude_none=True),
             identifier=data_model_yaml.as_id(),
             type_=DataModelIO.as_crud_type(),
+            validated=data_model_yaml,
         )
