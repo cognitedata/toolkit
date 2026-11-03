@@ -15,7 +15,8 @@
 
 import json
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any, Literal, final
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal, final
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -33,8 +34,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
+    ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceFileIO, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import CrudResource, ResourceFileIO, ResourceIO
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
@@ -43,6 +45,9 @@ from cognite_toolkit._cdf_tk.yaml_classes.catalog_dataset import CatalogDataSetY
 
 from ._auth import GroupAllScopedIO
 from ._base_ios import ResourceType
+
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError, BuildWarning
 
 
 @final
@@ -260,7 +265,9 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
         return []
 
     @classmethod
-    def to_crud_type(cls, raw: dict[str, Any]) -> dict[str, Any]:
+    def to_crud_types(
+        cls, raw: dict[str, Any], source_file: Path, resource: CatalogDataSetYAML | None = None
+    ) -> "Iterable[CrudResource[Identifier] | BuildError | BuildWarning]":
         """Convert a catalog data set to a CRUD data set."""
         metadata: dict[str, str] = {}
         crud_resource: dict[str, Any] = {}
@@ -277,11 +284,15 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
                 metadata[key] = value if isinstance(value, str) else json.dumps(value)
         if metadata:
             crud_resource["metadata"] = metadata
-        return crud_resource
+        yield CrudResource(raw=crud_resource, identifier=cls.get_id(raw), type_=cls.as_crud_type())
 
     @classmethod
-    def from_crud_type(cls, crud: dict[str, Any]) -> dict[str, Any]:
+    def from_crud_types(cls, resources: Iterable[CrudResource[Identifier]]) -> dict[str, Any]:
         """Convert a CRUD data set to a catalog data set."""
+        resource_list = list(resources)
+        if len(resource_list) != 1:
+            raise ToolkitValueError(f"{cls.kind} expects exactly one data set, got {len(resource_list)}.")
+        crud = resource_list[0].raw
         catalog_resource: dict[str, Any] = {key: value for key, value in crud.items() if key != "metadata"}
         catalog_fields = {info.alias or name for name, info in CatalogDataSetYAML.model_fields.items()}
         metadata: dict[str, Any] = crud.get("metadata", {})

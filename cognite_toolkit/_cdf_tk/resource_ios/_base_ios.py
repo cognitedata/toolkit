@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence
+from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 from types import GenericAlias
@@ -22,6 +23,7 @@ from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read,
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError, BuildWarning
 
 from typing import Self
 
@@ -192,20 +194,27 @@ class BaseResourceIO(ABC, Generic[T_Identifier, T_YamlResource]):
         return BuildVariable.substitute(content, variables, ".yaml")
 
 
+@dataclass
+class CrudResource(Generic[T_Identifier]):
+    raw: dict[str, Any]
+    identifier: T_Identifier
+    type_: ResourceType
+
+
 class ResourceFileIO(BaseResourceIO[T_Identifier, T_YamlResource]):
     @classmethod
     @abstractmethod
-    def to_crud_type(cls, raw: dict[str, Any]) -> dict[str, Any]:
-        """Converts the raw resource to the CRUD type. This is used to convert the resource from the build format to
-        the CRUD format. For example, a DataCatalog DataSet is a dataset and this does the conversion."""
-        raise NotImplementedError(f"to_crud_type must be implemented for {cls.__name__}.")
+    def to_crud_types(
+        cls, raw: dict[str, Any], source_file: Path, resource: T_YamlResource | None = None
+    ) -> "Iterable[CrudResource[Identifier] | BuildError | BuildWarning]":
+        raise NotImplementedError(f"to_crud_types must be implemented for {cls.__name__}.")
 
     @classmethod
     @abstractmethod
-    def from_crud_type(cls, crud: dict[str, Any]) -> dict[str, Any]:
-        """Converts the CRUD resource to the raw type. This is used to convert the resource from the CRUD format to
+    def from_crud_types(cls, resources: Iterable[CrudResource[Identifier]]) -> dict[str, Any]:
+        """Converts the CRUD resources to the raw type. This is used to convert the resource from the CRUD format to
         the build format. For example, a DataCatalog DataSet is a dataset and this does the conversion."""
-        raise NotImplementedError(f"from_crud_type must be implemented for {cls.__name__}.")
+        raise NotImplementedError(f"from_crud_types must be implemented for {cls.__name__}.")
 
 
 class ResourceIO(

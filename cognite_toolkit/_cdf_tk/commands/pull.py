@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ViewIO,
     get_resource_build_io,
 )
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import CrudResource
 from cognite_toolkit._cdf_tk.ui import (
     ToolkitPanel,
     ToolkitPanelSection,
@@ -596,14 +597,14 @@ class PullV2Command(ToolkitCommand):
         """Convert a CDF dump into the format of the source file.
 
         Pull reads and writes CDF through the CRUD loader. A ResourceFileIO, such as CatalogDataSet, is stored
-        as another resource and has to be converted with from_crud_type before it is merged back into the source YAML.
+        as another resource and has to be converted with from_crud_types before it is merged back into the source YAML.
         """
         if built.source_type is None:
             return crud
         io_cls = get_resource_build_io(built.source_type.resource_folder, built.source_type.kind)
         if not issubclass(io_cls, ResourceFileIO):
             return crud
-        return io_cls.from_crud_type(crud)
+        return io_cls.from_crud_types([CrudResource(raw=crud, identifier=built.identifier, type_=built.type)])
 
 
 class ResourceReplacer:
