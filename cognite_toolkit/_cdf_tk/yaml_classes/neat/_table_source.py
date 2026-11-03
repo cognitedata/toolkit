@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from functools import cache
+from functools import cached_property
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.utils.file import YamlPosition, safe_read, yaml_positions
@@ -36,7 +36,7 @@ class SpreadsheetReadContext:
         for empty_row in self.empty_rows:
             if empty_row < self.header_row:
                 continue
-            if empty_row <= output:
+            if empty_row < output:
                 counter += 1
                 output += 1
             else:
@@ -119,7 +119,7 @@ class NeatSpreadsheetSource(NeatTableSource):
 
 
 class NeatYAMLSource(NeatTableSource):
-    @cache
+    @cached_property
     def _yaml_positions(self) -> dict[tuple[int | str, ...], YamlPosition]:
         return yaml_positions(safe_read(self.source))
 
@@ -132,4 +132,4 @@ class NeatYAMLSource(NeatTableSource):
         Returns:
             Either the prefix or the YamlPosition of the location, depending on the source of the Neat table
         """
-        return self._yaml_positions().get(path)
+        return self._yaml_positions.get(path)

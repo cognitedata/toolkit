@@ -1,8 +1,7 @@
-from functools import cache
 from pathlib import Path
 from typing import Annotated, Any, Literal, Self, cast, get_args
 
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, PrivateAttr, Tag, field_validator, model_validator
 from pydantic.fields import FieldInfo
 
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId
@@ -57,11 +56,15 @@ class NeatMetadata(BaseModel):
     def _key_value_pairs(cls, data: Any) -> Any:
         """Convert a list of key-value pairs to a dict."""
         if isinstance(data, list):
-            return {
-                item["key"]: item["value"]
-                for item in data
-                if isinstance(item, dict) and "key" in item and "value" in item
-            }
+            output: dict[str, Any] = {}
+            for item in data:
+                if not isinstance(item, dict):
+                    continue
+                # Spreadsheets use 'Key'/'Value' columns, while YAML typically uses 'key'/'value'.
+                normalized = {key.casefold() if isinstance(key, str) else key: value for key, value in item.items()}
+                if "key" in normalized and "value" in normalized:
+                    output[normalized["key"]] = normalized["value"]
+            return output
         return data
 
 
@@ -94,6 +97,8 @@ class NeatYAML(ToolkitResource):
             raise KeyError(f"Invalid field id: {sheet_id}")
         if sheet is None:
             sheet = cls.model_fields[sheet_id]
+        if sheet.validation_alias == METADATA_SHEET:
+            return ["Key", "Value"]
         return [
             # We know all fields has validation_alias because of the alias_generator in TableDMS
             cast(str, sheet_field.validation_alias)
@@ -107,6 +112,7 @@ class NeatSpreadsheet(ToolkitResource):
     model_config = ConfigDict(populate_by_name=True)
 
     spreadsheet: Path
+    _loaded: tuple[NeatYAML, NeatTableSource] | None = PrivateAttr(default=None)
 
     @field_validator("spreadsheet", mode="before")
     @classmethod
@@ -133,10 +139,11 @@ class NeatSpreadsheet(ToolkitResource):
         """Return the source information for the spreadsheet."""
         return self._load_spreadsheet()[1]
 
-    @cache
     def _load_spreadsheet(self) -> tuple[NeatYAML, NeatTableSource]:
-        tables, source = _load_spreadsheet(self.spreadsheet)
-        return NeatYAML.model_validate(tables), source
+        if self._loaded is None:
+            tables, source = _load_spreadsheet(self.spreadsheet)
+            self._loaded = NeatYAML.model_validate(tables), source
+        return self._loaded
 
     def as_id(self) -> DataModelId:
         return self.neat_yaml.as_id()

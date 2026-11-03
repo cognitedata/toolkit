@@ -1,15 +1,53 @@
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.utils.file import YamlPosition
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes import NeatFormat
 from cognite_toolkit._cdf_tk.yaml_classes.neat import NeatSpreadsheet, NeatYAML
 from cognite_toolkit._cdf_tk.yaml_classes.neat._entities import ParsedEntity, parse_entities, parse_entity
+from cognite_toolkit._cdf_tk.yaml_classes.neat._table_source import (
+    NeatSpreadsheetSource,
+    NeatYAMLSource,
+    SpreadsheetReadContext,
+)
+
+
+def _mock_workbook(sheets: dict[str, list[tuple[Any, ...]]]) -> MagicMock:
+    worksheets: dict[str, MagicMock] = {}
+    for name, rows in sheets.items():
+        worksheet = MagicMock(title=name)
+        worksheet.iter_rows.return_value = rows
+        worksheets[name] = worksheet
+    workbook = MagicMock(sheetnames=list(sheets))
+    workbook.__getitem__.side_effect = worksheets.__getitem__
+    return workbook
+
+
+VALID_SPREADSHEET: dict[str, list[tuple[Any, ...]]] = {
+    "Metadata": [
+        ("space", "my_space"),
+        ("external_id", "MyModel"),
+        ("version", "v1"),
+    ],
+    "Properties": [
+        ("Data model properties", None, None),
+        ("View", "View Property", "Value Type"),
+        ("MyView", "name", "text"),
+        (None, None, None),
+        ("MyView", "age", "int32"),
+    ],
+    "Views": [
+        ("View", "Name"),
+        ("MyView", "My View"),
+    ],
+}
 
 
 class TestEntityParser:
@@ -314,21 +352,6 @@ class TestNeatFormat:
         assert loaded.as_id() == expected_id
 
     @pytest.mark.parametrize(
-        "data",
-        [
-            pytest.param({"spreadsheet": "model.xlsx"}, id="Relative path"),
-            pytest.param({"spreadsheet": "models/MODEL.XLSX"}, id="Uppercase suffix in subdirectory"),
-        ],
-    )
-    def test_load_valid_neat_spreadsheet(self, data: dict[str, Any]) -> None:
-        assert validate_resource_yaml_pydantic(data, NeatFormat, Path("test.yaml")) == []
-
-        loaded = TypeAdapter(NeatFormat).validate_python(data)
-
-        assert isinstance(loaded, NeatSpreadsheet)
-        assert loaded.spreadsheet == Path(data["spreadsheet"])
-
-    @pytest.mark.parametrize(
         "data, expected_errors",
         [
             pytest.param(
@@ -417,3 +440,66 @@ class TestNeatFormat:
         format_warning = warning_list[0]
         assert isinstance(format_warning, ResourceFormatWarning)
         assert list(format_warning.errors) == expected_errors
+
+
+class TestNeatSpreadsheet:
+    def test_load_spreadsheet(self) -> None:
+        workbook = _mock_workbook(VALID_SPREADSHEET)
+        with patch("openpyxl.load_workbook", return_value=workbook) as load_workbook:
+            loaded = NeatSpreadsheet.model_validate({"spreadsheet": "model.xlsx"})
+
+        load_workbook.assert_called_once()
+        workbook.close.assert_called_once()
+        assert loaded.as_id() == DataModelId(space="my_space", external_id="MyModel", version="v1")
+        assert [(prop.view_property, str(prop.value_type)) for prop in loaded.neat_yaml.properties] == [
+            ("name", "text"),
+            ("age", "int32"),
+        ]
+        source = loaded.table_source
+        assert isinstance(source, NeatSpreadsheetSource)
+        assert source.table_read["Properties"] == SpreadsheetReadContext(header_row=1, empty_rows=[3])
+
+    def test_load_invalid_spreadsheet(self) -> None:
+        sheets = {**VALID_SPREADSHEET, "Views": [("View", "Name"), ("MyView(", "My View")]}
+        with patch("openpyxl.load_workbook", return_value=_mock_workbook(sheets)):
+            warning_list = validate_resource_yaml_pydantic({"spreadsheet": "model.xlsx"}, NeatFormat, Path("test.yaml"))
+
+        assert len(warning_list) == 1
+        assert isinstance(warning_list[0], ResourceFormatWarning)
+
+
+class TestNeatSpreadsheetSource:
+    @pytest.mark.parametrize(
+        "path, expected",
+        [
+            pytest.param(("Properties",), "table 'Properties'", id="Table only"),
+            pytest.param(("Properties", 0), "table 'Properties' row 3", id="First row after header"),
+            pytest.param(("Properties", 1), "table 'Properties' row 5", id="Row after empty row"),
+            pytest.param(("Properties", 0, "View"), "table 'Properties' row 3 column 'View'", id="Row and column"),
+            pytest.param(
+                ("Views", 0, "Filter", "entities", 0),
+                "table 'Views' row 1 column 'Filter' -> entities.0",
+                id="Nested path in table without read context",
+            ),
+        ],
+    )
+    def test_location(self, path: tuple[int | str, ...], expected: str) -> None:
+        source = NeatSpreadsheetSource(
+            source=Path("model.xlsx"),
+            table_read={"Properties": SpreadsheetReadContext(header_row=1, empty_rows=[3])},
+        )
+        assert source.location(path) == expected
+
+
+class TestNeatYAMLSource:
+    def test_location(self, tmp_path: Path) -> None:
+        yaml_file = tmp_path / "model.Neat.yaml"
+        yaml_file.write_text(
+            "Metadata:\n  space: my_space\nProperties:\n  - View: MyView\n    View Property: name\n",
+            encoding="utf-8",
+        )
+        source = NeatYAMLSource(source=yaml_file)
+
+        assert source.location(("Metadata", "space")) == YamlPosition(line=2, column=3)
+        assert source.location(("Properties", 0, "View Property")) == YamlPosition(line=5, column=5)
+        assert source.location(("Unknown",)) is None

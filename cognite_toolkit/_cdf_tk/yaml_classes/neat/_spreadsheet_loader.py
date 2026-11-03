@@ -37,10 +37,7 @@ def _load_spreadsheet(spreadsheet: Path) -> tuple[DataModelTableType, NeatTableS
             sheet_name = cast(str, column_info.validation_alias)
             if sheet_name not in workbook.sheetnames:
                 continue
-            if sheet_name == METADATA_SHEET:
-                required_columns = ["Key", "Value"]
-            else:
-                required_columns = NeatYAML.get_sheet_columns(column_id, column_info, column_type="required")
+            required_columns = NeatYAML.get_sheet_columns(column_id, column_info, column_type="required")
             sheet = workbook[sheet_name]
             context = SpreadsheetReadContext()
             table_rows = _read_rows(sheet, required_columns, context)
