@@ -1,3 +1,4 @@
+from functools import cache
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -7,7 +8,9 @@ from cognite_toolkit._cdf_tk.client.identifiers import DataModelId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
+from ._spreadsheet_loader import _load_spreadsheet
 from ._table import DMSContainer, DMSEnum, DMSNode, DMSProperty, DMSView, normalize_table_names
+from ._table_source import NeatTableSource
 
 Space = Annotated[str, Field(min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)]
 
@@ -102,9 +105,23 @@ class NeatSpreadsheet(ToolkitResource):
             raise ValueError("Spreadsheet must reference an .xlsx file.")
         return value
 
+    @property
+    def neat_yaml(self) -> NeatYAML:
+        """Return the NEAT YAML representation of the spreadsheet."""
+        return self._load_spreadsheet()[0]
+
+    @property
+    def table_source(self) -> NeatTableSource:
+        """Return the source information for the spreadsheet."""
+        return self._load_spreadsheet()[1]
+
+    @cache
+    def _load_spreadsheet(self) -> tuple[NeatYAML, NeatTableSource]:
+        tables, source = _load_spreadsheet(self.spreadsheet)
+        return NeatYAML.model_validate(tables), source
+
     def as_id(self) -> DataModelId:
-        # Todo: read the spreadsheet and extract the metadata to return a DataModelId. This is not implemented yet.
-        raise NotImplementedError()
+        return self.neat_yaml.as_id()
 
 
 def _discriminate_neat_format(value: Any) -> str | None:
