@@ -9,13 +9,12 @@ from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 from ._table import DMSContainer, DMSEnum, DMSNode, DMSProperty, DMSView, normalize_table_names
 
+Space = Annotated[str, Field(min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)]
+
 
 class NeatMetadata(BaseModel):
-    space: str = Field(
+    space: Space = Field(
         description="The Space identifier (id).",
-        min_length=1,
-        max_length=43,
-        pattern=SPACE_FORMAT_PATTERN,
     )
     external_id: str = Field(
         description="External-id of the data model.",
@@ -39,9 +38,14 @@ class NeatMetadata(BaseModel):
         max_length=1024,
     )
     creator: str | None = Field(None, description="The creator of the data model.", max_length=255)
-    governed_spaces: list[str] | None = Field(
-        None, description="List of spaces governed by the data model.", max_length=43
-    )
+    governed_spaces: list[Space] | None = Field(None, description="List of spaces governed by the data model.")
+
+    @field_validator("governed_spaces", mode="before")
+    @classmethod
+    def _split_on_comma(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",")]
+        return value
 
     @model_validator(mode="before")
     @classmethod

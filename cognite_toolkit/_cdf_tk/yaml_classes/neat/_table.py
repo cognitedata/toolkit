@@ -50,7 +50,7 @@ EntityList = Annotated[
 
 class TableObj(
     BaseModel,
-    extra="ignore",
+    extra="forbid",
     alias_generator=AliasGenerator(
         alias=to_camel,
         validation_alias=title_case,
@@ -60,11 +60,6 @@ class TableObj(
 ): ...
 
 
-class MetadataValue(TableObj):
-    key: str
-    value: CellValueType
-
-
 class DMSProperty(TableObj):
     view: Entity
     view_property: str
@@ -72,8 +67,8 @@ class DMSProperty(TableObj):
     description: str | None = None
     connection: Entity | None = None
     value_type: Entity
-    min_count: int | None = None
-    max_count: int | None = None
+    min_count: int | None = 0
+    max_count: int | None = 1
     immutable: bool | None = None
     default: CellValueType | None = None
     auto_increment: bool | None = None
