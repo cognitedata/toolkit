@@ -1,6 +1,6 @@
 from functools import cache
 from pathlib import Path
-from typing import Annotated, Any, Literal, cast, get_args
+from typing import Annotated, Any, Literal, Self, cast, get_args
 
 from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, field_validator, model_validator
 from pydantic.fields import FieldInfo
@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import DataModelId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
+from ._constant import METADATA_SHEET
 from ._spreadsheet_loader import _load_spreadsheet
 from ._table import DMSContainer, DMSEnum, DMSNode, DMSProperty, DMSView, normalize_table_names
 from ._table_source import NeatTableSource
@@ -67,7 +68,7 @@ class NeatMetadata(BaseModel):
 class NeatYAML(ToolkitResource):
     """A data model described with the NEAT table YAML format."""
 
-    metadata: NeatMetadata = Field(validation_alias="Metadata")
+    metadata: NeatMetadata = Field(validation_alias=METADATA_SHEET)
     properties: list[DMSProperty] = Field(validation_alias="Properties")
     views: list[DMSView] = Field(validation_alias="Views")
     containers: list[DMSContainer] = Field(default_factory=list, validation_alias="Containers")
@@ -139,6 +140,12 @@ class NeatSpreadsheet(ToolkitResource):
 
     def as_id(self) -> DataModelId:
         return self.neat_yaml.as_id()
+
+    @model_validator(mode="after")
+    def _validate_spreadsheet(self) -> Self:
+        """Load the spreadsheet and validate the NEAT tables."""
+        self._load_spreadsheet()
+        return self
 
 
 def _discriminate_neat_format(value: Any) -> str | None:

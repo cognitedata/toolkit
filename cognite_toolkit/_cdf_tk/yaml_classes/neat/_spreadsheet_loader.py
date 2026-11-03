@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, TypeAlias, cast
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError
 
-from . import NeatYAML
+from ._constant import METADATA_SHEET
 from ._table_source import NeatSpreadsheetSource, NeatTableSource, SpreadsheetReadContext
 
 if TYPE_CHECKING:
@@ -26,6 +26,9 @@ def _load_spreadsheet(spreadsheet: Path) -> tuple[DataModelTableType, NeatTableS
         )
     from openpyxl import load_workbook
 
+    # Avoid circular import.
+    from cognite_toolkit._cdf_tk.yaml_classes.neat._neat_format import NeatYAML
+
     tables: DataModelTableType = {}
     source = NeatSpreadsheetSource(source=spreadsheet)
     workbook = load_workbook(spreadsheet, read_only=True, data_only=True, rich_text=False)
@@ -34,7 +37,10 @@ def _load_spreadsheet(spreadsheet: Path) -> tuple[DataModelTableType, NeatTableS
             sheet_name = cast(str, column_info.validation_alias)
             if sheet_name not in workbook.sheetnames:
                 continue
-            required_columns = NeatYAML.get_sheet_columns(column_id, column_info, column_type="required")
+            if sheet_name == METADATA_SHEET:
+                required_columns = ["Key", "Value"]
+            else:
+                required_columns = NeatYAML.get_sheet_columns(column_id, column_info, column_type="required")
             sheet = workbook[sheet_name]
             context = SpreadsheetReadContext()
             table_rows = _read_rows(sheet, required_columns, context)
@@ -51,7 +57,7 @@ def _read_rows(
     table_rows: list[dict[str, CellValueType]] = []
     # Metadata sheet is just a key-value pair of the first two columns.
     # For other sheets, we need to find the column header row first.
-    columns: list[str] = [] if sheet.title != "Metadata" else required_columns
+    columns: list[str] = [] if sheet.title != METADATA_SHEET else required_columns
     # Ignore warnings about Data Validation extension not being supported in read-only mode.
     warnings.filterwarnings("ignore", category=UserWarning, message="Data Validation extension is not supported*")
     # The .iter_rows with values_only=True raises the warning `UserWarning: Data Validation extension is
