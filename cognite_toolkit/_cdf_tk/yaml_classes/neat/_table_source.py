@@ -1,5 +1,9 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from functools import cache
 from pathlib import Path
+
+from cognite_toolkit._cdf_tk.utils.file import YamlPosition, safe_read, yaml_positions
 
 
 @dataclass
@@ -42,7 +46,7 @@ class SpreadsheetReadContext:
 
 
 @dataclass
-class NeatTableSource:
+class NeatTableSource(ABC):
     """Describes where a NEAT table came from, and lets the reader build human-readable locations.
 
     When the NEAT table comes from a YAML file, ``table_read`` has no entry for the table, so
@@ -53,6 +57,21 @@ class NeatTableSource:
     """
 
     source: Path
+
+    @abstractmethod
+    def location(self, path: tuple[int | str, ...]) -> YamlPosition | str | None:
+        """Builds a human-readable location string for the given path.
+
+        Args:
+            path: A location, typically originating from Pydantic validation errors.
+
+        Returns:
+            Either the prefix or the YamlPosition of the location, depending on the source of the Neat table
+        """
+        raise NotImplementedError()
+
+
+class NeatSpreadsheetSource(NeatTableSource):
     table_read: dict[str, SpreadsheetReadContext] = field(default_factory=dict)
 
     def location(self, path: tuple[int | str, ...]) -> str:
@@ -96,3 +115,20 @@ class NeatTableSource:
         if table_read is not None:
             return table_read.adjusted_row_number(row_no)
         return row_no + 1
+
+
+class NeatYAMLSource(NeatTableSource):
+    @cache
+    def _yaml_positions(self) -> dict[tuple[int | str, ...], YamlPosition]:
+        return yaml_positions(safe_read(self.source))
+
+    def location(self, path: tuple[int | str, ...]) -> YamlPosition | None:
+        """Builds a human-readable location string for the given path.
+
+        Args:
+            path: A location, typically originating from Pydantic validation errors.
+
+        Returns:
+            Either the prefix or the YamlPosition of the location, depending on the source of the Neat table
+        """
+        return self._yaml_positions().get(path)

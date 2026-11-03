@@ -1,8 +1,9 @@
 from functools import cache
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal, cast, get_args
 
 from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, field_validator, model_validator
+from pydantic.fields import FieldInfo
 
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
@@ -83,6 +84,22 @@ class NeatYAML(ToolkitResource):
         return DataModelId(
             space=self.metadata.space, external_id=self.metadata.external_id, version=self.metadata.version
         )
+
+    @classmethod
+    def get_sheet_columns(
+        cls, sheet_id: str, sheet: FieldInfo | None = None, *, column_type: Literal["all", "required"] = "required"
+    ) -> list[str]:
+        if sheet_id not in cls.model_fields.keys():
+            raise KeyError(f"Invalid field id: {sheet_id}")
+        if sheet is None:
+            sheet = cls.model_fields[sheet_id]
+        return [
+            # We know all fields has validation_alias because of the alias_generator in TableDMS
+            cast(str, sheet_field.validation_alias)
+            # All the fields in the sheet's model are lists.
+            for sheet_field in get_args(sheet.annotation)[0].model_fields.values()
+            if sheet_field.is_required() or column_type == "all"
+        ]
 
 
 class NeatSpreadsheet(ToolkitResource):
