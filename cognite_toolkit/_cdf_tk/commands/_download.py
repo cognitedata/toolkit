@@ -289,6 +289,8 @@ class DownloadCommand(ToolkitCommand):
     ) -> None:
         manifest_path = step.target_dir / step.selector.as_filename()
         json_files = step.selector.find_data_files(step.target_dir, manifest_path)
+        if not json_files:
+            return
         schema = io.get_schema(selector=step.selector)
         if schema is None:
             raise RuntimeError("Bug in Toolkit. Schema should not be None after data is downloaded.")

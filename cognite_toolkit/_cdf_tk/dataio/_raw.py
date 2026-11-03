@@ -1,17 +1,20 @@
 from collections.abc import Iterable
+from dataclasses import dataclass
 from itertools import chain
+from typing import Literal
 from uuid import uuid4
 
 from cognite.client.data_classes import Row, RowWrite
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import RawDatabaseIO, RawTableIO
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker
-from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, SchemaColumn
+from cognite_toolkit._cdf_tk.utils.useful_types import DataType, JsonVal
 
 from ._base import (
     Bookmark,
@@ -19,13 +22,106 @@ from ._base import (
     DataItem,
     Page,
     StorageIOConfig,
+    TableDataIO,
     TableUploadableDataIO,
 )
 from .selectors import RawTableSelector
 
+_KEY_COLUMN = "key"
+_UPDATED_COLUMN = "lastUpdatedTime"
+_INT64_MIN = -(2**63)
+_INT64_MAX = 2**63 - 1
+
+
+@dataclass
+class _ObservedType:
+    """Column type seen while reading RAW rows.
+
+    Empty lists do not decide the element type. A later non-empty list can still
+    specialize the column to an array. Conflicting types fall back to JSON.
+    """
+
+    data_type: DataType | None = None
+    is_array: bool = False
+    only_empty_lists: bool = False
+
+    def observe(self, value: object) -> None:
+        if value is None:
+            return
+        if isinstance(value, list) and not value:
+            if self.data_type is None:
+                self.only_empty_lists = True
+                self.is_array = True
+            return
+
+        data_type, is_array = _json_signature(value)
+        if self.data_type is None:
+            if self.only_empty_lists and not is_array:
+                self.data_type = "json"
+                self.is_array = False
+                self.only_empty_lists = False
+                return
+            self.data_type = data_type
+            self.is_array = is_array
+            self.only_empty_lists = False
+            return
+
+        self.data_type, self.is_array = _merge_types(self.data_type, self.is_array, data_type, is_array)
+        self.only_empty_lists = False
+
+    def as_column(self, name: str) -> SchemaColumn:
+        if self.only_empty_lists or self.data_type == "json":
+            return SchemaColumn(name=name, type="json")
+        if self.data_type is None:
+            return SchemaColumn(name=name, type="string")
+        return SchemaColumn(name=name, type=self.data_type, is_array=self.is_array)
+
+
+def _json_signature(value: object) -> tuple[DataType, bool]:
+    if isinstance(value, bool):
+        return "boolean", False
+    if isinstance(value, int):
+        if value < _INT64_MIN or value > _INT64_MAX:
+            return "json", False
+        return "integer", False
+    if isinstance(value, float):
+        return "float", False
+    if isinstance(value, str):
+        return "string", False
+    if isinstance(value, dict):
+        return "json", False
+    if isinstance(value, list):
+        element_signatures = [_json_signature(item) for item in value if item is not None]
+        if not element_signatures:
+            return "json", False
+        data_type, is_array = element_signatures[0]
+        for other_type, other_is_array in element_signatures[1:]:
+            data_type, is_array = _merge_types(data_type, is_array, other_type, other_is_array)
+            if data_type == "json":
+                return "json", False
+        if is_array:
+            return "json", False
+        return data_type, True
+    return "json", False
+
+
+def _merge_types(left: DataType, left_is_array: bool, right: DataType, right_is_array: bool) -> tuple[DataType, bool]:
+    if left == right and left_is_array == right_is_array:
+        return left, left_is_array
+    if left_is_array == right_is_array and {left, right} <= {"integer", "float"}:
+        return "float", left_is_array
+    return "json", False
+
+
+def _as_float(value: JsonVal) -> JsonVal:
+    if isinstance(value, int) and not isinstance(value, bool):
+        return float(value)
+    return value
+
 
 class RawIO(
     ConfigurableDataIO[RawTableSelector, Row],
+    TableDataIO[RawTableSelector, Row],
     TableUploadableDataIO[RawTableSelector, Row, RowWrite],
 ):
     KIND = "RawRows"
@@ -33,6 +129,11 @@ class RawIO(
     CHUNK_SIZE = 10_000
     UPLOAD_ENDPOINT = "/raw/dbs/{dbName}/tables/{tableName}/rows"
     BASE_SELECTOR = RawTableSelector
+
+    def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
+        super().__init__(client, api_format=api_format)
+        self._columns_by_selector: dict[RawTableSelector, dict[str, _ObservedType]] = {}
+        self._schema_by_column: dict[str, SchemaColumn] = {}
 
     def count(self, selector: RawTableSelector) -> int | None:
         # Raw tables do not support aggregation queries, so we do not know the count
@@ -87,7 +188,82 @@ class RawIO(
             result = [
                 DataItem(tracking_id=item.tracking_id, item=item.item.as_write().dump()) for item in data_chunk.items
             ]
-        return data_chunk.create_from(result)
+        page = data_chunk.create_from(result)
+        if selector is not None and selector in self._columns_by_selector:
+            for item in page.items:
+                self._observe_record(selector, item.item)
+        return page
+
+    def get_schema(self, selector: RawTableSelector) -> list[SchemaColumn] | None:
+        """Return the table schema for a RAW table.
+
+        The first call returns None so the download writes JSON first. Column names and
+        types are collected while the rows are read, and the next call returns the inferred schema.
+        """
+        if selector not in self._columns_by_selector:
+            self._columns_by_selector[selector] = {}
+            return None
+
+        schema = [SchemaColumn(name=_KEY_COLUMN, type="string")]
+        if self.api_format == "response":
+            schema.append(SchemaColumn(name=_UPDATED_COLUMN, type="integer"))
+        for name in sorted(self._columns_by_selector[selector]):
+            schema.append(self._columns_by_selector[selector][name].as_column(name))
+        self._schema_by_column = {column.name: column for column in schema}
+        return schema
+
+    def json_to_row(
+        self, item_json: dict[str, JsonVal], selector: RawTableSelector | None = None
+    ) -> dict[str, JsonVal]:
+        row: dict[str, JsonVal] = {}
+        columns = item_json.get("columns")
+        if isinstance(columns, dict):
+            for name, value in columns.items():
+                row[self._data_column_name(str(name))] = value
+        if _KEY_COLUMN in item_json:
+            row[_KEY_COLUMN] = item_json[_KEY_COLUMN]
+        if self.api_format == "response" and _UPDATED_COLUMN in item_json:
+            row[_UPDATED_COLUMN] = item_json[_UPDATED_COLUMN]
+        return self._coerce_row(row)
+
+    def _data_column_name(self, name: str) -> str:
+        if name in self._reserved_column_names():
+            return f"columns.{name}"
+        return name
+
+    def _reserved_column_names(self) -> set[str]:
+        reserved = {_KEY_COLUMN}
+        if self.api_format == "response":
+            reserved.add(_UPDATED_COLUMN)
+        return reserved
+
+    def _observe_record(self, selector: RawTableSelector, item: dict[str, JsonVal]) -> None:
+        observed = self._columns_by_selector[selector]
+        columns = item.get("columns")
+        if not isinstance(columns, dict):
+            return
+        for name, value in columns.items():
+            output_name = self._data_column_name(str(name))
+            column = observed.get(output_name)
+            if column is None:
+                column = _ObservedType()
+                observed[output_name] = column
+            column.observe(value)
+
+    def _coerce_row(self, row: dict[str, JsonVal]) -> dict[str, JsonVal]:
+        if not self._schema_by_column:
+            return row
+        coerced: dict[str, JsonVal] = {}
+        for key, value in row.items():
+            column = self._schema_by_column.get(key)
+            if column is None or column.type != "float" or value is None:
+                coerced[key] = value
+                continue
+            if column.is_array and isinstance(value, list):
+                coerced[key] = [_as_float(item) for item in value]
+                continue
+            coerced[key] = _as_float(value)
+        return coerced
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> RowWrite:
         return RowWrite._load(item_json)

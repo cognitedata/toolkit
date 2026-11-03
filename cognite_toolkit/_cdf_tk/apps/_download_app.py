@@ -77,6 +77,8 @@ T_Format = TypeVar("T_Format", bound=Enum)
 class RawFormats(StrEnum):
     ndjson = "ndjson"
     yaml = "yaml"
+    csv = "csv"
+    parquet = "parquet"
 
 
 class AssetCentricFormats(StrEnum):
@@ -182,7 +184,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to download the raw tables in. Supported formats: ndjson, yaml",
+                help="Format to download the raw tables in. Supported formats: ndjson, yaml, csv, parquet.",
             ),
         ] = RawFormats.ndjson,
         api_format: Annotated[
