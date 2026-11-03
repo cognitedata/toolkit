@@ -71,8 +71,9 @@ class NeatTableSource(ABC):
         raise NotImplementedError()
 
 
+@dataclass
 class NeatSpreadsheetSource(NeatTableSource):
-    table_read: dict[str, SpreadsheetReadContext] = field(default_factory=dict)
+    table_read: dict[str, SpreadsheetReadContext]
 
     def location(self, path: tuple[int | str, ...]) -> str:
         """Builds a human-readable location string for the given path.

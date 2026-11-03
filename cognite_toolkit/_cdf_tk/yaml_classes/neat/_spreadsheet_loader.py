@@ -30,7 +30,7 @@ def _load_spreadsheet(spreadsheet: Path) -> tuple[DataModelTableType, NeatTableS
     from cognite_toolkit._cdf_tk.yaml_classes.neat._neat_format import NeatYAML
 
     tables: DataModelTableType = {}
-    source = NeatSpreadsheetSource(source=spreadsheet)
+    table_context: dict[str, SpreadsheetReadContext] = {}
     workbook = load_workbook(spreadsheet, read_only=True, data_only=True, rich_text=False)
     try:
         for column_id, column_info in NeatYAML.model_fields.items():
@@ -45,8 +45,8 @@ def _load_spreadsheet(spreadsheet: Path) -> tuple[DataModelTableType, NeatTableS
             context = SpreadsheetReadContext()
             table_rows = _read_rows(sheet, required_columns, context)
             tables[sheet_name] = table_rows
-            source.table_read[sheet_name] = context
-        return tables, source
+            table_context[sheet_name] = context
+        return tables, NeatSpreadsheetSource(source=spreadsheet, table_read=table_context)
     finally:
         workbook.close()
 
