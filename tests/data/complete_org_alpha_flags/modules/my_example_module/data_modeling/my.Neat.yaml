@@ -3,12 +3,12 @@ metadata:
   externalId: neat_data_model
   version: v1
 properties:
-  view: NeatView
+- view: NeatView
   viewProperty: name
   valueType: text
   container: NeatContainer
   containerProperty: name
-view:
-  view: NeatView
+views:
+- view: NeatView
 containers:
-  container: NeatContainer
+- container: NeatContainer
