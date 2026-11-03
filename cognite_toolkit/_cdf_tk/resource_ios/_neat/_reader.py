@@ -8,11 +8,12 @@ from typing import TYPE_CHECKING, Any
 from pydantic import TypeAdapter, ValidationError
 
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, DataModelId, NodeId, SpaceId, ViewId
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import CrudResource
 from cognite_toolkit._cdf_tk.resource_ios._datamodel import ContainerIO, DataModelIO, NodeIO, SpaceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
-from cognite_toolkit._cdf_tk.yaml_classes import ContainerYAML, DataModelYAML, NodeYAML, SpaceYAML, ViewYAML
+from cognite_toolkit._cdf_tk.yaml_classes import ContainerYAML, DataModelYAML, NodeYAML, ViewYAML
 from cognite_toolkit._cdf_tk.yaml_classes.container_field_definitions import (
     ConstraintType,
     ContainerPropertyDefinition,
@@ -35,7 +36,11 @@ from cognite_toolkit._cdf_tk.yaml_classes.neat._table_source import NeatTableSou
 from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ViewPropertyType
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError, BuildWarning, InsightCode
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+        BuildError,
+        BuildWarning,
+        InsightCode,
+    )
 
 # A spreadsheet cell holding this value is treated the same as an empty cell. See NeatTableReader.read
 # for details.
@@ -162,8 +167,15 @@ class NeatTableReader:
 
     def _warn(self, code: "InsightCode", message: str) -> None:
         from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning
+        location_prefix, yaml_pos = self._loc(self.SHEET_METADATA)
+        if location_prefix:
+            message = f"In {location_prefix} {message}"
 
-        self._warnings.append(BuildWarning(code=code, message=message, source_file=Path(self.source.source)))
+        self._warnings.append(
+            BuildWarning(
+                code=code, message=message, source_file=Path(self.source.source), line=yaml_pos.line if yaml_pos else None, column=yaml_pos.column if yaml_pos else None, alpha=Flags.NEAT.is_enabled()
+            )
+        )
 
     def _loc(self, table: str, row: int | None = None, column: str | None = None) -> str:
         path: tuple[int | str, ...]
@@ -230,16 +242,10 @@ class NeatTableReader:
     # --- Space -----------------------------------------------------------------------------------
 
     def _read_space(self) -> CrudResource[SpaceId]:
-        try:
-            space_yaml = SpaceYAML.model_validate({"space": self.default_space})
-        except ValidationError as e:
-            messages = "; ".join(humanize_validation_error(e, SpaceYAML))
-            raise NeatTableError(
-                f"Invalid space {self.default_space!r} declared in {self._loc(self.SHEET_METADATA)}: {messages}"
-            ) from None
+        # The space is already validated by the NeatYAML model.
         return CrudResource(
-            raw=space_yaml.model_dump(by_alias=True, exclude_none=True),
-            identifier=space_yaml.as_id(),
+            raw={"space": self.neat_yaml.metadata.space},
+            identifier=SpaceId(space=self.neat_yaml.metadata.space),
             type_=SpaceIO.as_crud_type(),
         )
 
@@ -323,13 +329,13 @@ class NeatTableReader:
         view_reads: dict[tuple[ViewRef, str], list[_ReadViewProperty]],
         view_refs: set[ViewRef],
     ) -> None:
-        loc = self._loc(self.SHEET_PROPERTIES, row_no)
         data = self._build_view_property(prop, row_no)
         if data is None:
             return
         try:
             view_property = _VIEW_PROPERTY_ADAPTER.validate_python(data)
         except ValidationError as e:
+            loc = self._loc(self.SHEET_PROPERTIES, row_no)
             self._warn_invalid(e, ViewPropertyType, loc)
             return
 
