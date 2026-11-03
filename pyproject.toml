@@ -76,6 +76,9 @@ table = [
 sql = [
     "sqlparse >=0.5.3",
 ]
+neat = [
+    "openpyxl>=3.1.0",
+]
 
 run-function-app = [
     "cognite-function-apps[cli]>=0.15.0",
