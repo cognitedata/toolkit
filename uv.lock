@@ -321,9 +321,6 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-neat = [
-    { name = "openpyxl" },
-]
 run-function-app = [
     { name = "cognite-function-apps", extra = ["cli"] },
 ]
@@ -337,6 +334,7 @@ table = [
 [package.dev-dependencies]
 dev = [
     { name = "marko" },
+    { name = "openpyxl" },
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -362,7 +360,6 @@ requires-dist = [
     { name = "httpx2", specifier = ">=2.12.0" },
     { name = "keyring", specifier = ">=25.0.0" },
     { name = "mixpanel", specifier = ">=4.10.1" },
-    { name = "openpyxl", marker = "extra == 'neat'", specifier = ">=3.1.0" },
     { name = "packaging", specifier = ">=25" },
     { name = "pip", specifier = ">=25.0.1" },
     { name = "pyarrow", marker = "extra == 'table'", specifier = ">=26.0.0" },
@@ -379,11 +376,12 @@ requires-dist = [
     { name = "typer", specifier = ">=0.12.0,<1.0.0" },
     { name = "typing-extensions", specifier = ">=4.13.0" },
 ]
-provides-extras = ["table", "sql", "neat", "run-function-app"]
+provides-extras = ["table", "sql", "run-function-app"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "marko", specifier = ">=2.1.2" },
+    { name = "openpyxl", specifier = ">=3.1.0" },
     { name = "pre-commit", specifier = ">=4.0.0" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-cov", specifier = ">=6.0.0" },
