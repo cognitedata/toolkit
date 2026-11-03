@@ -126,10 +126,10 @@ class NeatTableReader:
         self._warnings: list[BuildWarning] = []
         self._errors: list[BuildError] = []
 
-    def get_warnings(self) -> list[BuildWarning]:
+    def get_warnings(self) -> "list[BuildWarning]":
         return self._warnings
 
-    def get_errors(self) -> list[BuildError]:
+    def get_errors(self) -> "list[BuildError]":
         return self._errors
 
     def read(self) -> NeatReadResult:
@@ -165,6 +165,8 @@ class NeatTableReader:
         validation_type: Any | None = None,
         code: "InsightCode" = "INVALID-VALUE",
     ) -> None:
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
+
         if isinstance(validation_error, ValidationError):
             errors = humanize_validation_error(validation_error, validation_type)
             message = "\n".join(item for item in errors)
@@ -186,6 +188,8 @@ class NeatTableReader:
         )
 
     def _create_warning(self, code: "InsightCode", message: str, loc: tuple[int | str, ...]) -> None:
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning
+
         location = self.source.location(loc)
         if isinstance(location, str):
             message = f"{location}: {message}"
@@ -254,7 +258,7 @@ class NeatTableReader:
         try:
             space = SpaceYAML.model_validate({"space": self.neat_yaml.metadata.space})
         except ValidationError as e:
-            self._create_error((SHEET_METADATA, "space"), f"Invalid space: {e!s}")
+            self._create_error((SHEET_METADATA, "space"), e, SpaceYAML)
             raise NeatTableError("Invalid space")
         return CrudResource(
             raw=space.model_dump(),
@@ -268,7 +272,8 @@ class NeatTableReader:
     def _read_enum_collections(rows: list[DMSEnum]) -> dict[str, dict[str, dict[str, Any]]]:
         collections: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
         for row in rows:
-            collections[row.collection][row.value] = {"name": row.name, "description": row.description}
+            value = {"name": row.name, "description": row.description}
+            collections[row.collection][row.value] = {key: item for key, item in value.items() if item is not None}
         return collections
 
     # --- Properties --------------------------------------------------------------------------------
@@ -435,8 +440,9 @@ class NeatTableReader:
             )
             return None
         if container_ref not in container_refs:
-            if container_ref[0] not in self.governed_spaces:
-                # You can reference containers in non-governed spaces.
+            if container_ref[0] in self.governed_spaces:
+                # Containers in governed spaces must be defined in the Containers table. You can
+                # reference containers in non-governed spaces without defining them.
                 self._create_error(
                     (SHEET_PROPERTIES, row_no, "Container"),
                     f"the container {prop.container!s} was not found in the {SHEET_CONTAINERS!r} table.",
@@ -603,7 +609,7 @@ class NeatTableReader:
             ref = self._container_ref_key(container.container)
             if ref is None:
                 self._create_error(
-                    ("SHEET_CONTAINERS", row_no, "Container"), "Invalid container reference.", code="INVALID-VALUE"
+                    (SHEET_CONTAINERS, row_no, "Container"), "Invalid container reference.", code="INVALID-VALUE"
                 )
                 continue
 
@@ -779,9 +785,7 @@ class NeatTableReader:
             try:
                 node_yaml = NodeYAML.model_validate(node_ref)
             except ValidationError as e:
-                self._create_error(
-                    (SHEET_NODES, row_no, "Node"), f"invalid node reference: {e!s}", code="INVALID-VALUE"
-                )
+                self._create_error((SHEET_NODES, row_no, "Node"), e, NodeYAML, "INVALID-VALUE")
                 continue
             results.append(
                 CrudResource(

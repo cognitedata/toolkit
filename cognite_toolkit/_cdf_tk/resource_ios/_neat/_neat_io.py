@@ -66,6 +66,7 @@ class NeatIO(ResourceFileIO[DataModelId, NeatYAML | NeatSpreadsheet]):
             )
             return
         yield from reader.get_warnings()
+        yield from reader.get_errors()
         if results.space.identifier.space in reader.governed_spaces:
             # Should always be true, but we check anyway to avoid returning resources outside the governed spaces.
             yield results.space
