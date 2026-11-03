@@ -1,8 +1,12 @@
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pyarrow.parquet as pq
+import pytest
+import typer
 from cognite.client.data_classes.raw import Row
 
+from cognite_toolkit._cdf_tk.apps._download_app import DownloadApp, RawFormats
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregateItem, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import SQLQueryResponse
@@ -10,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.dataio import AssetDataIO, RawIO
 from cognite_toolkit._cdf_tk.dataio.selectors import DataSetSelector, RawTableSelector, SelectedTable
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils.fileio import CSVReader
 
 
@@ -193,3 +198,51 @@ class TestDownloadCommand:
             )
 
         assert list(tmp_path.rglob("*.csv")) == []
+
+
+class TestRawTableFormatFlag:
+    @pytest.mark.parametrize("file_format", [RawFormats.csv, RawFormats.parquet])
+    def test_table_formats_require_alpha_flag(self, file_format: RawFormats, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", staticmethod(lambda flag: False))
+
+        with pytest.raises(typer.BadParameter, match="raw-table-format"):
+            DownloadApp.download_raw_cmd(
+                ctx=MagicMock(),
+                tables=["events"],
+                database="db",
+                file_format=file_format,
+            )
+
+    @pytest.mark.parametrize(
+        "file_format,enabled",
+        [
+            (RawFormats.ndjson, False),
+            (RawFormats.yaml, False),
+            (RawFormats.csv, True),
+            (RawFormats.parquet, True),
+        ],
+    )
+    def test_allowed_formats_reach_download(
+        self, file_format: RawFormats, enabled: bool, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            FeatureFlag,
+            "is_enabled",
+            staticmethod(lambda flag: enabled and flag is Flags.RAW_TABLE_FORMAT),
+        )
+
+        def past_flag_check() -> None:
+            raise RuntimeError("past flag check")
+
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.apps._download_app.EnvironmentVariables.create_from_environment",
+            past_flag_check,
+        )
+
+        with pytest.raises(RuntimeError, match="past flag check"):
+            DownloadApp.download_raw_cmd(
+                ctx=MagicMock(),
+                tables=["events"],
+                database="db",
+                file_format=file_format,
+            )

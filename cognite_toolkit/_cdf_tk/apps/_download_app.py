@@ -53,6 +53,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors._records import (
     SelectedContainer,
     SelectedStream,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetCentricInteractiveSelect,
@@ -184,7 +185,8 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to download the raw tables in. Supported formats: ndjson, yaml, csv, parquet.",
+                help="Format to download the raw tables in. Supported formats: ndjson, yaml. "
+                "csv and parquet require the raw-table-format alpha flag.",
             ),
         ] = RawFormats.ndjson,
         api_format: Annotated[
@@ -229,6 +231,14 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download RAW tables from CDF into a temporary directory."""
+        if file_format in {RawFormats.csv, RawFormats.parquet} and not Flags.RAW_TABLE_FORMAT.is_enabled():
+            raise typer.BadParameter(
+                (
+                    f"Downloading RAW tables as {file_format.value} is currently behind an alpha feature flag "
+                    "and is not enabled. Enable the flag `raw-table-format` under [alpha_flags] in cdf.toml."
+                ),
+                param_hint="--format",
+            )
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = DownloadCommand(client=client)
 

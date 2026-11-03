@@ -26,6 +26,7 @@ git-diff-select = true
 v010 = true
 deploy-protection = true
 cdf-group-emails = false
+raw-table-format = false
 
 [plugins]
 run = true
