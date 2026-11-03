@@ -112,11 +112,9 @@ class PullV2Command(ToolkitCommand):
                 config_yamls=[config_yaml_input] if config_yaml_input else None,
                 user_selected_modules=user_selected_modules,
                 verbose=False,
-                write_insights=False,
-                write_lineage=False,
             )
             build_folder = BuildV2Command(print_warning=False, skip_tracking=True, silent=True, client=client).build(
-                parameters, client, display=False
+                parameters, client=client, display=False
             )
         except ToolkitError as e:
             raise ToolkitError(f"Failed to build module {humanize_collection(user_selected_modules or '')}.") from e

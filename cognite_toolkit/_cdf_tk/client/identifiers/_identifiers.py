@@ -321,6 +321,18 @@ class UserProfileId(Identifier):
         return self.user_identifier
 
 
+class MeterId(Identifier):
+    meter_id: str
+
+    def __str__(self) -> str:
+        return f"meterId='{self.meter_id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"meterId-{self.meter_id}"
+        return self.meter_id
+
+
 class PrincipalLoginId(Identifier):
     principal: str
     id: str
@@ -357,6 +369,18 @@ class WritebackRequestId(Identifier):
         if include_type:
             return f"requestId-{self.request_id}"
         return self.request_id
+
+
+class LimitId(Identifier):
+    limit_id: str
+
+    def __str__(self) -> str:
+        return f"limitId='{self.limit_id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"limitId-{self.limit_id}"
+        return self.limit_id
 
 
 class SignalSinkId(Identifier):

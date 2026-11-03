@@ -381,19 +381,17 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     def _load_containers(self) -> dict[ContainerId, _LocalContainer]:
         crud = ContainerIO(self._load_client())
         loaded: dict[ContainerId, _LocalContainer] = {}
-        for module in self.modules:
-            for item_id, (resource, request) in module.load_local_resources(crud).items():
-                if isinstance(item_id, ContainerId):
-                    loaded[item_id] = (resource, request)
+        for item_id, (resource, request) in self.resources.load_resource_of_type(crud).items():
+            if isinstance(item_id, ContainerId):
+                loaded[item_id] = (resource, request)
         return loaded
 
     def _load_views(self) -> dict[ViewId, _LocalView]:
         crud = ViewIO(self._load_client())
         loaded: dict[ViewId, _LocalView] = {}
-        for module in self.modules:
-            for item_id, (resource, request) in module.load_local_resources(crud).items():
-                if isinstance(item_id, ViewId):
-                    loaded[item_id] = (resource, request)
+        for item_id, (resource, request) in self.resources.load_resource_of_type(crud).items():
+            if isinstance(item_id, ViewId):
+                loaded[item_id] = (resource, request)
         return loaded
 
     def _load_client(self) -> ToolkitClient:
@@ -543,9 +541,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     ) -> Iterable[Insight | InternalValidatorException]:
         """Compare one data-modeling resource type against CDF."""
         try:
-            local_by_id: dict[_resource_base.T_Identifier, tuple[BuiltResource, _resource_base.T_RequestResource]] = {}
-            for module in self.modules:
-                local_by_id.update(module.load_local_resources(crud))
+            local_by_id = self.resources.load_resource_of_type(crud)
             if not local_by_id:
                 return
             cdf_items = crud.retrieve(list(local_by_id.keys()))
