@@ -9,6 +9,7 @@ from pydantic import (
     BaseModel,
     Field,
     TypeAdapter,
+    ValidationError,
     field_serializer,
     field_validator,
 )
@@ -17,7 +18,13 @@ from pydantic_core.core_schema import ValidationInfo
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
-from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_modules
+from cognite_toolkit._cdf_tk.utils.file import (
+    YamlPosition,
+    format_insight_source_file,
+    relative_to_modules,
+    yaml_positions,
+)
+from cognite_toolkit._cdf_tk.validation import ValidationMessage, humanize_validation_error_categorized
 
 ERROR_TYPE: Literal["Error"] = "Error"
 WARNING_TYPE: Literal["Warning"] = "Warning"
@@ -295,3 +302,50 @@ class InsightList(UserList[Insight]):
         return cls(
             InsightListAdapter.validate_python(json.loads(content), context={"organization_dir": organization_dir})
         )
+
+
+def create_syntax_insights(
+    error: ValidationError, resource_file: Path, content: str, validation_type: Any = None
+) -> tuple[BuildError | None, list[BuildWarning]]:
+    validation_messages = humanize_validation_error_categorized(error, validation_type, for_insights=True) or [
+        ValidationMessage("The YAML doesn't follow the required format.", "error")
+    ]
+    positions = yaml_positions(content)
+    warnings = [item for item in validation_messages if item.category == "warning"]
+    errors = [item for item in validation_messages if item.category == "error"]
+
+    syntax_error = None
+    if errors:
+        line, column = _single_position(errors, positions)
+        syntax_error = BuildError(
+            code="INVALID-FIELD",
+            message="\n".join(item.message for item in errors),
+            fix="Compare the YAML with reference documentation and make sure it is valid.",
+            source_file=resource_file,
+            line=line,
+            column=column,
+        )
+
+    syntax_warnings: list[BuildWarning] = []
+    for warning in warnings:
+        line, column = _single_position([warning], positions)
+        syntax_warnings.append(
+            BuildWarning(
+                code=warning.code,
+                message=warning.message,
+                source_file=resource_file,
+                line=line,
+                column=column,
+                fix="Compare the YAML with reference documentation and make sure it is valid. It will be deployed as-is, but may be ignored or rejected by CDF.",
+            )
+        )
+    return syntax_error, syntax_warnings
+
+
+def _single_position(
+    messages: list[ValidationMessage], positions: dict[tuple[str | int, ...], YamlPosition]
+) -> tuple[int | None, int | None]:
+    """The position of the messages, if they refer to exactly one known location."""
+    if len(messages) != 1 or messages[0].loc is None or (position := positions.get(messages[0].loc)) is None:
+        return None, None
+    return position.line, position.column

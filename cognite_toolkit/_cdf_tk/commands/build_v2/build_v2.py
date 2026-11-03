@@ -54,6 +54,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
     InsightDefinition,
     Recommendation,
+    create_syntax_insights,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
@@ -100,19 +101,15 @@ from cognite_toolkit._cdf_tk.utils import (
     tmp_build_directory,
 )
 from cognite_toolkit._cdf_tk.utils.file import (
-    YamlPosition,
     read_yaml_content,
     relative_to_if_possible,
     safe_rmtree,
-    yaml_positions,
     yaml_safe_dump,
 )
 from cognite_toolkit._cdf_tk.utils.git_helpers import Git
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash_multi_file
 from cognite_toolkit._cdf_tk.validation import (
-    ValidationMessage,
     humanize_validation_error,
-    humanize_validation_error_categorized,
 )
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
@@ -1280,9 +1277,7 @@ class BuildV2Command(ToolkitCommand):
         try:
             toolkit_resource = crud_class.validate_object(parsed_yaml, extra="forbid")
         except ValidationError as errors:
-            syntax_error, syntax_warnings = self._create_syntax_insights(
-                errors, resource_file, content, crud_class.yaml_cls
-            )
+            syntax_error, syntax_warnings = create_syntax_insights(errors, resource_file, content, crud_class.yaml_cls)
             result.syntax_warnings.extend(syntax_warnings)
             result.syntax_error = syntax_error
             try:
@@ -1327,9 +1322,7 @@ class BuildV2Command(ToolkitCommand):
         try:
             toolkit_resources = crud_class.validate_list(parsed_yaml, extra="forbid")
         except ValidationError as errors:
-            syntax_error, syntax_warnings = self._create_syntax_insights(
-                errors, resource_file, content, crud_class.yaml_cls
-            )
+            syntax_error, syntax_warnings = create_syntax_insights(errors, resource_file, content, crud_class.yaml_cls)
             result.syntax_warnings.extend(syntax_warnings)
             result.syntax_error = syntax_error
 
@@ -1426,52 +1419,6 @@ class BuildV2Command(ToolkitCommand):
                 extra_file.content = BuildVariable.substitute(extra_file.content, variables, extra_file.suffix)
             output.append(extra_file)
         return output
-
-    def _create_syntax_insights(
-        self, error: ValidationError, resource_file: AbsoluteFilePath, content: str, validation_type: Any = None
-    ) -> tuple[BuildError | None, list[BuildWarning]]:
-        validation_messages = humanize_validation_error_categorized(error, validation_type, for_insights=True) or [
-            ValidationMessage("The YAML doesn't follow the required format.", "error")
-        ]
-        positions = yaml_positions(content)
-        warnings = [item for item in validation_messages if item.category == "warning"]
-        errors = [item for item in validation_messages if item.category == "error"]
-
-        syntax_error = None
-        if errors:
-            line, column = self._single_position(errors, positions)
-            syntax_error = BuildError(
-                code="INVALID-FIELD",
-                message="\n".join(item.message for item in errors),
-                fix="Compare the YAML with reference documentation and make sure it is valid.",
-                source_file=resource_file,
-                line=line,
-                column=column,
-            )
-
-        syntax_warnings: list[BuildWarning] = []
-        for warning in warnings:
-            line, column = self._single_position([warning], positions)
-            syntax_warnings.append(
-                BuildWarning(
-                    code=warning.code,
-                    message=warning.message,
-                    source_file=resource_file,
-                    line=line,
-                    column=column,
-                    fix="Compare the YAML with reference documentation and make sure it is valid. It will be deployed as-is, but may be ignored or rejected by CDF.",
-                )
-            )
-        return syntax_error, syntax_warnings
-
-    @classmethod
-    def _single_position(
-        cls, messages: list[ValidationMessage], positions: dict[tuple[str | int, ...], YamlPosition]
-    ) -> tuple[int | None, int | None]:
-        """The position of the messages, if they refer to exactly one known location."""
-        if len(messages) != 1 or messages[0].loc is None or (position := positions.get(messages[0].loc)) is None:
-            return None, None
-        return position.line, position.column
 
     def _export_resources(
         self,

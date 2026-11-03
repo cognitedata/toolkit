@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.neat._table_source import NeatTableSou
 from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ViewPropertyType
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning, InsightCode
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError, BuildWarning, InsightCode
 
 # A spreadsheet cell holding this value is treated the same as an empty cell. See NeatTableReader.read
 # for details.
@@ -127,6 +127,7 @@ class NeatTableReader:
         self.default_space = neat_yaml.metadata.space
         self.default_version = neat_yaml.metadata.version
         self._warnings: list[BuildWarning] = []
+        self._error: BuildError | None = None
 
     def get_warnings(self) -> list[BuildWarning]:
         return self._warnings
