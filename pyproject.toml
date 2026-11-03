@@ -67,7 +67,6 @@ dev = [
     "twine >=6.0.0",
     "marko >=2.1.2",
     "respx>=0.22.0",
-    "openpyxl>=3.1.0", # temporary added to run tests, will be a neat dependency in the future
 ]
 
 [project.optional-dependencies]
@@ -76,6 +75,9 @@ table = [
 ]
 sql = [
     "sqlparse >=0.5.3",
+]
+neat = [
+    "openpyxl>=3.1.0",
 ]
 
 run-function-app = [
