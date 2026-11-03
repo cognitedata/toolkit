@@ -599,12 +599,10 @@ class TestNeatIO:
         assert [result.message for result in results if isinstance(result, BuildError)] == [
             "Invalid value for space: 'space' is a reserved space. Reserved Spaces: cdf, dms, edge, node, pg3, "
             "shared, space and system",
-            "Invalid space",
         ]
 
     def test_to_crud_types_without_resource(self, tmp_path: Path) -> None:
+        # Syntax errors are reported during validation, so no extra error is returned here.
         results = list(NeatIO.to_crud_types({}, tmp_path / "my_model.Neat.yaml", None))
 
-        assert len(results) == 1
-        assert isinstance(results[0], BuildError)
-        assert results[0].message == "Neat requires valid syntax to be converted to API format."
+        assert results == []

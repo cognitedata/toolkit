@@ -1,12 +1,12 @@
 from pathlib import Path
 from typing import Annotated, Any, Literal, Self, cast, get_args
 
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, PrivateAttr, Tag, field_validator, model_validator
+from pydantic import ConfigDict, Discriminator, Field, PrivateAttr, Tag, field_validator, model_validator
 from pydantic.fields import FieldInfo
 
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
-from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource, BaseModelResource
+from cognite_toolkit._cdf_tk.yaml_classes import BaseModelResource, ToolkitResource
 
 from ._constant import SHEET_CONTAINERS, SHEET_ENUM, SHEET_METADATA, SHEET_NODES, SHEET_PROPERTIES, SHEET_VIEWS
 from ._spreadsheet_loader import _load_spreadsheet
@@ -17,6 +17,8 @@ Space = Annotated[str, Field(min_length=1, max_length=43, pattern=SPACE_FORMAT_P
 
 
 class NeatMetadata(BaseModelResource):
+    model_config = ConfigDict(populate_by_name=True)
+
     space: Space = Field(
         description="The Space identifier (id).",
     )
@@ -100,8 +102,8 @@ class NeatYAML(ToolkitResource):
         if sheet.validation_alias == SHEET_METADATA:
             return ["Key", "Value"]
         return [
-            # We know all fields has validation_alias because of the alias_generator in TableDMS
-            cast(str, sheet_field.validation_alias)
+            # We know all fields has a title-case serialization_alias because of the alias_generator in TableObj
+            cast(str, sheet_field.serialization_alias)
             # All the fields in the sheet's model are lists.
             for sheet_field in get_args(sheet.annotation)[0].model_fields.values()
             if sheet_field.is_required() or column_type == "all"
