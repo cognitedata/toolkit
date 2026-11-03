@@ -51,6 +51,7 @@ from ._industrial_tool import StreamlitIO
 from ._integrations import IntegrationConfigsIO, IntegrationsIO
 from ._location import LocationFilterIO
 from ._migration import ResourceViewMappingIO
+from ._neat import NeatIO
 from ._raw import RawDatabaseIO, RawTableIO
 from ._relationship import RelationshipIO
 from ._rulesets import RuleSetIO, RuleSetVersionIO
@@ -73,7 +74,6 @@ from ._transformation import (
     TransformationScheduleIO,
 )
 from ._workflow import WorkflowIO, WorkflowTriggerIO, WorkflowVersionIO
-from ._neat import NeatIO
 
 _EXCLUDED_CRUDS: set[type[BaseResourceIO]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
