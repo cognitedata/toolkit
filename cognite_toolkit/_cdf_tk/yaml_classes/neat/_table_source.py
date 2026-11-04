@@ -70,6 +70,16 @@ class NeatTableSource(ABC):
         """
         raise NotImplementedError()
 
+    @abstractmethod
+    def adjust_row_number(self, table_id: str | None, row_no: int) -> int:
+        """Converts a 0-based row index into a 1-based row number.
+
+        If the table was read from a spreadsheet, the row number is adjusted to account for the
+        header row and any empty rows, so it matches the row as it appears in Excel. Otherwise
+        (for example, for a YAML file), the row number is simply the 1-based list index.
+        """
+        raise NotImplementedError()
+
 
 @dataclass
 class NeatSpreadsheetSource(NeatTableSource):
@@ -133,3 +143,12 @@ class NeatYAMLSource(NeatTableSource):
             Either the prefix or the YamlPosition of the location, depending on the source of the Neat table
         """
         return self._yaml_positions.get(path)
+
+    def adjust_row_number(self, table_id: str | None, row_no: int) -> int:
+        """Converts a 0-based row index into a 1-based row number.
+
+        If the table was read from a spreadsheet, the row number is adjusted to account for the
+        header row and any empty rows, so it matches the row as it appears in Excel. Otherwise
+        (for example, for a YAML file), the row number is simply the 1-based list index.
+        """
+        return row_no + 1

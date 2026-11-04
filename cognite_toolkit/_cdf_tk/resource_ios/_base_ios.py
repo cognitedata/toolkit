@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import ScopeDefinitio
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
+from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
@@ -199,6 +200,7 @@ class CrudResource(Generic[T_Identifier]):
     raw: dict[str, Any]
     identifier: T_Identifier
     type_: ResourceType
+    validated: ToolkitResource | None = None
 
 
 class ResourceFileIO(BaseResourceIO[T_Identifier, T_YamlResource]):

@@ -33,4 +33,6 @@ def test_catalog_data_set_crud_roundtrip() -> None:
     ]
 
     assert len(crud_resources) == 1
+    assert crud_resources[0].validated is not None
+    assert crud_resources[0].validated.as_id() == crud_resources[0].identifier
     assert CatalogDataSetsIO.from_crud_types(crud_resources) == catalog

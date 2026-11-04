@@ -51,6 +51,7 @@ from ._industrial_tool import StreamlitIO
 from ._integrations import IntegrationConfigsIO, IntegrationsIO
 from ._location import LocationFilterIO
 from ._migration import ResourceViewMappingIO
+from ._neat import NeatIO
 from ._raw import RawDatabaseIO, RawTableIO
 from ._relationship import RelationshipIO
 from ._rulesets import RuleSetIO, RuleSetVersionIO
@@ -92,6 +93,8 @@ if not FeatureFlag.is_enabled(Flags.CUSTOM_APPS):
     _EXCLUDED_CRUDS.add(AppVersionIO)
 if not FeatureFlag.is_enabled(Flags.CATALOG_DATASET):
     _EXCLUDED_CRUDS.add(CatalogDataSetsIO)
+if not FeatureFlag.is_enabled(Flags.NEAT):
+    _EXCLUDED_CRUDS.add(NeatIO)
 
 RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[BaseResourceIO]]] = defaultdict(list)
 RESOURCE_IO_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)
