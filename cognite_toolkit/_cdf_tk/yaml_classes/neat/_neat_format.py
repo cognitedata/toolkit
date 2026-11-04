@@ -1,13 +1,17 @@
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal, Self, cast, get_args
 
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, PrivateAttr, Tag, field_validator, model_validator
+from pydantic.fields import FieldInfo
 
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
+from ._constant import METADATA_SHEET
+from ._spreadsheet_loader import _load_spreadsheet
 from ._table import DMSContainer, DMSEnum, DMSNode, DMSProperty, DMSView, normalize_table_names
+from ._table_source import NeatTableSource
 
 Space = Annotated[str, Field(min_length=1, max_length=43, pattern=SPACE_FORMAT_PATTERN)]
 
@@ -52,18 +56,22 @@ class NeatMetadata(BaseModel):
     def _key_value_pairs(cls, data: Any) -> Any:
         """Convert a list of key-value pairs to a dict."""
         if isinstance(data, list):
-            return {
-                item["key"]: item["value"]
-                for item in data
-                if isinstance(item, dict) and "key" in item and "value" in item
-            }
+            output: dict[str, Any] = {}
+            for item in data:
+                if not isinstance(item, dict):
+                    continue
+                # Spreadsheets use 'Key'/'Value' columns, while YAML typically uses 'key'/'value'.
+                normalized = {key.casefold() if isinstance(key, str) else key: value for key, value in item.items()}
+                if "key" in normalized and "value" in normalized:
+                    output[normalized["key"]] = normalized["value"]
+            return output
         return data
 
 
 class NeatYAML(ToolkitResource):
     """A data model described with the NEAT table YAML format."""
 
-    metadata: NeatMetadata = Field(validation_alias="Metadata")
+    metadata: NeatMetadata = Field(validation_alias=METADATA_SHEET)
     properties: list[DMSProperty] = Field(validation_alias="Properties")
     views: list[DMSView] = Field(validation_alias="Views")
     containers: list[DMSContainer] = Field(default_factory=list, validation_alias="Containers")
@@ -81,11 +89,30 @@ class NeatYAML(ToolkitResource):
             space=self.metadata.space, external_id=self.metadata.external_id, version=self.metadata.version
         )
 
+    @classmethod
+    def get_sheet_columns(
+        cls, sheet_id: str, sheet: FieldInfo | None = None, *, column_type: Literal["all", "required"] = "required"
+    ) -> list[str]:
+        if sheet_id not in cls.model_fields.keys():
+            raise KeyError(f"Invalid field id: {sheet_id}")
+        if sheet is None:
+            sheet = cls.model_fields[sheet_id]
+        if sheet.validation_alias == METADATA_SHEET:
+            return ["Key", "Value"]
+        return [
+            # We know all fields has validation_alias because of the alias_generator in TableDMS
+            cast(str, sheet_field.validation_alias)
+            # All the fields in the sheet's model are lists.
+            for sheet_field in get_args(sheet.annotation)[0].model_fields.values()
+            if sheet_field.is_required() or column_type == "all"
+        ]
+
 
 class NeatSpreadsheet(ToolkitResource):
     model_config = ConfigDict(populate_by_name=True)
 
     spreadsheet: Path
+    _loaded: tuple[NeatYAML, NeatTableSource] | None = PrivateAttr(default=None)
 
     @field_validator("spreadsheet", mode="before")
     @classmethod
@@ -102,9 +129,30 @@ class NeatSpreadsheet(ToolkitResource):
             raise ValueError("Spreadsheet must reference an .xlsx file.")
         return value
 
+    @property
+    def neat_yaml(self) -> NeatYAML:
+        """Return the NEAT YAML representation of the spreadsheet."""
+        return self._load_spreadsheet()[0]
+
+    @property
+    def table_source(self) -> NeatTableSource:
+        """Return the source information for the spreadsheet."""
+        return self._load_spreadsheet()[1]
+
+    def _load_spreadsheet(self) -> tuple[NeatYAML, NeatTableSource]:
+        if self._loaded is None:
+            tables, source = _load_spreadsheet(self.spreadsheet)
+            self._loaded = NeatYAML.model_validate(tables), source
+        return self._loaded
+
     def as_id(self) -> DataModelId:
-        # Todo: read the spreadsheet and extract the metadata to return a DataModelId. This is not implemented yet.
-        raise NotImplementedError()
+        return self.neat_yaml.as_id()
+
+    @model_validator(mode="after")
+    def _validate_spreadsheet(self) -> Self:
+        """Load the spreadsheet and validate the NEAT tables."""
+        self._load_spreadsheet()
+        return self
 
 
 def _discriminate_neat_format(value: Any) -> str | None:
