@@ -342,7 +342,7 @@ class SuccessfulReadYAMLFile(ReadYAMLFile):
     source_hash: str
     source_type: ResourceType
     resources: list[ReadResource[ToolkitResource]]
-    syntax_error: BuildError | None = None
+    syntax_errors: list[BuildError] = Field(default_factory=list)
     syntax_warnings: list[BuildWarning | Recommendation] = Field(default_factory=list)
     line_count: int
     rules_ignore: set[str] = Field(default_factory=set, description="The set of rules to ignore for this file. ")

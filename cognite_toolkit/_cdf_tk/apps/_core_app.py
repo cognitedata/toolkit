@@ -52,6 +52,14 @@ class InsightFormat(StrEnum):
     json = "json"
 
 
+class ValidateMode(StrEnum):
+    syntax_only = "syntax-only"
+    local = "local"
+    remote = "remote"
+    capacity = "capacity"
+    auto = "auto"
+
+
 def _version_callback(value: bool) -> None:
     if value:
         typer.echo(f"CDF-Toolkit version: {current_version}.")
@@ -233,6 +241,14 @@ class CoreApp(typer.Typer):
                 help="Deprecated. Prefer --config-yaml. If set and --config-yaml is omitted, uses <organization-dir>/config.<env>.yaml.",
             ),
         ] = CDF_TOML.cdf.default_env,
+        validate: Annotated[
+            ValidateMode,
+            typer.Option(
+                "--validate",
+                help="Whether to validate the built configuration files. Options: syntax-only, local, remote, capacity, auto.",
+                hidden=True,  # Not yet exposed in the CLI.
+            ),
+        ] = ValidateMode.auto,
         insight_format: Annotated[
             InsightFormat,
             typer.Option(
@@ -297,7 +313,7 @@ class CoreApp(typer.Typer):
             lambda: cmd.pre_flight(
                 parameters=parameter,
                 post_build=post_parameters,
-                validation="auto",
+                validation=validate.value,
                 client=client,
             )
         )

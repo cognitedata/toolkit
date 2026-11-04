@@ -2,19 +2,16 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits, FunctionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, FunctionsAcl
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildError,
     Insight,
     InternalValidatorException,
 )
-from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, ResourceType
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet, with_position
+from cognite_toolkit._cdf_tk.resource_ios import FunctionIO
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet, quote_identifier, with_position
 from cognite_toolkit._cdf_tk.utils import humanize_collection, validate_requirements_with_pip
-from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
-from cognite_toolkit._cdf_tk.yaml_classes.functions import FunctionsYAML
 
 
 class FunctionRuleSet(ToolkitGlobalRuleSet):
@@ -38,14 +35,21 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
         )
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
-        functions: list[BuiltResource] = []
-        function_type = ResourceType(resource_folder=FunctionIO.folder_name, kind=FunctionIO.kind)
+        functions: list[tuple[Path, FunctionRequest]] = []
+        crud = FunctionIO(self._load_client())
         for resource in self.resources:
-            if not resource.can_verify:
+            if not resource.has_valid_syntax or resource.type != FunctionIO.as_resource_type():
                 # We do not do further validation if there are syntax errors.
                 continue
-            if resource.type == function_type:
-                functions.append(resource)
+            if not isinstance(resource.source, Path):
+                continue
+            try:
+                functions.append((resource.source, resource.as_request(crud, is_dry_run=True).request))
+            except Exception as e:
+                yield InternalValidatorException(
+                    message=f"Failed to load function definition {quote_identifier(resource.identifier)}: {e}",
+                    source=str(resource.identifier),
+                )
 
         if not functions:
             return
@@ -53,7 +57,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
         is_function_service_available = True
         try:
             if self.client:
-                for insight in self._validate_function_service(self.client, functions[0].source_path):
+                for insight in self._validate_function_service(self.client, functions[0][0]):
                     is_function_service_available = False
                     yield insight
         except Exception as e:
@@ -71,13 +75,13 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                     source="shared",
                 )
 
-        for resource in functions:
+        for source_path, function_def in functions:
             try:
-                yield from self._validate_function(resource, limits)
+                yield from self._validate_function(source_path, function_def, limits)
             except Exception as e:
                 yield InternalValidatorException(
-                    message=f"Function limits validator failed for function definition {resource.build_path.name!r}: {e}",
-                    source=str(resource.identifier),
+                    message=f"Function limits validator failed for function {function_def.external_id!r}: {e}",
+                    source=str(function_def.external_id),
                 )
 
     @classmethod
@@ -107,40 +111,42 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
             )
 
     @classmethod
-    def _validate_function(cls, resource: BuiltResource, limits: FunctionLimits | None) -> Iterable[Insight]:
+    def _validate_function(
+        cls, source_path: Path, function_def: FunctionRequest, limits: FunctionLimits | None
+    ) -> Iterable[Insight]:
         """Validate function definitions against CDF project limits.
 
         Args:
-            function_file: Path to the function YAML file.
+            source_path: Path to the function YAML source file.
+            function_def: The function definition to validate.
+            limits: The function limits of the CDF project, if available.
 
         Yields:
             Errors for any violations of function limits.
         """
-        # Parse function_file (YAML) to dict/list, then create FunctionsYAML objects to validate and extract definitions
-        raw_data = read_yaml_file(resource.build_path, expected_output="dict")
-
-        # Should already be validated.
-        function_def = FunctionsYAML.model_validate(raw_data)
-
         if limits:
-            yield from cls._validate_limits(limits, function_def, resource.source_path)
+            yield from cls._validate_limits(limits, function_def, source_path)
 
-        function_folder = FunctionIO.get_function_code_implicitly(resource.source_path, function_def.as_id())
-        if function_folder.is_dir() and (requirement_txt := next(function_folder.rglob("requirements.txt"), None)):
+        function_folder = function_def.function_code
+        if (
+            function_folder is not None
+            and function_folder.is_dir()
+            and (requirement_txt := next(function_folder.rglob("requirements.txt"), None))
+        ):
             pip_result = validate_requirements_with_pip(
                 requirement_txt, function_def.index_url, function_def.extra_index_urls
             )
             if not pip_result.success:
                 yield BuildError(
-                    message=pip_result.create_message("Function", function_def.external_id),
+                    message=pip_result.create_message("Function", function_def.external_id or function_def.name),
                     code="INVALID-REQUIREMENTS",
                     fix="Ensure that requirements.txt is valid.",
-                    source_file=resource.source_path,
+                    source_file=source_path,
                 )
 
     @classmethod
     def _validate_limits(
-        cls, limits: FunctionLimits, function_def: FunctionsYAML, source_path: Path
+        cls, limits: FunctionLimits, function_def: FunctionRequest, source_path: Path
     ) -> Iterable[Insight]:
         # Ensure we always work with a list of function definitions
         # Validate CPU cores

@@ -1,15 +1,18 @@
 import builtins
 import re
 from collections import UserList
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Generic, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 from pydantic_core.core_schema import FieldValidationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_Identifier, T_RequestResource
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.resource_ios import FunctionIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     FailedReadExtra,
     ResourceIO,
@@ -143,6 +146,14 @@ class BuildInput(BaseModel):
         return self.organization_dir / MODULES
 
 
+@dataclass
+class ValidatableResource(Generic[T_RequestResource]):
+    identifier: Identifier
+    type: ResourceType
+    source: Path | Literal["cdf"]
+    request: T_RequestResource
+
+
 class BuiltResource(BaseModel):
     """Represents a resource that has been built from the source system."""
 
@@ -168,46 +179,53 @@ class BuiltResource(BaseModel):
     module_id: ModuleId
 
     @property
-    def can_verify(self) -> bool:
-        """If a resource has a syntax error or failed extra files
-        We assume these must be fixed before further validation can be done.
-        """
+    def source(self) -> Path | Literal["cdf"]:
+        """The source of the resource, either a file path or 'cdf' if the resource was retrieved from CDF."""
+        return self.source_path
+
+    @property
+    def has_valid_syntax(self) -> bool:
+        """Indicates whether the resource has valid syntax and can be further validated."""
         return not self.has_syntax_error and not self.failed_extra
 
+    def as_request(
+        self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any], is_dry_run: bool = False
+    ) -> ValidatableResource[T_RequestResource]:
+        """Convert the built resource to a ValidatableResource for the given CRUD.
 
-class BuiltResourceList(UserList[BuiltResource]):
-    def load_resource_of_type(
-        self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any]
-    ) -> dict[T_Identifier, tuple[BuiltResource, T_RequestResource]]:
-        """Reload this module's built resources for the given CRUD, the same way ``cdf deploy`` does.
-
-        Only resources matching the CRUD's resource type and without syntax/read errors are considered.
+        Args:
+            crud: The CRUD class to use for converting the built resource to a request object.
+            is_dry_run: Whether to load the resource in dry-run mode, i.e., without requiring lookups in CDF to succeed.
+        Returns:
+            A ValidatableResource containing the identifier, type, source, and request object for the built
+            resource.
         """
-        resource_type = crud.as_resource_type()
-        resource_by_id = {
-            resource.identifier: resource
-            for resource in self.data
-            if resource.type == resource_type and resource.can_verify
-        }
-        if not resource_by_id:
-            return {}
-
-        build_paths = {resource.build_path for resource in resource_by_id.values()}
-        local_by_id: dict[T_Identifier, tuple[BuiltResource, T_RequestResource]] = {}
-        for build_path in build_paths:
-            for raw in crud.load_resource_file(build_path):
-                request = crud.load_resource(raw)
-                item_id = crud.get_id(request)
-                if item_id in resource_by_id:
-                    local_by_id[item_id] = (resource_by_id[item_id], request)
-        return local_by_id
+        if not isinstance(crud, self.crud_cls):
+            raise RuntimeError(
+                f"Bug in Toolkit, cannot convert built resource of type {self.crud_cls} to request for CRUD {crud}. "
+                f"Expected a subclass of {self.crud_cls}."
+            )
+        raw_list = crud.load_resource_file(self.build_path)
+        if not raw_list:
+            raise RuntimeError(
+                f"Bug in Toolkit, built resource {self.build_path} has no data to convert to request for CRUD {crud}."
+            )
+        request = crud.load_resource(raw_list[0], is_dry_run=is_dry_run)
+        if isinstance(request, FunctionRequest):
+            request.function_code = FunctionIO.get_function_code_implicitly(self.source_path, request.as_id())
+        return ValidatableResource(
+            identifier=self.identifier,
+            type=self.type,
+            source=self.source,
+            request=request,
+        )
 
 
 class BuiltModule(BaseModel):
     module_id: ModuleId
     resources: list[BuiltResource] = Field(default_factory=list)
     insights: list[Insight] = Field(default_factory=list)
-    syntax_errors_by_source: dict[Path, BuildError] = Field(default_factory=dict)
+    syntax_errors_by_source: dict[Path, list[BuildError]] = Field(default_factory=dict)
     syntax_warnings_by_source: dict[Path, list[BuildWarning | Recommendation]] = Field(default_factory=dict)
     unresolved_variables_by_source: dict[Path, list[str]] = Field(default_factory=dict)
     failed_files: list[FailedReadYAMLFile] = Field(default_factory=list)
@@ -239,8 +257,8 @@ class BuiltModule(BaseModel):
                         source_file=resource.source_path,
                     )
                 )
-        for path, error in self.syntax_errors_by_source.items():
-            insights.append(error)
+        for path, errors in self.syntax_errors_by_source.items():
+            insights.extend(errors)
         for path, warnings in self.syntax_warnings_by_source.items():
             insights.extend(warnings)
         for path, variables in self.unresolved_variables_by_source.items():

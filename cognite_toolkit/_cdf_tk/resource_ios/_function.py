@@ -215,7 +215,11 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         item_id = self.get_id(resource)
         external_id = item_id.external_id
         if ds_external_id := resource.pop("dataSetExternalId", None):
-            data_set_id = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+            if is_dry_run and not hasattr(self.client, "lookup"):
+                # Loading without a client, for example, when validating resources offline.
+                data_set_id = DRY_RUN_ID
+            else:
+                data_set_id = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
             self.data_set_id_by_external_id[external_id] = data_set_id
             # We store the dataSetId to use for ACL check.
             resource["dataSetId"] = data_set_id

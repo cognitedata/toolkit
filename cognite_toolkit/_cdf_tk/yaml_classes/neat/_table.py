@@ -1,7 +1,7 @@
 from datetime import date, datetime, time, timedelta
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import AliasGenerator, BaseModel, BeforeValidator, Field, PlainSerializer
+from pydantic import AliasChoices, AliasGenerator, BaseModel, BeforeValidator, Field, PlainSerializer
 from pydantic.alias_generators import to_camel
 
 from ._entities import ParsedEntity, parse_entities, parse_entity
@@ -53,7 +53,7 @@ class TableObj(
     extra="forbid",
     alias_generator=AliasGenerator(
         alias=to_camel,
-        validation_alias=title_case,
+        validation_alias=lambda name: AliasChoices(title_case(name), to_camel(name)),
         serialization_alias=title_case,
     ),
     populate_by_name=True,
