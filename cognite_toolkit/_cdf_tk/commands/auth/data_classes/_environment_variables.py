@@ -12,6 +12,7 @@ from cognite.client.credentials import (
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client._credential_provider import NoCredentials
 from cognite_toolkit._cdf_tk.commands.auth.oidc import refresh_session_tokens
 from cognite_toolkit._cdf_tk.commands.auth.session_store import StoredSession
 from cognite_toolkit._cdf_tk.constants import DEFAULT_CLIENT_TIMEOUT, TOOLKIT_CLIENT_ENTRA_ID
@@ -229,6 +230,7 @@ class EnvironmentVariables:
             "device_code": self._get_oauth_device_code,
             "token": self._get_token,
             "session": self._get_session,
+            "no_auth": self._get_no_auth_credentials,
         }
         if self.LOGIN_FLOW not in method_by_flow:
             # Should already be checked in __post_init__
@@ -308,6 +310,9 @@ class EnvironmentVariables:
             return session.access_token
 
         return Token(token_factory)
+
+    def _get_no_auth_credentials(self) -> NoCredentials:
+        return NoCredentials()
 
     @staticmethod
     def _require_fresh_session() -> StoredSession:
