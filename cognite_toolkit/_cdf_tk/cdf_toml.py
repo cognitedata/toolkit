@@ -18,7 +18,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitTOMLFormatError,
     ToolkitVersionError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 
 
@@ -104,6 +103,8 @@ class ModulesConfig:
     @classmethod
     def _no_active_unknown_alpha_flags(cls, alpha_flags: dict[str, bool]) -> bool:
         """Checks if there are no active unknown alpha flags."""
+        from cognite_toolkit._cdf_tk.feature_flags import Flags
+
         known_flags = {flag.name for flag in Flags.__members__.values()}
         for flag_name, is_enabled in alpha_flags.items():
             if is_enabled and flag_name not in known_flags:
