@@ -55,6 +55,9 @@ class _ObservedType:
             if self.data_type is None:
                 self.only_empty_lists = True
                 self.is_array = True
+            elif not self.is_array:
+                self.data_type = "json"
+                self.is_array = False
             return
 
         data_type, is_array = infer_data_type_from_json_value(value)
@@ -101,7 +104,7 @@ class RawIO(
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
         self._columns_by_selector: dict[RawTableSelector, dict[str, _ObservedType]] = {}
-        self._schema_by_column: dict[str, SchemaColumn] = {}
+        self._schemas_by_selector: dict[RawTableSelector, dict[str, SchemaColumn]] = {}
 
     def count(self, selector: RawTableSelector) -> int | None:
         # Raw tables do not support aggregation queries, so we do not know the count
@@ -164,20 +167,18 @@ class RawIO(
 
     def get_schema(self, selector: RawTableSelector) -> list[SchemaColumn] | None:
         """Return the table schema for a RAW table.
-
         The first call returns None so the download writes JSON first. Column names and
         types are collected while the rows are read, and the next call returns the inferred schema.
         """
         if selector not in self._columns_by_selector:
             self._columns_by_selector[selector] = {}
             return None
-
         schema = [SchemaColumn(name=_KEY_COLUMN, type="string")]
         if self.api_format == "response":
             schema.append(SchemaColumn(name=_UPDATED_COLUMN, type="integer"))
         for name in sorted(self._columns_by_selector[selector]):
             schema.append(self._columns_by_selector[selector][name].as_column(name))
-        self._schema_by_column = {column.name: column for column in schema}
+        self._schemas_by_selector[selector] = {column.name: column for column in schema}
         return schema
 
     def json_to_row(
@@ -192,7 +193,7 @@ class RawIO(
             row[_KEY_COLUMN] = item_json[_KEY_COLUMN]
         if self.api_format == "response" and _UPDATED_COLUMN in item_json:
             row[_UPDATED_COLUMN] = item_json[_UPDATED_COLUMN]
-        return self._coerce_row(row)
+        return self._coerce_row(row, selector)
 
     def _data_column_name(self, name: str) -> str:
         if name in self._reserved_column_names():
@@ -218,12 +219,13 @@ class RawIO(
                 observed[output_name] = column
             column.observe(value)
 
-    def _coerce_row(self, row: dict[str, JsonVal]) -> dict[str, JsonVal]:
-        if not self._schema_by_column:
+    def _coerce_row(self, row: dict[str, JsonVal], selector: RawTableSelector | None = None) -> dict[str, JsonVal]:
+        if selector is None or selector not in self._schemas_by_selector:
             return row
         coerced: dict[str, JsonVal] = {}
+        schema_by_column = self._schemas_by_selector[selector]
         for key, value in row.items():
-            column = self._schema_by_column.get(key)
+            column = schema_by_column.get(key)
             if column is None or column.type != "float" or value is None:
                 coerced[key] = value
                 continue
