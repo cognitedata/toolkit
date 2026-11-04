@@ -245,8 +245,7 @@ class CoreApp(typer.Typer):
             ValidateMode,
             typer.Option(
                 "--validate",
-                "-v",
-                help="Whether to validate the built configuration files. Options: syntax-only, local, remote, auto.",
+                help="Whether to validate the built configuration files. Options: syntax-only, local, remote, capacity, auto.",
                 hidden=True,  # Not yet exposed in the CLI.
             ),
         ] = ValidateMode.auto,
