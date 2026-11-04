@@ -39,7 +39,7 @@ class BuildDeployValidateCommand(ToolkitCommand):
             return build_folder, ValidationResultList()
 
         resources = [resource for module in build_folder.built_modules for resource in module.resources]
-        validation_results = validate_cmd.validate(resources, client, display=True)
+        validation_results = validate_cmd.validate(resources, [], client, display=True)
 
         build_cmd.post_build(
             build_folder,
