@@ -186,7 +186,7 @@ class DownloadApp(typer.Typer):
                 "--format",
                 "-f",
                 help="Format to download the raw tables in. Supported formats: ndjson, yaml. "
-                "csv and parquet require the raw-table-format alpha flag.",
+                "csv and parquet require the v010 alpha flag.",
             ),
         ] = RawFormats.ndjson,
         api_format: Annotated[
