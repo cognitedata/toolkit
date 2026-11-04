@@ -10,6 +10,7 @@ from cognite.client import global_config
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client._credential_provider import NoCredentials
 from cognite_toolkit._cdf_tk.client.http_client._data_classes import (
     BaseRequestMessage,
     ErrorDetails,
@@ -104,8 +105,9 @@ class HTTPClient:
     ) -> MutableMapping[str, str]:
         headers: MutableMapping[str, str] = {}
         headers["User-Agent"] = f"httpx2/{httpx2.__version__} {get_user_agent()}"
-        auth_name, auth_value = self.config.credentials.authorization_header()
-        headers[auth_name] = auth_value
+        if not isinstance(self.config.credentials, NoCredentials):
+            auth_name, auth_value = self.config.credentials.authorization_header()
+            headers[auth_name] = auth_value
         headers["Content-Type"] = content_type
         if content_length is not None:
             headers["Content-Length"] = str(content_length)
