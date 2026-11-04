@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.constants import DOCKER_IMAGE_NAME
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_read, safe_write
 from cognite_toolkit._version import __version__
 
@@ -597,6 +598,21 @@ After:
                 return parent / resource_yaml.name
         return resource_yaml
 
+class RemoveOutdatedAlphaFlags(AutomaticChange):
+    deprecated_from = parse_version(__version__)
+    required_from = parse_version(__version__)
+    has_file_changes = True
+
+    def do(self) -> set[Path]:
+        cdf_toml = Path.cwd() / "cdf.toml"
+        if not cdf_toml.exists():
+            return set()
+        raw = safe_read(cdf_toml)
+        valid_alpha_flags = set(Flags.list().keys())
+
+
+
+        raise NotImplementedError()
 
 class UpdateModuleVersion(AutomaticChange):
     deprecated_from = parse_version(__version__)
