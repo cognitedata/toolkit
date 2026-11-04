@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     T_Insight,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.resource_ios import ResourceIO, ResourceType
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.file import yaml_find_unique_position
@@ -153,8 +154,14 @@ class ToolkitGlobalRuleSet(ABC):
     CODE_PREFIX: ClassVar[str]
     DISPLAY_NAME: ClassVar[str]
 
-    def __init__(self, resources: Sequence[ResourceRef], client: ToolkitClient | None = None) -> None:
+    def __init__(
+        self,
+        resources: Sequence[ResourceRef],
+        results: Sequence[DeploymentResult] | None = None,
+        client: ToolkitClient | None = None,
+    ) -> None:
         self.resources = ResourceRefList(resources)
+        self.results = results
         self.client = client
 
     def _load_client(self) -> ToolkitClient:

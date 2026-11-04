@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
     InternalValidatorException,
 )
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
 )
@@ -34,23 +35,30 @@ class ValidationStep:
 
 class ValidationCommand(ToolkitCommand):
     def validate(
-        self, resources: Sequence[ResourceRef], client: ToolkitClient | None = None, display: bool = True
+        self,
+        resources: Sequence[ResourceRef],
+        results: Sequence[DeploymentResult] | None = None,
+        client: ToolkitClient | None = None,
+        display: bool = True,
     ) -> ValidationResultList:
         """Validates the built modules in the build folder."""
         console = client.console if client else Console(markup=True)
-        plan = self._create_validation_plan(resources, client)
+        plan = self._create_validation_plan(resources, results, client)
         if display:
             self._display_validation_plan(plan, console)
         return self._run_validation(plan, console)
 
     @classmethod
     def _create_validation_plan(
-        cls, resources: Sequence[ResourceRef], client: ToolkitClient | None
+        cls,
+        resources: Sequence[ResourceRef],
+        results: Sequence[DeploymentResult] | None = None,
+        client: ToolkitClient | None = None,
     ) -> list[ValidationStep]:
         all_rules = get_global_rules_registry()
         plan: list[ValidationStep] = []
         for rule_cls in all_rules:
-            rule = rule_cls(resources, client=client)
+            rule = rule_cls(resources, results, client=client)
 
             status = rule.get_status()
             plan.append(ValidationStep(status=status, rule=rule))
