@@ -11,8 +11,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     InsightList,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
-    BuiltResource,
-    BuiltResourceList,
     ValidationResult,
     ValidationResultList,
 )
@@ -24,7 +22,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
 )
 from cognite_toolkit._cdf_tk.rules import ToolkitGlobalRuleSet, get_global_rules_registry
-from cognite_toolkit._cdf_tk.rules._base import EXECUTE_RULE_STATUS, RuleSetStatus
+from cognite_toolkit._cdf_tk.rules._base import EXECUTE_RULE_STATUS, ResourceRef, RuleSetStatus
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitTable
 
 
@@ -36,7 +34,7 @@ class ValidationStep:
 
 class ValidationCommand(ToolkitCommand):
     def validate(
-        self, resources: Sequence[BuiltResource], client: ToolkitClient | None = None, display: bool = True
+        self, resources: Sequence[ResourceRef], client: ToolkitClient | None = None, display: bool = True
     ) -> ValidationResultList:
         """Validates the built modules in the build folder."""
         console = client.console if client else Console(markup=True)
@@ -47,12 +45,12 @@ class ValidationCommand(ToolkitCommand):
 
     @classmethod
     def _create_validation_plan(
-        cls, resources: Sequence[BuiltResource], client: ToolkitClient | None
+        cls, resources: Sequence[ResourceRef], client: ToolkitClient | None
     ) -> list[ValidationStep]:
         all_rules = get_global_rules_registry()
         plan: list[ValidationStep] = []
         for rule_cls in all_rules:
-            rule = rule_cls(BuiltResourceList(resources), client=client)
+            rule = rule_cls(resources, client=client)
 
             status = rule.get_status()
             plan.append(ValidationStep(status=status, rule=rule))

@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Literal, TypeAlias
 
 from pydantic import Field
@@ -37,6 +38,8 @@ class FunctionRequest(FunctionBase, RequestResource):
     # to check which acl is needed to deploy the function code.
     data_set_id: int | None = Field(None, exclude=True)
     space: str | None = Field(None, exclude=True)
+    # Local directory with the function code. Not part of the request payload.
+    function_code: Path | None = Field(None, exclude=True)
 
     def as_id(self) -> ExternalId:
         if self.external_id is None:
