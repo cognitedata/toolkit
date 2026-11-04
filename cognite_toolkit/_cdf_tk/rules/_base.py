@@ -117,16 +117,13 @@ class ResourceRef(Protocol):
 class ResourceRefList(UserList[ResourceRef]):
     def get_resource_of_type(
         self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any]
-    ) -> dict[T_Identifier, ValidatableResource[T_RequestResource]]:
+    ) -> Iterable[ValidatableResource[T_RequestResource]]:
         """Get the resources of the type handled by the given CRUD."""
         resource_type = crud.as_resource_type()
-        local_by_id: dict[T_Identifier, ValidatableResource[T_RequestResource]] = {}
         for resource in self.data:
             if resource.type != resource_type or not resource.has_valid_syntax:
                 continue
-            request = resource.as_request(crud)
-            local_by_id[request.identifier] = request
-        return local_by_id
+            yield resource.as_request(crud)
 
 
 class ToolkitGlobalRuleSet(ABC):
