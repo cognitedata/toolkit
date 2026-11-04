@@ -20,6 +20,7 @@ def all_acls() -> Iterable:
                 "scope": {"agentExternalIdScope": {"externalIds": ["69de3ab6-a4be-4006-a80c-59438c75ea66"]}},
             }
         },
+        {"agentsProjectConfigAcl": {"actions": ["WRITE"], "scope": {"all": {}}}},
         {"annotationsAcl": {"actions": ["WRITE", "READ", "SUGGEST", "REVIEW"], "scope": {"all": {}}}},
         {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"appScope": {"apps": ["SEARCH"]}}}},
@@ -34,6 +35,7 @@ def all_acls() -> Iterable:
         {"assetsAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": ["myDataSet"]}}}},
         {"auditlogAcl": {"actions": ["READ"], "scope": {"all": {}}}},
         {"chartsAdminAcl": {"actions": ["READ", "UPDATE", "DELETE"], "scope": {"all": {}}}},
+        {"cogUnitsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
         {"dataModelInstancesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"dataModelInstancesAcl": {"actions": ["READ"], "scope": {"spaceIdScope": {"spaceIds": ["maintain"]}}}},
         {
@@ -90,9 +92,35 @@ def all_acls() -> Iterable:
         {"groupsAcl": {"actions": ["LIST", "READ", "DELETE", "UPDATE", "CREATE"], "scope": {"all": {}}}},
         {"groupsAcl": {"actions": ["READ", "CREATE", "UPDATE", "DELETE"], "scope": {"currentuserscope": {}}}},
         {"hostedExtractorsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {"integrationActionsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {
+            "integrationActionsAcl": {
+                "actions": ["READ"],
+                "scope": {"externalIdScope": {"externalIds": ["my-integration"]}},
+            }
+        },
+        {
+            "integrationActionsAcl": {
+                "actions": ["WRITE"],
+                "scope": {"dataDomainScope": {"externalIds": ["my-domain"]}},
+            }
+        },
         {"integrationConfigsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {
+            "integrationConfigsAcl": {
+                "actions": ["READ"],
+                "scope": {"externalIdScope": {"externalIds": ["my-config"]}},
+            }
+        },
         {"integrationsAcl": {"actions": ["READ", "WRITE", "USE"], "scope": {"all": {}}}},
+        {
+            "integrationsAcl": {
+                "actions": ["USE"],
+                "scope": {"dataDomainScope": {"externalIds": ["my-domain"]}},
+            }
+        },
         {"labelsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {"limitsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"locationFiltersAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {
             "locationFiltersAcl": {
@@ -156,6 +184,7 @@ def all_acls() -> Iterable:
         {"sequencesAcl": {"actions": ["READ"], "scope": {"all": {}}}},
         {"sequencesAcl": {"actions": ["WRITE"], "scope": {"datasetScope": {"ids": ["myDataSet", "myDataSet2"]}}}},
         {"sessionsAcl": {"actions": ["LIST", "CREATE", "DELETE"], "scope": {"all": {}}}},
+        {"slaAcl": {"actions": ["READ"], "scope": {"all": {}}}},
         {"templateGroupsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {
             "templateGroupsAcl": {
