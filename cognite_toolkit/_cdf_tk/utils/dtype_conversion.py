@@ -132,15 +132,15 @@ def convert_to_primary_property(
 
 
 def convert_str_to_data_type(
-    value: str | None,
+    value: JsonVal,
     type_: DataType,
     nullable: bool = True,
     is_array: bool = False,
 ) -> PythonTypes | None:
-    """Convert a string value to the appropriate data type based on the provided type.
+    """Convert a value to the appropriate data type based on the provided type.
 
     Args:
-        value: The value to convert, which can be a string or None.
+        value: The value to convert, typically a string, but any JSON value is accepted.
         type_: The target data type.
         nullable: Whether data type can be null.
         is_array: Whether the data type is an array.
@@ -222,6 +222,59 @@ def infer_data_type_from_value(value: str, dtype: Literal["Json", "Python"]) -> 
         f"Failed to infer data type from value: {value!r}. Supported types are: "
         f"{humanize_collection(DATATYPE_CONVERTER_BY_DATA_TYPE.keys())}."
     )
+
+
+def infer_data_type_from_json_value(value: JsonVal) -> tuple[DataType, bool]:
+    """Infer the data type of an already parsed JSON value.
+
+    Unlike `infer_data_type_from_value`, strings are not parsed, i.e., "123" is a string.
+
+    Args:
+        value: The JSON value to infer the data type from. None and empty lists infer as json.
+
+    Returns:
+        A tuple of the inferred data type and whether it is an array.
+    """
+    if isinstance(value, bool):
+        return "boolean", False
+    if isinstance(value, int):
+        if not (INT64_MIN <= value <= INT64_MAX):
+            return "json", False
+        return "integer", False
+    if isinstance(value, float):
+        return "float", False
+    if isinstance(value, str):
+        return "string", False
+    if isinstance(value, list):
+        element_types = [infer_data_type_from_json_value(item) for item in value if item is not None]
+        if not element_types:
+            return "json", False
+        data_type, is_array = element_types[0]
+        for other_type, other_is_array in element_types[1:]:
+            data_type, is_array = merge_data_types(data_type, is_array, other_type, other_is_array)
+            if data_type == "json":
+                return "json", False
+        if is_array:
+            # Nested arrays are not supported as typed arrays.
+            return "json", False
+        return data_type, True
+    return "json", False
+
+
+def merge_data_types(
+    left: DataType, left_is_array: bool, right: DataType, right_is_array: bool
+) -> tuple[DataType, bool]:
+    """Merge two data types into one that can hold both. Integer and float merge to float,
+    other conflicts fall back to json.
+
+    Returns:
+        A tuple of the merged data type and whether it is an array.
+    """
+    if left == right and left_is_array == right_is_array:
+        return left, left_is_array
+    if left_is_array == right_is_array and {left, right} <= {"integer", "float"}:
+        return "float", left_is_array
+    return "json", False
 
 
 def _is_midnight_and_naive(dt: datetime) -> bool:

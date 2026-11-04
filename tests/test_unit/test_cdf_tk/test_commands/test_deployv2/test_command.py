@@ -354,7 +354,7 @@ class TestApplyPlan:
                             skipped=[
                                 Skipped(
                                     id=SpaceId(space="my_space"),
-                                    code="AMBIGUOUS",
+                                    code="DUPLICATED-IDENTIFIER",
                                     source_file=Path("data_modeling/b.Space.yaml"),
                                     reason="Identifier is not unique. Will use definition in data_modeling/a.Space.yaml",
                                 )
@@ -1094,7 +1094,7 @@ class TestVerboseResourceOutcomes:
                 skipped=[
                     Skipped(
                         id=SpaceId(space="dup_space"),
-                        code="AMBIGUOUS",
+                        code="DUPLICATED-IDENTIFIER",
                         source_file=Path("data_modeling/b.Space.yaml"),
                         reason="Identifier is not unique",
                     )
@@ -1124,7 +1124,7 @@ class TestVerboseResourceOutcomes:
             "deleted_id": "old_space" in verbose_output,
             "unchanged_id": "same_space" in verbose_output,
             "skipped_id": "dup_space" in verbose_output,
-            "skipped_code": "AMBIGUOUS" in verbose_output,
+            "skipped_code": "DUPLICATED-IDENTIFIER" in verbose_output,
             "skipped_file": "b.Space.yaml" in verbose_output,
             "schedule_id": "my_function" in verbose_output and "my schedule" in verbose_output,
             "quiet_hides_ids": "new_space" not in quiet_output and "dup_space" not in quiet_output,

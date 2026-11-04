@@ -8,6 +8,7 @@ from pathlib import Path
 from tomllib import TOMLDecodeError
 from typing import Any, ClassVar, Self
 
+from packaging.version import Version
 from rich import print
 
 from cognite_toolkit import _version
@@ -54,27 +55,65 @@ class ModulesConfig:
     packages: dict[str, list[str]] = field(default_factory=dict)
 
     @classmethod
-    def load(cls, raw: dict[str, Any]) -> Self:
+    def load(cls, raw: dict[str, Any], alpha_flags: dict[str, bool]) -> Self:
         version = raw["version"]
         packages = raw.get("packages", {})
         if (
-            version != _version.__version__
-            and (len(sys.argv) > 2 and sys.argv[1:3] != ["modules", "upgrade"])
-            and "--help" not in sys.argv
-            and version != "0.0.0"  # debugging mode
-        ):
-            raise ToolkitVersionError(
-                f"Version mismatch between cdf.toml and CLI:\n"
-                f"  - cdf.toml version:       {version}\n"
-                f"  - Installed CLI version: {_version.__version__}\n"
-                f"\n"
-                f"To resolve this, do one of the following:\n"
-                f"  - Upgrade the modules to match the CLI:\n"
-                f"      cdf modules upgrade\n"
-                f"  - Downgrade the CLI to match the modules:\n"
-                f"      pip install cognite-toolkit=={version}"
+            version == _version.__version__
+            or cls._is_help_command()
+            or cls._is_upgrade_command()
+            or cls._is_dev_version()
+            or (
+                cls._is_minor_version_compatible(version, _version.__version__)
+                and cls._no_active_unknown_alpha_flags(alpha_flags)
             )
-        return cls(version=version, packages=packages)
+        ):
+            return cls(version=version, packages=packages)
+
+        raise ToolkitVersionError(
+            f"Version mismatch between cdf.toml and CLI:\n"
+            f"  - cdf.toml version:       {version}\n"
+            f"  - Installed CLI version: {_version.__version__}\n"
+            f"\n"
+            f"To resolve this, do one of the following:\n"
+            f"  - Upgrade the modules to match the CLI:\n"
+            f"      cdf modules upgrade\n"
+            f"  - Downgrade the CLI to match the modules:\n"
+            f"      pip install cognite-toolkit=={version}"
+        )
+
+    @classmethod
+    def _is_help_command(cls) -> bool:
+        return "--help" in sys.argv
+
+    @classmethod
+    def _is_upgrade_command(cls) -> bool:
+        return len(sys.argv) > 2 and sys.argv[1:3] == ["modules", "upgrade"]
+
+    @classmethod
+    def _is_dev_version(cls) -> bool:
+        return _version.__version__ == "0.0.0"
+
+    @classmethod
+    def _is_minor_version_compatible(cls, version1: str, version2: str) -> bool:
+        """Checks if two versions are compatible in terms of major and minor version numbers."""
+        try:
+            v1 = Version(version1)
+            v2 = Version(version2)
+            return (v1.major, v1.minor) == (v2.major, v2.minor)
+        except Exception:
+            return False
+
+    @classmethod
+    def _no_active_unknown_alpha_flags(cls, alpha_flags: dict[str, bool]) -> bool:
+        """Checks if there are no active unknown alpha flags."""
+        from cognite_toolkit._cdf_tk.feature_flags import Flags
+
+        known_flags = {clean_name(flag.name) for flag in Flags}
+        for flag_name, is_enabled in alpha_flags.items():
+            if is_enabled and flag_name not in known_flags:
+                return False
+        return True
 
 
 @dataclass
@@ -169,10 +208,7 @@ class CDFToml:
 
             # No required fields in the cdf section
             cdf = CLIConfig.load(raw["cdf"], cwd) if "cdf" in raw else CLIConfig(cwd)
-            try:
-                modules = ModulesConfig.load(raw["modules"])
-            except KeyError as e:
-                raise ToolkitRequiredValueError(f"Missing required value in {cls.file_name}: {e.args}")
+
             rules = RuleSection()
             if "rules" in raw:
                 rules = RuleSection.load(raw["rules"])
@@ -185,6 +221,11 @@ class CDFToml:
                     "The 'feature_flags' section has been renamed to 'alpha_flags'. Please update your cdf.toml file."
                 ).print_warning()
                 alpha_flags = {clean_name(k): v for k, v in raw["feature_flags"].items()}
+
+            try:
+                modules = ModulesConfig.load(raw["modules"], alpha_flags)
+            except KeyError as e:
+                raise ToolkitRequiredValueError(f"Missing required value in {cls.file_name}: {e.args}")
 
             plugins = {}
             if "plugins" in raw:
@@ -212,7 +253,7 @@ class CDFToml:
         else:
             return cls(
                 cdf=CLIConfig(cwd),
-                modules=ModulesConfig.load({"version": _version.__version__}),
+                modules=ModulesConfig.load({"version": _version.__version__}, {}),
                 is_loaded_from_file=False,
             )
 
