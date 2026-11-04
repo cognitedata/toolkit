@@ -107,10 +107,6 @@ class Flags(Enum):
         visible=True,
         description="Enables support for CDF group resources with members set to 'emails' and memberEmails set to a list of email addresses.",
     )
-    RAW_TABLE_FORMAT = FlagMetadata(
-        visible=True,
-        description="Enables downloading RAW tables as csv and parquet.",
-    )
 
     def is_enabled(self) -> bool:
         if self == Flags.CDF_GROUP_EMAILS:

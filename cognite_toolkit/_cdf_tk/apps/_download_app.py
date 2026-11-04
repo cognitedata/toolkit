@@ -231,11 +231,11 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download RAW tables from CDF into a temporary directory."""
-        if file_format in {RawFormats.csv, RawFormats.parquet} and not Flags.RAW_TABLE_FORMAT.is_enabled():
+        if file_format in {RawFormats.csv, RawFormats.parquet} and not Flags.v010.is_enabled():
             raise typer.BadParameter(
                 (
                     f"Downloading RAW tables as {file_format.value} is currently behind an alpha feature flag "
-                    "and is not enabled. Enable the flag `raw-table-format` under [alpha_flags] in cdf.toml."
+                    "and is not enabled. Enable the flag `v010` under [alpha_flags] in cdf.toml."
                 ),
                 param_hint="--format",
             )
