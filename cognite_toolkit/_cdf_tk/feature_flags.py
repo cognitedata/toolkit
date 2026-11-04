@@ -114,11 +114,6 @@ class Flags(Enum):
             return FeatureFlag.is_enabled(Flags.v010) or FeatureFlag.is_enabled(self)
         return FeatureFlag.is_enabled(self)
 
-    @staticmethod
-    def list() -> dict[str, bool]:
-        res = {flag.name: FeatureFlag.is_enabled(flag) for flag in Flags}
-        return res
-
 
 class FeatureFlag:
     @staticmethod
