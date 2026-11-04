@@ -123,6 +123,8 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         yield from self._check_schema_references()
         if self.client is not None:
             yield from self._validate_data_modeling_changes(self.client)
+            limits = self.client.limits.list(limit=None, prefix="data_modeling.")
+
 
     def _check_schema_references(self) -> Iterable[Insight | InternalValidatorException]:
         try:
