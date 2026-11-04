@@ -1099,13 +1099,13 @@ class BuildV2Command(ToolkitCommand):
                         module_id=module.id,
                         resources=built_resources,
                         syntax_errors_by_source={
-                            file.source_path: file.syntax_error
+                            file.source_path: file.syntax_errors
                             for file in module.files
                             if isinstance(file, SuccessfulReadYAMLFile)
-                            and file.syntax_error is not None
                             # If the file has unresolved variables (e.g. "{{space}}"), the syntax error is
                             # almost certainly caused by that and is already reported as its own insight.
                             and not file.unresolved_variables
+                            and file.syntax_errors
                         },
                         syntax_warnings_by_source={
                             file.source_path: file.syntax_warnings
@@ -1284,7 +1284,8 @@ class BuildV2Command(ToolkitCommand):
                 errors, resource_file, content, crud_class.yaml_cls
             )
             result.syntax_warnings.extend(syntax_warnings)
-            result.syntax_error = syntax_error
+            if syntax_error:
+                result.syntax_errors.append(syntax_error)
             try:
                 identifier = crud_class.get_id(parsed_yaml)
             except KeyError:
@@ -1331,7 +1332,8 @@ class BuildV2Command(ToolkitCommand):
                 errors, resource_file, content, crud_class.yaml_cls
             )
             result.syntax_warnings.extend(syntax_warnings)
-            result.syntax_error = syntax_error
+            if syntax_error:
+                result.syntax_errors.append(syntax_error)
 
         for tk_resource, raw in zip_longest(toolkit_resources, parsed_yaml, fillvalue=None):
             # We know that the parse_yaml list will always be longer than tk_resource
@@ -1379,8 +1381,7 @@ class BuildV2Command(ToolkitCommand):
     ) -> None:
         for crud_result in crud_class.to_crud_types(parsed_yaml, resource_file, toolkit_resource):
             if isinstance(crud_result, BuildError):
-                result.syntax_error = crud_result
-                break
+                result.syntax_errors.append(crud_result)
             elif isinstance(crud_result, BuildWarning):
                 result.syntax_warnings.append(crud_result)
                 continue
@@ -1390,7 +1391,7 @@ class BuildV2Command(ToolkitCommand):
                         raw=crud_result.raw,
                         identifier=crud_result.identifier,
                         resource_type=crud_result.type_,
-                        validated=toolkit_resource,
+                        validated=crud_result.validated,
                         extra_files=extra_files,
                     )
                 )

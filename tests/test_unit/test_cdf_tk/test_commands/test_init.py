@@ -19,7 +19,7 @@ class TestInitCommand:
         cwd = cwd or Path.cwd()
         return CDFToml(
             cdf=CLIConfig(cwd),
-            modules=ModulesConfig.load({"version": _version.__version__}),
+            modules=ModulesConfig.load({"version": _version.__version__}, {}),
             alpha_flags={},
             plugins={},
             libraries={},

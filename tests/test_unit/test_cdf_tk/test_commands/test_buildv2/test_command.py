@@ -848,7 +848,7 @@ class TestReadResourceFile:
         result = cmd._read_resource_file(resource_file, crud_class, [])
         assert isinstance(result, SuccessfulReadYAMLFile)
         assert len(result.resources) == expected_resource_count
-        assert has_syntax_error == (result.syntax_error is not None)
+        assert has_syntax_error == bool(result.syntax_errors)
         assert has_syntax_warning == bool(result.syntax_warnings)
 
 

@@ -83,6 +83,24 @@ CogniteFileResponse:
       type: view
       version: v1
   space: sp_nodes
+ContainerResponse:
+- externalId: NeatContainer
+  properties:
+    name:
+      nullable: true
+      type:
+        list: false
+        type: text
+  space: sp_schema
+DataModelResponse:
+- externalId: neat_data_model
+  space: sp_schema
+  version: v1
+  views:
+  - externalId: NeatView
+    space: sp_schema
+    type: view
+    version: v1
 DataProductResponse:
 - description: Curated data product.
   externalId: my_data_product
@@ -577,3 +595,14 @@ TimeSeriesResponse:
   isStep: false
   isString: false
   name: Simulator Routine Revision Logical Check
+ViewResponse:
+- externalId: NeatView
+  properties:
+    name:
+      container:
+        externalId: NeatContainer
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: name
+  space: sp_schema
+  version: v1
