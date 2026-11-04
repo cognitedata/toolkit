@@ -1,16 +1,19 @@
+import builtins
 import re
 from abc import ABC, abstractmethod
+from collections import UserList
 from collections.abc import Iterable, Sequence
-from typing import ClassVar, Literal
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any, ClassVar, Literal, Protocol, cast
 
 from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_Identifier, T_RequestResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     UNRESOLVED_VARIABLE_PATTERN,
-    BuiltResource,
-    BuiltResourceList,
+    ValidatableResource,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Insight,
@@ -18,6 +21,8 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     T_Insight,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
+from cognite_toolkit._cdf_tk.resource_ios import ResourceIO, ResourceType
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.file import yaml_find_unique_position
 
@@ -92,6 +97,50 @@ class RuleSetStatus(BaseModel):
     message: str | None = None
 
 
+class ResourceRef(Protocol):
+    @property
+    def identifier(self) -> Identifier: ...
+
+    @property
+    def type(self) -> ResourceType: ...
+
+    @property
+    def source(self) -> Path | Literal["cdf"]: ...
+
+    @property
+    def has_valid_syntax(self) -> bool: ...
+
+    @property
+    def dependencies(self) -> set[tuple[builtins.type[ResourceIO], Identifier]]: ...
+
+    @property
+    def variables(self) -> list[BuildVariable]: ...
+
+    def as_request(
+        self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any], is_dry_run: bool = False
+    ) -> ValidatableResource[T_RequestResource]:
+        raise NotImplementedError()
+
+
+class ResourceRefList(UserList[ResourceRef]):
+    def get_resource_of_type(
+        self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any]
+    ) -> Iterable[ValidatableResource[T_RequestResource]]:
+        """Get the resources of the type handled by the given CRUD."""
+        for _, validatable in self.get_refs_and_resource_of_type(crud):
+            yield validatable
+
+    def get_refs_and_resource_of_type(
+        self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any]
+    ) -> Iterable[tuple[ResourceRef, ValidatableResource[T_RequestResource]]]:
+        """Get the resources of the type handled by the given CRUD, together with their reference."""
+        resource_type = crud.as_resource_type()
+        for resource in self.data:
+            if resource.type != resource_type or not resource.has_valid_syntax:
+                continue
+            yield resource, resource.as_request(crud, is_dry_run=True)
+
+
 class ToolkitGlobalRuleSet(ABC):
     """Validation of all modules as a whole.
 
@@ -105,9 +154,21 @@ class ToolkitGlobalRuleSet(ABC):
     CODE_PREFIX: ClassVar[str]
     DISPLAY_NAME: ClassVar[str]
 
-    def __init__(self, resources: Sequence[BuiltResource], client: ToolkitClient | None = None) -> None:
-        self.resources = BuiltResourceList(resources)
+    def __init__(
+        self,
+        resources: Sequence[ResourceRef],
+        results: Sequence[DeploymentResult] | None = None,
+        client: ToolkitClient | None = None,
+    ) -> None:
+        self.resources = ResourceRefList(resources)
+        self.results = results
         self.client = client
+
+    def _load_client(self) -> ToolkitClient:
+        """Client used to instantiate CRUDs for loading local resources. Loading in dry-run does not call CDF."""
+        if self.client is not None:
+            return self.client
+        return cast(ToolkitClient, SimpleNamespace(console=None))
 
     @abstractmethod
     def get_status(self) -> RuleSetStatus:

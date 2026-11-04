@@ -1,19 +1,19 @@
 from collections.abc import Iterable
+from pathlib import Path
 
 from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view import ViewResponse
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
+from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildError,
     Insight,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
-from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO, ResourceType
+from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet, with_position
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes import InFieldCDMLocationConfigYAML
 from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import INFIELD_CDM_CARD_VIEW_ATTRS
 from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ViewReference
@@ -28,10 +28,10 @@ _REQUIRED_PROPERTIES: dict[str, frozenset[str]] = {
     "assetDocumentsCardView": frozenset({"assets", "mimeType", "name"}),
 }
 
-# (resource, card_key, view_id, required properties)
-_CardViewRef = tuple[BuiltResource, str, ViewId, frozenset[str]]
-# (resource, config_key, view_id, configured field keys)
-_FieldConfigRef = tuple[BuiltResource, str, ViewId, frozenset[str]]
+# (source_path, card_key, view_id, required properties)
+_CardViewRef = tuple[Path, str, ViewId, frozenset[str]]
+# (source_path, config_key, view_id, configured field keys)
+_FieldConfigRef = tuple[Path, str, ViewId, frozenset[str]]
 _DEFAULT_ASSET_VIEW_ID = ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")
 
 
@@ -56,19 +56,14 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
     def validate(self) -> Iterable[Insight]:
         if self.client is None:
             return
-        config_type = ResourceType(
-            resource_folder=InFieldCDMLocationConfigIO.folder_name,
-            kind=InFieldCDMLocationConfigIO.kind,
-        )
         card_view_refs: list[_CardViewRef] = []
         field_config_refs: list[_FieldConfigRef] = []
 
-        for resource in self.resources:
-            if not resource.can_verify:
+        crud = InFieldCDMLocationConfigIO(self.client)
+        for resource, validatable in self.resources.get_refs_and_resource_of_type(crud):
+            if not isinstance(resource.source, Path):
                 continue
-            if resource.type != config_type:
-                continue
-            card_refs, field_refs = self._collect_refs(resource)
+            card_refs, field_refs = self._collect_refs(resource.source, validatable.request)
             card_view_refs.extend(card_refs)
             field_config_refs.extend(field_refs)
 
@@ -79,11 +74,11 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
         retrieved = self.client.views.retrieve(unique_view_ids, include_inherited_properties=True)
         views_by_id: dict[ViewId, ViewResponse] = {v.as_id(): v for v in retrieved}
 
-        for resource, card_key, view_id, required in card_view_refs:
-            yield from self._check_required_properties(resource.source_path, card_key, view_id, required, views_by_id)
+        for source_path, card_key, view_id, required in card_view_refs:
+            yield from self._check_required_properties(source_path, card_key, view_id, required, views_by_id)
 
-        for resource, config_key, view_id, field_keys in field_config_refs:
-            yield from self._check_field_config_keys(resource.source_path, config_key, view_id, field_keys, views_by_id)
+        for source_path, config_key, view_id, field_keys in field_config_refs:
+            yield from self._check_field_config_keys(source_path, config_key, view_id, field_keys, views_by_id)
 
     @staticmethod
     def _asset_view_id_for_card_config(config: InFieldCDMLocationConfigYAML) -> ViewId:
@@ -93,10 +88,12 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
 
     @staticmethod
     def _collect_refs(
-        resource: BuiltResource,
+        source_path: Path,
+        request: InFieldCDMLocationConfigRequest,
     ) -> tuple[list[_CardViewRef], list[_FieldConfigRef]]:
-        raw_data = read_yaml_file(resource.build_path, expected_output="dict")
-        config = InFieldCDMLocationConfigYAML.model_validate(raw_data)
+        config = InFieldCDMLocationConfigYAML.model_validate(
+            request.dump(context="toolkit", exclude={"instance_type", "existing_version"})
+        )
 
         card_refs: list[_CardViewRef] = []
         field_refs: list[_FieldConfigRef] = []
@@ -109,12 +106,12 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
                     continue
                 view_id = mapping.as_id()
                 required = _REQUIRED_PROPERTIES[card_key]
-                card_refs.append((resource, card_key, view_id, required))
+                card_refs.append((source_path, card_key, view_id, required))
 
             if card_config := config.data_exploration_config.asset_properties_card_config:
                 field_refs.append(
                     (
-                        resource,
+                        source_path,
                         "assetPropertiesCardConfig",
                         InFieldCDMRuleSet._asset_view_id_for_card_config(config),
                         frozenset(card_config.keys()),
@@ -127,7 +124,7 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
                     continue
                 field_refs.append(
                     (
-                        resource,
+                        source_path,
                         "observation.fieldsConfig",
                         observation_config.view.as_id(),
                         frozenset(observation_config.fields_config.keys()),
