@@ -56,6 +56,7 @@ class ValidateMode(StrEnum):
     syntax_only = "syntax-only"
     local = "local"
     remote = "remote"
+    capacity = "capacity"
     auto = "auto"
 
 
