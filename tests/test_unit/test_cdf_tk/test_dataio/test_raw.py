@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.dataio import Page, RawIO
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
 from cognite_toolkit._cdf_tk.utils.collection import chunker
+from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 
 
 @pytest.fixture()
@@ -105,3 +106,108 @@ class TestRawStorageIO:
                 )
 
         assert "column 'non_existing_column' not found" in str(exc_info.value).casefold()
+
+    def test_infers_table_schema_after_rows_are_read(self) -> None:
+        selector = RawTableSelector(table=SelectedTable(db_name="db", table_name="events"))
+        source_rows = [
+            Row(
+                key="a",
+                columns={
+                    "name": "alpha",
+                    "count": 1,
+                    "ratio": 1.5,
+                    "active": True,
+                    "tags": ["x", "y"],
+                    "scores": [1, 2],
+                    "meta": {"k": "v"},
+                    "maybe": None,
+                    "payload": "text",
+                    "key": "column-key",
+                    "notes": [],
+                    "lastUpdatedTime": "stale",
+                },
+                last_updated_time=10,
+            ),
+            Row(
+                key="b",
+                columns={
+                    "name": "beta",
+                    "count": 2,
+                    "ratio": 2,
+                    "active": False,
+                    "tags": ["z"],
+                    "scores": [3.5],
+                    "extra": "only-here",
+                    "maybe": "later",
+                    "payload": {"a": 1},
+                    "notes": ["remember"],
+                    "lastUpdatedTime": "fresh",
+                },
+                last_updated_time=20,
+            ),
+        ]
+        with monkeypatch_toolkit_client() as client:
+            client.raw.tables.rows.iterate.return_value = [source_rows]
+            io = RawIO(client, api_format="response")
+            initial_schema = io.get_schema(selector)
+            json_rows = [
+                item.item for chunk in io.stream_data(selector) for item in io.data_to_json_chunk(chunk, selector).items
+            ]
+
+        assert {
+            "initial_schema": initial_schema,
+            "schema": io.get_schema(selector),
+            "rows": [io.json_to_row(row) for row in json_rows],
+        } == {
+            "initial_schema": None,
+            "schema": [
+                SchemaColumn(name="key", type="string"),
+                SchemaColumn(name="lastUpdatedTime", type="integer"),
+                SchemaColumn(name="active", type="boolean"),
+                SchemaColumn(name="columns.key", type="string"),
+                SchemaColumn(name="columns.lastUpdatedTime", type="string"),
+                SchemaColumn(name="count", type="integer"),
+                SchemaColumn(name="extra", type="string"),
+                SchemaColumn(name="maybe", type="string"),
+                SchemaColumn(name="meta", type="json"),
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="notes", type="string", is_array=True),
+                SchemaColumn(name="payload", type="json"),
+                SchemaColumn(name="ratio", type="float"),
+                SchemaColumn(name="scores", type="float", is_array=True),
+                SchemaColumn(name="tags", type="string", is_array=True),
+            ],
+            "rows": [
+                {
+                    "name": "alpha",
+                    "count": 1,
+                    "ratio": 1.5,
+                    "active": True,
+                    "tags": ["x", "y"],
+                    "scores": [1.0, 2.0],
+                    "meta": {"k": "v"},
+                    "maybe": None,
+                    "payload": "text",
+                    "columns.key": "column-key",
+                    "notes": [],
+                    "columns.lastUpdatedTime": "stale",
+                    "key": "a",
+                    "lastUpdatedTime": 10,
+                },
+                {
+                    "name": "beta",
+                    "count": 2,
+                    "ratio": 2.0,
+                    "active": False,
+                    "tags": ["z"],
+                    "scores": [3.5],
+                    "extra": "only-here",
+                    "maybe": "later",
+                    "payload": {"a": 1},
+                    "notes": ["remember"],
+                    "columns.lastUpdatedTime": "fresh",
+                    "key": "b",
+                    "lastUpdatedTime": 20,
+                },
+            ],
+        }
