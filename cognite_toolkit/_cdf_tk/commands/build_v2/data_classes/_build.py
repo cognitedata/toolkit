@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     ResourceType,
     SuccessExtra,
 )
+from cognite_toolkit._cdf_tk.rules._base import ValidatableResource
 from cognite_toolkit._cdf_tk.utils.file import find_unique_variable_position
 
 from ._config import DeployProtection
@@ -166,6 +167,44 @@ class BuiltResource(BaseModel):
     has_syntax_error: bool
     variables: list[BuildVariable] = Field(default_factory=list)
     module_id: ModuleId
+
+    @property
+    def source(self) -> Path | Literal["cdf"]:
+        """The source of the resource, either a file path or 'cdf' if the resource was retrieved from CDF."""
+        return self.source_path
+
+    @property
+    def has_valid_syntax(self) -> bool:
+        """Indicates whether the resource has valid syntax and can be further validated."""
+        return not self.has_syntax_error and not self.failed_extra
+
+    def as_request(
+        self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any]
+    ) -> ValidatableResource[T_RequestResource]:
+        """Convert the built resource to a ValidatableResource for the given CRUD.
+
+        Args:
+            crud: The CRUD class to use for converting the built resource to a request object.
+        Returns:
+            A ValidatableResource containing the identifier, type, source, and request object for the built
+            resource.
+        """
+        if not isinstance(crud, self.crud_cls):
+            raise RuntimeError(
+                f"Bug in Toolkit, cannot convert built resource of type {self.crud_cls} to request for CRUD {crud}. "
+                f"Expected a subclass of {self.crud_cls}."
+            )
+        raw_list = crud.load_resource_file(self.build_path)
+        if not raw_list:
+            raise RuntimeError(
+                f"Bug in Toolkit, built resource {self.build_path} has no data to convert to request for CRUD {crud}."
+            )
+        return ValidatableResource(
+            identifier=self.identifier,
+            type=self.type,
+            source=self.source,
+            request=crud.load_resource(raw_list[0]),
+        )
 
     @property
     def can_verify(self) -> bool:

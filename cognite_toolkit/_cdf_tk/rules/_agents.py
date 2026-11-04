@@ -3,14 +3,13 @@ from functools import cached_property
 from typing import NamedTuple
 
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import ServicesAvailability
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildError,
     Insight,
     InternalValidatorException,
 )
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO, ResourceType
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet, with_position, ResourceRef
+from cognite_toolkit._cdf_tk.rules._base import ResourceRef, RuleSetStatus, ToolkitGlobalRuleSet, with_position
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes.agent import AgentYAML

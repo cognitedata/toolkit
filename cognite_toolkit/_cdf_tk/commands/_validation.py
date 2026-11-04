@@ -12,7 +12,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     BuiltResource,
-    BuiltResourceList,
     ValidationResult,
     ValidationResultList,
 )
@@ -52,7 +51,7 @@ class ValidationCommand(ToolkitCommand):
         all_rules = get_global_rules_registry()
         plan: list[ValidationStep] = []
         for rule_cls in all_rules:
-            rule = rule_cls(BuiltResourceList(resources), client=client)
+            rule = rule_cls(resources, client=client)
 
             status = rule.get_status()
             plan.append(ValidationStep(status=status, rule=rule))
