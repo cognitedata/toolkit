@@ -13,6 +13,11 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import RawDatabaseIO, RawTableIO
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker
+from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
+    convert_str_to_data_type,
+    infer_data_type_from_json_value,
+    merge_data_types,
+)
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import DataType, JsonVal
 
@@ -29,8 +34,6 @@ from .selectors import RawTableSelector
 
 _KEY_COLUMN = "key"
 _UPDATED_COLUMN = "lastUpdatedTime"
-_INT64_MIN = -(2**63)
-_INT64_MAX = 2**63 - 1
 
 
 @dataclass
@@ -45,7 +48,7 @@ class _ObservedType:
     is_array: bool = False
     only_empty_lists: bool = False
 
-    def observe(self, value: object) -> None:
+    def observe(self, value: JsonVal) -> None:
         if value is None:
             return
         if isinstance(value, list) and not value:
@@ -54,7 +57,7 @@ class _ObservedType:
                 self.is_array = True
             return
 
-        data_type, is_array = _json_signature(value)
+        data_type, is_array = infer_data_type_from_json_value(value)
         if self.data_type is None:
             if self.only_empty_lists and not is_array:
                 self.data_type = "json"
@@ -66,7 +69,7 @@ class _ObservedType:
             self.only_empty_lists = False
             return
 
-        self.data_type, self.is_array = _merge_types(self.data_type, self.is_array, data_type, is_array)
+        self.data_type, self.is_array = merge_data_types(self.data_type, self.is_array, data_type, is_array)
         self.only_empty_lists = False
 
     def as_column(self, name: str) -> SchemaColumn:
@@ -77,45 +80,10 @@ class _ObservedType:
         return SchemaColumn(name=name, type=self.data_type, is_array=self.is_array)
 
 
-def _json_signature(value: object) -> tuple[DataType, bool]:
-    if isinstance(value, bool):
-        return "boolean", False
-    if isinstance(value, int):
-        if value < _INT64_MIN or value > _INT64_MAX:
-            return "json", False
-        return "integer", False
-    if isinstance(value, float):
-        return "float", False
-    if isinstance(value, str):
-        return "string", False
-    if isinstance(value, dict):
-        return "json", False
-    if isinstance(value, list):
-        element_signatures = [_json_signature(item) for item in value if item is not None]
-        if not element_signatures:
-            return "json", False
-        data_type, is_array = element_signatures[0]
-        for other_type, other_is_array in element_signatures[1:]:
-            data_type, is_array = _merge_types(data_type, is_array, other_type, other_is_array)
-            if data_type == "json":
-                return "json", False
-        if is_array:
-            return "json", False
-        return data_type, True
-    return "json", False
-
-
-def _merge_types(left: DataType, left_is_array: bool, right: DataType, right_is_array: bool) -> tuple[DataType, bool]:
-    if left == right and left_is_array == right_is_array:
-        return left, left_is_array
-    if left_is_array == right_is_array and {left, right} <= {"integer", "float"}:
-        return "float", left_is_array
-    return "json", False
-
-
 def _as_float(value: JsonVal) -> JsonVal:
-    if isinstance(value, int) and not isinstance(value, bool):
-        return float(value)
+    converted = convert_str_to_data_type(value, "float")
+    if converted is None or isinstance(converted, float):
+        return converted
     return value
 
 
