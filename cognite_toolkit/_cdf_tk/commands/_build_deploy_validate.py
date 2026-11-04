@@ -47,15 +47,20 @@ class BuildDeployValidateCommand(ToolkitCommand):
             deploy_cmd = DeployV2Command(
                 silent=self.silent,
                 skip_tracking=self.tracker.skip_tracking,
-                client=self._client,
+                client=client,
                 print_warning=self.print_warning,
             )
 
+            env_vars = EnvironmentVariables.create_from_environment()
             results = deploy_cmd.deploy(
                 user_build_dir=build_folder.build_dir,
-                env_vars=EnvironmentVariables.create_from_environment(),
+                env_vars=env_vars,
                 client=client,
-                options=DeployOptions(cdf_project=client.config.project, dry_run=True),
+                options=DeployOptions(
+                    cdf_project=client.config.project,
+                    dry_run=True,
+                    environment_variables=env_vars.dump(),
+                ),
             )
         validation_results = validate_cmd.validate(resources, results, client, display=True)
 
