@@ -39,7 +39,7 @@ from cognite_toolkit._cdf_tk.commands._utils import (
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightCode, InsightList
 from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import (
     ErrorLockResult,
     FailedLockResult,
@@ -179,7 +179,7 @@ class DeploymentStep(Generic[T_RequestResource]):
 @dataclass
 class Skipped(Generic[T_Identifier]):
     id: T_Identifier
-    code: str
+    code: InsightCode
     source_file: Path
     reason: str
 
@@ -1116,7 +1116,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            "AMBIGUOUS",
+                            "DUPLICATED-IDENTIFIER",
                             filepath,
                             f"Identifier is not unique. Will use definition in {first_file.as_posix()}",
                         )
@@ -1131,7 +1131,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code="NONEXISTENT-RESOURCE",
+                            code="MISSING-REFERENCED-RESOURCE",
                             source_file=resource.source_files[0],
                             reason=f"Will not delete {identifier!s} does not exist in CDF",
                         )
@@ -1151,7 +1151,7 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            code="UNSUPPORTED-RESOURCE-DELETION",
+                            code="UNSUPPORTED-RESOURCE-REMOVAL",
                             source_file=resource.source_files[0],
                             reason=f"{crud.display_name.capitalize()!s} does not support deletion, skipping",
                         )

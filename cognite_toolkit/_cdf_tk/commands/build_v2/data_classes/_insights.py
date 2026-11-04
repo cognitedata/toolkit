@@ -27,6 +27,7 @@ PATH_SEP_CSV = " | "  # Separator for multiple source files in CSV output
 
 # See technical_decision_log/TDL-0005-insight-code-naming.md for the code conventions.
 InsightCode: TypeAlias = Literal[
+    "DUPLICATED-IDENTIFIER",
     "EXCEEDED-LIMIT",
     "INVALID-FIELD",
     "INVALID-FILE-CONTENT",
@@ -44,6 +45,7 @@ InsightCode: TypeAlias = Literal[
     "MISSING-REFERENCED-FILE",
     "MISSING-REFERENCED-PROPERTY",
     "MISSING-REFERENCED-RESOURCE",
+    "NONEMPTY-RESOURCE",
     "UNGOVERNED-RESOURCE",
     "UNREADABLE-FILE",
     "UNRECOGNIZED-FIELD",
