@@ -39,7 +39,7 @@ from cognite_toolkit._cdf_tk.commands._utils import (
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightList, InsightCode
 from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import (
     ErrorLockResult,
     FailedLockResult,
@@ -179,7 +179,7 @@ class DeploymentStep(Generic[T_RequestResource]):
 @dataclass
 class Skipped(Generic[T_Identifier]):
     id: T_Identifier
-    code: str
+    code: InsightCode
     source_file: Path
     reason: str
 
