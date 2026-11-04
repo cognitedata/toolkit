@@ -611,8 +611,7 @@ class RemoveOutdatedAlphaFlags(AutomaticChange):
         valid_alpha_flags = set(Flags.list().keys())
 
 
-
-        raise NotImplementedError()
+        return {cdf_toml}
 
 class UpdateModuleVersion(AutomaticChange):
     deprecated_from = parse_version(__version__)
