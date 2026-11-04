@@ -219,12 +219,12 @@ class NeatTableReader:
         version = entity.properties.get("version") or self.default_version
         return space, entity.suffix, version
 
-    def _container_ref_dict(self, entity: ParsedEntity | None) -> dict[str, Any]:
+    def container_ref_dict(self, entity: ParsedEntity | None) -> dict[str, Any]:
         if (ref := self._container_ref_key(entity)) is None:
             return {}
         return {"type": "container", "space": ref[0], "externalId": ref[1]}
 
-    def _view_ref_dict(self, entity: ParsedEntity | None) -> dict[str, Any]:
+    def view_ref_dict(self, entity: ParsedEntity | None) -> dict[str, Any]:
         if (ref := self._view_ref_key(entity)) is None:
             return {}
         return {"type": "view", "space": ref[0], "externalId": ref[1], "version": ref[2]}
@@ -371,11 +371,11 @@ class NeatTableReader:
     def _build_core_view_property(self, prop: DMSProperty) -> dict[str, Any]:
         source = None
         if prop.connection is not None and prop.value_type.suffix != CELL_MISSING:
-            source = self._view_ref_dict(prop.value_type)
+            source = self.view_ref_dict(prop.value_type)
         return {
             "name": prop.name,
             "description": prop.description,
-            "container": self._container_ref_dict(prop.container),
+            "container": self.container_ref_dict(prop.container),
             "containerPropertyIdentifier": prop.container_property,
             "source": source,
         }
@@ -387,7 +387,7 @@ class NeatTableReader:
             if (
                 entity := self._parse_entity_str(raw_edge_source, (SHEET_PROPERTIES, row_no, "Connection"))
             ) is not None:
-                edge_source = self._view_ref_dict(entity)
+                edge_source = self.view_ref_dict(entity)
 
         if raw_type := prop.connection.properties.get("type"):
             type_entity = self._parse_entity_str(raw_type, (SHEET_PROPERTIES, row_no, "Connection"))
@@ -399,7 +399,7 @@ class NeatTableReader:
             "connectionType": "single_edge_connection" if prop.max_count == 1 else "multi_edge_connection",
             "name": prop.name,
             "description": prop.description,
-            "source": self._view_ref_dict(prop.value_type),
+            "source": self.view_ref_dict(prop.value_type),
             "type": type_ref,
             "edgeSource": edge_source,
             "direction": prop.connection.properties.get("direction", "outwards"),
@@ -407,7 +407,7 @@ class NeatTableReader:
 
     def _build_reverse_view_property(self, prop: DMSProperty, row_no: int) -> dict[str, Any]:
         assert prop.connection is not None
-        view_ref = self._view_ref_dict(prop.value_type)
+        view_ref = self.view_ref_dict(prop.value_type)
         return {
             "connectionType": (
                 "single_reverse_direct_relation" if prop.max_count == 1 else "multi_reverse_direct_relation"
@@ -485,7 +485,7 @@ class NeatTableReader:
             if raw_container := prop.connection.properties.get("container"):
                 entity = self._parse_entity_str(raw_container, (SHEET_PROPERTIES, row_no, "Connection"))
                 if entity is not None:
-                    args["container"] = self._container_ref_dict(entity)
+                    args["container"] = self.container_ref_dict(entity)
 
         if value_type == "enum" and "collection" in prop.value_type.properties:
             # 'collection' is a table-only convention used to look up the Enum sheet; it is not a
@@ -689,7 +689,7 @@ class NeatTableReader:
             )
             data = {
                 "constraintType": "requires",
-                "require": self._container_ref_dict(required_entity) if required_entity is not None else {},
+                "require": self.container_ref_dict(required_entity) if required_entity is not None else {},
             }
             try:
                 definition = _CONSTRAINT_ADAPTER.validate_python(data)
@@ -714,7 +714,7 @@ class NeatTableReader:
                 self._create_error((SHEET_VIEWS, row_no, "View"), "invalid view reference.", code="INVALID-VALUE")
                 continue
 
-            implements = [self._view_ref_dict(entity) for entity in view.implements] if view.implements else None
+            implements = [self.view_ref_dict(entity) for entity in view.implements] if view.implements else None
             filter_dict = self._build_filter_dict(view.filter, row_no) if view.filter is not None else None
 
             data: dict[str, Any] = {
@@ -770,7 +770,7 @@ class NeatTableReader:
             # Unreachable: TableViewFilter is a discriminated union of these two types.
             raise RuntimeError(f"Unknown filter type {type(filter_).__name__}")
         if filter_.type == "hasData":
-            return {"hasData": [self._container_ref_dict(entity) for entity in filter_.entities]}
+            return {"hasData": [self.container_ref_dict(entity) for entity in filter_.entities]}
         node_refs = [self._node_ref_dict(entity) for entity in filter_.entities]
         if len(node_refs) == 1:
             return {"equals": {"property": ["node", "type"], "value": node_refs[0]}}

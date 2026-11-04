@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, final
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.client.identifiers import DataModelId
-from cognite_toolkit._cdf_tk.resource_ios import ResourceFileIO, ResourceIO, ResourceType
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, DataModelId, ViewId
+from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, ResourceFileIO, ResourceIO, ResourceType, ViewIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import CrudResource
 from cognite_toolkit._cdf_tk.resource_ios._neat._reader import NeatTableError, NeatTableReader
 from cognite_toolkit._cdf_tk.yaml_classes.neat import NeatFormat, NeatSpreadsheet, NeatYAML
@@ -34,7 +34,20 @@ class NeatIO(ResourceFileIO[DataModelId, NeatYAML | NeatSpreadsheet]):
 
     @classmethod
     def get_dependencies(cls, resource: NeatYAML | NeatSpreadsheet) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
-        return []
+        neat_yaml = resource.neat_yaml if isinstance(resource, NeatSpreadsheet) else resource
+        reader = NeatTableReader(neat_yaml, NeatYAMLSource(source=Path("dummy")))
+        for container in neat_yaml.containers:
+            if container_ref := reader.container_ref_dict(container.container):
+                container_id = ContainerId.model_validate(container_ref)
+                if container_id.space not in reader.governed_spaces:
+                    # All resources outside the governed spaces are external dependencies.
+                    yield ContainerIO, container_id
+        for view in neat_yaml.views:
+            if view_ref := reader.view_ref_dict(view.view):
+                view_id = ViewId.model_validate(view_ref)
+                if view_id.space not in reader.governed_spaces:
+                    # All resources outside the governed spaces are external dependencies.
+                    yield ViewIO, view_id
 
     @classmethod
     def to_crud_types(
