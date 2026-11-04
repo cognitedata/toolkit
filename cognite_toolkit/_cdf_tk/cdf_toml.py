@@ -8,6 +8,7 @@ from pathlib import Path
 from tomllib import TOMLDecodeError
 from typing import Any, ClassVar, Self
 
+from packaging.version import Version
 from rich import print
 
 from cognite_toolkit import _version
@@ -96,9 +97,12 @@ class ModulesConfig:
     @classmethod
     def _is_minor_version_compatible(cls, version1: str, version2: str) -> bool:
         """Checks if two versions are compatible in terms of major and minor version numbers."""
-        major_minor1 = version1.rsplit(".", 1)[0]  # Get major.minor part of version1
-        major_minor2 = version2.rsplit(".", 1)[0]  # Get major.minor part of version2
-        return major_minor1 == major_minor2
+        try:
+            v1 = Version(version1)
+            v2 = Version(version2)
+            return (v1.major, v1.minor) == (v2.major, v2.minor)
+        except Exception:
+            return False
 
     @classmethod
     def _no_active_unknown_alpha_flags(cls, alpha_flags: dict[str, bool]) -> bool:
