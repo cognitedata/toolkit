@@ -1,27 +1,32 @@
 from collections.abc import Iterable
 from functools import cached_property
+from pathlib import Path
 from typing import NamedTuple
 
-from cognite_toolkit._cdf_tk.client.resource_classes.agent import ServicesAvailability
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, ServicesAvailability
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildError,
     Insight,
     InternalValidatorException,
 )
-from cognite_toolkit._cdf_tk.resource_ios import AgentIO, ResourceType
-from cognite_toolkit._cdf_tk.rules._base import ResourceRef, RuleSetStatus, ToolkitGlobalRuleSet, with_position
+from cognite_toolkit._cdf_tk.resource_ios import AgentIO
+from cognite_toolkit._cdf_tk.rules._base import (
+    ResourceRef,
+    RuleSetStatus,
+    ToolkitGlobalRuleSet,
+    quote_identifier,
+    with_position,
+)
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
-from cognite_toolkit._cdf_tk.yaml_classes.agent import AgentYAML
 
 
 class RuntimeCapabilityRequirement(NamedTuple):
-    """An AgentYAML field that is gated behind a runtime version capability."""
+    """An agent field that is gated behind a runtime version capability."""
 
     field_name: str
     capability: str
 
-    def is_used(self, agent_def: AgentYAML) -> bool:
+    def is_used(self, agent_def: AgentRequest) -> bool:
         return bool(getattr(agent_def, self.field_name))
 
 
@@ -52,35 +57,32 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
         )
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
-        agent_type = ResourceType(resource_folder=AgentIO.folder_name, kind=AgentIO.kind)
         for resource in self.resources:
-            if not resource.can_verify:
+            if not resource.has_valid_syntax or resource.type != AgentIO.as_resource_type():
                 # We do not do further validation if there are syntax errors.
                 continue
-            if resource.type == agent_type:
-                try:
-                    yield from self._validate_agent(resource)
-                except Exception as e:
-                    yield InternalValidatorException(
-                        message=f"Agent validation failed for agent definition {resource.build_path.name!r}: {e}",
-                        source=str(resource.identifier),
-                    )
+            try:
+                yield from self._validate_agent(resource)
+            except Exception as e:
+                yield InternalValidatorException(
+                    message=f"Agent validation failed for agent definition {quote_identifier(resource.identifier)}: {e}",
+                    source=str(resource.identifier),
+                )
 
     def _validate_agent(self, resource: ResourceRef) -> Iterable[Insight]:
         """Validate an agent definition against the CDF project's AI service availability.
 
         Args:
-            resource: The built agent resource to validate.
+            resource: The agent resource to validate.
 
         Yields:
             Errors for any violations found.
         """
-        raw_data = read_yaml_file(resource.build_path, expected_output="dict")
-        agent_def = AgentYAML.model_validate(raw_data)
-
         availability = self.service_availability
-        if availability is None:
+        if availability is None or not isinstance(resource.source, Path):
             return
+        source_file = resource.source
+        agent_def = resource.as_request(AgentIO(self._load_client()), is_dry_run=True).request
 
         supported_models = availability.supported_agent_models
         if agent_def.model is not None and supported_models is not None and agent_def.model not in supported_models:
@@ -93,7 +95,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                     ),
                     code="INVALID-VALUE",
                     fix="Use one of the available models for this CDF project.",
-                    source_file=resource.source_path,
+                    source_file=source_file,
                 ),
                 keys=["model"],
             )
@@ -113,7 +115,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                         ),
                         code="INVALID-VALUE",
                         fix="Use one of the available runtime versions for this CDF project.",
-                        source_file=resource.source_path,
+                        source_file=source_file,
                     ),
                     keys=["runtimeVersion"],
                 )
@@ -140,7 +142,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                                 f"Use a runtime version that supports '{requirement.field_name}', "
                                 f"or remove the '{requirement.field_name}' field."
                             ),
-                            source_file=resource.source_path,
+                            source_file=source_file,
                         ),
                         keys=[requirement.field_name],
                     )
@@ -155,7 +157,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                     ),
                     code="EXCEEDED-LIMIT",
                     fix=f"Reduce the number of tools to at most {max_tools}.",
-                    source_file=resource.source_path,
+                    source_file=source_file,
                 ),
                 keys=["tools"],
             )

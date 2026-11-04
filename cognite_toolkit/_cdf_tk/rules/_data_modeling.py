@@ -1,8 +1,8 @@
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
-from types import SimpleNamespace
-from typing import Any, ClassVar, Literal, TypeVar, cast
+from pathlib import Path
+from typing import Any, ClassVar, Literal, TypeVar
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, _resource_base
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -22,12 +22,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
     ViewResponseProperty,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource, contains_unresolved_variable
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import contains_unresolved_variable
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildError,
     BuildWarning,
     Insight,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import URL
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, ResourceIO, ViewIO
@@ -35,6 +36,7 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from ._base import (
     InternalValidatorException,
+    ResourceRef,
     RuleSetStatus,
     ToolkitGlobalRuleSet,
     quote_identifier,
@@ -43,8 +45,26 @@ from ._base import (
 
 _KeyT = TypeVar("_KeyT")
 _ReferenceStatus = Literal["ok", "not_direct", "missing"]
-_LocalContainer = tuple[BuiltResource, ContainerRequest]
-_LocalView = tuple[BuiltResource, ViewRequest]
+
+
+@dataclass(frozen=True)
+class _LocalRef:
+    """A local resource together with the source file it was read from."""
+
+    resource: ResourceRef
+    source_path: Path
+
+    @property
+    def identifier(self) -> _resource_base.Identifier:
+        return self.resource.identifier
+
+    @property
+    def variables(self) -> list[BuildVariable]:
+        return self.resource.variables
+
+
+_LocalContainer = tuple[_LocalRef, ContainerRequest]
+_LocalView = tuple[_LocalRef, ViewRequest]
 
 
 @dataclass(frozen=True)
@@ -53,7 +73,7 @@ class _ContainerPropertyReference:
 
     container_id: ContainerId
     property_identifier: str
-    resources: tuple[BuiltResource, ...]
+    resources: tuple[_LocalRef, ...]
 
     @property
     def label(self) -> str:
@@ -65,7 +85,7 @@ class _ReverseDirectRelationReference:
     """A reverse direct relation pointing at a property through a view or container."""
 
     through: ContainerDirectId | ViewDirectId
-    resources: tuple[BuiltResource, ...]
+    resources: tuple[_LocalRef, ...]
 
 
 @dataclass(frozen=True)
@@ -119,8 +139,8 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
 
     @classmethod
     def _find_references(cls, local_views: dict[ViewId, _LocalView]) -> _SchemaReferences:
-        container_properties: dict[tuple[ContainerId, str], list[BuiltResource]] = defaultdict(list)
-        reverse_relations: dict[ContainerDirectId | ViewDirectId, list[BuiltResource]] = defaultdict(list)
+        container_properties: dict[tuple[ContainerId, str], list[_LocalRef]] = defaultdict(list)
+        reverse_relations: dict[ContainerDirectId | ViewDirectId, list[_LocalRef]] = defaultdict(list)
         for resource, view in local_views.values():
             for prop in (view.properties or {}).values():
                 if isinstance(prop, ViewCorePropertyRequest):
@@ -379,26 +399,32 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         return None
 
     def _load_containers(self) -> dict[ContainerId, _LocalContainer]:
-        crud = ContainerIO(self._load_client())
         loaded: dict[ContainerId, _LocalContainer] = {}
-        for item_id, (resource, request) in self.resources.load_resource_of_type(crud).items():
+        for item_id, (local_ref, request) in self._load_local(ContainerIO(self._load_client())).items():
             if isinstance(item_id, ContainerId):
-                loaded[item_id] = (resource, request)
+                loaded[item_id] = (local_ref, request)
         return loaded
 
     def _load_views(self) -> dict[ViewId, _LocalView]:
-        crud = ViewIO(self._load_client())
         loaded: dict[ViewId, _LocalView] = {}
-        for item_id, (resource, request) in self.resources.load_resource_of_type(crud).items():
+        for item_id, (local_ref, request) in self._load_local(ViewIO(self._load_client())).items():
             if isinstance(item_id, ViewId):
-                loaded[item_id] = (resource, request)
+                loaded[item_id] = (local_ref, request)
         return loaded
 
-    def _load_client(self) -> ToolkitClient:
-        """Client used only to read built YAML. File loading does not call CDF."""
-        if self.client is not None:
-            return self.client
-        return cast(ToolkitClient, SimpleNamespace(console=None))
+    def _load_local(
+        self,
+        crud: ResourceIO[_resource_base.T_Identifier, _resource_base.T_RequestResource, Any, Any],
+    ) -> dict[_resource_base.T_Identifier, tuple[_LocalRef, _resource_base.T_RequestResource]]:
+        """Loads the local resources of the CRUD's type, the same way ``cdf deploy`` does."""
+        local_by_id: dict[_resource_base.T_Identifier, tuple[_LocalRef, _resource_base.T_RequestResource]] = {}
+        for resource, validatable in self.resources.get_refs_and_resource_of_type(crud):
+            if isinstance(resource.source, Path):
+                local_by_id[crud.get_id(validatable.request)] = (
+                    _LocalRef(resource, resource.source),
+                    validatable.request,
+                )
+        return local_by_id
 
     def _retrieve_containers(
         self, container_ids: set[ContainerId]
@@ -513,11 +539,11 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             )
 
     @staticmethod
-    def _referenced_by(resource: BuiltResource) -> str:
+    def _referenced_by(resource: _LocalRef) -> str:
         return quote_identifier(resource.identifier)
 
     @staticmethod
-    def _append(bucket: dict[_KeyT, list[BuiltResource]], key: _KeyT, resource: BuiltResource) -> None:
+    def _append(bucket: dict[_KeyT, list[_LocalRef]], key: _KeyT, resource: _LocalRef) -> None:
         resources = bucket[key]
         if resource not in resources:
             resources.append(resource)
@@ -541,7 +567,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     ) -> Iterable[Insight | InternalValidatorException]:
         """Compare one data-modeling resource type against CDF."""
         try:
-            local_by_id = self.resources.load_resource_of_type(crud)
+            local_by_id = self._load_local(crud)
             if not local_by_id:
                 return
             cdf_items = crud.retrieve(list(local_by_id.keys()))
@@ -561,7 +587,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     def _as_data_modeling_insights(
         self,
         item_id: _resource_base.Identifier,
-        resource: BuiltResource,
+        resource: _LocalRef,
         request: Any,
         cdf_item: Any,
     ) -> Iterable[Insight]:

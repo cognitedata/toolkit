@@ -8,6 +8,7 @@ import yaml
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import (
     FunctionLimits,
+    FunctionRequest,
     FunctionsActivation,
     ResourceLimit,
 )
@@ -71,6 +72,12 @@ class TestFunctionLimitsRule:
         self._write_function_yaml(yaml_file, {**BASE_FUNCTION, **(extra or {})})
         return self._create_built_resource(yaml_file, yaml_file)
 
+    @staticmethod
+    def _load_function(resource: BuiltResource) -> FunctionRequest:
+        """Load the function definition the same way the rule does, without a client."""
+        crud = FunctionIO(FunctionRuleSet(resources=[resource])._load_client())
+        return resource.as_request(crud, is_dry_run=True).request
+
     @pytest.mark.parametrize(
         "client_fixture, expected_code, expected_message_substring",
         [
@@ -124,7 +131,9 @@ class TestFunctionLimitsRule:
         """Test validation of function definitions against the project limits."""
         resource = self._create_function_resource(tmp_path, extra)
 
-        errors = list(FunctionRuleSet._validate_function(resource, function_limits))
+        errors = list(
+            FunctionRuleSet._validate_function(resource.source_path, self._load_function(resource), function_limits)
+        )
 
         assert [error.code for error in errors] == expected_codes
         assert all(isinstance(error, BuildError) for error in errors)
@@ -169,7 +178,9 @@ class TestFunctionLimitsRule:
         mock_validate_pip.return_value = pip_result
 
         resource = self._create_function_resource(tmp_path)
-        errors = list(FunctionRuleSet._validate_function(resource, function_limits))
+        errors = list(
+            FunctionRuleSet._validate_function(resource.source_path, self._load_function(resource), function_limits)
+        )
 
         assert [error.code for error in errors] == expected_codes
         if requirements_txt is None:
