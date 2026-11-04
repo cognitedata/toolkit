@@ -1391,7 +1391,7 @@ class BuildV2Command(ToolkitCommand):
                         raw=crud_result.raw,
                         identifier=crud_result.identifier,
                         resource_type=crud_result.type_,
-                        validated=toolkit_resource,
+                        validated=crud_result.validated,
                         extra_files=extra_files,
                     )
                 )
