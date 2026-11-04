@@ -1,12 +1,14 @@
 import re
 from abc import ABC, abstractmethod
+from collections import UserList
 from collections.abc import Iterable, Sequence
-from typing import ClassVar, Literal
+from pathlib import Path
+from typing import Any, ClassVar, Literal, Protocol, Generic
 
 from pydantic import BaseModel
-
+from dataclasses import dataclass
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_Identifier, T_RequestResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     UNRESOLVED_VARIABLE_PATTERN,
     BuiltResource,
@@ -18,6 +20,8 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     T_Insight,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
+from cognite_toolkit._cdf_tk.resource_ios import ResourceIO, ResourceType
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import T_YamlResource
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.file import yaml_find_unique_position
 
@@ -92,6 +96,39 @@ class RuleSetStatus(BaseModel):
     message: str | None = None
 
 
+@dataclass
+class ValidatableResource(Generic[T_RequestResource]):
+    identifier: Identifier
+    type: ResourceType
+    source: Path | Literal["cdf"]
+    request: T_RequestResource
+
+
+class ResourceRef(Protocol):
+    identifier: Identifier
+    type: ResourceType
+    source: Path | Literal["cdf"]
+    has_valid_syntax: bool
+
+    def as_request(self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any]) -> ValidatableResource[T_RequestResource]:
+        raise NotImplementedError()
+
+
+class ResourceRefList(UserList[ResourceRef]):
+    def get_resource_of_type(
+        self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any]
+    ) -> dict[T_Identifier, ValidatableResource[T_RequestResource]]:
+        """Get the resources of the type handled by the given CRUD."""
+        resource_type = crud.as_resource_type()
+        local_by_id: dict[T_Identifier, ValidatableResource[T_RequestResource]] = {}
+        for resource in self.data:
+            if resource.type != resource_type or not resource.has_valid_syntax:
+                continue
+            request = resource.as_request(crud)
+            local_by_id[request.identifier] = request
+        return local_by_id
+
+
 class ToolkitGlobalRuleSet(ABC):
     """Validation of all modules as a whole.
 
@@ -105,8 +142,8 @@ class ToolkitGlobalRuleSet(ABC):
     CODE_PREFIX: ClassVar[str]
     DISPLAY_NAME: ClassVar[str]
 
-    def __init__(self, resources: Sequence[BuiltResource], client: ToolkitClient | None = None) -> None:
-        self.resources = BuiltResourceList(resources)
+    def __init__(self, resources: Sequence[ResourceRef], client: ToolkitClient | None = None) -> None:
+        self.resources = ResourceRefList(resources)
         self.client = client
 
     @abstractmethod

@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     InternalValidatorException,
 )
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO, ResourceType
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet, with_position
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet, with_position, ResourceRef
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.yaml_classes.agent import AgentYAML
@@ -67,7 +67,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                         source=str(resource.identifier),
                     )
 
-    def _validate_agent(self, resource: BuiltResource) -> Iterable[Insight]:
+    def _validate_agent(self, resource: ResourceRef) -> Iterable[Insight]:
         """Validate an agent definition against the CDF project's AI service availability.
 
         Args:
