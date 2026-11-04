@@ -1,9 +1,14 @@
 from pathlib import Path
+
+import pytest
+
 from cognite_toolkit._cdf_tk.commands._changes import RemoveOutdatedAlphaFlags
 
+
 class TestRemoveOutdatedFlags:
-     def test_remove_outdated_flags(self, tmp_path: Path):
-         cdf_toml = """[cdf]
+    def test_remove_outdated_flags(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.chdir(tmp_path)
+        cdf_toml = """[cdf]
 default_organization_dir = "cognite_toolkit"
 
 [alpha_flags]
@@ -20,13 +25,14 @@ data = true
 version = "0.0.0"
 """
 
-         cdf_toml_path = tmp_path / "cdf.toml"
-         cdf_toml_path.write_text(cdf_toml, encoding="utf-8")
-         changed = RemoveOutdatedAlphaFlags(tmp_path, None).do()
-         assert changed == {cdf_toml_path}
+        cdf_toml_path = tmp_path / "cdf.toml"
+        cdf_toml_path.write_text(cdf_toml, encoding="utf-8")
+        changed = RemoveOutdatedAlphaFlags(tmp_path, None).do()
+        assert changed == {cdf_toml_path}
 
-
-         assert cdf_toml_path.read_text() == """[cdf]
+        assert (
+            cdf_toml_path.read_text()
+            == """[cdf]
 default_organization_dir = "cognite_toolkit"
 
 [alpha_flags]
@@ -40,3 +46,4 @@ data = true
 # It will be updated by the 'cdf modules upgrade' command.
 version = "0.0.0"
 """
+        )
