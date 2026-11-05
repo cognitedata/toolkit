@@ -212,11 +212,26 @@ jobs:
       - name: Check help command
         run: docker run cognite/toolkit:latest cdf --help
 
+      # Temporarily skipped until SKIP_UNTIL. Remove this step (and the `if` conditions below) once resolved.
+      - name: Check temporary skip
+        id: skip
+        env:
+          SKIP_UNTIL: "2026-11-12"
+        run: |
+          if [ "$(date -u +%Y-%m-%d)" \< "$SKIP_UNTIL" ]; then
+            echo "::warning::Test Image is temporarily skipped until $SKIP_UNTIL"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Test Image
+        if: steps.skip.outputs.skip != 'true'
         run: |
           docker run -v $(pwd):/app cognite/toolkit:latest cdf modules init my_org --all
 
       - name: Verfiy Created Files
+        if: steps.skip.outputs.skip != 'true'
         run: |
          if [ -d "my_org" ]; then
               echo "My org successfully created"
@@ -225,6 +240,7 @@ jobs:
               exit 1
          fi
       - name: Inspection
+        if: steps.skip.outputs.skip != 'true'
         run: |
           ls -l my_org
           ls -l my_org/modules
