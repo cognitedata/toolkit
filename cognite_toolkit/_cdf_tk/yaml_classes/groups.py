@@ -77,13 +77,15 @@ class BaseGroupYAML(ToolkitResource):
         grouped: dict[str, list[_AclEntry]] = defaultdict(list)
         encoder: dict[str, int] = {}
         for position, capability in enumerate(self.capabilities or []):
+            # Unknown ACLs are preserved as-is. Their actions are not modeled, so they are not
+            # compared and they do not count as covering another ACL.
+            if isinstance(capability, UnknownCapability):
+                continue
             actions = _capability_actions(capability)
             client_scope = _to_client_scope(capability.scope, encoder)
             if not actions or client_scope is None:
                 continue
-            label = (
-                capability.original_name if isinstance(capability, UnknownCapability) else capability.capability_name
-            )
+            label = capability.capability_name
             grouped[label].append(
                 _AclEntry(
                     position=position,
@@ -191,9 +193,6 @@ class _AclEntry:
 
 def _capability_actions(capability: CapabilityType) -> list[str]:
     raw_actions = getattr(capability, "actions", None)
-    # Unknown capabilities keep the original YAML in raw_data and store an empty actions list.
-    if isinstance(capability, UnknownCapability) and not raw_actions:
-        raw_actions = _unknown_capability_actions(capability)
     if not isinstance(raw_actions, list):
         return []
     seen: set[str] = set()
@@ -203,19 +202,6 @@ def _capability_actions(capability: CapabilityType) -> list[str]:
             seen.add(action)
             actions.append(action)
     return actions
-
-
-def _unknown_capability_actions(capability: UnknownCapability) -> list[str]:
-    raw = capability.raw_data
-    if not isinstance(raw, dict) or len(raw) != 1:
-        return []
-    body = next(iter(raw.values()))
-    if not isinstance(body, dict):
-        return []
-    actions = body.get("actions")
-    if not isinstance(actions, list):
-        return []
-    return [action for action in actions if isinstance(action, str)]
 
 
 @lru_cache(maxsize=1)

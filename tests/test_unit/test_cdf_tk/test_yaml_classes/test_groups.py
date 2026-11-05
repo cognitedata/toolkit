@@ -150,7 +150,7 @@ class TestGroupRedundantCapabilities:
         assert _insight_view(insights) == [
             (
                 Recommendation,
-                "REDUNDANT-CAPABILITY",
+                "REDUNDANT-PROPERTY",
                 True,
                 "Group 'readers' has a dataModelInstancesAcl with READ and WRITE, "
                 "scoped to spaceIdScope (spaceIds: my-space), that is already covered by the group's other "
@@ -175,7 +175,7 @@ class TestGroupRedundantCapabilities:
         assert _insight_view(insights) == [
             (
                 Recommendation,
-                "REDUNDANT-CAPABILITY",
+                "REDUNDANT-PROPERTY",
                 True,
                 "Group 'readers' has a dataModelInstancesAcl whose READ action, "
                 "scoped to spaceIdScope (spaceIds: my-space), is already covered by the group's other "
@@ -211,7 +211,7 @@ class TestGroupRedundantCapabilities:
         assert _insight_view(insights) == [
             (
                 Recommendation,
-                "REDUNDANT-CAPABILITY",
+                "REDUNDANT-PROPERTY",
                 True,
                 "Group 'readers' has an assetsAcl with READ, scoped to all, "
                 "that is already covered by the group's other assetsAcl entries.",
@@ -219,7 +219,7 @@ class TestGroupRedundantCapabilities:
             ),
             (
                 Recommendation,
-                "REDUNDANT-CAPABILITY",
+                "REDUNDANT-PROPERTY",
                 True,
                 "Group 'readers' has an assetsAcl with READ, scoped to all, "
                 "that is already covered by the group's other assetsAcl entries.",
@@ -238,7 +238,7 @@ class TestGroupRedundantCapabilities:
         assert _insight_view(insights) == [
             (
                 Recommendation,
-                "REDUNDANT-CAPABILITY",
+                "REDUNDANT-PROPERTY",
                 True,
                 "Group 'readers' has an assetsAcl with READ, scoped to datasetScope (ids: ds_files), "
                 "that is already covered by the group's other assetsAcl entries.",
@@ -263,7 +263,7 @@ class TestGroupRedundantCapabilities:
         assert _insight_view(insights) == [
             (
                 Recommendation,
-                "REDUNDANT-CAPABILITY",
+                "REDUNDANT-PROPERTY",
                 True,
                 "Group 'readers' has an assetsAcl with READ, scoped to datasetScope (ids: ds_files, ds_events), "
                 "that is already covered by the group's other assetsAcl entries.",
@@ -292,7 +292,7 @@ class TestGroupRedundantCapabilities:
         assert _insight_view(insights) == [
             (
                 Recommendation,
-                "REDUNDANT-CAPABILITY",
+                "REDUNDANT-PROPERTY",
                 True,
                 "Group 'readers' has a rawAcl with READ, scoped to tableScope (dbsToTables: my_db: table_a), "
                 "that is already covered by the group's other rawAcl entries.",
@@ -310,18 +310,33 @@ class TestGroupRedundantCapabilities:
 
         assert insights == []
 
-    def test_unknown_capability_warning_is_unchanged(self) -> None:
+    def test_unknown_capabilities_are_skipped(self) -> None:
         insights = _group_insights(
             [
-                {"notARealAcl": {"actions": ["READ"], "scope": {"all": {}}}},
-                {"notARealAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+                {"notARealAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+                {
+                    "dataModelInstancesAcl": {
+                        "actions": ["READ", "WRITE"],
+                        "scope": {"spaceIdScope": {"spaceIds": ["my-space"]}},
+                    }
+                },
+                {"labelsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+                {"labelsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
             ]
         )
 
-        assert [(type(insight), insight.code, insight.alpha) for insight in insights] == [
-            (BuildWarning, "UNRECOGNIZED-VALUE", False),
-            (BuildWarning, "UNRECOGNIZED-VALUE", False),
-            (Recommendation, "REDUNDANT-CAPABILITY", True),
+        assert [(type(insight), insight.code, insight.message) for insight in insights] == [
+            (
+                BuildWarning,
+                "UNRECOGNIZED-VALUE",
+                "'notARealAcl' is not a known capability name. It will be deployed as-is, but may be rejected by CDF.",
+            ),
+            (
+                Recommendation,
+                "REDUNDANT-PROPERTY",
+                "Group 'readers' has a labelsAcl with READ, scoped to all, "
+                "that is already covered by the group's other labelsAcl entries.",
+            ),
         ]
 
     def test_reported_when_alpha_rules_enabled(self, monkeypatch: MonkeyPatch) -> None:
