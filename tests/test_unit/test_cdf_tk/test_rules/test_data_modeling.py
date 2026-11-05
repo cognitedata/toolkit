@@ -245,9 +245,17 @@ class TestDataModelingRuleSetStatus:
         status = DataModelingRuleSet(resources=[]).get_status()
         assert (status.code, "within the provided modules" in (status.message or "")) == ("reduced", True)
 
-    def test_get_status_ready_with_client(self) -> None:
-        status = DataModelingRuleSet(resources=[], client=MagicMock()).get_status()
-        assert (status.code, "state changes" in (status.message or "")) == ("ready", True)
+    @pytest.mark.parametrize(
+        "with_results, fragment",
+        [
+            pytest.param(False, "Project capacity is not checked", id="without-results"),
+            pytest.param(True, "and project capacity against CDF", id="with-results"),
+        ],
+    )
+    def test_get_status_ready_with_client(self, with_results: bool, fragment: str) -> None:
+        results = [_deployment("spaces")] if with_results else None
+        status = DataModelingRuleSet(resources=[], results=results, client=MagicMock()).get_status()
+        assert (status.code, fragment in (status.message or "")) == ("ready", True)
 
 
 class TestContainerPropertyReferences:
@@ -1144,13 +1152,14 @@ class TestDataModelingLimits:
             limits=_limit_responses(**{f"max_{field_name}": 2}),
             statistics=_project_statistics(**{field_name: 2}),
         )
+        results = [_deployment(resource_name, created=[identifier])]
         rule = DataModelingRuleSet(
-            resources=_resources([(yaml_file, crud, identifier)]),
-            results=[_deployment(resource_name, created=[identifier])],
-            client=client,
+            resources=_resources([(yaml_file, crud, identifier)]), results=results, client=client
         )
 
-        insights = [item for item in rule._check_data_modeling_limits(client) if isinstance(item, InsightDefinition)]
+        insights = [
+            item for item in rule._check_data_modeling_capacity(client, results) if isinstance(item, InsightDefinition)
+        ]
         assert (
             [insight.code for insight in insights],
             f"increasing the total number of {resource_name} from 2 to 3" in insights[0].message,
@@ -1184,13 +1193,12 @@ class TestDataModelingLimits:
         space_id = SpaceId(space="my_space")
         yaml_file = _write(tmp_path, "my_space.Space.yaml", "space: my_space\n")
         client = _client(limits=_limit_responses(max_spaces=2), statistics=_project_statistics(spaces=current))
+        results = [_deployment("spaces", created=[space_id], deleted=deleted)]
         rule = DataModelingRuleSet(
-            resources=_resources([(yaml_file, SpaceIO, space_id)]),
-            results=[_deployment("spaces", created=[space_id], deleted=deleted)],
-            client=client,
+            resources=_resources([(yaml_file, SpaceIO, space_id)]), results=results, client=client
         )
 
-        assert list(rule._check_data_modeling_limits(client)) == []
+        assert list(rule._check_data_modeling_capacity(client, results)) == []
 
     def test_recreated_resources_do_not_consume_new_capacity(self, tmp_path: Path) -> None:
         kept = SpaceId(space="space_a")
@@ -1198,13 +1206,16 @@ class TestDataModelingLimits:
         kept_file = _write(tmp_path, "space_a.Space.yaml", "space: space_a\n")
         added_file = _write(tmp_path, "space_b.Space.yaml", "space: space_b\n")
         client = _client(limits=_limit_responses(max_spaces=2), statistics=_project_statistics(spaces=2))
+        results = [_deployment("spaces", created=[kept, added], deleted=[kept])]
         rule = DataModelingRuleSet(
             resources=_resources([(kept_file, SpaceIO, kept), (added_file, SpaceIO, added)]),
-            results=[_deployment("spaces", created=[kept, added], deleted=[kept])],
+            results=results,
             client=client,
         )
 
-        insights = [item for item in rule._check_data_modeling_limits(client) if isinstance(item, BuildError)]
+        insights = [
+            item for item in rule._check_data_modeling_capacity(client, results) if isinstance(item, BuildError)
+        ]
         assert [
             (insight.code, insight.source_file, "create 2 spaces and delete 1 space" in insight.message)
             for insight in insights
@@ -1213,13 +1224,12 @@ class TestDataModelingLimits:
     def test_instances_past_the_project_limit(self, tmp_path: Path) -> None:
         yaml_file = _write(tmp_path, "my_node.Node.yaml", NODE_YAML)
         client = _client(limits=_limit_responses(max_instances=5), statistics=_project_statistics(instances=5))
-        rule = DataModelingRuleSet(
-            resources=_resources([(yaml_file, NodeIO, NODE_ID)]),
-            results=[_deployment("nodes", created=[NODE_ID])],
-            client=client,
-        )
+        results = [_deployment("nodes", created=[NODE_ID])]
+        rule = DataModelingRuleSet(resources=_resources([(yaml_file, NodeIO, NODE_ID)]), results=results, client=client)
 
-        insights = [item for item in rule._check_data_modeling_limits(client) if isinstance(item, BuildError)]
+        insights = [
+            item for item in rule._check_data_modeling_capacity(client, results) if isinstance(item, BuildError)
+        ]
         assert (
             [insight.code for insight in insights],
             "increasing the total number of instances from 5 to 6" in insights[0].message,
@@ -1231,13 +1241,12 @@ class TestDataModelingLimits:
             limits=_limit_responses(max_deleted_instances=5),
             statistics=_project_statistics(instances=10, soft_deleted_instances=5),
         )
-        rule = DataModelingRuleSet(
-            resources=_resources([(yaml_file, NodeIO, NODE_ID)]),
-            results=[_deployment("nodes", deleted=[NODE_ID])],
-            client=client,
-        )
+        results = [_deployment("nodes", deleted=[NODE_ID])]
+        rule = DataModelingRuleSet(resources=_resources([(yaml_file, NodeIO, NODE_ID)]), results=results, client=client)
 
-        insights = [item for item in rule._check_data_modeling_limits(client) if isinstance(item, BuildError)]
+        insights = [
+            item for item in rule._check_data_modeling_capacity(client, results) if isinstance(item, BuildError)
+        ]
         assert (
             [insight.code for insight in insights],
             "increasing the number of soft-deleted instances from 5 to 6" in insights[0].message,
@@ -1380,13 +1389,10 @@ class TestDataModelingLimits:
     def test_limits_api_failure_is_reported(self) -> None:
         client = _client()
         client.limits.list.side_effect = ToolkitAPIError("limits unavailable")
-        rule = DataModelingRuleSet(
-            resources=[],
-            results=[_deployment("spaces", created=[SpaceId(space="my_space")])],
-            client=client,
-        )
+        results = [_deployment("spaces", created=[SpaceId(space="my_space")])]
+        rule = DataModelingRuleSet(resources=[], results=results, client=client)
 
-        items = list(rule._check_data_modeling_limits(client))
+        items = list(rule._check_data_modeling_capacity(client, results))
         assert (
             len(items) == 1
             and isinstance(items[0], InternalValidatorException)
@@ -1398,13 +1404,14 @@ class TestDataModelingLimits:
         yaml_file = _write(tmp_path, "my_space.Space.yaml", "space: my_space\n")
         client = _client()
         client.statistics.retrieve.side_effect = ToolkitAPIError("statistics unavailable")
+        results = [_deployment("spaces", created=[SpaceId(space="my_space")])]
         rule = DataModelingRuleSet(
             resources=_resources([(yaml_file, SpaceIO, SpaceId(space="my_space"))]),
-            results=[_deployment("spaces", created=[SpaceId(space="my_space")])],
+            results=results,
             client=client,
         )
 
-        items = list(rule._check_data_modeling_limits(client))
+        items = list(rule._check_data_modeling_capacity(client, results))
         assert (
             [type(item) for item in items],
             "statistics unavailable" in items[0].message,
@@ -1412,13 +1419,10 @@ class TestDataModelingLimits:
 
     def test_unparseable_limits_are_reported(self) -> None:
         client = _client(limits=[LimitValueResponse(limit_id="data_modeling.max_spaces", value=1)])
-        rule = DataModelingRuleSet(
-            resources=[],
-            results=[_deployment("spaces", created=[SpaceId(space="my_space")])],
-            client=client,
-        )
+        results = [_deployment("spaces", created=[SpaceId(space="my_space")])]
+        rule = DataModelingRuleSet(resources=[], results=results, client=client)
 
-        items = list(rule._check_data_modeling_limits(client))
+        items = list(rule._check_data_modeling_capacity(client, results))
         assert (
             [type(item) for item in items],
             client.statistics.retrieve.called,

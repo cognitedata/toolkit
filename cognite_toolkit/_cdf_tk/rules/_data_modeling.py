@@ -169,6 +169,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     ) -> None:
         super().__init__(resources, results, client)
         self._local_by_io: dict[type[Any], dict[Any, tuple[_LocalRef, Any]]] = {}
+        self._limits: DataModelingLimits | None = None
 
     def get_status(self) -> RuleSetStatus:
         if self.client is None:
@@ -179,12 +180,19 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     "within the provided modules, but not validate against CDF."
                 ),
             )
+        if not self.results:
+            return RuleSetStatus(
+                code="ready",
+                message=(
+                    "Will validate data modeling references, state changes, and property limits against CDF. "
+                    "Project capacity is not checked, since no deployment results are available."
+                ),
+            )
         return RuleSetStatus(
             code="ready",
             message=(
-                "Will validate data modeling references and state changes against CDF. "
-                "Property limits are checked from the local configuration. "
-                "Project capacity is checked when deployment results are available."
+                "Will validate data modeling references, state changes, property limits, "
+                "and project capacity against CDF."
             ),
         )
 
@@ -194,6 +202,8 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             return
         yield from self._validate_data_modeling_changes(self.client)
         yield from self._check_data_modeling_limits(self.client)
+        if self.results:
+            yield from self._check_data_modeling_capacity(self.client, self.results)
 
     def _check_schema_references(self) -> Iterable[Insight | InternalValidatorException]:
         try:
@@ -939,12 +949,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             )
 
     def _check_data_modeling_limits(self, client: ToolkitClient) -> Iterable[Insight | InternalValidatorException]:
-        """Checks data modeling limits.
-
-        Property limits are checked from the local configuration. Project capacity (how many spaces, views,
-        instances, and so on would exist after deploy) is only checked when deployment results are available,
-        since they are the only way to know what would be created.
-        """
+        """Checks property and per-resource data modeling limits from the local configuration."""
         try:
             containers = self._load_containers()
             views = self._load_views()
@@ -955,25 +960,27 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                 source="DataModeling",
             )
             return
-        if not (containers or views or data_models or self.results):
+        if not (containers or views or data_models):
             return
-        try:
-            limits = DataModelingLimits.from_responses(
-                client.limits.list(limit=None, prefix=_DATA_MODELING_LIMIT_PREFIX)
-            )
-        except ToolkitAPIError as error:
-            yield InternalValidatorException(
-                message=f"Failed to retrieve data modeling limits: {error}", source="DataModeling"
-            )
+        limits, limits_error = self._retrieve_limits(client)
+        if limits is None:
+            if limits_error is not None:
+                yield limits_error
             return
-        except ValidationError as error:
-            yield InternalValidatorException(
-                message=f"Failed to parse data modeling limits: {error}", source="DataModeling"
-            )
-            return
-
         yield from self._check_local_limits(limits, containers, views, data_models)
-        if not self.results:
+
+    def _check_data_modeling_capacity(
+        self, client: ToolkitClient, results: Sequence[DeploymentResult]
+    ) -> Iterable[Insight | InternalValidatorException]:
+        """Checks that the project capacity (how many spaces, views, instances, and so on would exist
+        after deploy) stays within the data modeling limits.
+
+        Deployment results are the only way to know what would be created and deleted.
+        """
+        limits, limits_error = self._retrieve_limits(client)
+        if limits is None:
+            if limits_error is not None:
+                yield limits_error
             return
         try:
             statistics = client.statistics.retrieve()
@@ -982,7 +989,26 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                 message=f"Failed to retrieve data modeling statistics: {error}", source="DataModeling"
             )
             return
-        yield from self._check_project_capacity(limits, statistics)
+        yield from self._check_project_capacity(limits, statistics, results)
+
+    def _retrieve_limits(
+        self, client: ToolkitClient
+    ) -> tuple[DataModelingLimits | None, InternalValidatorException | None]:
+        if self._limits is not None:
+            return self._limits, None
+        try:
+            self._limits = DataModelingLimits.from_responses(
+                client.limits.list(limit=None, prefix=_DATA_MODELING_LIMIT_PREFIX)
+            )
+        except ToolkitAPIError as error:
+            return None, InternalValidatorException(
+                message=f"Failed to retrieve data modeling limits: {error}", source="DataModeling"
+            )
+        except ValidationError as error:
+            return None, InternalValidatorException(
+                message=f"Failed to parse data modeling limits: {error}", source="DataModeling"
+            )
+        return self._limits, None
 
     def _check_local_limits(
         self,
@@ -1035,27 +1061,39 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         )
 
     def _check_project_capacity(
-        self, limits: DataModelingLimits, statistics: ProjectStatisticsResponse
+        self,
+        limits: DataModelingLimits,
+        statistics: ProjectStatisticsResponse,
+        results: Sequence[DeploymentResult],
     ) -> Iterable[Insight | InternalValidatorException]:
-        yield from self._check_capacity("spaces", statistics.spaces.count, limits.max_spaces)
-        yield from self._check_capacity("containers", statistics.containers.count, limits.max_containers)
-        yield from self._check_capacity("views", statistics.views.count, limits.max_views)
-        yield from self._check_capacity("data models", statistics.data_models.count, limits.max_data_models)
+        yield from self._check_capacity(results, "spaces", statistics.spaces.count, limits.max_spaces)
+        yield from self._check_capacity(results, "containers", statistics.containers.count, limits.max_containers)
+        yield from self._check_capacity(results, "views", statistics.views.count, limits.max_views)
+        yield from self._check_capacity(results, "data models", statistics.data_models.count, limits.max_data_models)
         yield from self._check_capacity(
-            "instances", statistics.instances.instances, limits.max_instances, resource_names=("nodes", "edges")
+            results,
+            "instances",
+            statistics.instances.instances,
+            limits.max_instances,
+            resource_names=("nodes", "edges"),
         )
         yield from self._check_soft_deleted_capacity(
-            statistics.instances.soft_deleted_instances, limits.max_deleted_instances
+            results, statistics.instances.soft_deleted_instances, limits.max_deleted_instances
         )
 
     def _check_capacity(
-        self, noun: str, current: int, limit: int, resource_names: Sequence[str] | None = None
+        self,
+        results: Sequence[DeploymentResult],
+        noun: str,
+        current: int,
+        limit: int,
+        resource_names: Sequence[str] | None = None,
     ) -> Iterable[Insight | InternalValidatorException]:
         """Checks that deploying keeps the project total of ``noun`` within its limit.
 
         ``resource_names`` are the deployment results that count toward the total. Defaults to ``noun`` itself.
         """
-        created, deleted = self._deployed_ids(resource_names or (noun,))
+        created, deleted = self._deployed_ids(results, resource_names or (noun,))
         created_ids = list(chain.from_iterable(created.values()))
         deleted_ids = list(chain.from_iterable(deleted.values()))
         projected = current + len(created_ids) - len(deleted_ids)
@@ -1078,8 +1116,10 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             ),
         )
 
-    def _check_soft_deleted_capacity(self, current: int, limit: int) -> Iterable[Insight | InternalValidatorException]:
-        _, deleted = self._deployed_ids(("nodes", "edges"))
+    def _check_soft_deleted_capacity(
+        self, results: Sequence[DeploymentResult], current: int, limit: int
+    ) -> Iterable[Insight | InternalValidatorException]:
+        _, deleted = self._deployed_ids(results, ("nodes", "edges"))
         deleted_ids = list(chain.from_iterable(deleted.values()))
         projected = current + len(deleted_ids)
         if not deleted_ids or projected <= limit:
@@ -1096,11 +1136,14 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             ),
         )
 
-    def _deployed_ids(self, resource_names: Sequence[str]) -> tuple[_IdsByResource, _IdsByResource]:
+    @staticmethod
+    def _deployed_ids(
+        results: Sequence[DeploymentResult], resource_names: Sequence[str]
+    ) -> tuple[_IdsByResource, _IdsByResource]:
         """The IDs that deploying would create and delete, by resource name."""
         created: _IdsByResource = {name: [] for name in resource_names}
         deleted: _IdsByResource = {name: [] for name in resource_names}
-        for result in self.results or []:
+        for result in results:
             if result.resource_name in created:
                 created[result.resource_name].extend(result.created_ids)
                 deleted[result.resource_name].extend(result.deleted_ids)
