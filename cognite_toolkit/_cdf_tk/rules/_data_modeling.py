@@ -1,8 +1,10 @@
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar, Literal, TypeVar
+from typing import Any, ClassVar, Literal, Self, TypeVar
+
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, _resource_base
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -22,6 +24,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
     ViewResponseProperty,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.limits import LimitValueResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.statistics import ProjectStatisticsResponse
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import contains_unresolved_variable
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildError,
@@ -31,7 +35,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import URL
-from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, ResourceIO, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, EdgeIO, NodeIO, ResourceIO, SpaceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from ._base import (
@@ -39,12 +43,14 @@ from ._base import (
     ResourceRef,
     RuleSetStatus,
     ToolkitGlobalRuleSet,
+    identifier_values,
     quote_identifier,
     with_position,
 )
 
 _KeyT = TypeVar("_KeyT")
 _ReferenceStatus = Literal["ok", "not_direct", "missing"]
+_DATA_MODELING_LIMIT_PREFIX = "data_modeling."
 
 
 @dataclass(frozen=True)
@@ -94,12 +100,62 @@ class _SchemaReferences:
     reverse_direct_relations: tuple[_ReverseDirectRelationReference, ...]
 
 
+class DataModelingLimits(BaseModel):
+    """Project limits for data modeling, parsed from the limits API.
+
+    The API returns one ``{limit_id, value}`` item per limit. This collects every ``data_modeling.*``
+    limit into one object so the checks below can read them by name.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    max_container_properties: int
+    max_containers: int
+    max_data_models: int
+    max_deleted_instances: int
+    max_instances: int
+    max_records_container_properties: int
+    max_records_view_properties: int
+    max_spaces: int
+    max_total_container_properties: int
+    max_view_properties: int
+    max_views: int
+    max_views_per_data_model: int
+
+    @classmethod
+    def from_responses(cls, limits: Sequence[LimitValueResponse]) -> Self:
+        values: dict[str, int] = {}
+        for item in limits:
+            if not item.limit_id.startswith(_DATA_MODELING_LIMIT_PREFIX):
+                continue
+            if isinstance(item.value, float) and not item.value.is_integer():
+                raise ValueError(f"Data modeling limit {item.limit_id!r} must be a whole number, got {item.value}.")
+            values[item.limit_id.removeprefix(_DATA_MODELING_LIMIT_PREFIX)] = int(item.value)
+        return cls.model_validate(values)
+
+
+def _count_phrase(count: int, singular: str, plural: str) -> str:
+    return f"{count} {singular if count == 1 else plural}"
+
+
+def _joined_counts(parts: Sequence[tuple[int, str, str]]) -> str:
+    phrases = [_count_phrase(count, singular, plural) for count, singular, plural in parts if count]
+    return humanize_collection(phrases, sort=False)
+
+
+def _excluding(
+    ids: Sequence[_resource_base.Identifier], removed: Sequence[_resource_base.Identifier]
+) -> list[_resource_base.Identifier]:
+    removed_ids = set(removed)
+    return [item_id for item_id in ids if item_id not in removed_ids]
+
+
 class DataModelingRuleSet(ToolkitGlobalRuleSet):
-    """Validates view-to-container mappings, reverse direct relations, and data modeling state changes.
+    """Validates view-to-container mappings, reverse direct relations, state changes, and project limits.
 
     Container properties referenced by views, and the direct relations behind reverse relations, are
     resolved against local modules first. Anything still missing is checked in CDF when a client is
-    available.
+    available. Limits are checked when deployment results say what would be created.
     """
 
     CODE_PREFIX = "DATA-MODELING"
@@ -116,17 +172,18 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             )
         return RuleSetStatus(
             code="ready",
-            message="Will validate data modeling references and state changes against CDF.",
+            message=(
+                "Will validate data modeling references and state changes against CDF. "
+                "Limits are checked when deployment results are available."
+            ),
         )
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
         yield from self._check_schema_references()
-        if self.client is not None:
-            yield from self._validate_data_modeling_changes(self.client)
-            limits = self.client.limits.list(limit=None, prefix="data_modeling.")
-
-            yield from self._check_data_modeling_limits(limits)
-
+        if self.client is None:
+            return
+        yield from self._validate_data_modeling_changes(self.client)
+        yield from self._check_data_modeling_limits(self.client)
 
     def _check_schema_references(self) -> Iterable[Insight | InternalValidatorException]:
         try:
@@ -869,3 +926,476 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                 ),
                 keys=["views"],
             )
+
+    def _check_data_modeling_limits(self, client: ToolkitClient) -> Iterable[Insight | InternalValidatorException]:
+        """Check data modeling limits against what this deployment would create.
+
+        Without deployment results there is no way to know which resources are new, so there is nothing to check.
+        Limits are parsed before any check runs. Project-wide limits (spaces, views, and the other resource counts)
+        combine those results with the number currently deployed, from the statistics endpoint.
+        """
+        if self.results is None or len(self.results) == 0:
+            return
+        try:
+            raw_limits = client.limits.list(limit=None, prefix=_DATA_MODELING_LIMIT_PREFIX)
+        except ToolkitAPIError as error:
+            yield InternalValidatorException(
+                message=f"Failed to retrieve data modeling limits: {error}",
+                source="DataModeling",
+            )
+            return
+        try:
+            limits = DataModelingLimits.from_responses(raw_limits)
+        except (ValidationError, ValueError, TypeError, AttributeError) as error:
+            yield InternalValidatorException(
+                message=f"Failed to parse data modeling limits: {error}",
+                source="DataModeling",
+            )
+            return
+
+        statistics, stats_error = self._retrieve_project_statistics(client)
+        yield from self._check_container_property_limits(limits)
+        yield from self._check_view_property_limits(limits)
+        yield from self._check_views_per_data_model(limits)
+        if statistics is None:
+            if stats_error is not None:
+                yield stats_error
+            return
+        yield from self._check_project_capacity(limits, statistics)
+
+    def _retrieve_project_statistics(
+        self, client: ToolkitClient
+    ) -> tuple[ProjectStatisticsResponse | None, InternalValidatorException | None]:
+        try:
+            return client.statistics.retrieve(), None
+        except ToolkitAPIError as error:
+            return None, InternalValidatorException(
+                message=f"Failed to retrieve data modeling statistics: {error}",
+                source="DataModeling",
+            )
+
+    def _check_project_capacity(
+        self, limits: DataModelingLimits, statistics: ProjectStatisticsResponse
+    ) -> Iterable[Insight | InternalValidatorException]:
+        yield from self._check_resource_count(
+            resource_name="spaces",
+            singular="space",
+            plural="spaces",
+            current=statistics.spaces.count,
+            limit=limits.max_spaces,
+        )
+        yield from self._check_resource_count(
+            resource_name="containers",
+            singular="container",
+            plural="containers",
+            current=statistics.containers.count,
+            limit=limits.max_containers,
+        )
+        yield from self._check_resource_count(
+            resource_name="views",
+            singular="view",
+            plural="views",
+            current=statistics.views.count,
+            limit=limits.max_views,
+        )
+        yield from self._check_resource_count(
+            resource_name="data models",
+            singular="data model",
+            plural="data models",
+            current=statistics.data_models.count,
+            limit=limits.max_data_models,
+        )
+        yield from self._check_instance_counts(limits, statistics)
+        yield from self._check_total_container_properties(limits, statistics)
+
+    def _check_resource_count(
+        self, resource_name: str, singular: str, plural: str, current: int, limit: int
+    ) -> Iterable[Insight | InternalValidatorException]:
+        created, deleted, _ = self._result_ids(resource_name)
+        delta = len(created) - len(deleted)
+        projected = current + delta
+        if delta <= 0 or projected <= limit:
+            return
+        refs, error = self._refs_for_ids(resource_name, _excluding(created, deleted))
+        if error is not None:
+            yield error
+        created_phrase = _count_phrase(len(created), singular, plural)
+        if deleted:
+            deleted_phrase = _count_phrase(len(deleted), singular, plural)
+            change = f"create {created_phrase} and delete {deleted_phrase}, changing"
+        else:
+            change = f"create {created_phrase}, increasing"
+        yield from self._limit_errors(
+            refs,
+            (
+                f"Deploying would {change} the total number of {plural} from {current} to {projected}, "
+                f"which exceeds the project limit of {limit}."
+            ),
+            (
+                f"Reduce the number of {plural} in this deployment so the project total stays within {limit}. "
+                f"The project currently has {current} of {limit} {plural}."
+            ),
+        )
+
+    def _check_instance_counts(
+        self, limits: DataModelingLimits, statistics: ProjectStatisticsResponse
+    ) -> Iterable[Insight | InternalValidatorException]:
+        node_created, node_deleted, _ = self._result_ids("nodes")
+        edge_created, edge_deleted, _ = self._result_ids("edges")
+        created = len(node_created) + len(edge_created)
+        deleted = len(node_deleted) + len(edge_deleted)
+        current = statistics.instances.instances
+        projected = current + created - deleted
+        if created - deleted > 0 and projected > limits.max_instances:
+            refs, errors = self._instance_refs(
+                _excluding(node_created, node_deleted), _excluding(edge_created, edge_deleted)
+            )
+            yield from errors
+            created_phrase = _joined_counts(
+                [(len(node_created), "node", "nodes"), (len(edge_created), "edge", "edges")]
+            )
+            deleted_phrase = _joined_counts(
+                [(len(node_deleted), "node", "nodes"), (len(edge_deleted), "edge", "edges")]
+            )
+            if deleted_phrase:
+                change = f"create {created_phrase} and delete {deleted_phrase}, changing"
+            else:
+                change = f"create {created_phrase}, increasing"
+            yield from self._limit_errors(
+                refs,
+                (
+                    f"Deploying would {change} the total number of instances from {current} to {projected}, "
+                    f"which exceeds the project limit of {limits.max_instances}."
+                ),
+                (
+                    f"Reduce the number of instances in this deployment so the project total stays within "
+                    f"{limits.max_instances}. The project currently has {current} of {limits.max_instances} instances."
+                ),
+            )
+
+        soft_deleted = statistics.instances.soft_deleted_instances
+        soft_projected = soft_deleted + deleted
+        if deleted > 0 and soft_projected > limits.max_deleted_instances:
+            refs, errors = self._instance_refs(node_deleted, edge_deleted)
+            yield from errors
+            deleted_phrase = _joined_counts(
+                [(len(node_deleted), "node", "nodes"), (len(edge_deleted), "edge", "edges")]
+            )
+            yield from self._limit_errors(
+                refs,
+                (
+                    f"Deploying would delete {deleted_phrase}, increasing the number of soft-deleted instances "
+                    f"from {soft_deleted} to {soft_projected}, which exceeds the project limit of "
+                    f"{limits.max_deleted_instances}."
+                ),
+                (
+                    f"Delete fewer instances in this deployment so the number of soft-deleted instances stays within "
+                    f"{limits.max_deleted_instances}. The project currently has {soft_deleted} soft-deleted instances."
+                ),
+            )
+
+    def _check_total_container_properties(
+        self, limits: DataModelingLimits, statistics: ProjectStatisticsResponse
+    ) -> Iterable[Insight | InternalValidatorException]:
+        delta, refs, error = self._container_property_delta()
+        if error is not None:
+            yield error
+            return
+        current = statistics.container_properties.count
+        projected = current + delta
+        if delta <= 0 or projected <= limits.max_total_container_properties:
+            return
+        yield from self._limit_errors(
+            refs,
+            (
+                f"Deploying would change the number of container properties from {current} to {projected}, "
+                f"which exceeds the project limit of {limits.max_total_container_properties}."
+            ),
+            (
+                f"Remove container properties so the project total stays within {limits.max_total_container_properties}. "
+                f"The project currently has {current}."
+            ),
+            keys=["properties"],
+        )
+
+    def _container_property_delta(
+        self,
+    ) -> tuple[int, list[_LocalRef], InternalValidatorException | None]:
+        """Net container properties this deployment adds.
+
+        Created containers add their properties, deleted containers free theirs, and updated containers
+        contribute the difference. A container that is deleted and recreated, as in a drop deploy, contributes
+        only the change in its property count. The current total comes from the statistics endpoint.
+        """
+        created, deleted, updated = self._result_ids("containers")
+        created_ids = [item_id for item_id in created if isinstance(item_id, ContainerId)]
+        deleted_ids = {item_id for item_id in deleted if isinstance(item_id, ContainerId)}
+        updated_ids = [item_id for item_id in updated if isinstance(item_id, ContainerId)]
+        if not created_ids and not deleted_ids and not updated_ids:
+            return 0, [], None
+        try:
+            local = self._load_containers()
+        except Exception as error:
+            return (
+                0,
+                [],
+                InternalValidatorException(
+                    message=f"Failed to load local containers for limit checks: {error}",
+                    source="DataModeling",
+                ),
+            )
+
+        delta = 0
+        refs: list[_LocalRef] = []
+
+        def add_change(item_id: ContainerId, previous: int) -> None:
+            nonlocal delta
+            found = local.get(item_id)
+            if found is None:
+                return
+            ref, request = found
+            change = len(request.properties) - previous
+            delta += change
+            if change > 0:
+                refs.append(ref)
+
+        for item_id in created_ids:
+            if item_id not in deleted_ids:
+                add_change(item_id, 0)
+
+        fetch_ids = deleted_ids | set(updated_ids)
+        if not fetch_ids:
+            return delta, refs, None
+        cdf_containers, error = self._retrieve_containers(fetch_ids)
+        if error is not None:
+            return 0, [], error
+
+        def cdf_count(item_id: ContainerId) -> int:
+            cdf_container = cdf_containers.get(item_id)
+            if cdf_container is None:
+                return 0
+            return len(cdf_container.properties)
+
+        for item_id in deleted_ids:
+            if item_id not in set(created_ids):
+                delta -= cdf_count(item_id)
+        for item_id in updated_ids:
+            add_change(item_id, cdf_count(item_id))
+        for item_id in created_ids:
+            if item_id in deleted_ids:
+                add_change(item_id, cdf_count(item_id))
+        return delta, refs, None
+
+    def _check_container_property_limits(
+        self, limits: DataModelingLimits
+    ) -> Iterable[Insight | InternalValidatorException]:
+        try:
+            containers = self._containers_to_check()
+        except Exception as error:
+            yield InternalValidatorException(
+                message=f"Failed to load local containers for limit checks: {error}",
+                source="DataModeling",
+            )
+            return
+        for ref, request in containers:
+            count = len(request.properties)
+            if request.used_for == "record":
+                limit = limits.max_records_container_properties
+                kind = "Record container"
+            else:
+                limit = limits.max_container_properties
+                kind = "Container"
+            if count <= limit:
+                continue
+            yield from self._shape_error(
+                ref,
+                (
+                    f"{kind} {quote_identifier(ref.identifier)} defines {count} properties, "
+                    f"which exceeds the limit of {limit}."
+                ),
+                f"Remove properties until the container has at most {limit}.",
+                keys=["properties"],
+            )
+
+    def _check_view_property_limits(self, limits: DataModelingLimits) -> Iterable[Insight | InternalValidatorException]:
+        try:
+            views = self._views_to_check()
+        except Exception as error:
+            yield InternalValidatorException(
+                message=f"Failed to load local views for limit checks: {error}",
+                source="DataModeling",
+            )
+            return
+        for ref, request in views:
+            count = len(request.properties or {})
+            if request.stream_id:
+                limit = limits.max_records_view_properties
+                kind = "Record view"
+            else:
+                limit = limits.max_view_properties
+                kind = "View"
+            if count <= limit:
+                continue
+            yield from self._shape_error(
+                ref,
+                (
+                    f"{kind} {quote_identifier(ref.identifier)} defines {count} properties, "
+                    f"which exceeds the limit of {limit}."
+                ),
+                f"Remove properties until the view has at most {limit}.",
+                keys=["properties"],
+            )
+
+    def _check_views_per_data_model(self, limits: DataModelingLimits) -> Iterable[Insight | InternalValidatorException]:
+        try:
+            data_models = self._data_models_to_check()
+        except Exception as error:
+            yield InternalValidatorException(
+                message=f"Failed to load local data models for limit checks: {error}",
+                source="DataModeling",
+            )
+            return
+        limit = limits.max_views_per_data_model
+        for ref, request in data_models:
+            count = len(request.views or [])
+            if count <= limit:
+                continue
+            yield from self._shape_error(
+                ref,
+                (
+                    f"Data model {quote_identifier(ref.identifier)} references {count} views, "
+                    f"which exceeds the limit of {limit} views per data model."
+                ),
+                f"Remove views until the data model references at most {limit}.",
+                keys=["views"],
+            )
+
+    def _containers_to_check(self) -> list[_LocalContainer]:
+        created, _, updated = self._result_ids("containers")
+        wanted = {item_id for item_id in [*created, *updated] if isinstance(item_id, ContainerId)}
+        if not wanted:
+            return []
+        return [item for item_id, item in self._load_containers().items() if item_id in wanted]
+
+    def _views_to_check(self) -> list[_LocalView]:
+        created, _, updated = self._result_ids("views")
+        wanted = {item_id for item_id in [*created, *updated] if isinstance(item_id, ViewId)}
+        if not wanted:
+            return []
+        return [item for item_id, item in self._load_views().items() if item_id in wanted]
+
+    def _data_models_to_check(self) -> list[tuple[_LocalRef, DataModelRequest]]:
+        created, _, updated = self._result_ids("data models")
+        wanted = {item_id for item_id in [*created, *updated] if isinstance(item_id, DataModelId)}
+        if not wanted:
+            return []
+        loaded = self._load_local(DataModelIO(self._load_client()))
+        selected: list[tuple[_LocalRef, DataModelRequest]] = []
+        for item_id, (ref, request) in loaded.items():
+            if item_id in wanted and isinstance(request, DataModelRequest):
+                selected.append((ref, request))
+        return selected
+
+    def _result_ids(
+        self, resource_name: str
+    ) -> tuple[list[_resource_base.Identifier], list[_resource_base.Identifier], list[_resource_base.Identifier]]:
+        created: list[_resource_base.Identifier] = []
+        deleted: list[_resource_base.Identifier] = []
+        updated: list[_resource_base.Identifier] = []
+        for result in self.results or []:
+            if result.resource_name != resource_name:
+                continue
+            created.extend(result.created_ids)
+            deleted.extend(result.deleted_ids)
+            updated.extend(result.updated_ids)
+        return created, deleted, updated
+
+    def _instance_refs(
+        self, node_ids: Sequence[_resource_base.Identifier], edge_ids: Sequence[_resource_base.Identifier]
+    ) -> tuple[list[_LocalRef], list[InternalValidatorException]]:
+        refs: list[_LocalRef] = []
+        errors: list[InternalValidatorException] = []
+        for resource_name, ids in (("nodes", node_ids), ("edges", edge_ids)):
+            found, error = self._refs_for_ids(resource_name, ids)
+            refs.extend(found)
+            if error is not None:
+                errors.append(error)
+        return refs, errors
+
+    def _refs_for_ids(
+        self, resource_name: str, ids: Sequence[_resource_base.Identifier]
+    ) -> tuple[list[_LocalRef], InternalValidatorException | None]:
+        io = self._io_for(resource_name)
+        if io is None or not ids:
+            return [], None
+        try:
+            loaded = self._load_local(io)
+        except Exception as error:
+            return [], InternalValidatorException(
+                message=f"Failed to load local {resource_name} for limit checks: {error}",
+                source="DataModeling",
+            )
+        wanted = set(ids)
+        return [ref for item_id, (ref, _) in loaded.items() if item_id in wanted], None
+
+    def _io_for(self, resource_name: str) -> ResourceIO[Any, Any, Any, Any] | None:
+        client = self._load_client()
+        if resource_name == "spaces":
+            return SpaceIO(client)
+        if resource_name == "containers":
+            return ContainerIO(client)
+        if resource_name == "views":
+            return ViewIO(client)
+        if resource_name == "data models":
+            return DataModelIO(client)
+        if resource_name == "nodes":
+            return NodeIO(client)
+        if resource_name == "edges":
+            return EdgeIO(client)
+        return None
+
+    def _limit_errors(
+        self,
+        refs: Sequence[_LocalRef],
+        message: str,
+        fix: str,
+        keys: Sequence[str] = (),
+    ) -> Iterable[Insight | InternalValidatorException]:
+        if not refs:
+            source = next((resource.source for resource in self.resources if isinstance(resource.source, Path)), None)
+            if not isinstance(source, Path):
+                yield InternalValidatorException(message=message, source="DataModeling")
+                return
+            yield BuildError(code="EXCEEDED-LIMIT", message=message, fix=fix, source_file=source)
+            return
+        seen: set[tuple[Path, str]] = set()
+        for ref in refs:
+            key = (ref.source_path, str(ref.identifier))
+            if key in seen:
+                continue
+            seen.add(key)
+            yield with_position(
+                BuildError(
+                    code="EXCEEDED-LIMIT",
+                    message=message,
+                    fix=fix,
+                    source_file=ref.source_path,
+                ),
+                keys=keys,
+                values=identifier_values(ref.identifier),
+                variables=ref.variables,
+            )
+
+    @staticmethod
+    def _shape_error(ref: _LocalRef, message: str, fix: str, keys: Sequence[str]) -> Iterable[Insight]:
+        yield with_position(
+            BuildError(
+                code="EXCEEDED-LIMIT",
+                message=message,
+                fix=fix,
+                source_file=ref.source_path,
+            ),
+            keys=keys,
+            values=identifier_values(ref.identifier),
+            variables=ref.variables,
+        )
