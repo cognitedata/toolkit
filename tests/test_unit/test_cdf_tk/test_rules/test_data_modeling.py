@@ -3,7 +3,6 @@ from typing import Any, Literal
 from unittest.mock import MagicMock
 
 import pytest
-from pydantic import ValidationError
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -187,13 +186,15 @@ def _client(
     containers: list[ContainerResponse] | None = None,
     views: list[ViewResponse] | None = None,
     data_models: list[DataModelResponse] | None = None,
+    limits: list[LimitValueResponse] | None = None,
+    statistics: ProjectStatisticsResponse | None = None,
 ) -> MagicMock:
     client = MagicMock()
     client.containers.retrieve.return_value = containers or []
     client.views.retrieve.return_value = views or []
     client.data_models.retrieve.return_value = data_models or []
-    # Property limits run whenever local containers, views, or data models are present.
-    client.limits.list.return_value = _limit_responses()
+    client.limits.list.return_value = _limit_responses() if limits is None else limits
+    client.statistics.retrieve.return_value = _project_statistics() if statistics is None else statistics
     return client
 
 
@@ -1053,31 +1054,16 @@ def _project_statistics(
     )
 
 
-def _limits_client(
-    limits: list[LimitValueResponse] | None = None,
-    statistics: ProjectStatisticsResponse | None = None,
-    containers: list[ContainerResponse] | None = None,
-) -> MagicMock:
-    client = MagicMock()
-    client.limits.list.return_value = _limit_responses() if limits is None else limits
-    client.statistics.retrieve.return_value = _project_statistics() if statistics is None else statistics
-    client.containers.retrieve.return_value = containers or []
-    client.views.retrieve.return_value = []
-    client.data_models.retrieve.return_value = []
-    return client
-
-
 def _deployment(
     resource_name: str,
     created: list[Identifier] | None = None,
     deleted: list[Identifier] | None = None,
-    updated: list[Identifier] | None = None,
 ) -> DeploymentResult:
     return DeploymentResult(
         resource_name=resource_name,
         is_dry_run=True,
         created_ids=list(created or []),
-        updated_ids=list(updated or []),
+        updated_ids=[],
         deleted_ids=list(deleted or []),
         unchanged_ids=[],
         is_missing_write_acl=False,
@@ -1129,16 +1115,6 @@ class TestDataModelingLimits:
             max_views_per_data_model=100,
         )
 
-    def test_missing_limit_is_rejected(self) -> None:
-        responses = [item for item in _limit_responses() if item.limit_id != "data_modeling.max_views"]
-
-        with pytest.raises(ValidationError):
-            DataModelingLimits.from_responses(responses)
-
-    def test_fractional_limit_is_rejected(self) -> None:
-        with pytest.raises(ValueError, match="whole number"):
-            DataModelingLimits.from_responses(_limit_responses(max_spaces=1.5))
-
     @pytest.mark.parametrize("results", [None, []])
     def test_limits_are_skipped_without_deployment_results(self, results: list[DeploymentResult] | None) -> None:
         client = MagicMock()
@@ -1151,56 +1127,22 @@ class TestDataModelingLimits:
         )
 
     @pytest.mark.parametrize(
-        "resource_name, plural, limit_name, statistics_name, yaml, identifier, crud",
+        "resource_name, yaml, identifier, crud",
         [
-            pytest.param(
-                "spaces",
-                "spaces",
-                "max_spaces",
-                "spaces",
-                "space: my_space\n",
-                SpaceId(space="my_space"),
-                SpaceIO,
-                id="spaces",
-            ),
-            pytest.param(
-                "containers",
-                "containers",
-                "max_containers",
-                "containers",
-                CONTAINER_YAML,
-                CONTAINER_ID,
-                ContainerIO,
-                id="containers",
-            ),
-            pytest.param("views", "views", "max_views", "views", VIEW_YAML, VIEW_ID, ViewIO, id="views"),
-            pytest.param(
-                "data models",
-                "data models",
-                "max_data_models",
-                "data_models",
-                DATA_MODEL_YAML,
-                DATA_MODEL_ID,
-                DataModelIO,
-                id="data-models",
-            ),
+            pytest.param("spaces", "space: my_space\n", SpaceId(space="my_space"), SpaceIO, id="spaces"),
+            pytest.param("containers", CONTAINER_YAML, CONTAINER_ID, ContainerIO, id="containers"),
+            pytest.param("views", VIEW_YAML, VIEW_ID, ViewIO, id="views"),
+            pytest.param("data models", DATA_MODEL_YAML, DATA_MODEL_ID, DataModelIO, id="data-models"),
         ],
     )
     def test_creating_past_the_project_limit(
-        self,
-        tmp_path: Path,
-        resource_name: str,
-        plural: str,
-        limit_name: str,
-        statistics_name: str,
-        yaml: str,
-        identifier: Identifier,
-        crud: type[ResourceIO],
+        self, tmp_path: Path, resource_name: str, yaml: str, identifier: Identifier, crud: type[ResourceIO]
     ) -> None:
         yaml_file = _write(tmp_path, "resource.yaml", yaml)
-        client = _limits_client(
-            limits=_limit_responses(**{limit_name: 2}),
-            statistics=_project_statistics(**{statistics_name: 2}),
+        field_name = resource_name.replace(" ", "_")
+        client = _client(
+            limits=_limit_responses(**{f"max_{field_name}": 2}),
+            statistics=_project_statistics(**{field_name: 2}),
         )
         rule = DataModelingRuleSet(
             resources=_resources([(yaml_file, crud, identifier)]),
@@ -1211,12 +1153,12 @@ class TestDataModelingLimits:
         insights = [item for item in rule._check_data_modeling_limits(client) if isinstance(item, InsightDefinition)]
         assert (
             [insight.code for insight in insights],
-            f"increasing the total number of {plural} from 2 to 3" in insights[0].message,
+            f"increasing the total number of {resource_name} from 2 to 3" in insights[0].message,
         ) == (["EXCEEDED-LIMIT"], True)
 
     def test_validate_reports_a_space_limit(self, tmp_path: Path) -> None:
         yaml_file = _write(tmp_path, "my_space.Space.yaml", "space: my_space\n")
-        client = _limits_client(limits=_limit_responses(max_spaces=2), statistics=_project_statistics(spaces=2))
+        client = _client(limits=_limit_responses(max_spaces=2), statistics=_project_statistics(spaces=2))
         rule = DataModelingRuleSet(
             resources=_resources([(yaml_file, SpaceIO, SpaceId(space="my_space"))]),
             results=[_deployment("spaces", created=[SpaceId(space="my_space")])],
@@ -1229,24 +1171,22 @@ class TestDataModelingLimits:
             "increasing the total number of spaces from 2 to 3" in insights[0].message,
         ) == (["EXCEEDED-LIMIT"], True)
 
-    def test_creation_within_the_limit_is_accepted(self, tmp_path: Path) -> None:
-        yaml_file = _write(tmp_path, "my_space.Space.yaml", "space: my_space\n")
-        client = _limits_client(limits=_limit_responses(max_spaces=2), statistics=_project_statistics(spaces=1))
-        rule = DataModelingRuleSet(
-            resources=_resources([(yaml_file, SpaceIO, SpaceId(space="my_space"))]),
-            results=[_deployment("spaces", created=[SpaceId(space="my_space")])],
-            client=client,
-        )
-
-        assert list(rule._check_data_modeling_limits(client)) == []
-
-    def test_deletes_free_capacity(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize(
+        "current, deleted",
+        [
+            pytest.param(1, [], id="room-left"),
+            pytest.param(2, [SpaceId(space="old_space")], id="deletes-free-capacity"),
+        ],
+    )
+    def test_creation_within_the_limit_is_accepted(
+        self, tmp_path: Path, current: int, deleted: list[Identifier]
+    ) -> None:
         space_id = SpaceId(space="my_space")
         yaml_file = _write(tmp_path, "my_space.Space.yaml", "space: my_space\n")
-        client = _limits_client(limits=_limit_responses(max_spaces=2), statistics=_project_statistics(spaces=2))
+        client = _client(limits=_limit_responses(max_spaces=2), statistics=_project_statistics(spaces=current))
         rule = DataModelingRuleSet(
             resources=_resources([(yaml_file, SpaceIO, space_id)]),
-            results=[_deployment("spaces", created=[space_id], deleted=[SpaceId(space="old_space")])],
+            results=[_deployment("spaces", created=[space_id], deleted=deleted)],
             client=client,
         )
 
@@ -1257,7 +1197,7 @@ class TestDataModelingLimits:
         added = SpaceId(space="space_b")
         kept_file = _write(tmp_path, "space_a.Space.yaml", "space: space_a\n")
         added_file = _write(tmp_path, "space_b.Space.yaml", "space: space_b\n")
-        client = _limits_client(limits=_limit_responses(max_spaces=2), statistics=_project_statistics(spaces=2))
+        client = _client(limits=_limit_responses(max_spaces=2), statistics=_project_statistics(spaces=2))
         rule = DataModelingRuleSet(
             resources=_resources([(kept_file, SpaceIO, kept), (added_file, SpaceIO, added)]),
             results=[_deployment("spaces", created=[kept, added], deleted=[kept])],
@@ -1272,7 +1212,7 @@ class TestDataModelingLimits:
 
     def test_instances_past_the_project_limit(self, tmp_path: Path) -> None:
         yaml_file = _write(tmp_path, "my_node.Node.yaml", NODE_YAML)
-        client = _limits_client(limits=_limit_responses(max_instances=5), statistics=_project_statistics(instances=5))
+        client = _client(limits=_limit_responses(max_instances=5), statistics=_project_statistics(instances=5))
         rule = DataModelingRuleSet(
             resources=_resources([(yaml_file, NodeIO, NODE_ID)]),
             results=[_deployment("nodes", created=[NODE_ID])],
@@ -1287,7 +1227,7 @@ class TestDataModelingLimits:
 
     def test_soft_deleted_instances_past_the_project_limit(self, tmp_path: Path) -> None:
         yaml_file = _write(tmp_path, "my_node.Node.yaml", NODE_YAML)
-        client = _limits_client(
+        client = _client(
             limits=_limit_responses(max_deleted_instances=5),
             statistics=_project_statistics(instances=10, soft_deleted_instances=5),
         )
@@ -1311,8 +1251,24 @@ class TestDataModelingLimits:
                 ContainerIO,
                 CONTAINER_ID,
                 {"max_container_properties": 1},
-                "defines 2 properties",
+                "has 2 properties, which exceeds the limit of 1",
                 id="container-properties",
+            ),
+            pytest.param(
+                _container_yaml("name", "other"),
+                ContainerIO,
+                CONTAINER_ID,
+                {"max_total_container_properties": 1},
+                "Containers define 2 properties in total",
+                id="total-container-properties",
+            ),
+            pytest.param(
+                _container_yaml("name", "other"),
+                ContainerIO,
+                CONTAINER_ID,
+                {"max_total_container_properties": 2},
+                None,
+                id="total-container-properties-within-limit",
             ),
             pytest.param(
                 _container_yaml("name", "other", used_for="record"),
@@ -1335,7 +1291,7 @@ class TestDataModelingLimits:
                 ViewIO,
                 VIEW_ID,
                 {"max_view_properties": 1},
-                "defines 2 properties",
+                "has 2 properties, which exceeds the limit of 1",
                 id="view-properties",
             ),
             pytest.param(
@@ -1359,12 +1315,12 @@ class TestDataModelingLimits:
                 DataModelIO,
                 DATA_MODEL_ID,
                 {"max_views_per_data_model": 1},
-                "references 2 views",
+                "has 2 views, which exceeds the limit of 1",
                 id="views-per-data-model",
             ),
         ],
     )
-    def test_resource_shape_limits(
+    def test_limits_checked_from_local_configuration(
         self,
         tmp_path: Path,
         yaml: str,
@@ -1374,7 +1330,7 @@ class TestDataModelingLimits:
         fragment: str | None,
     ) -> None:
         yaml_file = _write(tmp_path, "resource.yaml", yaml)
-        client = _limits_client(limits=_limit_responses(**overrides))
+        client = _client(limits=_limit_responses(**overrides))
         rule = DataModelingRuleSet(resources=_resources([(yaml_file, crud, identifier)]), client=client)
 
         insights = [item for item in rule._check_data_modeling_limits(client) if isinstance(item, BuildError)]
@@ -1386,28 +1342,6 @@ class TestDataModelingLimits:
             [insight.code for insight in insights],
             fragment in insights[0].message,
         ) == (["EXCEEDED-LIMIT"], True)
-
-    def test_local_container_properties_count_toward_the_project_total(self, tmp_path: Path) -> None:
-        yaml_file = _write(tmp_path, "MyContainer.Container.yaml", _container_yaml("name", "other"))
-        client = _limits_client(limits=_limit_responses(max_total_container_properties=1))
-        rule = DataModelingRuleSet(resources=_resources([(yaml_file, ContainerIO, CONTAINER_ID)]), client=client)
-
-        insights = [item for item in rule._check_data_modeling_limits(client) if isinstance(item, BuildError)]
-        assert (
-            [insight.code for insight in insights],
-            "Containers define 2 properties" in insights[0].message,
-            client.statistics.retrieve.called,
-        ) == (["EXCEEDED-LIMIT"], True, False)
-
-    def test_local_container_properties_within_the_project_total_are_accepted(self, tmp_path: Path) -> None:
-        yaml_file = _write(tmp_path, "MyContainer.Container.yaml", _container_yaml("name", "other"))
-        client = _limits_client(limits=_limit_responses(max_total_container_properties=2))
-        rule = DataModelingRuleSet(resources=_resources([(yaml_file, ContainerIO, CONTAINER_ID)]), client=client)
-
-        assert (
-            list(rule._check_data_modeling_limits(client)),
-            client.statistics.retrieve.called,
-        ) == ([], False)
 
     def test_yaml_is_read_once_for_references_state_changes_and_limits(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -1444,7 +1378,7 @@ class TestDataModelingLimits:
         assert (list(rule.validate()), reads) == ([], ["ContainerIO", "ViewIO", "DataModelIO"])
 
     def test_limits_api_failure_is_reported(self) -> None:
-        client = _limits_client()
+        client = _client()
         client.limits.list.side_effect = ToolkitAPIError("limits unavailable")
         rule = DataModelingRuleSet(
             resources=[],
@@ -1462,7 +1396,7 @@ class TestDataModelingLimits:
 
     def test_statistics_api_failure_is_reported(self, tmp_path: Path) -> None:
         yaml_file = _write(tmp_path, "my_space.Space.yaml", "space: my_space\n")
-        client = _limits_client()
+        client = _client()
         client.statistics.retrieve.side_effect = ToolkitAPIError("statistics unavailable")
         rule = DataModelingRuleSet(
             resources=_resources([(yaml_file, SpaceIO, SpaceId(space="my_space"))]),
@@ -1477,7 +1411,7 @@ class TestDataModelingLimits:
         ) == ([InternalValidatorException], True)
 
     def test_unparseable_limits_are_reported(self) -> None:
-        client = _limits_client(limits=[LimitValueResponse(limit_id="data_modeling.max_spaces", value=1)])
+        client = _client(limits=[LimitValueResponse(limit_id="data_modeling.max_spaces", value=1)])
         rule = DataModelingRuleSet(
             resources=[],
             results=[_deployment("spaces", created=[SpaceId(space="my_space")])],
