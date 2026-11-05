@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -5,6 +6,8 @@ from unittest.mock import MagicMock
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
     AssetsAcl,
@@ -17,14 +20,33 @@ from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import ReadResource
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.resource_ios import (
+    AgentIO,
     GroupAllScopedIO,
     GroupResourceScopedIO,
+    ResourceIO,
 )
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
+from cognite_toolkit._cdf_tk.yaml_classes.capabilities import (
+    AgentExternalIdScope,
+    AgentsAcl,
+    Capability,
+    CapabilityType,
+)
+from cognite_toolkit._cdf_tk.yaml_classes.groups import ExternalGroupYAML
 from tests.data import LOAD_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
-class TestGroupLoader:
+def group_acl_expected_dependency() -> Iterable[tuple]:
+    """Test that the expected dependencies are present in the GroupResourceScopedIO class."""
+    yield pytest.param(
+        AgentsAcl(actions=["READ"], scope=AgentExternalIdScope.model_validate({"externalIds": ["agent1"]})),
+        (AgentIO, ExternalId(external_id="agent1")),
+        id="AgentsAcl depends on AgentIO",
+    )
+
+
+class TestGroupIO:
     def test_load_all_scoped_only(self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch):
         loader = GroupAllScopedIO.create_io(env_vars_with_client.get_client())
         raw_list = loader.load_resource_file(
@@ -275,3 +297,18 @@ capabilities:
             "delete": len(result.to_delete),
             "unchanged": len(result.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+
+    def test_dependencies_test_cases_is_complete(self) -> None:
+        """Test that the expected dependencies are present in the GroupResourceScopedIO class."""
+        test_cases = list(group_acl_expected_dependency())
+        subclasses = get_concrete_subclasses(Capability)
+
+    @pytest.mark.parametrize("acl, expected", list(group_acl_expected_dependency()))
+    def test_get_dependencies(self, acl: CapabilityType, expected: tuple[type[ResourceIO], Identifier]):
+        group = ExternalGroupYAML.model_validate(
+            {"name": "external_group", "sourceId": "external_source_id", "capabilities": [acl]},
+        )
+
+        actual = list(GroupResourceScopedIO.get_dependencies(group))
+        assert len(actual) == 1
+        assert actual[0] == expected
