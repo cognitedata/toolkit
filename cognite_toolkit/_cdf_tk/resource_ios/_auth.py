@@ -154,13 +154,17 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
     @classmethod
     def get_dependencies(cls, resource: GroupYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        from ._agent import AgentIO
+        from ._app import AppIO
         from ._classic import AssetIO
         from ._data_organization import DataSetsIO
         from ._data_product import DataProductIO
         from ._datamodel import SpaceIO
         from ._extraction_pipeline import ExtractionPipelineIO
+        from ._integrations import IntegrationsIO
         from ._location import LocationFilterIO
         from ._raw import RawDatabaseIO, RawTableIO
+        from ._sap_writeback import SAPInstanceIO
         from ._timeseries import TimeSeriesIO
 
         for capability in resource.capabilities or []:
@@ -190,6 +194,18 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             elif isinstance(scope, yaml_cap.AssetRootIDScope):
                 for asset_root_id in scope.root_ids:
                     yield AssetIO, ExternalId(external_id=asset_root_id)
+            elif isinstance(scope, yaml_cap.ExternalIdScope):
+                for integration_id in scope.external_ids:
+                    yield IntegrationsIO, ExternalId(external_id=integration_id)
+            elif isinstance(scope, yaml_cap.InstancesScope):
+                for instance_id in scope.instances:
+                    yield SAPInstanceIO, ExternalId(external_id=instance_id)
+            elif isinstance(scope, yaml_cap.AgentExternalIdScope):
+                for agent_id in scope.external_ids:
+                    yield AgentIO, ExternalId(external_id=agent_id)
+            elif isinstance(scope, yaml_cap.AppExternalIdScope):
+                for app_id in scope.external_ids:
+                    yield AppIO, ExternalId(external_id=app_id)
             elif isinstance(scope, yaml_cap.IDScope | yaml_cap.IDScopeLowerCase):
                 loader: type[ResourceIO] | None = None
                 if isinstance(capability, yaml_cap.DataSetsAcl):
