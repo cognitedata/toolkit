@@ -300,6 +300,19 @@ class TestGroupRedundantCapabilities:
             )
         ]
 
+    def test_table_scope_without_tables_covers_the_whole_database(self) -> None:
+        insights = _group_insights(
+            [
+                {"rawAcl": {"actions": ["READ"], "scope": {"tableScope": {"dbsToTables": {"my_db": []}}}}},
+                {"rawAcl": {"actions": ["READ"], "scope": {"tableScope": {"dbsToTables": {"my_db": ["table_a"]}}}}},
+            ]
+        )
+
+        assert [insight.message for insight in insights] == [
+            "Group 'readers' has a rawAcl with READ, scoped to tableScope (dbsToTables: my_db: table_a), "
+            "that is already covered by the group's other rawAcl entries."
+        ]
+
     def test_different_scope_kinds_do_not_cover_each_other(self) -> None:
         insights = _group_insights(
             [

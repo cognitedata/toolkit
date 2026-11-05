@@ -1,23 +1,17 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Self, cast, get_args, get_origin
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
 
-from pydantic import Discriminator, Field, Tag, ValidationError, field_validator, model_validator
+from pydantic import Discriminator, Field, Tag, field_validator, model_validator
 from pydantic.functional_validators import BeforeValidator
 
 from cognite_toolkit._cdf_tk.client.identifiers import NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupAttributes
-from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import scope_difference, scope_union
-from cognite_toolkit._cdf_tk.client.resource_classes.group.scopes import AllScope as ClientAllScope
-from cognite_toolkit._cdf_tk.client.resource_classes.group.scopes import Scope as ClientScope
-from cognite_toolkit._cdf_tk.client.resource_classes.group.scopes import ScopeDefinition
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 from .base import ToolkitResource
-from .capabilities import CapabilityType, Scope, UnknownCapability
+from .capabilities import AllScope, CapabilityType, Scope, TableScope, UnknownCapability
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning, Recommendation
@@ -37,17 +31,17 @@ class BaseGroupYAML(ToolkitResource):
         return NameId(name=self.name)
 
     def extra_insights(self, source_file: Path, resource_type: "ResourceType") -> "list[BuildWarning | Recommendation]":
-        insights: list[BuildWarning | Recommendation] = []
-        insights.extend(self._unrecognize_capabilities(source_file, resource_type))
-        if Flags.ALPHA_RULES.is_enabled():
-            insights.extend(self._redundant_capability_recommendations(source_file, resource_type))
-        return insights
+        return [
+            *self._unrecognized_capability_warnings(source_file),
+            *self._redundant_capability_recommendations(source_file, resource_type),
+        ]
 
-    def _unrecognize_capabilities(self, source_file: Path, resource_type: "ResourceType") -> "list[BuildWarning]":
+    def _unrecognized_capability_warnings(self, source_file: Path) -> "list[BuildWarning]":
         """Return warnings for capabilities that are not recognized by the toolkit."""
+        # Lazy import to avoid circular dependency (yaml_classes → commands.build_v2 → resource_ios → yaml_classes).
         from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning
 
-        unrecognized = [
+        return [
             BuildWarning(
                 code="UNRECOGNIZED-VALUE",
                 message=(
@@ -60,7 +54,6 @@ class BaseGroupYAML(ToolkitResource):
             for cap in (self.capabilities or [])
             if isinstance(cap, UnknownCapability)
         ]
-        return unrecognized
 
     def _redundant_capability_recommendations(
         self, source_file: Path, resource_type: "ResourceType"
@@ -71,50 +64,36 @@ class BaseGroupYAML(ToolkitResource):
         other ACLs of the same type. A space-scoped ``dataModelInstancesAcl`` is redundant when
         another ``dataModelInstancesAcl`` grants the same actions on ``all``.
         """
-        # Lazy import to avoid circular dependency (yaml_classes → commands.build_v2 → resource_ios → yaml_classes).
         from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
 
-        grouped: dict[str, list[_AclEntry]] = defaultdict(list)
-        encoder: dict[str, int] = {}
+        entries_by_acl: dict[str, list[_AclEntry]] = defaultdict(list)
         for position, capability in enumerate(self.capabilities or []):
             # Unknown ACLs are preserved as-is. Their actions are not modeled, so they are not
             # compared and they do not count as covering another ACL.
             if isinstance(capability, UnknownCapability):
                 continue
-            actions = _capability_actions(capability)
-            client_scope = _to_client_scope(capability.scope, encoder)
-            if not actions or client_scope is None:
+            actions: list[str] = list(dict.fromkeys(capability.actions))
+            grants = _scope_grants(capability.scope)
+            if not actions or not grants:
                 continue
-            label = capability.capability_name
-            grouped[label].append(
-                _AclEntry(
-                    position=position,
-                    label=label,
-                    actions=actions,
-                    scope=client_scope,
-                    scope_text=_format_scope(capability.scope),
-                )
+            entries_by_acl[capability.capability_name].append(
+                _AclEntry(position, capability.capability_name, actions, capability.scope, grants)
             )
 
-        findings: list[tuple[int, Recommendation]] = []
-        kind = resource_type.kind
-        for entries in grouped.values():
-            for entry, covered_actions in _select_redundant(entries):
-                whole_acl = len(covered_actions) == len(entry.actions)
-                findings.append(
-                    (
-                        entry.position,
-                        Recommendation(
-                            code="REDUNDANT-PROPERTY",
-                            message=_redundant_message(kind, self.name, entry, covered_actions, whole_acl=whole_acl),
-                            fix=_redundant_fix(entry.label, covered_actions, whole_acl=whole_acl),
-                            source_file=source_file,
-                            alpha=Flags.ALPHA_RULES.is_enabled(),
-                        ),
-                    )
-                )
-        findings.sort(key=lambda item: item[0])
-        return [recommendation for _, recommendation in findings]
+        redundant = sorted(
+            (finding for entries in entries_by_acl.values() for finding in _select_redundant(entries)),
+            key=lambda finding: finding[0].position,
+        )
+        return [
+            Recommendation(
+                code="REDUNDANT-PROPERTY",
+                message=_redundant_message(resource_type.kind, self.name, entry, covered_actions),
+                fix=_redundant_fix(entry, covered_actions),
+                source_file=source_file,
+                alpha=True,
+            )
+            for entry, covered_actions in redundant
+        ]
 
 
 class ExternalGroupYAML(BaseGroupYAML):
@@ -182,106 +161,47 @@ GroupYAML = Annotated[
 ]
 
 
+_AccessPath = tuple[Any, ...]
+
+
 @dataclass(frozen=True)
 class _AclEntry:
     position: int
     label: str
     actions: list[str]
-    scope: ClientScope
-    scope_text: str
+    scope: Scope
+    grants: frozenset[_AccessPath]
 
 
-def _capability_actions(capability: CapabilityType) -> list[str]:
-    raw_actions = getattr(capability, "actions", None)
-    if not isinstance(raw_actions, list):
-        return []
-    seen: set[str] = set()
-    actions: list[str] = []
-    for action in raw_actions:
-        if isinstance(action, str) and action not in seen:
-            seen.add(action)
-            actions.append(action)
-    return actions
+def _scope_grants(scope: Scope) -> frozenset[_AccessPath]:
+    """Express a scope as the access paths it grants.
 
-
-@lru_cache(maxsize=1)
-def _client_scopes_by_name() -> dict[str, type[ScopeDefinition]]:
-    mapping: dict[str, type[ScopeDefinition]] = {}
-    for cls in get_concrete_subclasses(ScopeDefinition):
-        default = cls.model_fields["scope_name"].default
-        if isinstance(default, str):
-            mapping[default] = cls
-    return mapping
-
-
-def _is_int_list(annotation: Any) -> bool:
-    if get_origin(annotation) is not list:
-        return False
-    args = get_args(annotation)
-    return len(args) == 1 and args[0] is int
-
-
-def _encode_scope_id(value: object, encoder: dict[str, int]) -> int:
-    """Map a toolkit scope id onto an int the client scope model accepts.
-
-    Group YAML keeps ids as strings, because they are often external ids replaced at deploy time.
-    The same string always maps to the same int within one group, so scope comparisons stay exact.
+    A path grants everything below it: ``all`` is the empty path, and a ``tableScope`` database
+    without listed tables grants every table in that database.
     """
-    if isinstance(value, int) and not isinstance(value, bool):
-        return value
-    key = str(value)
-    code = encoder.get(key)
-    if code is None:
-        # Negative codes cannot collide with real CDF internal ids, which are positive.
-        code = -len(encoder) - 1
-        encoder[key] = code
-    return code
+    if isinstance(scope, AllScope):
+        return frozenset({()})
+    if isinstance(scope, TableScope):
+        return frozenset(
+            path
+            for db, tables in scope.dbs_to_tables.items()
+            for path in ([(scope.scope_name, db, table) for table in tables] or [(scope.scope_name, db)])
+        )
+    fields = [name for name in type(scope).model_fields if name != "scope_name"]
+    if not fields:
+        return frozenset({(scope.scope_name,)})
+    return frozenset((scope.scope_name, name, value) for name in fields for value in getattr(scope, name))
 
 
-def _to_client_scope(scope: Scope, encoder: dict[str, int]) -> ClientScope | None:
-    """Convert a YAML scope into the client scope used by ``scope_logic``.
-
-    Returns None when the scope has no client equivalent (for example an unknown scope). Those
-    ACLs are skipped: they are not reported as redundant, and they are not treated as covering others.
-    """
-    client_cls = _client_scopes_by_name().get(scope.scope_name)
-    if client_cls is None:
-        return None
-    data: dict[str, Any] = {}
-    for name, field in client_cls.model_fields.items():
-        if name == "scope_name" or not hasattr(scope, name):
-            continue
-        value = getattr(scope, name)
-        if _is_int_list(field.annotation) and isinstance(value, list):
-            data[name] = [_encode_scope_id(item, encoder) for item in value]
-        else:
-            data[name] = value
-    try:
-        return cast(ClientScope, client_cls.model_validate(data))
-    except ValidationError:
-        return None
-
-
-def _scope_covered(scope: ClientScope, others: list[ClientScope]) -> bool:
-    """Return whether ``scope`` is contained in the union of ``others``."""
-    if any(isinstance(other, ClientAllScope) for other in others):
-        return True
-    if isinstance(scope, ClientAllScope):
-        return False
-    same_type = [other for other in others if type(other) is type(scope)]
-    if not same_type:
-        return False
-    try:
-        return scope_difference(scope, scope_union(*same_type)) is None
-    except (TypeError, ValueError):
-        return False
+def _is_granted(path: _AccessPath, granted: set[_AccessPath]) -> bool:
+    return any(path[:end] in granted for end in range(len(path) + 1))
 
 
 def _covered_actions(entry: _AclEntry, others: list[_AclEntry]) -> list[str]:
     covered: list[str] = []
     for action in entry.actions:
-        scopes = [other.scope for other in others if action in other.actions]
-        if scopes and _scope_covered(entry.scope, scopes):
+        granted = {path for other in others if action in other.actions for path in other.grants}
+        if all(_is_granted(path, granted) for path in entry.grants):
             covered.append(action)
     return covered
 
@@ -292,22 +212,18 @@ def _select_redundant(entries: list[_AclEntry]) -> list[tuple[_AclEntry, list[st
     Whole ACLs are removed first, latest first, so an exact duplicate keeps the earliest entry.
     Actions covered only in part are reported on the ACLs that remain.
     """
-    kept = set(range(len(entries)))
-    whole: list[tuple[_AclEntry, list[str]]] = []
-    for index in reversed(range(len(entries))):
-        others = [entries[other] for other in kept if other != index]
-        covered = _covered_actions(entries[index], others)
-        if covered and len(covered) == len(entries[index].actions):
-            kept.remove(index)
-            whole.append((entries[index], covered))
+    kept = list(entries)
+    redundant: list[tuple[_AclEntry, list[str]]] = []
+    for entry in reversed(entries):
+        covered = _covered_actions(entry, [other for other in kept if other is not entry])
+        if covered == entry.actions:
+            kept.remove(entry)
+            redundant.append((entry, covered))
 
-    partial: list[tuple[_AclEntry, list[str]]] = []
-    for index in kept:
-        others = [entries[other] for other in kept if other != index]
-        covered = _covered_actions(entries[index], others)
-        if covered and len(covered) < len(entries[index].actions):
-            partial.append((entries[index], covered))
-    return sorted([*whole, *partial], key=lambda item: item[0].position)
+    for entry in kept:
+        if covered := _covered_actions(entry, [other for other in kept if other is not entry]):
+            redundant.append((entry, covered))
+    return redundant
 
 
 def _join_words(items: list[str]) -> str:
@@ -322,18 +238,13 @@ def _article(word: str) -> str:
     return "an" if word[:1].lower() in {"a", "e", "i", "o", "u"} else "a"
 
 
+def _actions_phrase(actions: list[str]) -> str:
+    return f"{_join_words(actions)} {'action' if len(actions) == 1 else 'actions'}"
+
+
 def _format_scope(scope: Scope) -> str:
-    dumped = scope.model_dump(by_alias=True)
-    if not isinstance(dumped, dict) or not dumped:
-        return scope.scope_name
-    scope_name, body = next(iter(dumped.items()))
-    if not isinstance(body, dict) or not body:
-        return str(scope_name)
-    return f"{scope_name} ({_format_scope_body(body)})"
-
-
-def _format_scope_body(body: dict[str, Any]) -> str:
-    return "; ".join(f"{key}: {_format_scope_value(value)}" for key, value in body.items())
+    body = scope.model_dump(by_alias=True)[scope.scope_name]
+    return f"{scope.scope_name} ({_format_scope_value(body)})" if body else scope.scope_name
 
 
 def _format_scope_value(value: Any) -> str:
@@ -344,23 +255,22 @@ def _format_scope_value(value: Any) -> str:
     return str(value)
 
 
-def _redundant_message(kind: str, name: str, entry: _AclEntry, covered_actions: list[str], *, whole_acl: bool) -> str:
-    article = _article(entry.label)
-    if whole_acl:
+def _redundant_message(kind: str, name: str, entry: _AclEntry, covered_actions: list[str]) -> str:
+    acl = f"{_article(entry.label)} {entry.label}"
+    scope_text = _format_scope(entry.scope)
+    if covered_actions == entry.actions:
         return (
-            f"{kind} '{name}' has {article} {entry.label} with {_join_words(entry.actions)}, "
-            f"scoped to {entry.scope_text}, that is already covered by the group's other {entry.label} entries."
+            f"{kind} '{name}' has {acl} with {_join_words(entry.actions)}, "
+            f"scoped to {scope_text}, that is already covered by the group's other {entry.label} entries."
         )
-    noun = "action" if len(covered_actions) == 1 else "actions"
     verb = "is" if len(covered_actions) == 1 else "are"
     return (
-        f"{kind} '{name}' has {article} {entry.label} whose {_join_words(covered_actions)} {noun}, "
-        f"scoped to {entry.scope_text}, {verb} already covered by the group's other {entry.label} entries."
+        f"{kind} '{name}' has {acl} whose {_actions_phrase(covered_actions)}, "
+        f"scoped to {scope_text}, {verb} already covered by the group's other {entry.label} entries."
     )
 
 
-def _redundant_fix(label: str, covered_actions: list[str], *, whole_acl: bool) -> str:
-    if whole_acl:
-        return f"Remove this {label}."
-    noun = "action" if len(covered_actions) == 1 else "actions"
-    return f"Remove the {_join_words(covered_actions)} {noun} from this {label}."
+def _redundant_fix(entry: _AclEntry, covered_actions: list[str]) -> str:
+    if covered_actions == entry.actions:
+        return f"Remove this {entry.label}."
+    return f"Remove the {_actions_phrase(covered_actions)} from this {entry.label}."
