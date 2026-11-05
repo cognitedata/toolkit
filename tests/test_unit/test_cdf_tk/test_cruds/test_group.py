@@ -5,6 +5,7 @@ from typing import get_args
 from unittest.mock import MagicMock
 
 import pytest
+from _pytest.mark import ParameterSet
 from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -135,7 +136,7 @@ _DATA_SET_SCOPED_ACLS: tuple[type[Capability], ...] = (
 )
 
 
-def group_acl_expected_dependency() -> Iterable[tuple[CapabilityType, list[tuple[type[ResourceIO], Identifier]]]]:
+def group_acl_expected_dependency() -> Iterable[ParameterSet]:
     """Test cases for all non-all scopes of all ACLs and the dependencies they are expected to give."""
     for acl_cls in _DATA_SET_SCOPED_ACLS:
         yield pytest.param(
