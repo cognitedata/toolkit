@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.capabilities import Capability
 def all_acls() -> Iterable[tuple]:
     acl_list = [
         {"agentsAcl": {"actions": ["READ", "WRITE", "RUN"], "scope": {"all": {}}}},
+        {"agentsProjectConfigAcl": {"actions": ["WRITE"], "scope": {"all": {}}}},
         {"annotationsAcl": {"actions": ["WRITE", "READ", "SUGGEST", "REVIEW"], "scope": {"all": {}}}},
         {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"appScope": {"apps": ["SEARCH"]}}}},
@@ -26,6 +27,7 @@ def all_acls() -> Iterable[tuple]:
         {"assetsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"assetsAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": [123]}}}},
         {"auditlogAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+        {"cogUnitsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
         {"dataModelInstancesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"dataModelInstancesAcl": {"actions": ["READ"], "scope": {"spaceIdScope": {"spaceIds": ["maintain"]}}}},
         {
@@ -82,9 +84,35 @@ def all_acls() -> Iterable[tuple]:
         {"groupsAcl": {"actions": ["LIST", "READ", "DELETE", "UPDATE", "CREATE"], "scope": {"all": {}}}},
         {"groupsAcl": {"actions": ["READ", "CREATE", "UPDATE", "DELETE"], "scope": {"currentuserscope": {}}}},
         {"hostedExtractorsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {"integrationActionsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {
+            "integrationActionsAcl": {
+                "actions": ["READ"],
+                "scope": {"externalIdScope": {"externalIds": ["my-integration"]}},
+            }
+        },
+        {
+            "integrationActionsAcl": {
+                "actions": ["WRITE"],
+                "scope": {"dataDomainScope": {"externalIds": ["my-domain"]}},
+            }
+        },
         {"integrationConfigsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {
+            "integrationConfigsAcl": {
+                "actions": ["READ"],
+                "scope": {"externalIdScope": {"externalIds": ["my-config"]}},
+            }
+        },
         {"integrationsAcl": {"actions": ["READ", "WRITE", "USE"], "scope": {"all": {}}}},
+        {
+            "integrationsAcl": {
+                "actions": ["USE"],
+                "scope": {"dataDomainScope": {"externalIds": ["my-domain"]}},
+            }
+        },
         {"labelsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {"limitsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"locationFiltersAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {
             "locationFiltersAcl": {
@@ -148,6 +176,7 @@ def all_acls() -> Iterable[tuple]:
         {"sequencesAcl": {"actions": ["READ"], "scope": {"all": {}}}},
         {"sequencesAcl": {"actions": ["WRITE"], "scope": {"datasetScope": {"ids": [123, 456]}}}},
         {"sessionsAcl": {"actions": ["LIST", "CREATE", "DELETE"], "scope": {"all": {}}}},
+        {"slaAcl": {"actions": ["READ"], "scope": {"all": {}}}},
         {"templateGroupsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {
             "templateGroupsAcl": {

@@ -145,23 +145,46 @@ jobs:
         LOGIN_FLOW: client_credentials
     name: Dry Run Demo
     steps:
+      # Temporarily skipped until SKIP_UNTIL. Remove this step (and the `if` conditions below) once resolved.
+      # ERROR (ToolkitError): Error downloading file from
+      # https://github.com/cognitedata/toolkit-data/releases/download/latest/packages.zi
+      # The read operation timed out
+      - name: Check temporary skip
+        id: skip
+        env:
+          SKIP_UNTIL: "2026-11-12"
+        run: |
+          if [ "$(date -u +%Y-%m-%d)" \< "$SKIP_UNTIL" ]; then
+            echo "::warning::Dry Run Demo is temporarily skipped until $SKIP_UNTIL"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        if: steps.skip.outputs.skip != 'true'
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        if: steps.skip.outputs.skip != 'true'
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dependencies
+        if: steps.skip.outputs.skip != 'true'
         run: |
           pip install uv
           uv sync --all-extras
       - name: Build the package
+        if: steps.skip.outputs.skip != 'true'
         run: uv build
       - name: Initialize project
+        if: steps.skip.outputs.skip != 'true'
         run: uv run cdf modules init demo_project --clean --all --library-url "https://github.com/cognitedata/toolkit-data/releases/download/latest/packages.zip"
       - name: "Pre-processing for demo environment"
+        if: steps.skip.outputs.skip != 'true'
         run: uv run python ./demo/preproc.py --modules all
       - name: "Build the templates"
+        if: steps.skip.outputs.skip != 'true'
         run: uv run cdf build --config-yaml demo_project/config.demo.yaml -o demo_project
       - name: "Verify and create access rights"
+        if: steps.skip.outputs.skip != 'true'
         run: uv run cdf auth verify --no-prompt
         # Temporarly suspending while investigating
       # - name: "Test clean --dry-run --module=my_module"
@@ -189,11 +212,26 @@ jobs:
       - name: Check help command
         run: docker run cognite/toolkit:latest cdf --help
 
+      # Temporarily skipped until SKIP_UNTIL. Remove this step (and the `if` conditions below) once resolved.
+      - name: Check temporary skip
+        id: skip
+        env:
+          SKIP_UNTIL: "2026-11-12"
+        run: |
+          if [ "$(date -u +%Y-%m-%d)" \< "$SKIP_UNTIL" ]; then
+            echo "::warning::Test Image is temporarily skipped until $SKIP_UNTIL"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Test Image
+        if: steps.skip.outputs.skip != 'true'
         run: |
           docker run -v $(pwd):/app cognite/toolkit:latest cdf modules init my_org --all
 
       - name: Verfiy Created Files
+        if: steps.skip.outputs.skip != 'true'
         run: |
          if [ -d "my_org" ]; then
               echo "My org successfully created"
@@ -202,6 +240,7 @@ jobs:
               exit 1
          fi
       - name: Inspection
+        if: steps.skip.outputs.skip != 'true'
         run: |
           ls -l my_org
           ls -l my_org/modules

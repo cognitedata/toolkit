@@ -96,8 +96,26 @@ class AppExternalIdScope(Scope):
     external_ids: list[str]
 
 
+class DataDomainScope(Scope):
+    """Scope limited to specific data domains by external ID."""
+
+    scope_name: Literal["dataDomainScope"] = Field("dataDomainScope", exclude=True)
+    external_ids: list[str]
+
+
 class DataProductScope(Scope):
     scope_name: Literal["dataProductScope"] = Field("dataProductScope", exclude=True)
+    external_ids: list[str]
+
+
+class ExternalIdScope(Scope):
+    """Scope limited to specific resources by external ID.
+
+    Used by integration ACLs (``integrationsAcl``, ``integrationConfigsAcl``, and
+    ``integrationActionsAcl``).
+    """
+
+    scope_name: Literal["externalIdScope"] = Field("externalIdScope", exclude=True)
     external_ids: list[str]
 
 
@@ -194,6 +212,9 @@ AllOrAppExternalIdScope = Annotated[AllScope | AppExternalIdScope, Field(discrim
 AllOrCurrentUserScope = Annotated[AllScope | CurrentUserScope, Field(discriminator="scope_name"), _LiftScopeName]
 AllOrDataProductScope = Annotated[AllScope | DataProductScope, Field(discriminator="scope_name"), _LiftScopeName]
 AllOrDataSetScope = Annotated[AllScope | DataSetScope, Field(discriminator="scope_name"), _LiftScopeName]
+AllExternalIdOrDataDomainScope = Annotated[
+    AllScope | ExternalIdScope | DataDomainScope, Field(discriminator="scope_name"), _LiftScopeName
+]
 AllOrSignalsCurrentUserScope = Annotated[
     AllScope | SignalsCurrentUserScope, Field(discriminator="scope_name"), _LiftScopeName
 ]
@@ -231,6 +252,12 @@ class AgentsAcl(Capability):
     scope: AllOrAgentExternalIdScope
 
 
+class AgentsProjectConfigAcl(Capability):
+    capability_name: Literal["agentsProjectConfigAcl"] = Field("agentsProjectConfigAcl", exclude=True)
+    actions: list[Literal["WRITE"]]
+    scope: AllScopeType
+
+
 class AnalyticsAcl(Capability):
     capability_name: Literal["analyticsAcl"] = Field("analyticsAcl", exclude=True)
     actions: list[Literal["READ", "EXECUTE", "LIST"]]
@@ -264,6 +291,12 @@ class AssetsAcl(Capability):
 class ChartsAdminAcl(Capability):
     capability_name: Literal["chartsAdminAcl"] = Field("chartsAdminAcl", exclude=True)
     actions: list[Literal["READ", "UPDATE", "DELETE"]]
+    scope: AllScopeType
+
+
+class CogUnitsAcl(Capability):
+    capability_name: Literal["cogUnitsAcl"] = Field("cogUnitsAcl", exclude=True)
+    actions: list[Literal["READ"]]
     scope: AllScopeType
 
 
@@ -431,6 +464,12 @@ class SessionsAcl(Capability):
     scope: AllScopeType
 
 
+class SlaAcl(Capability):
+    capability_name: Literal["slaAcl"] = Field("slaAcl", exclude=True)
+    actions: list[Literal["READ"]]
+    scope: AllScopeType
+
+
 class ThreeDAcl(Capability):
     capability_name: Literal["threedAcl"] = Field("threedAcl", exclude=True)
     actions: list[Literal["READ", "CREATE", "UPDATE", "DELETE"]]
@@ -547,16 +586,22 @@ class HostedExtractorsAcl(Capability):
     scope: AllScopeType
 
 
+class IntegrationActionsAcl(Capability):
+    capability_name: Literal["integrationActionsAcl"] = Field("integrationActionsAcl", exclude=True)
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllExternalIdOrDataDomainScope
+
+
 class IntegrationConfigsAcl(Capability):
     capability_name: Literal["integrationConfigsAcl"] = Field("integrationConfigsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScopeType
+    scope: AllExternalIdOrDataDomainScope
 
 
 class IntegrationsAcl(Capability):
     capability_name: Literal["integrationsAcl"] = Field("integrationsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE", "USE"]]
-    scope: AllScopeType
+    scope: AllExternalIdOrDataDomainScope
 
 
 class VisionModelAcl(Capability):
@@ -603,6 +648,12 @@ class VideoStreamingAcl(Capability):
 
 class LegacyModelHostingAcl(Capability):
     capability_name: Literal["modelHostingAcl"] = Field("modelHostingAcl", exclude=True)
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScopeType
+
+
+class LimitsAcl(Capability):
+    capability_name: Literal["limitsAcl"] = Field("limitsAcl", exclude=True)
     actions: list[Literal["READ", "WRITE"]]
     scope: AllScopeType
 
@@ -660,9 +711,11 @@ ScopeType = Annotated[
     | AppExternalIdScope
     | AssetRootIDScope
     | CurrentUserScope
+    | DataDomainScope
     | DataProductScope
     | DataSetScope
     | ExperimentScope
+    | ExternalIdScope
     | ExtractionPipelineScope
     | IDScope
     | IDScopeLowerCase
@@ -705,6 +758,7 @@ class UnknownCapability(Capability):
 
 CapabilityType = Annotated[
     AgentsAcl
+    | AgentsProjectConfigAcl
     | AnalyticsAcl
     | AnnotationsAcl
     | AppConfigAcl
@@ -712,6 +766,7 @@ CapabilityType = Annotated[
     | AssetsAcl
     | AuditlogAcl
     | ChartsAdminAcl
+    | CogUnitsAcl
     | DataModelInstancesAcl
     | DataModelsAcl
     | DataProductsAcl
@@ -733,11 +788,13 @@ CapabilityType = Annotated[
     | GeospatialCrsAcl
     | GroupsAcl
     | HostedExtractorsAcl
+    | IntegrationActionsAcl
     | IntegrationConfigsAcl
     | IntegrationsAcl
     | LabelsAcl
     | LegacyGenericsAcl
     | LegacyModelHostingAcl
+    | LimitsAcl
     | LocationFiltersAcl
     | MonitoringTasksAcl
     | NotificationsAcl
@@ -756,6 +813,7 @@ CapabilityType = Annotated[
     | SequencesAcl
     | SessionsAcl
     | SimulatorsAcl
+    | SlaAcl
     | StreamRecordsAcl
     | StreamsAcl
     | SubscribeSignalsAcl
