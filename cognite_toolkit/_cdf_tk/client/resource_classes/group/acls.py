@@ -21,6 +21,7 @@ from .scopes import (
     AppExternalIdScope,
     AssetRootIDScope,
     CurrentUserScope,
+    DataDomainScope,
     DataProductScope,
     DataSetScope,
     ExperimentScope,
@@ -138,6 +139,14 @@ class ChartsAdminAcl(Acl):
     acl_name: Literal["chartsAdminAcl"] = Field("chartsAdminAcl", exclude=True)
     actions: Sequence[Literal["READ", "UPDATE", "DELETE"]]
     scope: AllScope
+
+
+class DataDomainsAcl(Acl):
+    """ACL for Data Domains resources."""
+
+    acl_name: Literal["dataDomainsAcl"] = Field("dataDomainsAcl", exclude=True)
+    actions: Sequence[Literal["CREATE", "READ", "UPDATE", "DELETE"]]
+    scope: AllScope | DataDomainScope
 
 
 class DataModelInstancesAcl(Acl):
@@ -313,7 +322,7 @@ class IntegrationConfigsAcl(Acl):
 
     acl_name: Literal["integrationConfigsAcl"] = Field("integrationConfigsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScope | DataDomainScope
 
 
 class IntegrationsAcl(Acl):
@@ -321,7 +330,7 @@ class IntegrationsAcl(Acl):
 
     acl_name: Literal["integrationsAcl"] = Field("integrationsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE", "USE"]]
-    scope: AllScope
+    scope: AllScope | DataDomainScope
 
 
 class LabelsAcl(Acl):
@@ -401,7 +410,7 @@ class RawAcl(Acl):
 
     acl_name: Literal["rawAcl"] = Field("rawAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE", "LIST"]]
-    scope: AllScope | TableScope
+    scope: AllScope | TableScope | DataDomainScope
 
 
 class RelationshipsAcl(Acl):
@@ -545,7 +554,7 @@ class TransformationsAcl(Acl):
 
     acl_name: Literal["transformationsAcl"] = Field("transformationsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
-    scope: AllScope | DataSetScope
+    scope: AllScope | DataSetScope | DataDomainScope
 
 
 class TransformationsExternalDataSourcesAcl(Acl):
@@ -603,7 +612,7 @@ class WorkflowOrchestrationAcl(Acl):
 
     acl_name: Literal["workflowOrchestrationAcl"] = Field("workflowOrchestrationAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
-    scope: AllScope | DataSetScope
+    scope: AllScope | DataSetScope | DataDomainScope
 
 
 class SimulatorsAcl(Acl):
@@ -677,6 +686,7 @@ AclType: TypeAlias = Annotated[
         | AssetsAcl
         | AuditlogAcl
         | ChartsAdminAcl
+        | DataDomainsAcl
         | DataModelInstancesAcl
         | DataModelsAcl
         | DataProductsAcl

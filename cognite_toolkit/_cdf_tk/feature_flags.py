@@ -58,6 +58,10 @@ class Flags(Enum):
         visible=True,
         description="Enables support for data product and rule set resources and workflow task lineage annotations",
     )
+    DOMAINS = FlagMetadata(
+        visible=True,
+        description="Enables support for domain resources",
+    )
     MODULES_LIST_JSON = FlagMetadata(
         visible=True,
         description="Enables JSON output format for the modules list command",

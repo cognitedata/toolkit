@@ -22,6 +22,7 @@ from ._classic import AssetIO
 from ._data_organization import DataSetsIO
 from ._data_product import DataProductIO
 from ._datamodel import SpaceIO
+from ._domain import DomainIO
 from ._extraction_pipeline import ExtractionPipelineIO
 from ._location import LocationFilterIO
 from ._raw import RawDatabaseIO, RawTableIO
@@ -34,6 +35,7 @@ class GroupResourceScopedIO(GroupIO):
         {
             SpaceIO,
             DataSetsIO,
+            DomainIO,
             DataProductIO,
             ExtractionPipelineIO,
             TimeSeriesIO,
