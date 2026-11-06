@@ -35,6 +35,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.constants import URL
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, ResourceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
@@ -132,7 +133,13 @@ def _source_file(ref: ResourceRef) -> Path:
 
 def _exceeded_limit(ref: ResourceRef, message: str, fix: str, keys: Sequence[str] = ()) -> BuildError:
     return with_position(
-        BuildError(code="EXCEEDED-LIMIT", message=message, fix=fix, source_file=_source_file(ref)),
+        BuildError(
+            code="EXCEEDED-LIMIT",
+            message=message,
+            fix=fix,
+            source_file=_source_file(ref),
+            alpha=Flags.ALPHA_RULES.is_enabled(),
+        ),
         keys=keys,
         values=identifier_values(ref.identifier),
         variables=ref.variables,
@@ -1095,6 +1102,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                 f"The project currently has {current} of {limit} {noun}."
             ),
             source_url=endpoint_url,
+            alpha=Flags.ALPHA_RULES.is_enabled(),
         )
 
     @classmethod
@@ -1117,6 +1125,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                 f"{limit}. The project currently has {current} soft-deleted instances."
             ),
             source_url=endpoint_url,
+            alpha=Flags.ALPHA_RULES.is_enabled(),
         )
 
     @staticmethod
