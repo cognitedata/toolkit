@@ -1020,18 +1020,6 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                 ref, "data model", len(data_model.views or []), "views", limits.max_views_per_data_model
             )
 
-        total = sum(len(container.properties) for _, container in containers.values())
-        if total > limits.max_total_container_properties:
-            yield from self._limit_errors(
-                [ref for ref, container in containers.values() if container.properties],
-                (
-                    f"Containers define {total} properties in total, "
-                    f"which exceeds the project limit of {limits.max_total_container_properties}."
-                ),
-                f"Remove container properties so the total stays within {limits.max_total_container_properties}.",
-                keys=["properties"],
-            )
-
     @staticmethod
     def _check_resource_limit(ref: ResourceRef, kind: str, count: int, noun: str, limit: int) -> Iterable[Insight]:
         if count <= limit:
