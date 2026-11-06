@@ -1148,7 +1148,7 @@ capabilities:
     insight = insights[0]
     assert isinstance(insight, BuildError)
     assert insight.message.startswith("The space 'my_non_existent_space' does not exist locally or in CDF.")
-    assert insight.source_file == yaml_filepath
+    assert insight.source == yaml_filepath
     assert (insight.line, insight.column) == (12, 11)
 
 

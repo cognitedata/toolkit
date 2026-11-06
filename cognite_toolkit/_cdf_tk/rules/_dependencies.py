@@ -89,7 +89,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                                     message=f"The {resource_label} {quote_identifier(identifier)} does not exist locally or in CDF. "
                                     f"It is referenced by {quote_identifier(resource.identifier)}.",
                                     fix=f"Ensure that the {resource_label} exists or remove the reference to it.",
-                                    source_file=source_path,
+                                    source=source_path,
                                 ),
                                 values=identifier_values(identifier),
                                 variables=resource.variables,
@@ -106,7 +106,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
                                 f"It is referenced by {quote_identifier(resource.identifier)}.",
                                 fix=f"Provide credentials to enable CDF verification. "
                                 f"Or ensure that {resource_type_name} exists or remove the reference to it.",
-                                source_file=source_path,
+                                source=source_path,
                             ),
                             values=identifier_values(identifier),
                             variables=resource.variables,

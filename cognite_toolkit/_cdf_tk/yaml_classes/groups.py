@@ -41,7 +41,7 @@ class BaseGroupYAML(ToolkitResource):
                     f"'{cap.original_name}' is not a known capability name. "
                     "It will be deployed as-is, but may be rejected by CDF."
                 ),
-                source_file=source_file,
+                source=source_file,
                 fix="Compare the YAML with reference documentation. The resource will still be deployed.",
             )
             for cap in (self.capabilities or [])

@@ -94,7 +94,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                 ),
                 code="MISSING-READ-ACCESS",
                 fix="Ensure that the provided token has READ access to Functions.",
-                source_file=first_function,
+                source=first_function,
             )
             return
 
@@ -107,7 +107,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                 ),
                 code="INVALID-VALUE",
                 fix="Activate Cognite Functions for the project. For example, by running `cdf auth verify`.",
-                source_file=first_function,
+                source=first_function,
             )
 
     @classmethod
@@ -141,7 +141,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                     message=pip_result.create_message("Function", function_def.external_id or function_def.name),
                     code="INVALID-REQUIREMENTS",
                     fix="Ensure that requirements.txt is valid.",
-                    source_file=source_path,
+                    source=source_path,
                 )
 
     @classmethod
@@ -160,7 +160,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                         ),
                         code="EXCEEDED-LIMIT",
                         fix=f"Ensure that CPU cores is between {limits.cpu_cores.min} and {limits.cpu_cores.max}.",
-                        source_file=source_path,
+                        source=source_path,
                     ),
                     keys=["cpu"],
                 )
@@ -176,7 +176,7 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                         ),
                         code="EXCEEDED-LIMIT",
                         fix=f"Ensure that memory is between {limits.memory_gb.min} and {limits.memory_gb.max} GB.",
-                        source_file=source_path,
+                        source=source_path,
                     ),
                     keys=["memory"],
                 )
@@ -193,5 +193,5 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
                     ),
                     code="INVALID-VALUE",
                     fix=f"Use one of the available runtimes: {quoted_runtimes}.",
-                    source_file=source_path,
+                    source=source_path,
                 )

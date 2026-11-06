@@ -188,7 +188,7 @@ name: My Space
         }
 
         syntax_insight = next(i for i in folder.module_insights if i.code == "INVALID-FIELD")
-        assert syntax_insight.source_file == resource_file
+        assert syntax_insight.source == resource_file
 
         insights_csv = (build_dir / "insights.csv").read_text()
         assert format_insight_source_file(resource_file) in insights_csv
@@ -681,7 +681,7 @@ class TestDisplayInsightsOutput:
                     code="UNRECOGNIZED-FIELD",
                     message="Unrecognized field: 'Name'",
                     fix="Make sure the resource YAML content is valid and follows the expected structure.",
-                    source_file=source_file,
+                    source=source_file,
                 )
             ]
         )
@@ -700,7 +700,7 @@ class TestDisplayInsightsOutput:
                 BuildWarning(
                     code="UNRECOGNIZED-FIELD",
                     message="Unrecognized field: 'Name'",
-                    source_file=tmp_path / f"modules/my_module/my_space_{no}.Space.yaml",
+                    source=tmp_path / f"modules/my_module/my_space_{no}.Space.yaml",
                 )
                 for no in range(5)
             ]
@@ -724,7 +724,7 @@ class TestDisplayInsightsOutput:
                     code="UNRECOGNIZED-VALUE",
                     message=f"In field externalId string should match pattern '{pattern}'",
                     fix="Make sure the resource YAML content is valid and follows the expected structure.",
-                    source_file=yaml_file,
+                    source=yaml_file,
                 )
             ]
         )

@@ -95,7 +95,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                     ),
                     code="INVALID-VALUE",
                     fix="Use one of the available models for this CDF project.",
-                    source_file=source_file,
+                    source=source_file,
                 ),
                 keys=["model"],
             )
@@ -115,7 +115,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                         ),
                         code="INVALID-VALUE",
                         fix="Use one of the available runtime versions for this CDF project.",
-                        source_file=source_file,
+                        source=source_file,
                     ),
                     keys=["runtimeVersion"],
                 )
@@ -142,7 +142,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                                 f"Use a runtime version that supports '{requirement.field_name}', "
                                 f"or remove the '{requirement.field_name}' field."
                             ),
-                            source_file=source_file,
+                            source=source_file,
                         ),
                         keys=[requirement.field_name],
                     )
@@ -157,7 +157,7 @@ class AgentRuleSet(ToolkitGlobalRuleSet):
                     ),
                     code="EXCEEDED-LIMIT",
                     fix=f"Reduce the number of tools to at most {max_tools}.",
-                    source_file=source_file,
+                    source=source_file,
                 ),
                 keys=["tools"],
             )

@@ -48,7 +48,7 @@ class StreamYAML(ToolkitResource):
 
             return [
                 BuildWarning(
-                    source_file=source_file,
+                    source=source_file,
                     code="INVALID-VALUE",
                     message=f"Stream template '{self.settings.template.name}' is not an officially supported template.\n"
                     f"Note if you are using a custom template, this warning can be ignored.\n"

@@ -373,7 +373,7 @@ class DeployV2Command(ToolkitCommand):
 
         insights_by_resource: InsightsByResource = defaultdict(list)
         for insight in insights:
-            for resource_type, identifier in resources_by_source_path.get(insight.source_file, []):
+            for resource_type, identifier in resources_by_source_path.get(insight.source, []):
                 insights_by_resource[(resource_type, identifier)].append(insight)
         return dict(insights_by_resource) or None
 
