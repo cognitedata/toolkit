@@ -84,7 +84,7 @@ class Flags(Enum):
     )
     FUNCTION_APPS = FlagMetadata(
         visible=False,
-        description="Enables local Function App development commands",
+        description="Enables local Function App development commands and Function App deployment resources",
     )
     MULTI_CONFIGS = FlagMetadata(
         visible=True,
