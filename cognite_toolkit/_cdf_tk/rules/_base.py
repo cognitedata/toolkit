@@ -61,11 +61,13 @@ def with_position(
             that values built from variables, e.g., 'sp_{{ location }}_assets', are found. Substituted values
             can shift the column of text after them on the same line, but not where a key or value starts.
     """
+    if isinstance(insight.source, str):
+        return insight
     try:
-        content = insight.source_file.read_text(encoding="utf-8")
+        content = insight.source.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return insight
-    content = BuildVariable.substitute(content, list(variables), insight.source_file.suffix)
+    content = BuildVariable.substitute(content, list(variables), insight.source.suffix)
     # Variables such as {{ space }} can make the source file invalid YAML. They are replaced by text of the same
     # length, such that the positions in the file are kept.
     content = UNRESOLVED_VARIABLE_PATTERN.sub(_same_length_placeholder, content)

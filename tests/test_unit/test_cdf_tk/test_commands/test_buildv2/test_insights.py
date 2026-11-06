@@ -20,13 +20,13 @@ def some_insights(valid_yaml_absolute_path) -> InsightList:
                 message="summary line\nnext line",
                 code="INVALID-FIELD",
                 fix="do this\r\nthen that",
-                source_file=valid_yaml_absolute_path,
+                source=valid_yaml_absolute_path,
             ),
             Recommendation(
                 message='text with "quotes" and, commas',
                 code="INVALID-VALUE",
                 fix="single",
-                source_file=valid_yaml_absolute_path,
+                source=valid_yaml_absolute_path,
             ),
         ]
     )
@@ -35,23 +35,21 @@ def some_insights(valid_yaml_absolute_path) -> InsightList:
 class TestInsightList:
     def test_csv_roundtrip(self, some_insights) -> None:
         csv_text = some_insights.to_csv()
-        loaded = InsightList.from_csv(csv_text, some_insights[0].source_file.parent.parent)
+        loaded = InsightList.from_csv(csv_text, some_insights[0].source.parent.parent)
 
         assert some_insights.dump() == loaded.dump()
 
     def test_json_roundtrip(self, some_insights) -> None:
         json_text = some_insights.to_json()
-        loaded = InsightList.from_json(json_text, some_insights[0].source_file.parent.parent)
+        loaded = InsightList.from_json(json_text, some_insights[0].source.parent.parent)
 
         assert some_insights.dump() == loaded.dump()
 
     def test_build_error_and_warning_roundtrip(self, valid_yaml_absolute_path) -> None:
         insights = InsightList(
             [
-                BuildError(message="error", code="INVALID-FIELD", fix="fix", source_file=valid_yaml_absolute_path),
-                BuildWarning(
-                    message="warning", code="UNRECOGNIZED-FIELD", fix="fix", source_file=valid_yaml_absolute_path
-                ),
+                BuildError(message="error", code="INVALID-FIELD", fix="fix", source=valid_yaml_absolute_path),
+                BuildWarning(message="warning", code="UNRECOGNIZED-FIELD", fix="fix", source=valid_yaml_absolute_path),
             ]
         )
         organization_dir = valid_yaml_absolute_path.parent.parent
@@ -60,20 +58,20 @@ class TestInsightList:
         assert InsightList.from_json(insights.to_json(), organization_dir).dump() == insights.dump()
 
     def test_heading(self, valid_yaml_absolute_path) -> None:
-        insight = BuildError(message="m", code="INVALID-FILE-CONTENT", source_file=valid_yaml_absolute_path)
+        insight = BuildError(message="m", code="INVALID-FILE-CONTENT", source=valid_yaml_absolute_path)
 
         assert insight.heading == "Invalid file content"
 
     def test_display_location_includes_position(self, valid_yaml_absolute_path) -> None:
-        insight = BuildError(message="m", code="INVALID-VALUE", source_file=valid_yaml_absolute_path, line=3, column=6)
+        insight = BuildError(message="m", code="INVALID-VALUE", source=valid_yaml_absolute_path, line=3, column=6)
 
         assert insight.display_location == f"{insight.display_source_file_cwd}:3:6"
 
     def test_position_round_trips_through_csv(self, valid_yaml_absolute_path) -> None:
         insights = InsightList(
             [
-                BuildError(message="m", code="INVALID-FIELD", source_file=valid_yaml_absolute_path, line=3, column=6),
-                BuildError(message="m", code="INVALID-VALUE", source_file=valid_yaml_absolute_path),
+                BuildError(message="m", code="INVALID-FIELD", source=valid_yaml_absolute_path, line=3, column=6),
+                BuildError(message="m", code="INVALID-VALUE", source=valid_yaml_absolute_path),
             ]
         )
         organization_dir = valid_yaml_absolute_path.parent.parent
@@ -93,7 +91,7 @@ class TestInsightList:
             {
                 "insight_type": "Error",
                 "code": "INVALID-FIELD",
-                "source_file": format_insight_source_file(valid_yaml_absolute_path),
+                "source": format_insight_source_file(valid_yaml_absolute_path),
                 "line": "",
                 "column": "",
                 "message": "summary line\nnext line",
@@ -103,7 +101,7 @@ class TestInsightList:
             {
                 "insight_type": "Recommendation",
                 "code": "INVALID-VALUE",
-                "source_file": format_insight_source_file(valid_yaml_absolute_path),
+                "source": format_insight_source_file(valid_yaml_absolute_path),
                 "line": "",
                 "column": "",
                 "message": 'text with "quotes" and, commas',

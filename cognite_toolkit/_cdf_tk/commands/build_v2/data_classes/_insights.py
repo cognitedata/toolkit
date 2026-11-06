@@ -14,7 +14,7 @@ from pydantic import (
 )
 from pydantic_core.core_schema import ValidationInfo
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import URL, AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_modules
@@ -65,7 +65,7 @@ class InsightDefinition(BaseModel):
 
     code: InsightCode
     message: str
-    source_file: AbsoluteFilePath
+    source: AbsoluteFilePath | URL
     line: int | None = None
     column: int | None = None
     fix: str | None = None
@@ -73,8 +73,10 @@ class InsightDefinition(BaseModel):
 
     @property
     def display_source_file_cwd(self) -> str:
-        """Returns the source file path relative to the current working directory."""
-        return format_insight_source_file(self.source_file)
+        """Returns the source file path relative to the current working directory, or the URL as is."""
+        if isinstance(self.source, str):
+            return self.source
+        return format_insight_source_file(self.source)
 
     @property
     def display_location(self) -> str:
@@ -91,8 +93,10 @@ class InsightDefinition(BaseModel):
 
     @property
     def display_source_file_modules(self) -> str:
-        """Returns the source file path relative to the organization's modules directory."""
-        return relative_to_modules(self.source_file)
+        """Returns the source file path relative to the organization's modules directory, or the URL as is."""
+        if isinstance(self.source, str):
+            return self.source
+        return relative_to_modules(self.source)
 
     @property
     def heading(self) -> str:
@@ -110,20 +114,27 @@ class InsightDefinition(BaseModel):
         """CSV serializes a missing position as an empty cell."""
         return None if value == "" else value
 
-    @field_validator("source_file", mode="before")
+    @field_validator("source", mode="before")
     @classmethod
-    def _to_absolute_path(cls, value: Any, info: ValidationInfo) -> Path:
-        """Convert the source file path to an absolute path relative to the organization directory."""
+    def _to_absolute_path(cls, value: Any, info: ValidationInfo) -> Path | str:
+        """Convert a source file path to an absolute path relative to the organization directory.
+
+        Strings that look like a URL, or the path part of one such as '/models/views', are kept as is.
+        """
         if not isinstance(value, str | Path):
-            raise ValueError(f"Unexpected type for source_file: {type(value)}")
+            raise ValueError(f"Unexpected type for source: {type(value)}")
+        if isinstance(value, str) and _is_url_like(value):
+            return value
         if info.context and isinstance(organization_dir := info.context.get("organization_dir", None), Path):
             return (organization_dir / value).resolve()
         return Path(value).resolve()
 
-    @field_serializer("source_file")
-    def as_relative_to_modules(self, source_file: AbsoluteFilePath) -> str:
-        """Serialize the source_file field as a path relative to the organization's modules directory."""
-        return relative_to_modules(source_file)
+    @field_serializer("source")
+    def as_relative_to_modules(self, source: AbsoluteFilePath | URL) -> str:
+        """Serialize a source file as a path relative to the organization's modules directory, and a URL as is."""
+        if isinstance(source, str):
+            return source
+        return relative_to_modules(source)
 
     @field_validator("message", "fix", mode="after")
     @classmethod
@@ -194,6 +205,11 @@ InsightListAdapter: TypeAdapter[list[Insight]] = TypeAdapter(list[Insight])
 def _normalize_csv_cell(text: str) -> str:
     """Normalize line breaks so CSV cells stay readable and consistent across platforms."""
     return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _is_url_like(value: str) -> bool:
+    """A file path always has a suffix, while a URL path such as '/models/views' does not."""
+    return "://" in value or (value.startswith("/") and not Path(value).suffix)
 
 
 def _split_source_files(raw: str, separator: str) -> list[str]:

@@ -320,7 +320,7 @@ class TestInFieldCDMRuleSet:
         assert len(errors) == 1
         assert errors[0].code == "MISSING-REFERENCED-PROPERTY"
         assert "files" in errors[0].message
-        assert errors[0].source_file == yaml_file
+        assert errors[0].source == yaml_file
 
     def test_observation_without_fields_config_is_not_checked(
         self,
@@ -431,7 +431,7 @@ class TestInFieldCDMRuleSet:
         assert len(errors) == 1
         assert errors[0].code == "MISSING-REFERENCED-PROPERTY"
         assert "unknownField" in errors[0].message
-        assert errors[0].source_file == yaml_file
+        assert errors[0].source == yaml_file
 
     def test_asset_properties_card_config_defaults_to_cognite_asset_view(
         self,

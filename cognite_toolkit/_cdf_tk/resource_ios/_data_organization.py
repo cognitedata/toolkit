@@ -298,7 +298,7 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
                     code="INVALID-VALUE",
                     message=f"The {cls.kind} could not be converted to a valid {DataSetsIO.kind}:\n"
                     + "\n".join(humanize_validation_error(error, DataSetYAML)),
-                    source_file=source_file,
+                    source=source_file,
                 )
         yield CrudResource(raw=crud_resource, identifier=cls.get_id(raw), type_=cls.as_crud_type(), validated=validated)
 

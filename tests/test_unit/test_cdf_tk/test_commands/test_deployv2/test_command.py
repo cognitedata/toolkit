@@ -822,7 +822,7 @@ def _space_lineage_with_insights(
             BuildError(
                 message="Space is fine this is a test",
                 code="INVALID-VALUE",
-                source_file=source_file,
+                source=source_file,
                 fix="Cannot be fixed as it is not an issue",
             )
         ]

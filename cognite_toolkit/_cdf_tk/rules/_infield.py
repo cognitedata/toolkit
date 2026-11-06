@@ -155,7 +155,7 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
                         f"View {view_id!s} used as {card_key!r} is missing required properties: {quoted_missing}."
                     ),
                     fix=f"Ensure the view has these properties: {quoted_missing}.",
-                    source_file=source_path,
+                    source=source_path,
                 ),
                 keys=[card_key],
             )
@@ -180,7 +180,7 @@ class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
                     code="MISSING-REFERENCED-PROPERTY",
                     message=(f"View {view_id!s} used for {config_key!r} does not have properties: {quoted_unknown}."),
                     fix=f"Use property names that exist on the view: {quoted_unknown}.",
-                    source_file=source_path,
+                    source=source_path,
                 ),
                 keys=[*(unknown if len(unknown) == 1 else ()), config_key.rsplit(".", maxsplit=1)[-1]],
             )

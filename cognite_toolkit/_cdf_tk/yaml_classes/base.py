@@ -50,7 +50,7 @@ class ToolkitResource(BaseModelResource):
         else:
             message = f"{kind} {quote_identifier(self.as_id())} is not assigned to a data set."
             fix = f"Set 'dataSetExternalId' on the {kind}."
-        return [Recommendation(code="UNGOVERNED-RESOURCE", message=message, fix=fix, source_file=source_file)]
+        return [Recommendation(code="UNGOVERNED-RESOURCE", message=message, fix=fix, source=source_file)]
 
 
 T_Resource = TypeVar("T_Resource", bound=ToolkitResource)
