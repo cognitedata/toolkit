@@ -72,7 +72,7 @@ class InsightDefinition(BaseModel):
     alpha: bool = False
 
     @property
-    def display_source_file_cwd(self) -> str:
+    def display_source(self) -> str:
         """Returns the source file path relative to the current working directory, or the URL as is."""
         if isinstance(self.source, str):
             return self.source
@@ -84,7 +84,7 @@ class InsightDefinition(BaseModel):
 
         The 'path:line:column' format is made clickable by terminals such as the one in VS Code.
         """
-        location = self.display_source_file_cwd
+        location = self.display_source
         if self.line is None:
             return location
         if self.column is None:

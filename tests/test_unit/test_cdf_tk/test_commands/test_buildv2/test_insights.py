@@ -65,7 +65,7 @@ class TestInsightList:
     def test_display_location_includes_position(self, valid_yaml_absolute_path) -> None:
         insight = BuildError(message="m", code="INVALID-VALUE", source=valid_yaml_absolute_path, line=3, column=6)
 
-        assert insight.display_location == f"{insight.display_source_file_cwd}:3:6"
+        assert insight.display_location == f"{insight.display_source}:3:6"
 
     def test_position_round_trips_through_csv(self, valid_yaml_absolute_path) -> None:
         insights = InsightList(
