@@ -266,7 +266,7 @@ class BuildV2Command(ToolkitCommand):
                 insight
                 for insight in found_insights
                 if insight.code not in global_ignores
-                and insight.code not in local_ignores_by_file.get(insight.source, set())
+                and insight.code not in local_ignores_by_file.get(insight.source_file, set())
                 and (not insight.alpha or Flags.ALPHA_RULES.is_enabled())
             ]
         )
@@ -1445,7 +1445,7 @@ class BuildV2Command(ToolkitCommand):
                 code="INVALID-FIELD",
                 message="\n".join(item.message for item in errors),
                 fix="Compare the YAML with reference documentation and make sure it is valid.",
-                source=resource_file,
+                source_file=resource_file,
                 line=line,
                 column=column,
             )
@@ -1457,7 +1457,7 @@ class BuildV2Command(ToolkitCommand):
                 BuildWarning(
                     code=warning.code,
                     message=warning.message,
-                    source=resource_file,
+                    source_file=resource_file,
                     line=line,
                     column=column,
                     fix="Compare the YAML with reference documentation and make sure it is valid. It will be deployed as-is, but may be ignored or rejected by CDF.",

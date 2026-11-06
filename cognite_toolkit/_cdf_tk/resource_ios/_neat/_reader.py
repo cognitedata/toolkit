@@ -179,7 +179,7 @@ class NeatTableReader:
             BuildError(
                 code=code,
                 message=message,
-                source=self.source.source,
+                source_file=self.source.source,
                 line=location.line if isinstance(location, YamlPosition) else None,
                 column=location.column if isinstance(location, YamlPosition) else None,
                 alpha=Flags.NEAT.is_enabled(),
@@ -198,7 +198,7 @@ class NeatTableReader:
             BuildWarning(
                 code=code,
                 message=message,
-                source=Path(self.source.source),
+                source_file=Path(self.source.source),
                 line=location.line if isinstance(location, YamlPosition) else None,
                 column=location.column if isinstance(location, YamlPosition) else None,
                 alpha=Flags.NEAT.is_enabled(),
