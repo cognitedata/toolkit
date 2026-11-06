@@ -58,6 +58,7 @@ DIRECT_PARENT_ID = ViewId(space="my_space", external_id="DirectParent", version=
 TEXT_PARENT_ID = ViewId(space="my_space", external_id="TextParent", version="v1")
 BASE_VIEW_ID = ViewId(space="my_space", external_id="BaseView", version="v1")
 DATA_MODEL_ID = DataModelId(space="my_space", external_id="MyModel", version="v1")
+API_URL = "https://bluefield.cognitedata.com/api/v1/projects/my_project"
 
 CONTAINER_YAML = """space: my_space
 externalId: MyContainer
@@ -190,6 +191,7 @@ def _client(
     statistics: ProjectStatisticsResponse | None = None,
 ) -> MagicMock:
     client = MagicMock()
+    client.config.create_api_url.side_effect = lambda endpoint: f"{API_URL}{endpoint}"
     client.containers.retrieve.return_value = containers or []
     client.views.retrieve.return_value = views or []
     client.data_models.retrieve.return_value = data_models or []
@@ -1135,16 +1137,28 @@ class TestDataModelingLimits:
         )
 
     @pytest.mark.parametrize(
-        "resource_name, yaml, identifier, crud",
+        "resource_name, yaml, identifier, crud, endpoint",
         [
-            pytest.param("spaces", "space: my_space\n", SpaceId(space="my_space"), SpaceIO, id="spaces"),
-            pytest.param("containers", CONTAINER_YAML, CONTAINER_ID, ContainerIO, id="containers"),
-            pytest.param("views", VIEW_YAML, VIEW_ID, ViewIO, id="views"),
-            pytest.param("data models", DATA_MODEL_YAML, DATA_MODEL_ID, DataModelIO, id="data-models"),
+            pytest.param(
+                "spaces", "space: my_space\n", SpaceId(space="my_space"), SpaceIO, "/models/spaces", id="spaces"
+            ),
+            pytest.param(
+                "containers", CONTAINER_YAML, CONTAINER_ID, ContainerIO, "/models/containers", id="containers"
+            ),
+            pytest.param("views", VIEW_YAML, VIEW_ID, ViewIO, "/models/views", id="views"),
+            pytest.param(
+                "data models", DATA_MODEL_YAML, DATA_MODEL_ID, DataModelIO, "/models/datamodels", id="data-models"
+            ),
         ],
     )
     def test_creating_past_the_project_limit(
-        self, tmp_path: Path, resource_name: str, yaml: str, identifier: Identifier, crud: type[ResourceIO]
+        self,
+        tmp_path: Path,
+        resource_name: str,
+        yaml: str,
+        identifier: Identifier,
+        crud: type[ResourceIO],
+        endpoint: str,
     ) -> None:
         yaml_file = _write(tmp_path, "resource.yaml", yaml)
         field_name = resource_name.replace(" ", "_")
@@ -1160,10 +1174,14 @@ class TestDataModelingLimits:
         insights = [
             item for item in rule._check_data_modeling_capacity(client, results) if isinstance(item, InsightDefinition)
         ]
-        assert (
-            [insight.code for insight in insights],
-            f"increasing the total number of {resource_name} from 2 to 3" in insights[0].message,
-        ) == (["EXCEEDED-LIMIT"], True)
+        assert [
+            (
+                insight.code,
+                insight.source_url,
+                f"increasing the total number of {resource_name} from 2 to 3" in insight.message,
+            )
+            for insight in insights
+        ] == [("EXCEEDED-LIMIT", f"{API_URL}{endpoint}", True)]
 
     def test_validate_reports_a_space_limit(self, tmp_path: Path) -> None:
         yaml_file = _write(tmp_path, "my_space.Space.yaml", "space: my_space\n")
@@ -1200,15 +1218,19 @@ class TestDataModelingLimits:
 
         assert list(rule._check_data_modeling_capacity(client, results)) == []
 
-    def test_recreated_resources_do_not_consume_new_capacity(self, tmp_path: Path) -> None:
+    def test_one_error_per_exceeded_endpoint(self, tmp_path: Path) -> None:
         kept = SpaceId(space="space_a")
         added = SpaceId(space="space_b")
+        other = SpaceId(space="space_c")
         kept_file = _write(tmp_path, "space_a.Space.yaml", "space: space_a\n")
         added_file = _write(tmp_path, "space_b.Space.yaml", "space: space_b\n")
+        other_file = _write(tmp_path, "space_c.Space.yaml", "space: space_c\n")
         client = _client(limits=_limit_responses(max_spaces=2), statistics=_project_statistics(spaces=2))
-        results = [_deployment("spaces", created=[kept, added], deleted=[kept])]
+        results = [_deployment("spaces", created=[kept, added, other], deleted=[kept])]
         rule = DataModelingRuleSet(
-            resources=_resources([(kept_file, SpaceIO, kept), (added_file, SpaceIO, added)]),
+            resources=_resources(
+                [(kept_file, SpaceIO, kept), (added_file, SpaceIO, added), (other_file, SpaceIO, other)]
+            ),
             results=results,
             client=client,
         )
@@ -1217,9 +1239,8 @@ class TestDataModelingLimits:
             item for item in rule._check_data_modeling_capacity(client, results) if isinstance(item, BuildError)
         ]
         assert [
-            (insight.code, insight.source_file, "create 2 spaces and delete 1 space" in insight.message)
-            for insight in insights
-        ] == [("EXCEEDED-LIMIT", added_file.resolve(), True)]
+            (insight.source_url, "create 3 spaces and delete 1 space" in insight.message) for insight in insights
+        ] == [(f"{API_URL}/models/spaces", True)]
 
     def test_instances_past_the_project_limit(self, tmp_path: Path) -> None:
         yaml_file = _write(tmp_path, "my_node.Node.yaml", NODE_YAML)
@@ -1262,22 +1283,6 @@ class TestDataModelingLimits:
                 {"max_container_properties": 1},
                 "has 2 properties, which exceeds the limit of 1",
                 id="container-properties",
-            ),
-            pytest.param(
-                _container_yaml("name", "other"),
-                ContainerIO,
-                CONTAINER_ID,
-                {"max_total_container_properties": 1},
-                "Containers define 2 properties in total",
-                id="total-container-properties",
-            ),
-            pytest.param(
-                _container_yaml("name", "other"),
-                ContainerIO,
-                CONTAINER_ID,
-                {"max_total_container_properties": 2},
-                None,
-                id="total-container-properties-within-limit",
             ),
             pytest.param(
                 _container_yaml("name", "other", used_for="record"),

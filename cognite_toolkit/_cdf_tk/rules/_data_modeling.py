@@ -1,7 +1,6 @@
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from itertools import chain
 from pathlib import Path
 from typing import Any, ClassVar, Literal, Self, TypeVar, cast
 
@@ -52,6 +51,8 @@ from ._base import (
 _KeyT = TypeVar("_KeyT")
 _ReferenceStatus = Literal["ok", "not_direct", "missing"]
 _DATA_MODELING_LIMIT_PREFIX = "data_modeling."
+_INSTANCES_ENDPOINT = "/models/instances"
+_INSTANCES = ("nodes", "edges")
 
 
 _LocalContainer = tuple[ResourceRef, ContainerRequest]
@@ -975,7 +976,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                 message=f"Failed to retrieve data modeling statistics: {error}", source="DataModeling"
             )
             return
-        yield from self._check_project_capacity(limits, statistics, results)
+        yield from self._check_project_capacity(client, limits, statistics, results)
 
     def _retrieve_limits(
         self, client: ToolkitClient
@@ -1036,78 +1037,86 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
 
     def _check_project_capacity(
         self,
+        client: ToolkitClient,
         limits: DataModelingLimits,
         statistics: ProjectStatisticsResponse,
         results: Sequence[DeploymentResult],
-    ) -> Iterable[Insight | InternalValidatorException]:
-        yield from self._check_capacity(results, "spaces", statistics.spaces.count, limits.max_spaces)
-        yield from self._check_capacity(results, "containers", statistics.containers.count, limits.max_containers)
-        yield from self._check_capacity(results, "views", statistics.views.count, limits.max_views)
-        yield from self._check_capacity(results, "data models", statistics.data_models.count, limits.max_data_models)
-        yield from self._check_capacity(
-            results,
-            "instances",
-            statistics.instances.instances,
-            limits.max_instances,
-            resource_names=("nodes", "edges"),
-        )
+    ) -> Iterable[Insight]:
+        checks: list[tuple[str, str, int, int, Sequence[str] | None]] = [
+            ("spaces", "/models/spaces", statistics.spaces.count, limits.max_spaces, None),
+            ("containers", "/models/containers", statistics.containers.count, limits.max_containers, None),
+            ("views", "/models/views", statistics.views.count, limits.max_views, None),
+            ("data models", "/models/datamodels", statistics.data_models.count, limits.max_data_models, None),
+            ("instances", _INSTANCES_ENDPOINT, statistics.instances.instances, limits.max_instances, _INSTANCES),
+        ]
+        for noun, endpoint, current, limit, resource_names in checks:
+            yield from self._check_capacity(
+                results, noun, client.config.create_api_url(endpoint), current, limit, resource_names
+            )
         yield from self._check_soft_deleted_capacity(
-            results, statistics.instances.soft_deleted_instances, limits.max_deleted_instances
+            results,
+            client.config.create_api_url(_INSTANCES_ENDPOINT),
+            statistics.instances.soft_deleted_instances,
+            limits.max_deleted_instances,
         )
 
+    @classmethod
     def _check_capacity(
-        self,
+        cls,
         results: Sequence[DeploymentResult],
         noun: str,
+        endpoint_url: str,
         current: int,
         limit: int,
         resource_names: Sequence[str] | None = None,
-    ) -> Iterable[Insight | InternalValidatorException]:
+    ) -> Iterable[Insight]:
         """Checks that deploying keeps the project total of ``noun`` within its limit.
 
         ``resource_names`` are the deployment results that count toward the total. Defaults to ``noun`` itself.
         """
-        created, deleted = self._deployed_ids(results, resource_names or (noun,))
-        created_ids = list(chain.from_iterable(created.values()))
-        deleted_ids = list(chain.from_iterable(deleted.values()))
-        projected = current + len(created_ids) - len(deleted_ids)
+        created, deleted = cls._deployed_ids(results, resource_names or (noun,))
+        created_count = sum(len(ids) for ids in created.values())
+        deleted_count = sum(len(ids) for ids in deleted.values())
+        projected = current + created_count - deleted_count
         if projected <= current or projected <= limit:
             return
-        if deleted_ids:
+        if deleted_count:
             change = f"create {_count_phrase(created)} and delete {_count_phrase(deleted)}, changing"
         else:
             change = f"create {_count_phrase(created)}, increasing"
-        yield from self._limit_errors(
-            # Resources that are deleted and recreated do not take up new capacity.
-            self._local_refs(set(created_ids) - set(deleted_ids)),
-            (
+        yield BuildError(
+            code="EXCEEDED-LIMIT",
+            message=(
                 f"Deploying would {change} the total number of {noun} from {current} to {projected}, "
                 f"which exceeds the project limit of {limit}."
             ),
-            (
+            fix=(
                 f"Reduce the number of {noun} in this deployment so the project total stays within {limit}. "
                 f"The project currently has {current} of {limit} {noun}."
             ),
+            source_url=endpoint_url,
         )
 
+    @classmethod
     def _check_soft_deleted_capacity(
-        self, results: Sequence[DeploymentResult], current: int, limit: int
-    ) -> Iterable[Insight | InternalValidatorException]:
-        _, deleted = self._deployed_ids(results, ("nodes", "edges"))
-        deleted_ids = list(chain.from_iterable(deleted.values()))
-        projected = current + len(deleted_ids)
-        if not deleted_ids or projected <= limit:
+        cls, results: Sequence[DeploymentResult], endpoint_url: str, current: int, limit: int
+    ) -> Iterable[Insight]:
+        _, deleted = cls._deployed_ids(results, _INSTANCES)
+        deleted_count = sum(len(ids) for ids in deleted.values())
+        projected = current + deleted_count
+        if not deleted_count or projected <= limit:
             return
-        yield from self._limit_errors(
-            self._local_refs(deleted_ids),
-            (
+        yield BuildError(
+            code="EXCEEDED-LIMIT",
+            message=(
                 f"Deploying would delete {_count_phrase(deleted)}, increasing the number of soft-deleted instances "
                 f"from {current} to {projected}, which exceeds the project limit of {limit}."
             ),
-            (
+            fix=(
                 f"Delete fewer instances in this deployment so the number of soft-deleted instances stays within "
                 f"{limit}. The project currently has {current} soft-deleted instances."
             ),
+            source_url=endpoint_url,
         )
 
     @staticmethod
@@ -1122,25 +1131,3 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                 created[result.resource_name].extend(result.created_ids)
                 deleted[result.resource_name].extend(result.deleted_ids)
         return created, deleted
-
-    def _local_refs(self, ids: Iterable[_resource_base.Identifier]) -> list[ResourceRef]:
-        wanted = set(ids)
-        return [
-            resource
-            for resource in self.resources
-            if isinstance(resource.source, Path) and resource.identifier in wanted
-        ]
-
-    def _limit_errors(
-        self, refs: Sequence[ResourceRef], message: str, fix: str, keys: Sequence[str] = ()
-    ) -> Iterable[Insight | InternalValidatorException]:
-        """One error per resource. When none of them are local, the error is reported on the first local file."""
-        for ref in refs:
-            yield _exceeded_limit(ref, message, fix, keys)
-        if refs:
-            return
-        source = next((resource.source for resource in self.resources if isinstance(resource.source, Path)), None)
-        if isinstance(source, Path):
-            yield BuildError(code="EXCEEDED-LIMIT", message=message, fix=fix, source_file=source)
-        else:
-            yield InternalValidatorException(message=message, source="DataModeling")
