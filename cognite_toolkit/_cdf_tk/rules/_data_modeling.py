@@ -58,7 +58,7 @@ _INSTANCES = ("nodes", "edges")
 _LocalContainer = tuple[ResourceRef, ContainerRequest]
 _LocalView = tuple[ResourceRef, ViewRequest]
 _LocalDataModel = tuple[ResourceRef, DataModelRequest]
-_IdsByResource = dict[str, list[_resource_base.Identifier]]
+_CountByResource = dict[str, int]
 
 
 @dataclass(frozen=True)
@@ -112,13 +112,13 @@ class DataModelingLimits(BaseModel):
         )
 
 
-def _count_phrase(ids_by_resource: _IdsByResource) -> str:
+def _count_phrase(count_by_resource: _CountByResource) -> str:
     """For example, '1 node and 2 edges'. Resource names are plural, such as 'nodes' and 'data models'."""
     return humanize_collection(
         [
-            f"{len(ids)} {name.removesuffix('s') if len(ids) == 1 else name}"
-            for name, ids in ids_by_resource.items()
-            if ids
+            f"{count} {name.removesuffix('s') if count == 1 else name}"
+            for name, count in count_by_resource.items()
+            if count
         ],
         sort=False,
     )
@@ -1074,9 +1074,9 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
 
         ``resource_names`` are the deployment results that count toward the total. Defaults to ``noun`` itself.
         """
-        created, deleted = cls._deployed_ids(results, resource_names or (noun,))
-        created_count = sum(len(ids) for ids in created.values())
-        deleted_count = sum(len(ids) for ids in deleted.values())
+        created, deleted = cls._deployed_counts(results, resource_names or (noun,))
+        created_count = sum(created.values())
+        deleted_count = sum(deleted.values())
         projected = current + created_count - deleted_count
         if projected <= current or projected <= limit:
             return
@@ -1101,8 +1101,8 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     def _check_soft_deleted_capacity(
         cls, results: Sequence[DeploymentResult], endpoint_url: str, current: int, limit: int
     ) -> Iterable[Insight]:
-        _, deleted = cls._deployed_ids(results, _INSTANCES)
-        deleted_count = sum(len(ids) for ids in deleted.values())
+        _, deleted = cls._deployed_counts(results, _INSTANCES)
+        deleted_count = sum(deleted.values())
         projected = current + deleted_count
         if not deleted_count or projected <= limit:
             return
@@ -1120,14 +1120,14 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         )
 
     @staticmethod
-    def _deployed_ids(
+    def _deployed_counts(
         results: Sequence[DeploymentResult], resource_names: Sequence[str]
-    ) -> tuple[_IdsByResource, _IdsByResource]:
-        """The IDs that deploying would create and delete, by resource name."""
-        created: _IdsByResource = {name: [] for name in resource_names}
-        deleted: _IdsByResource = {name: [] for name in resource_names}
+    ) -> tuple[_CountByResource, _CountByResource]:
+        """The number of resources that deploying would create and delete, by resource name."""
+        created: _CountByResource = dict.fromkeys(resource_names, 0)
+        deleted: _CountByResource = dict.fromkeys(resource_names, 0)
         for result in results:
             if result.resource_name in created:
-                created[result.resource_name].extend(result.created_ids)
-                deleted[result.resource_name].extend(result.deleted_ids)
+                created[result.resource_name] += result.created_count
+                deleted[result.resource_name] += result.deleted_count
         return created, deleted
