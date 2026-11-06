@@ -1378,7 +1378,7 @@ class DeployV2Command(ToolkitCommand):
             lines: list[RenderableType] = [
                 f"[bold]{escape(insight.message)}[/]",
                 f"[dim]Code:[/] {escape(insight.code)}",
-                f"[dim]Source:[/] {escape(insight.display_source_file_cwd)}",
+                f"[dim]Source:[/] {escape(insight.display_source)}",
             ]
             if insight.fix:
                 lines.append(

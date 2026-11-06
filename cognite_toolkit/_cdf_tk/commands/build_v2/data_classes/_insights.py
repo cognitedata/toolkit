@@ -3,7 +3,7 @@ import io
 import json
 from collections import Counter, UserList, defaultdict
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal, Self, TypeAlias, TypeVar
+from typing import Annotated, Any, ClassVar, Literal, Self, TypeAlias, TypeVar, cast
 
 from pydantic import (
     BaseModel,
@@ -11,10 +11,11 @@ from pydantic import (
     TypeAdapter,
     field_serializer,
     field_validator,
+    model_validator,
 )
 from pydantic_core.core_schema import ValidationInfo
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import URL, AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_modules
@@ -65,24 +66,33 @@ class InsightDefinition(BaseModel):
 
     code: InsightCode
     message: str
-    source_file: AbsoluteFilePath
+    source_file: AbsoluteFilePath | None = None
+    source_url: URL | None = None
     line: int | None = None
     column: int | None = None
     fix: str | None = None
     alpha: bool = False
 
+    @model_validator(mode="after")
+    def _exactly_one_source(self) -> Self:
+        if (self.source_file is None) == (self.source_url is None):
+            raise ValueError("Exactly one of source_file and source_url must be set.")
+        return self
+
     @property
-    def display_source_file_cwd(self) -> str:
-        """Returns the source file path relative to the current working directory."""
+    def display_source(self) -> str:
+        """Returns the source file path relative to the current working directory, or the source URL as is."""
+        if self.source_file is None:
+            return cast(str, self.source_url)
         return format_insight_source_file(self.source_file)
 
     @property
     def display_location(self) -> str:
-        """The source file, with ':line:column' appended when the position is known.
+        """The source file or URL, with ':line:column' appended when the position is known.
 
         The 'path:line:column' format is made clickable by terminals such as the one in VS Code.
         """
-        location = self.display_source_file_cwd
+        location = self.display_source
         if self.line is None:
             return location
         if self.column is None:
@@ -91,7 +101,9 @@ class InsightDefinition(BaseModel):
 
     @property
     def display_source_file_modules(self) -> str:
-        """Returns the source file path relative to the organization's modules directory."""
+        """Returns the source file path relative to the organization's modules directory, or the source URL as is."""
+        if self.source_file is None:
+            return cast(str, self.source_url)
         return relative_to_modules(self.source_file)
 
     @property
@@ -104,16 +116,21 @@ class InsightDefinition(BaseModel):
         """Insights with the same key are displayed together, listing their locations."""
         return self.insight_type, self.code, self.message, self.fix
 
-    @field_validator("line", "column", mode="before")
+    @field_validator("source_url", "line", "column", mode="before")
     @classmethod
     def _empty_to_none(cls, value: Any) -> Any:
-        """CSV serializes a missing position as an empty cell."""
+        """CSV serializes a missing value as an empty cell."""
         return None if value == "" else value
 
     @field_validator("source_file", mode="before")
     @classmethod
-    def _to_absolute_path(cls, value: Any, info: ValidationInfo) -> Path:
-        """Convert the source file path to an absolute path relative to the organization directory."""
+    def _to_absolute_path(cls, value: Any, info: ValidationInfo) -> Path | None:
+        """Convert the source file path to an absolute path relative to the organization directory.
+
+        CSV serializes a missing source file as an empty cell.
+        """
+        if value is None or value == "":
+            return None
         if not isinstance(value, str | Path):
             raise ValueError(f"Unexpected type for source_file: {type(value)}")
         if info.context and isinstance(organization_dir := info.context.get("organization_dir", None), Path):
@@ -121,8 +138,10 @@ class InsightDefinition(BaseModel):
         return Path(value).resolve()
 
     @field_serializer("source_file")
-    def as_relative_to_modules(self, source_file: AbsoluteFilePath) -> str:
+    def as_relative_to_modules(self, source_file: AbsoluteFilePath | None) -> str | None:
         """Serialize the source_file field as a path relative to the organization's modules directory."""
+        if source_file is None:
+            return None
         return relative_to_modules(source_file)
 
     @field_validator("message", "fix", mode="after")

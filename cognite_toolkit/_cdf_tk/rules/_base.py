@@ -61,6 +61,8 @@ def with_position(
             that values built from variables, e.g., 'sp_{{ location }}_assets', are found. Substituted values
             can shift the column of text after them on the same line, but not where a key or value starts.
     """
+    if insight.source_file is None:
+        return insight
     try:
         content = insight.source_file.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
