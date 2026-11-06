@@ -19,6 +19,7 @@ LOGIN_FLOWS: dict[LoginFlow, str] = {
     "interactive": "Sign in via the browser on this machine with your user credentials",
     "client_credentials": "Use a service principal with client ID and secret (for CI/CD or automated workloads)",
     "token": "Supply a pre-existing token directly",
+    "no_auth": "No authentication",
 }
 
 

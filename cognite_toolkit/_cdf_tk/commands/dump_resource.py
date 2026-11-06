@@ -102,7 +102,6 @@ from cognite_toolkit._cdf_tk.utils.file import (
     safe_rmtree,
     safe_write,
     sanitize_filename,
-    validate_safe_path,
     yaml_safe_dump,
 )
 from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
@@ -757,7 +756,13 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
 
     def dump_function_code(self, function: FunctionResponse, folder: Path) -> None:
         external_id = function.external_id or "unknown_external_id"
-        validate_safe_path(external_id)
+        # Separators in an external ID are filename-safe (`team/func` → `team_func`). `.` and `..` are not:
+        # they resolve to this folder or its parent, so the code would land outside the function directory.
+        safe_name = sanitize_filename(external_id)
+        base = folder.resolve()
+        function_dir = (folder / safe_name).resolve()
+        if function_dir == base or not function_dir.is_relative_to(base):
+            raise ValueError(f"Invalid identifier {external_id!r}: must not escape the function directory")
         try:
             zip_bytes = _download_file_bytes(self.client, function.file_id)
         except ToolkitAPIError as e:
@@ -768,17 +773,17 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
                 return
             raise
         try:
-            top_level = f"{sanitize_filename(external_id)}/"
+            top_level = f"{safe_name}/"
             with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
-                destination = (
-                    folder if all(name.startswith(top_level) for name in zf.namelist()) else folder / top_level
-                )
-                destination = destination.resolve()
+                names = zf.namelist()
+                # Zips already wrapped in the function folder extract into `folder` so the name is not doubled.
+                # Every member must still stay inside that function folder.
+                extract_root = base if names and all(name.startswith(top_level) for name in names) else function_dir
                 for member in zf.infolist():
-                    target_path = Path(destination, member.filename).resolve()
-                    if not target_path.is_relative_to(destination):
+                    target_path = Path(extract_root, member.filename).resolve()
+                    if not target_path.is_relative_to(function_dir):
                         raise ValueError(f"Malicious zip member path detected: {member.filename}")
-                zf.extractall(destination)
+                zf.extractall(extract_root)
         except zipfile.BadZipFile as e:
             HighSeverityWarning(
                 f"The function {function.external_id!r} has a corrupted code zip file. Unable to extract code: {e!s}"

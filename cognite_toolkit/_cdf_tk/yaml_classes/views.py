@@ -85,8 +85,10 @@ class ViewYAML(ToolkitResource):
 
     @field_validator("properties")
     @classmethod
-    def validate_properties_identifier(cls, val: dict[str, str]) -> dict[str, str]:
+    def validate_properties_identifier(cls, val: dict[str, str] | None) -> dict[str, str] | None:
         """Validate properties Identifier"""
+        if val is None:
+            return val
         for key in val:
             if not KEY_PATTERN.match(key):
                 raise ValueError(f"Property '{key}' does not match the required pattern: {KEY_PATTERN.pattern}")

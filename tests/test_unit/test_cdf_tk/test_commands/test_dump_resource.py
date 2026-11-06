@@ -899,19 +899,47 @@ class TestDumpFunctions:
 
         assert selected == ("functionB", "functionC")
 
-    def test_dump_function_code_rejects_path_traversal(self, tmp_path: Path) -> None:
-        function = FunctionResponse(id=1, external_id="..", name="Evil", created_time=1, file_id=123)
+    @pytest.mark.parametrize("external_id", [".", ".."])
+    def test_dump_function_code_rejects_path_traversal(self, tmp_path: Path, external_id: str) -> None:
+        function = FunctionResponse(id=1, external_id=external_id, name="Evil", created_time=1, file_id=123)
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w") as zf:
             zf.writestr("handler.py", "def handle(): ...")
 
+        output = tmp_path / "functions"
         with (
             monkeypatch_toolkit_client() as client,
             patch(f"{FunctionFinder.__module__}._download_file_bytes", return_value=buffer.getvalue()),
         ):
             finder = FunctionFinder(client, None)
-            with pytest.raises(ValueError, match=r"Invalid identifier '\.\.'"):
-                finder.dump_function_code(function, tmp_path / "functions")
+            with pytest.raises(ValueError, match=r"Invalid identifier"):
+                finder.dump_function_code(function, output)
+
+        assert not (output / "handler.py").exists()
+
+    @pytest.mark.parametrize(
+        "external_id, folder_name",
+        [
+            ("team/func", "team_func"),
+            ("team\\func", "team_func"),
+            ("my..func", "my..func"),
+        ],
+    )
+    def test_dump_function_code_sanitizes_external_id(self, tmp_path: Path, external_id: str, folder_name: str) -> None:
+        function = FunctionResponse(id=1, external_id=external_id, name="Team", created_time=1, file_id=123)
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as zf:
+            zf.writestr("handler.py", "def handle(): ...")
+
+        output = tmp_path / "functions"
+        with (
+            monkeypatch_toolkit_client() as client,
+            patch(f"{FunctionFinder.__module__}._download_file_bytes", return_value=buffer.getvalue()),
+        ):
+            finder = FunctionFinder(client, None)
+            finder.dump_function_code(function, output)
+
+        assert (output / folder_name / "handler.py").read_text(encoding="utf-8") == "def handle(): ..."
 
     def test_dump_function_code_rejects_zip_slip(self, tmp_path: Path) -> None:
         function = FunctionResponse(id=1, external_id="my_function", name="EvilZip", created_time=1, file_id=123)
@@ -919,13 +947,33 @@ class TestDumpFunctions:
         with zipfile.ZipFile(buffer, "w") as zf:
             zf.writestr("../../evil.py", "print('hacked')")
 
+        output = tmp_path / "functions"
         with (
             monkeypatch_toolkit_client() as client,
             patch(f"{FunctionFinder.__module__}._download_file_bytes", return_value=buffer.getvalue()),
         ):
             finder = FunctionFinder(client, None)
             with pytest.raises(ValueError, match=r"Malicious zip member path detected"):
-                finder.dump_function_code(function, tmp_path / "functions")
+                finder.dump_function_code(function, output)
+
+        assert not (output / "evil.py").exists()
+
+    def test_dump_function_code_rejects_escape_into_sibling_folder(self, tmp_path: Path) -> None:
+        function = FunctionResponse(id=1, external_id="my_function", name="EvilZip", created_time=1, file_id=123)
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as zf:
+            zf.writestr("my_function/../sibling.py", "print('escaped')")
+
+        output = tmp_path / "functions"
+        with (
+            monkeypatch_toolkit_client() as client,
+            patch(f"{FunctionFinder.__module__}._download_file_bytes", return_value=buffer.getvalue()),
+        ):
+            finder = FunctionFinder(client, None)
+            with pytest.raises(ValueError, match=r"Malicious zip member path detected"):
+                finder.dump_function_code(function, output)
+
+        assert not (output / "sibling.py").exists()
 
 
 @pytest.fixture()

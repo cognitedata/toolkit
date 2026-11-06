@@ -18,6 +18,8 @@ from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, final
 
+from pydantic import ValidationError
+
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
@@ -40,6 +42,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import CrudResource, Resourc
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
+from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 from cognite_toolkit._cdf_tk.yaml_classes import DataSetYAML, LabelsYAML
 from cognite_toolkit._cdf_tk.yaml_classes.catalog_dataset import CatalogDataSetYAML
 
@@ -284,7 +287,20 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
                 metadata[key] = value if isinstance(value, str) else json.dumps(value)
         if metadata:
             crud_resource["metadata"] = metadata
-        yield CrudResource(raw=crud_resource, identifier=cls.get_id(raw), type_=cls.as_crud_type())
+        validated: DataSetYAML | None = None
+        if resource is not None:
+            try:
+                validated = DataSetYAML.model_validate(crud_resource)
+            except ValidationError as error:
+                from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
+
+                yield BuildError(
+                    code="INVALID-VALUE",
+                    message=f"The {cls.kind} could not be converted to a valid {DataSetsIO.kind}:\n"
+                    + "\n".join(humanize_validation_error(error, DataSetYAML)),
+                    source_file=source_file,
+                )
+        yield CrudResource(raw=crud_resource, identifier=cls.get_id(raw), type_=cls.as_crud_type(), validated=validated)
 
     @classmethod
     def from_crud_types(cls, resources: Iterable[CrudResource[Identifier]]) -> dict[str, Any]:

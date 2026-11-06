@@ -27,9 +27,11 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     convert_str_to_data_type,
     convert_to_primary_property,
     convert_to_primary_property_with_special_cases,
+    infer_data_type_from_json_value,
     infer_data_type_from_value,
+    merge_data_types,
 )
-from cognite_toolkit._cdf_tk.utils.useful_types import AVAILABLE_DATA_TYPES, AssetCentricType, DataType
+from cognite_toolkit._cdf_tk.utils.useful_types import AVAILABLE_DATA_TYPES, AssetCentricType, DataType, JsonVal
 
 
 class TestConvertToContainerProperty:
@@ -642,6 +644,32 @@ class TestConvertStringToDataType:
     def test_all_data_type_converters_registered(self) -> None:
         """Checks that all data types that are in the toolkit have a corresponding converter."""
         assert AVAILABLE_DATA_TYPES == set(DATATYPE_CONVERTER_BY_DATA_TYPE.keys())
+
+
+class TestInferDataTypeFromJsonValue:
+    @pytest.mark.parametrize(
+        "value, expected",
+        [
+            pytest.param("123", ("string", False), id="Numeric string stays string"),
+            pytest.param(True, ("boolean", False), id="Boolean"),
+            pytest.param(42, ("integer", False), id="Integer"),
+            pytest.param(2**63, ("json", False), id="Integer out of int64 range"),
+            pytest.param(3.14, ("float", False), id="Float"),
+            pytest.param({"a": 1}, ("json", False), id="Object"),
+            pytest.param([1, None, 2.5], ("float", True), id="Mixed numeric array"),
+            pytest.param([1, "a"], ("json", False), id="Mixed array"),
+            pytest.param([[1]], ("json", False), id="Nested array"),
+            pytest.param([], ("json", False), id="Empty array"),
+        ],
+    )
+    def test_infer_data_type_from_json_value(self, value: JsonVal, expected: tuple[str, bool]) -> None:
+        assert infer_data_type_from_json_value(value) == expected
+
+    def test_merge_data_types(self) -> None:
+        assert merge_data_types("integer", False, "float", False) == ("float", False)
+        assert merge_data_types("integer", True, "integer", True) == ("integer", True)
+        assert merge_data_types("integer", True, "integer", False) == ("json", False)
+        assert merge_data_types("string", False, "integer", False) == ("json", False)
 
 
 class TestInferDataTypeFromValue:

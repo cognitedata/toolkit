@@ -42,10 +42,18 @@ def _is_absolute_dir_path(p: Path) -> Path:
     return p
 
 
+def _is_url(value: str) -> str:
+    if "://" not in value and not value.startswith("/"):
+        raise ValueError(f"{value!r} is not a URL or a URL path such as '/models/views'.")
+    return value
+
+
 RelativeFilePath: TypeAlias = Annotated[Path, AfterValidator(_is_relative_file_path)]
 AbsoluteFilePath: TypeAlias = Annotated[Path, AfterValidator(_is_absolute_file_path)]
 RelativeDirPath: TypeAlias = Annotated[Path, AfterValidator(_is_relative_dir_path)]
 AbsoluteDirPath: TypeAlias = Annotated[Path, AfterValidator(_is_absolute_dir_path)]
+# A complete URL, or only the path part of one, for example, '/models/views'.
+URL: TypeAlias = Annotated[str, AfterValidator(_is_url)]
 
 
 ValidationType: TypeAlias = Literal["dev", "prod"]

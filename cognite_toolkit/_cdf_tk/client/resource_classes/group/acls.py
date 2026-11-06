@@ -21,9 +21,11 @@ from .scopes import (
     AppExternalIdScope,
     AssetRootIDScope,
     CurrentUserScope,
+    DataDomainScope,
     DataProductScope,
     DataSetScope,
     ExperimentScope,
+    ExternalIdScope,
     ExtractionPipelineScope,
     IDScope,
     IDScopeLowerCase,
@@ -84,6 +86,14 @@ class AgentsAcl(Acl):
     scope: AllScope | AgentExternalIdScope
 
 
+class AgentsProjectConfigAcl(Acl):
+    """ACL for Agents project configuration."""
+
+    acl_name: Literal["agentsProjectConfigAcl"] = Field("agentsProjectConfigAcl", exclude=True)
+    actions: Sequence[Literal["WRITE"]]
+    scope: AllScope
+
+
 class AnalyticsAcl(Acl):
     """ACL for Analytics resources."""
 
@@ -137,6 +147,14 @@ class ChartsAdminAcl(Acl):
 
     acl_name: Literal["chartsAdminAcl"] = Field("chartsAdminAcl", exclude=True)
     actions: Sequence[Literal["READ", "UPDATE", "DELETE"]]
+    scope: AllScope
+
+
+class CogUnitsAcl(Acl):
+    """ACL for Cognite Units resources."""
+
+    acl_name: Literal["cogUnitsAcl"] = Field("cogUnitsAcl", exclude=True)
+    actions: Sequence[Literal["READ"]]
     scope: AllScope
 
 
@@ -308,12 +326,20 @@ class HostedExtractorsAcl(Acl):
     scope: AllScope
 
 
+class IntegrationActionsAcl(Acl):
+    """ACL for Integration Actions resources."""
+
+    acl_name: Literal["integrationActionsAcl"] = Field("integrationActionsAcl", exclude=True)
+    actions: Sequence[Literal["READ", "WRITE"]]
+    scope: AllScope | ExternalIdScope | DataDomainScope
+
+
 class IntegrationConfigsAcl(Acl):
     """ACL for Integration Configs resources."""
 
     acl_name: Literal["integrationConfigsAcl"] = Field("integrationConfigsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScope | ExternalIdScope | DataDomainScope
 
 
 class IntegrationsAcl(Acl):
@@ -321,7 +347,7 @@ class IntegrationsAcl(Acl):
 
     acl_name: Literal["integrationsAcl"] = Field("integrationsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE", "USE"]]
-    scope: AllScope
+    scope: AllScope | ExternalIdScope | DataDomainScope
 
 
 class LabelsAcl(Acl):
@@ -344,6 +370,14 @@ class LegacyModelHostingAcl(Acl):
     """ACL for Legacy Model Hosting resources."""
 
     acl_name: Literal["modelHostingAcl"] = Field("modelHostingAcl", exclude=True)
+    actions: Sequence[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class LimitsAcl(Acl):
+    """ACL for Limits resources."""
+
+    acl_name: Literal["limitsAcl"] = Field("limitsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope
 
@@ -481,6 +515,14 @@ class SessionsAcl(Acl):
 
     acl_name: Literal["sessionsAcl"] = Field("sessionsAcl", exclude=True)
     actions: Sequence[Literal["LIST", "CREATE", "DELETE"]]
+    scope: AllScope
+
+
+class SlaAcl(Acl):
+    """ACL for SLA resources."""
+
+    acl_name: Literal["slaAcl"] = Field("slaAcl", exclude=True)
+    actions: Sequence[Literal["READ"]]
     scope: AllScope
 
 
@@ -670,6 +712,7 @@ def _is_unknown_scope_or_action(error: ErrorDetails) -> bool:
 AclType: TypeAlias = Annotated[
     (
         AgentsAcl
+        | AgentsProjectConfigAcl
         | AnalyticsAcl
         | AnnotationsAcl
         | AppConfigAcl
@@ -677,6 +720,7 @@ AclType: TypeAlias = Annotated[
         | AssetsAcl
         | AuditlogAcl
         | ChartsAdminAcl
+        | CogUnitsAcl
         | DataModelInstancesAcl
         | DataModelsAcl
         | DataProductsAcl
@@ -698,11 +742,13 @@ AclType: TypeAlias = Annotated[
         | GeospatialCrsAcl
         | GroupsAcl
         | HostedExtractorsAcl
+        | IntegrationActionsAcl
         | IntegrationConfigsAcl
         | IntegrationsAcl
         | LabelsAcl
         | LegacyGenericsAcl
         | LegacyModelHostingAcl
+        | LimitsAcl
         | LocationFiltersAcl
         | MonitoringTasksAcl
         | NotificationsAcl
@@ -720,6 +766,7 @@ AclType: TypeAlias = Annotated[
         | SeismicAcl
         | SequencesAcl
         | SessionsAcl
+        | SlaAcl
         | StreamRecordsAcl
         | StreamsAcl
         | TemplateGroupsAcl
