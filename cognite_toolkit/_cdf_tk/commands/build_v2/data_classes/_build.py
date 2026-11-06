@@ -254,7 +254,7 @@ class BuiltModule(BaseModel):
                     BuildError(
                         message=failed_extra.error,
                         code=failed_extra.code,
-                        source=resource.source_path,
+                        source_file=resource.source_path,
                     )
                 )
         for path, errors in self.syntax_errors_by_source.items():
@@ -272,7 +272,7 @@ class BuiltModule(BaseModel):
                 BuildError(
                     code=failed_file.code,
                     message=failed_file.error,
-                    source=failed_file.source_path,
+                    source_file=failed_file.source_path,
                 )
             )
         for ignored_file in self.ignored_files:
@@ -281,7 +281,7 @@ class BuiltModule(BaseModel):
                     code=ignored_file.code,
                     message=ignored_file.reason,
                     fix=ignored_file.fix,
-                    source=ignored_file.filepath,
+                    source_file=ignored_file.filepath,
                 )
             )
 
@@ -299,7 +299,7 @@ class BuiltModule(BaseModel):
                     message=f"Unresolved variable {{{{ {variable} }}}}",
                     fix="Make sure to define the variable in the 'config.<env>.yaml' file and that it is "
                     "correctly placed in the variables section matching the file path",
-                    source=path,
+                    source_file=path,
                     line=position.line if position else None,
                     column=position.column if position else None,
                 )

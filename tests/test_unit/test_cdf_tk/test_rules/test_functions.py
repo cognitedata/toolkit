@@ -224,7 +224,7 @@ class TestFunctionLimitsRule:
         assert [error.code for error in errors] == expected_codes
         assert all(isinstance(error, BuildError) for error in errors)
         assert all(error.message and error.fix for error in errors)
-        assert all(error.source == first_function for error in errors)
+        assert all(error.source_file == first_function for error in errors)
         combined_messages = "\n".join(error.message for error in errors)
         for substring in expected_message_substrings:
             assert substring in combined_messages

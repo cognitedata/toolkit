@@ -468,7 +468,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                             "Provide credentials to enable CDF verification, or manually either:"
                             "1) ensure that the container property exists, or 2) remove the reference to it."
                         ),
-                        source=resource.source_path,
+                        source_file=resource.source_path,
                     ),
                     values=[ref.property_identifier],
                     variables=resource.variables,
@@ -488,7 +488,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                             "Provide credentials to enable CDF verification, or manually either:"
                             "1) ensure that the container property exists, or 2) remove the reference to it."
                         ),
-                        source=resource.source_path,
+                        source_file=resource.source_path,
                     ),
                     values=[ref.through.identifier],
                     variables=resource.variables,
@@ -502,7 +502,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     message=f"Container property '{ref.label}' does not exist locally or in CDF. "
                     f"It is referenced by {quote_identifier(resource.identifier)}.",
                     fix="Ensure that the container property exists or remove the reference to it.",
-                    source=resource.source_path,
+                    source_file=resource.source_path,
                 ),
                 values=[ref.property_identifier],
                 variables=resource.variables,
@@ -516,7 +516,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     message=f"Direct relation '{ref.through}' does not exist locally or in CDF. "
                     f"It is referenced by {quote_identifier(resource.identifier)}.",
                     fix="Ensure that the direct relation exists or remove the reference to it.",
-                    source=resource.source_path,
+                    source_file=resource.source_path,
                 ),
                 values=[ref.through.identifier],
                 variables=resource.variables,
@@ -532,7 +532,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                         "which is not a direct relation."
                     ),
                     fix="Point the reverse direct relation at a property of type direct.",
-                    source=resource.source_path,
+                    source_file=resource.source_path,
                 ),
                 values=[ref.through.identifier],
                 variables=resource.variables,
@@ -695,7 +695,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     fix=(
                         f"Revert the properties to match the deployed version, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
                     ),
-                    source=source_path,
+                    source_file=source_path,
                 ),
                 keys=[*changed, "properties"],
             )
@@ -712,7 +712,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     fix=(
                         f"Add the properties back to your local YAML config, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
                     ),
-                    source=source_path,
+                    source_file=source_path,
                 ),
                 keys=["properties"],
             )
@@ -734,7 +734,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     fix=(
                         f"Revert usedFor back to '{cdf_response.used_for}', or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
                     ),
-                    source=source_path,
+                    source_file=source_path,
                 ),
                 keys=["usedFor"],
             )
@@ -769,7 +769,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     fix=(
                         f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
                     ),
-                    source=source_path,
+                    source_file=source_path,
                 ),
                 keys=[*changed, "properties"],
             )
@@ -785,7 +785,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     fix=(
                         f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
                     ),
-                    source=source_path,
+                    source_file=source_path,
                 ),
                 keys=["properties"],
             )
@@ -801,7 +801,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     fix=(
                         f"Update the view version to apply the change, or use 'cdf modules pull' to sync your local view config with the deployed version. See {URL.dm_changes_docs}."
                     ),
-                    source=source_path,
+                    source_file=source_path,
                 ),
                 keys=["implements"],
             )
@@ -842,7 +842,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                 fix=(
                     f"Update the data model version to apply the change, or use 'cdf modules pull' to sync your local data model config with the deployed version. See {URL.dm_changes_docs}."
                 ),
-                source=source_path,
+                source_file=source_path,
             )
             insight = with_position(insight, values=[view_id.external_id for view_id, _ in version_changed])
             if insight.line is None:
@@ -861,7 +861,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     fix=(
                         f"Update the data model version to apply the change, or use 'cdf modules pull' to sync your local data model config with the deployed version. See {URL.dm_changes_docs}."
                     ),
-                    source=source_path,
+                    source_file=source_path,
                 ),
                 keys=["views"],
             )
