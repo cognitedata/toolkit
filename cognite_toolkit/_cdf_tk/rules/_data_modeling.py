@@ -33,7 +33,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildWarning,
     Insight,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.constants import URL
@@ -55,25 +54,9 @@ _ReferenceStatus = Literal["ok", "not_direct", "missing"]
 _DATA_MODELING_LIMIT_PREFIX = "data_modeling."
 
 
-@dataclass(frozen=True)
-class _LocalRef:
-    """A local resource together with the source file it was read from."""
-
-    resource: ResourceRef
-    source_path: Path
-
-    @property
-    def identifier(self) -> _resource_base.Identifier:
-        return self.resource.identifier
-
-    @property
-    def variables(self) -> list[BuildVariable]:
-        return self.resource.variables
-
-
-_LocalContainer = tuple[_LocalRef, ContainerRequest]
-_LocalView = tuple[_LocalRef, ViewRequest]
-_LocalDataModel = tuple[_LocalRef, DataModelRequest]
+_LocalContainer = tuple[ResourceRef, ContainerRequest]
+_LocalView = tuple[ResourceRef, ViewRequest]
+_LocalDataModel = tuple[ResourceRef, DataModelRequest]
 _IdsByResource = dict[str, list[_resource_base.Identifier]]
 
 
@@ -83,7 +66,7 @@ class _ContainerPropertyReference:
 
     container_id: ContainerId
     property_identifier: str
-    resources: tuple[_LocalRef, ...]
+    resources: tuple[ResourceRef, ...]
 
     @property
     def label(self) -> str:
@@ -95,7 +78,7 @@ class _ReverseDirectRelationReference:
     """A reverse direct relation pointing at a property through a view or container."""
 
     through: ContainerDirectId | ViewDirectId
-    resources: tuple[_LocalRef, ...]
+    resources: tuple[ResourceRef, ...]
 
 
 @dataclass(frozen=True)
@@ -140,9 +123,15 @@ def _count_phrase(ids_by_resource: _IdsByResource) -> str:
     )
 
 
-def _exceeded_limit(ref: _LocalRef, message: str, fix: str, keys: Sequence[str] = ()) -> BuildError:
+def _source_file(ref: ResourceRef) -> Path:
+    if not isinstance(ref.source, Path):
+        raise ValueError(f"Expected a local resource, got {ref.source!r} for {quote_identifier(ref.identifier)}")
+    return ref.source
+
+
+def _exceeded_limit(ref: ResourceRef, message: str, fix: str, keys: Sequence[str] = ()) -> BuildError:
     return with_position(
-        BuildError(code="EXCEEDED-LIMIT", message=message, fix=fix, source_file=ref.source_path),
+        BuildError(code="EXCEEDED-LIMIT", message=message, fix=fix, source_file=_source_file(ref)),
         keys=keys,
         values=identifier_values(ref.identifier),
         variables=ref.variables,
@@ -168,7 +157,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         client: ToolkitClient | None = None,
     ) -> None:
         super().__init__(resources, results, client)
-        self._local_by_io: dict[type[Any], dict[Any, tuple[_LocalRef, Any]]] = {}
+        self._local_by_io: dict[type[Any], dict[Any, tuple[ResourceRef, Any]]] = {}
         self._limits: DataModelingLimits | None = None
 
     def get_status(self) -> RuleSetStatus:
@@ -220,8 +209,8 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
 
     @classmethod
     def _find_references(cls, local_views: dict[ViewId, _LocalView]) -> _SchemaReferences:
-        container_properties: dict[tuple[ContainerId, str], list[_LocalRef]] = defaultdict(list)
-        reverse_relations: dict[ContainerDirectId | ViewDirectId, list[_LocalRef]] = defaultdict(list)
+        container_properties: dict[tuple[ContainerId, str], list[ResourceRef]] = defaultdict(list)
+        reverse_relations: dict[ContainerDirectId | ViewDirectId, list[ResourceRef]] = defaultdict(list)
         for resource, view in local_views.values():
             for prop in (view.properties or {}).values():
                 if isinstance(prop, ViewCorePropertyRequest):
@@ -491,20 +480,17 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     def _load_local(
         self,
         crud: ResourceIO[_resource_base.T_Identifier, _resource_base.T_RequestResource, Any, Any],
-    ) -> dict[_resource_base.T_Identifier, tuple[_LocalRef, _resource_base.T_RequestResource]]:
+    ) -> dict[_resource_base.T_Identifier, tuple[ResourceRef, _resource_base.T_RequestResource]]:
         """Loads the local resources of the CRUD's type, the same way ``cdf deploy`` does. Cached per CRUD type."""
         crud_type = type(crud)
         if crud_type not in self._local_by_io:
-            local_by_id: dict[Any, tuple[_LocalRef, Any]] = {}
+            local_by_id: dict[Any, tuple[ResourceRef, Any]] = {}
             for resource, validatable in self.resources.get_refs_and_resource_of_type(crud):
                 if isinstance(resource.source, Path):
-                    local_by_id[crud.get_id(validatable.request)] = (
-                        _LocalRef(resource, resource.source),
-                        validatable.request,
-                    )
+                    local_by_id[crud.get_id(validatable.request)] = (resource, validatable.request)
             self._local_by_io[crud_type] = local_by_id
         return cast(
-            dict[_resource_base.T_Identifier, tuple[_LocalRef, _resource_base.T_RequestResource]],
+            dict[_resource_base.T_Identifier, tuple[ResourceRef, _resource_base.T_RequestResource]],
             self._local_by_io[crud_type],
         )
 
@@ -550,7 +536,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                             "Provide credentials to enable CDF verification, or manually either:"
                             "1) ensure that the container property exists, or 2) remove the reference to it."
                         ),
-                        source_file=resource.source_path,
+                        source_file=_source_file(resource),
                     ),
                     values=[ref.property_identifier],
                     variables=resource.variables,
@@ -570,7 +556,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                             "Provide credentials to enable CDF verification, or manually either:"
                             "1) ensure that the container property exists, or 2) remove the reference to it."
                         ),
-                        source_file=resource.source_path,
+                        source_file=_source_file(resource),
                     ),
                     values=[ref.through.identifier],
                     variables=resource.variables,
@@ -584,7 +570,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     message=f"Container property '{ref.label}' does not exist locally or in CDF. "
                     f"It is referenced by {quote_identifier(resource.identifier)}.",
                     fix="Ensure that the container property exists or remove the reference to it.",
-                    source_file=resource.source_path,
+                    source_file=_source_file(resource),
                 ),
                 values=[ref.property_identifier],
                 variables=resource.variables,
@@ -598,7 +584,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     message=f"Direct relation '{ref.through}' does not exist locally or in CDF. "
                     f"It is referenced by {quote_identifier(resource.identifier)}.",
                     fix="Ensure that the direct relation exists or remove the reference to it.",
-                    source_file=resource.source_path,
+                    source_file=_source_file(resource),
                 ),
                 values=[ref.through.identifier],
                 variables=resource.variables,
@@ -614,18 +600,18 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                         "which is not a direct relation."
                     ),
                     fix="Point the reverse direct relation at a property of type direct.",
-                    source_file=resource.source_path,
+                    source_file=_source_file(resource),
                 ),
                 values=[ref.through.identifier],
                 variables=resource.variables,
             )
 
     @staticmethod
-    def _referenced_by(resource: _LocalRef) -> str:
+    def _referenced_by(resource: ResourceRef) -> str:
         return quote_identifier(resource.identifier)
 
     @staticmethod
-    def _append(bucket: dict[_KeyT, list[_LocalRef]], key: _KeyT, resource: _LocalRef) -> None:
+    def _append(bucket: dict[_KeyT, list[ResourceRef]], key: _KeyT, resource: ResourceRef) -> None:
         resources = bucket[key]
         if resource not in resources:
             resources.append(resource)
@@ -669,19 +655,19 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     def _as_data_modeling_insights(
         self,
         item_id: _resource_base.Identifier,
-        resource: _LocalRef,
+        resource: ResourceRef,
         request: Any,
         cdf_item: Any,
     ) -> Iterable[Insight]:
         if isinstance(item_id, ContainerId):
             assert isinstance(request, ContainerRequest) and isinstance(cdf_item, ContainerResponse)
-            yield from self._container_insights(item_id, resource.source_path, request, cdf_item)
+            yield from self._container_insights(item_id, _source_file(resource), request, cdf_item)
         elif isinstance(item_id, ViewId):
             assert isinstance(request, ViewRequest) and isinstance(cdf_item, ViewResponse)
-            yield from self._view_insights(item_id, resource.source_path, request, cdf_item)
+            yield from self._view_insights(item_id, _source_file(resource), request, cdf_item)
         elif isinstance(item_id, DataModelId):
             assert isinstance(request, DataModelRequest) and isinstance(cdf_item, DataModelResponse)
-            yield from self._data_model_insights(item_id, resource.source_path, request, cdf_item)
+            yield from self._data_model_insights(item_id, _source_file(resource), request, cdf_item)
 
     # A view's base (container-mapped) property may have its name, description, container and
     # containerPropertyIdentifier changed freely without a version bump; remapping a property to a new
@@ -1047,7 +1033,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
             )
 
     @staticmethod
-    def _check_resource_limit(ref: _LocalRef, kind: str, count: int, noun: str, limit: int) -> Iterable[Insight]:
+    def _check_resource_limit(ref: ResourceRef, kind: str, count: int, noun: str, limit: int) -> Iterable[Insight]:
         if count <= limit:
             return
         yield _exceeded_limit(
@@ -1149,16 +1135,16 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                 deleted[result.resource_name].extend(result.deleted_ids)
         return created, deleted
 
-    def _local_refs(self, ids: Iterable[_resource_base.Identifier]) -> list[_LocalRef]:
+    def _local_refs(self, ids: Iterable[_resource_base.Identifier]) -> list[ResourceRef]:
         wanted = set(ids)
         return [
-            _LocalRef(resource, resource.source)
+            resource
             for resource in self.resources
             if isinstance(resource.source, Path) and resource.identifier in wanted
         ]
 
     def _limit_errors(
-        self, refs: Sequence[_LocalRef], message: str, fix: str, keys: Sequence[str] = ()
+        self, refs: Sequence[ResourceRef], message: str, fix: str, keys: Sequence[str] = ()
     ) -> Iterable[Insight | InternalValidatorException]:
         """One error per resource. When none of them are local, the error is reported on the first local file."""
         for ref in refs:
