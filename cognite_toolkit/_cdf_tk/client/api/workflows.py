@@ -53,8 +53,7 @@ class WorkflowsAPI(CDFResourceAPI[WorkflowResponse]):
             List of created/updated WorkflowCreateResponse objects.
         """
         response_items: list[WorkflowCreateResponse] = []
-        endpoint = self._method_endpoint_map["upsert"]
-        for response in self._chunk_requests(items, "create", self._serialize_items, endpoint_path=endpoint.path):
+        for response in self._chunk_requests(items, "upsert", self._serialize_items):
             response_items.extend(ResponseItems[WorkflowCreateResponse].model_validate_json(response.body).items)
         return response_items
 
