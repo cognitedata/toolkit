@@ -27,3 +27,7 @@ class WorkflowResponse(Workflow, ResponseResource[WorkflowRequest]):
     @classmethod
     def request_cls(cls) -> type[WorkflowRequest]:
         return WorkflowRequest
+
+
+class WorkflowCreateResponse(WorkflowResponse):
+    warnings: list[str] | None = None
