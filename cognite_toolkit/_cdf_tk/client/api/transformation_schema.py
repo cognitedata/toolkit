@@ -6,7 +6,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessR
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import Column
 
-ConflictMode = Literal["abort", "upsert", "update", "delete"]
+ConflictMode = Literal["abort", "delete", "update", "upsert"]
 SchemaType = Literal[
     "assets",
     "timeseries",
