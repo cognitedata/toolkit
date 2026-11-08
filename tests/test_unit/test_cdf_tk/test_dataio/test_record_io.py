@@ -6,7 +6,7 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.dataio import DataItem, Page, RecordIO
@@ -222,6 +222,43 @@ class TestRecordIO:
         limits = [json.loads(call.request.content)["limit"] for call in route.calls]
         expected_second_limit = 5_000 * RecordIO.SYNC_INITIAL_LIMIT // len(first_page)
         assert limits == [RecordIO.SYNC_INITIAL_LIMIT, expected_second_limit]
+
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_stream_data_shrinks_limit_and_retries_on_reduce_load_error(
+        self, toolkit_config: ToolkitClientConfig
+    ) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        sync_url = toolkit_config.create_api_url("/streams/my_stream/records/sync")
+        too_large = {"error": {"code": 413, "message": "Response too large"}}
+
+        with respx.mock() as mock_router:
+            route = mock_router.post(sync_url)
+            route.side_effect = [
+                httpx2.Response(status_code=413, json=too_large),
+                httpx2.Response(status_code=413, json=too_large),
+                httpx2.Response(status_code=200, json=_make_sync_response(3, has_next=False)),
+            ]
+            pages = list(RecordIO(client).stream_data(_make_selector(), limit=10_000))
+
+        requests = [json.loads(call.request.content) for call in route.calls]
+        initial = RecordIO.SYNC_INITIAL_LIMIT
+        assert [(len(pages[0].items), [(r["limit"], r.get("initializeCursor")) for r in requests])] == [
+            (3, [(initial, "365d-ago"), (initial // 2, "365d-ago"), (initial // 4, "365d-ago")])
+        ]
+
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_stream_data_raises_other_errors_without_retry(self, toolkit_config: ToolkitClientConfig) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        sync_url = toolkit_config.create_api_url("/streams/my_stream/records/sync")
+
+        with respx.mock() as mock_router:
+            route = mock_router.post(sync_url).respond(
+                status_code=400, json={"error": {"code": 400, "message": "Invalid filter"}}
+            )
+            with pytest.raises(ToolkitAPIError, match="Invalid filter"):
+                list(RecordIO(client).stream_data(_make_selector(), limit=10_000))
+
+        assert route.call_count == 1
 
     @pytest.mark.parametrize(
         "response_bytes, item_count, expected",
