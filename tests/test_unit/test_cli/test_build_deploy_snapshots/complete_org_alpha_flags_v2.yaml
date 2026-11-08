@@ -391,6 +391,24 @@ IntegrationResponse:
   metadata:
     plant: oslo
   name: Pump extractor
+PostgresGatewayTableResponse:
+- options:
+    externalId: CogniteAsset
+    space: cdf_cdm
+    version: v1
+  tablename: my_assets
+  type: view
+- columns:
+    key:
+      type: TEXT
+    value:
+      type: BIGINT
+  options:
+    database: pg_gateway_db
+    primaryKey: key
+    table: pg_gateway_table
+  tablename: my_raw_rows
+  type: raw_rows
 PostgresGatewayUserResponse:
 - credentials:
     nonce: '123'

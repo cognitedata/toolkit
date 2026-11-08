@@ -52,7 +52,7 @@ from ._integrations import IntegrationConfigsIO, IntegrationsIO
 from ._location import LocationFilterIO
 from ._migration import ResourceViewMappingIO
 from ._neat import NeatIO
-from ._postgres_gateway import PostgresGatewayUserIO
+from ._postgres_gateway import PostgresGatewayTableIO, PostgresGatewayUserIO
 from ._raw import RawDatabaseIO, RawTableIO
 from ._relationship import RelationshipIO
 from ._rulesets import RuleSetIO, RuleSetVersionIO
@@ -234,6 +234,7 @@ __all__ = [
     "LabelIO",
     "LocationFilterIO",
     "NodeIO",
+    "PostgresGatewayTableIO",
     "PostgresGatewayUserIO",
     "RawDatabaseIO",
     "RawTableIO",
