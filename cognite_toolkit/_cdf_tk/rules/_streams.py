@@ -43,7 +43,8 @@ class StreamLimits(BaseModel):
         for item in limits:
             name = item.limit_id.removeprefix(_STREAMS_LIMIT_PREFIX)
             if name.startswith(_TEMPLATE_PREFIX) and name.endswith(template_suffix):
-                by_template[name.removeprefix(_TEMPLATE_PREFIX).removesuffix(template_suffix)] = item.value
+                template = name.removeprefix(_TEMPLATE_PREFIX).removesuffix(template_suffix)
+                by_template[to_snake(template)] = item.value
             else:
                 values[name] = item.value
         # Pydantic accepts whole floats such as 3.0 for the int fields and rejects fractional ones.

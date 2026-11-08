@@ -96,7 +96,7 @@ class TestStreamRuleSetStatus:
 
 class TestStreamLimits:
     def test_parses_total_and_template_limits(self) -> None:
-        parsed = StreamLimits.from_responses(_limits(3.0, basic_archive=2.0, basic_live_data=1.0))
+        parsed = StreamLimits.from_responses(_limits(3.0, BasicArchive=2.0, basic_live_data=1.0))
 
         assert (parsed, parsed.template_limit("BasicLiveData")) == (
             StreamLimits(
