@@ -111,6 +111,10 @@ class Flags(Enum):
         visible=True,
         description="Enables support for NEAT format for data models",
     )
+    EXTEND_DOWNLOAD = FlagMetadata(
+        visible=True,
+        description="Enables additional data types in the download command, such as sequences",
+    )
 
     def is_enabled(self) -> bool:
         if self == Flags.CDF_GROUP_EMAILS:

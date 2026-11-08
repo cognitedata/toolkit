@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.dataio import (
     InstanceIO,
     RawIO,
     RecordIO,
+    SequenceRowIO,
     T_Selector,
     TimeSeriesDataIO,
 )
@@ -47,6 +48,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     RawTableSelector,
     SelectedTable,
     SelectedView,
+    SequenceRowSelector,
 )
 from cognite_toolkit._cdf_tk.dataio.selectors._records import (
     RecordContainerSelector,
@@ -67,6 +69,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     RawTableInteractiveSelect,
     RecordInteractiveSelect,
     SelectedDocuments,
+    SequenceInteractiveSelect,
     TimeSeriesInteractiveSelect,
     ViewSelectFilter,
 )
@@ -122,6 +125,12 @@ class CanvasFormats(StrEnum):
 
 
 class RecordFormats(StrEnum):
+    ndjson = "ndjson"
+
+
+class SequenceFormats(StrEnum):
+    csv = "csv"
+    parquet = "parquet"
     ndjson = "ndjson"
 
 
@@ -223,6 +232,8 @@ class DownloadApp(typer.Typer):
         self.command("instances")(self.download_instances_cmd)
         self.command("charts")(self.download_charts_cmd)
         self.command("canvas")(self.download_canvas_cmd)
+        if Flags.EXTEND_DOWNLOAD.is_enabled():
+            self.command("sequences")(self.download_sequences_cmd)
 
     @staticmethod
     def download_main(ctx: typer.Context) -> None:
@@ -1621,6 +1632,94 @@ class DownloadApp(typer.Typer):
             lambda: cmd.download(
                 selectors=selectors,
                 io=RecordIO(client, api_format=api_format.value),
+                output_dir=output_dir,
+                file_format=f".{file_format.value}",
+                compression=compression.value,
+                limit=limit if limit != -1 else None,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def download_sequences_cmd(
+        ctx: typer.Context,
+        external_ids: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="List of sequence external IDs to download rows from. If not provided, the command runs in "
+                "interactive mode and prompts for all options.",
+            ),
+        ] = None,
+        file_format: Annotated[
+            SequenceFormats,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to download the sequence rows in.",
+            ),
+        ] = SequenceFormats.csv,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+            ),
+        ] = ApiFormat.request,
+        compression: Annotated[
+            CompressionFormat,
+            typer.Option(
+                "--compression",
+                "-z",
+                help="Compression format to use when downloading the sequence rows.",
+            ),
+        ] = CompressionFormat.none,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to download the sequence rows.",
+                allow_dash=True,
+            ),
+        ] = DEFAULT_DOWNLOAD_DIR,
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                "-l",
+                help="The maximum number of rows to download from each sequence. Use -1 to download all rows.",
+            ),
+        ] = 100_000,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will download sequence rows from CDF into a temporary directory."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DownloadCommand(client=client)
+        if not external_ids:
+            external_ids = SequenceInteractiveSelect(client, "download").select_sequences()
+            file_format = _prompt_file_format("sequence rows", SequenceFormats, file_format)
+            api_format = _prompt_api_format("sequence rows", api_format)
+            compression = _prompt_compression("sequence rows", compression)
+            output_dir = _prompt_output_dir("sequence rows", output_dir)
+            limit = _prompt_limit(
+                "The maximum number of rows to download from each sequence. Use -1 to download all rows.", limit
+            )
+            verbose = _prompt_verbose(verbose)
+
+        selectors = [
+            SequenceRowSelector(external_id=external_id, download_dir_name="sequences") for external_id in external_ids
+        ]
+        cmd.run(
+            lambda: cmd.download(
+                selectors=selectors,
+                io=SequenceRowIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,
