@@ -31,9 +31,12 @@ class RecordIO(
     UPLOAD_ENDPOINT = "/streams/{streamId}/records"
     UPSERT_ENDPOINT = "/streams/{streamId}/records/upsert"
     _AGGREGATE_ENDPOINT = "/streams/{streamId}/records/aggregate"
-    # TODO: Replace with adaptive limit that targets ~3MB uncompressed response size
     CHUNK_SIZE = 500
     MAX_TOTAL_RECORDS = 1_000_000
+    # The sync endpoint caps responses at 10MB and has a 3MB/s response budget per identity.
+    SYNC_TARGET_RESPONSE_BYTES = 3 * 1024 * 1024
+    SYNC_INITIAL_LIMIT = 10
+    SYNC_MAX_LIMIT = 1_000
     BASE_SELECTOR = RecordContainerSelector
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
@@ -131,6 +134,14 @@ class RecordIO(
         }
         return {"and": [has_data_filter, space_filter]}
 
+    @classmethod
+    def _next_sync_limit(cls, current_limit: int, response_bytes: int, item_count: int) -> int:
+        """Estimate the page size that gives a response of roughly SYNC_TARGET_RESPONSE_BYTES."""
+        if item_count == 0 or response_bytes <= 0:
+            return current_limit
+        estimated = int(cls.SYNC_TARGET_RESPONSE_BYTES * item_count / response_bytes)
+        return max(1, min(cls.SYNC_MAX_LIMIT, estimated))
+
     def stream_data(
         self,
         selector: RecordContainerSelector,
@@ -155,11 +166,12 @@ class RecordIO(
         sync_filter = self._build_sync_filter(selector)
         initialize_cursor: str | None = selector.initialize_cursor
         cursor: str | None = None
+        sync_limit = self.SYNC_INITIAL_LIMIT
 
         total = 0
         while True:
             remaining = effective_limit - total
-            page_limit = min(self.CHUNK_SIZE, remaining)
+            page_limit = min(sync_limit, remaining)
             if page_limit <= 0:
                 break
 
@@ -173,6 +185,7 @@ class RecordIO(
             )
             initialize_cursor = None
             total += len(sync_response.items)
+            sync_limit = self._next_sync_limit(sync_limit, sync_response.response_bytes, len(sync_response.items))
             if sync_response.items:
                 items = [
                     DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item) for item in sync_response.items

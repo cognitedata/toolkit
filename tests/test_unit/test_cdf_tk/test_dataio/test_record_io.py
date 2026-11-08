@@ -202,6 +202,39 @@ class TestRecordIO:
         assert request_body["limit"] == 5
 
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_stream_data_adapts_limit_to_response_size(
+        self, toolkit_config: ToolkitClientConfig, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        selector = _make_selector()
+        sync_url = toolkit_config.create_api_url("/streams/my_stream/records/sync")
+        monkeypatch.setattr(RecordIO, "SYNC_TARGET_RESPONSE_BYTES", 5_000)
+        first_page = json.dumps(_make_sync_response(RecordIO.SYNC_INITIAL_LIMIT, has_next=True)).encode()
+
+        with respx.mock() as mock_router:
+            route = mock_router.post(sync_url)
+            route.side_effect = [
+                httpx2.Response(status_code=200, content=first_page),
+                httpx2.Response(status_code=200, json=_make_sync_response(1, has_next=False)),
+            ]
+            list(RecordIO(client).stream_data(selector, limit=10_000))
+
+        limits = [json.loads(call.request.content)["limit"] for call in route.calls]
+        expected_second_limit = 5_000 * RecordIO.SYNC_INITIAL_LIMIT // len(first_page)
+        assert limits == [RecordIO.SYNC_INITIAL_LIMIT, expected_second_limit]
+
+    @pytest.mark.parametrize(
+        "response_bytes, item_count, expected",
+        [
+            pytest.param(0, 0, 42, id="Empty page keeps current limit"),
+            pytest.param(100, 10, RecordIO.SYNC_MAX_LIMIT, id="Small records capped at API max"),
+            pytest.param(20 * 1024 * 1024, 2, 1, id="Huge records floored at one"),
+        ],
+    )
+    def test_next_sync_limit(self, response_bytes: int, item_count: int, expected: int) -> None:
+        assert RecordIO._next_sync_limit(42, response_bytes, item_count) == expected
+
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_download_upload_round_trip(
         self,
         tmp_path: Path,

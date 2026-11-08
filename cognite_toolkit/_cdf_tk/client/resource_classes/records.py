@@ -98,6 +98,10 @@ class RecordSyncResponse(PagedResponse[RecordResponse]):
     the typical API behavior. The records service may return fewer items than requested
     per page in case of large records being queried. We must therefore rely on `has_next`
     rather than the number of returned items to decide whether to continue pagination.
+
+    `response_bytes` is not part of the API response. It is set by the client to the uncompressed
+    size of the response body, which is used to adapt the page size of subsequent requests.
     """
 
     has_next: bool = Field(alias="hasNext")
+    response_bytes: int = Field(default=0, exclude=True)
