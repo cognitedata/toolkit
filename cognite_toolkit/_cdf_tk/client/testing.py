@@ -85,6 +85,7 @@ from .api.migration import (
     ResourceViewMappingsAPI,
 )
 from .api.postgres_gateway import PostgresGatewayAPI
+from .api.postgres_gateway_tables import PostgresGatewayTablesAPI
 from .api.postgres_gateway_users import PostgresGatewayUsersAPI
 from .api.principals import PrincipalsAPI
 from .api.project import ProjectAPI
@@ -358,6 +359,7 @@ class ToolkitClientMock(ToolkitClient):
 
         self.postgres_gateway = MagicMock(spec=PostgresGatewayAPI)
         self.postgres_gateway.users = MagicMock(spec_set=PostgresGatewayUsersAPI)
+        self.postgres_gateway.tables = MagicMock(spec_set=PostgresGatewayTablesAPI)
 
 
 @contextmanager

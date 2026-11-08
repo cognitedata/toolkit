@@ -5,9 +5,16 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.api.postgres_gateway_tables import PostgresGatewayTablesAPI
 from cognite_toolkit._cdf_tk.client.api.postgres_gateway_users import PostgresGatewayUsersAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
-from cognite_toolkit._cdf_tk.client.identifiers import PostgresGatewayUserId
+from cognite_toolkit._cdf_tk.client.identifiers import PostgresGatewayTableId, PostgresGatewayUserId
+from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_table import (
+    PostgresGatewayColumn,
+    PostgresGatewayTableRequest,
+    RawTableOptions,
+    ViewTableOptions,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_user import (
     PostgresGatewayUserRequest,
     SessionCredentials,
@@ -69,5 +76,85 @@ class TestPostgresGatewayUsersAPI:
                     ]
                 },
                 {"items": [{"username": "pg_user_001"}], "ignoreUnknownIds": True},
+            ],
+        }
+
+
+class TestPostgresGatewayTablesAPI:
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_crdl(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        api = PostgresGatewayTablesAPI(HTTPClient(toolkit_config))
+        raw_table = {
+            "tablename": "raw_table",
+            "type": "raw_rows",
+            "columns": {"key": {"type": "TEXT"}},
+            "options": {"database": "my_db", "table": "my_table"},
+        }
+        view_table = {"tablename": "view_table", "type": "nodes", "columns": {"name": {"type": "TEXT"}}, "options": {}}
+        base = "/postgresgateway/tables/pg_user_001"
+        respx_mock.post(api._make_url(base)).mock(
+            return_value=httpx2.Response(
+                status_code=200, json={"items": [{**raw_table, "createdTime": 1}, {**view_table, "createdTime": 1}]}
+            )
+        )
+        respx_mock.post(api._make_url(f"{base}/byids")).mock(
+            return_value=httpx2.Response(status_code=200, json={"items": [raw_table]})
+        )
+        respx_mock.post(api._make_url(f"{base}/delete")).mock(return_value=httpx2.Response(status_code=200, json={}))
+        list_route = respx_mock.get(api._make_url(base)).mock(
+            return_value=httpx2.Response(status_code=200, json={"items": [raw_table, view_table]})
+        )
+        table_ids = [
+            PostgresGatewayTableId(username="pg_user_001", tablename="raw_table"),
+            PostgresGatewayTableId(username="pg_user_001", tablename="view_table"),
+        ]
+
+        created = api.create(
+            [
+                PostgresGatewayTableRequest(
+                    username="pg_user_001",
+                    tablename="raw_table",
+                    type="raw_rows",
+                    options=RawTableOptions(database="my_db", table="my_table"),
+                    columns={"key": PostgresGatewayColumn(type="TEXT")},
+                ),
+                PostgresGatewayTableRequest(
+                    username="pg_user_001",
+                    tablename="view_table",
+                    type="view",
+                    options=ViewTableOptions(space="my_space", external_id="MyView", version="v1"),
+                ),
+            ]
+        )
+        retrieved = api.retrieve(table_ids[:1], ignore_unknown_ids=True)
+        api.delete(table_ids, ignore_unknown_ids=True)
+        listed = api.list("pg_user_001", include_built_ins=True, limit=10)
+
+        assert {
+            "created": [item.as_id() for item in created],
+            "retrieved": [item.as_request_resource().dump() for item in retrieved],
+            "listed": [(item.as_id(), item.type) for item in listed],
+            "list_params": dict(list_route.calls.last.request.url.params),
+            "requests": [
+                json.loads(call.request.content) for call in respx_mock.calls if call.request.method == "POST"
+            ],
+        } == {
+            "created": table_ids,
+            "retrieved": [raw_table],
+            "listed": [(table_ids[0], "raw_rows"), (table_ids[1], "nodes")],
+            "list_params": {"includeBuiltIns": "true", "limit": "10"},
+            "requests": [
+                {
+                    "items": [
+                        raw_table,
+                        {
+                            "tablename": "view_table",
+                            "type": "view",
+                            "options": {"space": "my_space", "externalId": "MyView", "version": "v1"},
+                        },
+                    ]
+                },
+                {"items": [{"tablename": "raw_table"}], "ignoreUnknownIds": True},
+                {"items": [{"tablename": "raw_table"}, {"tablename": "view_table"}], "ignoreUnknownIds": True},
             ],
         }
