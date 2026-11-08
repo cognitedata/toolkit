@@ -52,6 +52,7 @@ from ._integrations import IntegrationConfigsIO, IntegrationsIO
 from ._location import LocationFilterIO
 from ._migration import ResourceViewMappingIO
 from ._neat import NeatIO
+from ._postgres_gateway import PostgresGatewayUserIO
 from ._raw import RawDatabaseIO, RawTableIO
 from ._relationship import RelationshipIO
 from ._rulesets import RuleSetIO, RuleSetVersionIO
@@ -161,6 +162,7 @@ ResourceTypes: TypeAlias = Literal[
     "integrations",
     "locations",
     "migration",
+    "postgres_gateway",
     "transformations",
     "files",
     "timeseries",
@@ -226,6 +228,7 @@ __all__ = [
     "LabelIO",
     "LocationFilterIO",
     "NodeIO",
+    "PostgresGatewayUserIO",
     "RawDatabaseIO",
     "RawTableIO",
     "RelationshipIO",
