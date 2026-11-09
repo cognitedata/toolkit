@@ -3,7 +3,12 @@ from pathlib import Path
 
 import pytest
 from pydantic import TypeAdapter
+from pytest import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning, InsightList, Recommendation
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.resource_ios import GroupIO
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils import read_yaml_content
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
@@ -110,3 +115,306 @@ class TestGroupYAML:
         assert isinstance(format_warning, ResourceFormatWarning)
 
         assert set(format_warning.errors) == expected_errors
+
+
+def _group_insights(capabilities: list[dict[str, object]]) -> list[BuildWarning | Recommendation]:
+    loaded = TypeAdapter(GroupYAML).validate_python(
+        {"name": "readers", "sourceId": "abc", "capabilities": capabilities}
+    )
+    return loaded.extra_insights(Path("group.Group.yaml"), GroupIO.as_resource_type())
+
+
+def _insight_view(insights: list[BuildWarning | Recommendation]) -> list[tuple[type, str, bool, str, str | None]]:
+    return [(type(insight), insight.code, insight.alpha, insight.message, insight.fix) for insight in insights]
+
+
+class TestGroupRedundantCapabilities:
+    def test_space_scope_covered_by_all(self) -> None:
+        insights = _group_insights(
+            [
+                {
+                    "dataModelInstancesAcl": {
+                        "actions": ["READ", "WRITE"],
+                        "scope": {"spaceIdScope": {"spaceIds": ["my-space"]}},
+                    }
+                },
+                {
+                    "dataModelInstancesAcl": {
+                        "actions": ["READ", "WRITE"],
+                        "scope": {"all": {}},
+                    }
+                },
+            ]
+        )
+
+        assert _insight_view(insights) == [
+            (
+                Recommendation,
+                "REDUNDANT-PROPERTY",
+                True,
+                "Group 'readers' has a dataModelInstancesAcl with READ and WRITE, "
+                "scoped to spaceIdScope (spaceIds: my-space), that is already covered by the group's other "
+                "dataModelInstancesAcl entries.",
+                "Remove this dataModelInstancesAcl.",
+            )
+        ]
+
+    def test_partial_action_keeps_the_acl(self) -> None:
+        insights = _group_insights(
+            [
+                {
+                    "dataModelInstancesAcl": {
+                        "actions": ["READ", "WRITE"],
+                        "scope": {"spaceIdScope": {"spaceIds": ["my-space"]}},
+                    }
+                },
+                {"dataModelInstancesAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+            ]
+        )
+
+        assert _insight_view(insights) == [
+            (
+                Recommendation,
+                "REDUNDANT-PROPERTY",
+                True,
+                "Group 'readers' has a dataModelInstancesAcl whose READ action, "
+                "scoped to spaceIdScope (spaceIds: my-space), is already covered by the group's other "
+                "dataModelInstancesAcl entries.",
+                "Remove the READ action from this dataModelInstancesAcl.",
+            )
+        ]
+
+    def test_different_actions_are_kept(self) -> None:
+        insights = _group_insights(
+            [
+                {
+                    "dataModelInstancesAcl": {
+                        "actions": ["WRITE"],
+                        "scope": {"spaceIdScope": {"spaceIds": ["my-space"]}},
+                    }
+                },
+                {"dataModelInstancesAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+            ]
+        )
+
+        assert insights == []
+
+    def test_exact_duplicate_keeps_the_first(self) -> None:
+        insights = _group_insights(
+            [
+                {"assetsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+                {"assetsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+                {"assetsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+            ]
+        )
+
+        assert _insight_view(insights) == [
+            (
+                Recommendation,
+                "REDUNDANT-PROPERTY",
+                True,
+                "Group 'readers' has an assetsAcl with READ, scoped to all, "
+                "that is already covered by the group's other assetsAcl entries.",
+                "Remove this assetsAcl.",
+            ),
+            (
+                Recommendation,
+                "REDUNDANT-PROPERTY",
+                True,
+                "Group 'readers' has an assetsAcl with READ, scoped to all, "
+                "that is already covered by the group's other assetsAcl entries.",
+                "Remove this assetsAcl.",
+            ),
+        ]
+
+    def test_narrower_dataset_scope_is_covered(self) -> None:
+        insights = _group_insights(
+            [
+                {"assetsAcl": {"actions": ["READ"], "scope": {"datasetScope": {"ids": ["ds_files", "ds_events"]}}}},
+                {"assetsAcl": {"actions": ["READ"], "scope": {"datasetScope": {"ids": ["ds_files"]}}}},
+            ]
+        )
+
+        assert _insight_view(insights) == [
+            (
+                Recommendation,
+                "REDUNDANT-PROPERTY",
+                True,
+                "Group 'readers' has an assetsAcl with READ, scoped to datasetScope (ids: ds_files), "
+                "that is already covered by the group's other assetsAcl entries.",
+                "Remove this assetsAcl.",
+            )
+        ]
+
+    def test_combined_dataset_scope_covered_by_union(self) -> None:
+        insights = _group_insights(
+            [
+                {"assetsAcl": {"actions": ["READ"], "scope": {"datasetScope": {"ids": ["ds_files"]}}}},
+                {"assetsAcl": {"actions": ["READ"], "scope": {"datasetScope": {"ids": ["ds_events"]}}}},
+                {
+                    "assetsAcl": {
+                        "actions": ["READ"],
+                        "scope": {"datasetScope": {"ids": ["ds_files", "ds_events"]}},
+                    }
+                },
+            ]
+        )
+
+        assert _insight_view(insights) == [
+            (
+                Recommendation,
+                "REDUNDANT-PROPERTY",
+                True,
+                "Group 'readers' has an assetsAcl with READ, scoped to datasetScope (ids: ds_files, ds_events), "
+                "that is already covered by the group's other assetsAcl entries.",
+                "Remove this assetsAcl.",
+            )
+        ]
+
+    def test_table_scope_subset_is_covered(self) -> None:
+        insights = _group_insights(
+            [
+                {
+                    "rawAcl": {
+                        "actions": ["READ"],
+                        "scope": {"tableScope": {"dbsToTables": {"my_db": ["table_a", "table_b"]}}},
+                    }
+                },
+                {
+                    "rawAcl": {
+                        "actions": ["READ"],
+                        "scope": {"tableScope": {"dbsToTables": {"my_db": ["table_a"]}}},
+                    }
+                },
+            ]
+        )
+
+        assert _insight_view(insights) == [
+            (
+                Recommendation,
+                "REDUNDANT-PROPERTY",
+                True,
+                "Group 'readers' has a rawAcl with READ, scoped to tableScope (dbsToTables: my_db: table_a), "
+                "that is already covered by the group's other rawAcl entries.",
+                "Remove this rawAcl.",
+            )
+        ]
+
+    def test_table_scope_without_tables_covers_the_whole_database(self) -> None:
+        insights = _group_insights(
+            [
+                {"rawAcl": {"actions": ["READ"], "scope": {"tableScope": {"dbsToTables": {"my_db": []}}}}},
+                {"rawAcl": {"actions": ["READ"], "scope": {"tableScope": {"dbsToTables": {"my_db": ["table_a"]}}}}},
+            ]
+        )
+
+        assert [insight.message for insight in insights] == [
+            "Group 'readers' has a rawAcl with READ, scoped to tableScope (dbsToTables: my_db: table_a), "
+            "that is already covered by the group's other rawAcl entries."
+        ]
+
+    def test_different_scope_kinds_do_not_cover_each_other(self) -> None:
+        insights = _group_insights(
+            [
+                {"timeSeriesAcl": {"actions": ["READ"], "scope": {"datasetScope": {"ids": ["ds_files"]}}}},
+                {"timeSeriesAcl": {"actions": ["READ"], "scope": {"idscope": {"ids": ["ts_temperature"]}}}},
+            ]
+        )
+
+        assert insights == []
+
+    def test_unknown_capabilities_are_skipped(self) -> None:
+        insights = _group_insights(
+            [
+                {"notARealAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+                {
+                    "dataModelInstancesAcl": {
+                        "actions": ["READ", "WRITE"],
+                        "scope": {"spaceIdScope": {"spaceIds": ["my-space"]}},
+                    }
+                },
+                {"labelsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+                {"labelsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+            ]
+        )
+
+        assert [(type(insight), insight.code, insight.message) for insight in insights] == [
+            (
+                BuildWarning,
+                "UNRECOGNIZED-VALUE",
+                "'notARealAcl' is not a known capability name. It will be deployed as-is, but may be rejected by CDF.",
+            ),
+            (
+                Recommendation,
+                "REDUNDANT-PROPERTY",
+                "Group 'readers' has a labelsAcl with READ, scoped to all, "
+                "that is already covered by the group's other labelsAcl entries.",
+            ),
+        ]
+
+    def test_position_is_the_redundant_acl(self, tmp_path: Path) -> None:
+        source_file = tmp_path / "group.Group.yaml"
+        source_file.write_text(
+            "name: readers\n"
+            "sourceId: abc\n"
+            "capabilities:\n"
+            "  - labelsAcl:\n"
+            "      actions: [READ]\n"
+            "      scope: {all: {}}\n"
+            "  - labelsAcl:\n"
+            "      actions: [READ]\n"
+            "      scope: {all: {}}\n"
+        )
+        loaded = TypeAdapter(GroupYAML).validate_python(read_yaml_content(source_file.read_text()))
+
+        insights = loaded.extra_insights(source_file, GroupIO.as_resource_type())
+
+        assert [(insight.line, insight.column) for insight in insights] == [(7, 5)]
+
+    def test_position_of_unrecognized_capability(self, tmp_path: Path) -> None:
+        source_file = tmp_path / "group.Group.yaml"
+        source_file.write_text(
+            "name: readers\n"
+            "sourceId: abc\n"
+            "capabilities:\n"
+            "  - notARealAcl:\n"
+            "      actions: [READ]\n"
+            "      scope: {all: {}}\n"
+            "  - notARealAcl:\n"
+            "      actions: [READ]\n"
+            "      scope: {all: {}}\n"
+        )
+        loaded = TypeAdapter(GroupYAML).validate_python(read_yaml_content(source_file.read_text()))
+
+        insights = loaded.extra_insights(source_file, GroupIO.as_resource_type())
+
+        assert [(insight.code, insight.line, insight.column) for insight in insights] == [
+            ("UNRECOGNIZED-VALUE", 4, 5),
+            ("UNRECOGNIZED-VALUE", 7, 5),
+        ]
+
+    def test_reported_when_alpha_rules_enabled(self, monkeypatch: MonkeyPatch) -> None:
+        insights = _group_insights(
+            [
+                {"labelsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+                {"labelsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+            ]
+        )
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.ALPHA_RULES)
+
+        reported = BuildV2Command._filter_to_reported_insights(InsightList(insights), {}, set())
+
+        assert list(reported) == insights
+
+    def test_hidden_when_alpha_rules_disabled(self, monkeypatch: MonkeyPatch) -> None:
+        insights = _group_insights(
+            [
+                {"labelsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+                {"labelsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+            ]
+        )
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: False)
+
+        hidden = BuildV2Command._filter_to_reported_insights(InsightList(insights), {}, set())
+
+        assert list(hidden) == []

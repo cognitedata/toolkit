@@ -142,6 +142,15 @@ class TestFunctionLimitsRule:
         for substring in expected_message_substrings:
             assert substring in combined_messages
 
+    def test_unsupported_runtime_has_position(self, tmp_path: Path, function_limits: FunctionLimits) -> None:
+        resource = self._create_function_resource(tmp_path, {"runtime": "py314"})
+
+        errors = list(
+            FunctionRuleSet._validate_function(resource.source_path, self._load_function(resource), function_limits)
+        )
+
+        assert [(error.line, error.column) for error in errors] == [(4, 1)]
+
     @pytest.mark.parametrize(
         "requirements_txt, pip_result, expected_codes",
         [

@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     ResourceType,
     SuccessExtra,
 )
-from cognite_toolkit._cdf_tk.utils.file import find_unique_variable_position
+from cognite_toolkit._cdf_tk.utils.file import find_variable_position
 
 from ._config import DeployProtection
 from ._insights import (
@@ -273,6 +273,8 @@ class BuiltModule(BaseModel):
                     code=failed_file.code,
                     message=failed_file.error,
                     source_file=failed_file.source_path,
+                    line=failed_file.line,
+                    column=failed_file.column,
                 )
             )
         for ignored_file in self.ignored_files:
@@ -292,7 +294,7 @@ class BuiltModule(BaseModel):
         """One insight per variable, such that all files missing the same variable are grouped when displayed."""
         insights: list[Insight] = []
         for variable in variables:
-            position = find_unique_variable_position(path, variable)
+            position = find_variable_position(path, variable)
             insights.append(
                 BuildError(
                     code="UNRESOLVED-VARIABLE",
