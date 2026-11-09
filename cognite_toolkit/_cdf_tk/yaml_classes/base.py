@@ -41,7 +41,7 @@ class ToolkitResource(BaseModelResource):
             return []
         # Lazy import to avoid circular dependency (yaml_classes → commands.build_v2 → resource_ios → yaml_classes).
         from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
-        from cognite_toolkit._cdf_tk.rules._base import identifier_values, quote_identifier, with_position
+        from cognite_toolkit._cdf_tk.rules._base import quote_identifier
 
         kind = resource_type.kind
         if supports_space:
@@ -50,9 +50,7 @@ class ToolkitResource(BaseModelResource):
         else:
             message = f"{kind} {quote_identifier(self.as_id())} is not assigned to a data set."
             fix = f"Set 'dataSetExternalId' on the {kind}."
-        recommendation = Recommendation(code="UNGOVERNED-RESOURCE", message=message, fix=fix, source_file=source_file)
-        # The missing field has nothing to point at, so the position is that of the resource's identifier.
-        return [with_position(recommendation, values=identifier_values(self.as_id()))]
+        return [Recommendation(code="UNGOVERNED-RESOURCE", message=message, fix=fix, source_file=source_file)]
 
 
 T_Resource = TypeVar("T_Resource", bound=ToolkitResource)
