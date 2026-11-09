@@ -789,14 +789,36 @@ class TestReadResourceFile:
         assert isinstance(result, FailedReadYAMLFile)
         assert result.code == expected_code
 
-    def test_read_resource_file_yaml_parse_error_has_position(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize(
+        "content, expected_position",
+        [
+            pytest.param(
+                "space: my_space\nname: [unclosed\ndescription: text\n",
+                (2, 7),
+                id="unclosed bracket points at the bracket",
+            ),
+            pytest.param(
+                'space: my_space\nname: "unclosed\ndescription: text\n',
+                (2, 7),
+                id="unclosed quote points at the quote",
+            ),
+            pytest.param(
+                "space: my_space\nname:\n  first: 1\n second: 2\n",
+                (4, 2),
+                id="bad indentation points where the parser gave up",
+            ),
+        ],
+    )
+    def test_read_resource_file_yaml_parse_error_has_position(
+        self, content: str, expected_position: tuple[int, int], tmp_path: Path
+    ) -> None:
         resource_file = tmp_path / "resource.Space.yaml"
-        resource_file.write_text("space: my_space\nname: [unclosed\ndescription: text\n")
+        resource_file.write_text(content)
 
         result = BuildV2Command()._read_resource_file(resource_file, SpaceIO, [])
 
         assert isinstance(result, FailedReadYAMLFile)
-        assert (result.line, result.column) == (3, 12)
+        assert (result.line, result.column) == expected_position
 
     @pytest.mark.parametrize(
         "filename, content, crud_class, expected_resource_count, has_syntax_error, has_syntax_warning",
