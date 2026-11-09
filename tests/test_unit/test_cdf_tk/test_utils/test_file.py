@@ -172,9 +172,6 @@ class TestYamlFindUniquePosition:
     def test_occurrence_out_of_range_is_not_found(self) -> None:
         assert yaml_find_unique_position("items:\n  - acl: 1\n", "acl", as_key=True, occurrence=1) is None
 
-    def test_ambiguous_value_is_the_first_if_requested(self) -> None:
-        assert yaml_find_unique_position("a: x\nb: x\n", "x", first_if_ambiguous=True) == YamlPosition(1, 4)
-
     def test_occurrence_is_ambiguous_in_a_list_of_resources(self) -> None:
         assert yaml_find_unique_position("- a: 1\n- a: 2\n", "a", as_key=True, occurrence=1) is None
 

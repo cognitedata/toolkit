@@ -285,12 +285,7 @@ def find_variable_position(path: Path, variable: str) -> YamlPosition | None:
 
 
 def yaml_find_unique_position(
-    content: str,
-    text: str,
-    *,
-    as_key: bool = False,
-    occurrence: int | None = None,
-    first_if_ambiguous: bool = False,
+    content: str, text: str, *, as_key: bool = False, occurrence: int | None = None
 ) -> YamlPosition | None:
     """Finds the position of the scalar (mapping value or list item, or mapping key if as_key) equal to text.
 
@@ -303,14 +298,11 @@ def yaml_find_unique_position(
         occurrence: the 0-based index, in document order, of the match to return, for text that is expected to
             occur multiple times. The index is counted over the whole document, so it is ambiguous when the
             document is a list of more than one item, in which case None is returned. If None, the text
-            must occur exactly once, unless first_if_ambiguous is set.
-        first_if_ambiguous: whether to return the first match when the text occurs more than once and no
-            occurrence is given.
+            must occur exactly once.
 
     Returns:
-        The position if there is exactly one match (at the shallowest depth for keys), the first match if
-        first_if_ambiguous, or the match at the occurrence if given, otherwise None. Also None if the content
-        is not valid YAML.
+        The position if there is exactly one match (at the shallowest depth for keys), or the match at the
+        occurrence if given, otherwise None. Also None if the content is not valid YAML.
     """
     try:
         root = yaml.compose(content, Loader=yaml.SafeLoader)
@@ -325,8 +317,8 @@ def yaml_find_unique_position(
         shallowest = min(depth for depth, _ in matches)
         matches = [match for match in matches if match[0] == shallowest]
     if occurrence is None:
-        return matches[0][1] if len(matches) == 1 or (matches and first_if_ambiguous) else None
-    return matches[occurrence][1] if occurrence < len(matches) else None
+        return matches[0][1] if len(matches) == 1 else None
+    return matches[occurrence][1] if 0 <= occurrence < len(matches) else None
 
 
 def _collect_scalar_matches(
