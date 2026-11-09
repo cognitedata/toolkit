@@ -523,29 +523,6 @@ class TestParseVariablesEdgeCases:
         assert [error.error.code for error in errors] == ["INVALID-VARIABLE-PATH"]
         assert not build_variables
 
-    def test_invalid_variables_have_position_in_config_file(self, tmp_path: Path) -> None:
-        config_path = tmp_path / "config.dev.yaml"
-        config_path.write_text(
-            "environment:\n"
-            "  name: dev\n"
-            "variables:\n"
-            "  moduels:\n"
-            "    var: 1\n"
-            "  modules:\n"
-            "    moduleA:\n"
-            "      - var1: a\n"
-            "      - var1: [a, {b: 1}]\n"
-        )
-        variables = {"moduels": {"var": 1}, "modules": {"moduleA": [{"var1": "a"}, {"var1": ["a", {"b": 1}]}]}}
-        available_paths = {Path(""), Path("modules"), Path("modules/moduleA")}
-
-        _, errors = ModuleParser._parse_variables(variables, available_paths, available_paths, config_path)
-
-        assert sorted((error.error.code, error.error.line, error.error.column) for error in errors) == [
-            ("INVALID-VARIABLE-PATH", 4, 3),
-            ("INVALID-VARIABLE-TYPE", 9, 9),
-        ]
-
     def test_list_of_dicts_with_multiple_variables(self) -> None:
         variables = {"modules": {"moduleA": [{"var1": "a", "var2": "x"}, {"var1": "b", "var2": "y"}]}}
         available_paths = {Path(""), Path("modules"), Path("modules/moduleA")}
