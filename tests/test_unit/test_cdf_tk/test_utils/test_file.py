@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.utils.file import (
     load_yaml_inject_variables,
     read_yaml_content,
     sanitize_filename,
-    yaml_find_unique_position,
+    yaml_find_position,
     yaml_positions,
 )
 
@@ -141,7 +141,7 @@ class TestYamlPositions:
         assert yaml_positions("") == {}
 
 
-class TestYamlFindUniquePosition:
+class TestYamlFindPosition:
     CONTENT = """- space: my_space
   name: first
 - space: other
@@ -150,30 +150,30 @@ class TestYamlFindUniquePosition:
 """
 
     def test_finds_unique_value(self) -> None:
-        assert yaml_find_unique_position(self.CONTENT, "other") == YamlPosition(3, 10)
+        assert yaml_find_position(self.CONTENT, "other") == YamlPosition(3, 10)
 
     def test_ambiguous_key_at_same_depth_is_not_found(self) -> None:
-        assert yaml_find_unique_position(self.CONTENT, "space", as_key=True) is None
+        assert yaml_find_position(self.CONTENT, "space", as_key=True) is None
 
     def test_key_at_multiple_depths_is_found_at_shallowest(self) -> None:
-        assert yaml_find_unique_position(self.CONTENT, "name", as_key=True) == YamlPosition(2, 3)
+        assert yaml_find_position(self.CONTENT, "name", as_key=True) == YamlPosition(2, 3)
 
     def test_unique_key_is_found(self) -> None:
-        assert yaml_find_unique_position(self.CONTENT, "nested", as_key=True) == YamlPosition(4, 3)
+        assert yaml_find_position(self.CONTENT, "nested", as_key=True) == YamlPosition(4, 3)
 
     def test_invalid_yaml(self) -> None:
-        assert yaml_find_unique_position("a: [", "a") is None
+        assert yaml_find_position("a: [", "a") is None
 
     def test_ambiguous_key_is_found_by_occurrence(self) -> None:
         content = "items:\n  - acl: 1\n  - acl: 2\n"
 
-        assert yaml_find_unique_position(content, "acl", as_key=True, occurrence=1) == YamlPosition(3, 5)
+        assert yaml_find_position(content, "acl", as_key=True, occurrence=1) == YamlPosition(3, 5)
 
     def test_occurrence_out_of_range_is_not_found(self) -> None:
-        assert yaml_find_unique_position("items:\n  - acl: 1\n", "acl", as_key=True, occurrence=1) is None
+        assert yaml_find_position("items:\n  - acl: 1\n", "acl", as_key=True, occurrence=1) is None
 
     def test_occurrence_is_ambiguous_in_a_list_of_resources(self) -> None:
-        assert yaml_find_unique_position("- a: 1\n- a: 2\n", "a", as_key=True, occurrence=1) is None
+        assert yaml_find_position("- a: 1\n- a: 2\n", "a", as_key=True, occurrence=1) is None
 
 
 class TestFindFirstMatchPosition:

@@ -218,6 +218,12 @@ def read_yaml_content(content: str) -> dict[str, Any] | list[dict[str, Any]]:
     return result
 
 
+# The PyYAML error contexts for a bracket or quote that is never closed.
+_UNCLOSED_CONSTRUCT_CONTEXTS = frozenset(
+    {"while parsing a flow sequence", "while parsing a flow mapping", "while scanning a quoted scalar"}
+)
+
+
 class YamlPosition(typing.NamedTuple):
     """A 1-based line and column in a YAML file."""
 
@@ -284,7 +290,24 @@ def find_variable_position(path: Path, variable: str) -> YamlPosition | None:
     return find_first_match_position(content, re.compile(rf"\{{\{{\s*{re.escape(variable)}\s*\}}\}}"))
 
 
-def yaml_find_unique_position(
+def yaml_error_position(yaml_error: yaml.YAMLError) -> YamlPosition | None:
+    """Where to point the user for a YAML syntax error.
+
+    For an unclosed bracket or quote, the parser only notices the problem further down, so the construct's
+    start is reported instead. For other errors, e.g. bad indentation, the start of the construct can be
+    far from the mistake, so the position where the parser gave up is used.
+    """
+    if not isinstance(yaml_error, yaml.MarkedYAMLError):
+        return None
+    mark = yaml_error.problem_mark
+    if yaml_error.context in _UNCLOSED_CONSTRUCT_CONTEXTS and yaml_error.context_mark is not None:
+        mark = yaml_error.context_mark
+    if mark is None:
+        return None
+    return YamlPosition(mark.line + 1, mark.column + 1)
+
+
+def yaml_find_position(
     content: str, text: str, *, as_key: bool = False, occurrence: int | None = None
 ) -> YamlPosition | None:
     """Finds the position of the scalar (mapping value or list item, or mapping key if as_key) equal to text.

@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Build
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.resource_ios import ResourceIO, ResourceType
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from cognite_toolkit._cdf_tk.utils.file import yaml_find_unique_position
+from cognite_toolkit._cdf_tk.utils.file import yaml_find_position
 
 
 def quote_identifier(identifier: Identifier) -> str:
@@ -51,19 +51,19 @@ def with_position(
     """Sets the line and column of an insight to where it is found in its source file.
 
     The first of the keys (mapping keys), then the first of the values (mapping values or list items), that
-    occurs exactly once in the file is used. The insight is left without a position if nothing is found exactly
-    once.
+    is found in the file is used. A key is found if it occurs exactly once, or at key_occurrence if given. A
+    value is found if it occurs exactly once. The insight is left without a position if nothing is found.
 
     Args:
         insight: The insight to set the position of.
         values: The values to look for, for example, the identifier of a referenced resource.
         keys: The keys to look for, for example, the field with an invalid value.
-        key_occurrence: The 0-based occurrence of the keys to use when they occur multiple times, for example,
-            the second 'assetsAcl' in a group. Not used for values. No position is set from the keys if the
-            file is a list of more than one resource, as the occurrence is then ambiguous.
         variables: The variables used when building the source file. They are substituted before searching, such
             that values built from variables, e.g., 'sp_{{ location }}_assets', are found. Substituted values
             can shift the column of text after them on the same line, but not where a key or value starts.
+        key_occurrence: The 0-based occurrence of the keys to use when they occur multiple times, for example,
+            the second 'assetsAcl' in a group. Not used for values. No position is set from the keys if the
+            file is a list of more than one resource, as the occurrence is then ambiguous.
     """
     if insight.source_file is None:
         return insight
@@ -77,7 +77,7 @@ def with_position(
     content = UNRESOLVED_VARIABLE_PATTERN.sub(_same_length_placeholder, content)
     candidates = [(key, True, key_occurrence) for key in keys] + [(value, False, None) for value in values]
     for text, as_key, occurrence in candidates:
-        if position := yaml_find_unique_position(content, text, as_key=as_key, occurrence=occurrence):
+        if position := yaml_find_position(content, text, as_key=as_key, occurrence=occurrence):
             insight.line, insight.column = position.line, position.column
             break
     return insight

@@ -103,6 +103,7 @@ from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
     relative_to_if_possible,
     safe_rmtree,
+    yaml_error_position,
     yaml_positions,
     yaml_safe_dump,
 )
@@ -127,11 +128,6 @@ SelectionSource = Literal["cli-arg", "config", "interactive"]
 # Precompiled once at import time so it isn't recompiled/looked up per file when
 # scanning 100s of resource files. Matches e.g. "# rules: ignore[UNGOVERNED-RESOURCE, INVALID-REFERENCED-RESOURCE]".
 _IGNORE_RULE_PATTERN = re.compile(r"#\s*rules?\s*:\s*ignore\s*\[([^\]]*)\]")
-
-# The PyYAML error contexts for a bracket or quote that is never closed.
-_UNCLOSED_CONSTRUCT_CONTEXTS = frozenset(
-    {"while parsing a flow sequence", "while parsing a flow mapping", "while scanning a quoted scalar"}
-)
 
 
 class BuildV2Command(ToolkitCommand):
@@ -1264,29 +1260,15 @@ class BuildV2Command(ToolkitCommand):
             return read_yaml_content(content)
         except yaml.YAMLError as yaml_error:
             error = f"Failed to parse YAML content.\n{yaml_error!s}"
-            mark = cls._yaml_error_mark(yaml_error)
+            position = yaml_error_position(yaml_error)
             return FailedReadYAMLFile(
                 source_path=resource_file,
                 code="INVALID-FILE-CONTENT",
                 error=error,
                 unresolved_variables=unresolved_variables,
-                line=mark.line + 1 if mark else None,
-                column=mark.column + 1 if mark else None,
+                line=position.line if position else None,
+                column=position.column if position else None,
             )
-
-    @classmethod
-    def _yaml_error_mark(cls, yaml_error: yaml.YAMLError) -> yaml.Mark | None:
-        """Where to point the user for a YAML syntax error.
-
-        For an unclosed bracket or quote, the parser only notices the problem further down, so the construct's
-        start is reported instead. For other errors, e.g. bad indentation, the start of the construct can be
-        far from the mistake, so the position where the parser gave up is used.
-        """
-        if not isinstance(yaml_error, yaml.MarkedYAMLError):
-            return None
-        if yaml_error.context in _UNCLOSED_CONSTRUCT_CONTEXTS and yaml_error.context_mark is not None:
-            return yaml_error.context_mark
-        return yaml_error.problem_mark
 
     def _validate_single_resource(
         self,
