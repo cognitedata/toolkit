@@ -789,6 +789,15 @@ class TestReadResourceFile:
         assert isinstance(result, FailedReadYAMLFile)
         assert result.code == expected_code
 
+    def test_read_resource_file_yaml_parse_error_has_position(self, tmp_path: Path) -> None:
+        resource_file = tmp_path / "resource.Space.yaml"
+        resource_file.write_text("space: my_space\nname: [unclosed\ndescription: text\n")
+
+        result = BuildV2Command()._read_resource_file(resource_file, SpaceIO, [])
+
+        assert isinstance(result, FailedReadYAMLFile)
+        assert (result.line, result.column) == (3, 12)
+
     @pytest.mark.parametrize(
         "filename, content, crud_class, expected_resource_count, has_syntax_error, has_syntax_warning",
         [

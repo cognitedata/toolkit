@@ -1260,11 +1260,14 @@ class BuildV2Command(ToolkitCommand):
             return read_yaml_content(content)
         except yaml.YAMLError as yaml_error:
             error = f"Failed to parse YAML content.\n{yaml_error!s}"
+            mark = yaml_error.problem_mark if isinstance(yaml_error, yaml.MarkedYAMLError) else None
             return FailedReadYAMLFile(
                 source_path=resource_file,
                 code="INVALID-FILE-CONTENT",
                 error=error,
                 unresolved_variables=unresolved_variables,
+                line=mark.line + 1 if mark else None,
+                column=mark.column + 1 if mark else None,
             )
 
     def _validate_single_resource(

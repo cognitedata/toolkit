@@ -40,18 +40,24 @@ class BaseGroupYAML(ToolkitResource):
         """Return warnings for capabilities that are not recognized by the toolkit."""
         # Lazy import to avoid circular dependency (yaml_classes → commands.build_v2 → resource_ios → yaml_classes).
         from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning
+        from cognite_toolkit._cdf_tk.rules._base import with_position
 
+        capabilities = self.capabilities or []
         return [
-            BuildWarning(
-                code="UNRECOGNIZED-VALUE",
-                message=(
-                    f"'{cap.original_name}' is not a known capability name. "
-                    "It will be deployed as-is, but may be rejected by CDF."
+            with_position(
+                BuildWarning(
+                    code="UNRECOGNIZED-VALUE",
+                    message=(
+                        f"'{cap.original_name}' is not a known capability name. "
+                        "It will be deployed as-is, but may be rejected by CDF."
+                    ),
+                    source_file=source_file,
+                    fix="Compare the YAML with reference documentation. The resource will still be deployed.",
                 ),
-                source_file=source_file,
-                fix="Compare the YAML with reference documentation. The resource will still be deployed.",
+                keys=[cap.original_name],
+                key_occurrence=_acl_occurrence(capabilities, position),
             )
-            for cap in (self.capabilities or [])
+            for position, cap in enumerate(capabilities)
             if isinstance(cap, UnknownCapability)
         ]
 
@@ -178,10 +184,15 @@ class _AclEntry:
     grants: frozenset[_AccessPath]
 
 
+def _yaml_key(capability: CapabilityType) -> str:
+    """The key of the ACL in the YAML file."""
+    return capability.original_name if isinstance(capability, UnknownCapability) else capability.capability_name
+
+
 def _acl_occurrence(capabilities: list[CapabilityType], position: int) -> int:
-    """How many ACLs of the same type come before the ACL at the position."""
-    capability_name = capabilities[position].capability_name
-    return sum(1 for earlier in capabilities[:position] if earlier.capability_name == capability_name)
+    """How many ACLs with the same key come before the ACL at the position."""
+    yaml_key = _yaml_key(capabilities[position])
+    return sum(1 for earlier in capabilities[:position] if _yaml_key(earlier) == yaml_key)
 
 
 def _scope_grants(scope: Scope) -> frozenset[_AccessPath]:

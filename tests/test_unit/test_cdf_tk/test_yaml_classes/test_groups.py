@@ -371,6 +371,28 @@ class TestGroupRedundantCapabilities:
 
         assert [(insight.line, insight.column) for insight in insights] == [(7, 5)]
 
+    def test_position_of_unrecognized_capability(self, tmp_path: Path) -> None:
+        source_file = tmp_path / "group.Group.yaml"
+        source_file.write_text(
+            "name: readers\n"
+            "sourceId: abc\n"
+            "capabilities:\n"
+            "  - notARealAcl:\n"
+            "      actions: [READ]\n"
+            "      scope: {all: {}}\n"
+            "  - notARealAcl:\n"
+            "      actions: [READ]\n"
+            "      scope: {all: {}}\n"
+        )
+        loaded = TypeAdapter(GroupYAML).validate_python(read_yaml_content(source_file.read_text()))
+
+        insights = loaded.extra_insights(source_file, GroupIO.as_resource_type())
+
+        assert [(insight.code, insight.line, insight.column) for insight in insights] == [
+            ("UNRECOGNIZED-VALUE", 4, 5),
+            ("UNRECOGNIZED-VALUE", 7, 5),
+        ]
+
     def test_reported_when_alpha_rules_enabled(self, monkeypatch: MonkeyPatch) -> None:
         insights = _group_insights(
             [

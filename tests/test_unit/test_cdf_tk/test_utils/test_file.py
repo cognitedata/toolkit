@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.utils.file import (
     YamlPosition,
     create_logfile_stem,
     create_temporary_zip,
-    find_unique_match_position,
+    find_first_match_position,
     load_yaml_inject_variables,
     read_yaml_content,
     sanitize_filename,
@@ -172,21 +172,24 @@ class TestYamlFindUniquePosition:
     def test_occurrence_out_of_range_is_not_found(self) -> None:
         assert yaml_find_unique_position("items:\n  - acl: 1\n", "acl", as_key=True, occurrence=1) is None
 
+    def test_ambiguous_value_is_the_first_if_requested(self) -> None:
+        assert yaml_find_unique_position("a: x\nb: x\n", "x", first_if_ambiguous=True) == YamlPosition(1, 4)
+
     def test_occurrence_is_ambiguous_in_a_list_of_resources(self) -> None:
         assert yaml_find_unique_position("- a: 1\n- a: 2\n", "a", as_key=True, occurrence=1) is None
 
 
-class TestFindUniqueMatchPosition:
+class TestFindFirstMatchPosition:
     CONTENT = "a: 1\nb:\n  c: {{ space }}\n  d: {{ other }}\n  e: {{ other }}\n"
 
-    def test_finds_unique_match(self) -> None:
-        assert find_unique_match_position(self.CONTENT, re.compile(r"\{\{ space \}\}")) == YamlPosition(3, 6)
+    def test_finds_match(self) -> None:
+        assert find_first_match_position(self.CONTENT, re.compile(r"\{\{ space \}\}")) == YamlPosition(3, 6)
 
-    def test_ambiguous_match_is_not_found(self) -> None:
-        assert find_unique_match_position(self.CONTENT, re.compile(r"\{\{ other \}\}")) is None
+    def test_ambiguous_match_is_the_first(self) -> None:
+        assert find_first_match_position(self.CONTENT, re.compile(r"\{\{ other \}\}")) == YamlPosition(4, 6)
 
     def test_no_match(self) -> None:
-        assert find_unique_match_position(self.CONTENT, re.compile(r"\{\{ missing \}\}")) is None
+        assert find_first_match_position(self.CONTENT, re.compile(r"\{\{ missing \}\}")) is None
 
 
 class TestLoadYamlInjectVariables:

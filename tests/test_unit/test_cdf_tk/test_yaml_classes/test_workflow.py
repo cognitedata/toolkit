@@ -55,3 +55,13 @@ class TestWorkflowYAML:
         assert [(type(i), i.code, i.message) for i in insights] == [
             (Recommendation, "UNGOVERNED-RESOURCE", "Workflow 'wf' is not assigned to a data set.")
         ]
+
+    def test_missing_data_set_recommendation_has_position(self, tmp_path: Path) -> None:
+        source = tmp_path / "workflow.Workflow.yaml"
+        source.write_text("description: My workflow\nexternalId: wf\n")
+
+        insights = WorkflowYAML.model_validate({"externalId": "wf"}).extra_insights(
+            source, WorkflowIO.as_resource_type()
+        )
+
+        assert [(i.line, i.column) for i in insights] == [(2, 13)]

@@ -185,13 +185,16 @@ class FunctionRuleSet(ToolkitGlobalRuleSet):
         if function_def.runtime is not None and limits is not None:
             if function_def.runtime not in limits.runtimes:
                 quoted_runtimes = humanize_collection([f"{runtime!r}" for runtime in limits.runtimes])
-                yield BuildError(
-                    message=(
-                        f"Function '{function_def.external_id}' runtime {function_def.runtime!r} is not "
-                        f"available in this CDF project. "
-                        f"Available runtimes: {quoted_runtimes}."
+                yield with_position(
+                    BuildError(
+                        message=(
+                            f"Function '{function_def.external_id}' runtime {function_def.runtime!r} is not "
+                            f"available in this CDF project. "
+                            f"Available runtimes: {quoted_runtimes}."
+                        ),
+                        code="INVALID-VALUE",
+                        fix=f"Use one of the available runtimes: {quoted_runtimes}.",
+                        source_file=source_path,
                     ),
-                    code="INVALID-VALUE",
-                    fix=f"Use one of the available runtimes: {quoted_runtimes}.",
-                    source_file=source_path,
+                    keys=["runtime"],
                 )

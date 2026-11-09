@@ -4,6 +4,8 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, cast
 
+import yaml
+
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildInput,
     ModuleDirectory,
@@ -22,6 +24,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, MODULES, RESOURCE_FOLDERS_WITH_CODE_BUNDLES
 from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA, ResourceTypes
+from cognite_toolkit._cdf_tk.utils.file import YamlPosition, yaml_positions
 
 
 class ModuleParser:
@@ -241,11 +244,15 @@ class ModuleParser:
             lambda: defaultdict(list)
         )
         invalid_variables: list[InvalidBuildVariable] = []
-        to_check: list[tuple[RelativeDirPath, int | None, dict[str, Any]]] = [(Path(""), None, variables)]
+        # The last element is the location of the dict in the config file, used to report where an invalid variable is.
+        to_check: list[tuple[RelativeDirPath, int | None, dict[str, Any], tuple[str | int, ...]]] = [
+            (Path(""), None, variables, ("variables",))
+        ]
         while to_check:
-            path, iteration, subdict = to_check.pop()
+            path, iteration, subdict, location = to_check.pop()
             for key, value in subdict.items():
                 subpath = path / key
+                key_location = (*location, key)
                 if value is None:
                     # An empty key, e.g. `modules:` without any children, is treated as an empty dict.
                     value = {}
@@ -255,8 +262,9 @@ class ModuleParser:
                     )
                 elif isinstance(value, dict):
                     if subpath in available_paths:
-                        to_check.append((subpath, iteration, value))
+                        to_check.append((subpath, iteration, value, key_location))
                     else:
+                        position = cls._config_position(config_path, key_location)
                         invalid_variables.append(
                             InvalidBuildVariable(
                                 id=subpath,
@@ -270,6 +278,8 @@ class ModuleParser:
                                     fix="Ensure that the variable paths correspond to the folder structure inside the modules directory.",
                                     # We only have variables in the config file, so this cast is safe
                                     source_file=cast(AbsoluteFilePath, config_path),
+                                    line=position.line if position else None,
+                                    column=position.column if position else None,
                                 ),
                             )
                         )
@@ -282,8 +292,9 @@ class ModuleParser:
                         )
                     elif all(isinstance(item, dict) for item in value):
                         for idx, item in enumerate(value, start=1):
-                            to_check.append((subpath, idx, item))
+                            to_check.append((subpath, idx, item, (*key_location, idx - 1)))
                     else:
+                        position = cls._config_position(config_path, key_location)
                         invalid_variables.append(
                             InvalidBuildVariable(
                                 id=subpath,
@@ -296,9 +307,21 @@ class ModuleParser:
                                     fix="Ensure that all items in the list are of the same supported type either (str, int, float, bool) or dict.",
                                     # We only have variables in the config file, so this cast is safe
                                     source_file=cast(AbsoluteFilePath, config_path),
+                                    line=position.line if position else None,
+                                    column=position.column if position else None,
                                 ),
                             )
                         )
                 else:
                     raise NotImplementedError(f"Unsupported variable type: {type(value)} for variable {subpath}")
         return variables_by_path_and_iteration, invalid_variables
+
+    @classmethod
+    def _config_position(cls, config_path: Path | None, location: tuple[str | int, ...]) -> YamlPosition | None:
+        """The position of the location in the config file, if the file is given and the location is found."""
+        if config_path is None:
+            return None
+        try:
+            return yaml_positions(config_path.read_text(encoding="utf-8")).get(location)
+        except (OSError, UnicodeDecodeError, yaml.YAMLError):
+            return None

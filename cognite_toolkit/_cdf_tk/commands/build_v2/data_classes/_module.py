@@ -328,6 +328,8 @@ class FailedReadYAMLFile(ReadYAMLFile):
         "INVALID-FILE-CONTENT",
     ]
     error: str
+    line: int | None = None
+    column: int | None = None
 
 
 class ReadResource(BaseModel, Generic[T_Resource]):

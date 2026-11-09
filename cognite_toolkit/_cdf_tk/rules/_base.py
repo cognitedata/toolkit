@@ -50,9 +50,9 @@ def with_position(
 ) -> T_Insight:
     """Sets the line and column of an insight to where it is found in its source file.
 
-    The first of the keys (mapping keys), then the first of the values (mapping values or list items), that
-    occurs exactly once in the file is used. The insight is left without a position if nothing is found exactly
-    once.
+    The first of the keys (mapping keys) that occurs exactly once in the file is used, then the first of the
+    values (mapping values or list items) that occurs in the file, at its first occurrence. The insight is left
+    without a position if nothing is found.
 
     Args:
         insight: The insight to set the position of.
@@ -77,7 +77,10 @@ def with_position(
     content = UNRESOLVED_VARIABLE_PATTERN.sub(_same_length_placeholder, content)
     candidates = [(key, True, key_occurrence) for key in keys] + [(value, False, None) for value in values]
     for text, as_key, occurrence in candidates:
-        if position := yaml_find_unique_position(content, text, as_key=as_key, occurrence=occurrence):
+        position = yaml_find_unique_position(
+            content, text, as_key=as_key, occurrence=occurrence, first_if_ambiguous=not as_key
+        )
+        if position:
             insight.line, insight.column = position.line, position.column
             break
     return insight
