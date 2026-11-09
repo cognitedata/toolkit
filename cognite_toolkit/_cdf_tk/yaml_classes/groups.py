@@ -65,6 +65,7 @@ class BaseGroupYAML(ToolkitResource):
         another ``dataModelInstancesAcl`` grants the same actions on ``all``.
         """
         from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
+        from cognite_toolkit._cdf_tk.rules._base import with_position
 
         entries_by_acl: dict[str, list[_AclEntry]] = defaultdict(list)
         for position, capability in enumerate(self.capabilities or []):
@@ -85,12 +86,16 @@ class BaseGroupYAML(ToolkitResource):
             key=lambda finding: finding[0].position,
         )
         return [
-            Recommendation(
-                code="REDUNDANT-PROPERTY",
-                message=_redundant_message(resource_type.kind, self.name, entry, covered_actions),
-                fix=_redundant_fix(entry, covered_actions),
-                source_file=source_file,
-                alpha=True,
+            with_position(
+                Recommendation(
+                    code="REDUNDANT-PROPERTY",
+                    message=_redundant_message(resource_type.kind, self.name, entry, covered_actions),
+                    fix=_redundant_fix(entry, covered_actions),
+                    source_file=source_file,
+                    alpha=True,
+                ),
+                keys=[entry.label],
+                key_occurrence=_acl_occurrence(self.capabilities or [], entry.position),
             )
             for entry, covered_actions in redundant
         ]
@@ -171,6 +176,12 @@ class _AclEntry:
     actions: list[str]
     scope: Scope
     grants: frozenset[_AccessPath]
+
+
+def _acl_occurrence(capabilities: list[CapabilityType], position: int) -> int:
+    """How many ACLs of the same type come before the ACL at the position."""
+    capability_name = capabilities[position].capability_name
+    return sum(1 for earlier in capabilities[:position] if earlier.capability_name == capability_name)
 
 
 def _scope_grants(scope: Scope) -> frozenset[_AccessPath]:
