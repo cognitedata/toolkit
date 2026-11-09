@@ -218,6 +218,12 @@ def read_yaml_content(content: str) -> dict[str, Any] | list[dict[str, Any]]:
     return result
 
 
+# The PyYAML error contexts for a bracket or quote that is never closed.
+_UNCLOSED_CONSTRUCT_CONTEXTS = frozenset(
+    {"while parsing a flow sequence", "while parsing a flow mapping", "while scanning a quoted scalar"}
+)
+
+
 class YamlPosition(typing.NamedTuple):
     """A 1-based line and column in a YAML file."""
 
@@ -265,26 +271,45 @@ def _collect_positions(
             _collect_positions(item_node, item_location, positions)
 
 
-def find_unique_match_position(content: str, pattern: re.Pattern[str]) -> YamlPosition | None:
-    """Finds the position (1-based line and column) of the pattern in the content, if it matches exactly once."""
-    matches = list(pattern.finditer(content))
-    if len(matches) != 1:
+def find_first_match_position(content: str, pattern: re.Pattern[str]) -> YamlPosition | None:
+    """Finds the position (1-based line and column) of the first match of the pattern in the content."""
+    match = pattern.search(content)
+    if match is None:
         return None
-    start = matches[0].start()
+    start = match.start()
     line_start = content.rfind("\n", 0, start) + 1
     return YamlPosition(content.count("\n", 0, start) + 1, start - line_start + 1)
 
 
-def find_unique_variable_position(path: Path, variable: str) -> YamlPosition | None:
-    """Finds the position of the `{{ variable }}` placeholder in the file, if it occurs exactly once."""
+def find_variable_position(path: Path, variable: str) -> YamlPosition | None:
+    """Finds the position of the first `{{ variable }}` placeholder in the file."""
     try:
         content = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return None
-    return find_unique_match_position(content, re.compile(rf"\{{\{{\s*{re.escape(variable)}\s*\}}\}}"))
+    return find_first_match_position(content, re.compile(rf"\{{\{{\s*{re.escape(variable)}\s*\}}\}}"))
 
 
-def yaml_find_unique_position(content: str, text: str, *, as_key: bool = False) -> YamlPosition | None:
+def yaml_error_position(yaml_error: yaml.YAMLError) -> YamlPosition | None:
+    """Where to point the user for a YAML syntax error.
+
+    For an unclosed bracket or quote, the parser only notices the problem further down, so the construct's
+    start is reported instead. For other errors, e.g. bad indentation, the start of the construct can be
+    far from the mistake, so the position where the parser gave up is used.
+    """
+    if not isinstance(yaml_error, yaml.MarkedYAMLError):
+        return None
+    mark = yaml_error.problem_mark
+    if yaml_error.context in _UNCLOSED_CONSTRUCT_CONTEXTS and yaml_error.context_mark is not None:
+        mark = yaml_error.context_mark
+    if mark is None:
+        return None
+    return YamlPosition(mark.line + 1, mark.column + 1)
+
+
+def yaml_find_position(
+    content: str, text: str, *, as_key: bool = False, occurrence: int | None = None
+) -> YamlPosition | None:
     """Finds the position of the scalar (mapping value or list item, or mapping key if as_key) equal to text.
 
     Args:
@@ -293,14 +318,20 @@ def yaml_find_unique_position(content: str, text: str, *, as_key: bool = False) 
         as_key: whether to look for a mapping key instead of a mapping value or list item. A key that occurs
             at different depths, for example, 'properties' in both a container and its indexes, is
             found at its shallowest depth.
+        occurrence: the 0-based index, in document order, of the match to return, for text that is expected to
+            occur multiple times. The index is counted over the whole document, so it is ambiguous when the
+            document is a list of more than one item, in which case None is returned. If None, the text
+            must occur exactly once.
 
     Returns:
-        The position if there is exactly one match (at the shallowest depth for keys), otherwise None.
-        Also None if the content is not valid YAML.
+        The position if there is exactly one match (at the shallowest depth for keys), or the match at the
+        occurrence if given, otherwise None. Also None if the content is not valid YAML.
     """
     try:
         root = yaml.compose(content, Loader=yaml.SafeLoader)
     except yaml.YAMLError:
+        return None
+    if occurrence is not None and isinstance(root, yaml.SequenceNode) and len(root.value) > 1:
         return None
     matches: list[tuple[int, YamlPosition]] = []
     if root is not None:
@@ -308,7 +339,9 @@ def yaml_find_unique_position(content: str, text: str, *, as_key: bool = False) 
     if as_key and matches:
         shallowest = min(depth for depth, _ in matches)
         matches = [match for match in matches if match[0] == shallowest]
-    return matches[0][1] if len(matches) == 1 else None
+    if occurrence is None:
+        return matches[0][1] if len(matches) == 1 else None
+    return matches[occurrence][1] if 0 <= occurrence < len(matches) else None
 
 
 def _collect_scalar_matches(
