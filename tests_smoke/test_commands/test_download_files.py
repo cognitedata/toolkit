@@ -174,11 +174,12 @@ def _download_file_content(
     )
     try:
         # data_sets must be a list. None starts interactive dataset selection.
-        with MockQuestionary(DownloadApp.__module__, [AssetCentricFormats.csv, str(output_dir)]):
+        with MockQuestionary(DownloadApp.__module__, []):
             DownloadApp().download_files_cmd(
                 typer.Context(click.Command("download_files")),
                 data_sets=[],
                 include_file_contents=True,
+                file_format=AssetCentricFormats.csv,
                 output_dir=output_dir,
                 limit=_DOWNLOAD_LIMIT,
                 verbose=True,
