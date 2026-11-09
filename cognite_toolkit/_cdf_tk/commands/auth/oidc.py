@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import json
 import os
 import secrets
@@ -12,7 +14,6 @@ from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx2 as httpx
-from authlib.oauth2.rfc7636 import create_s256_code_challenge
 from rich import print
 
 from cognite_toolkit._cdf_tk.constants import COGNITE_CLI_SESSION_VERSION
@@ -136,9 +137,14 @@ def build_session_from_tokens(org: str, tokens: dict[str, Any], now: datetime | 
     )
 
 
+def _create_s256_code_challenge(code_verifier: str) -> str:
+    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
 def _generate_pkce_pair() -> tuple[str, str]:
     verifier = secrets.token_urlsafe(64)
-    challenge = create_s256_code_challenge(verifier)
+    challenge = _create_s256_code_challenge(verifier)
     return verifier, challenge
 
 
