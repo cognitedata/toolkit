@@ -1380,3 +1380,27 @@ class TestParseGitDiffSelection:
             BuildV2Command.parse_git_diff_selection(tmp_path / "org", git)
 
         git.get_default_branch.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "config_selected, expected",
+        [
+            pytest.param({"module_a"}, {Path(MODULES) / "module_a"}, id="by_module_name"),
+            pytest.param({Path(MODULES) / "module_a"}, {Path(MODULES) / "module_a"}, id="by_module_path"),
+            pytest.param(
+                {Path(MODULES) / "group"},
+                {Path(MODULES) / "group" / "module_b"},
+                id="by_parent_path",
+            ),
+            pytest.param({Path(MODULES)}, {Path(MODULES) / "module_a", Path(MODULES) / "group" / "module_b"}, id="all"),
+            pytest.param({"module_c"}, set(), id="no_overlap"),
+        ],
+    )
+    def test_restrict_git_diff_selection(
+        self, config_selected: set[RelativeDirPath | str], expected: set[RelativeDirPath | str]
+    ) -> None:
+        git_diff_selected: set[RelativeDirPath | str] = {
+            Path(MODULES) / "module_a",
+            Path(MODULES) / "group" / "module_b",
+        }
+
+        assert BuildV2Command._restrict_git_diff_selection(git_diff_selected, config_selected) == expected
