@@ -5,13 +5,14 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, ClassVar, Literal, Self, TypeAlias
 
+import yaml
 from pydantic import BaseModel, Field, JsonValue, PrivateAttr, ValidationError, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
+from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible, safe_read, yaml_positions
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
 from ._base import YAMLFile
@@ -32,6 +33,23 @@ def _normalize_config_variables(value: Any) -> Any:
 
 
 DeployProtection: TypeAlias = Literal["none", "protected"]
+# The keys and list indices leading to a value in the variables section, for example ("modules", "my_module", 0, "var").
+VariableLocation: TypeAlias = tuple[str | int, ...]
+
+
+class VariableSource(BaseModel):
+    """Where a variable is defined. The line and column, 1-based, are of the variable's key."""
+
+    file: Path
+    line: int | None = None
+    column: int | None = None
+
+    @property
+    def display_location(self) -> str:
+        location = _display_path(self.file)
+        if self.line is None or self.column is None:
+            return location
+        return f"{location}:{self.line}:{self.column}"
 
 
 class Environment(BaseModel):
@@ -64,7 +82,7 @@ class ConfigYAML(YAMLFile):
     )
     variables: dict[str, JsonValue] | None = None
 
-    _variable_source_files: dict[Path, Path] = PrivateAttr(default_factory=dict)
+    _variable_sources: dict[VariableLocation, VariableSource] = PrivateAttr(default_factory=dict)
 
     @field_validator("dependencies", mode="after")
     @classmethod
@@ -83,12 +101,12 @@ class ConfigYAML(YAMLFile):
         return _normalize_config_variables(value)
 
     @property
-    def variable_source_files(self) -> dict[Path, Path]:
-        """The config file each variable path, for example `modules/my_module/my_var`, is defined in.
+    def variable_sources(self) -> dict[VariableLocation, VariableSource]:
+        """Where each location in the variables section is defined.
 
-        This is only populated when the config has dependencies.
+        This is only populated when the config is loaded from a file.
         """
-        return self._variable_source_files
+        return self._variable_sources
 
     @classmethod
     def get_filename(cls, name: str) -> str:
@@ -101,7 +119,8 @@ class ConfigYAML(YAMLFile):
     @classmethod
     def from_yaml_file(cls, file_path: Path) -> Self:
         """Create an instance from a YAML file, with all its dependencies merged into it."""
-        config = super().from_yaml_file(file_path)
+        file_path = file_path.resolve()
+        config = cls._read(file_path)
         if not config.dependencies:
             return config
         if not Flags.CONFIG_DEPENDENCIES.is_enabled():
@@ -109,8 +128,13 @@ class ConfigYAML(YAMLFile):
                 f"Config YAML file '{_display_path(file_path)}' has dependencies, which is "
                 "an alpha feature. Enable it by setting 'config-dependencies = true' under [alpha_flags] in cdf.toml."
             )
-        file_path = file_path.resolve()
         return config._merge(file_path, cls._load_dependencies(file_path, config))
+
+    @classmethod
+    def _read(cls, file_path: Path) -> Self:
+        config = super().from_yaml_file(file_path)
+        config._variable_sources = _variable_sources(config.variables or {}, file_path)
+        return config
 
     @classmethod
     def _load_dependencies(cls, file_path: Path, config: "ConfigYAML") -> list[tuple[Path, "ConfigYAML"]]:
@@ -142,7 +166,7 @@ class ConfigYAML(YAMLFile):
     @classmethod
     def _read_dependency(cls, file_path: Path) -> "ConfigYAML":
         try:
-            return super().from_yaml_file(file_path)
+            return cls._read(file_path)
         except ValidationError as e:
             errors = humanize_validation_error(e)
             raise ToolkitValueError(
@@ -153,12 +177,12 @@ class ConfigYAML(YAMLFile):
         conflicts: list[str] = []
         selected = self.environment.selected
         variables: dict[str, Any] = copy.deepcopy(self.variables or {})
-        source_files = dict.fromkeys(_variable_paths(variables, Path("")), file_path)
+        sources = dict(self._variable_sources)
         for dependency_path, dependency in dependencies:
             conflicts.extend(self._environment_conflicts(file_path, dependency_path, dependency.environment))
             selected = _union(selected, dependency.environment.selected)
             conflicts.extend(
-                _merge_variables(variables, dependency.variables or {}, dependency_path, source_files, Path(""))
+                _merge_variables(variables, dependency.variables or {}, dependency.variable_sources, sources, ())
             )
         if conflicts:
             raise ToolkitValueError(
@@ -171,7 +195,7 @@ class ConfigYAML(YAMLFile):
                 "variables": variables or self.variables,
             }
         )
-        merged._variable_source_files = source_files
+        merged._variable_sources = sources
         return merged
 
     def _environment_conflicts(self, file_path: Path, dependency_path: Path, dependency: Environment) -> list[str]:
@@ -206,41 +230,65 @@ def _is_section(value: Any) -> bool:
     return value is None or isinstance(value, dict)
 
 
-def _variable_paths(variables: dict[str, Any], parent: Path) -> Iterable[Path]:
-    for key, value in variables.items():
-        path = parent / key
-        yield path
-        if isinstance(value, dict):
-            yield from _variable_paths(value, path)
+def _variable_locations(value: Any, parent: VariableLocation) -> Iterable[VariableLocation]:
+    if isinstance(value, dict):
+        items: Iterable[tuple[str | int, Any]] = value.items()
+    elif isinstance(value, list):
+        items = enumerate(value)
+    else:
+        return
+    for key, item in items:
+        location = (*parent, key)
+        yield location
+        yield from _variable_locations(item, location)
+
+
+def _variable_sources(variables: dict[str, Any], file_path: Path) -> dict[VariableLocation, VariableSource]:
+    try:
+        positions = yaml_positions(safe_read(file_path))
+    except (OSError, yaml.YAMLError):
+        positions = {}
+    sources: dict[VariableLocation, VariableSource] = {}
+    for location in _variable_locations(variables, ()):
+        # Missing if normalization changed the key, for example, a datetime key written in a non-standard format.
+        position = positions.get(("variables", *location))
+        sources[location] = VariableSource(
+            file=file_path,
+            line=position.line if position else None,
+            column=position.column if position else None,
+        )
+    return sources
 
 
 def _merge_variables(
     target: dict[str, Any],
     source: dict[str, Any],
-    source_file: Path,
-    source_files: dict[Path, Path],
-    parent: Path,
+    source_sources: dict[VariableLocation, VariableSource],
+    target_sources: dict[VariableLocation, VariableSource],
+    parent: VariableLocation,
 ) -> list[str]:
     """Merges source into target in place and returns a description of every variable defined in both."""
     conflicts: list[str] = []
     for key, value in source.items():
-        path = parent / key
+        location = (*parent, key)
         if key not in target:
             target[key] = copy.deepcopy(value)
-            source_files[path] = source_file
-            if isinstance(value, dict):
-                source_files.update(dict.fromkeys(_variable_paths(value, path), source_file))
+            for sub_location in [location, *_variable_locations(value, location)]:
+                if sub_location in source_sources:
+                    target_sources[sub_location] = source_sources[sub_location]
             continue
         existing = target[key]
         if _is_section(existing) and _is_section(value):
             if existing is None:
                 target[key] = existing = {}
-            conflicts.extend(_merge_variables(existing, value or {}, source_file, source_files, path))
+            conflicts.extend(_merge_variables(existing, value or {}, source_sources, target_sources, location))
             continue
-        defined_in = {file for var_path, file in source_files.items() if var_path == path or path in var_path.parents}
-        defined_in.add(source_file)
+        defined_in = [
+            variable_source.display_location
+            for variable_source in (target_sources.get(location), source_sources.get(location))
+            if variable_source is not None
+        ]
         conflicts.append(
-            f"variables.{'.'.join(path.parts)} is defined in "
-            f"{humanize_collection({_display_path(file) for file in defined_in})}"
+            f"variables.{'.'.join(map(str, location))} is defined in {humanize_collection(defined_in, sort=False)}"
         )
     return conflicts

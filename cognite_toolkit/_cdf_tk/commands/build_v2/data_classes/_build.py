@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
 )
 from cognite_toolkit._cdf_tk.utils.file import find_variable_position
 
-from ._config import DeployProtection
+from ._config import DeployProtection, VariableLocation, VariableSource
 from ._insights import (
     BuildError,
     BuildWarning,
@@ -112,10 +112,10 @@ class ConfigFile(BaseModel):
     path: AbsoluteFilePath = Field(
         description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory that contains the variables)."
     )
-    variable_source_files: dict[Path, AbsoluteFilePath] = Field(
+    variable_sources: dict[VariableLocation, VariableSource] = Field(
         default_factory=dict,
-        description="The config YAML file each variable path is defined in, when it differs from 'path'. "
-        "This is the case for variables merged in from dependencies.",
+        description="Where each location in the variables is defined. Locations without a source are "
+        "defined in 'path'.",
     )
 
 

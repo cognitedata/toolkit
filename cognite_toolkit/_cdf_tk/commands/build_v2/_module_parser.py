@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     RelativeDirPath,
     RelativeFilePath,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._config import VariableLocation, VariableSource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
@@ -63,7 +64,7 @@ class ModuleParser:
                     available_paths,
                     selected_paths,
                     config_file.path,
-                    config_file.variable_source_files,
+                    config_file.variable_sources,
                 )
                 all_selected_modules.update(config_selected_modules)
                 invalid_variables.extend(invalid_config_variables)
@@ -240,22 +241,23 @@ class ModuleParser:
         available_paths: set[RelativeDirPath],
         selected_paths: set[RelativeDirPath],
         config_path: AbsoluteFilePath,
-        variable_source_files: dict[Path, AbsoluteFilePath] | None = None,
+        variable_sources: dict[VariableLocation, VariableSource] | None = None,
     ) -> tuple[dict[RelativeDirPath, dict[int | None, list[BuildVariable]]], list[InvalidBuildVariable]]:
         variables_by_path_and_iteration: dict[RelativeDirPath, dict[int | None, list[BuildVariable]]] = defaultdict(
             lambda: defaultdict(list)
         )
-        source_files = variable_source_files or {}
+        sources = variable_sources or {}
         invalid_variables: list[InvalidBuildVariable] = []
-        to_check: list[tuple[RelativeDirPath, int | None, dict[str, Any], AbsoluteFilePath]] = [
-            (Path(""), None, variables, config_path)
+        to_check: list[tuple[RelativeDirPath, int | None, dict[str, Any], VariableLocation, VariableSource]] = [
+            (Path(""), None, variables, (), VariableSource(file=config_path))
         ]
         while to_check:
-            path, iteration, subdict, parent_source_file = to_check.pop()
+            path, iteration, subdict, parent_location, parent_source = to_check.pop()
             for key, value in subdict.items():
                 subpath = path / key
-                # Variables inside a list of dicts are not tracked individually, they come from the same file as the list.
-                source_file = source_files.get(subpath, parent_source_file)
+                location = (*parent_location, key)
+                # Without a known source, the variable is in the same file as its parent, at an unknown position.
+                source = sources.get(location) or VariableSource(file=parent_source.file)
                 if value is None:
                     # An empty key, e.g. `modules:` without any children, is treated as an empty dict.
                     value = {}
@@ -265,27 +267,33 @@ class ModuleParser:
                             id=subpath,
                             value=value,
                             is_selected=path in selected_paths,
-                            source_file=source_file,
+                            source_file=source.file,
+                            line=source.line,
+                            column=source.column,
                             iteration=iteration,
                         )
                     )
                 elif isinstance(value, dict):
                     if subpath in available_paths:
-                        to_check.append((subpath, iteration, value, source_file))
+                        to_check.append((subpath, iteration, value, location, source))
                     else:
                         invalid_variables.append(
                             InvalidBuildVariable(
                                 id=subpath,
                                 value=str(value),
                                 is_selected=path in selected_paths,
-                                source_file=source_file,
                                 iteration=iteration,
+                                source_file=source.file,
+                                line=source.line,
+                                column=source.column,
                                 error=BuildError(
                                     code="INVALID-VARIABLE-PATH",
                                     message=f"Invalid variable path: {'.'.join(subpath.parts)}. This does not correspond to the "
                                     f"folder structure inside the {MODULES} directory.",
                                     fix="Ensure that the variable paths correspond to the folder structure inside the modules directory.",
-                                    source_file=source_file,
+                                    source_file=source.file,
+                                    line=source.line,
+                                    column=source.column,
                                 ),
                             )
                         )
@@ -296,26 +304,33 @@ class ModuleParser:
                                 id=subpath,
                                 value=value,
                                 is_selected=path in selected_paths,
-                                source_file=source_file,
                                 iteration=iteration,
+                                source_file=source.file,
+                                line=source.line,
+                                column=source.column,
                             )
                         )
                     elif all(isinstance(item, dict) for item in value):
                         for idx, item in enumerate(value, start=1):
-                            to_check.append((subpath, idx, item, source_file))
+                            item_location = (*location, idx - 1)
+                            to_check.append((subpath, idx, item, item_location, sources.get(item_location, source)))
                     else:
                         invalid_variables.append(
                             InvalidBuildVariable(
                                 id=subpath,
                                 value=str(value),
                                 is_selected=path in selected_paths,
-                                source_file=source_file,
                                 iteration=iteration,
+                                source_file=source.file,
+                                line=source.line,
+                                column=source.column,
                                 error=BuildError(
                                     code="INVALID-VARIABLE-TYPE",
                                     message=f"Invalid variable type in list for variable {'.'.join(subpath.parts)}.",
                                     fix="Ensure that all items in the list are of the same supported type either (str, int, float, bool) or dict.",
-                                    source_file=source_file,
+                                    source_file=source.file,
+                                    line=source.line,
+                                    column=source.column,
                                 ),
                             )
                         )

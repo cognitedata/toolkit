@@ -928,7 +928,7 @@ class BuildV2Command(ToolkitCommand):
                         selected_modules=selected,
                         variables=config.variables or {},
                         path=config_path_resolved,
-                        variable_source_files=config.variable_source_files,
+                        variable_sources=config.variable_sources,
                     )
                 )
 

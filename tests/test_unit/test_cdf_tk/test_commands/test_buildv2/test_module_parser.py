@@ -7,6 +7,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._config import VariableLocation, VariableSource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
     MisplacedModule,
@@ -582,26 +583,33 @@ class TestParseVariablesEdgeCases:
         assert len(module_vars[1]) == 2
         assert len(module_vars[2]) == 2
 
-    def test_variables_get_source_file_from_dependency(self) -> None:
+    def test_variables_get_source_from_variable_sources(self) -> None:
         dependency_path = Path("/config.shared.yaml").resolve()
-        variables = {"var1": "main", "modules": {"var2": "shared", "moduleA": [{"var3": "a"}]}}
+        variables = {"var1": "main", "modules": {"var2": "shared", "moduleA": [{"var3": "a"}, {"var3": "b"}]}}
         available_paths = {Path(""), Path("modules"), Path("modules/moduleA")}
-        source_files = {Path("modules/var2"): dependency_path, Path("modules/moduleA"): dependency_path}
+        sources: dict[VariableLocation, VariableSource] = {
+            ("var1",): VariableSource(file=CONFIG_PATH, line=1, column=1),
+            ("modules", "var2"): VariableSource(file=dependency_path, line=2, column=3),
+            ("modules", "moduleA"): VariableSource(file=dependency_path, line=3, column=3),
+            ("modules", "moduleA", 1, "var3"): VariableSource(file=dependency_path, line=5, column=7),
+        }
 
         build_variables, _ = ModuleParser._parse_variables(
-            variables, available_paths, available_paths, CONFIG_PATH, source_files
+            variables, available_paths, available_paths, CONFIG_PATH, sources
         )
 
         actual = {
-            variable.id.as_posix(): variable.source_file
+            (variable.id.as_posix(), variable.iteration): (variable.source_file, variable.line, variable.column)
             for iterations in build_variables.values()
             for variable_list in iterations.values()
             for variable in variable_list
         }
         assert actual == {
-            "var1": CONFIG_PATH,
-            "modules/var2": dependency_path,
-            "modules/moduleA/var3": dependency_path,
+            ("var1", None): (CONFIG_PATH, 1, 1),
+            ("modules/var2", None): (dependency_path, 2, 3),
+            # Without a source of its own, the variable inherits the file of its parent but not the position.
+            ("modules/moduleA/var3", 1): (dependency_path, None, None),
+            ("modules/moduleA/var3", 2): (dependency_path, 5, 7),
         }
 
 

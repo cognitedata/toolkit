@@ -108,18 +108,44 @@ variables:
         assert {
             "selected": config.environment.selected,
             "variables": config.variables,
-            "source_files": {path.as_posix(): file.name for path, file in config.variable_source_files.items()},
+            "sources": {
+                location: (source.file.name, source.line, source.column)
+                for location, source in config.variable_sources.items()
+            },
         } == {
             "selected": ["modules/a", "modules/b", "modules/c"],
             "variables": {"modules": {"a": {"var_a": "main", "var_base": "base"}, "b": {"var_b": "shared"}}},
-            "source_files": {
-                "modules": "config.dev.yaml",
-                "modules/a": "config.dev.yaml",
-                "modules/a/var_a": "config.dev.yaml",
-                "modules/a/var_base": "config.base.yaml",
-                "modules/b": "config.shared.yaml",
-                "modules/b/var_b": "config.shared.yaml",
+            "sources": {
+                ("modules",): ("config.dev.yaml", 6, 3),
+                ("modules", "a"): ("config.dev.yaml", 7, 5),
+                ("modules", "a", "var_a"): ("config.dev.yaml", 8, 7),
+                ("modules", "a", "var_base"): ("config.base.yaml", 7, 7),
+                ("modules", "b"): ("config.shared.yaml", 7, 5),
+                ("modules", "b", "var_b"): ("config.shared.yaml", 8, 7),
             },
+        }
+
+    def test_sources_of_variables_in_list_of_dicts(self, tmp_path: Path) -> None:
+        main = tmp_path / "config.dev.yaml"
+        main.write_text(
+            """\
+variables:
+  modules:
+    a:
+    - var: first
+    - var: second
+"""
+        )
+
+        config = ConfigYAML.from_yaml_file(main)
+
+        assert {location: (source.line, source.column) for location, source in config.variable_sources.items()} == {
+            ("modules",): (2, 3),
+            ("modules", "a"): (3, 5),
+            ("modules", "a", 0): (4, 7),
+            ("modules", "a", 0, "var"): (4, 7),
+            ("modules", "a", 1): (5, 7),
+            ("modules", "a", 1, "var"): (5, 7),
         }
 
     def test_raises_with_all_conflicts(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -168,10 +194,10 @@ variables:
         assert str(exc_info.value) == (
             "Cannot merge the dependencies of config YAML file 'config.dev.yaml':\n"
             "- environment.project is 'other-project' in 'config.first.yaml', but 'my-project' in 'config.dev.yaml'\n"
-            "- variables.modules.a.var1 is defined in config.dev.yaml and config.first.yaml\n"
+            "- variables.modules.a.var1 is defined in config.dev.yaml:8:7 and config.first.yaml:7:7\n"
             "- environment.validation-type is 'prod' in 'config.second.yaml', but 'dev' in 'config.dev.yaml'\n"
-            "- variables.modules.a.var2 is defined in config.first.yaml and config.second.yaml\n"
-            "- variables.modules.a.section is defined in config.dev.yaml and config.second.yaml"
+            "- variables.modules.a.var2 is defined in config.first.yaml:8:7 and config.second.yaml:6:7\n"
+            "- variables.modules.a.section is defined in config.dev.yaml:9:7 and config.second.yaml:7:7"
         )
 
     def test_raises_on_missing_dependency(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
