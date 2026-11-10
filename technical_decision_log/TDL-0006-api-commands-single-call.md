@@ -32,24 +32,27 @@ different command, for example under `cdf dev`.
 
 ### The command reflects the URL path
 
-The words of a `cdf api` command follow the segments of the endpoint's URL path, in the same order: first the object,
-then the verb. Path parameters, such as `{id}`, become options instead of command words.
+The words of a `cdf api` command generally follow the segments of the endpoint's URL path, in the same order: first
+the object, then the verb. Path parameters, such as `{id}`, become options instead of command words. Objects are
+always identified by external ID, with `--external-id`, never by internal ID.
 
 The standard verbs are `list` and `retrieve`, and they always come after the object:
 
-- `list` is for listing objects, `POST /<object>/list` or `GET /<object>`.
+- `list` is for listing objects, `POST /<object>/list` or `GET /<object>`. If the search endpoint is a better fit for
+  listing, `list` may use `POST /<object>/search` instead, as `cdf api instances list` does.
 - `retrieve` is for retrieving objects by ID, `POST /<object>/byids`.
 
 For all other endpoints, the last segment of the URL path is the verb. For example:
 
-| Endpoint                                          | Command                                                        |
-|---------------------------------------------------|----------------------------------------------------------------|
-| `POST /functions/list`                            | `cdf api functions list`                                       |
-| `POST /functions/byids`                           | `cdf api functions retrieve`                                   |
-| `GET /functions/status`                           | `cdf api functions status`                                     |
-| `POST /functions/{id}/call`                       | `cdf api functions call --id 123`                              |
-| `GET /functions/{functionId}/calls/{callId}/logs` | `cdf api functions calls logs --function-id 123 --call-id 456` |
-| `POST /models/instances/list`                     | `cdf api models instances list`                                |
+| Endpoint                           | Command                                 |
+|------------------------------------|-----------------------------------------|
+| `POST /functions/list`             | `cdf api functions list`                |
+| `POST /functions/byids`            | `cdf api functions retrieve`            |
+| `GET /functions/status`            | `cdf api functions status`              |
+| `POST /models/instances/search`    | `cdf api instances list`                |
+| `POST /models/instances/byids`     | `cdf api instances retrieve`            |
+| `POST /models/instances/aggregate` | `cdf api instances aggregate`           |
+| `POST /models/instances/query`     | `cdf api instances query`               |
 
 ## Why
 
