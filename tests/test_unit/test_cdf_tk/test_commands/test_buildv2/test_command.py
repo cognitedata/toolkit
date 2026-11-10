@@ -489,6 +489,7 @@ class TestReadFileSystem:
                     "selected_modules": {"module1", "module2"},
                     "variables": {},
                     "path": config_yaml.resolve(),
+                    "variable_source_files": {},
                 }
             ],
         }

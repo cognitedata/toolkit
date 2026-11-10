@@ -27,6 +27,7 @@ class BuildVariable(BaseModel):
     id: RelativeDirPath
     value: str | bool | int | float | list[str | bool | int | float]
     is_selected: bool
+    source_file: Path = Field(description="The config YAML file the variable is defined in.")
     iteration: int | None = None
 
     @property

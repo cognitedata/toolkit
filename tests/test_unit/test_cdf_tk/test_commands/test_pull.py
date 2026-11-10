@@ -41,6 +41,7 @@ description: This dataset contains Transformations, Functions, and Workflows for
         id=Path("modules/dataset"),
         value="ingestion",
         is_selected=True,
+        source_file=Path("config.dev.yaml"),
     )
     ingestion = _built_resource(ExternalId(external_id="ingestion"), [variable])
     resources = [ingestion]
@@ -151,6 +152,7 @@ filter:
         id=Path("modules/instance_space"),
         value="my_space",
         is_selected=True,
+        source_file=Path("config.dev.yaml"),
     )
     view_resource = _built_resource(
         ViewId(space="my_space", external_id="my_external_id", version="v1"),

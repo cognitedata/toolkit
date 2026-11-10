@@ -16,6 +16,8 @@ from cognite_toolkit._cdf_tk.constants import DEFAULT_CONFIG_FILE
 from cognite_toolkit._cdf_tk.resource_ios import ResourceTypes
 from tests.data import PROJECT_FOR_TEST
 
+CONFIG_PATH = Path("/config.dev.yaml").resolve()
+
 
 class TestModuleSourceParser:
     @pytest.mark.parametrize(
@@ -105,14 +107,30 @@ class TestModuleSourceParser:
                 {
                     ".": {
                         None: [
-                            BuildVariable(id=Path("var1"), value="value1", is_selected=True, iteration=None),
-                            BuildVariable(id=Path("var2"), value="value2", is_selected=True, iteration=None),
+                            BuildVariable(
+                                id=Path("var1"),
+                                value="value1",
+                                is_selected=True,
+                                source_file=CONFIG_PATH,
+                                iteration=None,
+                            ),
+                            BuildVariable(
+                                id=Path("var2"),
+                                value="value2",
+                                is_selected=True,
+                                source_file=CONFIG_PATH,
+                                iteration=None,
+                            ),
                         ]
                     },
                     "modules/moduleB": {
                         None: [
                             BuildVariable(
-                                id=Path("modules/moduleB/var3"), value="value3", is_selected=False, iteration=None
+                                id=Path("modules/moduleB/var3"),
+                                value="value3",
+                                is_selected=False,
+                                source_file=CONFIG_PATH,
+                                iteration=None,
                             )
                         ]
                     },
@@ -128,7 +146,11 @@ class TestModuleSourceParser:
                     "modules/moduleA": {
                         None: [
                             BuildVariable(
-                                id=Path("modules/moduleA/var1"), value="value1", is_selected=True, iteration=None
+                                id=Path("modules/moduleA/var1"),
+                                value="value1",
+                                is_selected=True,
+                                source_file=CONFIG_PATH,
+                                iteration=None,
                             )
                         ]
                     },
@@ -154,7 +176,13 @@ class TestModuleSourceParser:
                 {
                     ".": {
                         None: [
-                            BuildVariable(id=Path("list_var"), value=["a", "b", "c"], is_selected=True, iteration=None)
+                            BuildVariable(
+                                id=Path("list_var"),
+                                value=["a", "b", "c"],
+                                is_selected=True,
+                                source_file=CONFIG_PATH,
+                                iteration=None,
+                            )
                         ]
                     },
                 },
@@ -167,8 +195,24 @@ class TestModuleSourceParser:
                 {"", "modules", "modules/moduleA"},
                 {
                     "modules/moduleA": {
-                        2: [BuildVariable(id=Path("modules/moduleA/var1"), value="b", is_selected=True, iteration=2)],
-                        1: [BuildVariable(id=Path("modules/moduleA/var1"), value="a", is_selected=True, iteration=1)],
+                        2: [
+                            BuildVariable(
+                                id=Path("modules/moduleA/var1"),
+                                value="b",
+                                is_selected=True,
+                                source_file=CONFIG_PATH,
+                                iteration=2,
+                            )
+                        ],
+                        1: [
+                            BuildVariable(
+                                id=Path("modules/moduleA/var1"),
+                                value="a",
+                                is_selected=True,
+                                source_file=CONFIG_PATH,
+                                iteration=1,
+                            )
+                        ],
                     },
                 },
                 [],
@@ -191,13 +235,12 @@ class TestModuleSourceParser:
         selected_paths: set[str],
         expected_variables: dict[str, dict[int | None, list[BuildVariable]]],
         error_messages: list[str],
-        valid_yaml_absolute_path: Path,
     ) -> None:
         build_variables, errors = ModuleParser._parse_variables(
             variables,
             {Path(path) for path in available_paths},
             {Path(path) for path in selected_paths},
-            valid_yaml_absolute_path,
+            CONFIG_PATH,
         )
         actual_error_messages = [error.error.message for error in errors]
         assert actual_error_messages == error_messages
@@ -482,7 +525,7 @@ class TestParseVariablesEdgeCases:
         available_paths = {Path("")}
         selected_paths = {Path("")}
 
-        build_variables, errors = ModuleParser._parse_variables(variables, available_paths, selected_paths)
+        build_variables, errors = ModuleParser._parse_variables(variables, available_paths, selected_paths, CONFIG_PATH)
 
         assert len(errors) == 0
         assert Path("") in build_variables
@@ -497,7 +540,7 @@ class TestParseVariablesEdgeCases:
         available_paths = {Path(""), Path("modules"), Path("modules/team"), Path("modules/team/project")}
         selected_paths = available_paths.copy()
 
-        build_variables, errors = ModuleParser._parse_variables(variables, available_paths, selected_paths)
+        build_variables, errors = ModuleParser._parse_variables(variables, available_paths, selected_paths, CONFIG_PATH)
 
         assert len(errors) == 0
         assert Path("modules/team/project") in build_variables
@@ -507,7 +550,9 @@ class TestParseVariablesEdgeCases:
         variables = {"modules": {"moduleA": None}}
         available_paths = {Path(""), Path("modules"), Path("modules/moduleA")}
 
-        build_variables, errors = ModuleParser._parse_variables(variables, available_paths, available_paths)
+        build_variables, errors = ModuleParser._parse_variables(
+            variables, available_paths, available_paths, CONFIG_PATH
+        )
 
         assert errors == []
         assert not build_variables
@@ -517,7 +562,7 @@ class TestParseVariablesEdgeCases:
         available_paths = {Path(""), Path("modules")}
 
         build_variables, errors = ModuleParser._parse_variables(
-            variables, available_paths, available_paths, config_path=Path("/config.dev.yaml")
+            variables, available_paths, available_paths, CONFIG_PATH
         )
 
         assert [error.error.code for error in errors] == ["INVALID-VARIABLE-PATH"]
@@ -528,7 +573,7 @@ class TestParseVariablesEdgeCases:
         available_paths = {Path(""), Path("modules"), Path("modules/moduleA")}
         selected_paths = available_paths.copy()
 
-        build_variables, errors = ModuleParser._parse_variables(variables, available_paths, selected_paths)
+        build_variables, errors = ModuleParser._parse_variables(variables, available_paths, selected_paths, CONFIG_PATH)
 
         assert len(errors) == 0
         module_vars = build_variables.get(Path("modules/moduleA"), {})
@@ -537,11 +582,37 @@ class TestParseVariablesEdgeCases:
         assert len(module_vars[1]) == 2
         assert len(module_vars[2]) == 2
 
+    def test_variables_get_source_file_from_dependency(self) -> None:
+        dependency_path = Path("/config.shared.yaml").resolve()
+        variables = {"var1": "main", "modules": {"var2": "shared", "moduleA": [{"var3": "a"}]}}
+        available_paths = {Path(""), Path("modules"), Path("modules/moduleA")}
+        source_files = {Path("modules/var2"): dependency_path, Path("modules/moduleA"): dependency_path}
+
+        build_variables, _ = ModuleParser._parse_variables(
+            variables, available_paths, available_paths, CONFIG_PATH, source_files
+        )
+
+        actual = {
+            variable.id.as_posix(): variable.source_file
+            for iterations in build_variables.values()
+            for variable_list in iterations.values()
+            for variable in variable_list
+        }
+        assert actual == {
+            "var1": CONFIG_PATH,
+            "modules/var2": dependency_path,
+            "modules/moduleA/var3": dependency_path,
+        }
+
 
 class TestAsModuleVariables:
-    TOP_LEVEL = BuildVariable(value="value1", id=Path("modules/top"), is_selected=True)
-    ITERATION_1 = BuildVariable(value="value2", id=Path("modules/iteration1"), is_selected=True)
-    ITERATION_2 = BuildVariable(value="value2", id=Path("modules/iteration2"), is_selected=True)
+    TOP_LEVEL = BuildVariable(value="value1", id=Path("modules/top"), is_selected=True, source_file=CONFIG_PATH)
+    ITERATION_1 = BuildVariable(
+        value="value2", id=Path("modules/iteration1"), is_selected=True, source_file=CONFIG_PATH
+    )
+    ITERATION_2 = BuildVariable(
+        value="value2", id=Path("modules/iteration2"), is_selected=True, source_file=CONFIG_PATH
+    )
 
     @pytest.mark.parametrize(
         "variables, module, actual",

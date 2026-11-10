@@ -112,6 +112,11 @@ class ConfigFile(BaseModel):
     path: AbsoluteFilePath = Field(
         description="Path to the configuration YAML file (typically config.<env>.yaml under the organization directory that contains the variables)."
     )
+    variable_source_files: dict[Path, AbsoluteFilePath] = Field(
+        default_factory=dict,
+        description="The config YAML file each variable path is defined in, when it differs from 'path'. "
+        "This is the case for variables merged in from dependencies.",
+    )
 
 
 class BuildInput(BaseModel):
