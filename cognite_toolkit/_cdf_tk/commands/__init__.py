@@ -14,7 +14,6 @@ from .auth.command import AuthCommand
 from .build_v2.build_v2 import BuildV2Command
 from .deploy_v2.command import DeploymentStep, DeployOptions, DeployV2Command
 from .dump_resource import DumpResourceCommand
-from .entity_matching import EntityMatchingCommand
 from .functions import FunctionsCommand
 from .init import InitCommand
 from .instances import InstancesAPICommand
@@ -39,7 +38,6 @@ __all__ = [
     "DeploymentStep",
     "DownloadCommand",
     "DumpResourceCommand",
-    "EntityMatchingCommand",
     "FunctionsCommand",
     "InitCommand",
     "InstancesAPICommand",

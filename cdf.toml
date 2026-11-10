@@ -17,7 +17,6 @@ infield = true
 migrate = true
 create = true
 data-products = true
-entity-matching = false
 custom-apps = true
 api = true
 catalog-dataset = true
