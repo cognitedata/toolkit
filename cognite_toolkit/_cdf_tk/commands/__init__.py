@@ -15,6 +15,7 @@ from .build_v2.build_v2 import BuildV2Command
 from .deploy_v2.command import DeploymentStep, DeployOptions, DeployV2Command
 from .dump_resource import DumpResourceCommand
 from .functions import FunctionsCommand
+from .functions_api import FunctionsAPICommand
 from .init import InitCommand
 from .instances import InstancesAPICommand
 from .modules import ModulesCommand
@@ -38,6 +39,7 @@ __all__ = [
     "DeploymentStep",
     "DownloadCommand",
     "DumpResourceCommand",
+    "FunctionsAPICommand",
     "FunctionsCommand",
     "InitCommand",
     "InstancesAPICommand",
