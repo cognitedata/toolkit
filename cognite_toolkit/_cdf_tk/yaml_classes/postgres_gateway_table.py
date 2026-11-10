@@ -1,33 +1,15 @@
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Literal
 
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import PostgresGatewayTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_table import PostgresGatewayTableColumnType
 
 from .base import BaseModelResource, ToolkitResource
 
-PostgresGatewayColumnType: TypeAlias = Literal[
-    "TEXT",
-    "VARCHAR",
-    "BOOL",
-    "BIGINT",
-    "DOUBLE PRECISION",
-    "REAL",
-    "TIMESTAMPTZ",
-    "JSON",
-    "TEXT[]",
-    "VARCHAR[]",
-    "BOOL[]",
-    "BIGINT[]",
-    "DOUBLE PRECISION[]",
-    "REAL[]",
-    "JSON[]",
-    "BYTEA",
-]
-
 
 class PostgresGatewayColumnYAML(BaseModelResource):
-    type: PostgresGatewayColumnType = Field(description="The Postgres type of the column.")
+    type: PostgresGatewayTableColumnType = Field(description="The Postgres type of the column.")
 
 
 class RawTableOptionsYAML(BaseModelResource):

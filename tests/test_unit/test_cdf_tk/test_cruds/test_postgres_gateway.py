@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import PostgresGatewayUserId, RawDatabaseId, RawTableId, ViewId
-from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_table import PostgresGatewayTableResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_table import PostgresGatewayTableResponseAdapter
 from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_user import (
     PostgresGatewayUserRequest,
     PostgresGatewayUserResponse,
@@ -139,7 +139,7 @@ class TestPostgresGatewayTableIO:
         ],
     )
     def test_dump_resource_is_unchanged(self, local: dict[str, Any], cdf_response: dict[str, Any]) -> None:
-        cdf_table = PostgresGatewayTableResponse.model_validate(cdf_response)
+        cdf_table = PostgresGatewayTableResponseAdapter.validate_python(cdf_response)
         cdf_table.username = "pg_user_001"
 
         assert PostgresGatewayTableIO(ToolkitClientMock()).dump_resource(cdf_table, local) == local
