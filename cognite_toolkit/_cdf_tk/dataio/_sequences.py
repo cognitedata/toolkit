@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.resource_ios import SequenceIO
-from cognite_toolkit._cdf_tk.utils import sanitize_filename
+from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import DataType, JsonVal
 
@@ -32,6 +32,7 @@ from ._base import (
     TableUploadableDataIO,
     file_line_tracking_id,
 )
+from .logger import LogEntryV2, Severity
 from .progress import FileBookmark
 from .selectors import SequenceRowSelector
 
@@ -143,10 +144,29 @@ class SequenceRowIO(
         result: list[DataItem[dict[str, JsonVal]]] = []
         for data_item in data_chunk.items:
             columns = [column.external_id for column in data_item.item.columns]
+            mismatched_rows: list[str] = []
             for row in data_item.item.rows:
+                if len(row.values) != len(columns):
+                    mismatched_rows.append(f"{row.row_number} ({len(row.values)} values)")
                 values: dict[str, JsonVal] = {_ROW_NUMBER_COLUMN: row.row_number}
-                values.update(zip(columns, row.values))
+                # Missing values are filled with None, and values without a matching column are dropped.
+                values.update(
+                    (column, row.values[no] if no < len(row.values) else None) for no, column in enumerate(columns)
+                )
                 result.append(DataItem(tracking_id=data_item.tracking_id, item=values))
+            if mismatched_rows:
+                self.logger.log(
+                    LogEntryV2(
+                        id=data_item.tracking_id,
+                        label="Column and value count mismatch",
+                        severity=Severity.warning,
+                        message=(
+                            f"Expected {len(columns)} values per row to match the columns, but "
+                            f"{len(mismatched_rows)} row(s) did not: {humanize_collection(mismatched_rows)}. "
+                            "Missing values are written as empty and extra values are dropped."
+                        ),
+                    )
+                )
         return data_chunk.create_from(result)
 
     def json_to_row(

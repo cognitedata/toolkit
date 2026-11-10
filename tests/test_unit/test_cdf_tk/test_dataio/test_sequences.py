@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from typing import Literal
+from unittest.mock import MagicMock
 
 import pytest
 import respx
@@ -17,6 +18,8 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.dataio import SequenceRowIO
+from cognite_toolkit._cdf_tk.dataio._base import DataItem, Page
+from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, Severity
 from cognite_toolkit._cdf_tk.dataio.selectors import SequenceRowSelector
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 
@@ -108,3 +111,30 @@ class TestSequenceRowIO:
             "my_sequence.SequenceRows.csv:rows-3-4",
             "my_sequence.SequenceRows.csv:rows-5-5",
         ]
+
+    def test_data_to_row_logs_column_value_mismatch(self) -> None:
+        rows = SequenceRowsResponse(
+            id=1,
+            external_id="my_sequence",
+            columns=[SequenceColumnSlim(external_id=name, value_type=value_type) for name, value_type in COLUMNS],
+            rows=[
+                SequenceRow(row_number=1, values=[1.0, 1, "a"]),
+                SequenceRow(row_number=2, values=[2.0]),
+                SequenceRow(row_number=3, values=[3.0, 3, "c", "extra"]),
+            ],
+        )
+        logger = MagicMock(spec=DataLogger)
+        with monkeypatch_toolkit_client() as client:
+            io = SequenceRowIO(client)
+        io.logger = logger
+
+        page = io.data_to_row(Page(worker_id="main", items=[DataItem(tracking_id="batch", item=rows)]))
+
+        assert [item.item for item in page.items] == [
+            {"rowNumber": 1, "pressure": 1.0, "count": 1, "label": "a"},
+            {"rowNumber": 2, "pressure": 2.0, "count": None, "label": None},
+            {"rowNumber": 3, "pressure": 3.0, "count": 3, "label": "c"},
+        ]
+        logger.log.assert_called_once()
+        entry = logger.log.call_args.args[0]
+        assert (entry.id, entry.severity) == ("batch", Severity.warning)
