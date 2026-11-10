@@ -1186,6 +1186,7 @@ class ApprovalToolkitClient:
                             "space",
                             "name",
                             "workflowExternalId",
+                            "username",
                         ]:
                             if identifier_name in v:
                                 return v[identifier_name]

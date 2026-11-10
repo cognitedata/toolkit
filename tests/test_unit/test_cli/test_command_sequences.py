@@ -15,6 +15,7 @@ import pytest
 import respx
 from pytest import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_user import PostgresGatewayUserResponse
 from cognite_toolkit._cdf_tk.commands import (
     BuildV2Command,
     DeployOptions,
@@ -239,6 +240,10 @@ def test_build_deploy_v2_complete_orgs(
     ):
         # Mock /raw/dbs/{dbName}/tables/{tableName}/rows as the deploy command uploads RAW rows.
         respx_mock.route(url__regex=r".*/raw/dbs/[^/]+/tables/[^/]+/rows(?:\?.*)?$").respond(status_code=200)
+        # CDF generates Postgres gateway usernames, so Toolkit only updates users that already exist.
+        toolkit_client_approval.append(
+            PostgresGatewayUserResponse, [PostgresGatewayUserResponse(username="pg_user_001", created_time=0)]
+        )
 
         DeployV2Command(silent=True, skip_tracking=True).deploy(
             user_build_dir=build_tmp_path,
