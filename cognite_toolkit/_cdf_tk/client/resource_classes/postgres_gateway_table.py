@@ -3,16 +3,39 @@
 Based on https://api-docs.cognite.com/20230101/tag/Postgres-Gateway-Tables
 """
 
+from typing import Literal
+
 from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import PostgresGatewayTableId
 
+PostgresGatewayTableColumnType = Literal[
+    "TEXT",
+    "VARCHAR",
+    "BOOL",
+    "BIGINT",
+    "DOUBLE PRECISION",
+    "REAL",
+    "TIMESTAMPTZ",
+    "JSON",
+    "TEXT[]",
+    "VARCHAR[]",
+    "BOOL[]",
+    "BIGINT[]",
+    "DOUBLE PRECISION[]",
+    "REAL[]",
+    "JSON[]",
+    "BYTEA",
+]
+
+PostgresGatewayTableType = Literal["view", "raw_rows"]
+
 
 class PostgresGatewayColumn(BaseModelObject):
     """A column of a foreign table, for example ``TEXT``, ``BIGINT``, or ``JSON[]``."""
 
-    type: str
+    type: PostgresGatewayTableColumnType | str
 
 
 class RawTableOptions(BaseModelObject):
@@ -37,7 +60,7 @@ class PostgresGatewayTableRequest(RequestResource):
     # This is a path parameter, so we exclude it from serialization.
     username: str = Field(exclude=True)
     tablename: str
-    type: str
+    type: PostgresGatewayTableType | str
     options: RawTableOptions | ViewTableOptions
     columns: dict[str, PostgresGatewayColumn] | None = None
 
