@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.api.transformation_externaldata import Trans
 from cognite_toolkit._cdf_tk.client.api.transformation_jobs import TransformationJobsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
+from cognite_toolkit._cdf_tk.client.api.transformation_schema import TransformationSchemaAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 
 from . import ToolkitClientConfig
@@ -325,6 +326,7 @@ class ToolkitClientMock(ToolkitClient):
         self.transformations.notifications = MagicMock(spec=TransformationNotificationsAPI)
         self.transformations.jobs = MagicMock(spec=TransformationJobsAPI)
         self.transformations.external_data_sources = MagicMock(spec=TransformationExternalDataSourcesAPI)
+        self.transformations.schema = MagicMock(spec=TransformationSchemaAPI)
         self.workflows = MagicMock(spec=WorkflowsAPI)
         self.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)
         self.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)

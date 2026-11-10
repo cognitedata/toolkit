@@ -22,8 +22,13 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
 )
-from cognite_toolkit._cdf_tk.rules import ToolkitGlobalRuleSet, get_global_rules_registry
-from cognite_toolkit._cdf_tk.rules._base import EXECUTE_RULE_STATUS, ResourceRef, RuleSetStatus
+from cognite_toolkit._cdf_tk.rules._base import (
+    EXECUTE_RULE_STATUS,
+    ResourceRef,
+    RuleSetStatus,
+    ToolkitGlobalRuleSet,
+    get_global_rules_registry,
+)
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitTable
 
 
