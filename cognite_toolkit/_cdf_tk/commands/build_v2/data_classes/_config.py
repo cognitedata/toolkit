@@ -78,7 +78,7 @@ class ConfigYAML(YAMLFile):
     dependencies: list[Path] | None = Field(
         None,
         description="Config YAML files this config depends on. Relative paths are resolved from the directory "
-        "of the config file that lists them.",
+        "of the config file that lists them, and cannot point to a parent directory.",
     )
     variables: dict[str, JsonValue] | None = None
 
@@ -91,6 +91,11 @@ class ConfigYAML(YAMLFile):
             return value
         if invalid := [path.as_posix() for path in value if path.suffix not in CONFIG_FILE_SUFFIXES]:
             raise ValueError(f"Dependencies must be YAML files (.yaml or .yml), got {humanize_collection(invalid)}")
+        if outside := [path.as_posix() for path in value if path.is_absolute() or ".." in path.parts]:
+            raise ValueError(
+                "Dependencies must be relative paths in the same directory as the config file or a subdirectory, "
+                f"got {humanize_collection(outside)}"
+            )
         return value
 
     @field_validator("variables", mode="before")
