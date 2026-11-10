@@ -41,7 +41,7 @@ class PostgresGatewayUsersAPI(CDFResourceAPI[PostgresGatewayUserResponse]):
 
     @staticmethod
     def _serialize_create(items: Sequence[PostgresGatewayUserRequest]) -> builtins.list[dict[str, Any]]:
-        return [{key: value for key, value in item.dump().items() if key != "username"} for item in items]
+        return [item.model_dump(exclude={"username"}) for item in items]
 
     def create(self, items: Sequence[PostgresGatewayUserRequest]) -> builtins.list[PostgresGatewayUserCreatedResponse]:
         """Create postgres gateway users.
