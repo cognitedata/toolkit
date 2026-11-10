@@ -27,7 +27,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RawTableIO,
     ViewIO,
 )
-from cognite_toolkit._cdf_tk.yaml_classes import PostgresGatewayTableYAML
 
 RAW_TABLE = {
     "username": "pg_user_001",
@@ -155,8 +154,8 @@ class TestPostgresGatewayTableIO:
         assert io.retrieve([io.get_id(RAW_TABLE)]) == []
 
     def test_get_dependencies(self) -> None:
-        raw_table = PostgresGatewayTableYAML.model_validate(RAW_TABLE)
-        view_table = PostgresGatewayTableYAML.model_validate(VIEW_TABLE)
+        raw_table = PostgresGatewayTableIO.validate_object(RAW_TABLE)
+        view_table = PostgresGatewayTableIO.validate_object(VIEW_TABLE)
         user = (PostgresGatewayUserIO, PostgresGatewayUserId(username="pg_user_001"))
 
         assert {
@@ -181,4 +180,4 @@ class TestPostgresGatewayTableIO:
     )
     def test_yaml_rejects_options_not_matching_type(self, data: dict[str, Any]) -> None:
         with pytest.raises(ValidationError):
-            PostgresGatewayTableYAML.model_validate(data)
+            PostgresGatewayTableIO.validate_object(data)

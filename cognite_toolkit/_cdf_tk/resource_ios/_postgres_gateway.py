@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import PostgresGatewayTableYAML, PostgresGatewayUserYAML
-from cognite_toolkit._cdf_tk.yaml_classes.postgres_gateway_table import RawTableOptionsYAML, ViewTableOptionsYAML
+from cognite_toolkit._cdf_tk.yaml_classes.postgres_gateway_table import RawRowsTableYAML, ViewTableYAML
 
 from ._auth import GroupAllScopedIO
 from ._datamodel import ViewIO
@@ -262,12 +262,13 @@ class PostgresGatewayTableIO(
     @classmethod
     def get_dependencies(cls, resource: PostgresGatewayTableYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield PostgresGatewayUserIO, PostgresGatewayUserId(username=resource.username)
-        options = resource.options
-        if isinstance(options, RawTableOptionsYAML):
-            yield RawDatabaseIO, RawDatabaseId(name=options.database)
-            yield RawTableIO, RawTableId(db_name=options.database, name=options.table)
-        elif isinstance(options, ViewTableOptionsYAML) and options.version is not None:
-            yield ViewIO, ViewId(space=options.space, external_id=options.external_id, version=options.version)
+        if isinstance(resource, RawRowsTableYAML):
+            raw_options = resource.options
+            yield RawDatabaseIO, RawDatabaseId(name=raw_options.database)
+            yield RawTableIO, RawTableId(db_name=raw_options.database, name=raw_options.table)
+        elif isinstance(resource, ViewTableYAML) and (version := resource.options.version) is not None:
+            view_options = resource.options
+            yield ViewIO, ViewId(space=view_options.space, external_id=view_options.external_id, version=version)
 
     def dump_resource(
         self, resource: PostgresGatewayTableResponse, local: dict[str, Any] | None = None
@@ -286,10 +287,10 @@ class PostgresGatewayTableIO(
             dumped["type"] = resource.type
         return dumped
 
-    def create(self, items: Sequence[PostgresGatewayTableRequest]) -> list[PostgresGatewayTableResponse]:
+    def create(self, items: Sequence[PostgresGatewayTableRequest]) -> Sequence[PostgresGatewayTableResponse]:
         return self.client.postgres_gateway.tables.create(items)
 
-    def retrieve(self, ids: Sequence[PostgresGatewayTableId]) -> list[PostgresGatewayTableResponse]:
+    def retrieve(self, ids: Sequence[PostgresGatewayTableId]) -> Sequence[PostgresGatewayTableResponse]:
         retrieved: list[PostgresGatewayTableResponse] = []
         for table_ids in self._group_by_username(ids):
             try:

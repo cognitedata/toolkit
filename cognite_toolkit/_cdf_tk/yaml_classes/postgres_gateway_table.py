@@ -1,6 +1,6 @@
-from typing import Literal, Self, TypeAlias
+from typing import Annotated, Literal, TypeAlias
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import PostgresGatewayTableId
 
@@ -42,7 +42,7 @@ class ViewTableOptionsYAML(BaseModelResource):
     version: str | None = Field(default=None, description="The version of the view.")
 
 
-class PostgresGatewayTableYAML(ToolkitResource):
+class PostgresGatewayTable(ToolkitResource):
     """A foreign table exposed through the Postgres gateway, backed by a RAW table or a data modeling view."""
 
     username: str = Field(description="The username of the Postgres gateway user that owns the table.", min_length=1)
@@ -54,27 +54,26 @@ class PostgresGatewayTableYAML(ToolkitResource):
     type: Literal["raw_rows", "view"] = Field(
         description="Whether the table exposes the rows of a RAW table or the instances of a view."
     )
-    options: RawTableOptionsYAML | ViewTableOptionsYAML = Field(
-        description="The RAW table for raw_rows tables, or the view for view tables."
-    )
-    columns: dict[str, PostgresGatewayColumnYAML] | None = Field(
-        default=None,
-        description="The columns of a raw_rows table by column name. View tables get their columns from the view.",
-    )
-
-    @model_validator(mode="after")
-    def check_options_match_type(self) -> Self:
-        if self.type == "raw_rows":
-            if not isinstance(self.options, RawTableOptionsYAML):
-                raise ValueError("A raw_rows table requires options with database and table.")
-            if not self.columns:
-                raise ValueError("A raw_rows table requires columns.")
-            return self
-        if not isinstance(self.options, ViewTableOptionsYAML):
-            raise ValueError("A view table requires options with space and externalId.")
-        if self.columns is not None:
-            raise ValueError("A view table gets its columns from the view, so columns cannot be set.")
-        return self
 
     def as_id(self) -> PostgresGatewayTableId:
         return PostgresGatewayTableId(username=self.username, tablename=self.tablename)
+
+
+class RawRowsTableYAML(PostgresGatewayTable):
+    """A table exposing the rows of a RAW table."""
+
+    type: Literal["raw_rows"] = Field("raw_rows", description="The table exposes the rows of a RAW table.")
+    options: RawTableOptionsYAML = Field(description="The RAW table to expose.")
+    columns: dict[str, PostgresGatewayColumnYAML] = Field(
+        description="The columns of the table by column name.", min_length=1
+    )
+
+
+class ViewTableYAML(PostgresGatewayTable):
+    """A table exposing the instances of a view. The columns are derived from the view."""
+
+    type: Literal["view"] = Field("view", description="The table exposes the instances of a view.")
+    options: ViewTableOptionsYAML = Field(description="The view to expose.")
+
+
+PostgresGatewayTableYAML = Annotated[RawRowsTableYAML | ViewTableYAML, Field(discriminator="type")]
