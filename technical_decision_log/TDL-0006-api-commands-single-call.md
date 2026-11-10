@@ -6,8 +6,8 @@
 
 The `cdf api` commands give users direct access to the CDF API, for example `cdf api functions list`. It is tempting
 to make these commands more convenient by chaining several API calls, for example calling a function, waiting for it
-to finish, and then fetching its response and logs. It is also tempting to give commands names that read well on the
-command line but differ from the API, or to support every endpoint, including those that create or change resources.
+to finish, and then fetching its response and logs. It is also tempting to name each command in whatever way reads
+best on its own, or to support every endpoint, including those that create or change resources.
 
 ## Decision
 
@@ -30,41 +30,37 @@ call:
 Anything else, such as waiting for a job to complete or combining results from several endpoints, belongs in a
 different command, for example under `cdf dev`.
 
-### The command reflects the URL path
+### An object followed by a verb
 
-The words of a `cdf api` command generally follow the segments of the endpoint's URL path, in the same order: first
-the object, then the verb. Path parameters, such as `{id}`, become options instead of command words. Objects are
-always identified by external ID, with `--external-id`, never by internal ID.
+A `cdf api` command is an object followed by a verb: `cdf api <object> <verb>`. The object must have the same name as
+the API resource, for example `functions` for `/functions` and `instances` for `/models/instances`.
 
-The standard verbs are `list` and `retrieve`, and they always come after the object:
+The common verbs are:
 
-- `list` is for listing objects, `POST /<object>/list` or `GET /<object>`. If the search endpoint is a better fit for
-  listing, `list` may use `POST /<object>/search` instead, as `cdf api instances list` does.
-- `retrieve` is for retrieving objects by ID, `POST /<object>/byids`.
+- `list` returns multiple objects, optionally filtered.
+- `retrieve` returns a single object, identified by its external ID with `--external-id`.
+- `status` returns the status of the object if such an endpoint exists.
 
-For all other endpoints, the last segment of the URL path is the verb. For example:
+Objects are always identified by external ID, never by internal ID. For example:
 
-| Endpoint                           | Command                                 |
-|------------------------------------|-----------------------------------------|
-| `POST /functions/list`             | `cdf api functions list`                |
-| `POST /functions/byids`            | `cdf api functions retrieve`            |
-| `GET /functions/status`            | `cdf api functions status`              |
-| `POST /models/instances/search`    | `cdf api instances list`                |
-| `POST /models/instances/byids`     | `cdf api instances retrieve`            |
-| `POST /models/instances/aggregate` | `cdf api instances aggregate`           |
-| `POST /models/instances/query`     | `cdf api instances query`               |
+| Command                                            | What it does                                        |
+|----------------------------------------------------|-----------------------------------------------------|
+| `cdf api functions list --status Ready`            | Lists functions with the deployment status `Ready`. |
+| `cdf api functions retrieve --external-id my_func` | Retrieves the function `my_func`.                   |
+| `cdf api functions status`                         | Shows whether Functions is activated.               |
+| `cdf api instances list --view space:View/v1`      | Lists instances with properties from the view.      |
 
 ## Why
 
 - **Single source of truth.** Resources are defined in configuration files and deployed with `cdf build` and
   `cdf deploy`. Creating or upserting resources through `cdf api` would make CDF drift from that configuration.
 - **Predictability.** Each command maps to one endpoint, so its behavior, required permissions, and errors are those of
-  that endpoint. When the command also mirrors the URL path, users can go from the API documentation to the command,
-  and back, without a lookup table.
+  that endpoint. Because every command is an object followed by a verb, and the object has the same name as the API
+  resource, users can guess a command from the API documentation without looking it up.
 - **Performance.** Chained calls make a command slower, especially when it waits for a job to complete. With one call,
   the command takes as long as the endpoint does.
 - **Transparency.** When a command chains several calls, users cannot see which calls it made, which one was slow, or
-  which one failed. With one call, and a name that matches its URL path, it is clear which endpoint the command calls.
+  which one failed. With one call, it is clear which endpoint the command calls.
 
 The two exceptions to the one-call rule do not undermine this. Each is a single, fast call that users would otherwise
 have to make by hand, and neither changes what the command does.
