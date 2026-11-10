@@ -6,6 +6,7 @@ from cognite_toolkit._cdf_tk.client.api.transformation_externaldata import Trans
 from cognite_toolkit._cdf_tk.client.api.transformation_jobs import TransformationJobsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
+from cognite_toolkit._cdf_tk.client.api.transformation_schema import TransformationSchemaAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
@@ -38,6 +39,7 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         self.notifications = TransformationNotificationsAPI(http_client)
         self.jobs = TransformationJobsAPI(http_client)
         self.external_data_sources = TransformationExternalDataSourcesAPI(http_client)
+        self.schema = TransformationSchemaAPI(http_client)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
