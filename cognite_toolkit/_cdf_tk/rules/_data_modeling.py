@@ -1,8 +1,10 @@
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar, Literal, TypeVar
+from typing import Any, ClassVar, Literal, Self, TypeVar, cast
+
+from pydantic import BaseModel, ValidationError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, _resource_base
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -22,15 +24,18 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
     ViewResponseProperty,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.limits import LimitValueResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.statistics import ProjectStatisticsResponse
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import contains_unresolved_variable
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildError,
     BuildWarning,
     Insight,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.constants import URL
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, ResourceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
@@ -39,32 +44,22 @@ from ._base import (
     ResourceRef,
     RuleSetStatus,
     ToolkitGlobalRuleSet,
+    identifier_values,
     quote_identifier,
     with_position,
 )
 
 _KeyT = TypeVar("_KeyT")
 _ReferenceStatus = Literal["ok", "not_direct", "missing"]
+_DATA_MODELING_LIMIT_PREFIX = "data_modeling."
+_INSTANCES_ENDPOINT = "/models/instances"
+_INSTANCES = ("nodes", "edges")
 
 
-@dataclass(frozen=True)
-class _LocalRef:
-    """A local resource together with the source file it was read from."""
-
-    resource: ResourceRef
-    source_path: Path
-
-    @property
-    def identifier(self) -> _resource_base.Identifier:
-        return self.resource.identifier
-
-    @property
-    def variables(self) -> list[BuildVariable]:
-        return self.resource.variables
-
-
-_LocalContainer = tuple[_LocalRef, ContainerRequest]
-_LocalView = tuple[_LocalRef, ViewRequest]
+_LocalContainer = tuple[ResourceRef, ContainerRequest]
+_LocalView = tuple[ResourceRef, ViewRequest]
+_LocalDataModel = tuple[ResourceRef, DataModelRequest]
+_CountByResource = dict[str, int]
 
 
 @dataclass(frozen=True)
@@ -73,7 +68,7 @@ class _ContainerPropertyReference:
 
     container_id: ContainerId
     property_identifier: str
-    resources: tuple[_LocalRef, ...]
+    resources: tuple[ResourceRef, ...]
 
     @property
     def label(self) -> str:
@@ -85,7 +80,7 @@ class _ReverseDirectRelationReference:
     """A reverse direct relation pointing at a property through a view or container."""
 
     through: ContainerDirectId | ViewDirectId
-    resources: tuple[_LocalRef, ...]
+    resources: tuple[ResourceRef, ...]
 
 
 @dataclass(frozen=True)
@@ -94,16 +89,84 @@ class _SchemaReferences:
     reverse_direct_relations: tuple[_ReverseDirectRelationReference, ...]
 
 
+class DataModelingLimits(BaseModel):
+    """The ``data_modeling.*`` project limits from the limits API, by name without the prefix."""
+
+    max_container_properties: int
+    max_containers: int
+    max_data_models: int
+    max_deleted_instances: int
+    max_instances: int
+    max_records_container_properties: int
+    max_records_view_properties: int
+    max_spaces: int
+    max_total_container_properties: int
+    max_view_properties: int
+    max_views: int
+    max_views_per_data_model: int
+
+    @classmethod
+    def from_responses(cls, limits: Sequence[LimitValueResponse]) -> Self:
+        # Pydantic accepts whole floats such as 100.0 for the int fields and rejects fractional ones.
+        return cls.model_validate(
+            {item.limit_id.removeprefix(_DATA_MODELING_LIMIT_PREFIX): item.value for item in limits}
+        )
+
+
+def _count_phrase(count_by_resource: _CountByResource) -> str:
+    """For example, '1 node and 2 edges'. Resource names are plural, such as 'nodes' and 'data models'."""
+    return humanize_collection(
+        [
+            f"{count} {name.removesuffix('s') if count == 1 else name}"
+            for name, count in count_by_resource.items()
+            if count
+        ],
+        sort=False,
+    )
+
+
+def _source_file(ref: ResourceRef) -> Path:
+    if not isinstance(ref.source, Path):
+        raise ValueError(f"Expected a local resource, got {ref.source!r} for {quote_identifier(ref.identifier)}")
+    return ref.source
+
+
+def _exceeded_limit(ref: ResourceRef, message: str, fix: str, keys: Sequence[str] = ()) -> BuildError:
+    return with_position(
+        BuildError(
+            code="EXCEEDED-LIMIT",
+            message=message,
+            fix=fix,
+            source_file=_source_file(ref),
+            alpha=Flags.ALPHA_RULES.is_enabled(),
+        ),
+        keys=keys,
+        values=identifier_values(ref.identifier),
+        variables=ref.variables,
+    )
+
+
 class DataModelingRuleSet(ToolkitGlobalRuleSet):
-    """Validates view-to-container mappings, reverse direct relations, and data modeling state changes.
+    """Validates view-to-container mappings, reverse direct relations, state changes, and project limits.
 
     Container properties referenced by views, and the direct relations behind reverse relations, are
     resolved against local modules first. Anything still missing is checked in CDF when a client is
-    available.
+    available. Property and per-resource limits are checked from the local configuration. Project
+    capacity for spaces, views, and similar counts is checked when deployment results are available.
     """
 
     CODE_PREFIX = "DATA-MODELING"
     DISPLAY_NAME = "Data modeling"
+
+    def __init__(
+        self,
+        resources: Sequence[ResourceRef],
+        results: Sequence[DeploymentResult] | None = None,
+        client: ToolkitClient | None = None,
+    ) -> None:
+        super().__init__(resources, results, client)
+        self._local_by_io: dict[type[Any], dict[Any, tuple[ResourceRef, Any]]] = {}
+        self._limits: DataModelingLimits | None = None
 
     def get_status(self) -> RuleSetStatus:
         if self.client is None:
@@ -114,15 +177,30 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     "within the provided modules, but not validate against CDF."
                 ),
             )
+        if not self.results:
+            return RuleSetStatus(
+                code="ready",
+                message=(
+                    "Will validate data modeling references, state changes, and property limits against CDF. "
+                    "Project capacity is not checked, since no deployment results are available."
+                ),
+            )
         return RuleSetStatus(
             code="ready",
-            message="Will validate data modeling references and state changes against CDF.",
+            message=(
+                "Will validate data modeling references, state changes, property limits, "
+                "and project capacity against CDF."
+            ),
         )
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
         yield from self._check_schema_references()
-        if self.client is not None:
-            yield from self._validate_data_modeling_changes(self.client)
+        if self.client is None:
+            return
+        yield from self._validate_data_modeling_changes(self.client)
+        yield from self._check_data_modeling_limits(self.client)
+        if self.results:
+            yield from self._check_data_modeling_capacity(self.client, self.results)
 
     def _check_schema_references(self) -> Iterable[Insight | InternalValidatorException]:
         try:
@@ -139,8 +217,8 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
 
     @classmethod
     def _find_references(cls, local_views: dict[ViewId, _LocalView]) -> _SchemaReferences:
-        container_properties: dict[tuple[ContainerId, str], list[_LocalRef]] = defaultdict(list)
-        reverse_relations: dict[ContainerDirectId | ViewDirectId, list[_LocalRef]] = defaultdict(list)
+        container_properties: dict[tuple[ContainerId, str], list[ResourceRef]] = defaultdict(list)
+        reverse_relations: dict[ContainerDirectId | ViewDirectId, list[ResourceRef]] = defaultdict(list)
         for resource, view in local_views.values():
             for prop in (view.properties or {}).values():
                 if isinstance(prop, ViewCorePropertyRequest):
@@ -399,32 +477,30 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
         return None
 
     def _load_containers(self) -> dict[ContainerId, _LocalContainer]:
-        loaded: dict[ContainerId, _LocalContainer] = {}
-        for item_id, (local_ref, request) in self._load_local(ContainerIO(self._load_client())).items():
-            if isinstance(item_id, ContainerId):
-                loaded[item_id] = (local_ref, request)
-        return loaded
+        return self._load_local(ContainerIO(self._load_client()))
 
     def _load_views(self) -> dict[ViewId, _LocalView]:
-        loaded: dict[ViewId, _LocalView] = {}
-        for item_id, (local_ref, request) in self._load_local(ViewIO(self._load_client())).items():
-            if isinstance(item_id, ViewId):
-                loaded[item_id] = (local_ref, request)
-        return loaded
+        return self._load_local(ViewIO(self._load_client()))
+
+    def _load_data_models(self) -> dict[DataModelId, _LocalDataModel]:
+        return self._load_local(DataModelIO(self._load_client()))
 
     def _load_local(
         self,
         crud: ResourceIO[_resource_base.T_Identifier, _resource_base.T_RequestResource, Any, Any],
-    ) -> dict[_resource_base.T_Identifier, tuple[_LocalRef, _resource_base.T_RequestResource]]:
-        """Loads the local resources of the CRUD's type, the same way ``cdf deploy`` does."""
-        local_by_id: dict[_resource_base.T_Identifier, tuple[_LocalRef, _resource_base.T_RequestResource]] = {}
-        for resource, validatable in self.resources.get_refs_and_resource_of_type(crud):
-            if isinstance(resource.source, Path):
-                local_by_id[crud.get_id(validatable.request)] = (
-                    _LocalRef(resource, resource.source),
-                    validatable.request,
-                )
-        return local_by_id
+    ) -> dict[_resource_base.T_Identifier, tuple[ResourceRef, _resource_base.T_RequestResource]]:
+        """Loads the local resources of the CRUD's type, the same way ``cdf deploy`` does. Cached per CRUD type."""
+        crud_type = type(crud)
+        if crud_type not in self._local_by_io:
+            local_by_id: dict[Any, tuple[ResourceRef, Any]] = {}
+            for resource, validatable in self.resources.get_refs_and_resource_of_type(crud):
+                if isinstance(resource.source, Path):
+                    local_by_id[crud.get_id(validatable.request)] = (resource, validatable.request)
+            self._local_by_io[crud_type] = local_by_id
+        return cast(
+            dict[_resource_base.T_Identifier, tuple[ResourceRef, _resource_base.T_RequestResource]],
+            self._local_by_io[crud_type],
+        )
 
     def _retrieve_containers(
         self, container_ids: set[ContainerId]
@@ -468,7 +544,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                             "Provide credentials to enable CDF verification, or manually either:"
                             "1) ensure that the container property exists, or 2) remove the reference to it."
                         ),
-                        source_file=resource.source_path,
+                        source_file=_source_file(resource),
                     ),
                     values=[ref.property_identifier],
                     variables=resource.variables,
@@ -488,7 +564,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                             "Provide credentials to enable CDF verification, or manually either:"
                             "1) ensure that the container property exists, or 2) remove the reference to it."
                         ),
-                        source_file=resource.source_path,
+                        source_file=_source_file(resource),
                     ),
                     values=[ref.through.identifier],
                     variables=resource.variables,
@@ -502,7 +578,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     message=f"Container property '{ref.label}' does not exist locally or in CDF. "
                     f"It is referenced by {quote_identifier(resource.identifier)}.",
                     fix="Ensure that the container property exists or remove the reference to it.",
-                    source_file=resource.source_path,
+                    source_file=_source_file(resource),
                 ),
                 values=[ref.property_identifier],
                 variables=resource.variables,
@@ -516,7 +592,7 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                     message=f"Direct relation '{ref.through}' does not exist locally or in CDF. "
                     f"It is referenced by {quote_identifier(resource.identifier)}.",
                     fix="Ensure that the direct relation exists or remove the reference to it.",
-                    source_file=resource.source_path,
+                    source_file=_source_file(resource),
                 ),
                 values=[ref.through.identifier],
                 variables=resource.variables,
@@ -532,18 +608,18 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                         "which is not a direct relation."
                     ),
                     fix="Point the reverse direct relation at a property of type direct.",
-                    source_file=resource.source_path,
+                    source_file=_source_file(resource),
                 ),
                 values=[ref.through.identifier],
                 variables=resource.variables,
             )
 
     @staticmethod
-    def _referenced_by(resource: _LocalRef) -> str:
+    def _referenced_by(resource: ResourceRef) -> str:
         return quote_identifier(resource.identifier)
 
     @staticmethod
-    def _append(bucket: dict[_KeyT, list[_LocalRef]], key: _KeyT, resource: _LocalRef) -> None:
+    def _append(bucket: dict[_KeyT, list[ResourceRef]], key: _KeyT, resource: ResourceRef) -> None:
         resources = bucket[key]
         if resource not in resources:
             resources.append(resource)
@@ -587,19 +663,19 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     def _as_data_modeling_insights(
         self,
         item_id: _resource_base.Identifier,
-        resource: _LocalRef,
+        resource: ResourceRef,
         request: Any,
         cdf_item: Any,
     ) -> Iterable[Insight]:
         if isinstance(item_id, ContainerId):
             assert isinstance(request, ContainerRequest) and isinstance(cdf_item, ContainerResponse)
-            yield from self._container_insights(item_id, resource.source_path, request, cdf_item)
+            yield from self._container_insights(item_id, _source_file(resource), request, cdf_item)
         elif isinstance(item_id, ViewId):
             assert isinstance(request, ViewRequest) and isinstance(cdf_item, ViewResponse)
-            yield from self._view_insights(item_id, resource.source_path, request, cdf_item)
+            yield from self._view_insights(item_id, _source_file(resource), request, cdf_item)
         elif isinstance(item_id, DataModelId):
             assert isinstance(request, DataModelRequest) and isinstance(cdf_item, DataModelResponse)
-            yield from self._data_model_insights(item_id, resource.source_path, request, cdf_item)
+            yield from self._data_model_insights(item_id, _source_file(resource), request, cdf_item)
 
     # A view's base (container-mapped) property may have its name, description, container and
     # containerPropertyIdentifier changed freely without a version bump; remapping a property to a new
@@ -865,3 +941,202 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
                 ),
                 keys=["views"],
             )
+
+    def _check_data_modeling_limits(self, client: ToolkitClient) -> Iterable[Insight | InternalValidatorException]:
+        """Checks property and per-resource data modeling limits from the local configuration."""
+        try:
+            containers = self._load_containers()
+            views = self._load_views()
+            data_models = self._load_data_models()
+        except Exception as error:
+            yield InternalValidatorException(
+                message=f"Failed to load local data modeling resources for limit checks: {error}",
+                source="DataModeling",
+            )
+            return
+        if not (containers or views or data_models):
+            return
+        limits, limits_error = self._retrieve_limits(client)
+        if limits is None:
+            if limits_error is not None:
+                yield limits_error
+            return
+        yield from self._check_local_limits(limits, containers, views, data_models)
+
+    def _check_data_modeling_capacity(
+        self, client: ToolkitClient, results: Sequence[DeploymentResult]
+    ) -> Iterable[Insight | InternalValidatorException]:
+        """Checks that the project capacity (how many spaces, views, instances, and so on would exist
+        after deploy) stays within the data modeling limits.
+
+        Deployment results are the only way to know what would be created and deleted.
+        """
+        limits, limits_error = self._retrieve_limits(client)
+        if limits is None:
+            if limits_error is not None:
+                yield limits_error
+            return
+        try:
+            statistics = client.statistics.retrieve()
+        except ToolkitAPIError as error:
+            yield InternalValidatorException(
+                message=f"Failed to retrieve data modeling statistics: {error}", source="DataModeling"
+            )
+            return
+        yield from self._check_project_capacity(client, limits, statistics, results)
+
+    def _retrieve_limits(
+        self, client: ToolkitClient
+    ) -> tuple[DataModelingLimits | None, InternalValidatorException | None]:
+        if self._limits is not None:
+            return self._limits, None
+        try:
+            self._limits = DataModelingLimits.from_responses(
+                client.limits.list(limit=None, prefix=_DATA_MODELING_LIMIT_PREFIX)
+            )
+        except ToolkitAPIError as error:
+            return None, InternalValidatorException(
+                message=f"Failed to retrieve data modeling limits: {error}", source="DataModeling"
+            )
+        except ValidationError as error:
+            return None, InternalValidatorException(
+                message=f"Failed to parse data modeling limits: {error}", source="DataModeling"
+            )
+        return self._limits, None
+
+    def _check_local_limits(
+        self,
+        limits: DataModelingLimits,
+        containers: dict[ContainerId, _LocalContainer],
+        views: dict[ViewId, _LocalView],
+        data_models: dict[DataModelId, _LocalDataModel],
+    ) -> Iterable[Insight | InternalValidatorException]:
+        for ref, container in containers.values():
+            if container.used_for == "record":
+                kind, limit = "record container", limits.max_records_container_properties
+            else:
+                kind, limit = "container", limits.max_container_properties
+            yield from self._check_resource_limit(ref, kind, len(container.properties), "properties", limit)
+        for ref, view in views.values():
+            if view.stream_id:
+                kind, limit = "record view", limits.max_records_view_properties
+            else:
+                kind, limit = "view", limits.max_view_properties
+            yield from self._check_resource_limit(ref, kind, len(view.properties or {}), "properties", limit)
+        for ref, data_model in data_models.values():
+            yield from self._check_resource_limit(
+                ref, "data model", len(data_model.views or []), "views", limits.max_views_per_data_model
+            )
+
+    @staticmethod
+    def _check_resource_limit(ref: ResourceRef, kind: str, count: int, noun: str, limit: int) -> Iterable[Insight]:
+        if count <= limit:
+            return
+        yield _exceeded_limit(
+            ref,
+            (
+                f"{kind.capitalize()} {quote_identifier(ref.identifier)} has {count} {noun}, "
+                f"which exceeds the limit of {limit}."
+            ),
+            f"Remove {noun} until the {kind} has at most {limit}.",
+            keys=[noun],
+        )
+
+    def _check_project_capacity(
+        self,
+        client: ToolkitClient,
+        limits: DataModelingLimits,
+        statistics: ProjectStatisticsResponse,
+        results: Sequence[DeploymentResult],
+    ) -> Iterable[Insight]:
+        checks: list[tuple[str, str, int, int, Sequence[str] | None]] = [
+            ("spaces", "/models/spaces", statistics.spaces.count, limits.max_spaces, None),
+            ("containers", "/models/containers", statistics.containers.count, limits.max_containers, None),
+            ("views", "/models/views", statistics.views.count, limits.max_views, None),
+            ("data models", "/models/datamodels", statistics.data_models.count, limits.max_data_models, None),
+            ("instances", _INSTANCES_ENDPOINT, statistics.instances.instances, limits.max_instances, _INSTANCES),
+        ]
+        for noun, endpoint, current, limit, resource_names in checks:
+            yield from self._check_capacity(
+                results, noun, client.config.create_api_url(endpoint), current, limit, resource_names
+            )
+        yield from self._check_soft_deleted_capacity(
+            results,
+            client.config.create_api_url(_INSTANCES_ENDPOINT),
+            statistics.instances.soft_deleted_instances,
+            limits.max_deleted_instances,
+        )
+
+    @classmethod
+    def _check_capacity(
+        cls,
+        results: Sequence[DeploymentResult],
+        noun: str,
+        endpoint_url: str,
+        current: int,
+        limit: int,
+        resource_names: Sequence[str] | None = None,
+    ) -> Iterable[Insight]:
+        """Checks that deploying keeps the project total of ``noun`` within its limit.
+
+        ``resource_names`` are the deployment results that count toward the total. Defaults to ``noun`` itself.
+        """
+        created, deleted = cls._deployed_counts(results, resource_names or (noun,))
+        created_count = sum(created.values())
+        deleted_count = sum(deleted.values())
+        projected = current + created_count - deleted_count
+        if projected <= current or projected <= limit:
+            return
+        if deleted_count:
+            change = f"create {_count_phrase(created)} and delete {_count_phrase(deleted)}, changing"
+        else:
+            change = f"create {_count_phrase(created)}, increasing"
+        yield BuildError(
+            code="EXCEEDED-LIMIT",
+            message=(
+                f"Deploying would {change} the total number of {noun} from {current} to {projected}, "
+                f"which exceeds the project limit of {limit}."
+            ),
+            fix=(
+                f"Reduce the number of {noun} in this deployment so the project total stays within {limit}. "
+                f"The project currently has {current} of {limit} {noun}."
+            ),
+            source_url=endpoint_url,
+            alpha=Flags.ALPHA_RULES.is_enabled(),
+        )
+
+    @classmethod
+    def _check_soft_deleted_capacity(
+        cls, results: Sequence[DeploymentResult], endpoint_url: str, current: int, limit: int
+    ) -> Iterable[Insight]:
+        _, deleted = cls._deployed_counts(results, _INSTANCES)
+        deleted_count = sum(deleted.values())
+        projected = current + deleted_count
+        if not deleted_count or projected <= limit:
+            return
+        yield BuildError(
+            code="EXCEEDED-LIMIT",
+            message=(
+                f"Deploying would delete {_count_phrase(deleted)}, increasing the number of soft-deleted instances "
+                f"from {current} to {projected}, which exceeds the project limit of {limit}."
+            ),
+            fix=(
+                f"Delete fewer instances in this deployment so the number of soft-deleted instances stays within "
+                f"{limit}. The project currently has {current} soft-deleted instances."
+            ),
+            source_url=endpoint_url,
+            alpha=Flags.ALPHA_RULES.is_enabled(),
+        )
+
+    @staticmethod
+    def _deployed_counts(
+        results: Sequence[DeploymentResult], resource_names: Sequence[str]
+    ) -> tuple[_CountByResource, _CountByResource]:
+        """The number of resources that deploying would create and delete, by resource name."""
+        created: _CountByResource = dict.fromkeys(resource_names, 0)
+        deleted: _CountByResource = dict.fromkeys(resource_names, 0)
+        for result in results:
+            if result.resource_name in created:
+                created[result.resource_name] += result.created_count
+                deleted[result.resource_name] += result.deleted_count
+        return created, deleted

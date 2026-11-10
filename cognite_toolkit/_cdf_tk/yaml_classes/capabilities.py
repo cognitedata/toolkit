@@ -239,6 +239,7 @@ AllDataSetIDOrAssetRootScope = Annotated[
 class Capability(BaseModelResource):
     capability_name: str = Field(exclude=True)
     scope: Scope
+    actions: list
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def include_capability_name(self, handler: SerializerFunctionWrapHandler) -> dict:

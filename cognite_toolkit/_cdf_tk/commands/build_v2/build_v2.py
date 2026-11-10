@@ -89,8 +89,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     ResourceType,
     SuccessExtra,
 )
-from cognite_toolkit._cdf_tk.rules import ToolkitGlobalRuleSet
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -104,6 +103,7 @@ from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
     relative_to_if_possible,
     safe_rmtree,
+    yaml_error_position,
     yaml_positions,
     yaml_safe_dump,
 )
@@ -1260,11 +1260,14 @@ class BuildV2Command(ToolkitCommand):
             return read_yaml_content(content)
         except yaml.YAMLError as yaml_error:
             error = f"Failed to parse YAML content.\n{yaml_error!s}"
+            position = yaml_error_position(yaml_error)
             return FailedReadYAMLFile(
                 source_path=resource_file,
                 code="INVALID-FILE-CONTENT",
                 error=error,
                 unresolved_variables=unresolved_variables,
+                line=position.line if position else None,
+                column=position.column if position else None,
             )
 
     def _validate_single_resource(

@@ -110,3 +110,14 @@ class TestStreamYAML:
         )
         warnings = stream.extra_insights(Path("test.yaml"), StreamIO.as_resource_type())
         assert len(warnings) == 1
+
+    def test_custom_template_warning_has_position(self, tmp_path: Path) -> None:
+        source = tmp_path / "stream.Streams.yaml"
+        source.write_text("externalId: test-stream\nsettings:\n  template:\n    name: CustomTemplate\n")
+        stream = StreamYAML.model_validate(
+            {"externalId": "test-stream", "settings": {"template": {"name": "CustomTemplate"}}}
+        )
+
+        warnings = stream.extra_insights(source, StreamIO.as_resource_type())
+
+        assert [(warning.line, warning.column) for warning in warnings] == [(4, 11)]

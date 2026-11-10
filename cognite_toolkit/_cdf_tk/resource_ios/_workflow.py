@@ -154,10 +154,10 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
     def retrieve(self, ids: Sequence[ExternalId]) -> list[WorkflowResponse]:
         return self.client.workflows.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def create(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
+    def create(self, items: Sequence[WorkflowRequest]) -> Sequence[WorkflowResponse]:
         return self.client.workflows.create(items)
 
-    def update(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
+    def update(self, items: Sequence[WorkflowRequest]) -> Sequence[WorkflowResponse]:
         return self.client.workflows.update(items)
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
