@@ -164,7 +164,6 @@ _GAResourceTypes: TypeAlias = Literal[
     "integrations",
     "locations",
     "migration",
-    "postgres_gateway",
     "transformations",
     "files",
     "timeseries",
