@@ -1,12 +1,22 @@
 import copy
 import os
+import re
 from collections.abc import Iterable
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, ClassVar, Literal, Self, TypeAlias
 
 import yaml
-from pydantic import BaseModel, Field, JsonValue, PrivateAttr, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    JsonValue,
+    PrivateAttr,
+    ValidationError,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
@@ -35,6 +45,7 @@ def _normalize_config_variables(value: Any) -> Any:
 DeployProtection: TypeAlias = Literal["none", "protected"]
 # The keys and list indices leading to a value in the variables section, for example ("modules", "my_module", 0, "var").
 VariableLocation: TypeAlias = tuple[str | int, ...]
+_DISPLAY_LOCATION_PATTERN = re.compile(r"^(?P<file>.+):(?P<line>\d+):(?P<column>\d+)$")
 
 
 class VariableSource(BaseModel):
@@ -43,6 +54,21 @@ class VariableSource(BaseModel):
     file: Path
     line: int | None = None
     column: int | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _parse_display_location(cls, value: Any) -> Any:
+        if isinstance(value, Path):
+            return {"file": value}
+        if not isinstance(value, str):
+            return value
+        if match := _DISPLAY_LOCATION_PATTERN.match(value):
+            return {"file": match["file"], "line": int(match["line"]), "column": int(match["column"])}
+        return {"file": value}
+
+    @model_serializer(mode="plain")
+    def _serialize_as_display_location(self) -> str:
+        return self.display_location
 
     @property
     def display_location(self) -> str:

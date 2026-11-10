@@ -34,6 +34,25 @@ def _create_variables(raw: dict[str, str | bool | int | float | list[str | bool 
     ]
 
 
+class TestVariableSource:
+    @pytest.mark.parametrize(
+        "source, expected",
+        [
+            pytest.param(VariableSource(file=Path("config.dev.yaml")), "config.dev.yaml", id="file only"),
+            pytest.param(
+                VariableSource(file=Path("sub/config.dev.yaml"), line=3, column=5),
+                "sub/config.dev.yaml:3:5",
+                id="with line and column",
+            ),
+        ],
+    )
+    def test_serialize_round_trip(self, source: VariableSource, expected: str) -> None:
+        dumped = source.model_dump()
+
+        assert dumped == expected == source.display_location
+        assert VariableSource.model_validate(dumped) == source
+
+
 class TestRelativeDirPath:
     @pytest.mark.parametrize(
         "input_path, is_relative, error",
