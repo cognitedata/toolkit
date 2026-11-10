@@ -10,6 +10,21 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field
 
+SchemaType = Literal[
+    "assets",
+    "timeseries",
+    "asset_hierarchy",
+    "events",
+    "datapoints",
+    "string_datapoints",
+    "sequences",
+    "files",
+    "labels",
+    "relationships",
+    "raw",
+    "data_sets",
+]
+
 
 class NonceCredentials(BaseModelObject):
     session_id: int
@@ -19,14 +34,14 @@ class NonceCredentials(BaseModelObject):
 
 
 class DestinationDefinition(BaseModelObject):
-    type: str
+    type: SchemaType | str
 
 
 class DataModelInfo(BaseModelObject):
     space: str
     external_id: str
     version: str
-    destination_type: str
+    destination_type: SchemaType | str
     destination_relationship_from_type: str | None = None
 
 

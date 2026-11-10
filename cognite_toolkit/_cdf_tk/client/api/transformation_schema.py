@@ -4,23 +4,8 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedRespo
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import DataModelId, ViewId
-from cognite_toolkit._cdf_tk.client.resource_classes.transformation import Column
-
-ConflictMode = Literal["abort", "delete", "update", "upsert"]
-SchemaType = Literal[
-    "assets",
-    "timeseries",
-    "asset_hierarchy",
-    "events",
-    "datapoints",
-    "string_datapoints",
-    "sequences",
-    "files",
-    "labels",
-    "relationships",
-    "raw",
-    "data_sets",
-]
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import Column, SchemaType
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_job import ConflictMode
 
 
 class TransformationSchemaAPI(CDFResourceAPI[Column]):
