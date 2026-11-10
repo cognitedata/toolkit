@@ -23,6 +23,7 @@ from cognite.client.data_classes.workflows import (
 from cognite.client.utils import ms_to_datetime
 from pydantic import JsonValue
 from rich import print
+from rich.json import JSON
 from rich.progress import Progress, TaskID
 from rich.table import Table
 
@@ -30,7 +31,12 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, WorkflowExecutionId
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
-from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleId
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
+    FunctionScheduleId,
+    FunctionScheduleResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     NonceCredentials as TransformationNonceCredentials,
 )
@@ -66,6 +72,22 @@ from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_writ
 from ._base import ToolkitCommand
 
 ALLOWED_HANDLE_ARGS = frozenset({"data", "client", "secrets", "function_call_info"})
+
+
+def parse_function_input_data(data: str) -> dict[str, JsonValue]:
+    """Parses the --data option of the function run commands into a JSON object."""
+
+    def reject_constant(value: str) -> Any:
+        # NaN and Infinity are not valid JSON and cannot be sent to CDF.
+        raise ToolkitValueError(f"Invalid JSON in --data: {value} is not supported.")
+
+    try:
+        loaded = json.loads(data, parse_constant=reject_constant)
+    except json.JSONDecodeError as e:
+        raise ToolkitValueError(f"Invalid JSON in --data: {e}") from e
+    if not isinstance(loaded, dict):
+        raise ToolkitValueError(f"Expected a JSON object in --data, got {type(loaded).__name__}.")
+    return loaded
 
 
 @dataclass
@@ -152,9 +174,7 @@ if __name__ == "__main__":
         data_source: str | WorkflowVersionId | None = None,
         wait: bool = False,
         config_yaml: Path | None = None,
-        data: str | None = None,
     ) -> bool:
-        input_data = self._load_input_data(data, data_source)
         if organization_dir in {Path("."), Path("./")}:
             organization_dir = Path.cwd()
         verify_module_directory(organization_dir, build_env_name)
@@ -172,10 +192,7 @@ if __name__ == "__main__":
         )
         is_interactive = external_id is None
         external_id = cast(ExternalId, self._get_function(external_id, build_folder).identifier).external_id
-        if input_data is not None:
-            call_args = FunctionCallArgs(input_data)
-        else:
-            call_args = self._get_call_args(data_source, external_id, build_folder, env_vars.dump(), is_interactive)
+        call_args = self._get_call_args(data_source, external_id, build_folder, env_vars.dump(), is_interactive)
         retrieved_functions = client.functions.retrieve([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
         function = retrieved_functions[0] if retrieved_functions else None
         if function is None:
@@ -241,24 +258,6 @@ if __name__ == "__main__":
         table.add_row("Logs", str(logs))
         print(table)
         return True
-
-    @staticmethod
-    def _load_input_data(data: str | None, data_source: str | WorkflowVersionId | None) -> dict[str, Any] | None:
-        if data is None:
-            return None
-        if data_source is not None:
-            raise ToolkitValueError("Cannot use both --data and --schedule. Please provide only one of them.")
-        try:
-            loaded = json.loads(data, parse_constant=RunFunctionCommand._reject_json_constant)
-        except json.JSONDecodeError as e:
-            raise ToolkitValueError(f"Invalid JSON in --data: {e}") from e
-        if not isinstance(loaded, dict):
-            raise ToolkitValueError(f"Expected a JSON object in --data, got {type(loaded).__name__}.")
-        return loaded
-
-    @staticmethod
-    def _reject_json_constant(value: str) -> Any:
-        raise ToolkitValueError(f"Invalid JSON in --data: {value} is not supported.")
 
     @staticmethod
     def _get_function(external_id: str | None, build_folder: BuildLineage) -> ResourceLineageItem:
@@ -477,7 +476,9 @@ if __name__ == "__main__":
         virtual_env_folder_name: str = virtual_env_folder,
         data: str | None = None,
     ) -> None:
-        input_data = self._load_input_data(data, data_source)
+        if data is not None and data_source is not None:
+            raise ToolkitValueError("Cannot use both --data and --schedule. Please provide only one of them.")
+        input_data = parse_function_input_data(data) if data is not None else None
         try:
             from ._virtual_env import FunctionVirtualEnvironment
         except ImportError:
@@ -728,6 +729,157 @@ if __name__ == "__main__":
     @staticmethod
     def _create_handler_import(handler_file: str) -> str:
         return re.sub(r"\.+", ".", handler_file.replace(".py", "").replace("/", ".")).removeprefix(".")
+
+
+class RunFunctionV2Command(ToolkitCommand):
+    _enter_json = "enter-json"
+
+    def run_cdf(
+        self,
+        client: ToolkitClient,
+        external_id: str | None,
+        data: str | None = None,
+        schedule: str | None = None,
+        wait: bool = False,
+    ) -> bool:
+        """Call a function in CDF.
+
+        The available functions and schedules are read from CDF, so no local modules are needed.
+        """
+        if data is not None and schedule is not None:
+            raise ToolkitValueError("Cannot use both --data and --schedule. Please provide only one of them.")
+        input_data = parse_function_input_data(data) if data is not None else None
+        if external_id is None:
+            # Interactive mode
+            function = self._select_function_interactive(client)
+            if data is None and schedule is None:
+                input_data = self._select_input_interactive(client, function)
+            wait = questionary.confirm("Do you want to wait for the function to complete?").unsafe_ask()
+        else:
+            function = self._retrieve_function(client, external_id)
+        if schedule is not None:
+            input_data = self._get_schedule_input(client, function, schedule)
+        name = function.external_id or function.name
+
+        try:
+            nonce = client.sessions.create_one_shot_token_exchange_session().nonce
+        except ToolkitAPIError as e:
+            raise AuthorizationError(f"Could not create oneshot session for function {name!r}: {e!s}") from e
+
+        call = client.functions.calls.call(function.id, nonce=nonce, data=input_data)
+        self._print_call(client, name, call)
+        if not wait:
+            return True
+
+        call = self._wait_for_call(client, name, call)
+        self._print_call(client, name, call)
+        if call.error:
+            client.console.print(f"[bold red]ERROR:[/] {call.error}")
+        result = client.functions.calls.get_response(function.id, call_id=call.id)
+        client.console.print(f"{name} RESPONSE:")
+        client.console.print(JSON.from_data(result.response))
+        logs = client.functions.calls.get_logs(function.id, call_id=call.id)
+        client.console.print(f"{name} LOGS:")
+        for entry in logs:
+            client.console.print(entry.message or "", markup=False, highlight=False)
+        return True
+
+    @staticmethod
+    def _retrieve_function(client: ToolkitClient, external_id: str) -> FunctionResponse:
+        functions = client.functions.retrieve([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
+        if not functions:
+            raise ToolkitMissingResourceError(
+                f"Could not find function with external id {external_id!r}. Have you deployed it?"
+            )
+        return functions[0]
+
+    @staticmethod
+    def _select_function_interactive(client: ToolkitClient) -> FunctionResponse:
+        functions = client.functions.list(limit=None)
+        if not functions:
+            raise ToolkitMissingResourceError("No functions found in CDF.")
+        choices = [
+            questionary.Choice(
+                title=f"{function.name} ({function.external_id})" if function.external_id else function.name,
+                value=function,
+            )
+            for function in sorted(functions, key=lambda f: f.name.casefold())
+        ]
+        return questionary.select(
+            "Select a function to run",
+            choices=choices,
+            instruction="Type to filter",
+            use_search_filter=True,
+            use_jk_keys=False,
+        ).unsafe_ask()
+
+    @classmethod
+    def _select_input_interactive(
+        cls, client: ToolkitClient, function: FunctionResponse
+    ) -> dict[str, JsonValue] | None:
+        schedules = client.functions.schedules.list(function_id=function.id, limit=None)
+        choices = [
+            questionary.Choice(title="No input data", value=None),
+            questionary.Choice(title="Enter input data as JSON", value=cls._enter_json),
+            *(
+                questionary.Choice(
+                    title=f"Use input data from schedule {schedule.name!r} ({schedule.cron_expression})",
+                    value=schedule,
+                )
+                for schedule in schedules
+            ),
+        ]
+        selected = questionary.select("Select input data for the function", choices=choices).unsafe_ask()
+        if selected == cls._enter_json:
+            return parse_function_input_data(questionary.text("Input data (JSON object):").unsafe_ask())
+        if isinstance(selected, FunctionScheduleResponse):
+            return client.functions.schedules.input_data(selected.id).data
+        return None
+
+    @staticmethod
+    def _get_schedule_input(
+        client: ToolkitClient, function: FunctionResponse, schedule_name: str
+    ) -> dict[str, JsonValue] | None:
+        schedules = client.functions.schedules.list(function_id=function.id, name=schedule_name, limit=None)
+        if not schedules:
+            raise ToolkitMissingResourceError(
+                f"Could not find schedule {schedule_name!r} for function {function.external_id or function.name!r}."
+            )
+        return client.functions.schedules.input_data(schedules[0].id).data
+
+    @staticmethod
+    def _wait_for_call(client: ToolkitClient, name: str, call: FunctionCallResponse) -> FunctionCallResponse:
+        max_time = client.functions.limits().timeout_minutes * 60
+        sleep_time = 1.0
+        start_time = time.time()
+        with Progress(console=client.console) as progress:
+            wait_task = progress.add_task(f"Waiting for function {name} to complete...", total=None)
+            while call.status == "Running" and time.time() - start_time < max_time:
+                time.sleep(sleep_time)
+                sleep_time = min(sleep_time * 2, 60)
+                retrieved = client.functions.calls.retrieve(
+                    function_id=call.function_id, items=[InternalId(id=call.id)], ignore_unknown_ids=True
+                )
+                if not retrieved:
+                    raise ToolkitMissingResourceError(
+                        f"Could not find function call with id {call.id}. It may have been deleted."
+                    )
+                call = retrieved[0]
+                progress.update(wait_task, description=f"Function {name}: {call.status}")
+        return call
+
+    @staticmethod
+    def _print_call(client: ToolkitClient, name: str, call: FunctionCallResponse) -> None:
+        table = Table(title=f"Function {name!r}, id {call.function_id}")
+        table.add_column("Info", justify="left")
+        table.add_column("Value", justify="left", style="green")
+        table.add_row("Call id", str(call.id))
+        table.add_row("Status", str(call.status))
+        table.add_row("Start time", f"{ms_to_datetime(call.start_time):%Y-%m-%d %H:%M:%S}")
+        if call.end_time is not None:
+            table.add_row("End time", f"{ms_to_datetime(call.end_time):%Y-%m-%d %H:%M:%S}")
+            table.add_row("Duration", f"{(call.end_time - call.start_time) / 1000:,.1f} seconds")
+        client.console.print(table)
 
 
 class RunTransformationV2Command(ToolkitCommand):
