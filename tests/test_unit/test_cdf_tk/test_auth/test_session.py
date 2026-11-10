@@ -4,6 +4,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+from cognite_toolkit._cdf_tk.commands.auth import session_keyring
 from cognite_toolkit._cdf_tk.commands.auth.oidc import (
     _CallbackContext,
     _OAuthCallbackServer,
@@ -12,7 +13,11 @@ from cognite_toolkit._cdf_tk.commands.auth.oidc import (
     refresh_session_tokens,
     resolve_idp_base_url,
 )
-from cognite_toolkit._cdf_tk.commands.auth.session_keyring import delete_session_token, read_session_token
+from cognite_toolkit._cdf_tk.commands.auth.session_keyring import (
+    delete_session_token,
+    read_session_token,
+    store_session_token,
+)
 from cognite_toolkit._cdf_tk.commands.auth.session_store import (
     SessionMetadata,
     StoredSession,
@@ -265,3 +270,25 @@ def test_ensure_fresh_session_refreshes_expiring_access_token(
     persisted = StoredSession.load()
     assert persisted is not None
     assert persisted.access_token == "new-access"
+
+
+def test_store_session_token_does_not_read_keychain_without_chunking(
+    sample_keyring: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(session_keyring, "_uses_chunking", lambda: False)
+    monkeypatch.setattr(session_keyring.keyring, "get_password", lambda *_: pytest.fail("keychain read before write"))
+
+    store_session_token("my-org/accessToken", "access")
+
+
+def test_chunked_session_token_round_trip_and_delete(sample_keyring: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(session_keyring, "_uses_chunking", lambda: True)
+    monkeypatch.setattr(session_keyring, "_effective_chunk_size", lambda: 4)
+
+    store_session_token("my-org/accessToken", "0123456789")
+    assert read_session_token("my-org/accessToken") == "0123456789"
+    assert read_session_token("my-org/accessToken/chunk/2") == "89"
+
+    delete_session_token("my-org/accessToken")
+    assert read_session_token("my-org/accessToken") is None
+    assert read_session_token("my-org/accessToken/chunk/0") is None
