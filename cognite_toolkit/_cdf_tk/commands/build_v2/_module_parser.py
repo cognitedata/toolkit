@@ -267,9 +267,7 @@ class ModuleParser:
                             id=subpath,
                             value=value,
                             is_selected=path in selected_paths,
-                            source_file=source.file,
-                            line=source.line,
-                            column=source.column,
+                            source=source,
                             iteration=iteration,
                         )
                     )
@@ -283,9 +281,7 @@ class ModuleParser:
                                 value=str(value),
                                 is_selected=path in selected_paths,
                                 iteration=iteration,
-                                source_file=source.file,
-                                line=source.line,
-                                column=source.column,
+                                source=source,
                                 error=BuildError(
                                     code="INVALID-VARIABLE-PATH",
                                     message=f"Invalid variable path: {'.'.join(subpath.parts)}. This does not correspond to the "
@@ -305,9 +301,7 @@ class ModuleParser:
                                 value=value,
                                 is_selected=path in selected_paths,
                                 iteration=iteration,
-                                source_file=source.file,
-                                line=source.line,
-                                column=source.column,
+                                source=source,
                             )
                         )
                     elif all(isinstance(item, dict) for item in value):
@@ -321,9 +315,7 @@ class ModuleParser:
                                 value=str(value),
                                 is_selected=path in selected_paths,
                                 iteration=iteration,
-                                source_file=source.file,
-                                line=source.line,
-                                column=source.column,
+                                source=source,
                                 error=BuildError(
                                     code="INVALID-VARIABLE-TYPE",
                                     message=f"Invalid variable type in list for variable {'.'.join(subpath.parts)}.",

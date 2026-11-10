@@ -112,14 +112,14 @@ class TestModuleSourceParser:
                                 id=Path("var1"),
                                 value="value1",
                                 is_selected=True,
-                                source_file=CONFIG_PATH,
+                                source=VariableSource(file=CONFIG_PATH),
                                 iteration=None,
                             ),
                             BuildVariable(
                                 id=Path("var2"),
                                 value="value2",
                                 is_selected=True,
-                                source_file=CONFIG_PATH,
+                                source=VariableSource(file=CONFIG_PATH),
                                 iteration=None,
                             ),
                         ]
@@ -130,7 +130,7 @@ class TestModuleSourceParser:
                                 id=Path("modules/moduleB/var3"),
                                 value="value3",
                                 is_selected=False,
-                                source_file=CONFIG_PATH,
+                                source=VariableSource(file=CONFIG_PATH),
                                 iteration=None,
                             )
                         ]
@@ -150,7 +150,7 @@ class TestModuleSourceParser:
                                 id=Path("modules/moduleA/var1"),
                                 value="value1",
                                 is_selected=True,
-                                source_file=CONFIG_PATH,
+                                source=VariableSource(file=CONFIG_PATH),
                                 iteration=None,
                             )
                         ]
@@ -181,7 +181,7 @@ class TestModuleSourceParser:
                                 id=Path("list_var"),
                                 value=["a", "b", "c"],
                                 is_selected=True,
-                                source_file=CONFIG_PATH,
+                                source=VariableSource(file=CONFIG_PATH),
                                 iteration=None,
                             )
                         ]
@@ -201,7 +201,7 @@ class TestModuleSourceParser:
                                 id=Path("modules/moduleA/var1"),
                                 value="b",
                                 is_selected=True,
-                                source_file=CONFIG_PATH,
+                                source=VariableSource(file=CONFIG_PATH),
                                 iteration=2,
                             )
                         ],
@@ -210,7 +210,7 @@ class TestModuleSourceParser:
                                 id=Path("modules/moduleA/var1"),
                                 value="a",
                                 is_selected=True,
-                                source_file=CONFIG_PATH,
+                                source=VariableSource(file=CONFIG_PATH),
                                 iteration=1,
                             )
                         ],
@@ -599,7 +599,11 @@ class TestParseVariablesEdgeCases:
         )
 
         actual = {
-            (variable.id.as_posix(), variable.iteration): (variable.source_file, variable.line, variable.column)
+            (variable.id.as_posix(), variable.iteration): (
+                variable.source.file,
+                variable.source.line,
+                variable.source.column,
+            )
             for iterations in build_variables.values()
             for variable_list in iterations.values()
             for variable in variable_list
@@ -614,12 +618,14 @@ class TestParseVariablesEdgeCases:
 
 
 class TestAsModuleVariables:
-    TOP_LEVEL = BuildVariable(value="value1", id=Path("modules/top"), is_selected=True, source_file=CONFIG_PATH)
+    TOP_LEVEL = BuildVariable(
+        value="value1", id=Path("modules/top"), is_selected=True, source=VariableSource(file=CONFIG_PATH)
+    )
     ITERATION_1 = BuildVariable(
-        value="value2", id=Path("modules/iteration1"), is_selected=True, source_file=CONFIG_PATH
+        value="value2", id=Path("modules/iteration1"), is_selected=True, source=VariableSource(file=CONFIG_PATH)
     )
     ITERATION_2 = BuildVariable(
-        value="value2", id=Path("modules/iteration2"), is_selected=True, source_file=CONFIG_PATH
+        value="value2", id=Path("modules/iteration2"), is_selected=True, source=VariableSource(file=CONFIG_PATH)
     )
 
     @pytest.mark.parametrize(

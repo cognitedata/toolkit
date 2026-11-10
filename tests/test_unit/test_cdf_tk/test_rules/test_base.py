@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._config import VariableSource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
 from cognite_toolkit._cdf_tk.rules._base import with_position
@@ -23,7 +24,7 @@ class TestWithPosition:
             id=Path("my_module") / "location",
             value="springfield",
             is_selected=True,
-            source_file=Path("config.dev.yaml"),
+            source=VariableSource(file=Path("config.dev.yaml")),
         )
 
         with_position(insight, values=["sp_springfield_files"], variables=[variable])

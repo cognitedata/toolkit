@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, BuiltResource
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._config import VariableSource
 from cognite_toolkit._cdf_tk.commands.pull import PullV2Command
 from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ResourceIO, ViewIO
 
@@ -41,7 +42,7 @@ description: This dataset contains Transformations, Functions, and Workflows for
         id=Path("modules/dataset"),
         value="ingestion",
         is_selected=True,
-        source_file=Path("config.dev.yaml"),
+        source=VariableSource(file=Path("config.dev.yaml")),
     )
     ingestion = _built_resource(ExternalId(external_id="ingestion"), [variable])
     resources = [ingestion]
@@ -152,7 +153,7 @@ filter:
         id=Path("modules/instance_space"),
         value="my_space",
         is_selected=True,
-        source_file=Path("config.dev.yaml"),
+        source=VariableSource(file=Path("config.dev.yaml")),
     )
     view_resource = _built_resource(
         ViewId(space="my_space", external_id="my_external_id", version="v1"),
