@@ -1,3 +1,4 @@
+import json
 import os
 from collections.abc import Iterator
 from datetime import datetime
@@ -46,7 +47,7 @@ from cognite_toolkit._cdf_tk.commands import (
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.commands.run import FunctionCallArgs, RunTransformationV2Command
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 from tests.data import RUN_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import MockQuestionary
@@ -195,8 +196,19 @@ def mock_function_venv() -> Iterator[MagicMock]:
 
 
 class TestRunFunction:
+    @pytest.mark.parametrize(
+        "data_source, data",
+        [
+            pytest.param("daily-8pm-utc", None, id="schedule"),
+            pytest.param(None, '{"breakfast": "toast", "count": 2}', id="inline data"),
+        ],
+    )
     def test_run_function_live(
-        self, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
+        self,
+        data_source: str | None,
+        data: str | None,
+        toolkit_client_approval: ApprovalToolkitClient,
+        env_vars_with_client: EnvironmentVariables,
     ) -> None:
         function = Function(
             id=1234567890,
@@ -239,11 +251,15 @@ class TestRunFunction:
             organization_dir=RUN_DATA,
             build_env_name="dev",
             external_id="fn_test3",
-            data_source="daily-8pm-utc",
+            data_source=data_source,
             wait=False,
             config_yaml=RUN_DATA / "config.dev.yaml",
+            data=data,
         )
-        assert toolkit_client_approval.mock_client.functions.calls.call.called
+        call = toolkit_client_approval.mock_client.functions.calls.call
+        assert call.called
+        if data is not None:
+            assert call.call_args.kwargs["data"] == json.loads(data)
 
     @patch.dict(
         os.environ,
@@ -350,6 +366,20 @@ class TestRunFunction:
         )
 
         assert actual == expected
+
+    @pytest.mark.parametrize(
+        "data, data_source, match",
+        [
+            pytest.param("{not json", None, "Invalid JSON", id="invalid json"),
+            pytest.param("[1, 2]", None, "Expected a JSON object", id="not an object"),
+            pytest.param('{"a": NaN}', None, "NaN is not supported", id="nan"),
+            pytest.param('{"a": -Infinity}', None, "-Infinity is not supported", id="infinity"),
+            pytest.param('{"a": 1}', "daily-8pm-utc", "Cannot use both --data and --schedule", id="both"),
+        ],
+    )
+    def test_load_input_data_invalid(self, data: str, data_source: str | None, match: str) -> None:
+        with pytest.raises(ToolkitValueError, match=match):
+            RunFunctionCommand._load_input_data(data, data_source)
 
 
 def _workflow_version(

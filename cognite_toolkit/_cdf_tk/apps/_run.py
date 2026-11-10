@@ -215,6 +215,17 @@ class RunFunctionApp(typer.Typer):
                 "default from the environment will be used.",
             ),
         ] = None,
+        data: Annotated[
+            str | None,
+            typer.Option(
+                "--data",
+                "-d",
+                help="Input payload for the function as a JSON object, for example "
+                '--data \'{"key": "value"}\'. To read it from a file, use --data "$(cat payload.json)". '
+                "Use this for functions that are called on demand without a schedule. "
+                "Cannot be combined with --schedule.",
+            ),
+        ] = None,
         rebuild_env: Annotated[
             bool,
             typer.Option(
@@ -243,6 +254,7 @@ class RunFunctionApp(typer.Typer):
                 schedule,
                 rebuild_env,
                 config_yaml=config_yaml,
+                data=data,
             )
         )
 
@@ -292,6 +304,17 @@ class RunFunctionApp(typer.Typer):
                 help="The name of the schedule to pick the data from",
             ),
         ] = None,
+        data: Annotated[
+            str | None,
+            typer.Option(
+                "--data",
+                "-d",
+                help="Input payload for the function as a JSON object, for example "
+                '--data \'{"key": "value"}\'. To read it from a file, use --data "$(cat payload.json)". '
+                "Use this for functions that are called on demand without a schedule. "
+                "Cannot be combined with --schedule.",
+            ),
+        ] = None,
         wait: Annotated[
             bool,
             typer.Option(
@@ -314,6 +337,6 @@ class RunFunctionApp(typer.Typer):
         cmd = RunFunctionCommand(client=env_vars.get_client())
         cmd.run(
             lambda: cmd.run_cdf(
-                env_vars, organization_dir, env_name, external_id, schedule, wait, config_yaml=config_yaml
+                env_vars, organization_dir, env_name, external_id, schedule, wait, config_yaml=config_yaml, data=data
             )
         )

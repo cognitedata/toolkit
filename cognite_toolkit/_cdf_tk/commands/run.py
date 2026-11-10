@@ -152,7 +152,9 @@ if __name__ == "__main__":
         data_source: str | WorkflowVersionId | None = None,
         wait: bool = False,
         config_yaml: Path | None = None,
+        data: str | None = None,
     ) -> bool:
+        input_data = self._load_input_data(data, data_source)
         if organization_dir in {Path("."), Path("./")}:
             organization_dir = Path.cwd()
         verify_module_directory(organization_dir, build_env_name)
@@ -170,7 +172,10 @@ if __name__ == "__main__":
         )
         is_interactive = external_id is None
         external_id = cast(ExternalId, self._get_function(external_id, build_folder).identifier).external_id
-        call_args = self._get_call_args(data_source, external_id, build_folder, env_vars.dump(), is_interactive)
+        if input_data is not None:
+            call_args = FunctionCallArgs(input_data)
+        else:
+            call_args = self._get_call_args(data_source, external_id, build_folder, env_vars.dump(), is_interactive)
         retrieved_functions = client.functions.retrieve([ExternalId(external_id=external_id)], ignore_unknown_ids=True)
         function = retrieved_functions[0] if retrieved_functions else None
         if function is None:
@@ -236,6 +241,24 @@ if __name__ == "__main__":
         table.add_row("Logs", str(logs))
         print(table)
         return True
+
+    @staticmethod
+    def _load_input_data(data: str | None, data_source: str | WorkflowVersionId | None) -> dict[str, Any] | None:
+        if data is None:
+            return None
+        if data_source is not None:
+            raise ToolkitValueError("Cannot use both --data and --schedule. Please provide only one of them.")
+        try:
+            loaded = json.loads(data, parse_constant=RunFunctionCommand._reject_json_constant)
+        except json.JSONDecodeError as e:
+            raise ToolkitValueError(f"Invalid JSON in --data: {e}") from e
+        if not isinstance(loaded, dict):
+            raise ToolkitValueError(f"Expected a JSON object in --data, got {type(loaded).__name__}.")
+        return loaded
+
+    @staticmethod
+    def _reject_json_constant(value: str) -> Any:
+        raise ToolkitValueError(f"Invalid JSON in --data: {value} is not supported.")
 
     @staticmethod
     def _get_function(external_id: str | None, build_folder: BuildLineage) -> ResourceLineageItem:
@@ -452,7 +475,9 @@ if __name__ == "__main__":
         rebuild_env: bool = False,
         config_yaml: Path | None = None,
         virtual_env_folder_name: str = virtual_env_folder,
+        data: str | None = None,
     ) -> None:
+        input_data = self._load_input_data(data, data_source)
         try:
             from ._virtual_env import FunctionVirtualEnvironment
         except ImportError:
@@ -553,14 +578,16 @@ if __name__ == "__main__":
 
         print(f"    [green]✓ 3/4[/green] Function {function_external_id!r} successfully imported code.")
 
-        is_interactive = external_id is None
-        call_args = self._get_call_args(
-            data_source,
-            function_external_id,
-            build_folder,
-            env_vars.dump(),
-            is_interactive,
-        )
+        if input_data is not None:
+            call_args = FunctionCallArgs(input_data)
+        else:
+            call_args = self._get_call_args(
+                data_source,
+                function_external_id,
+                build_folder,
+                env_vars.dump(),
+                is_interactive=external_id is None,
+            )
 
         run_check_py, env = self._create_run_check_file_with_env(
             env_vars,
