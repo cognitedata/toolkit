@@ -383,6 +383,18 @@ class LimitId(Identifier):
         return self.limit_id
 
 
+class PostgresGatewayUserId(Identifier):
+    username: str
+
+    def __str__(self) -> str:
+        return f"username='{self.username}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"username-{self.username}"
+        return self.username
+
+
 class SignalSinkId(Identifier):
     type: Literal["email", "user"]
     external_id: str
