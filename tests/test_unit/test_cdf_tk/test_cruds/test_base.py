@@ -452,4 +452,6 @@ class TestConstants:
         ],
     )
     def test_resource_key_is_a_resource_type(self, folder_names: set[str]) -> None:
+        if not FeatureFlag.is_enabled(Flags.POSTGRES_GATEWAY):
+            folder_names = folder_names - {"postgres_gateway"}
         assert folder_names <= set(get_args(ResourceTypes))

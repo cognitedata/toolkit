@@ -13,7 +13,7 @@
 # limitations under the License.
 import itertools
 from collections import defaultdict
-from typing import Literal, TypeAlias
+from typing import TYPE_CHECKING, Literal, TypeAlias
 
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 
@@ -149,7 +149,7 @@ RESOURCE_BUILD_IO_LIST: list[type[BaseResourceIO]] = list(
 RESOURCE_IO_LIST = [io_cls for io_cls in RESOURCE_BUILD_IO_LIST if issubclass(io_cls, ResourceIO)]
 
 
-ResourceTypes: TypeAlias = Literal[
+_GAResourceTypes: TypeAlias = Literal[
     "3dmodels",
     "agents",
     "apps",
@@ -164,7 +164,6 @@ ResourceTypes: TypeAlias = Literal[
     "integrations",
     "locations",
     "migration",
-    "postgres_gateway",
     "transformations",
     "files",
     "timeseries",
@@ -179,6 +178,11 @@ ResourceTypes: TypeAlias = Literal[
     "streamlit",
     "workflows",
 ]
+
+if TYPE_CHECKING or FeatureFlag.is_enabled(Flags.POSTGRES_GATEWAY):
+    ResourceTypes: TypeAlias = Literal[_GAResourceTypes, "postgres_gateway"]
+else:
+    ResourceTypes: TypeAlias = _GAResourceTypes
 
 
 def get_resource_build_io(resource_dir: str, kind: str) -> type[BaseResourceIO]:
