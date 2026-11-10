@@ -18,6 +18,13 @@ from ._helpers import print_help_if_no_subcommand
 
 CDF_TOML = CDFToml.load_module_context(Path.cwd())
 
+DATA_HELP = (
+    "Input data for the function as a JSON object, for example "
+    '--data \'{"key": "value"}\'. To read it from a file, use --data "$(cat payload.json)". '
+    "Use this for functions that are called on demand without a schedule. "
+    "Cannot be combined with --schedule."
+)
+
 
 class RunApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -215,6 +222,15 @@ class RunFunctionApp(typer.Typer):
                 "default from the environment will be used.",
             ),
         ] = None,
+        data: Annotated[
+            str | None,
+            typer.Option(
+                "--data",
+                "-d",
+                hidden=not Flags.v010.is_enabled(),
+                help=DATA_HELP,
+            ),
+        ] = None,
         rebuild_env: Annotated[
             bool,
             typer.Option(
@@ -232,6 +248,7 @@ class RunFunctionApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will run the specified function locally."""
+        RunFunctionApp._verify_data_option(data)
         env_vars = EnvironmentVariables.create_from_environment()
         cmd = RunFunctionCommand(client=env_vars.get_client())
         cmd.run(
@@ -243,6 +260,7 @@ class RunFunctionApp(typer.Typer):
                 schedule,
                 rebuild_env,
                 config_yaml=config_yaml,
+                data=data,
             )
         )
 
@@ -292,6 +310,15 @@ class RunFunctionApp(typer.Typer):
                 help="The name of the schedule to pick the data from",
             ),
         ] = None,
+        data: Annotated[
+            str | None,
+            typer.Option(
+                "--data",
+                "-d",
+                hidden=not Flags.v010.is_enabled(),
+                help=DATA_HELP,
+            ),
+        ] = None,
         wait: Annotated[
             bool,
             typer.Option(
@@ -310,10 +337,20 @@ class RunFunctionApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will run the specified function (assuming it is deployed) in CDF."""
+        RunFunctionApp._verify_data_option(data)
         env_vars = EnvironmentVariables.create_from_environment()
         cmd = RunFunctionCommand(client=env_vars.get_client())
         cmd.run(
             lambda: cmd.run_cdf(
-                env_vars, organization_dir, env_name, external_id, schedule, wait, config_yaml=config_yaml
+                env_vars, organization_dir, env_name, external_id, schedule, wait, config_yaml=config_yaml, data=data
             )
         )
+
+    @staticmethod
+    def _verify_data_option(data: str | None) -> None:
+        if data is not None and not Flags.v010.is_enabled():
+            raise typer.BadParameter(
+                "The --data option is currently behind an alpha feature flag and is not enabled. "
+                "Enable the flag `v010` under [alpha_flags] in cdf.toml.",
+                param_hint="--data",
+            )
