@@ -64,10 +64,10 @@ class TestConfigYAMLDependencies:
     def test_merges_nested_dependencies(self, tmp_path: Path) -> None:
         main = tmp_path / "config.dev.yaml"
         shared = tmp_path / "shared" / "config.shared.yaml"
-        base = tmp_path / "config.base.yaml"
+        base = tmp_path / "shared" / "config.base.yaml"
         main.write_text(
             """\
-dependencies: [shared/config.shared.yaml]
+dependencies: [shared/config.shared.yaml, shared/config.base.yaml]
 environment:
   project: my-project
   selected: [modules/a]
@@ -80,7 +80,7 @@ variables:
         shared.parent.mkdir()
         shared.write_text(
             """\
-dependencies: [../config.base.yaml]
+dependencies: [config.base.yaml]
 environment:
   project: my-project
   selected: [modules/a, modules/b]
@@ -90,10 +90,10 @@ variables:
       var_b: shared
 """
         )
-        # base is depended on twice, directly by shared and through a cycle back to main.
+        # base is depended on twice, by main and by shared, and has a cycle back to shared.
         base.write_text(
             """\
-dependencies: [config.dev.yaml, shared/config.shared.yaml]
+dependencies: [config.shared.yaml]
 environment:
   selected: [modules/c]
 variables:
