@@ -27,6 +27,7 @@ extend-download = true
 deploy-protection = true
 cdf-group-emails = false
 neat = true
+postgres-gateway = true
 
 [plugins]
 run = true

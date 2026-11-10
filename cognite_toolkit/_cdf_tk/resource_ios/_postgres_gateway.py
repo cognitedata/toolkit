@@ -97,6 +97,7 @@ class PostgresGatewayUserIO(
             username = self.get_id(resource).username
             if "credentials" not in resource:
                 self._credentials_by_username.pop(username, None)
+                # Todo: log a warning that the file is skipped due to missing username.
                 continue
             self._credentials_by_username[username] = read_auth(
                 resource["credentials"],
