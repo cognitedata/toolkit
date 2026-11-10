@@ -36,6 +36,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     HostedExtractorDestinationIO,
     HostedExtractorSourceIO,
     LocationFilterIO,
+    PostgresGatewayUserIO,
     ResourceIO,
     ResourceTypes,
     TransformationIO,
@@ -92,7 +93,7 @@ class TestFormatConsistency:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
         elif Loader in [LocationFilterIO]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires special handling")
-        elif Loader in [WorkflowTriggerIO, FunctionScheduleIO, HostedExtractorDestinationIO]:
+        elif Loader in [WorkflowTriggerIO, FunctionScheduleIO, HostedExtractorDestinationIO, PostgresGatewayUserIO]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires authentication handling")
 
         instance = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_write_cls)
@@ -140,7 +141,7 @@ class TestFormatConsistency:
             pytest.skip(
                 f"Skipping {loader.resource_cls} because FakeCogniteResourceGenerator doesn't generate cls properties correctly"
             )
-        elif Loader in [WorkflowTriggerIO, FunctionScheduleIO, HostedExtractorDestinationIO]:
+        elif Loader in [WorkflowTriggerIO, FunctionScheduleIO, HostedExtractorDestinationIO, PostgresGatewayUserIO]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires authentication handling")
 
         instances = [
@@ -199,6 +200,16 @@ def test_resource_types_is_up_to_date() -> None:
 
 
 def sensitive_strings_test_cases() -> Iterable[tuple]:
+    yield pytest.param(
+        PostgresGatewayUserIO,
+        """username: pg_user_001
+credentials:
+  clientId: my_client_id
+  clientSecret: my_super_secret_42
+""",
+        {"my_super_secret_42"},
+        id="PostgresGatewayUserIO",
+    )
     yield pytest.param(
         WorkflowTriggerIO,
         """externalId: my_trigger

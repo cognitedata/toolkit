@@ -391,6 +391,10 @@ IntegrationResponse:
   metadata:
     plant: oslo
   name: Pump extractor
+PostgresGatewayUserResponse:
+- credentials:
+    nonce: '123'
+  username: pg_user_001
 ResourceViewMappingResponse:
 - externalId: testing_default_asset_mapping
   instanceType: node

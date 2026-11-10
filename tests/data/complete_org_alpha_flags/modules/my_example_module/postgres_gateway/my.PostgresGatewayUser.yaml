@@ -1,0 +1,4 @@
+username: pg_user_001
+credentials:
+  clientId: ${IDP_CLIENT_ID}
+  clientSecret: ${IDP_CLIENT_SECRET}
