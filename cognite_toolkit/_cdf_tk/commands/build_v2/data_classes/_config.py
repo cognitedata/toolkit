@@ -42,17 +42,6 @@ class Environment(BaseModel):
             raise ValueError("`selection-type` can only be set to 'git-diff' when `validation-type` is 'dev'")
         return value
 
-    @field_validator("selected", mode="after")
-    @classmethod
-    def _selected_only_passed_for_path_selection(
-        cls, value: list[str] | None, info: ValidationInfo
-    ) -> list[str] | None:
-        if info.data.get("selection_type") == "path" or info.data.get("selection-type") == "path":
-            return value
-        if value is not None:
-            raise ValueError("`selected` can only be set when `selection-type` is 'path'")
-        return value
-
 
 class ConfigYAML(YAMLFile):
     filename: ClassVar[str] = "config.{name}.yaml"
