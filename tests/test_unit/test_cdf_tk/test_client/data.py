@@ -119,8 +119,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_table import (
-    PostgresGatewayTableRequest,
-    PostgresGatewayTableResponse,
+    RawRowsTableRequest,
+    RawRowsTableResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_user import (
     PostgresGatewayUserRequest,
@@ -882,7 +882,7 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "username": "pg_user_001",
             "createdTime": 1622547800000,
         },
-        PostgresGatewayTableResponse: {
+        RawRowsTableResponse: {
             "username": "pg_user_001",
             "tablename": "my_table",
             "type": "raw_rows",
@@ -1447,9 +1447,9 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     )
     yield pytest.param(
         CDFResource(
-            response_cls=PostgresGatewayTableResponse,
-            request_cls=PostgresGatewayTableRequest,
-            example_data=get_example_minimum_responses(PostgresGatewayTableResponse),
+            response_cls=RawRowsTableResponse,
+            request_cls=RawRowsTableRequest,
+            example_data=get_example_minimum_responses(RawRowsTableResponse),
             is_dump_equal_to_example=False,
             # No api_class: the username is a path parameter and thus requires custom endpoint mocking.
         ),

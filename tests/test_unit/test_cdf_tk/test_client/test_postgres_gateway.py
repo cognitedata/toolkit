@@ -10,10 +10,16 @@ from cognite_toolkit._cdf_tk.client.api.postgres_gateway_users import PostgresGa
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import PostgresGatewayTableId, PostgresGatewayUserId
 from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_table import (
+    BuiltInTableResponse,
     PostgresGatewayColumn,
-    PostgresGatewayTableRequest,
+    PostgresGatewayTableResponseAdapter,
+    RawRowsTableRequest,
+    RawRowsTableResponse,
     RawTableOptions,
+    UnknownTableResponse,
     ViewTableOptions,
+    ViewTableRequest,
+    ViewTableResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_user import (
     PostgresGatewayUserRequest,
@@ -111,17 +117,15 @@ class TestPostgresGatewayTablesAPI:
 
         created = api.create(
             [
-                PostgresGatewayTableRequest(
+                RawRowsTableRequest(
                     username="pg_user_001",
                     tablename="raw_table",
-                    type="raw_rows",
                     options=RawTableOptions(database="my_db", table="my_table"),
                     columns={"key": PostgresGatewayColumn(type="TEXT")},
                 ),
-                PostgresGatewayTableRequest(
+                ViewTableRequest(
                     username="pg_user_001",
                     tablename="view_table",
-                    type="view",
                     options=ViewTableOptions(space="my_space", external_id="MyView", version="v1"),
                 ),
             ]
@@ -133,7 +137,7 @@ class TestPostgresGatewayTablesAPI:
         assert {
             "created": [item.as_id() for item in created],
             "retrieved": [item.as_request_resource().dump() for item in retrieved],
-            "listed": [(item.as_id(), item.type) for item in listed],
+            "listed": [(item.as_id(), type(item)) for item in listed],
             "list_params": dict(list_route.calls.last.request.url.params),
             "requests": [
                 json.loads(call.request.content) for call in respx_mock.calls if call.request.method == "POST"
@@ -141,7 +145,7 @@ class TestPostgresGatewayTablesAPI:
         } == {
             "created": table_ids,
             "retrieved": [raw_table],
-            "listed": [(table_ids[0], "raw_rows"), (table_ids[1], "nodes")],
+            "listed": [(table_ids[0], RawRowsTableResponse), (table_ids[1], ViewTableResponse)],
             "list_params": {"includeBuiltIns": "true", "limit": "10"},
             "requests": [
                 {
@@ -158,3 +162,11 @@ class TestPostgresGatewayTablesAPI:
                 {"items": [{"tablename": "raw_table"}, {"tablename": "view_table"}], "ignoreUnknownIds": True},
             ],
         }
+
+    def test_load_table_response_by_type(self) -> None:
+        loaded = [
+            PostgresGatewayTableResponseAdapter.validate_python({"tablename": "t", "type": table_type, "columns": {}})
+            for table_type in ["built_in", "edges", "new_type"]
+        ]
+
+        assert [type(item) for item in loaded] == [BuiltInTableResponse, ViewTableResponse, UnknownTableResponse]

@@ -200,7 +200,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_table import (
     PostgresGatewayColumn,
-    PostgresGatewayTableRequest,
+    RawRowsTableRequest,
     RawTableOptions,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_user import (
@@ -2975,10 +2975,9 @@ class TestCDFResourceAPI:
             )
             user_id = created_user[0].as_id()
             table_id = PostgresGatewayTableId(username=user_id.username, tablename="smoke_raw_rows")
-            request = PostgresGatewayTableRequest(
+            request = RawRowsTableRequest(
                 username=table_id.username,
                 tablename=table_id.tablename,
-                type="raw_rows",
                 options=RawTableOptions(database=db_name, table="rows", primary_key="key"),
                 columns={"key": PostgresGatewayColumn(type="TEXT"), "value": PostgresGatewayColumn(type="BIGINT")},
             )

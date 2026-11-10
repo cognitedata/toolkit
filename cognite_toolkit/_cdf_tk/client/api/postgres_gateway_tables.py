@@ -12,13 +12,13 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessR
 from cognite_toolkit._cdf_tk.client.identifiers import PostgresGatewayTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_table import (
     PostgresGatewayTableRequest,
-    PostgresGatewayTableResponse,
+    PostgresGatewayTableResponseUnion,
 )
 
 _ITEM_LIMIT = 100
 
 
-class PostgresGatewayTablesAPI(CDFResourceAPI[PostgresGatewayTableResponse]):
+class PostgresGatewayTablesAPI(CDFResourceAPI[PostgresGatewayTableResponseUnion]):
     """Foreign tables exposed through the Postgres Gateway. Each table belongs to a postgres gateway user.
 
     The username is a path parameter, so requests are grouped by username.
@@ -37,8 +37,8 @@ class PostgresGatewayTablesAPI(CDFResourceAPI[PostgresGatewayTableResponse]):
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
-    ) -> PagedResponse[PostgresGatewayTableResponse]:
-        return PagedResponse[PostgresGatewayTableResponse].model_validate_json(response.body)
+    ) -> PagedResponse[PostgresGatewayTableResponseUnion]:
+        return PagedResponse[PostgresGatewayTableResponseUnion].model_validate_json(response.body)
 
     @staticmethod
     def _tables_path(username: str) -> str:
@@ -50,13 +50,13 @@ class PostgresGatewayTablesAPI(CDFResourceAPI[PostgresGatewayTableResponse]):
 
     @staticmethod
     def _stamp_username(
-        tables: builtins.list[PostgresGatewayTableResponse], username: str
-    ) -> builtins.list[PostgresGatewayTableResponse]:
+        tables: builtins.list[PostgresGatewayTableResponseUnion], username: str
+    ) -> builtins.list[PostgresGatewayTableResponseUnion]:
         for table in tables:
             table.username = username
         return tables
 
-    def create(self, items: Sequence[PostgresGatewayTableRequest]) -> builtins.list[PostgresGatewayTableResponse]:
+    def create(self, items: Sequence[PostgresGatewayTableRequest]) -> builtins.list[PostgresGatewayTableResponseUnion]:
         """Create postgres gateway tables.
 
         Args:
@@ -64,7 +64,7 @@ class PostgresGatewayTablesAPI(CDFResourceAPI[PostgresGatewayTableResponse]):
         Returns:
             The created tables.
         """
-        created: builtins.list[PostgresGatewayTableResponse] = []
+        created: builtins.list[PostgresGatewayTableResponseUnion] = []
         for (username,), group in self._group_items_by_text_field(items, "username").items():
             tables = self._request_item_response(group, "create", endpoint=self._tables_path(username))
             created.extend(self._stamp_username(tables, username))
@@ -72,7 +72,7 @@ class PostgresGatewayTablesAPI(CDFResourceAPI[PostgresGatewayTableResponse]):
 
     def retrieve(
         self, items: Sequence[PostgresGatewayTableId], ignore_unknown_ids: bool = False
-    ) -> builtins.list[PostgresGatewayTableResponse]:
+    ) -> builtins.list[PostgresGatewayTableResponseUnion]:
         """Retrieve postgres gateway tables.
 
         Args:
@@ -81,7 +81,7 @@ class PostgresGatewayTablesAPI(CDFResourceAPI[PostgresGatewayTableResponse]):
         Returns:
             The retrieved tables.
         """
-        retrieved: builtins.list[PostgresGatewayTableResponse] = []
+        retrieved: builtins.list[PostgresGatewayTableResponseUnion] = []
         for (username,), group in self._group_items_by_text_field(items, "username").items():
             for response in self._chunk_requests(
                 group,
@@ -113,7 +113,7 @@ class PostgresGatewayTablesAPI(CDFResourceAPI[PostgresGatewayTableResponse]):
 
     def paginate(
         self, username: str, include_built_ins: bool = False, limit: int = _ITEM_LIMIT, cursor: str | None = None
-    ) -> PagedResponse[PostgresGatewayTableResponse]:
+    ) -> PagedResponse[PostgresGatewayTableResponseUnion]:
         """Fetch one page of the tables of a postgres gateway user.
 
         Args:
@@ -135,7 +135,7 @@ class PostgresGatewayTablesAPI(CDFResourceAPI[PostgresGatewayTableResponse]):
 
     def iterate(
         self, username: str, include_built_ins: bool = False, limit: int | None = None
-    ) -> Iterable[builtins.list[PostgresGatewayTableResponse]]:
+    ) -> Iterable[builtins.list[PostgresGatewayTableResponseUnion]]:
         """Iterate over the tables of a postgres gateway user.
 
         Args:
@@ -152,7 +152,7 @@ class PostgresGatewayTablesAPI(CDFResourceAPI[PostgresGatewayTableResponse]):
 
     def list(
         self, username: str, include_built_ins: bool = False, limit: int | None = None
-    ) -> builtins.list[PostgresGatewayTableResponse]:
+    ) -> builtins.list[PostgresGatewayTableResponseUnion]:
         """List the tables of a postgres gateway user.
 
         Args:
