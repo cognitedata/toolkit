@@ -12,10 +12,12 @@ from cognite_toolkit._cdf_tk.client.identifiers import PostgresGatewayTableId, P
 from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_table import (
     BuiltInTableResponse,
     PostgresGatewayColumn,
+    PostgresGatewayTableRequestAdapter,
     PostgresGatewayTableResponseAdapter,
     RawRowsTableRequest,
     RawRowsTableResponse,
     RawTableOptions,
+    UnknownTableRequest,
     UnknownTableResponse,
     ViewTableOptions,
     ViewTableRequest,
@@ -170,3 +172,14 @@ class TestPostgresGatewayTablesAPI:
         ]
 
         assert [type(item) for item in loaded] == [BuiltInTableResponse, ViewTableResponse, UnknownTableResponse]
+
+    def test_unknown_table_request_round_trip(self) -> None:
+        data = {"tablename": "t", "type": "new_type", "options": {"foo": "bar"}}
+
+        request = PostgresGatewayTableRequestAdapter.validate_python({**data, "username": "u"})
+        response = PostgresGatewayTableResponseAdapter.validate_python(data)
+        response.username = "u"
+
+        assert isinstance(request, UnknownTableRequest)
+        assert request.dump() == data
+        assert response.as_request_resource() == request

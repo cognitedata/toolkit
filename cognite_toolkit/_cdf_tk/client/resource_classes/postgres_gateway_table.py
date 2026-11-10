@@ -84,7 +84,23 @@ class ViewTableRequest(PostgresGatewayTableRequest):
     options: ViewTableOptions
 
 
-PostgresGatewayTableRequestUnion = Annotated[RawRowsTableRequest | ViewTableRequest, Field(discriminator="type")]
+class UnknownTableRequest(PostgresGatewayTableRequest):
+    """A table of a type not known to the Toolkit. Any other fields are kept as extra fields."""
+
+    type: str
+
+
+def _request_tag(value: Any) -> str:
+    table_type = value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
+    return table_type if table_type in ("raw_rows", "view") else "unknown"
+
+
+PostgresGatewayTableRequestUnion = Annotated[
+    Annotated[RawRowsTableRequest, Tag("raw_rows")]
+    | Annotated[ViewTableRequest, Tag("view")]
+    | Annotated[UnknownTableRequest, Tag("unknown")],
+    Discriminator(_request_tag),
+]
 
 PostgresGatewayTableRequestAdapter: TypeAdapter[PostgresGatewayTableRequestUnion] = TypeAdapter(
     PostgresGatewayTableRequestUnion, config=ConfigDict(defer_build=True)
@@ -165,8 +181,12 @@ class UnknownTableResponse(PostgresGatewayTableResponse):
     columns: dict[str, PostgresGatewayColumn] | None = None
     options: dict[str, JsonValue] | None = None
 
-    def as_request_resource(self) -> PostgresGatewayTableRequest:
-        return PostgresGatewayTableRequest.model_validate(
+    @classmethod
+    def request_cls(cls) -> builtins.type[UnknownTableRequest]:
+        return UnknownTableRequest
+
+    def as_request_resource(self) -> UnknownTableRequest:
+        return UnknownTableRequest.model_validate(
             {**self.dump(), "username": self.username}, extra="allow", by_alias=True
         )
 
