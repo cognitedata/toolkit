@@ -112,7 +112,7 @@ class MultiFileReader(FileReader):
 
     def _create_reader(self, input_file: Path) -> FileReader:
         reader_cls = self.reader_class
-        if self.schema is not None and issubclass(reader_cls, TableReader):
+        if self.schema is not None and issubclass(reader_cls, TableReader) and reader_cls is not ParquetReader:
             return reader_cls(input_file, schema=self.schema)
         return reader_cls(input_file)
 

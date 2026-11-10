@@ -84,6 +84,8 @@ from .api.migration import (
     MigrationLookupAPI,
     ResourceViewMappingsAPI,
 )
+from .api.postgres_gateway import PostgresGatewayAPI
+from .api.postgres_gateway_users import PostgresGatewayUsersAPI
 from .api.principals import PrincipalsAPI
 from .api.project import ProjectAPI
 from .api.records import RecordsAPI
@@ -186,6 +188,7 @@ class ToolkitClientMock(ToolkitClient):
     integrations: MagicMock
     metering: MagicMock
     user_profiles: MagicMock
+    postgres_gateway: MagicMock
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         # Intentionally do NOT call super().__init__(): it would require a real
@@ -352,6 +355,9 @@ class ToolkitClientMock(ToolkitClient):
         self.integrations.errors = MagicMock(spec_set=IntegrationErrorsAPI)
         self.metering = MagicMock(spec_set=MeteringAPI)
         self.user_profiles = MagicMock(spec_set=UserProfilesAPI)
+
+        self.postgres_gateway = MagicMock(spec=PostgresGatewayAPI)
+        self.postgres_gateway.users = MagicMock(spec_set=PostgresGatewayUsersAPI)
 
 
 @contextmanager

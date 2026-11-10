@@ -51,10 +51,12 @@ from ._instances import (
 )
 from ._raw import RawTableSelector, SelectedTable
 from ._records import RecordContainerSelector, SelectedContainer, SelectedStream
+from ._sequences import SequenceRowSelector
 from ._three_d import ThreeDModelFilteredSelector, ThreeDModelIdSelector, ThreeDSelector
 
 Selector = Annotated[
     RawTableSelector
+    | SequenceRowSelector
     | ThreeDModelIdSelector
     | ThreeDModelFilteredSelector
     | InstanceViewSelector
@@ -162,6 +164,7 @@ __all__ = [
     "SelectedView",
     "Selector",
     "SelectorAdapter",
+    "SequenceRowSelector",
     "ThreeDModelIdSelector",
     "ThreeDSelector",
     "TimeSeriesColumn",
