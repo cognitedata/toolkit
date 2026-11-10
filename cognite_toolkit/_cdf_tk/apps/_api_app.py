@@ -164,9 +164,12 @@ class FunctionsApp(typer.Typer):
           Start the call and return immediately:
           cdf api functions run -e my_function --no-wait
         """
+        if not wait and timeout is not None:
+            # Fail before the client is created, so the flags can be checked without credentials.
+            raise typer.BadParameter("--timeout cannot be used together with --no-wait.")
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = FunctionsAPICommand()
-        cmd.run(lambda: cmd.call(client, external_id=external_id, json=json, wait=wait, timeout=timeout))
+        cmd.run(lambda: cmd.call(client, external_id=external_id, payload=json, wait=wait, timeout=timeout))
 
     @staticmethod
     def status() -> None:

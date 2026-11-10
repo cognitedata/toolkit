@@ -2,6 +2,7 @@ import builtins
 import time
 from typing import Any
 
+import yaml
 from pydantic import JsonValue
 from rich.json import JSON
 
@@ -14,6 +15,8 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResou
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content
 
 MAX_POLL_INTERVAL_SECONDS = 10.0
+CALL_RUNNING = "Running"
+CALL_COMPLETED = "Completed"
 
 
 class FunctionsAPICommand(ToolkitCommand):
@@ -37,7 +40,7 @@ class FunctionsAPICommand(ToolkitCommand):
         self,
         client: ToolkitClient,
         external_id: str,
-        json: str | None = None,
+        payload: str | None = None,
         wait: bool = True,
         timeout: int | None = None,
     ) -> FunctionCallResponse:
@@ -46,7 +49,7 @@ class FunctionsAPICommand(ToolkitCommand):
         Args:
             client: Toolkit client used to call CDF.
             external_id: External ID of the function.
-            json: Optional JSON/YAML object passed to the function as its ``data`` argument.
+            payload: Optional JSON/YAML object passed to the function as its ``data`` argument.
             wait: Whether to wait for the call to finish. If False, the created call is printed and returned.
             timeout: Maximum seconds to wait. Defaults to the function timeout of the CDF project.
 
@@ -55,43 +58,54 @@ class FunctionsAPICommand(ToolkitCommand):
 
         Raises:
             ToolkitValueError: If a timeout is given together with wait=False, or the payload is invalid.
-            ToolkitError: If waiting and the call does not complete successfully or does not finish in time.
+            ToolkitError: If the function is not ready, or, when waiting, the call does not complete
+                successfully or does not finish in time.
         """
         if not wait and timeout is not None:
             raise ToolkitValueError("--timeout cannot be used together with --no-wait.")
-        data = self._parse_payload(json)
+        data = self._parse_payload(payload)
         function = self._get_function(client, external_id)
+        if function.status not in (None, "Ready"):
+            raise ToolkitError(
+                f"Function {external_id!r} is in status {function.status!r}, not 'Ready'. "
+                "Use 'cdf api functions retrieve' to check its deployment status."
+            )
         session = client.sessions.create_one_shot_token_exchange_session()
         call = client.functions.calls.call(function_id=function.id, nonce=session.nonce, data=data)
         if not wait:
             client.console.print(JSON.from_data(call.dump()))
             return call
-        call = self._wait_for_completion(client, function.id, call, timeout)
+        max_seconds = timeout if timeout is not None else client.functions.limits().timeout_minutes * 60
+        call = self._wait_for_completion(client, function.id, call, max_seconds)
 
         output: dict[str, JsonValue] = {"call": call.dump()}
-        if call.status == "Completed":
+        if call.status == CALL_COMPLETED:
             output["response"] = client.functions.calls.get_response(function.id, call.id).response
         output["logs"] = [log.dump() for log in client.functions.calls.get_logs(function.id, call.id)]
         client.console.print(JSON.from_data(output))
 
-        if call.status != "Completed":
+        if call.status == CALL_RUNNING:
+            raise ToolkitError(
+                f"Call {call.id} of function {external_id!r} did not finish within {max_seconds}s. "
+                "It may still be running in CDF."
+            )
+        if call.status != CALL_COMPLETED:
             message = f"Call {call.id} of function {external_id!r} ended with status {call.status!r}."
             raise ToolkitError(f"{message} {call.error}" if call.error else message)
         return call
 
+    @staticmethod
     def _wait_for_completion(
-        self, client: ToolkitClient, function_id: int, call: FunctionCallResponse, timeout: int | None
+        client: ToolkitClient, function_id: int, call: FunctionCallResponse, max_seconds: float
     ) -> FunctionCallResponse:
-        max_seconds = timeout if timeout is not None else client.functions.limits().timeout_minutes * 60
-        start = time.monotonic()
+        """Poll until the call is no longer running or the timeout is reached.
+
+        If the timeout is reached, the last retrieved call is returned, and it is still running.
+        """
+        deadline = time.monotonic() + max_seconds
         sleep_seconds = 1.0
-        while call.status.casefold() == "running":
-            if time.monotonic() - start > max_seconds:
-                raise ToolkitError(
-                    f"Call {call.id} of the function did not finish within {max_seconds}s. "
-                    "It may still be running in CDF."
-                )
-            time.sleep(sleep_seconds)
+        while call.status == CALL_RUNNING and (remaining := deadline - time.monotonic()) > 0:
+            time.sleep(min(sleep_seconds, remaining))
             sleep_seconds = min(sleep_seconds * 2, MAX_POLL_INTERVAL_SECONDS)
             retrieved = client.functions.calls.retrieve(function_id, [call.as_id()], ignore_unknown_ids=True)
             if not retrieved:
@@ -134,13 +148,13 @@ class FunctionsAPICommand(ToolkitCommand):
         return functions[0]
 
     @staticmethod
-    def _parse_payload(json: str | None) -> dict[str, JsonValue] | None:
-        if json is None:
+    def _parse_payload(payload: str | None) -> dict[str, JsonValue] | None:
+        if payload is None:
             return None
         try:
-            parsed: Any = read_yaml_content(json)
-        except Exception as e:
-            raise ToolkitValueError(f"Invalid JSON payload: {e}") from e
+            parsed: Any = read_yaml_content(payload)
+        except yaml.YAMLError as e:
+            raise ToolkitValueError(f"Invalid JSON/YAML payload: {e}") from e
         if not isinstance(parsed, dict):
-            raise ToolkitValueError("JSON payload must be an object.")
+            raise ToolkitValueError("JSON/YAML payload must be an object.")
         return parsed
