@@ -137,11 +137,11 @@ class ConfigYAML(YAMLFile):
         return config
 
     @classmethod
-    def _load_dependencies(cls, file_path: Path, config: "ConfigYAML") -> list[tuple[Path, "ConfigYAML"]]:
+    def _load_dependencies(cls, file_path: Path, config: Self) -> list[tuple[Path, Self]]:
         """Loads all direct and indirect dependencies. Each file is loaded once, even if it is depended on many times."""
         visited: set[Path] = {file_path}
-        dependencies: list[tuple[Path, ConfigYAML]] = []
-        to_check: list[tuple[Path, ConfigYAML]] = [(file_path, config)]
+        dependencies: list[tuple[Path, Self]] = []
+        to_check: list[tuple[Path, Self]] = [(file_path, config)]
         while to_check:
             parent_path, parent = to_check.pop()
             missing: list[str] = []
@@ -164,7 +164,7 @@ class ConfigYAML(YAMLFile):
         return dependencies
 
     @classmethod
-    def _read_dependency(cls, file_path: Path) -> "ConfigYAML":
+    def _read_dependency(cls, file_path: Path) -> Self:
         try:
             return cls._read(file_path)
         except ValidationError as e:
@@ -173,7 +173,7 @@ class ConfigYAML(YAMLFile):
                 f"Config YAML dependency '{_display_path(file_path)}' is invalid:\n- " + "\n- ".join(errors)
             ) from e
 
-    def _merge(self, file_path: Path, dependencies: list[tuple[Path, "ConfigYAML"]]) -> Self:
+    def _merge(self, file_path: Path, dependencies: list[tuple[Path, Self]]) -> Self:
         conflicts: list[str] = []
         selected = self.environment.selected
         variables: dict[str, Any] = copy.deepcopy(self.variables or {})
