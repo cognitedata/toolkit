@@ -4,6 +4,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import Destination
 
+ConflictMode = Literal["abort", "delete", "update", "upsert"]
+
 
 class TransformationJobMetricResponse(BaseModelObject):
     timestamp: int
@@ -20,7 +22,7 @@ class TransformationJobResponse(BaseModelObject):
     source_project: str
     destination_project: str
     destination: Destination
-    conflict_mode: Literal["abort", "delete", "update", "upsert"] | str
+    conflict_mode: ConflictMode | str
     query: str
     ignore_null_fields: bool
     created_time: int

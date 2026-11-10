@@ -45,18 +45,18 @@ class StreamYAML(ToolkitResource):
     def extra_insights(self, source_file: Path, resource_type: "ResourceType") -> "list[BuildWarning | Recommendation]":
         if self.settings.template.name not in AVAILABLE_STREAM_TEMPLATES:
             from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning
+            from cognite_toolkit._cdf_tk.rules._base import with_position
 
-            return [
-                BuildWarning(
-                    source_file=source_file,
-                    code="INVALID-VALUE",
-                    message=f"Stream template '{self.settings.template.name}' is not an officially supported template.\n"
-                    f"Note if you are using a custom template, this warning can be ignored.\n"
-                    f"To suppress this warning, add the following to you the top of"
-                    f"{relative_to_if_possible(source_file).as_posix()}:\n  `# rules: ignore[INVALID-VALUE]` ",
-                    fix=f"Please use one of the following templates: {', '.join(AVAILABLE_STREAM_TEMPLATES)}",
-                )
-            ]
+            warning = BuildWarning(
+                source_file=source_file,
+                code="INVALID-VALUE",
+                message=f"Stream template '{self.settings.template.name}' is not an officially supported template.\n"
+                f"Note if you are using a custom template, this warning can be ignored.\n"
+                f"To suppress this warning, add the following to you the top of"
+                f"{relative_to_if_possible(source_file).as_posix()}:\n  `# rules: ignore[INVALID-VALUE]` ",
+                fix=f"Please use one of the following templates: {', '.join(AVAILABLE_STREAM_TEMPLATES)}",
+            )
+            return [with_position(warning, values=[self.settings.template.name])]
         return []
 
     def as_id(self) -> ExternalId:
