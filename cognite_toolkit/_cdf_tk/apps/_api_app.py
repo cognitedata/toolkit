@@ -60,7 +60,7 @@ class FunctionsApp(typer.Typer):
             "-l",
             help="Maximum number of functions to return.",
             min=1,
-            max=1000,
+            max=100,
         ),
     ) -> None:
         """List functions, including their deployment status
