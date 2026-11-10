@@ -12,7 +12,7 @@ class SequenceRow(BaseModelObject):
     """Represents a row in a sequence."""
 
     row_number: int
-    values: list[str | int | float]
+    values: list[str | int | float | None]
 
 
 class SequenceRows(BaseModelObject):

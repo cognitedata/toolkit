@@ -23,6 +23,7 @@ catalog-dataset = true
 multi-configs = true
 git-diff-select = true
 v010 = true
+extend-download = true
 deploy-protection = true
 cdf-group-emails = false
 neat = true

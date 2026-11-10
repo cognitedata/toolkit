@@ -57,6 +57,7 @@ from .aggregators import (
     AssetCentricAggregator,
     EventAggregator,
     FileAggregator,
+    SequenceAggregator,
     TimeSeriesAggregator,
 )
 from .time import ms_to_datetime
@@ -263,6 +264,29 @@ class TimeSeriesInteractiveSelect(AssetCentricInteractiveSelect):
 class EventInteractiveSelect(AssetCentricInteractiveSelect):
     def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
         return EventAggregator(self.client)
+
+
+class SequenceInteractiveSelect(AssetCentricInteractiveSelect):
+    def _get_aggregator(self, client: ToolkitClient) -> AssetCentricAggregator:
+        return SequenceAggregator(self.client)
+
+    def select_sequences(self) -> list[str]:
+        """Select a data set, and then the sequences in it, returning their external IDs."""
+        data_set = self.select_data_set()
+        choices = [
+            Choice(title=f"{sequence.name} ({sequence.external_id})", value=sequence.external_id)
+            if sequence.name and sequence.name != sequence.external_id
+            else Choice(title=f"({sequence.external_id})", value=sequence.external_id)
+            for sequence in self.client.sequences.list(data_set_external_ids=[data_set], limit=None)
+            if sequence.external_id
+        ]
+        if not choices:
+            raise ToolkitValueError(f"No sequences with an external ID found in data set {data_set!r}.")
+        return questionary.checkbox(
+            f"Select sequences to {self.operation} listed as 'name (external_id)'",
+            choices=choices,
+            validate=lambda selected: "You must select at least one." if not selected else True,
+        ).unsafe_ask()
 
 
 class RawTableInteractiveSelect:
