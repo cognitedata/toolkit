@@ -82,7 +82,7 @@ class RecordsAPI:
             cursor: Continuation cursor from a previous sync response.
 
         Returns:
-            RecordSyncResponse with items, nextCursor, and hasNext.
+            RecordSyncResponse with items, nextCursor, hasNext, and the uncompressed response size in bytes.
         """
         body: dict[str, JsonValue] = {
             "sources": cast(JsonValue, sources),
@@ -98,4 +98,6 @@ class RecordsAPI:
         request = RequestMessage(endpoint_url=url, method="POST", body_content=body)
         result = self._http_client.request_single_retries(request)
         response = result.get_success_or_raise(request)
-        return RecordSyncResponse.model_validate_json(response.body)
+        sync_response = RecordSyncResponse.model_validate_json(response.body)
+        sync_response.response_bytes = len(response.content)
+        return sync_response
