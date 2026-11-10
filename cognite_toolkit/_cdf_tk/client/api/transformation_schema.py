@@ -76,6 +76,8 @@ class TransformationSchemaAPI(CDFResourceAPI[Column]):
         Returns:
             The columns of the instance schema.
         """
+        if not is_connection_definition and view is None:
+            raise ValueError("The 'view' parameter is required when 'is_connection_definition' is not True.")
         return self._get_columns(
             "instances",
             {
