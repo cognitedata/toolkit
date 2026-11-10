@@ -90,23 +90,6 @@ class UnknownTableRequest(PostgresGatewayTableRequest):
     type: str
 
 
-def _request_tag(value: Any) -> str:
-    table_type = value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
-    return table_type if table_type in ("raw_rows", "view") else "unknown"
-
-
-PostgresGatewayTableRequestUnion = Annotated[
-    Annotated[RawRowsTableRequest, Tag("raw_rows")]
-    | Annotated[ViewTableRequest, Tag("view")]
-    | Annotated[UnknownTableRequest, Tag("unknown")],
-    Discriminator(_request_tag),
-]
-
-PostgresGatewayTableRequestAdapter: TypeAdapter[PostgresGatewayTableRequestUnion] = TypeAdapter(
-    PostgresGatewayTableRequestUnion, config=ConfigDict(defer_build=True)
-)
-
-
 class PostgresGatewayTableResponse(ResponseResource[PostgresGatewayTableRequest]):
     """Base response resource for postgres gateway tables. Only create returns ``created_time``."""
 
