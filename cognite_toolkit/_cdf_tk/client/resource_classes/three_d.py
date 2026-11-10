@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeUntypedId, ThreeDModelRevisionId
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeId, NodeUntypedId, ThreeDModelRevisionId
 
 
 class RevisionStatus(BaseModelObject):
@@ -220,6 +220,33 @@ class AssetMappingDMResponse(ResponseResource[AssetMappingDMRequestId]):
         return AssetMappingDMRequestId.model_validate(
             {**self.dump(), "modelId": self.model_id, "revisionId": self.revision_id}
         )
+
+
+class ThreeDInstanceReference(BaseModelObject):
+    instance_id: NodeUntypedId
+
+
+class ThreeDModelRevertMigrationRequest(RequestResource):
+    """Reverts a 3D model migrated to data modeling back to classic."""
+
+    model: ThreeDInstanceReference
+    # Not part of the documented schema, but required by the API as of 2026-11-10.
+    type: Literal["CAD", "PointCloud", "Image360"] | None = None
+
+    def as_id(self) -> NodeId:
+        return self.model.instance_id
+
+
+class ThreeDRevisionRevertMigrationRequest(RequestResource):
+    """Reverts a 3D revision migrated to data modeling back to classic."""
+
+    revision: ThreeDInstanceReference
+    model: ThreeDInstanceReference
+    # Not part of the documented schema, but required by the API as of 2026-11-10.
+    type: Literal["CAD", "PointCloud", "Image360"] | None = None
+
+    def as_id(self) -> NodeId:
+        return self.revision.instance_id
 
 
 class BoundingBox3D(BaseModelObject):
