@@ -231,7 +231,7 @@ class ThreeDModelRevertMigrationRequest(RequestResource):
 
     model: ThreeDInstanceReference
     # Not part of the documented schema, but required by the API as of 2026-11-10.
-    type: Literal["CAD", "PointCloud", "Image360"] | None = None
+    type: Literal["CAD", "PointCloud", "Image360"]
 
     def as_id(self) -> NodeId:
         return self.model.instance_id
@@ -243,7 +243,7 @@ class ThreeDRevisionRevertMigrationRequest(RequestResource):
     revision: ThreeDInstanceReference
     model: ThreeDInstanceReference
     # Not part of the documented schema, but required by the API as of 2026-11-10.
-    type: Literal["CAD", "PointCloud", "Image360"] | None = None
+    type: Literal["CAD", "PointCloud", "Image360"]
 
     def as_id(self) -> NodeId:
         return self.revision.instance_id
