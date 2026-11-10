@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordResponse, RecordSyncResponse
@@ -31,9 +31,16 @@ class RecordIO(
     UPLOAD_ENDPOINT = "/streams/{streamId}/records"
     UPSERT_ENDPOINT = "/streams/{streamId}/records/upsert"
     _AGGREGATE_ENDPOINT = "/streams/{streamId}/records/aggregate"
-    # TODO: Replace with adaptive limit that targets ~3MB uncompressed response size
     CHUNK_SIZE = 500
     MAX_TOTAL_RECORDS = 1_000_000
+    # Query endpoints have a 3MB/s response budget per identity, and streams a budget of retrieved bytes per 10 minutes.
+    SYNC_TARGET_RESPONSE_BYTES = 3 * 1024 * 1024
+    # Kept small since the record size is unknown before the first page. Responses above ~0.1GiB are silently
+    # truncated by the API with hasNext=false and a cursor past the missing records.
+    SYNC_INITIAL_LIMIT = 10
+    SYNC_MAX_LIMIT = 1_000
+    # Status codes that persist after the HTTP client's own retries and may succeed with a smaller page.
+    SYNC_REDUCE_LOAD_STATUS_CODES = frozenset({408, 413, 429, 502, 503, 504})
     BASE_SELECTOR = RecordContainerSelector
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
@@ -131,6 +138,21 @@ class RecordIO(
         }
         return {"and": [has_data_filter, space_filter]}
 
+    @classmethod
+    def _next_sync_limit(cls, current_limit: int, response_bytes: int, item_count: int) -> int:
+        """Estimate the page size that gives a response of roughly SYNC_TARGET_RESPONSE_BYTES."""
+        if item_count == 0 or response_bytes <= 0:
+            return current_limit
+        estimated = int(cls.SYNC_TARGET_RESPONSE_BYTES * item_count / response_bytes)
+        return max(1, min(cls.SYNC_MAX_LIMIT, estimated))
+
+    @classmethod
+    def _is_reduce_load_error(cls, error: ToolkitAPIError) -> bool:
+        if error.code in cls.SYNC_REDUCE_LOAD_STATUS_CODES:
+            return True
+        # Read timeouts have no status code.
+        return error.code is None and error.request is not None and error.request.read_attempt > 0
+
     def stream_data(
         self,
         selector: RecordContainerSelector,
@@ -155,24 +177,32 @@ class RecordIO(
         sync_filter = self._build_sync_filter(selector)
         initialize_cursor: str | None = selector.initialize_cursor
         cursor: str | None = None
+        sync_limit = self.SYNC_INITIAL_LIMIT
 
         total = 0
         while True:
             remaining = effective_limit - total
-            page_limit = min(self.CHUNK_SIZE, remaining)
+            page_limit = min(sync_limit, remaining)
             if page_limit <= 0:
                 break
 
-            sync_response: RecordSyncResponse = self.client.records.sync(
-                stream_external_id=selector.stream.external_id,
-                sources=sources,
-                filter=sync_filter,
-                limit=page_limit,
-                initialize_cursor=initialize_cursor,
-                cursor=cursor,
-            )
+            try:
+                sync_response: RecordSyncResponse = self.client.records.sync(
+                    stream_external_id=selector.stream.external_id,
+                    sources=sources,
+                    filter=sync_filter,
+                    limit=page_limit,
+                    initialize_cursor=initialize_cursor,
+                    cursor=cursor,
+                )
+            except ToolkitAPIError as error:
+                if page_limit <= 1 or not self._is_reduce_load_error(error):
+                    raise
+                sync_limit = page_limit // 2
+                continue
             initialize_cursor = None
             total += len(sync_response.items)
+            sync_limit = self._next_sync_limit(sync_limit, sync_response.response_bytes, len(sync_response.items))
             if sync_response.items:
                 items = [
                     DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item) for item in sync_response.items

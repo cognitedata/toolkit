@@ -110,6 +110,7 @@ from .api.three_d import (
     ThreeDClassicModelsAPI,
     ThreeDClassicRevisionsAPI,
     ThreeDDMAssetMappingAPI,
+    ThreeDMigrationAPI,
     ThreeDNodesAPI,
 )
 from .api.timeseries import TimeSeriesAPI
@@ -274,6 +275,7 @@ class ToolkitClientMock(ToolkitClient):
         self.three_d.nodes = MagicMock(spec_set=ThreeDNodesAPI)
         self.three_d.asset_mappings_classic = MagicMock(spec_set=ThreeDClassicAssetMappingAPI)
         self.three_d.asset_mappings_dm = MagicMock(spec_set=ThreeDDMAssetMappingAPI)
+        self.three_d.migration = MagicMock(spec_set=ThreeDMigrationAPI)
         self.assets = MagicMock(spec_set=AssetsAPI)
         self.cognite_files = MagicMock(spec_set=CogniteFilesAPI)
         self.timeseries = MagicMock(spec=TimeSeriesAPI)
