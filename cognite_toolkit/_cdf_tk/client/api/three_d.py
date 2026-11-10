@@ -27,9 +27,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicRequest,
     ThreeDModelClassicResponse,
     ThreeDModelDMSRequest,
+    ThreeDModelRevertMigrationRequest,
     ThreeDNodeResponse,
     ThreeDRevisionClassicRequest,
     ThreeDRevisionClassicResponse,
+    ThreeDRevisionRevertMigrationRequest,
 )
 
 
@@ -964,9 +966,52 @@ class ThreeDNodesAPI(CDFResourceAPI[ThreeDNodeResponse]):
         return items
 
 
+class ThreeDMigrationAPI:
+    """Revert 3D models and revisions migrated to data modeling back to classic.
+
+    A model that has been migrated must be reverted before it can be deleted. Revert the
+    revisions of a model before reverting the model itself.
+    """
+
+    REVERT_MODELS = "/3d/migrate/models/revert"
+    REVERT_REVISIONS = "/3d/migrate/revisions/revert"
+
+    def __init__(self, http_client: HTTPClient) -> None:
+        self._http_client = http_client
+
+    def _post_one_by_one(
+        self, path: str, items: Sequence[ThreeDModelRevertMigrationRequest | ThreeDRevisionRevertMigrationRequest]
+    ) -> None:
+        # The revert endpoints accept a single item per request.
+        for item in items:
+            request = RequestMessage(
+                endpoint_url=self._http_client.config.create_api_url(path),
+                method="POST",
+                body_content={"items": [item.dump(camel_case=True)]},
+            )
+            self._http_client.request_single_retries(request).get_success_or_raise(request)
+
+    def revert_models(self, items: Sequence[ThreeDModelRevertMigrationRequest]) -> None:
+        """Revert migrated 3D models back to classic.
+
+        Args:
+            items: The models to revert, identified by their data modeling instance ID.
+        """
+        self._post_one_by_one(self.REVERT_MODELS, items)
+
+    def revert_revisions(self, items: Sequence[ThreeDRevisionRevertMigrationRequest]) -> None:
+        """Revert migrated 3D revisions back to classic.
+
+        Args:
+            items: The revisions to revert, identified by their own and their model's data modeling instance IDs.
+        """
+        self._post_one_by_one(self.REVERT_REVISIONS, items)
+
+
 class ThreeDAPI:
     def __init__(self, http_client: HTTPClient) -> None:
         self.models_classic = ThreeDClassicModelsAPI(http_client)
+        self.migration = ThreeDMigrationAPI(http_client)
         self.revisions_classic = ThreeDClassicRevisionsAPI(http_client)
         self.nodes = ThreeDNodesAPI(http_client)
         self.asset_mappings_classic = ThreeDClassicAssetMappingAPI(http_client)
