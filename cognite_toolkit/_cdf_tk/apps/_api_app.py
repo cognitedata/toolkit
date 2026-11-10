@@ -15,6 +15,14 @@ class InstanceTypeEnum(StrEnum):
     edge = "edge"
 
 
+class FunctionStatusEnum(StrEnum):
+    queued = "Queued"
+    deploying = "Deploying"
+    ready = "Ready"
+    failed = "Failed"
+    retired = "Retired"
+
+
 class APIApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -62,10 +70,25 @@ class FunctionsApp(typer.Typer):
             min=1,
             max=100,
         ),
+        status: FunctionStatusEnum | None = typer.Option(
+            None,
+            "--status",
+            "-s",
+            help="Only list functions with this deployment status.",
+            case_sensitive=False,
+        ),
+        owner: str | None = typer.Option(
+            None,
+            "--owner",
+            "-o",
+            help="Only list functions with this owner (exact match).",
+        ),
     ) -> None:
         """List functions, including their deployment status
 
         Prints the functions in the project as returned by CDF. Each function has a `status` field, which is one of Queued, Deploying, Ready, Failed or Retired. Use `retrieve` to look at a single function.
+
+        The Functions API cannot filter, so --status and --owner are applied after the functions are fetched. --limit then applies to the matching functions.
 
         \b
         Examples:
@@ -75,10 +98,18 @@ class FunctionsApp(typer.Typer):
         \b
           List up to 100 functions:
           cdf api functions list --limit 100
+
+        \b
+          List functions that failed to deploy:
+          cdf api functions list --status failed
+
+        \b
+          List the functions of one owner:
+          cdf api functions list --owner "Jane Doe"
         """
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = FunctionsAPICommand()
-        cmd.run(lambda: cmd.list(client, limit=limit))
+        cmd.run(lambda: cmd.list(client, limit=limit, status=status.value if status else None, owner=owner))
 
     @staticmethod
     def retrieve(

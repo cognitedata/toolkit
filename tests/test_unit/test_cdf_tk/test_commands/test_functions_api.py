@@ -144,7 +144,7 @@ class TestFunctionsAPICommand:
         client.functions.calls.get_logs.return_value = [FunctionCallLogEntry(timestamp=1, message="still going")]
         cmd = FunctionsAPICommand(skip_tracking=True, silent=True)
 
-        with pytest.raises(ToolkitError, match="Call 5 .* did not finish within 5s.*may still be running"):
+        with pytest.raises(ToolkitError, match=r"Call 5 .* did not finish within 5s.*may still be running"):
             cmd.call(client, external_id="my_function", timeout=5)
 
         assert fake_clock == [1.0, 2.0, 2.0]  # The last sleep is cut short at the deadline.
@@ -181,6 +181,27 @@ class TestFunctionsAPICommand:
         assert result == [function]
         client.functions.list.assert_called_once_with(limit=10)
         assert [item["externalId"] for item in self._printed(client)] == ["my_function"]
+
+    def test_list_filters_by_status_and_owner_before_applying_limit(self) -> None:
+        client = MagicMock()
+        rows: list[tuple[FunctionStatus, str]] = [
+            ("Failed", "a"),
+            ("Ready", "a"),
+            ("Ready", "b"),
+            ("Ready", "a"),
+            ("Ready", "a"),
+        ]
+        functions = [
+            FunctionResponse(id=i, external_id=f"f{i}", name="F", file_id=2, created_time=1, status=status, owner=owner)
+            for i, (status, owner) in enumerate(rows)
+        ]
+        client.functions.list.return_value = functions
+        cmd = FunctionsAPICommand(skip_tracking=True, silent=True)
+
+        result = cmd.list(client, limit=2, status="Ready", owner="a")
+
+        assert [function.external_id for function in result] == ["f1", "f3"]
+        client.functions.list.assert_called_once_with(limit=None)
 
     def test_status_calls_api(self) -> None:
         client = MagicMock()

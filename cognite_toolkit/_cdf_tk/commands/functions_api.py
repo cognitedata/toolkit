@@ -113,17 +113,30 @@ class FunctionsAPICommand(ToolkitCommand):
             call = retrieved[0]
         return call
 
-    def list(self, client: ToolkitClient, limit: int = 25) -> builtins.list[FunctionResponse]:
+    def list(
+        self, client: ToolkitClient, limit: int = 25, status: str | None = None, owner: str | None = None
+    ) -> builtins.list[FunctionResponse]:
         """List functions, including their deployment status.
+
+        The Functions API cannot filter, so the filters are applied after the functions are fetched.
 
         Args:
             client: Toolkit client used to call CDF.
             limit: Maximum number of functions to return.
+            status: Only return functions with this deployment status.
+            owner: Only return functions with this owner.
 
         Returns:
-            The functions as returned by CDF.
+            The (matching) functions as returned by CDF.
         """
-        functions = client.functions.list(limit=limit)
+        has_filter = status is not None or owner is not None
+        functions = client.functions.list(limit=None if has_filter else limit)
+        if has_filter:
+            functions = [
+                function
+                for function in functions
+                if (status is None or function.status == status) and (owner is None or function.owner == owner)
+            ][:limit]
         client.console.print(JSON.from_data([function.dump() for function in functions]))
         return functions
 

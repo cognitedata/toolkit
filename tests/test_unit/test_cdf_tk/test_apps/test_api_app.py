@@ -74,3 +74,18 @@ class TestFunctionsApp:
         command.retrieve.assert_called_once()
         command.list.assert_called_once()
         command.status.assert_called_once()
+
+    def test_list_forwards_filters(self, command: MagicMock) -> None:
+        with (
+            patch("cognite_toolkit._cdf_tk.apps._api_app.FunctionsAPICommand", return_value=command),
+            patch("cognite_toolkit._cdf_tk.apps._api_app.EnvironmentVariables") as env_vars,
+        ):
+            result = CliRunner().invoke(APIApp(), ["functions", "list", "-s", "failed", "-o", "Jane"])
+
+        assert result.exit_code == 0, result.output
+        command.list.assert_called_once_with(
+            env_vars.create_from_environment.return_value.get_client.return_value,
+            limit=25,
+            status="Failed",
+            owner="Jane",
+        )
