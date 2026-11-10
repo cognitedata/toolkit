@@ -875,21 +875,26 @@ class BuildV2Command(ToolkitCommand):
                     # This can only happen if there is a single config YAML file, as we check for this above.
                     selected = parsed_user_selected
                 elif Flags.GIT_DIFF_SELECT.is_enabled() and config.environment.selection_type == "git-diff":
+                    if not config_selected:
+                        raise ToolkitValueError(
+                            f"No `selected` modules set in {relative_to_if_possible(config_path_resolved).as_posix()}. "
+                            "When `selection-type` is 'git-diff', `selected` must list the modules (or module "
+                            "directories) that changed modules are allowed to be built from, "
+                            f"for example `selected: ['{MODULES}/']`."
+                        )
                     try:
                         git_diff_selected, uncommitted_changes = cls.parse_git_diff_selection(
                             organization_dir, Git(), config.environment.deploy_branch
                         )
                     except RuntimeError as e:
                         raise ToolkitValueError(f"Failed to determine git changes: {e}") from e
-                    selected = git_diff_selected
-                    if git_diff_selected and config_selected:
-                        selected = cls._restrict_git_diff_selection(git_diff_selected, config_selected)
-                        if not selected:
-                            raise ToolkitValueError(
-                                "None of the modules changed according to the git diff selection are part of the "
-                                f"selected modules in {relative_to_if_possible(config_path_resolved).as_posix()}.\n"
-                                f"Changed modules: {humanize_collection([Path(m).as_posix() for m in git_diff_selected])}"
-                            )
+                    selected = cls._restrict_git_diff_selection(git_diff_selected, config_selected)
+                    if git_diff_selected and not selected:
+                        raise ToolkitValueError(
+                            "None of the modules changed according to the git diff selection are part of the "
+                            f"selected modules in {relative_to_if_possible(config_path_resolved).as_posix()}.\n"
+                            f"Changed modules: {humanize_collection([Path(m).as_posix() for m in git_diff_selected])}"
+                        )
                     if not selected:
                         suffix = ""
                         if uncommitted_changes:

@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 )
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import FileMetadataIO, SearchConfigIO, SpaceIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, ResourceType
 from cognite_toolkit._cdf_tk.resource_ios._datamodel import DataModelIO, ViewIO
@@ -1404,3 +1405,11 @@ class TestParseGitDiffSelection:
         }
 
         assert BuildV2Command._restrict_git_diff_selection(git_diff_selected, config_selected) == expected
+
+    def test_git_diff_selection_requires_selected(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.GIT_DIFF_SELECT)
+        config_path = tmp_path / "config.dev.yaml"
+        config_path.write_text("environment:\n  name: dev\n  project: dev-project\n  selection-type: git-diff\n")
+
+        with pytest.raises(ToolkitValueError, match="No `selected` modules set"):
+            BuildV2Command._read_file_system(tmp_path, [config_path], None)
