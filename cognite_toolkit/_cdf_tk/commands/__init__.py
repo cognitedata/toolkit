@@ -24,7 +24,6 @@ from .repo import RepoCommand
 from .resources import ResourcesCommand
 from .run import (
     RunFunctionCommand,
-    RunFunctionV2Command,
     RunTransformationV2Command,
     RunWorkflowV2Command,
 )
@@ -55,7 +54,6 @@ __all__ = [
     "RespaceCommand",
     "RunFunctionAppCommand",
     "RunFunctionCommand",
-    "RunFunctionV2Command",
     "RunTransformationV2Command",
     "RunWorkflowV2Command",
     "UploadCommand",

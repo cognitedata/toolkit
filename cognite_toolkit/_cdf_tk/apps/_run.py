@@ -8,7 +8,6 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     RunFunctionAppCommand,
     RunFunctionCommand,
-    RunFunctionV2Command,
     RunTransformationV2Command,
     RunWorkflowV2Command,
 )
@@ -280,7 +279,6 @@ class RunFunctionApp(typer.Typer):
             typer.Option(
                 "--organization-dir",
                 "-o",
-                hidden=Flags.v010.is_enabled(),
                 help="Path to organization directory with the modules. This is used to search for available functions.",
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
@@ -301,7 +299,6 @@ class RunFunctionApp(typer.Typer):
                 exists=True,
                 file_okay=True,
                 dir_okay=False,
-                hidden=Flags.v010.is_enabled(),
                 help="Path to the config YAML file (for example config.<env>.yaml under the organization directory).",
             ),
         ] = Path(CDF_TOML.cdf.default_config_yaml) if CDF_TOML.cdf.default_config_yaml else None,
@@ -342,15 +339,10 @@ class RunFunctionApp(typer.Typer):
         """This command will run the specified function (assuming it is deployed) in CDF."""
         RunFunctionApp._verify_data_option(data)
         env_vars = EnvironmentVariables.create_from_environment()
-        client = env_vars.get_client()
-        if Flags.v010.is_enabled():
-            cmd2 = RunFunctionV2Command(client=client)
-            cmd2.run(lambda: cmd2.run_cdf(client, external_id, data, schedule, wait))
-            return
-        cmd = RunFunctionCommand(client=client)
+        cmd = RunFunctionCommand(client=env_vars.get_client())
         cmd.run(
             lambda: cmd.run_cdf(
-                env_vars, organization_dir, env_name, external_id, schedule, wait, config_yaml=config_yaml
+                env_vars, organization_dir, env_name, external_id, schedule, wait, config_yaml=config_yaml, data=data
             )
         )
 

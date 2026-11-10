@@ -17,12 +17,7 @@ from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.function_call import (
-    FunctionCallLogEntry,
-    FunctionCallResponse,
-    FunctionCallResult,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleData
+from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionCreateResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     Column,
@@ -46,7 +41,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import Wor
 from cognite_toolkit._cdf_tk.commands import (
     BuildV2Command,
     RunFunctionCommand,
-    RunFunctionV2Command,
     RunWorkflowV2Command,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
@@ -201,8 +195,19 @@ def mock_function_venv() -> Iterator[MagicMock]:
 
 
 class TestRunFunction:
+    @pytest.mark.parametrize(
+        "data_source, data",
+        [
+            pytest.param("daily-8pm-utc", None, id="schedule"),
+            pytest.param(None, '{"breakfast": "toast", "count": 2}', id="inline data"),
+        ],
+    )
     def test_run_function_live(
-        self, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
+        self,
+        data_source: str | None,
+        data: str | None,
+        toolkit_client_approval: ApprovalToolkitClient,
+        env_vars_with_client: EnvironmentVariables,
     ) -> None:
         function = Function(
             id=1234567890,
@@ -245,11 +250,15 @@ class TestRunFunction:
             organization_dir=RUN_DATA,
             build_env_name="dev",
             external_id="fn_test3",
-            data_source="daily-8pm-utc",
+            data_source=data_source,
             wait=False,
             config_yaml=RUN_DATA / "config.dev.yaml",
+            data=data,
         )
-        assert toolkit_client_approval.mock_client.functions.calls.call.called
+        call = toolkit_client_approval.mock_client.functions.calls.call
+        assert call.called
+        if data is not None:
+            assert call.call_args.kwargs["data"] == {"breakfast": "toast", "count": 2}
 
     @patch.dict(
         os.environ,
@@ -357,105 +366,19 @@ class TestRunFunction:
 
         assert actual == expected
 
-
-def _function_response(external_id: str = "fn_on_demand") -> FunctionResponse:
-    return FunctionResponse(
-        id=123,
-        created_time=1,
-        name="On demand",
-        external_id=external_id,
-        file_id=456,
-        status="Ready",
-    )
-
-
-def _function_call(status: str = "Running", end_time: int | None = None) -> FunctionCallResponse:
-    return FunctionCallResponse(id=789, status=status, start_time=1_700_000_000_000, end_time=end_time, function_id=123)
-
-
-class TestRunFunctionV2:
-    @staticmethod
-    def _mock_client() -> MagicMock:
-        client = MagicMock()
-        client.console = Console()
-        client.functions.retrieve.return_value = [_function_response()]
-        client.sessions.create_one_shot_token_exchange_session.return_value = SessionCreateResponse(
-            id=42, status="READY", nonce="dummy-nonce"
-        )
-        client.functions.calls.call.return_value = _function_call()
-        return client
-
-    def test_run_with_data(self) -> None:
-        client = self._mock_client()
-
-        result = RunFunctionV2Command().run_cdf(client, "fn_on_demand", data='{"breakfast": "toast", "count": 2}')
-
-        assert result is True
-        client.functions.calls.call.assert_called_once_with(
-            123, nonce="dummy-nonce", data={"breakfast": "toast", "count": 2}
-        )
-
-    def test_run_with_schedule(self) -> None:
-        client = self._mock_client()
-        client.functions.schedules.list.return_value = [MagicMock(id=999)]
-        client.functions.schedules.input_data.return_value = FunctionScheduleData(id=999, data={"lunch": "salad"})
-
-        RunFunctionV2Command().run_cdf(client, "fn_on_demand", schedule="daily")
-
-        client.functions.schedules.list.assert_called_once_with(function_id=123, name="daily", limit=None)
-        client.functions.calls.call.assert_called_once_with(123, nonce="dummy-nonce", data={"lunch": "salad"})
-
-    @patch("cognite_toolkit._cdf_tk.commands.run.time.sleep")
-    def test_run_and_wait(self, _sleep: MagicMock) -> None:
-        client = self._mock_client()
-        client.functions.limits.return_value.timeout_minutes = 15
-        client.functions.calls.retrieve.return_value = [_function_call("Completed", end_time=1_700_000_005_000)]
-        client.functions.calls.get_response.return_value = FunctionCallResult(
-            function_id=123, call_id=789, response={"ok": True}
-        )
-        client.functions.calls.get_logs.return_value = [FunctionCallLogEntry(message="hello")]
-
-        RunFunctionV2Command().run_cdf(client, "fn_on_demand", wait=True)
-
-        client.functions.calls.call.assert_called_once_with(123, nonce="dummy-nonce", data=None)
-        client.functions.calls.get_response.assert_called_once_with(123, call_id=789)
-        client.functions.calls.get_logs.assert_called_once_with(123, call_id=789)
-
-    def test_run_interactive_enter_json(self) -> None:
-        client = self._mock_client()
-        client.functions.list.return_value = [_function_response()]
-        client.functions.schedules.list.return_value = []
-
-        answers = [_function_response(), RunFunctionV2Command._enter_json, '{"dinner": "steak"}', False]
-        with MockQuestionary(RunFunctionV2Command.__module__, answers):
-            RunFunctionV2Command().run_cdf(client, None)
-
-        client.functions.calls.call.assert_called_once_with(123, nonce="dummy-nonce", data={"dinner": "steak"})
-
-    def test_missing_function(self) -> None:
-        client = self._mock_client()
-        client.functions.retrieve.return_value = []
-
-        with pytest.raises(ToolkitMissingResourceError, match="Have you deployed it"):
-            RunFunctionV2Command().run_cdf(client, "does_not_exist")
-
     @pytest.mark.parametrize(
-        "data, schedule, match",
+        "data, data_source, match",
         [
             pytest.param("{not json", None, "Invalid JSON", id="invalid json"),
             pytest.param("[1, 2]", None, "Expected a JSON object", id="not an object"),
             pytest.param('{"a": NaN}', None, "NaN is not supported", id="nan"),
             pytest.param('{"a": -Infinity}', None, "-Infinity is not supported", id="infinity"),
-            pytest.param('{"a": 1}', "daily", "Cannot use both --data and --schedule", id="both"),
+            pytest.param('{"a": 1}', "daily-8pm-utc", "Cannot use both --data and --schedule", id="both"),
         ],
     )
-    def test_invalid_data(self, data: str, schedule: str | None, match: str) -> None:
-        client = self._mock_client()
-
+    def test_parse_data_option_invalid(self, data: str, data_source: str | None, match: str) -> None:
         with pytest.raises(ToolkitValueError, match=match):
-            RunFunctionV2Command().run_cdf(client, "fn_on_demand", data=data, schedule=schedule)
-
-        client.functions.calls.call.assert_not_called()
+            RunFunctionCommand._parse_data_option(data, data_source)
 
 
 def _workflow_version(
