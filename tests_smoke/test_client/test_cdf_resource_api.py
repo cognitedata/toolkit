@@ -68,6 +68,7 @@ from cognite_toolkit._cdf_tk.client.api.transformation_externaldata import Trans
 from cognite_toolkit._cdf_tk.client.api.transformation_jobs import TransformationJobsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
+from cognite_toolkit._cdf_tk.client.api.transformation_schema import TransformationSchemaAPI
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
 from cognite_toolkit._cdf_tk.client.api.user_profiles import UserProfilesAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_executions import WorkflowExecutionsAPI
@@ -76,12 +77,14 @@ from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersion
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage, SuccessResponse, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
+    DataModelId,
     ExternalId,
     ExtractionPipelineConfigId,
     InternalId,
     InternalUnwrappedId,
     SpaceId,
     ThreeDModelRevisionId,
+    ViewId,
     WorkflowVersionId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
@@ -247,6 +250,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     NonceCredentials as TransformationNonceCredentials,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    SchemaType,
     TransformationRequest,
     TransformationResponse,
 )
@@ -394,6 +398,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         ThreeDNodesAPI,
         # Datapoints API requires a timeseries to exists.
         DatapointsAPI,
+        # Schema do not have a create/update/delete, and the retrieve method requires a schema type.
+        TransformationSchemaAPI,
     }
 )
 
@@ -2725,6 +2731,63 @@ class TestCDFResourceAPI:
         finally:
             # Clean up
             client.transformations.external_data_sources.delete([data_source_id], ignore_unknown_ids=True)
+
+    @pytest.mark.parametrize("schema_type", get_args(SchemaType))
+    def test_transformation_retrieve_schema(self, toolkit_client: ToolkitClient, schema_type: SchemaType) -> None:
+        client = toolkit_client
+
+        try:
+            schema = client.transformations.schema.retrieve(schema_type)
+        except ToolkitAPIError:
+            raise EndpointAssertionError(
+                client.transformations.schema._method_endpoint_map["retrieve"].path,
+                f"Retrieving transformation schema for {schema_type} failed.",
+            )
+        if not schema:
+            raise EndpointAssertionError(
+                client.transformations.schema._method_endpoint_map["retrieve"].path,
+                f"Retrieved transformation schema for {schema_type} is empty.",
+            )
+
+    def test_transformation_schema_retrieve_views(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        try:
+            views = client.transformations.schema.retrieve_view_instances(
+                "upsert",
+                view=ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
+                instance_type="nodes",
+                with_instance_space=True,
+            )
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                client.transformations.schema._method_endpoint_map["retrieve"].path,
+                f"Retrieving transformation schema views failed: {e}",
+            )
+        if not views:
+            raise EndpointAssertionError(
+                client.transformations.schema._method_endpoint_map["retrieve"].path,
+                "Retrieved transformation schema views are empty.",
+            )
+
+    def test_transformation_schema_retrieve_data_model(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        try:
+            columns = client.transformations.schema.retrieve_data_model_instances(
+                "upsert", DataModelId(space="cdf_cdm", external_id="CogniteCore", version="v1"), type="CogniteAsset"
+            )
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                client.transformations.schema._method_endpoint_map["retrieve"].path,
+                f"Retrieving transformation schema data model instances failed: {e}",
+            )
+
+        if not columns:
+            raise EndpointAssertionError(
+                client.transformations.schema._method_endpoint_map["retrieve"].path,
+                "Retrieved transformation schema data model instances are empty.",
+            )
 
     def test_datapoints_subscription_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
