@@ -301,7 +301,7 @@ class PostgresGatewayTableIO(
                     raise
         return retrieved
 
-    def delete(self, ids: Sequence[PostgresGatewayTableId]) -> list[PostgresGatewayTableId]:
+    def delete(self, ids: Sequence[PostgresGatewayTableId]) -> Sequence[PostgresGatewayTableId]:
         deleted: list[PostgresGatewayTableId] = []
         for table_ids in self._group_by_username(ids):
             try:
