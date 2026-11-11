@@ -1596,10 +1596,11 @@ class BuildV2Command(ToolkitCommand):
 
         safe_write(destination_path, yaml_safe_dump(to_write), encoding=BUILD_FOLDER_ENCODING)
 
-    def _display_insights(self, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None:
+    @classmethod
+    def _display_insights(cls, insights: InsightList, insight_path: Path, console: Console, verbose: bool) -> None:
         if not insights:
             return
-        self._display_grouped_insights(insights, insight_path, console, verbose)
+        cls._display_grouped_insights(insights, insight_path, console, verbose)
 
     _MAX_TERMINAL_MESSAGE_LENGTH: ClassVar[int] = 500
 
@@ -1615,7 +1616,8 @@ class BuildV2Command(ToolkitCommand):
             truncated_notice,
         )
 
-    def _select_display_insights(self, insights: InsightList, max_display_count: int) -> list[Insight]:
+    @classmethod
+    def _select_display_insights(cls, insights: InsightList, max_display_count: int) -> list[Insight]:
         """Prioritize one insight per code, then by severity"""
         insights_by_code: dict[str, Insight] = {}
         remaining_insights: list[Insight] = []
@@ -1637,8 +1639,9 @@ class BuildV2Command(ToolkitCommand):
             prioritized_insights[:max_display_count], key=lambda i: (type(i).severity, i.code or ""), reverse=True
         )
 
+    @classmethod
     def _display_grouped_insights(
-        self, insights: InsightList, insight_path: Path, console: Console, verbose: bool
+        cls, insights: InsightList, insight_path: Path, console: Console, verbose: bool
     ) -> None:
         severity_style = {
             "Error": (AuraColor.RED.rich, "✗"),
@@ -1646,14 +1649,14 @@ class BuildV2Command(ToolkitCommand):
             "Recommendation": (AuraColor.SKY.rich, "*"),
         }
 
-        display_groups = self._select_display_insight_groups(insights, max_display_count=30 if verbose else 5)
+        display_groups = cls._select_display_insight_groups(insights, max_display_count=30 if verbose else 5)
         remaining_count = len(insights) - sum(len(group) for group in display_groups)
 
         max_border_severity = 0
         insight_sections: list[RenderableType] = []
         for group in display_groups:
             style, icon = severity_style.get(group[0].insight_type, ("white", "•"))
-            insight_sections.append(self._render_insight(group, style, icon))
+            insight_sections.append(cls._render_insight(group, style, icon))
             max_border_severity = max(max_border_severity, type(group[0]).severity)
 
         insight_destination = relative_to_if_possible(insight_path)
@@ -1714,14 +1717,15 @@ class BuildV2Command(ToolkitCommand):
         body = Group(*shown_locations, Padding(Group(*details), (0, 0, 0, 3)))
         return Padding(Group(heading, body), (0, 0, 1, 0))
 
-    def _select_display_insight_groups(self, insights: InsightList, max_display_count: int) -> list[list[Insight]]:
+    @classmethod
+    def _select_display_insight_groups(cls, insights: InsightList, max_display_count: int) -> list[list[Insight]]:
         """Groups insights with the same message, and prioritizes one group per code, then by severity."""
         groups_by_key: dict[tuple[str, str, str, str | None], list[Insight]] = {}
         for insight in insights:
             groups_by_key.setdefault(insight.group_key, []).append(insight)
 
         representatives = InsightList([group[0] for group in groups_by_key.values()])
-        selected = self._select_display_insights(representatives, max_display_count)
+        selected = cls._select_display_insights(representatives, max_display_count)
         return [groups_by_key[insight.group_key] for insight in selected]
 
     @staticmethod
@@ -1738,8 +1742,9 @@ class BuildV2Command(ToolkitCommand):
             return f"[{AuraColor.AMBER.rich}]![/]"
         return f"[{AuraColor.RED.rich}]✗[/]"
 
+    @classmethod
     def _display_build_summary(
-        self,
+        cls,
         build_folder: BuildFolder,
         validation_results: ValidationResultList,
         insights: InsightList,
@@ -1759,7 +1764,7 @@ class BuildV2Command(ToolkitCommand):
         max_severity = 0
         for insight_class, count in sorted(aggregates.items(), key=lambda i: (-i[0].severity, -i[1])):
             max_severity = max(max_severity, insight_class.severity)
-            insight_style = self._summary_insight_style(insight_class)
+            insight_style = cls._summary_insight_style(insight_class)
             insight_type = insight_class.model_fields["insight_type"].default
             insight_label = insight_type if count == 1 else f"{insight_type}s"
             summary_lines.append(f"{insight_style} [bold]{count}[/] {insight_label}")
