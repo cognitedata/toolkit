@@ -36,14 +36,14 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import Absolu
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.constants import URL
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, ResourceIO, ViewIO
+from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, ResourceIO, SpaceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from ._base import (
     InternalValidatorException,
     ResourceRef,
     RuleSetStatus,
-    ToolkitGlobalRuleSet,
+    ToolkitRuleSet,
     identifier_values,
     quote_identifier,
     with_position,
@@ -146,7 +146,7 @@ def _exceeded_limit(ref: ResourceRef, message: str, fix: str, keys: Sequence[str
     )
 
 
-class DataModelingRuleSet(ToolkitGlobalRuleSet):
+class DataModelingRuleSet(ToolkitRuleSet):
     """Validates view-to-container mappings, reverse direct relations, state changes, and project limits.
 
     Container properties referenced by views, and the direct relations behind reverse relations, are
@@ -155,7 +155,15 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     capacity for spaces, views, and similar counts is checked when deployment results are available.
     """
 
-    CODE_PREFIX = "DATA-MODELING"
+    RESOURCE_TYPES = frozenset(
+        {
+            SpaceIO.as_resource_type(),
+            DataModelIO.as_resource_type(),
+            ContainerIO.as_resource_type(),
+            ViewIO.as_resource_type(),
+        }
+    )
+    CONTEXT = frozenset({"local"})
     DISPLAY_NAME = "Data modeling"
 
     def __init__(

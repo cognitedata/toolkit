@@ -187,7 +187,16 @@ if __name__ == "__main__":
             wait = questionary.confirm("Do you want to wait for the function to complete?").unsafe_ask()
 
         # Todo: Get one shot token using the call_args.authentication
-        session = client.sessions.create_one_shot_token_exchange_session()
+        try:
+            session = client.sessions.create_one_shot_token_exchange_session()
+        except ToolkitAPIError as e:
+            message = f"Could not create oneshot session for function {external_id!r}: {e!s}"
+            if env_vars.LOGIN_FLOW == "token":
+                message += (
+                    "\nOneshot sessions exchange your token with the identity provider, which a static "
+                    "CDF_TOKEN may not support. Try LOGIN_FLOW=client_credentials or LOGIN_FLOW=interactive."
+                )
+            raise AuthorizationError(message) from e
         result = client.functions.calls.call(function_id=function.id, nonce=session.nonce, data=call_args.data)
 
         table = Table(title=f"Function {external_id!r}, id {function.id!r}")
