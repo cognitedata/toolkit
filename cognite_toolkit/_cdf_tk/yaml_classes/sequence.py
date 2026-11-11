@@ -131,6 +131,8 @@ class SequenceRowYAML(ToolkitResource):
         Returns:
             A list of extra insights for the resource.
         """
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning
+
         global _HAS_WARNED
         insights: list[BuildWarning | Recommendation] = []
         if not _HAS_WARNED:
