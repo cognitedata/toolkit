@@ -465,19 +465,22 @@ class SQLiteReader(TableReader):
         """List the data tables, with their schema and metadata, in a SQLite database written by Toolkit."""
         if not input_file.exists():
             raise ToolkitFileNotFoundError(f"File not found: {input_file.as_posix()!r}.")
-        with closing(cls._connect(input_file)) as connection:
-            has_metadata = connection.execute(
-                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (SQLITE_METADATA_TABLE,)
-            ).fetchone()
-            if not has_metadata:
-                raise ToolkitValueError(
-                    f"{input_file.as_posix()!r} is not a SQLite database written by Toolkit. "
-                    f"The {SQLITE_METADATA_TABLE!r} table is missing."
-                )
-            rows = connection.execute(
-                f"SELECT table_name, schema, metadata FROM {quote_sqlite_identifier(SQLITE_METADATA_TABLE)} "
-                "ORDER BY rowid"
-            ).fetchall()
+        try:
+            with closing(cls._connect(input_file)) as connection:
+                has_metadata = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (SQLITE_METADATA_TABLE,)
+                ).fetchone()
+                if not has_metadata:
+                    raise ToolkitValueError(
+                        f"{input_file.as_posix()!r} is not a SQLite database written by Toolkit. "
+                        f"The {SQLITE_METADATA_TABLE!r} table is missing."
+                    )
+                rows = connection.execute(
+                    f"SELECT table_name, schema, metadata FROM {quote_sqlite_identifier(SQLITE_METADATA_TABLE)} "
+                    "ORDER BY rowid"
+                ).fetchall()
+        except sqlite3.Error as e:
+            raise ToolkitValueError(f"Failed to read SQLite database {input_file.as_posix()!r}: {e}") from e
         return [
             SQLiteTable(
                 name=name,
