@@ -54,9 +54,9 @@ variables:
 
         assert config.variables == {"modules": {"custom": {"2024-date": "2024-01-01 00:00:00"}}}
 
-    def test_dependencies_must_be_yaml_files(self) -> None:
-        with pytest.raises(ValueError, match=r"Dependencies must be YAML files"):
-            ConfigYAML.model_validate({"dependencies": ["shared.toml"]})
+    def test_include_must_be_yaml_files(self) -> None:
+        with pytest.raises(ValueError, match=r"Included files must be YAML files"):
+            ConfigYAML.model_validate({"include": ["shared.toml"]})
 
 
 @pytest.mark.usefixtures("config_dependencies_enabled")
@@ -67,7 +67,7 @@ class TestConfigYAMLDependencies:
         base = tmp_path / "shared" / "config.base.yaml"
         main.write_text(
             """\
-dependencies: [shared/config.shared.yaml, shared/config.base.yaml]
+include: [shared/config.shared.yaml, shared/config.base.yaml]
 environment:
   project: my-project
   selected: [modules/a]
@@ -80,7 +80,7 @@ variables:
         shared.parent.mkdir()
         shared.write_text(
             """\
-dependencies: [config.base.yaml]
+include: [config.base.yaml]
 environment:
   project: my-project
   selected: [modules/a, modules/b]
@@ -93,7 +93,7 @@ variables:
         # base is depended on twice, by main and by shared, and has a cycle back to shared.
         base.write_text(
             """\
-dependencies: [config.shared.yaml]
+include: [config.shared.yaml]
 environment:
   selected: [modules/c]
 variables:
@@ -152,7 +152,7 @@ variables:
         monkeypatch.chdir(tmp_path)
         (tmp_path / "config.dev.yaml").write_text(
             """\
-dependencies: [config.first.yaml, config.second.yaml]
+include: [config.first.yaml, config.second.yaml]
 environment:
   project: my-project
   validation-type: dev
@@ -202,7 +202,7 @@ variables:
 
     def test_raises_on_missing_dependency(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.chdir(tmp_path)
-        (tmp_path / "config.dev.yaml").write_text("dependencies: [config.missing.yaml]\n")
+        (tmp_path / "config.dev.yaml").write_text("include: [config.missing.yaml]\n")
 
         with pytest.raises(ToolkitValueError, match=r"has dependencies that do not exist: config.missing.yaml"):
             ConfigYAML.from_yaml_file(tmp_path / "config.dev.yaml")
@@ -210,7 +210,7 @@ variables:
 
 def test_dependencies_require_feature_flag(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(FeatureFlag, "is_enabled", lambda _flag: False)
-    (tmp_path / "config.dev.yaml").write_text("dependencies: [config.shared.yaml]\n")
+    (tmp_path / "config.dev.yaml").write_text("include: [config.shared.yaml]\n")
 
     with pytest.raises(ToolkitValueError, match=r"config-dependencies = true"):
         ConfigYAML.from_yaml_file(tmp_path / "config.dev.yaml")

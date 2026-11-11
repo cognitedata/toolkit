@@ -101,25 +101,25 @@ class ConfigYAML(YAMLFile):
     filename: ClassVar[str] = "config.{name}.yaml"
 
     environment: Environment = Field(default_factory=Environment)
-    dependencies: list[Path] | None = Field(
+    include: list[Path] | None = Field(
         None,
-        description="Config YAML files this config depends on. Relative paths are resolved from the directory "
+        description="Config YAML files to include in this config. Relative paths are resolved from the directory "
         "of the config file that lists them, and cannot point to a parent directory.",
     )
     variables: dict[str, JsonValue] | None = None
 
     _variable_sources: dict[VariableLocation, VariableSource] = PrivateAttr(default_factory=dict)
 
-    @field_validator("dependencies", mode="after")
+    @field_validator("include", mode="after")
     @classmethod
-    def _dependencies_are_yaml_files(cls, value: list[Path] | None) -> list[Path] | None:
+    def _include_are_yaml_files(cls, value: list[Path] | None) -> list[Path] | None:
         if value is None:
             return value
         if invalid := [path.as_posix() for path in value if path.suffix not in CONFIG_FILE_SUFFIXES]:
-            raise ValueError(f"Dependencies must be YAML files (.yaml or .yml), got {humanize_collection(invalid)}")
+            raise ValueError(f"Included files must be YAML files (.yaml or .yml), got {humanize_collection(invalid)}")
         if outside := [path.as_posix() for path in value if path.is_absolute() or ".." in path.parts]:
             raise ValueError(
-                "Dependencies must be relative paths in the same directory as the config file or a subdirectory, "
+                "Included files must be relative paths in the same directory as the config file or a subdirectory, "
                 f"got {humanize_collection(outside)}"
             )
         return value
@@ -152,7 +152,7 @@ class ConfigYAML(YAMLFile):
         """Create an instance from a YAML file, with all its dependencies merged into it."""
         file_path = file_path.resolve()
         config = cls._read(file_path)
-        if not config.dependencies:
+        if not config.include:
             return config
         if not Flags.CONFIG_DEPENDENCIES.is_enabled():
             raise ToolkitValueError(
@@ -176,7 +176,7 @@ class ConfigYAML(YAMLFile):
         while to_check:
             parent_path, parent = to_check.pop()
             missing: list[str] = []
-            for dependency in parent.dependencies or []:
+            for dependency in parent.include or []:
                 dependency_path = (parent_path.parent / dependency).resolve()
                 if dependency_path in visited:
                     continue
