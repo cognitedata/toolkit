@@ -84,12 +84,14 @@ class RawFormats(StrEnum):
     yaml = "yaml"
     csv = "csv"
     parquet = "parquet"
+    sqlite = "sqlite"
 
 
 class AssetCentricFormats(StrEnum):
     csv = "csv"
     parquet = "parquet"
     ndjson = "ndjson"
+    sqlite = "sqlite"
 
 
 class FileContentFormats(StrEnum):
@@ -103,6 +105,7 @@ class HierarchyFormats(StrEnum):
 class DatapointFormats(StrEnum):
     csv = "csv"
     parquet = "parquet"
+    sqlite = "sqlite"
 
 
 class DatapointsDataTypes(StrEnum):
@@ -114,6 +117,7 @@ class InstanceFormats(StrEnum):
     ndjson = "ndjson"
     csv = "csv"
     parquet = "parquet"
+    sqlite = "sqlite"
 
 
 class ChartFormats(StrEnum):
@@ -132,6 +136,7 @@ class SequenceFormats(StrEnum):
     csv = "csv"
     parquet = "parquet"
     ndjson = "ndjson"
+    sqlite = "sqlite"
 
 
 class InstanceTypes(StrEnum):
@@ -150,11 +155,26 @@ class CompressionFormat(StrEnum):
 
 
 DEFAULT_DOWNLOAD_DIR = Path(DATA_DEFAULT_DIR)
+SQLITE_FORMAT = "sqlite"
+SQLITE_FORMAT_HELP = "sqlite requires the extend_download alpha flag and ignores compression."
+
+
+def _is_format_enabled(file_format: Enum) -> bool:
+    return file_format.value != SQLITE_FORMAT or Flags.EXTEND_DOWNLOAD.is_enabled()
+
+
+def _validate_file_format(file_format: Enum) -> None:
+    if not _is_format_enabled(file_format):
+        raise typer.BadParameter(
+            f"Downloading as {file_format.value} is currently behind an alpha feature flag and is not enabled. "
+            "Enable the flag `extend_download` under [alpha_flags] in cdf.toml.",
+            param_hint="--format",
+        )
 
 
 def _prompt_file_format(display_name: str, options: Iterable[T_Format], default: T_Format) -> T_Format:
     """Prompt for the file format. Skips the prompt if there is only one option."""
-    available = list(options)
+    available = [format_ for format_ in options if _is_format_enabled(format_)]
     if len(available) == 1:
         return available[0]
     choices = [Choice(title=str(format_.value), value=format_) for format_ in available]
@@ -175,7 +195,11 @@ def _prompt_api_format(display_name: str, default: ApiFormat) -> ApiFormat:
     ).unsafe_ask()
 
 
-def _prompt_compression(display_name: str, default: CompressionFormat) -> CompressionFormat:
+def _prompt_compression(
+    display_name: str, default: CompressionFormat, file_format: Enum | None = None
+) -> CompressionFormat:
+    if file_format is not None and file_format.value == SQLITE_FORMAT:
+        return CompressionFormat.none
     return questionary.select(
         f"Select compression format to use when downloading the {display_name}:",
         choices=[Choice(title=compression.value, value=compression) for compression in CompressionFormat],
@@ -264,7 +288,7 @@ class DownloadApp(typer.Typer):
                 "--format",
                 "-f",
                 help="Format to download the raw tables in. Supported formats: ndjson, yaml. "
-                "csv and parquet require the v010 alpha flag.",
+                f"csv and parquet require the v010 alpha flag. {SQLITE_FORMAT_HELP}",
             ),
         ] = RawFormats.ndjson,
         api_format: Annotated[
@@ -309,6 +333,7 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download RAW tables from CDF into a temporary directory."""
+        _validate_file_format(file_format)
         alpha_formats = {RawFormats.csv, RawFormats.parquet}
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = DownloadCommand(client=client)
@@ -320,7 +345,7 @@ class DownloadApp(typer.Typer):
             ]
             file_format = _prompt_file_format("raw tables", available_formats, file_format)
             api_format = _prompt_api_format("raw tables", api_format)
-            compression = _prompt_compression("raw tables", compression)
+            compression = _prompt_compression("raw tables", compression, file_format)
             output_dir = _prompt_output_dir("raw tables", output_dir)
             limit = _prompt_limit(
                 "The maximum number of records to download from each table. Use -1 to download all records.", limit
@@ -377,7 +402,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to download the assets in.",
+                help=f"Format to download the assets in. {SQLITE_FORMAT_HELP}",
             ),
         ] = AssetCentricFormats.csv,
         api_format: Annotated[
@@ -422,6 +447,7 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download assets from CDF into a temporary directory."""
+        _validate_file_format(file_format)
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
             data_sets, file_format, api_format, compression, output_dir, limit, verbose = (
@@ -471,11 +497,12 @@ class DownloadApp(typer.Typer):
     ) -> tuple[list[str], AssetCentricFormats, ApiFormat, CompressionFormat, Path, int, bool]:
         """Prompts for all options shared by the asset-centric download commands."""
         data_sets = selector.select_data_sets()
+        file_format = _prompt_file_format(display_name, AssetCentricFormats, file_format)
         return (
             data_sets,
-            _prompt_file_format(display_name, AssetCentricFormats, file_format),
+            file_format,
             _prompt_api_format(display_name, api_format),
-            _prompt_compression(display_name, compression),
+            _prompt_compression(display_name, compression, file_format),
             _prompt_output_dir(display_name, output_dir),
             _prompt_limit(
                 f"The maximum number of {display_name} to download from each dataset. "
@@ -501,7 +528,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to download the time series in.",
+                help=f"Format to download the time series in. {SQLITE_FORMAT_HELP}",
             ),
         ] = AssetCentricFormats.csv,
         api_format: Annotated[
@@ -546,6 +573,7 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download time series from CDF into a temporary directory."""
+        _validate_file_format(file_format)
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
             data_sets, file_format, api_format, compression, output_dir, limit, verbose = (
@@ -596,7 +624,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to download the events in.",
+                help=f"Format to download the events in. {SQLITE_FORMAT_HELP}",
             ),
         ] = AssetCentricFormats.csv,
         api_format: Annotated[
@@ -641,6 +669,7 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download events from CDF into a temporary directory."""
+        _validate_file_format(file_format)
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
             data_sets, file_format, api_format, compression, output_dir, limit, verbose = (
@@ -699,7 +728,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to download the file metadata in.",
+                help=f"Format to download the file metadata in. {SQLITE_FORMAT_HELP}",
             ),
         ] = AssetCentricFormats.csv,
         api_format: Annotated[
@@ -744,6 +773,7 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download file metadata from CDF into a temporary directory."""
+        _validate_file_format(file_format)
         client = EnvironmentVariables.create_from_environment().get_client()
         selected: SelectedDocuments | None = None
         if data_sets is None:
@@ -758,7 +788,7 @@ class DownloadApp(typer.Typer):
                 data_sets = FileMetadataInteractiveSelect(client, "download").select_data_sets()
             file_format = _prompt_file_format("file metadata", AssetCentricFormats, file_format)
             api_format = _prompt_api_format("file metadata", api_format)
-            compression = _prompt_compression("file metadata", compression)
+            compression = _prompt_compression("file metadata", compression, file_format)
             output_dir = _prompt_output_dir("file metadata", output_dir)
             limit = _prompt_limit(
                 "The maximum number of file metadata to download from each dataset. "
@@ -980,7 +1010,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to download the instances in.",
+                help=f"Format to download the instances in. {SQLITE_FORMAT_HELP}",
             ),
         ] = InstanceFormats.ndjson,
         api_format: Annotated[
@@ -1032,6 +1062,7 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download Instances from CDF into a temporary directory."""
+        _validate_file_format(file_format)
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = DownloadCommand(client=client)
 
@@ -1096,7 +1127,7 @@ class DownloadApp(typer.Typer):
                 )
             file_format = _prompt_file_format("instances", InstanceFormats, file_format)
             api_format = _prompt_api_format("instances", api_format)
-            compression = _prompt_compression("instances", compression)
+            compression = _prompt_compression("instances", compression, file_format)
             output_dir = _prompt_output_dir("instances", output_dir)
             limit = _prompt_limit(
                 "The maximum number of instances to download from each view. Use -1 to download all instances.", limit
@@ -1196,7 +1227,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format for downloading the datapoints.",
+                help=f"Format for downloading the datapoints. {SQLITE_FORMAT_HELP}",
             ),
         ] = DatapointFormats.csv,
         api_format: Annotated[
@@ -1235,6 +1266,7 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download Datapoints from CDF into a temporary directory."""
+        _validate_file_format(file_format)
         client = EnvironmentVariables.create_from_environment().get_client()
         if dataset is None:
             interactive = TimeSeriesInteractiveSelect(client, "download datapoints")
@@ -1655,7 +1687,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to download the sequence rows in.",
+                help=f"Format to download the sequence rows in. {SQLITE_FORMAT_HELP}",
             ),
         ] = SequenceFormats.csv,
         api_format: Annotated[
@@ -1700,13 +1732,14 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download sequence rows from CDF into a temporary directory."""
+        _validate_file_format(file_format)
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = DownloadCommand(client=client)
         if not external_ids:
             external_ids = SequenceInteractiveSelect(client, "download").select_sequences()
             file_format = _prompt_file_format("sequence rows", SequenceFormats, file_format)
             api_format = _prompt_api_format("sequence rows", api_format)
-            compression = _prompt_compression("sequence rows", compression)
+            compression = _prompt_compression("sequence rows", compression, file_format)
             output_dir = _prompt_output_dir("sequence rows", output_dir)
             limit = _prompt_limit(
                 "The maximum number of rows to download from each sequence. Use -1 to download all rows.", limit
