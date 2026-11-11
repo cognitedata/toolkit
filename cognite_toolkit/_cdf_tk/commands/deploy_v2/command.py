@@ -110,6 +110,19 @@ class DeployOptions:
     environment_variables: dict[str, str | None] | None = None
     deployment_dir: Path | None = None
 
+    @property
+    def requires_drop_confirmation(self) -> bool:
+        return self.drop and self.drop_data and not self.dry_run
+
+    @property
+    def runs_delete_pass(self) -> bool:
+        # In deploy dry-run, apply_plan already accounts for drop, so no separate delete pass is needed.
+        return self.drop and (self.operation == "clean" or not self.dry_run)
+
+
+class _DropAborted(Exception):
+    """Raised when the user declines to confirm dropping data."""
+
 
 @dataclass
 class ResourceDirectory:
@@ -273,46 +286,25 @@ class DeployV2Command(ToolkitCommand):
         insights_by_resource = self.read_insights_by_resource(user_build_dir, build_lineage)
         build_dir = self.read_build_directory(user_build_dir, options.include, build_lineage)
 
-        if client is None:
-            if env_vars is None:
-                raise ToolkitValueError("Either env_vars or client must be provided.")
-            client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
+        client = self._get_client(client, env_vars, build_dir.is_strict_validation)
 
         self._validate_cdf_project(build_dir, options.operation, options.cdf_project, client.config.project)
 
-        lock_context: AbstractContextManager[SuccessfulLockResult | None] = nullcontext()
-        if Flags.DEPLOY_PROTECTION.is_enabled() and build_lineage and build_lineage.deploy_protection == "protected":
-            lock_context = ModuleLockManager(
-                client,
-                Git(),
-                options.dry_run,
-                build_lineage.deploy_branch,
-                module_ids=[module.module_id for module in build_lineage.module_lineage],
-            )
-        with lock_context:
+        with self._module_lock_context(client, options.dry_run, build_lineage):
             plan = self.create_deployment_plan(build_dir)
             self._display_setup(
                 options.operation, build_dir, plan, client.config.project, client.console, options.verbose
             )
 
-            if options.drop:
-                self._validate_plan_container_references(client, plan, options)
+            try:
+                clean_result = self._drop_phase(client, plan, options, insights_by_resource)
+            except _DropAborted:
+                return []
 
-            if options.drop and options.drop_data and not options.dry_run:
-                if not self._confirm_drop_data(client, plan, options):
-                    return []
-
-            clean_result: Sequence[DeploymentResult] | None = None
-            if options.drop and (options.operation == "clean" or not options.dry_run):
-                # If we are deploying, and it is dry-run, we skip this step, as apply_plan accounts
-                # for drop in dry-run mode.
-                clean_result = self.apply_plan(
-                    client, list(reversed(plan)), options, is_delete=True, insights_by_resource=insights_by_resource
-                )
-
-                if options.operation == "clean":
-                    self._display_results(clean_result, options.operation, client.console, options.verbose)
-                    return clean_result
+            if options.operation == "clean":
+                clean_result = clean_result or []
+                self._display_results(clean_result, options.operation, client.console, options.verbose)
+                return clean_result
             results = self.apply_plan(client, plan, options, insights_by_resource=insights_by_resource)
 
         if clean_result is not None:
@@ -337,6 +329,53 @@ class DeployV2Command(ToolkitCommand):
             )
 
         return results
+
+    def _drop_phase(
+        self,
+        client: ToolkitClient,
+        plan: list[DeploymentStep],
+        options: DeployOptions,
+        insights_by_resource: InsightsByResource | None,
+    ) -> Sequence[DeploymentResult] | None:
+        """Validates, confirms, and runs the delete pass. Raises _DropAborted if the user declines."""
+        if not options.drop:
+            return None
+        self._validate_plan_container_references(client, plan, options)
+        if options.requires_drop_confirmation and not self._confirm_drop_data(client, plan, options):
+            raise _DropAborted()
+        if not options.runs_delete_pass:
+            return None
+        return self.apply_plan(
+            client, list(reversed(plan)), options, is_delete=True, insights_by_resource=insights_by_resource
+        )
+
+    @staticmethod
+    def _module_lock_context(
+        client: ToolkitClient, dry_run: bool, build_lineage: BuildLineage | None
+    ) -> AbstractContextManager[SuccessfulLockResult | None, bool | None]:
+        if (
+            not Flags.DEPLOY_PROTECTION.is_enabled()
+            or build_lineage is None
+            or build_lineage.deploy_protection != "protected"
+        ):
+            return nullcontext()
+        return ModuleLockManager(
+            client,
+            Git(),
+            dry_run,
+            build_lineage.deploy_branch,
+            module_ids=[module.module_id for module in build_lineage.module_lineage],
+        )
+
+    @classmethod
+    def _get_client(
+        cls, client: ToolkitClient | None, env_vars: EnvironmentVariables | None, is_strict_validation: bool
+    ) -> ToolkitClient:
+        if client is None:
+            if env_vars is None:
+                raise ToolkitValueError("Either env_vars or client must be provided.")
+            client = env_vars.get_client(is_strict_validation=is_strict_validation)
+        return client
 
     @classmethod
     def read_build_lineage(cls, build_dir: Path) -> BuildLineage | None:
