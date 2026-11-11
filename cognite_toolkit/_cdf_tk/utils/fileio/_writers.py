@@ -200,10 +200,10 @@ class TableWriter(FileWriter[T_IO], ABC):
 
     @classmethod
     def _to_date(cls, value: CellValue) -> date | None:
-        if isinstance(value, date) or value is None:
-            return value
-        elif isinstance(value, datetime):
+        if isinstance(value, datetime):
             return value.date()
+        elif isinstance(value, date) or value is None:
+            return value
         elif isinstance(value, int | float):
             # Assuming the value is a timestamp in milliseconds
             return datetime.fromtimestamp(value / 1000.0, tz=UTC).date()

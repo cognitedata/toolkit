@@ -423,15 +423,20 @@ class SQLiteReader(TableReader):
         input_file: The SQLite database file.
         table: The table to read. Can be omitted if the database contains a single table.
         schema: Optional schema used to parse the values. Defaults to the schema stored with the table.
+        keep_failed_cells: If True, cells that fail to parse are kept in the `failed_cell` attribute.
     """
 
     FORMAT = ".sqlite"
     BATCH_SIZE = 1000
 
     def __init__(
-        self, input_file: Path, table: str | None = None, schema: Sequence[SchemaColumn] | None = None
+        self,
+        input_file: Path,
+        table: str | None = None,
+        schema: Sequence[SchemaColumn] | None = None,
+        keep_failed_cells: bool = False,
     ) -> None:
-        super().__init__(input_file, sniff_rows=None, schema=None, keep_failed_cells=False)
+        super().__init__(input_file, sniff_rows=None, schema=None, keep_failed_cells=keep_failed_cells)
         table_by_name = {table_.name: table_ for table_ in self.list_tables(input_file)}
         if table is None:
             if len(table_by_name) != 1:
@@ -484,12 +489,21 @@ class SQLiteReader(TableReader):
         with closing(self._connect(self.input_file)) as connection:
             cursor = connection.execute(f"SELECT * FROM {quote_sqlite_identifier(self.table)}")
             column_names = [description[0] for description in cursor.description]
+            row_no = 0
             while rows := cursor.fetchmany(self.BATCH_SIZE):
                 for row in rows:
-                    yield {
-                        name: self._parse_value(value, self._column_by_name.get(name))
-                        for name, value in zip(column_names, row)
-                    }
+                    row_no += 1
+                    parsed: dict[str, JsonVal] = {}
+                    for name, value in zip(column_names, row):
+                        try:
+                            parsed[name] = self._parse_value(value, self._column_by_name.get(name))
+                        except ValueError as e:
+                            parsed[name] = None
+                            if self.keep_failed_cells:
+                                self.failed_cell.append(
+                                    FailedParsing(row=row_no, column=name, value=str(value), error=str(e))
+                                )
+                    yield parsed
 
     def _read_chunks_from_file(self, file: TextIOWrapper) -> Iterator[dict[str, JsonVal]]:
         raise NotImplementedError("This is not used by SQLiteReader, as it reads directly from the database.")
@@ -501,10 +515,7 @@ class SQLiteReader(TableReader):
         if column.is_array or column.type == "json":
             if not isinstance(value, str):
                 return value
-            try:
-                parsed = json.loads(value)
-            except json.JSONDecodeError:
-                return value
+            parsed = json.loads(value)
             if column.is_array and column.type in ("timestamp", "date"):
                 return convert_str_to_data_type(parsed, column.type, is_array=True)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
             return parsed
