@@ -1,5 +1,5 @@
 from ._agents import AgentRuleSet
-from ._base import ToolkitGlobalRuleSet, get_global_rules_registry
+from ._base import ToolkitRuleSet, get_global_rules_registry
 from ._data_modeling import DataModelingRuleSet
 from ._dependencies import DependencyRuleSet
 from ._functions import FunctionRuleSet
@@ -13,6 +13,6 @@ __all__ = [
     "FunctionRuleSet",
     "InFieldCDMRuleSet",
     "StreamRuleSet",
-    "ToolkitGlobalRuleSet",
+    "ToolkitRuleSet",
     "get_global_rules_registry",
 ]

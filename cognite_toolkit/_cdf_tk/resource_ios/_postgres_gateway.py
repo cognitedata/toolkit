@@ -5,13 +5,24 @@ from typing import Any, Literal, final
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId, PostgresGatewayUserId
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    InternalId,
+    PostgresGatewayTableId,
+    PostgresGatewayUserId,
+    RawDatabaseId,
+    RawTableId,
+    ViewId,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
     PostgresGatewayAcl,
     PostgresGatewayUsersScope,
     ScopeDefinition,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_table import (
+    PostgresGatewayTableRequest,
+    PostgresGatewayTableResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_user import (
     PostgresGatewayUserRequest,
@@ -24,10 +35,13 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
-from cognite_toolkit._cdf_tk.yaml_classes import PostgresGatewayUserYAML
+from cognite_toolkit._cdf_tk.yaml_classes import PostgresGatewayTableYAML, PostgresGatewayUserYAML
+from cognite_toolkit._cdf_tk.yaml_classes.postgres_gateway_table import RawRowsTableYAML, ViewTableYAML
 
 from ._auth import GroupAllScopedIO
+from ._datamodel import ViewIO
 from ._group_scoped import GroupResourceScopedIO
+from ._raw import RawDatabaseIO, RawTableIO
 
 _INACTIVE_SESSION_STATUSES = frozenset({"CANCELLED", "EXPIRED", "REVOKED", "ACCESS_LOST"})
 
@@ -192,3 +206,140 @@ class PostgresGatewayUserIO(
     def sensitive_strings(self, item: PostgresGatewayUserRequest) -> Iterable[str]:
         if credentials := self._credentials_by_username.get(self.get_id(item).username):
             yield credentials.client_secret
+
+
+@final
+class PostgresGatewayTableIO(
+    ResourceIO[
+        PostgresGatewayTableId, PostgresGatewayTableRequest, PostgresGatewayTableResponse, PostgresGatewayTableYAML
+    ]
+):
+    folder_name = "postgres_gateway"
+    resource_cls = PostgresGatewayTableResponse
+    resource_write_cls = PostgresGatewayTableRequest
+    kind = "PostgresGatewayTable"
+    yaml_cls = PostgresGatewayTableYAML
+    dependencies = frozenset({PostgresGatewayUserIO, RawDatabaseIO, RawTableIO, ViewIO})
+    parent_resource = frozenset({PostgresGatewayUserIO})
+    support_update = False
+    _doc_url = "Postgres-Gateway-Tables/operation/create_tables"
+
+    @property
+    def display_name(self) -> str:
+        return "Postgres gateway tables"
+
+    @classmethod
+    def get_id(
+        cls,
+        item: PostgresGatewayTableRequest | PostgresGatewayTableResponse | PostgresGatewayTableId | dict[str, Any],
+    ) -> PostgresGatewayTableId:
+        if isinstance(item, PostgresGatewayTableId):
+            return item
+        if isinstance(item, dict):
+            username, tablename = item.get("username"), item.get("tablename")
+            if not isinstance(username, str) or not isinstance(tablename, str) or not username or not tablename:
+                raise ToolkitRequiredValueError("Postgres gateway table must have username and tablename set.")
+            return PostgresGatewayTableId(username=username, tablename=tablename)
+        return item.as_id()
+
+    @classmethod
+    def dump_id(cls, id: PostgresGatewayTableId) -> dict[str, Any]:
+        return id.dump()
+
+    @classmethod
+    def as_filename(cls, id: PostgresGatewayTableId) -> str:
+        return sanitize_filename(f"{id.username}.{id.tablename}")
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[PostgresGatewayTableRequest]) -> ScopeDefinition:
+        return PostgresGatewayUsersScope(usernames=sorted({item.username for item in items}))
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
+        if isinstance(scope, AllScope | PostgresGatewayUsersScope):
+            yield PostgresGatewayAcl(actions=sorted(actions), scope=scope)
+
+    @classmethod
+    def get_dependencies(cls, resource: PostgresGatewayTableYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield PostgresGatewayUserIO, PostgresGatewayUserId(username=resource.username)
+        if isinstance(resource, RawRowsTableYAML):
+            raw_options = resource.options
+            yield RawDatabaseIO, RawDatabaseId(name=raw_options.database)
+            yield RawTableIO, RawTableId(db_name=raw_options.database, name=raw_options.table)
+        elif isinstance(resource, ViewTableYAML) and (version := resource.options.version) is not None:
+            view_options = resource.options
+            yield ViewIO, ViewId(space=view_options.space, external_id=view_options.external_id, version=version)
+
+    def dump_resource(
+        self, resource: PostgresGatewayTableResponse, local: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        if resource.type == "raw_rows":
+            return {"username": resource.username, **resource.as_request_resource().dump()}
+        local = local or {}
+        dumped: dict[str, Any] = {"username": resource.username, "tablename": resource.tablename}
+        if resource.type in {"nodes", "edges"}:
+            dumped["type"] = "view"
+            # The API returns the columns of the view instead of the view, so a changed view is only
+            # deployed with --force-update.
+            if local.get("type") == "view" and "options" in local:
+                dumped["options"] = local["options"]
+        else:
+            dumped["type"] = resource.type
+        return dumped
+
+    def create(self, items: Sequence[PostgresGatewayTableRequest]) -> Sequence[PostgresGatewayTableResponse]:
+        return self.client.postgres_gateway.tables.create(items)
+
+    def retrieve(self, ids: Sequence[PostgresGatewayTableId]) -> Sequence[PostgresGatewayTableResponse]:
+        retrieved: list[PostgresGatewayTableResponse] = []
+        for table_ids in self._group_by_username(ids):
+            try:
+                retrieved.extend(self.client.postgres_gateway.tables.retrieve(table_ids, ignore_unknown_ids=True))
+            except ToolkitAPIError as e:
+                # Unknown tables are ignored, so a 404 means that the user does not exist.
+                if e.code != 404:
+                    raise
+        return retrieved
+
+    def delete(self, ids: Sequence[PostgresGatewayTableId]) -> Sequence[PostgresGatewayTableId]:
+        deleted: list[PostgresGatewayTableId] = []
+        for table_ids in self._group_by_username(ids):
+            try:
+                self.client.postgres_gateway.tables.delete(table_ids, ignore_unknown_ids=True)
+            except ToolkitAPIError as e:
+                # Unknown tables are ignored, so a 404 means that the user, and thus its tables, do not exist.
+                if e.code != 404:
+                    raise
+                continue
+            deleted.extend(table_ids)
+        return deleted
+
+    @staticmethod
+    def _group_by_username(ids: Sequence[PostgresGatewayTableId]) -> list[list[PostgresGatewayTableId]]:
+        by_username: dict[str, list[PostgresGatewayTableId]] = {}
+        for id_ in ids:
+            by_username.setdefault(id_.username, []).append(id_)
+        return list(by_username.values())
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
+    ) -> Iterable[PostgresGatewayTableResponse]:
+        if data_set_external_id or space:
+            return iter(())
+        if parent_ids is None:
+            usernames = [user.username for page in self.client.postgres_gateway.users.iterate() for user in page]
+        else:
+            usernames = [
+                parent_id.username if isinstance(parent_id, PostgresGatewayUserId) else parent_id
+                for parent_id in parent_ids
+                if isinstance(parent_id, str | PostgresGatewayUserId)
+            ]
+        return (
+            table
+            for username in usernames
+            for page in self.client.postgres_gateway.tables.iterate(username)
+            for table in page
+        )
