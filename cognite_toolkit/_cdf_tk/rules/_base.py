@@ -157,7 +157,6 @@ class ToolkitGlobalRuleSet(ABC):
         client: The ToolkitClient to use. This is required by some rules.
     """
 
-    CODE_PREFIX: ClassVar[str]
     DISPLAY_NAME: ClassVar[str]
 
     def __init__(

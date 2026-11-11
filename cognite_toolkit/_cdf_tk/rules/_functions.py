@@ -15,7 +15,6 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection, validate_requirem
 
 
 class FunctionRuleSet(ToolkitGlobalRuleSet):
-    CODE_PREFIX = "FUNCTION"
     DISPLAY_NAME = "Functions"
 
     def get_status(self) -> RuleSetStatus:

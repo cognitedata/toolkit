@@ -64,7 +64,6 @@ class StreamRuleSet(ToolkitGlobalRuleSet):
     This requires deployment results, as they are the only way to know which streams would be created and deleted.
     """
 
-    CODE_PREFIX = "STREAM"
     DISPLAY_NAME = "Streams"
 
     def get_status(self) -> RuleSetStatus:

@@ -155,7 +155,6 @@ class DataModelingRuleSet(ToolkitGlobalRuleSet):
     capacity for spaces, views, and similar counts is checked when deployment results are available.
     """
 
-    CODE_PREFIX = "DATA-MODELING"
     DISPLAY_NAME = "Data modeling"
 
     def __init__(
