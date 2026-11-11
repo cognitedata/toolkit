@@ -161,7 +161,7 @@ class GroupRuleSet(ToolkitRuleSet):
                 message=f"{message} This project is DATA_MODELING_ONLY, so it should not use deprecated resources.",
                 fix=f"Remove {usage.acl_name!r} from the group. See {DEPRECATED_FEATURES_URL} for the replacement.",
                 source_file=usage.source,
-                alpha=True,
+                alpha=Flags.ALPHA_RULES.is_enabled(),
             )
         else:
             insight = Recommendation(
@@ -172,6 +172,6 @@ class GroupRuleSet(ToolkitRuleSet):
                     f"See {DEPRECATED_FEATURES_URL} for the replacement and retirement date."
                 ),
                 source_file=usage.source,
-                alpha=True,
+                alpha=Flags.ALPHA_RULES.is_enabled(),
             )
         return with_position(insight, keys=[usage.acl_name], key_occurrence=usage.occurrence)
