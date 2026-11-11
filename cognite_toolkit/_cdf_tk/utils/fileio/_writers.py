@@ -490,7 +490,11 @@ class SQLiteWriter(TableWriter[sqlite3.Connection]):
 
     @property
     def filepath(self) -> Path:
-        return self.output_dir / f"{sanitize_filename(self.kind)}{self.FORMAT}"
+        return self.database_path(self.output_dir, self.kind)
+
+    @classmethod
+    def database_path(cls, output_dir: Path, kind: str) -> Path:
+        return output_dir / f"{sanitize_filename(kind)}{cls.FORMAT}"
 
     def write_chunks(self, chunks: Iterable[Mapping[str, CellValue]], filestem: str = "") -> None:
         with self._lock:
