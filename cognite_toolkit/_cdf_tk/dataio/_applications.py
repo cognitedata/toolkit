@@ -1,3 +1,4 @@
+from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from typing import Any, Literal, TypeVar
 
@@ -12,7 +13,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList, ItemsResultMessage
-from cognite_toolkit._cdf_tk.client.identifiers import EdgeId, ExternalId, InstanceDefinitionId, NodeId
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeId, ExternalId, InstanceDefinitionId, NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ChartMonitorJobFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
@@ -35,8 +36,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.session import (
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_NONCE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence, humanize_collection
+from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Bookmark, DataItem, Page, UploadableDataIO
@@ -885,6 +887,98 @@ class CanvasIO(UploadableDataIO[CanvasSelector, IndustrialCanvasResponse, Indust
         new_item["containerReferences"] = new_container_references
 
         return IndustrialCanvasRequest._load(new_item)
+
+    def check_view_references(self, reader: MultiFileReader) -> list[ToolkitWarning]:
+        """Checks the views the canvases reference before they are uploaded.
+
+        Canvases reference data modeling instances through a specific view version. If the view does not
+        exist in the target project, or the canvases reference several versions of the same view, the
+        canvases will likely not display the instances as intended.
+
+        Args:
+            reader: The reader with the canvases to upload.
+
+        Returns:
+            Warnings about missing views and views referenced in multiple versions.
+        """
+        canvas_names_by_view: dict[ViewId, set[str]] = defaultdict(set)
+        for item_json in reader.read_chunks():
+            name = self._get_name(item_json)
+            for view_id in self._get_referenced_views(item_json):
+                canvas_names_by_view[view_id].add(name)
+        if not canvas_names_by_view:
+            return []
+
+        warnings: list[ToolkitWarning] = []
+        versions_by_view: dict[tuple[str, str], list[ViewId]] = defaultdict(list)
+        for view_id in canvas_names_by_view:
+            versions_by_view[(view_id.space, view_id.external_id)].append(view_id)
+        multi_version_lines = [
+            f"  {space}:{external_id}: "
+            + "; ".join(
+                f"{view_id.version} in {self._humanize_names(canvas_names_by_view[view_id])}"
+                for view_id in sorted(view_ids, key=lambda v: v.version)
+            )
+            for (space, external_id), view_ids in sorted(versions_by_view.items())
+            if len(view_ids) > 1
+        ]
+        if multi_version_lines:
+            warnings.append(
+                MediumSeverityWarning(
+                    "The canvases reference multiple versions of the same view. Make sure each canvas "
+                    "targets the intended view version:\n" + "\n".join(multi_version_lines)
+                )
+            )
+
+        try:
+            existing_views = {view.as_id() for view in self.client.views.retrieve(list(canvas_names_by_view))}
+        except ToolkitAPIError as error:
+            warnings.append(
+                MediumSeverityWarning(
+                    f"Could not check whether the views referenced by the canvases exist: {error!s}. "
+                    "Make sure the data models the canvases reference are deployed."
+                )
+            )
+            return warnings
+        missing_lines = [
+            f"  {view_id!s} in {self._humanize_names(names)}"
+            for view_id, names in sorted(canvas_names_by_view.items(), key=lambda pair: str(pair[0]))
+            if view_id not in existing_views
+        ]
+        if missing_lines:
+            warnings.append(
+                HighSeverityWarning(
+                    f"The canvases reference views that do not exist in the CDF project "
+                    f"{self.client.config.project!r}. Deploy the data models with these views, "
+                    "otherwise the canvases cannot display the referenced instances:\n" + "\n".join(missing_lines)
+                )
+            )
+        return warnings
+
+    @classmethod
+    def _get_referenced_views(cls, item_json: dict[str, JsonVal]) -> Iterable[ViewId]:
+        references = item_json.get("fdmInstanceContainerReferences")
+        if not isinstance(references, list):
+            return
+        for reference in references:
+            if not isinstance(reference, dict):
+                continue
+            properties = cls._get_properties(reference)
+            if properties is None:
+                continue
+            space = properties.get("viewSpace")
+            external_id = properties.get("viewExternalId")
+            version = properties.get("viewVersion")
+            if isinstance(space, str) and isinstance(external_id, str) and isinstance(version, str):
+                yield ViewId(space=space, external_id=external_id, version=version)
+
+    @staticmethod
+    def _humanize_names(names: set[str], max_names: int = 5) -> str:
+        sorted_names = [repr(name) for name in sorted(names)]
+        if len(sorted_names) <= max_names:
+            return humanize_collection(sorted_names, sort=False)
+        shown = ", ".join(sorted_names[:max_names])
+        return f"{shown} and {len(sorted_names) - max_names} more canvases"
 
     @classmethod
     def _get_name(cls, item_json: dict[str, JsonVal]) -> str:
