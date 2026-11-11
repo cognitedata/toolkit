@@ -10,11 +10,11 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     InternalValidatorException,
 )
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet, quote_identifier, with_position
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet, quote_identifier, with_position
 from cognite_toolkit._cdf_tk.utils import humanize_collection, validate_requirements_with_pip
 
 
-class FunctionRuleSet(ToolkitGlobalRuleSet):
+class FunctionRuleSet(ToolkitRuleSet):
     DISPLAY_NAME = "Functions"
 
     def get_status(self) -> RuleSetStatus:

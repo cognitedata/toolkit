@@ -147,10 +147,8 @@ class ResourceRefList(UserList[ResourceRef]):
             yield resource, resource.as_request(crud, is_dry_run=True)
 
 
-class ToolkitGlobalRuleSet(ABC):
-    """Validation of all modules as a whole.
-
-    This can output different
+class ToolkitRuleSet(ABC):
+    """Validation rules for a specific type of resources, e.g., streams or functions.
 
     Args:
         resources: The resources to validate.
@@ -184,12 +182,12 @@ class ToolkitGlobalRuleSet(ABC):
         raise NotImplementedError()
 
 
-_GLOBAL_RULES_REGISTRY: list[type[ToolkitGlobalRuleSet]] | None = None
+_GLOBAL_RULES_REGISTRY: list[type[ToolkitRuleSet]] | None = None
 
 
-def get_global_rules_registry(force_reload: bool = False) -> list[type[ToolkitGlobalRuleSet]]:
+def get_global_rules_registry(force_reload: bool = False) -> list[type[ToolkitRuleSet]]:
     """Get the registry of rules, optionally forcing a reload."""
     global _GLOBAL_RULES_REGISTRY
     if _GLOBAL_RULES_REGISTRY is None or force_reload:
-        _GLOBAL_RULES_REGISTRY = list(get_concrete_subclasses(ToolkitGlobalRuleSet))  # type: ignore[type-abstract]
+        _GLOBAL_RULES_REGISTRY = list(get_concrete_subclasses(ToolkitRuleSet))  # type: ignore[type-abstract]
     return _GLOBAL_RULES_REGISTRY

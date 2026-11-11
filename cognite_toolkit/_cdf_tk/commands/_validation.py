@@ -26,7 +26,7 @@ from cognite_toolkit._cdf_tk.rules._base import (
     EXECUTE_RULE_STATUS,
     ResourceRef,
     RuleSetStatus,
-    ToolkitGlobalRuleSet,
+    ToolkitRuleSet,
     get_global_rules_registry,
 )
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitTable
@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitTable
 @dataclass
 class ValidationStep:
     status: RuleSetStatus
-    rule: ToolkitGlobalRuleSet
+    rule: ToolkitRuleSet
 
 
 class ValidationCommand(ToolkitCommand):

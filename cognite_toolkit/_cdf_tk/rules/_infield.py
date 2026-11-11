@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet, with_position
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet, with_position
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.yaml_classes import InFieldCDMLocationConfigYAML
 from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import INFIELD_CDM_CARD_VIEW_ATTRS
@@ -35,7 +35,7 @@ _FieldConfigRef = tuple[Path, str, ViewId, frozenset[str]]
 _DEFAULT_ASSET_VIEW_ID = ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")
 
 
-class InFieldCDMRuleSet(ToolkitGlobalRuleSet):
+class InFieldCDMRuleSet(ToolkitRuleSet):
     DISPLAY_NAME = "Infield config"
 
     def get_status(self) -> RuleSetStatus:

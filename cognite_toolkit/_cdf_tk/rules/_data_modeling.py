@@ -43,7 +43,7 @@ from ._base import (
     InternalValidatorException,
     ResourceRef,
     RuleSetStatus,
-    ToolkitGlobalRuleSet,
+    ToolkitRuleSet,
     identifier_values,
     quote_identifier,
     with_position,
@@ -146,7 +146,7 @@ def _exceeded_limit(ref: ResourceRef, message: str, fix: str, keys: Sequence[str
     )
 
 
-class DataModelingRuleSet(ToolkitGlobalRuleSet):
+class DataModelingRuleSet(ToolkitRuleSet):
     """Validates view-to-container mappings, reverse direct relations, state changes, and project limits.
 
     Container properties referenced by views, and the direct relations behind reverse relations, are

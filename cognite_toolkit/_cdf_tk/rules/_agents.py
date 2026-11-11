@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.resource_ios import AgentIO
 from cognite_toolkit._cdf_tk.rules._base import (
     ResourceRef,
     RuleSetStatus,
-    ToolkitGlobalRuleSet,
+    ToolkitRuleSet,
     quote_identifier,
     with_position,
 )
@@ -38,7 +38,7 @@ RUNTIME_CAPABILITY_REQUIREMENTS: tuple[RuntimeCapabilityRequirement, ...] = (
 )
 
 
-class AgentRuleSet(ToolkitGlobalRuleSet):
+class AgentRuleSet(ToolkitRuleSet):
     DISPLAY_NAME = "Agents"
 
     def get_status(self) -> RuleSetStatus:

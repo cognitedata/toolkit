@@ -89,7 +89,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     ResourceType,
     SuccessExtra,
 )
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -120,7 +120,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 @dataclass
 class ValidationStep:
     status: RuleSetStatus
-    rule: ToolkitGlobalRuleSet
+    rule: ToolkitRuleSet
 
 
 SelectionSource = Literal["cli-arg", "config", "interactive"]
