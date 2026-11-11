@@ -299,7 +299,7 @@ class TestContainerYAML:
         insights = container.extra_insights(source, ContainerIO.as_resource_type())
 
         assert [(insight.code, insight.line) for insight in insights] == [
-            ("DEPRECATED-PROPERTY-TYPE", 7),
-            ("DEPRECATED-PROPERTY-TYPE", 10),
-            ("DEPRECATED-PROPERTY-TYPE", 13),
+            ("DEPRECATED-FEATURE", 7),
+            ("DEPRECATED-FEATURE", 10),
+            ("DEPRECATED-FEATURE", 13),
         ]

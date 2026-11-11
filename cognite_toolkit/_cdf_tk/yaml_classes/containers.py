@@ -100,7 +100,7 @@ class ContainerYAML(ToolkitResource):
         return [
             with_position(
                 BuildWarning(
-                    code="DEPRECATED-PROPERTY-TYPE",
+                    code="DEPRECATED-FEATURE",
                     message=(
                         f"Property '{prop_id}' in container {self.space}:{self.external_id} is of type "
                         f"'{prop.type.type}', which references the deprecated {_DEPRECATED_CDF_REFERENCES[prop.type.type]}. "
