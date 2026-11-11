@@ -35,16 +35,19 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    AclType,
     AllScope,
     AssetRootIDScope,
     AssetsAcl,
     DataModelInstancesAcl,
     DataModelsAcl,
+    DataSetsAcl,
     DataSetScope,
     EventsAcl,
     ExtractionConfigsAcl,
     ExtractionPipelinesAcl,
     FilesAcl,
+    IDScope,
     IDScopeLowerCase,
     LabelsAcl,
     RelationshipsAcl,
@@ -398,16 +401,17 @@ class PurgeCommand(ToolkitCommand):
         # ValidateAuth
         # We check for write even in dry-run mode. This is because dry-run is expected to fail
         # if the user cannot perform the purge.
+        required_acls: list[AclType] = []
         if include_space or (stats.containers + stats.views + stats.data_models) > 0:
-            if missing := client.token.verify_acls(
-                [DataModelsAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=[selected_space]))]
-            ):
-                raise client.token.create_error(missing, action="purging data models")
+            required_acls.append(
+                DataModelsAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=[selected_space]))
+            )
         if (stats.nodes + stats.edges) > 0:
-            if missing := client.token.verify_acls(
-                [DataModelInstancesAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=[selected_space]))]
-            ):
-                raise client.token.create_error(missing, action="purging instances")
+            required_acls.append(
+                DataModelInstancesAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=[selected_space]))
+            )
+        if required_acls and (missing := client.token.verify_acls(required_acls)):
+            raise client.token.create_error(missing, action=f"purging {selected_space} space")
 
         to_delete = self._create_to_delete_list_purge_space(client, delete_datapoints, delete_file_content, stats)
         if dry_run:
@@ -634,8 +638,9 @@ class PurgeCommand(ToolkitCommand):
         if data_set_id is None:
             raise ToolkitMissingResourceError(f"DataSet {selected_data_set_external_id!r} does not exist")
         actions: list[Literal["READ", "WRITE"]] = ["READ"] if dry_run else ["READ", "WRITE"]
+        required_acls: list[AclType] = []
         if include_data:
-            if missing := client.token.verify_acls(
+            required_acls.extend(
                 [
                     AssetsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
                     EventsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
@@ -648,18 +653,24 @@ class PurgeCommand(ToolkitCommand):
                         actions=["READ"] if dry_run else ["READ", "DELETE"], scope=DataSetScope(ids=[data_set_id])
                     ),
                 ]
-            ):
-                raise client.token.create_error(missing, action=f"purging {selected_data_set_external_id} dataset")
+            )
         if include_configurations:
-            if missing := client.token.verify_acls(
+            required_acls.extend(
                 [
                     WorkflowOrchestrationAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
                     TransformationsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
                     ExtractionConfigsAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
                     ExtractionPipelinesAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
                 ]
-            ):
-                raise client.token.create_error(missing, action=f"purging {selected_data_set_external_id} dataset")
+            )
+        if not dry_run and archive_dataset:
+            required_acls.append(DataSetsAcl(actions=["READ", "WRITE"], scope=IDScope(ids=[data_set_id])))
+        if not dry_run and (include_data or include_configurations or archive_dataset):
+            data_sets = client.datasets.retrieve([InternalId(id=data_set_id)], ignore_unknown_ids=True)
+            if any(data_set.write_protected is True for data_set in data_sets):
+                required_acls.append(DataSetsAcl(actions=["OWNER"], scope=IDScope(ids=[data_set_id])))
+        if required_acls and (missing := client.token.verify_acls(required_acls)):
+            raise client.token.create_error(missing, action=f"purging {selected_data_set_external_id} dataset")
 
         to_delete: list[ToDelete] = self._create_to_delete_list_purge_dataset(
             client,
@@ -814,10 +825,12 @@ class PurgeCommand(ToolkitCommand):
         self.validate_not_purging_through_denied_view(selector)
         io = InstanceIO(client)
         console = client.console
-        self.validate_instance_access(client, selector.get_instance_spaces())
+        missing_acls = self.validate_instance_access(client, selector.get_instance_spaces())
         if unlink:
-            self.validate_timeseries_access(client)
-            self.validate_file_access(client)
+            missing_acls.extend(self.validate_timeseries_access(client))
+            missing_acls.extend(self.validate_file_access(client))
+        if missing_acls:
+            raise client.token.create_error(missing_acls, action="purging instances")
 
         total = io.count(selector)
         if total is None or total == 0:
@@ -920,22 +933,20 @@ class PurgeCommand(ToolkitCommand):
             "[bold yellow]cdf data purge space[/] instead or select other views containing the same instances."
         )
 
-    def validate_instance_access(self, client: ToolkitClient, instance_spaces: list[str] | None) -> None:
+    def validate_instance_access(self, client: ToolkitClient, instance_spaces: list[str] | None) -> list[AclType]:
+        """Returns the missing ACLs for purging instances."""
         available_scopes = client.token.check_available_scopes(DataModelInstancesAcl, ["READ", "WRITE"])
         space_ids: set[str] = set()
         for scope in available_scopes:
             if isinstance(scope, AllScope):
                 # Full access
-                return
+                return []
             elif isinstance(scope, SpaceIDScope):
                 space_ids.update(scope.space_ids)
             else:
                 raise RuntimeError("Bug in Toolkit: unexpected scope type returned from check_available_scopes")
         if not space_ids:
-            raise client.token.create_error(
-                [DataModelInstancesAcl(actions=["READ", "WRITE"], scope=AllScope())],
-                action="purging instances",
-            )
+            return [DataModelInstancesAcl(actions=["READ", "WRITE"], scope=AllScope())]
         if instance_spaces is None:
             self.warn(
                 LimitedAccessWarning(
@@ -943,11 +954,8 @@ class PurgeCommand(ToolkitCommand):
                 )
             )
         elif missing_ids := set(instance_spaces) - space_ids:
-            raise client.token.create_error(
-                [DataModelInstancesAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=sorted(missing_ids)))],
-                action="purging instances",
-            )
-        return
+            return [DataModelInstancesAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=sorted(missing_ids)))]
+        return []
 
     def validate_model_access(self, client: ToolkitClient, view: list[str] | None) -> None:
         space = view[0] if isinstance(view, list) and view and isinstance(view[0], str) else None
@@ -978,19 +986,15 @@ class PurgeCommand(ToolkitCommand):
             )
         return
 
-    def validate_timeseries_access(self, client: ToolkitClient) -> None:
+    def validate_timeseries_access(self, client: ToolkitClient) -> list[AclType]:
+        """Returns the missing ACLs for unlinking time series."""
         available_scopes = client.token.check_available_scopes(TimeSeriesAcl, ["READ", "WRITE"])
         if not available_scopes:
-            error = client.token.create_error(
-                [TimeSeriesAcl(actions=["READ", "WRITE"], scope=AllScope())],
-                action="unlinking time series",
-            )
-            self.warn(HighSeverityWarning(f"You cannot unlink time series. You need read and write access: {error!s}"))
-            return
+            return [TimeSeriesAcl(actions=["READ", "WRITE"], scope=AllScope())]
         ids_by_scope: dict[str, list[str]] = {}
         for scope in available_scopes:
             if isinstance(scope, AllScope):
-                return
+                return []
             elif isinstance(scope, DataSetScope):
                 ids_by_scope.setdefault("dataset", []).extend(client.lookup.data_sets.external_id(scope.ids))
             elif isinstance(scope, AssetRootIDScope):
@@ -1004,21 +1008,17 @@ class PurgeCommand(ToolkitCommand):
             bind_word="and",
         )
         self.warn(LimitedAccessWarning(f"You can only unlink time series in the following scopes: {scope_str}."))
-        return
+        return []
 
-    def validate_file_access(self, client: ToolkitClient) -> None:
+    def validate_file_access(self, client: ToolkitClient) -> list[AclType]:
+        """Returns the missing ACLs for unlinking files."""
         available_scopes = client.token.check_available_scopes(FilesAcl, ["READ", "WRITE"])
         if not available_scopes:
-            error = client.token.create_error(
-                [FilesAcl(actions=["READ", "WRITE"], scope=AllScope())],
-                action="unlinking files",
-            )
-            self.warn(HighSeverityWarning(f"You cannot unlink files. You need read and write access: {error!s}"))
-            return
+            return [FilesAcl(actions=["READ", "WRITE"], scope=AllScope())]
         ids_by_scope: dict[str, list[str]] = {}
         for scope in available_scopes:
             if isinstance(scope, AllScope):
-                return
+                return []
             elif isinstance(scope, DataSetScope):
                 ids_by_scope.setdefault("dataset", []).extend(client.lookup.data_sets.external_id(scope.ids))
             else:
@@ -1028,7 +1028,7 @@ class PurgeCommand(ToolkitCommand):
             bind_word="and",
         )
         self.warn(LimitedAccessWarning(f"You can only unlink files in the following scopes: {scope_str}."))
-        return
+        return []
 
     @staticmethod
     def _no_op(instance_ids: Page[InstanceDefinitionId]) -> Page[InstanceDefinitionId]:
