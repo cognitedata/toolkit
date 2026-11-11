@@ -183,7 +183,7 @@ class TableWriter(FileWriter[T_IO], ABC):
             output = datetime.combine(value, datetime.min.time())
         elif isinstance(value, int | float):
             # Assuming the value is a timestamp in milliseconds
-            output = datetime.fromtimestamp(value / 1000.0)
+            output = datetime.fromtimestamp(value / 1000.0, tz=UTC)
         elif isinstance(value, str):
             output = cls._convert_data_modelling_timestamp(value)
         else:
@@ -206,7 +206,7 @@ class TableWriter(FileWriter[T_IO], ABC):
             return value.date()
         elif isinstance(value, int | float):
             # Assuming the value is a timestamp in milliseconds
-            return date.fromtimestamp(value / 1000.0)
+            return datetime.fromtimestamp(value / 1000.0, tz=UTC).date()
         elif isinstance(value, str):
             return cls._convert_data_modelling_timestamp(value).date()
         else:
