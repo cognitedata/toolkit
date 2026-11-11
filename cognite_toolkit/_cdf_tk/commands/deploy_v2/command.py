@@ -290,13 +290,7 @@ class DeployV2Command(ToolkitCommand):
                 module_ids=[module.module_id for module in build_lineage.module_lineage],
             )
         with lock_context:
-            try:
-                plan = self.create_deployment_plan(build_dir)
-            except Exception as e:
-                self._display_setup(
-                    options.operation, build_dir, e, client.config.project, client.console, options.verbose
-                )
-                raise
+            plan = self.create_deployment_plan(build_dir)
             self._display_setup(
                 options.operation, build_dir, plan, client.config.project, client.console, options.verbose
             )
@@ -457,12 +451,11 @@ class DeployV2Command(ToolkitCommand):
         self,
         operation: str,
         build_dir: ReadBuildDirectory,
-        plan: list[DeploymentStep] | Exception,
+        plan: list[DeploymentStep],
         cdf_project: str,
         console: Console,
         verbose: bool,
     ) -> None:
-        """Displays the setup panel. If plan creation failed, pass the raised exception as `plan`."""
         startup_section = ToolkitPanelSection(
             content=[
                 f"Target project: {cdf_project!r}",
@@ -537,22 +530,6 @@ class DeployV2Command(ToolkitCommand):
             title="Processed build directory",
             content=read_dir_subsections,
         )
-
-        if isinstance(plan, Exception):
-            console.print(
-                ToolkitPanel(
-                    Group(
-                        Padding(startup_section, (0, 0, 1, 0)),
-                        read_dir_section,
-                        ToolkitPanelSection(
-                            description=f"[bold]Failed to create plan for {operation}:[/] {escape(str(plan))}"
-                        ),
-                    ),
-                    title=operation,
-                    border_style=AuraColor.AMBER.rich,
-                )
-            )
-            return
 
         if not plan:
             plan_section = ToolkitPanelSection(description=f"[bold]No resources to {operation}.[/]")
