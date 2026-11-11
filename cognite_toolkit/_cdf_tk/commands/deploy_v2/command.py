@@ -56,6 +56,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceUpsertError,
     ToolkitError,
     ToolkitNotADirectoryError,
+    ToolkitUserAbortError,
     ToolkitValidationError,
     ToolkitValueError,
     ToolkitWrongResourceError,
@@ -118,10 +119,6 @@ class DeployOptions:
     def runs_delete_pass(self) -> bool:
         # In deploy dry-run, apply_plan already accounts for drop, so no separate delete pass is needed.
         return self.drop and (self.operation == "clean" or not self.dry_run)
-
-
-class _DropAborted(Exception):
-    """Raised when the user declines to confirm dropping data."""
 
 
 @dataclass
@@ -296,10 +293,7 @@ class DeployV2Command(ToolkitCommand):
                 options.operation, build_dir, plan, client.config.project, client.console, options.verbose
             )
 
-            try:
-                clean_result = self._drop_phase(client, plan, options, insights_by_resource)
-            except _DropAborted:
-                return []
+            clean_result = self._drop_phase(client, plan, options, insights_by_resource)
 
             if options.operation == "clean":
                 clean_result = clean_result or []
@@ -337,12 +331,12 @@ class DeployV2Command(ToolkitCommand):
         options: DeployOptions,
         insights_by_resource: InsightsByResource | None,
     ) -> Sequence[DeploymentResult] | None:
-        """Validates, confirms, and runs the delete pass. Raises _DropAborted if the user declines."""
+        """Validates, confirms, and runs the delete pass. Raises ToolkitUserAbortError if the user declines."""
         if not options.drop:
             return None
         self._validate_plan_container_references(client, plan, options)
         if options.requires_drop_confirmation and not self._confirm_drop_data(client, plan, options):
-            raise _DropAborted()
+            raise ToolkitUserAbortError("Drop data aborted by user. No resources were deleted.")
         if not options.runs_delete_pass:
             return None
         return self.apply_plan(
