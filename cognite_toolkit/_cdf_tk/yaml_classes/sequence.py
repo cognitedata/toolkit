@@ -136,11 +136,11 @@ class SequenceRowYAML(ToolkitResource):
         if not _HAS_WARNED:
             insights.append(
                 BuildWarning(
-                    code="DEPRECATED-CAPABILITY",
+                    code="DEPRECATED-FEATURE",
                     message=f"Resource type {resource_type!s} is deprecated and will be removed in a future version of the Toolkit.",
                     source_file=source_file,
                     fix="Use the `cdf data download sequences` and `cdf data upload dir` commands instead.",
-                )
+                ),
             )
             _HAS_WARNED = True
         return insights
