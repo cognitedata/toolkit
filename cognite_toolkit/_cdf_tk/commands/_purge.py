@@ -663,9 +663,9 @@ class PurgeCommand(ToolkitCommand):
                     ExtractionPipelinesAcl(actions=actions, scope=DataSetScope(ids=[data_set_id])),
                 ]
             )
-        if not dry_run and archive_dataset:
+        if archive_dataset:
             required_acls.append(DataSetsAcl(actions=["READ", "WRITE"], scope=IDScope(ids=[data_set_id])))
-        if not dry_run and (include_data or include_configurations or archive_dataset):
+        if include_data or include_configurations or archive_dataset:
             data_sets = client.datasets.retrieve([InternalId(id=data_set_id)], ignore_unknown_ids=True)
             if any(data_set.write_protected is True for data_set in data_sets):
                 required_acls.append(DataSetsAcl(actions=["OWNER"], scope=IDScope(ids=[data_set_id])))
