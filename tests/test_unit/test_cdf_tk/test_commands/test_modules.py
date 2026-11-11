@@ -4,15 +4,17 @@ import json
 import shutil
 import zipfile
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import httpx2
 import pytest
 import respx
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
+from packaging.version import Version
 from questionary import Choice
 
+from cognite_toolkit._cdf_tk.commands._changes import Changes
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ModuleDirectory
@@ -643,3 +645,22 @@ def _module_list_lineage(tmp_path: Path) -> BuildLineage:
             )
         ],
     )
+
+
+class TestModulesUpgrade:
+    @pytest.mark.parametrize("force, expect_load", [(False, False), (True, True)])
+    def test_upgrade_uncommitted_changes(self, force: bool, expect_load: bool, tmp_path: Path) -> None:
+        cmd = ModulesCommand(print_warning=False, skip_tracking=True)
+        with (
+            patch.object(ModulesCommand, "_get_module_version", return_value=Version("0.5.0")),
+            patch("cognite_toolkit._cdf_tk.commands.modules.__version__", "0.6.0"),
+            patch("cognite_toolkit._cdf_tk.commands.modules.Git") as git,
+            patch("cognite_toolkit._cdf_tk.commands.modules.Changes.load", return_value=Changes()) as load,
+        ):
+            git.is_installed.return_value = True
+            git.is_git_repo.return_value = True
+            git.get_uncommitted_changes.return_value = ["modules/my_module/space.yaml"]
+
+            cmd.upgrade(tmp_path, force=force)
+
+        assert load.called is expect_load

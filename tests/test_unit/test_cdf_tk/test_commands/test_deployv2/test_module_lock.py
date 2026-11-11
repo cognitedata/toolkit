@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import (
     ModuleLockManager,
     SuccessfulLockResult,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.git_helpers import Git
 from cognite_toolkit._cdf_tk.utils.user import UserInfo
 
@@ -538,6 +538,29 @@ class TestModuleLockManagerReleaseLock:
         released = ModuleLockManager(client, git, dry_run=False).release_lock(self._successful(["m1"]))
 
         assert released is expected
+
+
+class TestModuleLockManagerContext:
+    def test_context_releases_on_deploy_branch_even_on_error(self, client: ToolkitClientMock, git: MagicMock) -> None:
+        git.get_current_branch.return_value = DEPLOY_BRANCH
+
+        with pytest.raises(RuntimeError):
+            with ModuleLockManager(client, git, dry_run=False, module_ids=["m1"]) as lock:
+                assert lock.is_deploy_branch is True
+                client.instances.create.assert_not_called()
+                raise RuntimeError("deploy failed")
+
+        nodes = _created_nodes(client)
+        assert [node.external_id for node in nodes] == ["m1"]
+
+    def test_context_raises_when_locked(self, client: ToolkitClientMock, git: MagicMock) -> None:
+        client.instances.retrieve.return_value = [_lock_node("m1")]
+        client.lookup.users.email.return_value = None
+
+        with pytest.raises(ToolkitError, match="Failed to acquire locks for modules"):
+            with ModuleLockManager(client, git, dry_run=False, module_ids=["m1"]):
+                pytest.fail("Should not enter the context")
+        client.instances.create.assert_not_called()
 
 
 class TestIsViewMissing:

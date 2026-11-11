@@ -1,7 +1,9 @@
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cached_property
+from types import TracebackType
 from typing import Self
 
 from pydantic import BaseModel, ValidationError
@@ -25,7 +27,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewCorePropertyRequest,
     ViewRequest,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
+from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
 from cognite_toolkit._cdf_tk.utils.git_helpers import Git
 from cognite_toolkit._cdf_tk.utils.user import UserInfo
@@ -137,11 +140,75 @@ class ModuleLock(BaseModel, alias_generator=to_camel, populate_by_name=True):
 
 
 class ModuleLockManager:
-    def __init__(self, client: ToolkitClient, git: Git, dry_run: bool, deploy_branch: str | None = None) -> None:
+    """Manages locks on modules.
+
+    Can be used as a context manager, which acquires the locks on the given modules when entering
+    and releases them when exiting:
+
+        with ModuleLockManager(client, Git(), dry_run, module_ids=["my_module"]) as lock:
+            ...
+
+    Raises:
+        ToolkitError: When entering the context, if the locks could not be acquired.
+    """
+
+    def __init__(
+        self,
+        client: ToolkitClient,
+        git: Git,
+        dry_run: bool,
+        deploy_branch: str | None = None,
+        module_ids: Sequence[str] | None = None,
+    ) -> None:
         self._client = client
         self._git = git
         self._dry_run = dry_run
         self._deploy_branch = deploy_branch
+        self._module_ids = list(module_ids or [])
+        self._acquired: SuccessfulLockResult | None = None
+
+    def __enter__(self) -> SuccessfulLockResult:
+        lock_result = self.try_lock(self._module_ids)
+        if isinstance(lock_result, ErrorLockResult):
+            raise ToolkitError(f"Failed to acquire locks for modules due to error: {lock_result.error_message}")
+        elif isinstance(lock_result, FailedLockResult):
+            newline = "\n  -"
+            raise ToolkitError(
+                f"Failed to acquire locks for modules: {newline}{newline.join(f'{lock.module_id} (locked by {lock.git_name}{lock.display_email} on branch {lock.branch!r})' for lock in lock_result.failed_locks)}"
+            )
+        elif not isinstance(lock_result, SuccessfulLockResult):
+            raise ToolkitError(f"Unexpected lock result type: {type(lock_result).__name__}")
+        self._client.console.print(
+            ToolkitPanel(
+                "\n- ".join(lock_result.module_ids),
+                title="Successfully acquired locks."
+                if not self._dry_run
+                else "Dry-run: would acquire locks for modules.",
+                border_style=AuraColor.GREEN.rich,
+            )
+        )
+        self._acquired = lock_result
+        return lock_result
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        lock, self._acquired = self._acquired, None
+        if lock is None or not lock.is_deploy_branch:
+            return
+        if self.release_lock(lock):
+            self._client.console.print(
+                ToolkitPanel(
+                    "\n- ".join(lock.module_ids),
+                    title="Successfully released locks."
+                    if not self._dry_run
+                    else "Dry-run: would release locks for modules.",
+                    border_style=AuraColor.GREEN.rich,
+                )
+            )
 
     def try_lock(
         self,

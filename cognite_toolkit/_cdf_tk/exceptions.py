@@ -260,6 +260,10 @@ class ToolkitRuntimeError(RuntimeError, ToolkitError):
     ...
 
 
+class ToolkitUserAbortError(ToolkitError):
+    """Raised when the user declines a confirmation prompt and the operation is aborted."""
+
+
 class ToolkitRepeatedUploadFailureError(ToolkitRuntimeError):
     """Raised when uploads for a page of data repeatedly fail in full, causing early termination of that data's
     processing."""

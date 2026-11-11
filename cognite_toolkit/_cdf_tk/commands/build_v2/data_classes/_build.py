@@ -205,7 +205,8 @@ class BuiltResource(BaseModel):
             A ValidatableResource containing the identifier, type, source, and request object for the built
             resource.
         """
-        if not isinstance(crud, self.crud_cls):
+        # Groups are loaded by either GroupAllScopedIO or GroupResourceScopedIO, which share the resource type.
+        if not isinstance(crud, self.crud_cls) and crud.as_resource_type() != self.type:
             raise RuntimeError(
                 f"Bug in Toolkit, cannot convert built resource of type {self.crud_cls} to request for CRUD {crud}. "
                 f"Expected a subclass of {self.crud_cls}."
