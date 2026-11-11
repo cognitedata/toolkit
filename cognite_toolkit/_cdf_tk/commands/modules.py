@@ -729,7 +729,7 @@ class ModulesCommand(ToolkitCommand):
             raise typer.Exit()
         return "clean"
 
-    def upgrade(self, organization_dir: Path, verbose: bool = False) -> Changes:
+    def upgrade(self, organization_dir: Path, verbose: bool = False, force: bool = False) -> Changes:
         module_version = self._get_module_version(organization_dir)
         cli_version = parse_version(__version__)
 
@@ -768,7 +768,14 @@ class ModulesCommand(ToolkitCommand):
             except RuntimeError as e:
                 self.warn(MediumSeverityWarning(f"Could not check for uncommitted changes: {e}"))
                 uncommitted = []
-            if uncommitted:
+            if uncommitted and force:
+                self.warn(
+                    MediumSeverityWarning(
+                        f"Uncommitted changes detected in {humanize_collection(uncommitted)}. "
+                        "Proceeding with the upgrade because --force is set."
+                    )
+                )
+            elif uncommitted:
                 print(
                     f"Uncommitted changes detected in {humanize_collection(uncommitted)}. "
                     "Please commit your changes before upgrading the modules."
