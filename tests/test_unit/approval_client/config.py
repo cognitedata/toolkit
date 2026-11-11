@@ -94,6 +94,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_table import (
+    PostgresGatewayTableRequest,
+    PostgresGatewayTableResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_user import (
     PostgresGatewayUserRequest,
     PostgresGatewayUserResponse,
@@ -886,6 +890,18 @@ API_RESOURCES = [
         _write_cls=PostgresGatewayUserRequest,
         methods={
             "create": [Method(api_class_method="update", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+                Method(api_class_method="iterate", mock_class_method="iterate"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="postgres_gateway.tables",
+        resource_cls=PostgresGatewayTableResponse,
+        _write_cls=PostgresGatewayTableRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
                 Method(api_class_method="retrieve", mock_class_method="retrieve"),
                 Method(api_class_method="iterate", mock_class_method="iterate"),
