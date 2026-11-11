@@ -399,7 +399,11 @@ class BuildV2Command(ToolkitCommand):
         cache_path = self._build_cache_path(organization_dir, config_yaml_path)
         cached_lineage: BuildLineage | None = None
         if cache_path.exists():
-            cached_lineage = BuildLineage.from_yaml_file(cache_path)
+            try:
+                cached_lineage = BuildLineage.from_yaml_file(cache_path)
+            except ToolkitValidationError:
+                # For example, a cache written by an older Toolkit version. Rebuilding replaces it.
+                cached_lineage = None
 
         needs_rebuild, has_deletions = self._modules_needing_rebuild(base_parameters, cached_lineage)
         if needs_rebuild is not None and not needs_rebuild and cached_lineage is not None:
@@ -911,7 +915,12 @@ class BuildV2Command(ToolkitCommand):
                 deploy_branches.update([config.environment.deploy_branch])
                 deploy_protections.update([config.environment.deploy_protection])
                 config_files.append(
-                    ConfigFile(selected_modules=selected, variables=config.variables or {}, path=config_path_resolved)
+                    ConfigFile(
+                        selected_modules=selected,
+                        variables=config.variables or {},
+                        path=config_path_resolved,
+                        variable_sources=config.variable_sources,
+                    )
                 )
 
             if len(config_yamls) > 1 and missing_selected:

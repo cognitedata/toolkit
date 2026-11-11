@@ -7,6 +7,7 @@ from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, RelativeDirPath
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._config import VariableSource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import (
     BuildLineage,
     ModuleLineageItem,
@@ -22,7 +23,34 @@ def relative_path_adapter() -> TypeAdapter[RelativeDirPath]:
 
 def _create_variables(raw: dict[str, str | bool | int | float | list[str | bool | int | float]]) -> list[BuildVariable]:
     """Helper to create BuildVariable list from a dict of name->value."""
-    return [BuildVariable(id=Path(f"modules/{name}"), value=value, is_selected=True) for name, value in raw.items()]
+    return [
+        BuildVariable(
+            id=Path(f"modules/{name}"),
+            value=value,
+            is_selected=True,
+            source=VariableSource(file=Path("config.dev.yaml")),
+        )
+        for name, value in raw.items()
+    ]
+
+
+class TestVariableSource:
+    @pytest.mark.parametrize(
+        "source, expected",
+        [
+            pytest.param(VariableSource(file=Path("config.dev.yaml")), "config.dev.yaml", id="file only"),
+            pytest.param(
+                VariableSource(file=Path("sub/config.dev.yaml"), line=3, column=5),
+                "sub/config.dev.yaml:3:5",
+                id="with line and column",
+            ),
+        ],
+    )
+    def test_serialize_round_trip(self, source: VariableSource, expected: str) -> None:
+        dumped = source.model_dump()
+
+        assert dumped == expected == source.display_location
+        assert VariableSource.model_validate(dumped) == source
 
 
 class TestRelativeDirPath:
@@ -207,7 +235,12 @@ query: >-
 
     def test_get_pattern_replace_pair_yaml_digit_string(self) -> None:
         """Test that digit strings are quoted in YAML."""
-        variable = BuildVariable(id=Path("modules/my_var"), value="123", is_selected=True)
+        variable = BuildVariable(
+            id=Path("modules/my_var"),
+            value="123",
+            is_selected=True,
+            source=VariableSource(file=Path("config.dev.yaml")),
+        )
 
         _, replace = variable.get_pattern_replace_pair(".yaml")
 
@@ -215,7 +248,12 @@ query: >-
 
     def test_get_pattern_replace_pair_yaml_colon_suffix(self) -> None:
         """Test that strings ending with colon are quoted in YAML."""
-        variable = BuildVariable(id=Path("modules/my_var"), value="prefix:", is_selected=True)
+        variable = BuildVariable(
+            id=Path("modules/my_var"),
+            value="prefix:",
+            is_selected=True,
+            source=VariableSource(file=Path("config.dev.yaml")),
+        )
 
         _, replace = variable.get_pattern_replace_pair(".yaml")
 
@@ -223,14 +261,24 @@ query: >-
 
     def test_get_pattern_replace_pair_sql_list(self) -> None:
         """Test that lists are formatted as SQL tuples in .sql files."""
-        variable = BuildVariable(id=Path("modules/my_list"), value=["X", "Y", "Z"], is_selected=True)
+        variable = BuildVariable(
+            id=Path("modules/my_list"),
+            value=["X", "Y", "Z"],
+            is_selected=True,
+            source=VariableSource(file=Path("config.dev.yaml")),
+        )
 
         _, replace = variable.get_pattern_replace_pair(".sql")
 
         assert replace == "('X', 'Y', 'Z')"
 
     def test_get_pattern_replace_pair_md_list(self) -> None:
-        variable = BuildVariable(id=Path("modules/my_list"), value=["X", "Y", "Z"], is_selected=True)
+        variable = BuildVariable(
+            id=Path("modules/my_list"),
+            value=["X", "Y", "Z"],
+            is_selected=True,
+            source=VariableSource(file=Path("config.dev.yaml")),
+        )
 
         _, replace = variable.get_pattern_replace_pair(".md")
 
@@ -245,7 +293,12 @@ query: >-
         assert result == "# Pipeline for Hamburg\n"
 
     def test_get_pattern_replace_pair_ttl_list(self) -> None:
-        variable = BuildVariable(id=Path("modules/my_list"), value=["X", "Y", "Z"], is_selected=True)
+        variable = BuildVariable(
+            id=Path("modules/my_list"),
+            value=["X", "Y", "Z"],
+            is_selected=True,
+            source=VariableSource(file=Path("config.dev.yaml")),
+        )
 
         _, replace = variable.get_pattern_replace_pair(".ttl")
 
@@ -278,7 +331,12 @@ ex:Shape a sh:NodeShape ;
 
     def test_get_pattern_replace_pair_unsupported_suffix(self) -> None:
         """Test that unsupported file suffixes raise NotImplementedError."""
-        variable = BuildVariable(id=Path("modules/my_var"), value="test", is_selected=True)
+        variable = BuildVariable(
+            id=Path("modules/my_var"),
+            value="test",
+            is_selected=True,
+            source=VariableSource(file=Path("config.dev.yaml")),
+        )
 
         with pytest.raises(NotImplementedError, match=r"'.txt' is not supported"):
             variable.get_pattern_replace_pair(".txt")  # type: ignore[arg-type]

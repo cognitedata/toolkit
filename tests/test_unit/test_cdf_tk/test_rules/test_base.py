@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._config import VariableSource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
 from cognite_toolkit._cdf_tk.rules._base import ToolkitRuleSet, with_position
@@ -21,7 +22,12 @@ class TestWithPosition:
         source_file = tmp_path / "my.LocationFilter.yaml"
         source_file.write_text("externalId: loc_{{ location }}\ninstanceSpaces:\n  - sp_{{ location }}_files\n")
         insight = BuildWarning(message="m", code="INVALID-VALUE", source_file=source_file)
-        variable = BuildVariable(id=Path("my_module") / "location", value="springfield", is_selected=True)
+        variable = BuildVariable(
+            id=Path("my_module") / "location",
+            value="springfield",
+            is_selected=True,
+            source=VariableSource(file=Path("config.dev.yaml")),
+        )
 
         with_position(insight, values=["sp_springfield_files"], variables=[variable])
 
