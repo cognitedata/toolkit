@@ -115,10 +115,10 @@ class Flags(Enum):
         visible=False,
         description="Enables support for PostgreSQL Gateway resources",
     )
-    CONFIG_DEPENDENCIES = FlagMetadata(
+    CONFIG_INCLUDE = FlagMetadata(
         visible=True,
-        description="Enables support for config.<>.yaml files depending on other config YAML files through "
-        "the 'dependencies' field.",
+        description="Enables support for config.<>.yaml files including on other config YAML files through "
+        "the 'include' field.",
     )
 
     def is_enabled(self) -> bool:

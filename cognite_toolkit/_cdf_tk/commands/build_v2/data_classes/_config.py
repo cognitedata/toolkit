@@ -154,7 +154,7 @@ class ConfigYAML(YAMLFile):
         config = cls._read(file_path)
         if not config.include:
             return config
-        if not Flags.CONFIG_DEPENDENCIES.is_enabled():
+        if not Flags.CONFIG_INCLUDE.is_enabled():
             raise ToolkitValueError(
                 f"Config YAML file '{_display_path(file_path)}' has dependencies, which is "
                 "an alpha feature. Enable it by setting 'config-dependencies = true' under [alpha_flags] in cdf.toml."

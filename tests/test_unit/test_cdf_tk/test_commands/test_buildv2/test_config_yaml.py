@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 @pytest.fixture
 def config_dependencies_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
     original = FeatureFlag.is_enabled
-    monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.CONFIG_DEPENDENCIES or original(flag))
+    monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.CONFIG_INCLUDE or original(flag))
 
 
 class TestConfigYAML:
