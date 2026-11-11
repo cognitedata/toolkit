@@ -1,8 +1,10 @@
 from collections.abc import Iterable
+from pathlib import Path
 from typing import get_args
 
 import pytest
 
+from cognite_toolkit._cdf_tk.resource_ios import ContainerIO
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.yaml_classes.container_field_definitions import (
     ConstraintDefinition,
@@ -259,3 +261,43 @@ class TestContainerYAML:
         subclasses = set(get_args(IndexType.__args__[0]))
 
         assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"
+
+    def test_deprecated_cdf_reference_warnings(self, tmp_path: Path) -> None:
+        source = tmp_path / "my.Container.yaml"
+        source.write_text(
+            "space: my_space\n"
+            "externalId: my_container\n"
+            "properties:\n"
+            "  name:\n"
+            "    type:\n"
+            "      type: text\n"
+            "  ts:\n"
+            "    type:\n"
+            "      type: timeseries\n"
+            "  doc:\n"
+            "    type:\n"
+            "      type: file\n"
+            "  table:\n"
+            "    type:\n"
+            "      type: sequence\n"
+        )
+        container = ContainerYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "my_container",
+                "properties": {
+                    "name": {"type": {"type": "text"}},
+                    "ts": {"type": {"type": "timeseries"}},
+                    "doc": {"type": {"type": "file"}},
+                    "table": {"type": {"type": "sequence"}},
+                },
+            }
+        )
+
+        insights = container.extra_insights(source, ContainerIO.as_resource_type())
+
+        assert [(insight.code, insight.line) for insight in insights] == [
+            ("DEPRECATED-PROPERTY-TYPE", 7),
+            ("DEPRECATED-PROPERTY-TYPE", 10),
+            ("DEPRECATED-PROPERTY-TYPE", 13),
+        ]
