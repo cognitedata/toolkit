@@ -275,9 +275,6 @@ class DeployV2Command(ToolkitCommand):
         client: ToolkitClient | None = None,
         options: DeployOptions | None = None,
     ) -> Sequence[DeploymentResult]:
-        if env_vars is None and client is None:
-            raise ToolkitValueError("Either env_vars or client must be provided.")
-
         options = options or DeployOptions(environment_variables=env_vars.dump() if env_vars else None)
         build_lineage = self.read_build_lineage(user_build_dir)
         insights_by_resource = self.read_insights_by_resource(user_build_dir, build_lineage)
