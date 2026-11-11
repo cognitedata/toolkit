@@ -79,14 +79,18 @@ class MultiFileReader(FileReader):
         input_files (Sequence[Path]): The list of file paths to read.
         schema (Sequence[SchemaColumn] | None): Optional schema passed to TableReader subclasses
             to ensure correct type parsing (e.g., CSV columns that look numeric but are strings).
+        table (str | None): The table to read when the input files are SQLite databases.
     """
 
     PART_PATTERN = re.compile(r"part-(\d{4})$")
 
-    def __init__(self, input_files: Sequence[Path], schema: Sequence[SchemaColumn] | None = None) -> None:
+    def __init__(
+        self, input_files: Sequence[Path], schema: Sequence[SchemaColumn] | None = None, table: str | None = None
+    ) -> None:
         super().__init__(input_file=input_files[0])
         self.input_files = input_files
         self.schema = schema
+        self.table = table
         self.current_file = input_files[0]
 
     @cached_property
@@ -112,8 +116,10 @@ class MultiFileReader(FileReader):
     def format(self) -> str:
         return self.reader_class.FORMAT
 
-    def _create_reader(self, input_file: Path) -> FileReader:
+    def create_reader(self, input_file: Path) -> FileReader:
         reader_cls = self.reader_class
+        if issubclass(reader_cls, SQLiteReader):
+            return reader_cls(input_file, table=self.table, schema=self.schema)
         if self.schema is not None and issubclass(reader_cls, TableReader) and reader_cls is not ParquetReader:
             return reader_cls(input_file, schema=self.schema)
         return reader_cls(input_file)
@@ -121,7 +127,7 @@ class MultiFileReader(FileReader):
     def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
         for input_file in sorted(self.input_files, key=self._part_no):
             self.current_file = input_file
-            yield from self._create_reader(input_file).read_chunks()
+            yield from self.create_reader(input_file).read_chunks()
 
     def _part_no(self, path: Path) -> int:
         match = self.PART_PATTERN.search(path.stem)
@@ -136,7 +142,7 @@ class MultiFileReader(FileReader):
         """Count the total number of chunks in all files."""
         total_count = 0
         for input_file in self.input_files:
-            total_count += self._create_reader(input_file).count()
+            total_count += self.create_reader(input_file).count()
         return total_count
 
 

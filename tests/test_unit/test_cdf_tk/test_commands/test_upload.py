@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model i
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableRequest, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
+from cognite_toolkit._cdf_tk.commands._upload import SQLiteTableSource
 from cognite_toolkit._cdf_tk.constants import DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.dataio import RawIO
 from cognite_toolkit._cdf_tk.dataio._asset_centric import AssetDataIO
@@ -34,9 +35,10 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
 )
 from cognite_toolkit._cdf_tk.dataio.selectors._asset_centric import DataSetSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRepeatedUploadFailureError
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import RawTableIO
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
+from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, SchemaColumn, SQLiteWriter, Uncompressed
 from tests.constants import CDF_CLUSTER
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -90,6 +92,31 @@ def raw_csv_directory(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def raw_sqlite_directory(tmp_path: Path) -> Path:
+    """Fixture to create a temporary folder with a sample SQLite database."""
+    configfile = tmp_path / DATA_RESOURCE_DIR / RawTableIO.folder_name / f"test_table.{RawTableIO.kind}.yaml"
+    configfile.parent.mkdir(parents=True, exist_ok=True)
+    table = RAWTableRequest(db_name="test_db", name="test_table")
+    configfile.write_text(table.dump_yaml(context="toolkit"))
+    selector = RawTableSelector(
+        table=SelectedTable(db_name=table.db_name, table_name=table.name), type="rawTable", key="key"
+    )
+    columns = [
+        SchemaColumn(name="key", type="string"),
+        SchemaColumn(name="column1", type="string"),
+        SchemaColumn(name="column2", type="integer"),
+        SchemaColumn(name="column3", type="boolean"),
+    ]
+    metadata = selector.model_dump(mode="json", by_alias=True)
+    with SQLiteWriter(tmp_path, RawIO.KIND, Uncompressed, columns, metadata=metadata) as writer:
+        writer.write_chunks(
+            [{"key": f"key{i}", "column1": f"value{i}", "column2": i, "column3": i % 2 == 0} for i in range(1_000)],
+            filestem="test_db.test_table",
+        )
+    return tmp_path
+
+
+@pytest.fixture
 def raw_mock_client(
     toolkit_config: ToolkitClientConfig,
     respx_mock: respx.MockRouter,
@@ -136,6 +163,41 @@ class TestUploadCommand:
         cmd.upload(raw_csv_directory, client, deploy_resources=True, dry_run=False, verbose=False)
 
         self.assert_raw_rows_uploaded(client, respx_mock)
+
+    @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
+    def test_upload_raw_rows_from_sqlite(
+        self,
+        raw_mock_client: tuple[ToolkitClientMock, respx.MockRouter],
+        raw_sqlite_directory: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.EXTEND_DOWNLOAD)
+        client, respx_mock = raw_mock_client
+
+        cmd = UploadCommand(silent=True, skip_tracking=True)
+        cmd.upload(raw_sqlite_directory, client, deploy_resources=True, dry_run=False, verbose=False)
+
+        self.assert_raw_rows_uploaded(client, respx_mock)
+
+    @pytest.mark.parametrize("enabled", [True, False])
+    def test_find_sqlite_tables(self, enabled: bool, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: enabled and flag is Flags.EXTEND_DOWNLOAD)
+        selectors = [
+            RawTableSelector(table=SelectedTable(db_name=db_name, table_name="my_table"), type="rawTable")
+            for db_name in ["db1", "db2"]
+        ]
+        database = tmp_path / f"{RawIO.KIND}.sqlite"
+        for selector in selectors:
+            metadata = selector.model_dump(mode="json", by_alias=True)
+            columns = [SchemaColumn(name="key", type="string")]
+            with SQLiteWriter(tmp_path, RawIO.KIND, Uncompressed, columns, metadata=metadata) as writer:
+                writer.write_chunks([{"key": "a"}], filestem=str(selector.table))
+        cmd = UploadCommand(silent=True, skip_tracking=True)
+
+        result = cmd._find_data_files(tmp_path)
+
+        expected = {selector: SQLiteTableSource(database, str(selector.table)) for selector in selectors}
+        assert (result, len(cmd.warning_list)) == ((expected, 0) if enabled else ({}, 1))
 
     def assert_raw_rows_uploaded(self, client: ToolkitClientMock, respx_mock: respx.MockRouter) -> None:
         assert len(respx_mock.calls) == 1
