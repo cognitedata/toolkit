@@ -114,7 +114,9 @@ class TransformationRuleSet(ToolkitRuleSet):
         fix = "Ensure that the provided token has LIST access to sessions (sessionsAcl:LIST)."
         source_url = client.config.create_api_url(_SESSIONS_ENDPOINT)
         try:
-            sessions = client.sessions.retrieve([InternalId(id=session_id) for session_id in sorted(session_ids)])
+            sessions = client.sessions.retrieve(
+                [InternalId(id=session_id) for session_id in sorted(session_ids)], ignore_unknown_ids=True
+            )
         except ToolkitAPIError as error:
             return {}, BuildWarning(
                 code="UNVERIFIED-CREDENTIALS",
