@@ -62,7 +62,7 @@ class BuildDeployValidateCommand(ToolkitCommand):
                     environment_variables=env_vars.dump(),
                 ),
             )
-        validation_results = validate_cmd.validate(resources, results, None, client, display=True)
+        validation_results = validate_cmd.validate(resources, results, None, client, display=True, context="integrated")
 
         build_cmd.post_build(
             build_folder,
