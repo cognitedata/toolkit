@@ -2,6 +2,7 @@ import csv
 import json
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence, Set
+from contextlib import AbstractContextManager, nullcontext
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -41,10 +42,7 @@ from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightCode, InsightList
 from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import (
-    ErrorLockResult,
-    FailedLockResult,
     ModuleLockManager,
-    ModulesLockResult,
     SuccessfulLockResult,
 )
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, HINT_LEAD_TEXT
@@ -58,6 +56,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceUpsertError,
     ToolkitError,
     ToolkitNotADirectoryError,
+    ToolkitUserAbortError,
     ToolkitValidationError,
     ToolkitValueError,
     ToolkitWrongResourceError,
@@ -111,6 +110,15 @@ class DeployOptions:
     drop_data: bool = False
     environment_variables: dict[str, str | None] | None = None
     deployment_dir: Path | None = None
+
+    @property
+    def requires_drop_confirmation(self) -> bool:
+        return self.drop and self.drop_data and not self.dry_run
+
+    @property
+    def runs_delete_pass(self) -> bool:
+        # In deploy dry-run, apply_plan already accounts for drop, so no separate delete pass is needed.
+        return self.drop and (self.operation == "clean" or not self.dry_run)
 
 
 @dataclass
@@ -267,51 +275,28 @@ class DeployV2Command(ToolkitCommand):
         client: ToolkitClient | None = None,
         options: DeployOptions | None = None,
     ) -> Sequence[DeploymentResult]:
-        if env_vars is None and client is None:
-            raise ToolkitValueError("Either env_vars or client must be provided.")
-
         options = options or DeployOptions(environment_variables=env_vars.dump() if env_vars else None)
         build_lineage = self.read_build_lineage(user_build_dir)
         insights_by_resource = self.read_insights_by_resource(user_build_dir, build_lineage)
         build_dir = self.read_build_directory(user_build_dir, options.include, build_lineage)
 
-        if client is None:
-            if env_vars is None:
-                raise ToolkitValueError("Either env_vars or client must be provided.")
-            client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
+        client = self._get_client(client, env_vars, build_dir.is_strict_validation)
 
         self._validate_cdf_project(build_dir, options.operation, options.cdf_project, client.config.project)
 
-        module_locks: ModulesLockResult | None = None
-        if Flags.DEPLOY_PROTECTION.is_enabled() and build_lineage and build_lineage.deploy_protection == "protected":
-            module_locks = self._acquire_module_locks(build_lineage, client, options.dry_run)
-        try:
-            plan = self._display_setup(
-                options.operation, build_dir, client.config.project, client.console, options.verbose
+        with self._module_lock_context(client, options.dry_run, build_lineage):
+            plan = self.create_deployment_plan(build_dir)
+            self._display_setup(
+                options.operation, build_dir, plan, client.config.project, client.console, options.verbose
             )
 
-            if options.drop:
-                self._validate_plan_container_references(client, plan, options)
+            clean_result = self._drop_phase(client, plan, options, insights_by_resource)
 
-            if options.drop and options.drop_data and not options.dry_run:
-                if not self._confirm_drop_data(client, plan, options):
-                    return []
-
-            clean_result: Sequence[DeploymentResult] | None = None
-            if options.drop and (options.operation == "clean" or not options.dry_run):
-                # If we are deploying, and it is dry-run, we skip this step, as apply_plan accounts
-                # for drop in dry-run mode.
-                clean_result = self.apply_plan(
-                    client, list(reversed(plan)), options, is_delete=True, insights_by_resource=insights_by_resource
-                )
-
-                if options.operation == "clean":
-                    self._display_results(clean_result, options.operation, client.console, options.verbose)
-                    return clean_result
+            if options.operation == "clean":
+                clean_result = clean_result or []
+                self._display_results(clean_result, options.operation, client.console, options.verbose)
+                return clean_result
             results = self.apply_plan(client, plan, options, insights_by_resource=insights_by_resource)
-        finally:
-            if Flags.DEPLOY_PROTECTION.is_enabled() and module_locks:
-                self._release_module_locks(module_locks, client, options.dry_run)
 
         if clean_result is not None:
             self._merge_clean_results(results, clean_result)
@@ -335,6 +320,53 @@ class DeployV2Command(ToolkitCommand):
             )
 
         return results
+
+    def _drop_phase(
+        self,
+        client: ToolkitClient,
+        plan: list[DeploymentStep],
+        options: DeployOptions,
+        insights_by_resource: InsightsByResource | None,
+    ) -> Sequence[DeploymentResult] | None:
+        """Validates, confirms, and runs the delete pass. Raises ToolkitUserAbortError if the user declines."""
+        if not options.drop:
+            return None
+        self._validate_plan_container_references(client, plan, options)
+        if options.requires_drop_confirmation and not self._confirm_drop_data(client, plan, options):
+            raise ToolkitUserAbortError("Drop data aborted by user. No resources were deleted.")
+        if not options.runs_delete_pass:
+            return None
+        return self.apply_plan(
+            client, list(reversed(plan)), options, is_delete=True, insights_by_resource=insights_by_resource
+        )
+
+    @staticmethod
+    def _module_lock_context(
+        client: ToolkitClient, dry_run: bool, build_lineage: BuildLineage | None
+    ) -> AbstractContextManager[SuccessfulLockResult | None, bool | None]:
+        if (
+            not Flags.DEPLOY_PROTECTION.is_enabled()
+            or build_lineage is None
+            or build_lineage.deploy_protection != "protected"
+        ):
+            return nullcontext()
+        return ModuleLockManager(
+            client,
+            Git(),
+            dry_run,
+            build_lineage.deploy_branch,
+            module_ids=[module.module_id for module in build_lineage.module_lineage],
+        )
+
+    @classmethod
+    def _get_client(
+        cls, client: ToolkitClient | None, env_vars: EnvironmentVariables | None, is_strict_validation: bool
+    ) -> ToolkitClient:
+        if client is None:
+            if env_vars is None:
+                raise ToolkitValueError("Either env_vars or client must be provided.")
+            client = env_vars.get_client(is_strict_validation=is_strict_validation)
+        return client
 
     @classmethod
     def read_build_lineage(cls, build_dir: Path) -> BuildLineage | None:
@@ -445,54 +477,15 @@ class DeployV2Command(ToolkitCommand):
             cdf_project=cdf_project,
         )
 
-    @classmethod
-    def _acquire_module_locks(
-        cls, build_lineage: BuildLineage, client: ToolkitClient, dry_run: bool
-    ) -> ModulesLockResult:
-        module_ids = [module.module_id for module in build_lineage.module_lineage]
-        lock_result = ModuleLockManager(client, Git(), dry_run, build_lineage.deploy_branch).try_lock(module_ids)
-        if isinstance(lock_result, ErrorLockResult):
-            raise ToolkitError(f"Failed to acquire locks for modules due to error: {lock_result.error_message}")
-        elif isinstance(lock_result, FailedLockResult):
-            newline = "\n  -"
-            raise ToolkitError(
-                f"Failed to acquire locks for modules: {newline}{newline.join(f'{lock.module_id} (locked by {lock.git_name}{lock.display_email} on branch {lock.branch!r})' for lock in lock_result.failed_locks)}"
-            )
-        elif isinstance(lock_result, SuccessfulLockResult):
-            client.console.print(
-                ToolkitPanel(
-                    "\n- ".join(lock_result.module_ids),
-                    title="Successfully acquired locks."
-                    if not dry_run
-                    else "Dry-run: would acquire locks for modules.",
-                    border_style=AuraColor.GREEN.rich,
-                )
-            )
-        return lock_result
-
-    @classmethod
-    def _release_module_locks(cls, module_locks: ModulesLockResult, client: ToolkitClient, dry_run: bool) -> None:
-        if not isinstance(module_locks, SuccessfulLockResult) or not module_locks.is_deploy_branch:
-            return
-        if ModuleLockManager(client, Git(), dry_run).release_lock(module_locks):
-            client.console.print(
-                ToolkitPanel(
-                    "\n- ".join(module_locks.module_ids),
-                    title="Successfully released locks."
-                    if not dry_run
-                    else "Dry-run: would release locks for modules.",
-                    border_style=AuraColor.GREEN.rich,
-                )
-            )
-
     def _display_setup(
         self,
         operation: str,
         build_dir: ReadBuildDirectory,
+        plan: list[DeploymentStep],
         cdf_project: str,
         console: Console,
         verbose: bool,
-    ) -> list[DeploymentStep]:
+    ) -> None:
         startup_section = ToolkitPanelSection(
             content=[
                 f"Target project: {cdf_project!r}",
@@ -568,24 +561,6 @@ class DeployV2Command(ToolkitCommand):
             content=read_dir_subsections,
         )
 
-        try:
-            plan = self.create_deployment_plan(build_dir)
-        except Exception as e:
-            console.print(
-                ToolkitPanel(
-                    Group(
-                        Padding(startup_section, (0, 0, 1, 0)),
-                        read_dir_section,
-                        ToolkitPanelSection(
-                            description=f"[bold]Failed to create plan for {operation}:[/] {escape(str(e))}"
-                        ),
-                    ),
-                    title=operation,
-                    border_style=AuraColor.AMBER.rich,
-                )
-            )
-            raise
-
         if not plan:
             plan_section = ToolkitPanelSection(description=f"[bold]No resources to {operation}.[/]")
         else:
@@ -607,7 +582,6 @@ class DeployV2Command(ToolkitCommand):
                 border_style=border_style,
             )
         )
-        return plan
 
     def _validate_cdf_project(
         self,

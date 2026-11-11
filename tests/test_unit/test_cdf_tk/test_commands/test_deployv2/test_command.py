@@ -72,6 +72,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.resource_ios import (
+    RESOURCE_IO_BY_FOLDER_NAME,
     AssetIO,
     CogniteFileIO,
     ContainerIO,
@@ -269,6 +270,24 @@ class TestCreateDeploymentPlan:
         actual_plan = DeployV2Command.create_deployment_plan(read_dir)
 
         assert actual_plan == expected_plan
+
+    def test_create_deployment_plan_all_resource_types_no_cycles(self) -> None:
+        read_dir = ReadBuildDirectory(
+            path=Path("build"),
+            resource_directories=[
+                ResourceDirectory(
+                    Path(f"build/{folder}"),
+                    files_by_crud={crud: [Path(f"build/{folder}/my.{crud.kind}.yaml")] for crud in cruds},
+                )
+                for folder, cruds in RESOURCE_IO_BY_FOLDER_NAME.items()
+            ],
+        )
+
+        plan = DeployV2Command.create_deployment_plan(read_dir)
+
+        assert {step.crud_cls for step in plan} == {
+            crud for cruds in RESOURCE_IO_BY_FOLDER_NAME.values() for crud in cruds
+        }
 
 
 @dataclass
