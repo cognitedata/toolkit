@@ -1,6 +1,7 @@
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 from rich.console import Console
 from rich.progress import Progress
@@ -22,11 +23,12 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
 )
+from cognite_toolkit._cdf_tk.resource_ios import ResourceType
 from cognite_toolkit._cdf_tk.rules._base import (
     EXECUTE_RULE_STATUS,
     ResourceRef,
     RuleSetStatus,
-    ToolkitGlobalRuleSet,
+    ToolkitRuleSet,
     get_global_rules_registry,
 )
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitTable
@@ -35,7 +37,7 @@ from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitTable
 @dataclass
 class ValidationStep:
     status: RuleSetStatus
-    rule: ToolkitGlobalRuleSet
+    rule: ToolkitRuleSet
 
 
 class ValidationCommand(ToolkitCommand):
@@ -45,10 +47,11 @@ class ValidationCommand(ToolkitCommand):
         results: Sequence[DeploymentResult] | None = None,
         client: ToolkitClient | None = None,
         display: bool = True,
+        context: Literal["local", "cdf"] = "local",
     ) -> ValidationResultList:
         """Validates the built modules in the build folder."""
         console = client.console if client else Console(markup=True)
-        plan = self._create_validation_plan(resources, results, client)
+        plan = self._create_validation_plan(resources, results, client, context)
         if display:
             self._display_validation_plan(plan, console)
         return self._run_validation(plan, console)
@@ -59,10 +62,16 @@ class ValidationCommand(ToolkitCommand):
         resources: Sequence[ResourceRef],
         results: Sequence[DeploymentResult] | None = None,
         client: ToolkitClient | None = None,
+        context: Literal["local", "cdf"] = "local",
     ) -> list[ValidationStep]:
         all_rules = get_global_rules_registry()
+        resource_types: set[ResourceType] = {resource.type for resource in resources}
         plan: list[ValidationStep] = []
         for rule_cls in all_rules:
+            if not resource_types.intersection(rule_cls.RESOURCE_TYPES) and "ALL" not in rule_cls.RESOURCE_TYPES:
+                continue
+            if context not in rule_cls.CONTEXT:
+                continue
             rule = rule_cls(resources, results, client=client)
 
             status = rule.get_status()

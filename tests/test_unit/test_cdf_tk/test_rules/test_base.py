@@ -2,7 +2,9 @@ from pathlib import Path
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
-from cognite_toolkit._cdf_tk.rules._base import with_position
+from cognite_toolkit._cdf_tk.rules._base import ToolkitRuleSet, with_position
+from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 
 class TestWithPosition:
@@ -33,3 +35,23 @@ class TestWithPosition:
         with_position(insight, keys=["properties"])
 
         assert (insight.line, insight.column) == (None, None)
+
+
+class TestToolkitRuleSet:
+    def test_resource_types_must_be_declared(self) -> None:
+        subclasses = get_concrete_subclasses(ToolkitRuleSet)
+
+        missing_resource_type = [cls for cls in subclasses if not cls.RESOURCE_TYPES]
+
+        assert not missing_resource_type, (
+            f"The following ToolkitRuleSet subclasses must declare RESOURCE_TYPES: {humanize_collection([cls.__name__ for cls in missing_resource_type])}"
+        )
+
+    def test_context_must_be_declared(self) -> None:
+        subclasses = get_concrete_subclasses(ToolkitRuleSet)
+
+        missing_context = [cls for cls in subclasses if not cls.CONTEXT]
+
+        assert not missing_context, (
+            f"The following ToolkitRuleSet subclasses must declare CONTEXT: {humanize_collection([cls.__name__ for cls in missing_context])}"
+        )
