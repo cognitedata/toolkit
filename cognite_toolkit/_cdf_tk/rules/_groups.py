@@ -1,9 +1,8 @@
 from collections import Counter
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
-
-from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
@@ -59,7 +58,8 @@ DEPRECATED_API_BY_ACL: dict[type[Acl], str] = {
 }
 
 
-class _DeprecatedAclUsage(BaseModel):
+@dataclass(frozen=True)
+class _DeprecatedAclUsage:
     source: Path
     group_name: str
     acl_name: str
