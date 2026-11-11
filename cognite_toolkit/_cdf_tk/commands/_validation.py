@@ -45,13 +45,14 @@ class ValidationCommand(ToolkitCommand):
         self,
         resources: Sequence[ResourceRef] | None = None,
         results: Sequence[DeploymentResult] | None = None,
+        resource_types: set[ResourceType] | None = None,
         client: ToolkitClient | None = None,
         display: bool = True,
         context: Literal["local", "cdf"] = "local",
     ) -> ValidationResultList:
         """Validates the built modules in the build folder."""
         console = client.console if client else Console(markup=True)
-        plan = self._create_validation_plan(resources, results, client, context)
+        plan = self._create_validation_plan(resources, results, resource_types, client, context)
         if display:
             self._display_validation_plan(plan, console)
         return self._run_validation(plan, console)
@@ -61,19 +62,22 @@ class ValidationCommand(ToolkitCommand):
         cls,
         resources: Sequence[ResourceRef] | None = None,
         results: Sequence[DeploymentResult] | None = None,
+        resource_types: set[ResourceType] | None = None,
         client: ToolkitClient | None = None,
         context: Literal["local", "cdf"] = "local",
     ) -> list[ValidationStep]:
         """Selects the rules to run. Without resources, all rules for the context are selected."""
         all_rules = get_global_rules_registry()
-        resource_types: set[ResourceType] | None = (
-            {resource.type for resource in resources} if resources is not None else None
+        used_resource_types: set[ResourceType] | None = (
+            {resource.type for resource in resources}
+            if resources is not None and resource_types is None
+            else resource_types
         )
         plan: list[ValidationStep] = []
         for rule_cls in all_rules:
             if (
-                resource_types is not None
-                and not resource_types.intersection(rule_cls.RESOURCE_TYPES)
+                used_resource_types is not None
+                and not used_resource_types.intersection(rule_cls.RESOURCE_TYPES)
                 and "ALL" not in rule_cls.RESOURCE_TYPES
             ):
                 continue
