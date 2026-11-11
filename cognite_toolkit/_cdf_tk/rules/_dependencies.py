@@ -32,6 +32,7 @@ class DependencyRuleSet(ToolkitRuleSet):
     """
 
     RESOURCE_TYPES = frozenset({"ALL"})
+    CONTEXT = frozenset({"local", "cdf"})
 
     DISPLAY_NAME = "Dependencies"
 

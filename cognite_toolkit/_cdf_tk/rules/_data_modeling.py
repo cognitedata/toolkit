@@ -163,6 +163,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
             ViewIO.as_resource_type(),
         }
     )
+    CONTEXT = frozenset({"local"})
     DISPLAY_NAME = "Data modeling"
 
     def __init__(

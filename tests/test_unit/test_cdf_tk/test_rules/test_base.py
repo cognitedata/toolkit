@@ -46,3 +46,12 @@ class TestToolkitRuleSet:
         assert not missing_resource_type, (
             f"The following ToolkitRuleSet subclasses must declare RESOURCE_TYPES: {humanize_collection([cls.__name__ for cls in missing_resource_type])}"
         )
+
+    def test_context_must_be_declared(self) -> None:
+        subclasses = get_concrete_subclasses(ToolkitRuleSet)
+
+        missing_context = [cls for cls in subclasses if not cls.CONTEXT]
+
+        assert not missing_context, (
+            f"The following ToolkitRuleSet subclasses must declare CONTEXT: {humanize_collection([cls.__name__ for cls in missing_context])}"
+        )

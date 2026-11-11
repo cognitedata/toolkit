@@ -37,6 +37,7 @@ _DEFAULT_ASSET_VIEW_ID = ViewId(space="cdf_cdm", external_id="CogniteAsset", ver
 
 class InFieldCDMRuleSet(ToolkitRuleSet):
     RESOURCE_TYPES = frozenset({InFieldCDMLocationConfigIO.as_resource_type()})
+    CONTEXT = frozenset({"local"})
     DISPLAY_NAME = "Infield config"
 
     def get_status(self) -> RuleSetStatus:

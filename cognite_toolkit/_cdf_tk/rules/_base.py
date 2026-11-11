@@ -156,6 +156,7 @@ class ToolkitRuleSet(ABC):
     """
 
     RESOURCE_TYPES: ClassVar[frozenset[ResourceType | Literal["ALL"]]] = frozenset()
+    CONTEXT: ClassVar[frozenset[Literal["local", "cdf"]]] = frozenset()
     DISPLAY_NAME: ClassVar[str]
 
     def __init__(

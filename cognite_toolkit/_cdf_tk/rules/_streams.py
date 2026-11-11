@@ -65,6 +65,7 @@ class StreamRuleSet(ToolkitRuleSet):
     """
 
     RESOURCE_TYPES = frozenset({StreamIO.as_resource_type()})
+    CONTEXT = frozenset({"local"})
     DISPLAY_NAME = "Streams"
 
     def get_status(self) -> RuleSetStatus:

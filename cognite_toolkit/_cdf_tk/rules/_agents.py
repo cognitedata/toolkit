@@ -40,6 +40,7 @@ RUNTIME_CAPABILITY_REQUIREMENTS: tuple[RuntimeCapabilityRequirement, ...] = (
 
 class AgentRuleSet(ToolkitRuleSet):
     RESOURCE_TYPES = frozenset({AgentIO.as_resource_type()})
+    CONTEXT = frozenset({"local"})
     DISPLAY_NAME = "Agents"
 
     def get_status(self) -> RuleSetStatus:
