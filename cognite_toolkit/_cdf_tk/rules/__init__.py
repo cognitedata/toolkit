@@ -7,6 +7,7 @@ from ._functions import FunctionRuleSet
 from ._groups import GroupRuleSet
 from ._infield import InFieldCDMRuleSet
 from ._streams import StreamRuleSet
+from ._transformations import TransformationRuleSet
 
 __all__ = [
     "AgentRuleSet",
@@ -18,5 +19,6 @@ __all__ = [
     "InFieldCDMRuleSet",
     "StreamRuleSet",
     "ToolkitRuleSet",
+    "TransformationRuleSet",
     "get_global_rules_registry",
 ]

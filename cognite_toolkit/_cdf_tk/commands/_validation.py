@@ -43,7 +43,7 @@ class ValidationStep:
 class ValidationCommand(ToolkitCommand):
     def validate(
         self,
-        resources: Sequence[ResourceRef],
+        resources: Sequence[ResourceRef] | None = None,
         results: Sequence[DeploymentResult] | None = None,
         client: ToolkitClient | None = None,
         display: bool = True,
@@ -59,16 +59,23 @@ class ValidationCommand(ToolkitCommand):
     @classmethod
     def _create_validation_plan(
         cls,
-        resources: Sequence[ResourceRef],
+        resources: Sequence[ResourceRef] | None = None,
         results: Sequence[DeploymentResult] | None = None,
         client: ToolkitClient | None = None,
         context: Literal["local", "cdf"] = "local",
     ) -> list[ValidationStep]:
+        """Selects the rules to run. Without resources, all rules for the context are selected."""
         all_rules = get_global_rules_registry()
-        resource_types: set[ResourceType] = {resource.type for resource in resources}
+        resource_types: set[ResourceType] | None = (
+            {resource.type for resource in resources} if resources is not None else None
+        )
         plan: list[ValidationStep] = []
         for rule_cls in all_rules:
-            if not resource_types.intersection(rule_cls.RESOURCE_TYPES) and "ALL" not in rule_cls.RESOURCE_TYPES:
+            if (
+                resource_types is not None
+                and not resource_types.intersection(rule_cls.RESOURCE_TYPES)
+                and "ALL" not in rule_cls.RESOURCE_TYPES
+            ):
                 continue
             if context not in rule_cls.CONTEXT:
                 continue
