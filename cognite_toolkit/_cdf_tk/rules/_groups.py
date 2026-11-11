@@ -29,6 +29,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Recommendation,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import GroupAllScopedIO, GroupIO, GroupResourceScopedIO
 from cognite_toolkit._cdf_tk.rules._base import (
     ResourceRef,
@@ -80,6 +81,11 @@ class GroupRuleSet(ToolkitRuleSet):
     DISPLAY_NAME = "Groups"
 
     def get_status(self) -> RuleSetStatus:
+        if not Flags.ALPHA_RULES.is_enabled():
+            return RuleSetStatus(
+                code="skip",
+                message="Deprecated ACL validation is an alpha rule. Enable the 'alpha-rules' alpha flag to run it.",
+            )
         if self.client is None:
             return RuleSetStatus(
                 code="skip",
@@ -91,7 +97,7 @@ class GroupRuleSet(ToolkitRuleSet):
         return RuleSetStatus(code="ready", message="Will validate that groups do not use ACLs of deprecated resources.")
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
-        if self.client is None:
+        if self.client is None or not Flags.ALPHA_RULES.is_enabled():
             return
         usages: list[_DeprecatedAclUsage] = []
         cruds = (GroupResourceScopedIO(self.client), GroupAllScopedIO(self.client))
@@ -155,6 +161,7 @@ class GroupRuleSet(ToolkitRuleSet):
                 message=f"{message} This project is DATA_MODELING_ONLY, so it should not use deprecated resources.",
                 fix=f"Remove {usage.acl_name!r} from the group. See {DEPRECATED_FEATURES_URL} for the replacement.",
                 source_file=usage.source,
+                alpha=True,
             )
         else:
             insight = Recommendation(
@@ -165,5 +172,6 @@ class GroupRuleSet(ToolkitRuleSet):
                     f"See {DEPRECATED_FEATURES_URL} for the replacement and retirement date."
                 ),
                 source_file=usage.source,
+                alpha=True,
             )
         return with_position(insight, keys=[usage.acl_name], key_occurrence=usage.occurrence)

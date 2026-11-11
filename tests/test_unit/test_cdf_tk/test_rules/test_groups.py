@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import NameId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import InsightDefinition
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import GroupResourceScopedIO
 from cognite_toolkit._cdf_tk.rules._groups import GroupRuleSet
 
@@ -56,7 +57,20 @@ def _client(data_modeling_status: str) -> MagicMock:
     return client
 
 
+@pytest.fixture
+def alpha_rules(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.ALPHA_RULES)
+
+
 class TestGroupRuleSet:
+    def test_skipped_without_alpha_rules(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: False)
+        client = _client("DATA_MODELING_ONLY")
+        rule = GroupRuleSet(resources=[_group_resource(tmp_path, "all_scoped", ALL_SCOPED_GROUP)], client=client)
+
+        assert (rule.get_status().code, list(rule.validate())) == ("skip", [])
+
+    @pytest.mark.usefixtures("alpha_rules")
     @pytest.mark.parametrize(
         "data_modeling_status, expected_type",
         [
@@ -74,11 +88,12 @@ class TestGroupRuleSet:
         results = list(rule.validate())
         insights = [item for item in results if isinstance(item, InsightDefinition)]
 
-        assert [(item.insight_type, item.code, item.source_file, item.line) for item in insights] == [
-            (expected_type, "DEPRECATED-CAPABILITY", resources[0].source_path, 8),
-            (expected_type, "DEPRECATED-CAPABILITY", resources[1].source_path, 4),
+        assert [(item.insight_type, item.code, item.source_file, item.line, item.alpha) for item in insights] == [
+            (expected_type, "DEPRECATED-CAPABILITY", resources[0].source_path, 8, True),
+            (expected_type, "DEPRECATED-CAPABILITY", resources[1].source_path, 4, True),
         ]
 
+    @pytest.mark.usefixtures("alpha_rules")
     def test_no_project_status_call_without_deprecated_acls(self, tmp_path: Path) -> None:
         content = ALL_SCOPED_GROUP.split("  - assetsAcl")[0]
         client = _client("DATA_MODELING_ONLY")
