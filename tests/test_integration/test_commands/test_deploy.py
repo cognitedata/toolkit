@@ -26,7 +26,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 )
 from cognite_toolkit._cdf_tk.resource_ios._data_product import DataProductIO
 from cognite_toolkit._cdf_tk.resource_ios._data_product_version import DataProductVersionIO
-from cognite_toolkit._cdf_tk.resource_ios._postgres_gateway import PostgresGatewayUserIO
+from cognite_toolkit._cdf_tk.resource_ios._postgres_gateway import PostgresGatewayTableIO, PostgresGatewayUserIO
 from cognite_toolkit._cdf_tk.resource_ios._rulesets import RuleSetIO, RuleSetVersionIO
 from cognite_toolkit._cdf_tk.resource_ios._signal_sink import SignalSinkIO
 from cognite_toolkit._cdf_tk.resource_ios._signal_subscription import SignalSubscriptionIO
@@ -41,6 +41,7 @@ SKIPPED_ALPHA_CRUDS = {
     SignalSinkIO,  # Signal sinks of type user require an existing user profile, which does not exist on the test server.
     SignalSubscriptionIO,
     PostgresGatewayUserIO,  # Postgres gateway users must exist before deploy, as CDF generates the username.
+    PostgresGatewayTableIO,
 }
 
 

@@ -41,6 +41,7 @@ from .labels import LabelsYAML
 from .location import LocationYAML
 from .migration import ResourceViewMappingYAML
 from .neat import NeatFormat
+from .postgres_gateway_table import PostgresGatewayTableYAML
 from .postgres_gateway_user import PostgresGatewayUserYAML
 from .raw_database_table import DatabaseYAML, TableYAML
 from .relationship import RelationshipYAML
@@ -108,6 +109,7 @@ __all__ = [
     "LocationYAML",
     "NeatFormat",
     "NodeYAML",
+    "PostgresGatewayTableYAML",
     "PostgresGatewayUserYAML",
     "RelationshipYAML",
     "ResourceViewMappingYAML",

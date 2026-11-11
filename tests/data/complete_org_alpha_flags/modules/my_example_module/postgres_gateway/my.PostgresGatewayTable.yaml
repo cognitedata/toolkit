@@ -1,0 +1,19 @@
+- username: pg_user_001
+  tablename: my_raw_rows
+  type: raw_rows
+  options:
+    database: pg_gateway_db
+    table: pg_gateway_table
+    primaryKey: key
+  columns:
+    key:
+      type: TEXT
+    value:
+      type: BIGINT
+- username: pg_user_001
+  tablename: my_assets
+  type: view
+  options:
+    space: cdf_cdm
+    externalId: CogniteAsset
+    version: v1

@@ -4,7 +4,6 @@ import shutil
 import sys
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from itertools import zip_longest
 from pathlib import Path
@@ -89,7 +88,6 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     ResourceType,
     SuccessExtra,
 )
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -115,13 +113,6 @@ from cognite_toolkit._cdf_tk.validation import (
     humanize_validation_error_categorized,
 )
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
-
-
-@dataclass
-class ValidationStep:
-    status: RuleSetStatus
-    rule: ToolkitGlobalRuleSet
-
 
 SelectionSource = Literal["cli-arg", "config", "interactive"]
 
@@ -408,7 +399,11 @@ class BuildV2Command(ToolkitCommand):
         cache_path = self._build_cache_path(organization_dir, config_yaml_path)
         cached_lineage: BuildLineage | None = None
         if cache_path.exists():
-            cached_lineage = BuildLineage.from_yaml_file(cache_path)
+            try:
+                cached_lineage = BuildLineage.from_yaml_file(cache_path)
+            except ToolkitValidationError:
+                # For example, a cache written by an older Toolkit version. Rebuilding replaces it.
+                cached_lineage = None
 
         needs_rebuild, has_deletions = self._modules_needing_rebuild(base_parameters, cached_lineage)
         if needs_rebuild is not None and not needs_rebuild and cached_lineage is not None:
@@ -920,7 +915,12 @@ class BuildV2Command(ToolkitCommand):
                 deploy_branches.update([config.environment.deploy_branch])
                 deploy_protections.update([config.environment.deploy_protection])
                 config_files.append(
-                    ConfigFile(selected_modules=selected, variables=config.variables or {}, path=config_path_resolved)
+                    ConfigFile(
+                        selected_modules=selected,
+                        variables=config.variables or {},
+                        path=config_path_resolved,
+                        variable_sources=config.variable_sources,
+                    )
                 )
 
             if len(config_yamls) > 1 and missing_selected:

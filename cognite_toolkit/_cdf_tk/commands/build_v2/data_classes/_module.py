@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.resource_ios import ResourceTypes
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceType
 from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResource
 
+from ._config import VariableSource
 from ._insights import BuildError, BuildWarning, Recommendation
 from ._types import AbsoluteFilePath, RelativeDirPath, RelativeFilePath
 
@@ -27,6 +28,7 @@ class BuildVariable(BaseModel):
     id: RelativeDirPath
     value: str | bool | int | float | list[str | bool | int | float]
     is_selected: bool
+    source: VariableSource = Field(description="Where in the config YAML files the variable is defined.")
     iteration: int | None = None
 
     @property

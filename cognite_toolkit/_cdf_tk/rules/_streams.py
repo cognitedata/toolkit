@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import StreamIO
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet
 
 _STREAMS_LIMIT_PREFIX = "streams."
 _TEMPLATE_PREFIX = "template."
@@ -58,13 +58,14 @@ def _streams_phrase(count: int) -> str:
     return f"{count} stream" if count == 1 else f"{count} streams"
 
 
-class StreamRuleSet(ToolkitGlobalRuleSet):
+class StreamRuleSet(ToolkitRuleSet):
     """Validates that the project has capacity for the streams that deploying would create.
 
     This requires deployment results, as they are the only way to know which streams would be created and deleted.
     """
 
-    CODE_PREFIX = "STREAM"
+    RESOURCE_TYPES = frozenset({StreamIO.as_resource_type()})
+    CONTEXT = frozenset({"local"})
     DISPLAY_NAME = "Streams"
 
     def get_status(self) -> RuleSetStatus:
