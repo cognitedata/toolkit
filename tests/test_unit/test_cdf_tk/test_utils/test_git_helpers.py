@@ -438,6 +438,17 @@ class TestGitWithRepository:
 
         assert Git.get_uncommitted_changes() == ["README.md"]
 
+    def test_get_uncommitted_changes_filtered_by_paths(self, repo: Path) -> None:
+        (repo / "README.md").write_text("changed")
+        (repo / "modules" / "a" / "resource.yaml").write_text("changed")
+
+        assert Git.get_uncommitted_changes(repo / "modules", f"{repo.as_posix()}/config.*.yaml", repo / "cdf.toml") == [
+            "modules/a/resource.yaml"
+        ]
+
+    def test_get_root(self, repo: Path) -> None:
+        assert Git.get_root() == repo.resolve()
+
     def test_get_me_from_config(self, repo: Path) -> None:
         _git(repo, "config", "user.name", "Alice")
 

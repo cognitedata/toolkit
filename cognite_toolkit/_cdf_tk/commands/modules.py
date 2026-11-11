@@ -75,6 +75,7 @@ from cognite_toolkit._cdf_tk.utils.file import (
     safe_write,
     yaml_safe_dump,
 )
+from cognite_toolkit._cdf_tk.utils.git_helpers import Git
 from cognite_toolkit._cdf_tk.utils.repository import FileDownloader
 from cognite_toolkit._version import __version__
 
@@ -750,15 +751,29 @@ class ModulesCommand(ToolkitCommand):
             )
             return Changes()
 
-        if not CLICommands.use_git():
+        git_installed = Git.is_installed()
+        use_git = git_installed and Git.is_git_repo()
+        if not git_installed:
             self.warn(MediumSeverityWarning("git is not installed. It is strongly recommended to use version control."))
+        elif not use_git:
+            self.warn(MediumSeverityWarning("git repository not initiated. Did you forget to run `git init`?"))
         else:
-            if not CLICommands.has_initiated_repo():
-                self.warn(MediumSeverityWarning("git repository not initiated. Did you forget to run `git init`?"))
-            else:
-                if CLICommands.has_uncommitted_changes():
-                    print("Uncommitted changes detected. Please commit your changes before upgrading the modules.")
-                    return Changes()
+            try:
+                uncommitted = Git.get_uncommitted_changes(
+                    (organization_dir / MODULES).resolve(),
+                    f"{organization_dir.resolve().as_posix()}/config.*.yaml",
+                    Path.cwd() / "cdf.toml",
+                    Path.cwd() / ".github" / "workflows",
+                )
+            except RuntimeError as e:
+                self.warn(MediumSeverityWarning(f"Could not check for uncommitted changes: {e}"))
+                uncommitted = []
+            if uncommitted:
+                print(
+                    f"Uncommitted changes detected in {humanize_collection(uncommitted)}. "
+                    "Please commit your changes before upgrading the modules."
+                )
+                return Changes()
         # Update the docstring of the change 'UpdateModuleVersion' to be more informative
         UpdateModuleVersion.__doc__ = UPDATE_MODULE_VERSION_DOCSTRING.format(
             module_version=module_version, cli_version=cli_version
@@ -820,7 +835,6 @@ class ModulesCommand(ToolkitCommand):
                 print(Markdown(change.__doc__ or "Missing description."))
                 print(Rule())
 
-        use_git = CLICommands.use_git() and CLICommands.has_initiated_repo()
         summary = ["All automatic changes have been applied."]
         color = "green"
         if total_changed:
