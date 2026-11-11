@@ -64,6 +64,7 @@ class StreamRuleSet(ToolkitRuleSet):
     This requires deployment results, as they are the only way to know which streams would be created and deleted.
     """
 
+    RESOURCE_TYPES = frozenset({StreamIO.as_resource_type()})
     DISPLAY_NAME = "Streams"
 
     def get_status(self) -> RuleSetStatus:

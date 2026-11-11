@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection, validate_requirem
 
 class FunctionRuleSet(ToolkitRuleSet):
     DISPLAY_NAME = "Functions"
+    RESOURCE_TYPES = frozenset({FunctionIO.as_resource_type()})
 
     def get_status(self) -> RuleSetStatus:
         if not self.client:

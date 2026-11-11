@@ -155,7 +155,7 @@ class ToolkitRuleSet(ABC):
         client: The ToolkitClient to use. This is required by some rules.
     """
 
-    RESOURCE_TYPES: ClassVar[frozenset[ResourceType]] = frozenset()
+    RESOURCE_TYPES: ClassVar[frozenset[ResourceType | Literal["ALL"]]] = frozenset()
     DISPLAY_NAME: ClassVar[str]
 
     def __init__(

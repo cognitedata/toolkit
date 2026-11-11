@@ -31,6 +31,8 @@ class DependencyRuleSet(ToolkitRuleSet):
     can actually be applied in CDF.
     """
 
+    RESOURCE_TYPES = frozenset({"ALL"})
+
     DISPLAY_NAME = "Dependencies"
 
     @staticmethod
