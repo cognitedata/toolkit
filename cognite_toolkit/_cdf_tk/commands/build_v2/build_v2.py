@@ -4,7 +4,6 @@ import shutil
 import sys
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from itertools import zip_longest
 from pathlib import Path
@@ -89,7 +88,6 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     ResourceType,
     SuccessExtra,
 )
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -115,13 +113,6 @@ from cognite_toolkit._cdf_tk.validation import (
     humanize_validation_error_categorized,
 )
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
-
-
-@dataclass
-class ValidationStep:
-    status: RuleSetStatus
-    rule: ToolkitRuleSet
-
 
 SelectionSource = Literal["cli-arg", "config", "interactive"]
 
