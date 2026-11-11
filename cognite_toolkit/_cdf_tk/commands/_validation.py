@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
 )
+from cognite_toolkit._cdf_tk.resource_ios import ResourceType
 from cognite_toolkit._cdf_tk.rules._base import (
     EXECUTE_RULE_STATUS,
     ResourceRef,
@@ -61,8 +62,11 @@ class ValidationCommand(ToolkitCommand):
         client: ToolkitClient | None = None,
     ) -> list[ValidationStep]:
         all_rules = get_global_rules_registry()
+        resource_types: set[ResourceType] = {resource.type for resource in resources}
         plan: list[ValidationStep] = []
         for rule_cls in all_rules:
+            if not resource_types.intersection(rule_cls.RESOURCE_TYPES) and "ALL" not in rule_cls.RESOURCE_TYPES:
+                continue
             rule = rule_cls(resources, results, client=client)
 
             status = rule.get_status()
