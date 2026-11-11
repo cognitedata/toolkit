@@ -21,6 +21,7 @@ specify the deploy branch explicitly.
 
 import json
 import os
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -372,11 +373,29 @@ class Git:
             raise RuntimeError(f"Failed to get changed files in last commit: {e.stderr.strip()}") from e
         return result.stdout.strip().splitlines()
 
+    @staticmethod
+    def is_installed() -> bool:
+        """Check if git is installed and available on PATH."""
+        return shutil.which("git") is not None
+
     @classmethod
-    def get_uncommitted_changes(cls) -> list[str]:
-        """Get the list of uncommitted changes in the current working directory."""
+    def get_root(cls) -> Path | None:
+        """Get the root directory of the current git repository."""
+        output = cls._output("rev-parse", "--show-toplevel")
+        return Path(output) if output else None
+
+    @classmethod
+    def get_uncommitted_changes(cls, *paths: str | Path) -> list[str]:
+        """Get the list of uncommitted changes in the current working directory.
+
+        Args:
+            paths: Optional paths or glob patterns to limit the check to.
+        """
+        args = ["diff", "--name-only"]
+        if paths:
+            args.extend(["--", *(Path(path).as_posix() if isinstance(path, Path) else path for path in paths)])
         try:
-            result = cls._run("diff", "--name-only")
+            result = cls._run(*args)
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to get uncommitted changes: {e.stderr.strip()}") from e
         return result.stdout.strip().splitlines()

@@ -127,6 +127,14 @@ class ModulesApp(typer.Typer):
                 help="Print details of each change applied in the upgrade process.",
             ),
         ] = False,
+        force: Annotated[
+            bool,
+            typer.Option(
+                "--force",
+                help="Upgrade the modules even if there are uncommitted changes.",
+                hidden=not Flags.v010.is_enabled(),
+            ),
+        ] = False,
     ) -> None:
         client: ToolkitClient | None = None
         with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
@@ -135,7 +143,7 @@ class ModulesApp(typer.Typer):
             client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = ModulesCommand(client=client)
-        cmd.run(lambda: cmd.upgrade(organization_dir=organization_dir, verbose=verbose))
+        cmd.run(lambda: cmd.upgrade(organization_dir=organization_dir, verbose=verbose, force=force))
 
     # This is a trick to use an f-string for the docstring
     upgrade.__doc__ = f"""Upgrade the existing CDF project modules to version {__version__}."""
