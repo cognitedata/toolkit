@@ -2,11 +2,11 @@ from pathlib import Path
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
-from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM
+from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.dataio import AssetDataIO, RawIO
 from cognite_toolkit._cdf_tk.dataio.selectors import DataSetSelector, RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
-from cognite_toolkit._cdf_tk.utils.fileio import CSVReader, NDJsonReader
+from cognite_toolkit._cdf_tk.utils.fileio import CSVReader, NDJsonReader, SQLiteReader
 from tests.test_integration.conftest import HierarchyMinimal
 from tests.test_integration.constants import TIMESERIES_COUNT, TIMESERIES_TABLE
 
@@ -71,3 +71,33 @@ class TestDownloadCommand:
         assert expected_aggregate_columns <= columns, (
             f"Expected hierarchy columns missing in downloaded data: {columns}"
         )
+
+    def test_download_raw_table_as_sqlite(
+        self, toolkit_client: ToolkitClient, aggregator_raw_db: str, tmp_path: Path
+    ) -> None:
+        cmd = DownloadCommand(silent=True, skip_tracking=True)
+        selector = RawTableSelector(
+            table=SelectedTable(db_name=aggregator_raw_db, table_name=TIMESERIES_TABLE),
+            download_dir_name=aggregator_raw_db,
+        )
+        cmd.download(
+            [selector],
+            RawIO(toolkit_client),
+            output_dir=tmp_path,
+            verbose=False,
+            file_format=".sqlite",
+            compression="none",
+            limit=None,
+        )
+
+        database = tmp_path / f"{selector.kind}.sqlite"
+        table_name = f"{aggregator_raw_db}.{TIMESERIES_TABLE}"
+        assert {
+            "tables": [(table.name, table.metadata) for table in SQLiteReader.list_tables(database)],
+            "count": SQLiteReader(database, table_name).count(),
+            "config_files": sorted(file.name for file in (tmp_path / DATA_RESOURCE_DIR).rglob("*.yaml")),
+        } == {
+            "tables": [(table_name, selector.model_dump(mode="json", by_alias=True))],
+            "count": TIMESERIES_COUNT,
+            "config_files": [f"{aggregator_raw_db}.Database.yaml", f"{table_name}.Table.yaml"],
+        }

@@ -245,8 +245,9 @@ class UploadableAssetCentricIO(
         cleaned_row: dict[str, JsonVal] = {}
         for key, value in row.items():
             if key.startswith("metadata."):
-                metadata_key = key[len("metadata.") :]
-                metadata[metadata_key] = value
+                # Tables store a metadata key that only some rows have as null in the other rows.
+                if value is not None:
+                    metadata[key[len("metadata.") :]] = value
             else:
                 cleaned_row[key] = value
         if metadata:
@@ -265,6 +266,7 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
     KIND = "Assets"
     RESOURCE_TYPE = "asset"
     UPLOAD_ENDPOINT = "/assets"
+    AGGREGATE_KEYS = frozenset({"childCount", "depth", "path"})
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
@@ -386,7 +388,9 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         return data_chunk.create_from(result)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> AssetRequest:
-        return self._crud.load_resource(item_json)
+        # The aggregates are read-only, and the API rejects them on create.
+        writable = {key: value for key, value in item_json.items() if key not in self.AGGREGATE_KEYS}
+        return self._crud.load_resource(writable)
 
     def retrieve(self, ids: Sequence[int]) -> list[AssetResponse]:
         return self.client.assets.retrieve(InternalId.from_ids(ids))
