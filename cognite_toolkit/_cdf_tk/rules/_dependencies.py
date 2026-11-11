@@ -18,18 +18,21 @@ from ._base import (
     InternalValidatorException,
     ResourceRef,
     RuleSetStatus,
-    ToolkitGlobalRuleSet,
+    ToolkitRuleSet,
     identifier_values,
     quote_identifier,
     with_position,
 )
 
 
-class DependencyRuleSet(ToolkitGlobalRuleSet):
+class DependencyRuleSet(ToolkitRuleSet):
     """
     Validates that resources reference each other correctly, and that local state changes
     can actually be applied in CDF.
     """
+
+    RESOURCE_TYPES = frozenset({"ALL"})
+    CONTEXT = frozenset({"local", "cdf"})
 
     DISPLAY_NAME = "Dependencies"
 
