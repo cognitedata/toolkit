@@ -266,7 +266,7 @@ class AssetDataIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
     KIND = "Assets"
     RESOURCE_TYPE = "asset"
     UPLOAD_ENDPOINT = "/assets"
-    AGGREGATE_KEYS = frozenset({"childCount", "depth", "path"})
+    AGGREGATE_KEYS: ClassVar[frozenset[str]] = frozenset({"childCount", "depth", "path"})
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
