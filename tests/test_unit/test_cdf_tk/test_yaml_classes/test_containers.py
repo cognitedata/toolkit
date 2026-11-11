@@ -4,6 +4,7 @@ from typing import get_args
 
 import pytest
 
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.yaml_classes.container_field_definitions import (
@@ -262,7 +263,8 @@ class TestContainerYAML:
 
         assert subclasses == expected_subclasses, f"Expected subclasses {expected_subclasses}, but got {subclasses}"
 
-    def test_deprecated_cdf_reference_warnings(self, tmp_path: Path) -> None:
+    def test_deprecated_cdf_reference_warnings(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.ALPHA_RULES)
         source = tmp_path / "my.Container.yaml"
         source.write_text(
             "space: my_space\n"

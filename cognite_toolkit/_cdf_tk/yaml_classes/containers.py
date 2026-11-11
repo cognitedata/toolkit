@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.constants import (
     FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER,
     SPACE_FORMAT_PATTERN,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
 from .base import ToolkitResource
@@ -90,6 +91,8 @@ class ContainerYAML(ToolkitResource):
 
     def _deprecated_cdf_reference_warnings(self, source_file: Path) -> "list[BuildWarning]":
         """Warn against properties referencing time series, files, or sequences by their classic external ID."""
+        if not Flags.ALPHA_RULES.is_enabled():
+            return []
         # Lazy import to avoid circular dependency (yaml_classes → commands.build_v2 → resource_ios → yaml_classes).
         from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning
         from cognite_toolkit._cdf_tk.rules._base import with_position
@@ -105,6 +108,7 @@ class ContainerYAML(ToolkitResource):
                     ),
                     source_file=source_file,
                     fix=_DEPRECATED_CDF_REFERENCE_FIXES[prop.type.type],
+                    alpha=True,
                 ),
                 keys=[prop_id],
             )
