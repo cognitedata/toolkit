@@ -1018,19 +1018,21 @@ class BuildV2Command(ToolkitCommand):
                 "Please run this command from within a Git repository."
             )
         module_absolute_path = (organization_dir / MODULES).resolve()
+        # Git reports paths relative to the repository root, not the current working directory.
+        repo_root = git.get_root() or Path.cwd()
         deploy_branch = user_deploy_branch or git.get_default_branch()
         current_branch = git.get_current_branch()
         if current_branch == deploy_branch:
             changed_files = git.get_changed_files_last_commit()
         else:
             changed_files = git.get_changed_files(deploy_branch, current_branch)
-        changed_file_paths = {Path(file).resolve() for file in changed_files}
+        changed_file_paths = {(repo_root / file).resolve() for file in changed_files}
         selected, _ = cls._find_modules_from_files(changed_file_paths, module_absolute_path)
         if selected:
             return selected, []
 
         uncommitted_changes = git.get_uncommitted_changes()
-        uncommitted_paths = {Path(file).resolve() for file in uncommitted_changes}
+        uncommitted_paths = {(repo_root / file).resolve() for file in uncommitted_changes}
         _, uncommitted_modules = cls._find_modules_from_files(uncommitted_paths, module_absolute_path)
         return selected, list(uncommitted_modules)
 
