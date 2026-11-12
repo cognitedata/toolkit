@@ -29,6 +29,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     InstanceViewSelector,
     SelectedView,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from tests.constants import CDF_CLUSTER
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -684,3 +685,27 @@ class TestInstanceIO:
 
         assert instance.sources
         assert instance.sources[0].properties == expected_properties
+
+    def test_row_to_resource_skips_null_references(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
+        selector = InstanceViewSelector(view=SelectedView(space="mySpace", external_id="myView", version="v1"))
+        row: dict[str, JsonVal] = {
+            "space": "mySpace",
+            "externalId": "node1",
+            "type.space": None,
+            "type.externalId": None,
+            "name": "A",
+        }
+
+        instance = InstanceIO(toolkit_client_approval.mock_client).row_to_resource("row 1", row, selector)
+
+        assert instance.dump() == {
+            "instanceType": "node",
+            "space": "mySpace",
+            "externalId": "node1",
+            "sources": [
+                {
+                    "source": {"type": "view", "space": "mySpace", "externalId": "myView", "version": "v1"},
+                    "properties": {"name": "A"},
+                }
+            ],
+        }
