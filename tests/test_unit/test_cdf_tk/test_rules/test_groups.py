@@ -89,8 +89,8 @@ class TestGroupRuleSet:
         insights = [item for item in results if isinstance(item, InsightDefinition)]
 
         assert [(item.insight_type, item.code, item.source_file, item.line, item.alpha) for item in insights] == [
-            (expected_type, "DEPRECATED-CAPABILITY", resources[0].source_path, 8, True),
-            (expected_type, "DEPRECATED-CAPABILITY", resources[1].source_path, 4, True),
+            (expected_type, "DEPRECATED-FEATURE", resources[0].source_path, 8, True),
+            (expected_type, "DEPRECATED-FEATURE", resources[1].source_path, 4, True),
         ]
 
     @pytest.mark.usefixtures("alpha_rules")

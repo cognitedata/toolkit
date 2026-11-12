@@ -1,10 +1,15 @@
-from typing import Literal
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field, model_validator
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SequenceRowId
 
 from .base import BaseModelResource, ToolkitResource
+
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning, Recommendation
+    from cognite_toolkit._cdf_tk.resource_ios import ResourceType
 
 
 class SequenceColumnDTO(BaseModelResource):
@@ -83,6 +88,9 @@ class SequenceRowDTO(BaseModelResource):
     )
 
 
+_HAS_WARNED = False
+
+
 class SequenceRowYAML(ToolkitResource):
     external_id: str = Field(
         description="The external ID provided by the client.",
@@ -113,3 +121,28 @@ class SequenceRowYAML(ToolkitResource):
 
     def as_id(self) -> SequenceRowId:
         return SequenceRowId(external_id=self.external_id, rows=tuple(row.row_number for row in self.rows))
+
+    def extra_insights(self, source_file: Path, resource_type: "ResourceType") -> "list[BuildWarning | Recommendation]":
+        """Return a list of extra insights for the resource.
+
+        Args:
+            source_file: The source file where the resource is defined.
+            resource_type: The type of the resource.
+        Returns:
+            A list of extra insights for the resource.
+        """
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning
+
+        global _HAS_WARNED
+        insights: list[BuildWarning | Recommendation] = []
+        if not _HAS_WARNED:
+            insights.append(
+                BuildWarning(
+                    code="DEPRECATED-FEATURE",
+                    message=f"Resource type {resource_type!s} is deprecated and will be removed in a future version of the Toolkit.",
+                    source_file=source_file,
+                    fix="Use the `cdf data download sequences` and `cdf data upload dir` commands instead.",
+                ),
+            )
+            _HAS_WARNED = True
+        return insights
