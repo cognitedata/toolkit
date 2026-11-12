@@ -9,6 +9,8 @@ from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR, DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.utils.fileio import SQLiteReader
 
 from ._helpers import print_help_if_no_subcommand
 
@@ -112,7 +114,10 @@ class UploadApp(typer.Typer):
         _validate_cdf_project(cdf_project, client.config.project)
 
         if input_dir is None:
-            input_candidate = sorted({p.parent for p in DEFAULT_INPUT_DIR.rglob(f"**/*{DATA_MANIFEST_SUFFIX}")})
+            data_files = list(DEFAULT_INPUT_DIR.rglob(f"**/*{DATA_MANIFEST_SUFFIX}"))
+            if Flags.EXTEND_DOWNLOAD.is_enabled():
+                data_files.extend(DEFAULT_INPUT_DIR.rglob(f"**/*{SQLiteReader.FORMAT}"))
+            input_candidate = sorted({p.parent for p in data_files})
             if not input_candidate:
                 typer.echo(f"No data manifests found in default directory: {DEFAULT_INPUT_DIR}")
                 raise typer.Exit(code=1)
