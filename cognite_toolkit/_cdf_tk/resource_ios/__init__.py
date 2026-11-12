@@ -99,6 +99,9 @@ if not FeatureFlag.is_enabled(Flags.NEAT):
 if not FeatureFlag.is_enabled(Flags.POSTGRES_GATEWAY):
     _EXCLUDED_CRUDS.add(PostgresGatewayUserIO)
     _EXCLUDED_CRUDS.add(PostgresGatewayTableIO)
+if FeatureFlag.is_enabled(Flags.v010):
+    # Will be considered data and only be supported in data plugin.
+    _EXCLUDED_CRUDS.add(SequenceRowIO)
 
 RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[BaseResourceIO]]] = defaultdict(list)
 RESOURCE_IO_BY_FOLDER_NAME: defaultdict[str, list[type[ResourceIO]]] = defaultdict(list)

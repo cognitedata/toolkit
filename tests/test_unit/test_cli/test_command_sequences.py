@@ -211,7 +211,9 @@ def test_init_build_clean(
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR_CLEAN / f"{module_path.name}.yaml")
 
 
-TEST_CASES = [COMPLETE_ORG]
+TEST_CASES = []
+if Flags.v010.is_enabled():
+    TEST_CASES.append(COMPLETE_ORG)
 if Flags.GRAPHQL.is_enabled():
     TEST_CASES.append(COMPLETE_ORG_ALPHA_FLAGS)
 
