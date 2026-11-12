@@ -1,4 +1,4 @@
-from typing import Annotated, Any, ClassVar, Literal
+from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 
 from pydantic import BeforeValidator, ConfigDict, JsonValue, field_validator
 
@@ -211,3 +211,53 @@ class HostedExtractorJobResponse(HostedExtractorJob, ResponseResource[HostedExtr
     @classmethod
     def request_cls(cls) -> type[HostedExtractorJobRequest]:
         return HostedExtractorJobRequest
+
+
+HostedExtractorJobLogType: TypeAlias = Literal[
+    "paused", "startup_error", "connection_error", "connected", "transform_error", "cdf_write_error", "ok"
+]
+
+
+class HostedExtractorJobLogResponse(BaseModelObject):
+    """A log entry of a hosted extractor job."""
+
+    job_external_id: str
+    type: HostedExtractorJobLogType | str
+    created_time: int
+    message: str | None = None
+
+
+class HostedExtractorJobMetricsResponse(BaseModelObject):
+    """The metrics of a hosted extractor job, from the start of the UTC hour of the timestamp to the timestamp."""
+
+    job_external_id: str
+    timestamp: int
+    source_messages: int
+    source_bytes: int
+    cdf_input_values: int
+    cdf_requests: int
+    transform_failures: int
+    cdf_write_failures: int
+    cdf_skipped_values: int
+    cdf_failed_values: int
+    cdf_uploaded_values: int
+
+
+class HostedExtractorDLQColumns(BaseModelObject):
+    """The columns of a dead letter queue message, stored as a row in CDF RAW."""
+
+    timestamp: str
+    job_id: int
+    error: str
+    error_category: str
+    mapping_external_id: str | None = None
+    raw_payload: str | None = None
+    decoded_payload: str | None = None
+    metadata: str | None = None
+
+
+class HostedExtractorDLQMessageResponse(BaseModelObject):
+    """A message a hosted extractor job failed to transform."""
+
+    key: str
+    columns: HostedExtractorDLQColumns
