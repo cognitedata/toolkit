@@ -1,6 +1,7 @@
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 from rich.console import Console
@@ -8,6 +9,7 @@ from rich.progress import Progress
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     InsightList,
 )
@@ -43,32 +45,52 @@ class ValidationStep:
 class ValidationCommand(ToolkitCommand):
     def validate(
         self,
-        resources: Sequence[ResourceRef],
+        resources: Sequence[ResourceRef] | None = None,
         results: Sequence[DeploymentResult] | None = None,
+        resource_types: set[ResourceType] | None = None,
         client: ToolkitClient | None = None,
         display: bool = True,
-        context: Literal["local", "cdf"] = "local",
+        rule_context: Literal["local", "cdf"] = "local",
+        context: Literal["stand-alone", "integrated"] = "stand-alone",
     ) -> ValidationResultList:
         """Validates the built modules in the build folder."""
         console = client.console if client else Console(markup=True)
-        plan = self._create_validation_plan(resources, results, client, context)
+        plan = self._create_validation_plan(resources, results, resource_types, client, rule_context)
         if display:
             self._display_validation_plan(plan, console)
-        return self._run_validation(plan, console)
+        validation_results = self._run_validation(plan, console)
+        if display and context == "stand-alone":
+            BuildV2Command._display_insights(
+                insights=InsightList([insight for result in validation_results for insight in result.insights]),
+                insight_path=Path("dummy"),
+                console=console,
+                verbose=True,
+            )
+        return validation_results
 
     @classmethod
     def _create_validation_plan(
         cls,
-        resources: Sequence[ResourceRef],
+        resources: Sequence[ResourceRef] | None = None,
         results: Sequence[DeploymentResult] | None = None,
+        resource_types: set[ResourceType] | None = None,
         client: ToolkitClient | None = None,
         context: Literal["local", "cdf"] = "local",
     ) -> list[ValidationStep]:
+        """Selects the rules to run. Without resources, all rules for the context are selected."""
         all_rules = get_global_rules_registry()
-        resource_types: set[ResourceType] = {resource.type for resource in resources}
+        used_resource_types: set[ResourceType] | None = (
+            {resource.type for resource in resources}
+            if resources is not None and resource_types is None
+            else resource_types
+        )
         plan: list[ValidationStep] = []
         for rule_cls in all_rules:
-            if not resource_types.intersection(rule_cls.RESOURCE_TYPES) and "ALL" not in rule_cls.RESOURCE_TYPES:
+            if (
+                used_resource_types is not None
+                and not used_resource_types.intersection(rule_cls.RESOURCE_TYPES)
+                and "ALL" not in rule_cls.RESOURCE_TYPES
+            ):
                 continue
             if context not in rule_cls.CONTEXT:
                 continue

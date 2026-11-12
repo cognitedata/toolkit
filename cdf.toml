@@ -29,6 +29,7 @@ config-include = true
 cdf-group-emails = false
 neat = true
 postgres-gateway = true
+check = true
 
 [plugins]
 run = true

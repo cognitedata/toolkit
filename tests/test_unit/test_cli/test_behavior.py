@@ -1139,6 +1139,7 @@ capabilities:
     validation_result = ValidationCommand(silent=True, skip_tracking=True).validate(
         [resource for module in folder.built_modules for resource in module.resources],
         [],
+        None,
         env_vars_with_client.get_client(),
         display=False,
     )
@@ -1273,6 +1274,7 @@ capabilities:
     validation_result = ValidationCommand(silent=True, skip_tracking=True).validate(
         [resource for module in folder.built_modules for resource in module.resources],
         [],
+        None,
         env_vars_with_client.get_client(),
         display=False,
     )

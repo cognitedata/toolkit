@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.commands import (
     BuildDeployValidateCommand,
     DeployOptions,
     DeployV2Command,
+    ValidationCommand,
 )
 from cognite_toolkit._cdf_tk.commands._base import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
@@ -110,6 +111,8 @@ class CoreApp(typer.Typer):
         self.command("build")(self.build_v2)
         self.command("deploy")(self.deploy_v2)
         self.command("clean")(self.clean_v2)
+        if Flags.CHECK.is_enabled():
+            self.command("check")(self.check)
 
     def common(
         self,
@@ -508,5 +511,20 @@ class CoreApp(typer.Typer):
                     environment_variables=env_vars.dump(),
                     deployment_dir=clean_dir,
                 ),
+            )
+        )
+
+    @staticmethod
+    def check() -> None:
+        """Checks resources in CDF project against rules and best practices."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = ValidationCommand(client=client)
+
+        cmd.run(
+            lambda: cmd.validate(
+                resource_types=None,
+                client=client,
+                display=True,
+                rule_context="cdf",
             )
         )
