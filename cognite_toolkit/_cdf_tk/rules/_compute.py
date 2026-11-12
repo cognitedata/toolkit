@@ -1,3 +1,4 @@
+import importlib.util
 import time
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
@@ -6,14 +7,26 @@ from typing import Literal
 from urllib.parse import quote
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    DataModelId,
+    ExternalId,
+    InternalId,
+    RawTableId,
+    SpaceId,
+    ViewId,
+    WorkflowVersionId,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import HostedExtractorJobResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import (
+    CustomFormat,
+    HostedExtractorJobResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
     HostedExtractorSourceResponseUnion,
     KafkaSourceResponse,
@@ -21,11 +34,27 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
     RESTSourceResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionResponse, SessionStatus
-from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    DataModelSource,
+    RawDataSource,
+    SequenceRowDataSource,
+    TransformationResponse,
+    ViewDataSource,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule import TransformationScheduleResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     ScheduleTriggerRule,
     WorkflowTriggerResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
+    FunctionAppTaskParameters,
+    FunctionTaskParameters,
+    SimulationTaskParameters,
+    SubworkflowRef,
+    SubworkflowTaskParameters,
+    Task,
+    TransformationTaskParameters,
+    WorkflowVersionResponse,
 )
 from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
@@ -37,18 +66,28 @@ from cognite_toolkit._cdf_tk.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
+    DataModelIO,
     FunctionIO,
     FunctionScheduleIO,
     HostedExtractorDestinationIO,
     HostedExtractorJobIO,
+    HostedExtractorMappingIO,
     HostedExtractorSourceIO,
+    RawTableIO,
+    ResourceIO,
+    SequenceIO,
+    SimulatorRoutineIO,
+    SpaceIO,
     TransformationIO,
     TransformationScheduleIO,
+    ViewIO,
     WorkflowIO,
     WorkflowTriggerIO,
+    WorkflowVersionIO,
 )
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet, quote_identifier
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_sources
 from cognite_toolkit._cdf_tk.utils.cron import MINUTES_PER_DAY, cron_minutes_of_week, utc_offset_minutes
 from cognite_toolkit._cdf_tk.utils.time import ms_to_datetime
 
@@ -81,6 +120,7 @@ class _Inventory:
     transformation_schedules: list[TransformationScheduleResponse] = field(default_factory=list)
     functions: list[FunctionResponse] = field(default_factory=list)
     function_schedules: list[FunctionScheduleResponse] = field(default_factory=list)
+    workflow_versions: list[WorkflowVersionResponse] = field(default_factory=list)
     workflow_triggers: list[WorkflowTriggerResponse] = field(default_factory=list)
     hosted_extractor_jobs: list[HostedExtractorJobResponse] = field(default_factory=list)
     hosted_extractor_sources: list[HostedExtractorSourceResponseUnion] = field(default_factory=list)
@@ -116,6 +156,18 @@ class _Schedule:
 
 
 @dataclass(frozen=True)
+class _Reference:
+    """A resource a compute resource depends on, for example, the RAW table a transformation reads from."""
+
+    url: str
+    referrer: str
+    verb: str
+    label: str
+    crud: type[ResourceIO]
+    identifier: Identifier
+
+
+@dataclass(frozen=True)
 class _Finding:
     """A potential issue with a compute resource."""
 
@@ -130,7 +182,8 @@ class ComputeRuleSet(ToolkitRuleSet):
     """Validates the compute resources in CDF: transformations, functions, workflows, and hosted extractor jobs.
 
     Finds credentials whose session is missing or no longer valid, has expired, or expires soon, certificates
-    that have expired or expire soon, and many resources scheduled to start at the same time.
+    that have expired or expire soon, many resources scheduled to start at the same time, and resources they
+    depend on that do not exist.
     """
 
     RESOURCE_TYPES = frozenset(
@@ -140,6 +193,7 @@ class ComputeRuleSet(ToolkitRuleSet):
             FunctionIO.as_resource_type(),
             FunctionScheduleIO.as_resource_type(),
             WorkflowIO.as_resource_type(),
+            WorkflowVersionIO.as_resource_type(),
             WorkflowTriggerIO.as_resource_type(),
             HostedExtractorJobIO.as_resource_type(),
             HostedExtractorSourceIO.as_resource_type(),
@@ -152,13 +206,25 @@ class ComputeRuleSet(ToolkitRuleSet):
     def get_status(self) -> RuleSetStatus:
         if self.client is None:
             return RuleSetStatus(code="skip", message="Compute validation requires a client to read CDF.")
+        if not self._has_sql_parser():
+            return RuleSetStatus(
+                code="reduced",
+                message=(
+                    "Will not validate the sources of transformations, as sqlparse is not installed. "
+                    "Install with 'pip install \"cognite-toolkit[sql]\"'."
+                ),
+            )
         return RuleSetStatus(
             code="ready",
             message=(
-                "Will validate the credentials and schedules of transformations, functions, workflows, and hosted "
-                "extractor jobs in CDF."
+                "Will validate the credentials, schedules, and dependencies of transformations, functions, "
+                "workflows, and hosted extractor jobs in CDF."
             ),
         )
+
+    @staticmethod
+    def _has_sql_parser() -> bool:
+        return importlib.util.find_spec("sqlparse") is not None
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
         if self.client is None:
@@ -172,6 +238,7 @@ class ComputeRuleSet(ToolkitRuleSet):
         potential_issues = (
             *self._check_credentials(client, inventory, now),
             *self._check_schedules(client, inventory),
+            *self._check_dependencies(client, inventory),
         )
         for item in potential_issues:
             if isinstance(item, InternalValidatorException):
@@ -195,6 +262,7 @@ class ComputeRuleSet(ToolkitRuleSet):
         except ToolkitAPIError as error:
             exceptions.append(self._retrieve_failed("functions", error))
         try:
+            inventory.workflow_versions = client.workflows.versions.list(limit=None)
             inventory.workflow_triggers = client.workflows.triggers.list(limit=None)
         except ToolkitAPIError as error:
             exceptions.append(self._retrieve_failed("workflows", error))
@@ -448,7 +516,169 @@ class ComputeRuleSet(ToolkitRuleSet):
             )
         return schedules
 
-    # 3. Report
+    # 3. Dependencies
+
+    def _check_dependencies(
+        self, client: ToolkitClient, inventory: _Inventory
+    ) -> Iterable[_Finding | InternalValidatorException]:
+        known: set[tuple[type[ResourceIO], Identifier]] = {
+            *((TransformationIO, item.as_id()) for item in inventory.transformations),
+            *(
+                (FunctionIO, ExternalId(external_id=item.external_id))
+                for item in inventory.functions
+                if item.external_id
+            ),
+            *((WorkflowVersionIO, item.as_id()) for item in inventory.workflow_versions),
+            *(
+                (HostedExtractorSourceIO, ExternalId(external_id=item.external_id))
+                for item in inventory.hosted_extractor_sources
+            ),
+            *((HostedExtractorDestinationIO, item.as_id()) for item in inventory.hosted_extractor_destinations),
+        }
+        references_by_crud: dict[type[ResourceIO], dict[Identifier, list[_Reference]]] = defaultdict(
+            lambda: defaultdict(list)
+        )
+        for reference in self._references(client, inventory):
+            if isinstance(reference, InternalValidatorException):
+                yield reference
+            elif (reference.crud, reference.identifier) not in known:
+                references_by_crud[reference.crud][reference.identifier].append(reference)
+
+        for crud_cls, references_by_identifier in references_by_crud.items():
+            crud = crud_cls(client)
+            try:
+                existing = {crud.get_id(item) for item in crud.retrieve(list(references_by_identifier))}
+            except ToolkitAPIError as error:
+                yield InternalValidatorException(
+                    message=f"Failed to verify the existence of {crud.kind} resources in CDF: {error}",
+                    source=self.DISPLAY_NAME,
+                )
+                continue
+            for identifier, references in references_by_identifier.items():
+                if identifier in existing:
+                    continue
+                for reference in references:
+                    target = f"{reference.label} {quote_identifier(identifier)}"
+                    yield _Finding(
+                        url=reference.url,
+                        severity="error",
+                        code="MISSING-REFERENCED-RESOURCE",
+                        message=f"{reference.referrer} {reference.verb} the {target}, which does not exist.",
+                        fix=f"Create the {target}, or stop using it.",
+                    )
+
+    def _references(
+        self, client: ToolkitClient, inventory: _Inventory
+    ) -> Iterable[_Reference | InternalValidatorException]:
+        yield from self._transformation_references(client, inventory.transformations)
+        for workflow_version in inventory.workflow_versions:
+            url = _workflow_version_url(client, workflow_version.workflow_external_id, workflow_version.version)
+            for task in _tasks(workflow_version.workflow_definition.tasks):
+                referrer = (
+                    f"The task '{task.external_id}' of the workflow '{workflow_version.workflow_external_id}' "
+                    f"version '{workflow_version.version}'"
+                )
+                if reference := _task_reference(task, url, referrer):
+                    yield reference
+        for trigger in inventory.workflow_triggers:
+            yield _Reference(
+                url=client.config.create_api_url(f"/workflows/triggers/{quote(trigger.external_id, safe='')}/history"),
+                referrer=f"The workflow trigger '{trigger.external_id}'",
+                verb="runs",
+                label="workflow version",
+                crud=WorkflowVersionIO,
+                identifier=WorkflowVersionId(
+                    workflow_external_id=trigger.workflow_external_id, version=trigger.workflow_version
+                ),
+            )
+        for job in inventory.hosted_extractor_jobs:
+            url = _hosted_extractor_job_url(client, job)
+            referrer = f"The hosted extractor job '{job.external_id}'"
+            yield _Reference(
+                url=url,
+                referrer=referrer,
+                verb="reads from",
+                label="hosted extractor source",
+                crud=HostedExtractorSourceIO,
+                identifier=ExternalId(external_id=job.source_id),
+            )
+            yield _Reference(
+                url=url,
+                referrer=referrer,
+                verb="writes to",
+                label="hosted extractor destination",
+                crud=HostedExtractorDestinationIO,
+                identifier=ExternalId(external_id=job.destination_id),
+            )
+            if isinstance(job.format, CustomFormat):
+                yield _Reference(
+                    url=url,
+                    referrer=referrer,
+                    verb="uses",
+                    label="hosted extractor mapping",
+                    crud=HostedExtractorMappingIO,
+                    identifier=ExternalId(external_id=job.format.mapping_id),
+                )
+
+    def _transformation_references(
+        self, client: ToolkitClient, transformations: Sequence[TransformationResponse]
+    ) -> Iterable[_Reference | InternalValidatorException]:
+        has_sql_parser = self._has_sql_parser()
+        for transformation in transformations:
+            url = _transformation_url(client, transformation)
+            referrer = f"The transformation '{transformation.external_id}'"
+            destination = transformation.destination
+            targets: list[tuple[str, type[ResourceIO], Identifier]] = []
+            if isinstance(destination, RawDataSource):
+                targets.append(
+                    ("RAW table", RawTableIO, RawTableId(db_name=destination.database, name=destination.table))
+                )
+            elif isinstance(destination, DataModelSource):
+                data_model = destination.data_model
+                targets.append(
+                    (
+                        "data model",
+                        DataModelIO,
+                        DataModelId(
+                            space=data_model.space, external_id=data_model.external_id, version=data_model.version
+                        ),
+                    )
+                )
+            elif isinstance(destination, ViewDataSource):
+                view = destination.view
+                targets.append(
+                    ("view", ViewIO, ViewId(space=view.space, external_id=view.external_id, version=view.version))
+                )
+            elif isinstance(destination, SequenceRowDataSource):
+                targets.append(("sequence", SequenceIO, ExternalId(external_id=destination.external_id)))
+            if isinstance(destination, DataModelSource | ViewDataSource) and destination.instance_space:
+                targets.append(("instance space", SpaceIO, SpaceId(space=destination.instance_space)))
+            for label, crud, identifier in targets:
+                yield _Reference(
+                    url=url, referrer=referrer, verb="writes to", label=label, crud=crud, identifier=identifier
+                )
+            if not has_sql_parser:
+                continue
+            try:
+                sources = get_transformation_sources(transformation.query)
+            except Exception as error:
+                yield InternalValidatorException(
+                    message=f"Failed to parse the query of the transformation '{transformation.external_id}': {error}",
+                    source=self.DISPLAY_NAME,
+                )
+                continue
+            for source in sources:
+                if isinstance(source, RawTableId):
+                    yield _Reference(
+                        url=url,
+                        referrer=referrer,
+                        verb="reads from",
+                        label="RAW table",
+                        crud=RawTableIO,
+                        identifier=source,
+                    )
+
+    # 4. Report
 
     @staticmethod
     def _report(findings: Sequence[_Finding]) -> Iterable[Insight]:
@@ -484,6 +714,47 @@ def _function_name(schedule: FunctionScheduleResponse, function_by_id: dict[int,
     if function is None:
         return str(schedule.function_id)
     return function.external_id or function.name
+
+
+def _tasks(tasks: Sequence[Task]) -> Iterable[Task]:
+    """The tasks, including the tasks of inline subworkflows."""
+    for task in tasks:
+        yield task
+        parameters = task.parameters
+        if isinstance(parameters, SubworkflowTaskParameters) and isinstance(parameters.subworkflow, SubworkflowRef):
+            yield from _tasks(parameters.subworkflow.tasks)
+
+
+def _task_reference(task: Task, url: str, referrer: str) -> _Reference | None:
+    """The resource the task runs. External IDs starting with '${' are resolved when the workflow runs."""
+    parameters = task.parameters
+    target: tuple[str, str, type[ResourceIO], Identifier] | None = None
+    if isinstance(parameters, FunctionTaskParameters):
+        target = ("calls", "function", FunctionIO, ExternalId(external_id=parameters.function.external_id))
+    elif isinstance(parameters, FunctionAppTaskParameters):
+        target = ("calls", "function", FunctionIO, ExternalId(external_id=parameters.function_app.external_id))
+    elif isinstance(parameters, TransformationTaskParameters):
+        target = (
+            "runs",
+            "transformation",
+            TransformationIO,
+            ExternalId(external_id=parameters.transformation.external_id),
+        )
+    elif isinstance(parameters, SimulationTaskParameters):
+        target = (
+            "runs",
+            "simulator routine",
+            SimulatorRoutineIO,
+            ExternalId(external_id=parameters.simulation.routine_external_id),
+        )
+    elif isinstance(parameters, SubworkflowTaskParameters) and isinstance(parameters.subworkflow, WorkflowVersionId):
+        target = ("runs", "workflow version", WorkflowVersionIO, parameters.subworkflow)
+    if target is None:
+        return None
+    verb, label, crud, identifier = target
+    if any(value.startswith("${") for value in identifier.dump().values() if isinstance(value, str)):
+        return None
+    return _Reference(url=url, referrer=referrer, verb=verb, label=label, crud=crud, identifier=identifier)
 
 
 def _humanize_duration(ms: int) -> str:

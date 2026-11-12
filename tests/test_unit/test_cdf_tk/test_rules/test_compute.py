@@ -13,10 +13,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
     CertificateResponse,
     RESTSourceResponse,
+    UnknownSourceResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule import TransformationScheduleResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.commands._validation import ValidationCommand
 from cognite_toolkit._cdf_tk.data_classes._insights import InsightDefinition
 from cognite_toolkit._cdf_tk.rules import ComputeRuleSet
@@ -88,6 +91,9 @@ class TestComputeRuleSet:
                     "lastUpdatedTime": 0,
                 }
             )
+        ]
+        client.hosted_extractors.sources.list.return_value = [
+            UnknownSourceResponse(type="custom", external_id="src", created_time=0, last_updated_time=0)
         ]
         client.hosted_extractors.destinations.list.return_value = [
             HostedExtractorDestinationResponse(external_id="dst", session_id=15, created_time=0, last_updated_time=0)
@@ -196,6 +202,61 @@ class TestComputeRuleSet:
 
         assert warning_count_by_url == {f"{API_URL}/transformations/{id_}": 1 for id_ in range(1, 7)}
 
+    def test_missing_referenced_resources(self) -> None:
+        client = _client()
+        client.transformations.list.return_value = [
+            _transformation(
+                1,
+                "tr_missing_source",
+                query="SELECT * FROM src_db.gone",
+                destination={"type": "raw", "database": "dst_db", "table": "table_ok"},
+            ),
+        ]
+        client.raw.tables.list.side_effect = lambda db_name, limit: (
+            [RAWTableResponse(db_name="dst_db", name="table_ok", created_time=0)] if db_name == "dst_db" else []
+        )
+        client.workflows.versions.list.return_value = [
+            WorkflowVersionResponse.model_validate(
+                {
+                    "workflowExternalId": "wf",
+                    "version": "v1",
+                    "createdTime": 0,
+                    "lastUpdatedTime": 0,
+                    "workflowDefinition": {
+                        "tasks": [
+                            {
+                                "externalId": "run",
+                                "type": "transformation",
+                                "parameters": {"transformation": {"externalId": "tr_gone"}},
+                            },
+                            {
+                                "externalId": "dynamic",
+                                "type": "transformation",
+                                "parameters": {"transformation": {"externalId": "${run.output.next}"}},
+                            },
+                        ]
+                    },
+                }
+            )
+        ]
+        client.transformations.retrieve.return_value = []
+
+        insights = sorted((insight.code, insight.source_url, insight.message) for insight in _validate(client))
+
+        assert insights == [
+            (
+                "MISSING-REFERENCED-RESOURCE",
+                f"{API_URL}/transformations/1",
+                "The transformation 'tr_missing_source' reads from the RAW table 'src_db.gone', which does not exist.",
+            ),
+            (
+                "MISSING-REFERENCED-RESOURCE",
+                f"{API_URL}/workflows/wf/versions/v1",
+                "The task 'run' of the workflow 'wf' version 'v1' runs the transformation 'tr_gone', which does "
+                "not exist.",
+            ),
+        ]
+
     def test_unverified_credentials_when_sessions_cannot_be_retrieved(self) -> None:
         client = _client()
         client.transformations.list.return_value = [_transformation(1, "tr", sourceSession=_session_info(10))]
@@ -228,6 +289,9 @@ class TestComputeRuleSet:
                 created_time=0,
                 last_updated_time=0,
             )
+        ]
+        client.hosted_extractors.destinations.list.return_value = [
+            HostedExtractorDestinationResponse(external_id="dst", created_time=0, last_updated_time=0)
         ]
         client.sessions.retrieve.side_effect = ToolkitAPIError("Forbidden", code=403)
 
