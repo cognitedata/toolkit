@@ -38,6 +38,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     ContainerIO,
     DataModelIO,
@@ -68,13 +69,24 @@ properties:
       type: text
 """
 
-DIRECT_CONTAINER_YAML = """space: my_space
+UNINDEXED_DIRECT_CONTAINER_YAML = """space: my_space
 externalId: MyContainer
 properties:
   related:
     type:
       type: direct
 """
+
+DIRECT_CONTAINER_YAML = (
+    UNINDEXED_DIRECT_CONTAINER_YAML
+    + """indexes:
+  related_index:
+    indexType: btree
+    properties:
+    - related
+    cursorable: true
+"""
+)
 
 TEXT_CONTAINER_YAML = """space: my_space
 externalId: MyContainer
@@ -156,6 +168,11 @@ properties:
     nullable: true
     autoIncrement: false
 """
+
+
+@pytest.fixture
+def alpha_rules(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.ALPHA_RULES)
 
 
 def _write(tmp_path: Path, name: str, content: str) -> Path:
@@ -471,6 +488,277 @@ class TestReverseDirectRelations:
             for view_id, is_direct in cdf_view_is_direct.items()
         ]
         rule = DataModelingRuleSet(resources=module, client=_client(views=cdf_views))
+
+        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        assert [insight.code for insight in insights] == expected_codes
+
+    @pytest.mark.usefixtures("alpha_rules")
+    @pytest.mark.parametrize(
+        "index_yaml, is_list, expected_codes",
+        [
+            pytest.param("", False, ["PERFORMANCE-DEGRADED"], id="no-index"),
+            pytest.param(
+                "indexes:\n  idx:\n    indexType: btree\n    properties:\n    - related\n",
+                False,
+                ["PERFORMANCE-DEGRADED"],
+                id="not-cursorable",
+            ),
+            pytest.param("", True, [], id="list-of-direct-relations"),
+        ],
+    )
+    def test_reverse_relation_target_index(
+        self, index_yaml: str, is_list: bool, expected_codes: list[str], tmp_path: Path
+    ) -> None:
+        container_yaml = UNINDEXED_DIRECT_CONTAINER_YAML + index_yaml
+        if is_list:
+            container_yaml = container_yaml.replace("type: direct", "type: direct\n      list: true")
+        rule = DataModelingRuleSet(
+            resources=_resources(
+                [
+                    (_write(tmp_path, "MyContainer.container.yaml", container_yaml), ContainerIO, CONTAINER_ID),
+                    (_write(tmp_path, "OtherView.view.yaml", MAPPED_VIEW_YAML), ViewIO, OTHER_VIEW_ID),
+                    (_write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML), ViewIO, VIEW_ID),
+                ]
+            )
+        )
+
+        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        assert [insight.code for insight in insights] == expected_codes
+
+    @pytest.mark.usefixtures("alpha_rules")
+    def test_reverse_relation_target_index_on_cdf_container(self, tmp_path: Path) -> None:
+        reverse_view = _write(tmp_path, "MyView.view.yaml", REVERSE_THROUGH_VIEW_YAML)
+        client = _client(
+            containers=[_cdf_container({"related": ContainerPropertyDefinition(type=DirectNodeRelation())})],
+            views=[_cdf_view(OTHER_VIEW_ID, {"related": _view_property("related", direct=True)})],
+        )
+        rule = DataModelingRuleSet(resources=_resources([(reverse_view, ViewIO, VIEW_ID)]), client=client)
+
+        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        assert [(insight.code, "my_space:MyContainer.related" in insight.message) for insight in insights] == [
+            ("PERFORMANCE-DEGRADED", True)
+        ]
+
+
+def _schema_view_yaml(external_id: str, implements: tuple[str, ...] = (), containers: tuple[str, ...] = ()) -> str:
+    """A view in my_space implementing views and mapping one property per container, named after the container."""
+    yaml = f"space: my_space\nexternalId: {external_id}\nversion: v1\n"
+    if implements:
+        yaml += "implements:\n" + "".join(
+            f"  - type: view\n    space: my_space\n    externalId: {parent}\n    version: v1\n" for parent in implements
+        )
+    if containers:
+        yaml += "properties:\n" + "".join(
+            f"  {container}:\n    container:\n      type: container\n      space: my_space\n"
+            f"      externalId: {container}\n    containerPropertyIdentifier: {container}\n"
+            for container in containers
+        )
+    return yaml
+
+
+def _schema_container_yaml(external_id: str, requires: tuple[str, ...] = ()) -> str:
+    yaml = f"space: my_space\nexternalId: {external_id}\nproperties:\n  {external_id}:\n    type:\n      type: text\n"
+    if requires:
+        yaml += "constraints:\n" + "".join(
+            f"  requires{required}:\n    constraintType: requires\n    require:\n      type: container\n"
+            f"      space: my_space\n      externalId: {required}\n"
+            for required in requires
+        )
+    return yaml
+
+
+def _schema_resources(
+    tmp_path: Path,
+    views: dict[str, tuple[tuple[str, ...], tuple[str, ...]]],
+    containers: dict[str, tuple[str, ...]],
+) -> list[BuiltResource]:
+    """Views by external ID to (implements, containers), and containers by external ID to the containers they require."""
+    return _resources(
+        [
+            *(
+                (
+                    _write(tmp_path, f"{name}.container.yaml", _schema_container_yaml(name, requires)),
+                    ContainerIO,
+                    ContainerId(space="my_space", external_id=name),
+                )
+                for name, requires in containers.items()
+            ),
+            *(
+                (
+                    _write(tmp_path, f"{name}.view.yaml", _schema_view_yaml(name, implements, mapped)),
+                    ViewIO,
+                    ViewId(space="my_space", external_id=name, version="v1"),
+                )
+                for name, (implements, mapped) in views.items()
+            ),
+        ]
+    )
+
+
+@pytest.mark.usefixtures("alpha_rules")
+class TestImplementsCycles:
+    @pytest.mark.parametrize(
+        "implements_by_view, expected_cycles",
+        [
+            pytest.param({"A": ("B",), "B": ("C",), "C": ()}, [], id="chain"),
+            pytest.param({"A": ("B", "C"), "B": ("D",), "C": ("D",), "D": ()}, [], id="diamond"),
+            pytest.param({"A": ("A",)}, [["A", "A"]], id="self"),
+            pytest.param({"A": ("B",), "B": ("C",), "C": ("A",)}, [["A", "B", "C", "A"]], id="three-views"),
+            pytest.param({"C": ("B",), "B": ("C",), "A": ("B",)}, [["B", "C", "B"]], id="reached-from-outside"),
+        ],
+    )
+    def test_cycles_are_errors(
+        self, implements_by_view: dict[str, tuple[str, ...]], expected_cycles: list[list[str]], tmp_path: Path
+    ) -> None:
+        resources = _schema_resources(
+            tmp_path, {name: (parents, ()) for name, parents in implements_by_view.items()}, {}
+        )
+
+        insights = [insight for insight in DataModelingRuleSet(resources=resources).validate()]
+        expected_messages = [
+            "Detected a cycle of view implements: "
+            + " -> ".join(str(ViewId(space="my_space", external_id=name, version="v1")) for name in cycle)
+            + "."
+            for cycle in expected_cycles
+        ]
+        assert [(type(insight), insight.code, insight.message) for insight in insights] == [
+            (BuildError, "INVALID-VALUE", message) for message in expected_messages
+        ]
+
+    def test_cycle_through_cdf_view(self, tmp_path: Path) -> None:
+        local_id = ViewId(space="my_space", external_id="A", version="v1")
+        cdf_id = ViewId(space="my_space", external_id="B", version="v1")
+        cdf_view = _cdf_view(cdf_id, {}).model_copy(update={"implements": [local_id]})
+        resources = _schema_resources(tmp_path, {"A": (("B",), ())}, {})
+        rule = DataModelingRuleSet(resources=resources, client=_client(views=[cdf_view]))
+
+        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        assert [(insight.code, insight.message) for insight in insights] == [
+            ("INVALID-VALUE", f"Detected a cycle of view implements: {local_id} -> {cdf_id} -> {local_id}.")
+        ]
+
+
+@pytest.mark.usefixtures("alpha_rules")
+class TestMissingRequiresConstraints:
+    @pytest.mark.parametrize(
+        "views, containers, expected_fix",
+        [
+            pytest.param(
+                {"Pump": (("Equipment",), ("Pump",)), "Equipment": ((), ("Equipment",))},
+                {"Pump": (), "Equipment": ()},
+                "Add a 'requires' constraint from container 'my_space:Pump' to 'my_space:Equipment'.",
+                id="missing",
+            ),
+            pytest.param(
+                {"Pump": (("Equipment",), ("Pump",)), "Equipment": ((), ("Equipment",))},
+                {"Pump": ("Equipment",), "Equipment": ()},
+                None,
+                id="present",
+            ),
+            pytest.param(
+                {"Pump": (("Equipment",), ("Pump",)), "Equipment": ((), ("Equipment", "Describable"))},
+                {"Pump": (), "Equipment": ("Describable",), "Describable": ()},
+                "Add a 'requires' constraint from container 'my_space:Pump' to 'my_space:Equipment'.",
+                id="only-the-root-of-the-parent-is-recommended",
+            ),
+            pytest.param(
+                {"Pump": (("Equipment",), ("Pump",)), "Equipment": ((), ("Equipment", "Describable"))},
+                {"Pump": ("Equipment",), "Equipment": ("Describable",), "Describable": ()},
+                None,
+                id="transitively-present",
+            ),
+            pytest.param(
+                {
+                    "Pump": (("Equipment",), ("Pump", "PumpExtra")),
+                    "Equipment": ((), ("Equipment", "Describable")),
+                },
+                {"Pump": ("Equipment",), "PumpExtra": ("Describable",), "Equipment": (), "Describable": ()},
+                "Add a 'requires' constraint from container 'my_space:Pump' to 'my_space:Describable'.",
+                id="no-single-own-container-reaches-all",
+            ),
+            pytest.param(
+                {"Pump": (("Equipment",), ()), "Equipment": ((), ("Equipment",))},
+                {"Equipment": ()},
+                None,
+                id="view-without-own-containers",
+            ),
+        ],
+    )
+    def test_requires_from_view_implements(
+        self,
+        views: dict[str, tuple[tuple[str, ...], tuple[str, ...]]],
+        containers: dict[str, tuple[str, ...]],
+        expected_fix: str | None,
+        tmp_path: Path,
+    ) -> None:
+        rule = DataModelingRuleSet(resources=_schema_resources(tmp_path, views, containers))
+
+        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
+        expected = [] if expected_fix is None else [("PERFORMANCE-DEGRADED", True)]
+        assert [(insight.code, (insight.fix or "").startswith(expected_fix or "")) for insight in insights] == expected
+
+    def test_overridden_parent_property_is_not_required(self, tmp_path: Path) -> None:
+        resources = _schema_resources(
+            tmp_path, {"Equipment": ((), ("Equipment",))}, {"Pump": (), "Equipment": ()}
+        ) + _resources(
+            [
+                (
+                    _write(
+                        tmp_path,
+                        "Pump.view.yaml",
+                        _schema_view_yaml("Pump", implements=("Equipment",), containers=("Pump",)).replace(
+                            "  Pump:\n", "  Equipment:\n"
+                        ),
+                    ),
+                    ViewIO,
+                    ViewId(space="my_space", external_id="Pump", version="v1"),
+                )
+            ]
+        )
+
+        insights = [insight for insight in DataModelingRuleSet(resources=resources).validate()]
+        assert insights == []
+
+    def test_views_in_implements_cycle_are_skipped(self, tmp_path: Path) -> None:
+        resources = _schema_resources(
+            tmp_path,
+            {"Pump": (("Equipment",), ("Pump",)), "Equipment": (("Pump",), ("Equipment",))},
+            {"Pump": (), "Equipment": ()},
+        )
+
+        insights = [insight for insight in DataModelingRuleSet(resources=resources).validate()]
+        assert [insight.code for insight in insights] == ["INVALID-VALUE"]
+
+    @pytest.mark.parametrize("with_client, expected_codes", [(True, ["PERFORMANCE-DEGRADED"]), (False, [])])
+    def test_requires_to_cdf_parent_view(self, with_client: bool, expected_codes: list[str], tmp_path: Path) -> None:
+        cdf_parent_id = ViewId(space="cdf_cdm", external_id="CogniteEquipment", version="v1")
+        cdf_parent = _cdf_view(
+            cdf_parent_id,
+            {
+                "name": _view_property("name", direct=False).model_copy(
+                    update={"container": ContainerId(space="cdf_cdm", external_id="CogniteEquipment")}
+                )
+            },
+        )
+        view_yaml = _schema_view_yaml("Pump", containers=("Pump",)) + (
+            "implements:\n  - type: view\n    space: cdf_cdm\n    externalId: CogniteEquipment\n    version: v1\n"
+        )
+        resources = _resources(
+            [
+                (
+                    _write(tmp_path, "Pump.container.yaml", _schema_container_yaml("Pump")),
+                    ContainerIO,
+                    ContainerId(space="my_space", external_id="Pump"),
+                ),
+                (
+                    _write(tmp_path, "Pump.view.yaml", view_yaml),
+                    ViewIO,
+                    ViewId(space="my_space", external_id="Pump", version="v1"),
+                ),
+            ]
+        )
+        client = _client(views=[cdf_parent]) if with_client else None
+        rule = DataModelingRuleSet(resources=resources, client=client)
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [insight.code for insight in insights] == expected_codes
