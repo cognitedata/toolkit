@@ -69,6 +69,14 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: uv run twine upload --skip-existing --verbose dist/*
+      - name: Release to snakepit
+        if: env.version != '0.0.0'
+        continue-on-error: true
+        env:
+          TWINE_USERNAME: ${{ secrets.ARTIFACTORY_PUBLISH_TOKEN_USER }}
+          TWINE_PASSWORD: ${{ secrets.ARTIFACTORY_PUBLISH_TOKEN }}
+          TWINE_REPOSITORY_URL: https://cognite.jfrog.io/cognite/api/pypi/snakepit
+        run: uv run twine upload --skip-existing --verbose dist/*
       - name: Add entry to CHANGELOG
         if: env.version != '0.0.0'
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
