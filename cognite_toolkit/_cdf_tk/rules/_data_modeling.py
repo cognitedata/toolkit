@@ -382,15 +382,23 @@ class DataModelingRuleSet(ToolkitRuleSet):
             targets = parent_containers - own_containers
             if not sources or not targets:
                 continue
-            reachable, unresolved, error = self._required_containers(sources, local_containers)
-            if error is not None:
-                yield error
-            missing = targets - reachable
-            if not missing or unresolved:
-                # Unresolved containers may require the missing ones.
+            missing_by_source: dict[ContainerId, frozenset[ContainerId]] = {}
+            has_unresolved = False
+            first_error: InternalValidatorException | None = None
+            for source in sources:
+                reachable, unresolved, error = self._required_containers({source}, local_containers)
+                first_error = first_error or error
+                has_unresolved = has_unresolved or bool(unresolved)
+                missing_by_source[source] = frozenset(targets - reachable)
+            if first_error is not None:
+                yield first_error
+            if any(not missing for missing in missing_by_source.values()) or has_unresolved:
+                # A single source must reach all targets. Unresolved containers may require the missing ones.
                 continue
+            missing = min(missing_by_source.values(), key=lambda m: (len(m), sorted(str(c) for c in m)))
+            best_sources = {source for source, source_missing in missing_by_source.items() if source_missing == missing}
             yield self._missing_requires_recommendation(
-                resource, view_id, sources, self._minimal_requires(missing, local_containers)
+                resource, view_id, best_sources, self._minimal_requires(set(missing), local_containers)
             )
 
     @staticmethod

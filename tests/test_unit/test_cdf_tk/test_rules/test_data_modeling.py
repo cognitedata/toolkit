@@ -668,6 +668,15 @@ class TestMissingRequiresConstraints:
                 id="transitively-present",
             ),
             pytest.param(
+                {
+                    "Pump": (("Equipment",), ("Pump", "PumpExtra")),
+                    "Equipment": ((), ("Equipment", "Describable")),
+                },
+                {"Pump": ("Equipment",), "PumpExtra": ("Describable",), "Equipment": (), "Describable": ()},
+                "Add a 'requires' constraint from container 'my_space:Pump' to 'my_space:Describable'.",
+                id="no-single-own-container-reaches-all",
+            ),
+            pytest.param(
                 {"Pump": (("Equipment",), ()), "Equipment": ((), ("Equipment",))},
                 {"Equipment": ()},
                 None,
