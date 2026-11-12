@@ -1353,6 +1353,7 @@ class TestParseGitDiffSelection:
 
         git = MagicMock(spec=Git)
         git.is_git_repo.return_value = True
+        git.get_root.return_value = tmp_path
         git.get_default_branch.return_value = "main"
         git.get_current_branch.return_value = current_branch
         git.get_changed_files.return_value = changed_files
@@ -1373,6 +1374,35 @@ class TestParseGitDiffSelection:
             git.get_uncommitted_changes.assert_not_called()
         else:
             git.get_uncommitted_changes.assert_called_once()
+
+    def test_parse_git_diff_selection_streamlit_app_files_from_organization_dir(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        org = tmp_path / "org"
+        streamlit_dir = org / MODULES / "my_module" / "streamlit"
+        app_dir = streamlit_dir / "my_app"
+        (app_dir / "pages").mkdir(parents=True)
+        (streamlit_dir / "my_app.Streamlit.yaml").write_text("externalId: my_app\nname: My App\n")
+        (app_dir / "main.py").write_text("import streamlit as st\n")
+        (app_dir / "requirements.txt").write_text("streamlit\n")
+        (app_dir / "pages" / "upload.py").write_text("import streamlit as st\n")
+        # The organization directory is a subdirectory of the repository root, while git returns
+        # paths relative to the repository root.
+        monkeypatch.chdir(org)
+
+        git = MagicMock(spec=Git)
+        git.is_git_repo.return_value = True
+        git.get_root.return_value = tmp_path
+        git.get_default_branch.return_value = "main"
+        git.get_current_branch.return_value = "feature-branch"
+        git.get_changed_files.return_value = [
+            f"org/{MODULES}/my_module/streamlit/my_app/main.py",
+            f"org/{MODULES}/my_module/streamlit/my_app/pages/upload.py",
+        ]
+
+        actual_selected, _ = BuildV2Command.parse_git_diff_selection(Path("."), git)
+
+        assert actual_selected == {Path(MODULES) / "my_module"}
 
     def test_parse_git_diff_selection_not_git_repo(self, tmp_path: Path) -> None:
         git = MagicMock(spec=Git)
