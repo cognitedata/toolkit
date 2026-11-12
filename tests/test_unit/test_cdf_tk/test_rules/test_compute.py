@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule import TransformationScheduleResponse
 from cognite_toolkit._cdf_tk.commands._validation import ValidationCommand
 from cognite_toolkit._cdf_tk.data_classes._insights import InsightDefinition
 from cognite_toolkit._cdf_tk.rules import ComputeRuleSet
@@ -151,6 +152,29 @@ class TestComputeRuleSet:
             ("Error", "INVALID-CREDENTIALS", f"{API_URL}/transformations/5"),
         ]
         assert "session 12 is revoked" in results[0].message
+
+    def test_congested_schedules(self) -> None:
+        client = _client()
+        client.transformations.list.return_value = [_transformation(id_, f"tr_{id_}") for id_ in range(1, 8)]
+        client.transformations.schedules.list.return_value = [
+            TransformationScheduleResponse(
+                id=id_,
+                external_id=f"tr_{id_}",
+                interval="15 3 * * *" if id_ == 7 else "0 * * * *",
+                is_paused=id_ == 6,
+                created_time=0,
+                last_updated_time=0,
+            )
+            for id_ in range(1, 8)
+        ]
+
+        insights = {(insight.code, insight.source_url, insight.message) for insight in _validate(client)}
+
+        message = (
+            "5 transformations start at the same time, every hour, on the hour: 'tr_1', 'tr_2', 'tr_3', 'tr_4' and "
+            "'tr_5'. Starting many at once can exceed concurrency limits, which delays or fails runs."
+        )
+        assert insights == {("CONGESTED-SCHEDULE", f"{API_URL}/transformations/{id_}", message) for id_ in range(1, 6)}
 
     def test_unverified_credentials_when_sessions_cannot_be_retrieved(self) -> None:
         client = _client()
