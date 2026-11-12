@@ -688,6 +688,28 @@ class TestMissingRequiresConstraints:
         expected = [] if expected_fix is None else [("PERFORMANCE-DEGRADED", True)]
         assert [(insight.code, (insight.fix or "").startswith(expected_fix or "")) for insight in insights] == expected
 
+    def test_overridden_parent_property_is_not_required(self, tmp_path: Path) -> None:
+        resources = _schema_resources(
+            tmp_path, {"Equipment": ((), ("Equipment",))}, {"Pump": (), "Equipment": ()}
+        ) + _resources(
+            [
+                (
+                    _write(
+                        tmp_path,
+                        "Pump.view.yaml",
+                        _schema_view_yaml("Pump", implements=("Equipment",), containers=("Pump",)).replace(
+                            "  Pump:\n", "  Equipment:\n"
+                        ),
+                    ),
+                    ViewIO,
+                    ViewId(space="my_space", external_id="Pump", version="v1"),
+                )
+            ]
+        )
+
+        insights = [insight for insight in DataModelingRuleSet(resources=resources).validate()]
+        assert insights == []
+
     def test_views_in_implements_cycle_are_skipped(self, tmp_path: Path) -> None:
         resources = _schema_resources(
             tmp_path,
@@ -701,8 +723,13 @@ class TestMissingRequiresConstraints:
     @pytest.mark.parametrize("with_client, expected_codes", [(True, ["PERFORMANCE-DEGRADED"]), (False, [])])
     def test_requires_to_cdf_parent_view(self, with_client: bool, expected_codes: list[str], tmp_path: Path) -> None:
         cdf_parent_id = ViewId(space="cdf_cdm", external_id="CogniteEquipment", version="v1")
-        cdf_parent = _cdf_view(cdf_parent_id, {}).model_copy(
-            update={"mapped_containers": [ContainerId(space="cdf_cdm", external_id="CogniteEquipment")]}
+        cdf_parent = _cdf_view(
+            cdf_parent_id,
+            {
+                "name": _view_property("name", direct=False).model_copy(
+                    update={"container": ContainerId(space="cdf_cdm", external_id="CogniteEquipment")}
+                )
+            },
         )
         view_yaml = _schema_view_yaml("Pump", containers=("Pump",)) + (
             "implements:\n  - type: view\n    space: cdf_cdm\n    externalId: CogniteEquipment\n    version: v1\n"

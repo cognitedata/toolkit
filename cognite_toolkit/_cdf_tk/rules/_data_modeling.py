@@ -373,12 +373,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
         for view_id, ancestors in ancestors_by_view.items():
             resource, view_request = local_views[view_id]
             own_containers = self._mapped_containers(view_request)
-            parent_containers: set[ContainerId] = set()
-            for ancestor_id in ancestors:
-                if ancestor_id in local_views:
-                    parent_containers |= self._mapped_containers(local_views[ancestor_id][1])
-                elif ancestor_id in cdf_views:
-                    parent_containers.update(cdf_views[ancestor_id].mapped_containers)
+            parent_containers = self._inherited_containers(view_request, ancestors, local_views, cdf_views)
             sources = {
                 container_id
                 for container_id in own_containers - parent_containers
@@ -403,6 +398,32 @@ class DataModelingRuleSet(ToolkitRuleSet):
         return {
             prop.container for prop in (view.properties or {}).values() if isinstance(prop, ViewCorePropertyRequest)
         }
+
+    @staticmethod
+    def _inherited_containers(
+        view: ViewRequest,
+        ancestors: list[ViewId],
+        local_views: dict[ViewId, _LocalView],
+        cdf_views: dict[ViewId, ViewResponse],
+    ) -> set[ContainerId]:
+        """The containers mapped by properties the view inherits, that is, properties not overridden by the view
+        or by an ancestor with higher precedence. The ancestors must be ordered by precedence, highest first."""
+        defined = set(view.properties or {})
+        containers: set[ContainerId] = set()
+        for ancestor_id in ancestors:
+            if ancestor_id in local_views:
+                properties: dict[str, Any] = dict(local_views[ancestor_id][1].properties or {})
+            elif ancestor_id in cdf_views:
+                properties = dict(cdf_views[ancestor_id].properties)
+            else:
+                continue
+            for prop_id, prop in properties.items():
+                if prop_id in defined:
+                    continue
+                defined.add(prop_id)
+                if isinstance(prop, ViewCorePropertyRequest | ViewCorePropertyResponse):
+                    containers.add(prop.container)
+        return containers
 
     def _required_containers(
         self, starts: set[ContainerId], local_containers: dict[ContainerId, _LocalContainer]
