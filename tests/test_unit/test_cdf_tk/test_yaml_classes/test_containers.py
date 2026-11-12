@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import get_args
 
 import pytest
+import yaml
 
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO
@@ -303,3 +304,63 @@ class TestContainerYAML:
             ("DEPRECATED-FEATURE", 10),
             ("DEPRECATED-FEATURE", 13),
         ]
+
+    @pytest.mark.parametrize(
+        "type_by_property, index_type, expected_fragments",
+        [
+            pytest.param({"code": "{type: text}"}, "btree", ["has no maxTextSize"], id="text-without-max-size"),
+            pytest.param({"code": "{type: text, maxTextSize: 255}"}, "btree", [], id="bounded-text"),
+            pytest.param(
+                {"code": "{type: text, maxTextSize: 4000}"}, "btree", ["up to 4000 bytes"], id="text-too-large"
+            ),
+            pytest.param(
+                {"codes": "{type: int64, list: true}"}, "btree", ["has no maxListSize"], id="list-without-max-size"
+            ),
+            pytest.param(
+                {"codes": "{type: text, list: true}"},
+                "btree",
+                ["has no maxListSize and maxTextSize"],
+                id="text-list-without-bounds",
+            ),
+            pytest.param({"codes": "{type: int64, list: true, maxListSize: 300}"}, "btree", [], id="int64-at-limit"),
+            pytest.param(
+                {"codes": "{type: int64, list: true, maxListSize: 301}"},
+                "btree",
+                ["up to 2408 bytes"],
+                id="int64-over-limit",
+            ),
+            pytest.param({"codes": "{type: int32, list: true, maxListSize: 600}"}, "btree", [], id="int32-at-limit"),
+            pytest.param(
+                {"code": "{type: text, maxTextSize: 1500}", "other": "{type: text, maxTextSize: 1500}"},
+                "btree",
+                ["up to 3000 bytes"],
+                id="composite-too-large",
+            ),
+            pytest.param({"codes": "{type: text, list: true}"}, "inverted", [], id="inverted-index"),
+        ],
+    )
+    def test_btree_index_size_recommendations(
+        self,
+        type_by_property: dict[str, str],
+        index_type: str,
+        expected_fragments: list[str],
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.ALPHA_RULES)
+        properties = "".join(
+            f"  {prop_id}:\n    type: {prop_type}\n" for prop_id, prop_type in type_by_property.items()
+        )
+        index_properties = "".join(f"    - {prop_id}\n" for prop_id in type_by_property)
+        source = tmp_path / "my.Container.yaml"
+        source.write_text(
+            f"space: my_space\nexternalId: my_container\nproperties:\n{properties}"
+            f"indexes:\n  idx:\n    indexType: {index_type}\n    properties:\n{index_properties}"
+        )
+        container = ContainerYAML.model_validate(yaml.safe_load(source.read_text()))
+
+        insights = container.extra_insights(source, ContainerIO.as_resource_type())
+        assert [
+            (insight.code, fragment in insight.message)
+            for insight, fragment in zip(insights, expected_fragments, strict=True)
+        ] == [("PERFORMANCE-DEGRADED", True)] * len(expected_fragments)

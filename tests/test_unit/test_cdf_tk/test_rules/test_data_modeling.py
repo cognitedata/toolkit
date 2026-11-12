@@ -35,7 +35,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildWarning,
     InsightDefinition,
     InternalValidatorException,
-    Recommendation,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
@@ -763,107 +762,6 @@ class TestMissingRequiresConstraints:
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [insight.code for insight in insights] == expected_codes
-
-
-def _indexed_container_yaml(type_by_property: dict[str, str], index_type: str = "btree") -> str:
-    """MyContainer with one index over all its properties, given by property ID to an inline YAML type."""
-    properties = "".join(f"  {prop_id}:\n    type: {prop_type}\n" for prop_id, prop_type in type_by_property.items())
-    index_properties = "".join(f"    - {prop_id}\n" for prop_id in type_by_property)
-    return (
-        f"space: my_space\nexternalId: MyContainer\nproperties:\n{properties}"
-        f"indexes:\n  idx:\n    indexType: {index_type}\n    properties:\n{index_properties}"
-    )
-
-
-@pytest.mark.usefixtures("alpha_rules")
-class TestBtreeIndexSizeBounds:
-    @pytest.mark.parametrize(
-        "type_by_property, index_type, expected_fragments",
-        [
-            pytest.param({"code": "{type: text}"}, "btree", ["has no maxTextSize"], id="text-without-max-size"),
-            pytest.param({"code": "{type: text, maxTextSize: 255}"}, "btree", [], id="bounded-text"),
-            pytest.param(
-                {"code": "{type: text, maxTextSize: 4000}"}, "btree", ["up to 4000 bytes"], id="text-too-large"
-            ),
-            pytest.param(
-                {"codes": "{type: int64, list: true}"}, "btree", ["has no maxListSize"], id="list-without-max-size"
-            ),
-            pytest.param(
-                {"codes": "{type: text, list: true}"},
-                "btree",
-                ["has no maxListSize and maxTextSize"],
-                id="text-list-without-bounds",
-            ),
-            pytest.param({"codes": "{type: int64, list: true, maxListSize: 300}"}, "btree", [], id="int64-at-limit"),
-            pytest.param(
-                {"codes": "{type: int64, list: true, maxListSize: 301}"},
-                "btree",
-                ["up to 2408 bytes"],
-                id="int64-over-limit",
-            ),
-            pytest.param({"codes": "{type: int32, list: true, maxListSize: 600}"}, "btree", [], id="int32-at-limit"),
-            pytest.param(
-                {"code": "{type: text, maxTextSize: 1500}", "other": "{type: text, maxTextSize: 1500}"},
-                "btree",
-                ["up to 3000 bytes"],
-                id="composite-too-large",
-            ),
-            pytest.param({"codes": "{type: text, list: true}"}, "inverted", [], id="inverted-index"),
-        ],
-    )
-    def test_btree_index_size_bounds(
-        self, type_by_property: dict[str, str], index_type: str, expected_fragments: list[str], tmp_path: Path
-    ) -> None:
-        container_file = _write(
-            tmp_path, "MyContainer.container.yaml", _indexed_container_yaml(type_by_property, index_type)
-        )
-        rule = DataModelingRuleSet(resources=_resources([(container_file, ContainerIO, CONTAINER_ID)]))
-
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
-        assert [
-            (insight.code, fragment in insight.message)
-            for insight, fragment in zip(insights, expected_fragments, strict=True)
-        ] == [("PERFORMANCE-DEGRADED", True)] * len(expected_fragments)
-
-
-@pytest.mark.usefixtures("alpha_rules")
-class TestViewFilters:
-    @pytest.mark.parametrize(
-        "filter_yaml, expected",
-        [
-            pytest.param(
-                "{nested: {scope: [my_space, MyView/v1, related], filter: {equals: {property: [node, space], "
-                "value: my_space}}}}",
-                [(Recommendation, "PERFORMANCE-DEGRADED")],
-                id="nested",
-            ),
-            pytest.param(
-                "{not: {nested: {scope: [my_space, MyView/v1, related], filter: {exists: {property: [node, space]}}}}}",
-                [(Recommendation, "PERFORMANCE-DEGRADED")],
-                id="nested-within-not",
-            ),
-            pytest.param(
-                "{and: [{hasData: [{type: view, space: my_space, externalId: OtherView, version: v1}]}]}",
-                [(BuildWarning, "PERFORMANCE-DEGRADED")],
-                id="has-data-on-view",
-            ),
-            pytest.param(
-                "{hasData: [{type: container, space: my_space, externalId: MyContainer}]}", [], id="has-data-container"
-            ),
-        ],
-    )
-    def test_view_filters(self, filter_yaml: str, expected: list[tuple[type, str]], tmp_path: Path) -> None:
-        rule = DataModelingRuleSet(
-            resources=_resources(
-                [
-                    (_write(tmp_path, "MyContainer.container.yaml", CONTAINER_YAML), ContainerIO, CONTAINER_ID),
-                    (_write(tmp_path, "MyView.view.yaml", f"{VIEW_YAML}filter: {filter_yaml}\n"), ViewIO, VIEW_ID),
-                ]
-            )
-        )
-
-        insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
-        assert [(type(insight), insight.code) for insight in insights] == expected
 
 
 class TestDataModelingChangesMove:

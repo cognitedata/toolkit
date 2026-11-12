@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar, Literal, Self, TypeVar, cast
 
-from pydantic import BaseModel, JsonValue, ValidationError
+from pydantic import BaseModel, ValidationError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, _resource_base
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -17,13 +17,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelRequest,
     DataModelResponse,
     DirectNodeRelation,
-    Int32Property,
-    Int64Property,
-    ListablePropertyTypeDefinition,
-    PropertyTypeDefinition,
     RequiresConstraintDefinition,
     ReverseDirectRelationProperty,
-    TextProperty,
     ViewCorePropertyRequest,
     ViewCorePropertyResponse,
     ViewRequest,
@@ -76,10 +71,6 @@ _COGNITE_SPACES = frozenset(
         "cdf_cdm_units",
     }
 )
-# CDF limits the size of a B-tree index entry, which is why int32 and int64 lists can have at most 600 and 300
-# elements in a B-tree index.
-_BTREE_MAX_BYTES = 2400
-_BTREE_LIST_ELEMENT_BYTES: dict[type[PropertyTypeDefinition], int] = {Int32Property: 4, Int64Property: 8}
 
 
 _LocalContainer = tuple[ResourceRef, ContainerRequest]
@@ -180,9 +171,8 @@ class DataModelingRuleSet(ToolkitRuleSet):
     resolved against local modules first. Anything still missing is checked in CDF when a client is
     available. Property and per-resource limits are checked from the local configuration. Project
     capacity for spaces, views, and similar counts is checked when deployment results are available.
-    Cycles in view implements are errors, while missing requires constraints, missing indexes for
-    reverse direct relations, unbounded B-tree indexed properties, and nested or view hasData filters
-    in views are reported for query performance.
+    Cycles in view implements are errors, while missing requires constraints and missing indexes for
+    reverse direct relations are recommendations for query performance.
     """
 
     RESOURCE_TYPES = frozenset(
@@ -260,8 +250,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
         yield from self._validate_references(references, local_containers, local_views)
 
     def _check_schema_design(self) -> Iterable[Insight | InternalValidatorException]:
-        """Checks the implements graph and filters of views, and the requires constraints and indexes needed
-        for queries."""
+        """Checks the implements graph of views, and the requires constraints and indexes needed for queries."""
         try:
             local_containers = self._load_containers()
             local_views = self._load_views()
@@ -276,8 +265,6 @@ class DataModelingRuleSet(ToolkitRuleSet):
         in_cycle = {view_id for cycle in cycles for view_id in cycle}
         yield from self._check_requires_constraints(local_containers, local_views, skip=in_cycle)
         yield from self._check_reverse_relation_indexes(local_containers, local_views)
-        yield from self._check_btree_index_sizes(local_containers)
-        yield from self._check_view_filters(local_views)
 
     def _implements_graph(
         self, local_views: dict[ViewId, _LocalView]
@@ -628,183 +615,6 @@ class DataModelingRuleSet(ToolkitRuleSet):
                 values=[relation.through.identifier],
                 variables=resource.variables,
             )
-
-    def _check_btree_index_sizes(self, local_containers: dict[ContainerId, _LocalContainer]) -> Iterable[Insight]:
-        """Recommends bounding the size of B-tree indexed properties with maxListSize and maxTextSize.
-
-        Values larger than a B-tree index entry make ingestion fail, and pre-existing ones make the index fail to build.
-        """
-        for container_id, (resource, container) in local_containers.items():
-            for index_id, index in (container.indexes or {}).items():
-                if not isinstance(index, BtreeIndex):
-                    continue
-                type_by_property = {
-                    prop_id: container.properties[prop_id].type
-                    for prop_id in index.properties
-                    if prop_id in container.properties
-                }
-                for prop_id, prop_type in type_by_property.items():
-                    if missing := self._missing_size_bounds(prop_type):
-                        yield self._missing_size_bound_recommendation(
-                            resource, container_id, index_id, prop_id, missing
-                        )
-                size_by_property = {
-                    prop_id: size
-                    for prop_id, prop_type in type_by_property.items()
-                    if (size := self._btree_size_bound(prop_type))
-                }
-                if sum(size_by_property.values()) > _BTREE_MAX_BYTES:
-                    yield self._oversized_btree_index_recommendation(resource, container_id, index_id, size_by_property)
-
-    @staticmethod
-    def _missing_size_bounds(prop_type: PropertyTypeDefinition) -> list[str]:
-        missing: list[str] = []
-        if isinstance(prop_type, ListablePropertyTypeDefinition) and prop_type.list and prop_type.max_list_size is None:
-            missing.append("maxListSize")
-        if isinstance(prop_type, TextProperty) and prop_type.max_text_size is None:
-            missing.append("maxTextSize")
-        return missing
-
-    @staticmethod
-    def _btree_size_bound(prop_type: PropertyTypeDefinition) -> int:
-        """The size in bytes that maxListSize and maxTextSize bound an indexed value to, or 0 if they do not apply."""
-        if not isinstance(prop_type, ListablePropertyTypeDefinition):
-            return 0
-        count = (prop_type.max_list_size or 0) if prop_type.list else 1
-        if isinstance(prop_type, TextProperty):
-            return count * (prop_type.max_text_size or 0)
-        if prop_type.list:
-            return count * _BTREE_LIST_ELEMENT_BYTES.get(type(prop_type), 0)
-        return 0
-
-    @staticmethod
-    def _missing_size_bound_recommendation(
-        resource: ResourceRef, container_id: ContainerId, index_id: str, property_id: str, missing: list[str]
-    ) -> Recommendation:
-        fields = humanize_collection(missing, sort=False)
-        return with_position(
-            Recommendation(
-                code="PERFORMANCE-DEGRADED",
-                message=(
-                    f"Property '{property_id}' in B-tree index '{index_id}' of container '{container_id}' has no "
-                    f"{fields}. Values larger than {_BTREE_MAX_BYTES} bytes make ingestion fail, or the index fail "
-                    "to build."
-                ),
-                fix=(
-                    f"Set {fields} on property '{property_id}', such that its values are at most "
-                    f"{_BTREE_MAX_BYTES} bytes."
-                ),
-                source_file=_source_file(resource),
-                alpha=Flags.ALPHA_RULES.is_enabled(),
-            ),
-            keys=[property_id, index_id],
-            variables=resource.variables,
-        )
-
-    @staticmethod
-    def _oversized_btree_index_recommendation(
-        resource: ResourceRef, container_id: ContainerId, index_id: str, size_by_property: dict[str, int]
-    ) -> Recommendation:
-        properties = humanize_collection([f"'{prop_id}'" for prop_id in size_by_property], sort=False)
-        return with_position(
-            Recommendation(
-                code="PERFORMANCE-DEGRADED",
-                message=(
-                    f"B-tree index '{index_id}' of container '{container_id}' allows values of up to "
-                    f"{sum(size_by_property.values())} bytes, which exceeds the limit of {_BTREE_MAX_BYTES} bytes. "
-                    "Larger values make ingestion fail, or the index fail to build."
-                ),
-                fix=(
-                    f"Lower maxListSize or maxTextSize on {properties} to at most {_BTREE_MAX_BYTES} bytes combined. "
-                    "A text value counts maxTextSize bytes, an int32 list element 4 bytes, and an int64 list "
-                    "element 8 bytes."
-                ),
-                source_file=_source_file(resource),
-                alpha=Flags.ALPHA_RULES.is_enabled(),
-            ),
-            keys=[index_id],
-            variables=resource.variables,
-        )
-
-    def _check_view_filters(self, local_views: dict[ViewId, _LocalView]) -> Iterable[Insight]:
-        """Reports view filters with nested filters, or with hasData filters on views."""
-        for view_id, (resource, view_request) in local_views.items():
-            expressions = list(self._filter_expressions(view_request.filter))
-            if any(filter_type == "nested" for filter_type, _ in expressions):
-                yield self._nested_filter_recommendation(resource, view_id)
-            has_data_views = [
-                label
-                for filter_type, body in expressions
-                if filter_type == "hasData"
-                for label in self._has_data_view_labels(body)
-            ]
-            if has_data_views:
-                yield self._has_data_view_warning(resource, view_id, has_data_views)
-
-    @classmethod
-    def _filter_expressions(cls, filter_: JsonValue) -> Iterable[tuple[str, JsonValue]]:
-        """The filter type and body of each filter, including those within 'and', 'or', 'not', and 'nested'."""
-        if not isinstance(filter_, dict):
-            return
-        for filter_type, body in filter_.items():
-            yield filter_type, body
-            if filter_type in ("and", "or") and isinstance(body, list):
-                for item in body:
-                    yield from cls._filter_expressions(item)
-            elif filter_type == "not":
-                yield from cls._filter_expressions(body)
-            elif filter_type == "nested" and isinstance(body, dict):
-                yield from cls._filter_expressions(body.get("filter"))
-
-    @staticmethod
-    def _has_data_view_labels(body: JsonValue) -> list[str]:
-        if not isinstance(body, list):
-            return []
-        return [
-            f"'{ref.get('space')}:{ref.get('externalId')}(version={ref.get('version')})'"
-            for ref in body
-            if isinstance(ref, dict) and ref.get("type") == "view"
-        ]
-
-    @staticmethod
-    def _nested_filter_recommendation(resource: ResourceRef, view_id: ViewId) -> Recommendation:
-        return with_position(
-            Recommendation(
-                code="PERFORMANCE-DEGRADED",
-                message=(
-                    f"View '{view_id}' has a nested filter. Nested filters follow a direct relation for every "
-                    "instance queried through the view, and are not supported by the instances inspect endpoint."
-                ),
-                fix=(
-                    "Replace the nested filter with a filter on the properties of the view's own containers, "
-                    "for example, a hasData filter on containers or an equals filter on the node type."
-                ),
-                source_file=_source_file(resource),
-                alpha=Flags.ALPHA_RULES.is_enabled(),
-            ),
-            keys=["nested", "filter"],
-            variables=resource.variables,
-        )
-
-    @staticmethod
-    def _has_data_view_warning(resource: ResourceRef, view_id: ViewId, view_labels: list[str]) -> BuildWarning:
-        noun = "view" if len(view_labels) == 1 else "views"
-        views = humanize_collection(view_labels, sort=False)
-        return with_position(
-            BuildWarning(
-                code="PERFORMANCE-DEGRADED",
-                message=(
-                    f"View '{view_id}' has a hasData filter on the {noun} {views}. A hasData filter on a view is "
-                    "resolved through the containers of that view, and CDF rejects it if that view refers back to "
-                    f"'{view_id}'."
-                ),
-                fix="Use hasData on the containers of the referenced view, instead of the view itself.",
-                source_file=_source_file(resource),
-                alpha=Flags.ALPHA_RULES.is_enabled(),
-            ),
-            keys=["hasData", "filter"],
-            variables=resource.variables,
-        )
 
     @classmethod
     def _find_references(cls, local_views: dict[ViewId, _LocalView]) -> _SchemaReferences:
