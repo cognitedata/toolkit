@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import ConfigDict, Field, TypeAdapter, ValidationError
 
@@ -97,18 +97,31 @@ def load_selector(manifest_file: Path) -> Selector | ToolkitWarning:
         A selector object or a toolkit warning if loading fails or the selector cannot be used.
     """
     selector_dict = read_yaml_file(manifest_file, expected_output="dict")
+    return load_selector_from_dict(selector_dict, manifest_file)
+
+
+def load_selector_from_dict(selector_dict: dict[str, Any], source_file: Path) -> Selector | ToolkitWarning:
+    """Loads a selector from a dictionary.
+
+    Args:
+        selector_dict: The selector as a dictionary.
+        source_file: The file the selector was read from, used in warnings.
+
+    Returns:
+        A selector object or a toolkit warning if loading fails or the selector cannot be used.
+    """
     try:
         selector = SelectorAdapter.validate_python(selector_dict)
     except ValidationError as e:
         errors = humanize_validation_error(e)
-        return ResourceFormatWarning(manifest_file, tuple(errors), text="Invalid selector in metadata file, skipping.")
+        return ResourceFormatWarning(source_file, tuple(errors), text="Invalid selector in metadata file, skipping.")
     if type(selector) in INTERNAL:
         return MediumSeverityWarning(
-            f"Selector type '{type(selector).__name__}' in file '{manifest_file}' is for internal use only and cannot be used."
+            f"Selector type '{type(selector).__name__}' in file '{source_file}' is for internal use only and cannot be used."
         )
     elif type(selector) in DEPRECATED:
         return ResourceFormatWarning(
-            manifest_file,
+            source_file,
             (
                 f"Selector type '{type(selector).__name__}' has been deprecated and is no longer supported in version 0.9. Please update your selector to use the new format.",
             ),
@@ -169,4 +182,5 @@ __all__ = [
     "ThreeDSelector",
     "TimeSeriesColumn",
     "load_selector",
+    "load_selector_from_dict",
 ]

@@ -820,3 +820,10 @@ class TestSQLite:
 
         with pytest.raises(ToolkitValueError, match="Expected exactly one table"):
             SQLiteReader(tmp_path / "Test.sqlite")
+
+    def test_list_tables_invalid_database(self, tmp_path: Path) -> None:
+        database = tmp_path / "Test.sqlite"
+        database.write_text("not a database")
+
+        with pytest.raises(ToolkitValueError, match="Failed to read SQLite database"):
+            SQLiteReader.list_tables(database)

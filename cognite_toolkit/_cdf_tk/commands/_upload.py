@@ -1,7 +1,9 @@
 from collections import Counter
 from collections.abc import Callable, Iterator, Mapping
+from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
+from typing import TypeAlias
 
 from rich.console import Console
 
@@ -38,18 +40,28 @@ from cognite_toolkit._cdf_tk.dataio.logger import (
     Severity,
     display_item_results,
 )
-from cognite_toolkit._cdf_tk.dataio.selectors import Selector, load_selector
+from cognite_toolkit._cdf_tk.dataio.selectors import Selector, load_selector, load_selector_from_dict
 from cognite_toolkit._cdf_tk.dataio.selectors._instances import InstanceSpaceSelector, InstanceViewSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRepeatedUploadFailureError, ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ViewIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils.file import create_logfile_stem
-from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, NDJsonWriter, Uncompressed
+from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, NDJsonWriter, SQLiteReader, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import ToolkitCommand
+
+
+@dataclass(frozen=True)
+class SQLiteTableSource:
+    database: Path
+    table: str
+
+
+DataSource: TypeAlias = list[Path] | SQLiteTableSource
 
 
 class UploadCommand(ToolkitCommand):
@@ -104,6 +116,7 @@ class UploadCommand(ToolkitCommand):
         ├── datafile1.Manifest.yaml       # Manifest for datafile1
         ├── datafile2.kind2.ndjson # Another data file of the same or different kind
         ├── datafile2.Manifest.yaml       # Manifest file for datafile2
+        ├── kind.sqlite                   # SQLite database with one table per selector (alpha)
         └── ...
         """
         console = client.console
@@ -115,7 +128,9 @@ class UploadCommand(ToolkitCommand):
 
         data_files_by_selector = self._topological_sort_if_instance_selector(data_files_by_selector, client)
 
-        total_file_count = sum(len(files) for files in data_files_by_selector.values())
+        total_file_count = sum(
+            len(source) if isinstance(source, list) else 1 for source in data_files_by_selector.values()
+        )
         if verbose:
             input_dir_display = self._path_as_display_name(input_dir)
             console.print(f"Found {total_file_count} files to upload in {input_dir_display.as_posix()!r}.")
@@ -132,8 +147,8 @@ class UploadCommand(ToolkitCommand):
         )
 
     def _topological_sort_if_instance_selector(
-        self, data_files_by_selector: dict[Selector, list[Path]], client: ToolkitClient
-    ) -> dict[Selector, list[Path]]:
+        self, data_files_by_selector: Mapping[Selector, DataSource], client: ToolkitClient
+    ) -> Mapping[Selector, DataSource]:
         """Topologically sorts InstanceSelectors (if they are present) to determine the order of upload based on container dependencies from the views.
 
         Args:
@@ -168,7 +183,7 @@ class UploadCommand(ToolkitCommand):
             ).print_warning(console=client.console)
             view_dependencies = view_dependencies + cyclic_views
 
-        prepared_selectors: dict[Selector, list[Path]] = {}
+        prepared_selectors: dict[Selector, DataSource] = {}
 
         # Reorder selectors according to the dependency-sorted view list
         for view_id in view_dependencies:
@@ -186,9 +201,9 @@ class UploadCommand(ToolkitCommand):
     def _find_data_files(
         self,
         input_dir: Path,
-    ) -> dict[Selector, list[Path]]:
-        """Finds data files and their corresponding metadata files in the input directory."""
-        data_files_by_metadata: dict[Selector, list[Path]] = {}
+    ) -> dict[Selector, DataSource]:
+        """Finds data files and their corresponding metadata files, and SQLite databases, in the input directory."""
+        data_files_by_metadata: dict[Selector, DataSource] = {}
         for manifest_file in input_dir.glob(f"*{DATA_MANIFEST_SUFFIX}"):
             selector_or_warning = load_selector(manifest_file)
             if isinstance(selector_or_warning, ToolkitWarning):
@@ -204,7 +219,40 @@ class UploadCommand(ToolkitCommand):
                 )
                 continue
             data_files_by_metadata[selector] = data_files
+        data_files_by_metadata.update(self._find_sqlite_tables(input_dir))
         return data_files_by_metadata
+
+    def _find_sqlite_tables(self, input_dir: Path) -> dict[Selector, DataSource]:
+        """Finds the tables in SQLite databases in the input directory. The selector is stored with each table."""
+        tables_by_selector: dict[Selector, DataSource] = {}
+        for database in sorted(input_dir.glob(f"*{SQLiteReader.FORMAT}")):
+            if not Flags.EXTEND_DOWNLOAD.is_enabled():
+                self.warn(
+                    MediumSeverityWarning(
+                        f"Skipping {database.as_posix()!r}. Uploading SQLite databases is currently behind an alpha "
+                        "feature flag. Enable the flag `extend_download` under [alpha_flags] in cdf.toml."
+                    )
+                )
+                continue
+            try:
+                tables = SQLiteReader.list_tables(database)
+            except ToolkitValueError as e:
+                self.warn(MediumSeverityWarning(f"Skipping {database.as_posix()!r}. {e}"))
+                continue
+            for table in tables:
+                if table.metadata is None:
+                    self.warn(
+                        MediumSeverityWarning(
+                            f"Table {table.name!r} in {database.as_posix()!r} has no selector, skipping."
+                        )
+                    )
+                    continue
+                selector_or_warning = load_selector_from_dict(table.metadata, database)
+                if isinstance(selector_or_warning, ToolkitWarning):
+                    self.warn(selector_or_warning)
+                    continue
+                tables_by_selector[selector_or_warning] = SQLiteTableSource(database, table.name)
+        return tables_by_selector
 
     def _deploy_resource_folder(
         self,
@@ -235,7 +283,7 @@ class UploadCommand(ToolkitCommand):
     @classmethod
     def upload_data(
         cls,
-        data_files_by_selector: Mapping[Selector, list[Path]],
+        data_files_by_selector: Mapping[Selector, DataSource],
         input_dir: Path,
         client: ToolkitClient,
         dry_run: bool,
@@ -256,23 +304,28 @@ class UploadCommand(ToolkitCommand):
             FileWithAggregationLogger(log_file) as logger,
             HTTPClient(config=client.config) as upload_client,
         ):
-            for selector, datafiles in data_files_by_selector.items():
-                io = cls._create_selected_io(selector, datafiles[0], client, skip_strict_mode, overwrite)
+            for selector, source in data_files_by_selector.items():
+                first_file = source.database if isinstance(source, SQLiteTableSource) else source[0]
+                io = cls._create_selected_io(selector, first_file, client, skip_strict_mode, overwrite)
                 if io is None:
                     continue
                 io.logger = logger
                 logger.reset()
                 # Create reader first to determine if input is table format
-                reader = MultiFileReader(datafiles)
+                if isinstance(source, SQLiteTableSource):
+                    # SQLite databases store the schema with the table.
+                    reader = MultiFileReader([source.database], table=source.table)
+                else:
+                    reader = MultiFileReader(source)
                 # FileContentIO supports uploading any file format.
                 if reader.is_table and not isinstance(io, TableUploadableDataIO | FileContentIO):
                     raise ToolkitValueError(
                         f"{selector.type}.{selector.kind} does not support {reader.format!r} files."
                     )
                 # Only fetch schema for table formats (e.g., CSV, Parquet), not for JSON formats
-                if reader.is_table and isinstance(io, TableDataIO):
+                if reader.is_table and isinstance(io, TableDataIO) and isinstance(source, list):
                     schema = io.get_schema(selector)
-                    reader = MultiFileReader(datafiles, schema=schema)
+                    reader = MultiFileReader(source, schema=schema)
 
                 if isinstance(io, CanvasIO):
                     for warning in io.check_view_references(reader):

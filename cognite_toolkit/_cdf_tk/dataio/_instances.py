@@ -617,6 +617,11 @@ class InstanceIO(
                 # Not an instance field - treat as source property
                 source_properties[key] = value
 
+        # Table formats store a missing reference, for example an untyped node, as null columns.
+        nested_fields = {
+            prefix: values for prefix, values in nested_fields.items() if any(v is not None for v in values.values())
+        }
+
         # Determine instance type: if we have startNode/endNode, it's an edge
         instance_type: Literal["node", "edge"] = "edge" if "startNode" in nested_fields else "node"
 
