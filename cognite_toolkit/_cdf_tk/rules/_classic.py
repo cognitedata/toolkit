@@ -160,7 +160,7 @@ class ClassicDeprecationRuleSet(ToolkitRuleSet):
         else:
             found = f"Found {count} {deprecation.plural}, the first is {quote_identifier(first.identifier)}."
         recommendation = Recommendation(
-            code="DEPRECATED-RESOURCE",
+            code="DEPRECATED-FEATURE",
             message=f"{found} The {deprecation.api} is deprecated and will be retired on {RETIREMENT_DATE}.",
             fix=(
                 f"{deprecation.mitigation} Complete the move before {RETIREMENT_DATE}. "
