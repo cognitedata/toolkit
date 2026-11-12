@@ -111,6 +111,10 @@ class Flags(Enum):
         visible=True,
         description="Enables additional data types in the download command, such as sequences",
     )
+    EXTEND_UPLOAD = FlagMetadata(
+        visible=True,
+        description="Enables the guided upload of CSV and Parquet files to a view with 'cdf data upload instances'",
+    )
     POSTGRES_GATEWAY = FlagMetadata(
         visible=False,
         description="Enables support for PostgreSQL Gateway resources",

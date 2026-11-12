@@ -1,11 +1,15 @@
 from collections import Counter
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import TypeAlias
+from typing import Literal, TypeAlias
 
+import questionary
+from pydantic import BaseModel, Field
+from questionary import Choice
 from rich.console import Console
+from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -14,7 +18,11 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsFailedResponse,
     ItemsSuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ViewCorePropertyResponse,
+    ViewId,
+    ViewResponse,
+)
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeployOptions, DeployV2Command
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
@@ -40,19 +48,51 @@ from cognite_toolkit._cdf_tk.dataio.logger import (
     Severity,
     display_item_results,
 )
-from cognite_toolkit._cdf_tk.dataio.selectors import Selector, load_selector, load_selector_from_dict
+from cognite_toolkit._cdf_tk.dataio.selectors import SelectedView, Selector, load_selector, load_selector_from_dict
 from cognite_toolkit._cdf_tk.dataio.selectors._instances import InstanceSpaceSelector, InstanceViewSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRepeatedUploadFailureError, ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ViewIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.tracker import Tracker
-from cognite_toolkit._cdf_tk.utils.file import create_logfile_stem
-from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, NDJsonWriter, SQLiteReader, Uncompressed
+from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.file import create_logfile_stem, safe_write, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.fileio import (
+    CSVReader,
+    MultiFileReader,
+    NDJsonWriter,
+    ParquetReader,
+    SQLiteReader,
+    Uncompressed,
+)
+from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect, ViewSelectFilter
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import ToolkitCommand
+
+# SQLite databases are not included, as they store the selector with each table instead of in a manifest.
+INSTANCE_FILE_READER_BY_FORMAT: Mapping[str, type[CSVReader | ParquetReader]] = {
+    reader.FORMAT: reader for reader in (CSVReader, ParquetReader)
+}
+_NODE_COLUMNS = ("space", "externalId", "existingVersion", "type.space", "type.externalId")
+_EDGE_ENDPOINT_COLUMNS = ("startNode.space", "startNode.externalId", "endNode.space", "endNode.externalId")
+INSTANCE_COLUMNS_BY_TYPE: Mapping[Literal["node", "edge"], tuple[str, ...]] = {
+    "node": _NODE_COLUMNS,
+    "edge": _NODE_COLUMNS + _EDGE_ENDPOINT_COLUMNS,
+}
+REQUIRED_INSTANCE_COLUMNS_BY_TYPE: Mapping[Literal["node", "edge"], tuple[str, ...]] = {
+    "node": ("space", "externalId"),
+    "edge": ("space", "externalId", "type.space", "type.externalId", *_EDGE_ENDPOINT_COLUMNS),
+}
+
+
+class InstanceColumnMatch(BaseModel):
+    """How the columns of a table file map to an instance upload through a view."""
+
+    instance_columns: list[str] = Field(default_factory=list)
+    property_type_by_column: dict[str, str] = Field(default_factory=dict)
+    unknown_columns: list[str] = Field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -145,6 +185,155 @@ class UploadCommand(ToolkitCommand):
             skip_strict_mode,
             overwrite,
         )
+
+    def upload_instances(self, data_file: Path, client: ToolkitClient, verbose: bool) -> None:
+        """Guides the user through creating a manifest for a CSV or Parquet file and uploading it as instances.
+
+        Args:
+            data_file: The CSV or Parquet file with one instance per row.
+            client: An instance of ToolkitClient to interact with CDF.
+            verbose: If True, prints detailed information about the upload process.
+        """
+        selector = self.create_instance_manifest(data_file, client)
+        if selector is None:
+            return
+        action = questionary.select(
+            f"Do you want to upload {data_file.name!r} to CDF now?",
+            choices=[
+                Choice(title="Yes, upload now", value="upload"),
+                Choice(title="Dry run, show what would be uploaded", value="dry-run"),
+                Choice(title="No, only create the manifest", value="skip"),
+            ],
+        ).unsafe_ask()
+        if action == "skip":
+            client.console.print(
+                f"Run 'cdf data upload dir {self._path_as_display_name(data_file.parent).as_posix()}' "
+                "to upload the file later."
+            )
+            return
+        data_files_by_selector: dict[Selector, DataSource] = {selector: [data_file]}
+        self.upload_data(
+            data_files_by_selector,
+            data_file.parent,
+            client,
+            dry_run=action == "dry-run",
+            console=client.console,
+            verbose=verbose,
+            tracker=self.tracker,
+        )
+
+    def create_instance_manifest(self, data_file: Path, client: ToolkitClient) -> InstanceViewSelector | None:
+        """Interactively selects the view to upload the data file to and writes the manifest next to the file.
+
+        Returns:
+            The selector written to the manifest, or None if the user chose not to create the manifest.
+        """
+        if data_file.suffix == SQLiteReader.FORMAT:
+            raise ToolkitValueError(
+                f"Cannot create a manifest for {data_file.name!r}. SQLite databases store the selector with each "
+                f"table, upload them with 'cdf data upload dir'."
+            )
+        reader_cls = INSTANCE_FILE_READER_BY_FORMAT.get(data_file.suffix)
+        if reader_cls is None:
+            raise ToolkitValueError(
+                f"Cannot create a manifest for {data_file.name!r}. "
+                f"Supported formats: {humanize_collection(INSTANCE_FILE_READER_BY_FORMAT.keys())}."
+            )
+        columns = [column.name for column in reader_cls.sniff_schema(data_file, sniff_rows=1)]
+
+        dm_select = DataModelingSelect(client, "upload instances", console=client.console)
+        view = dm_select.select_view(
+            message="Select the view to upload the instances to:",
+            filter=ViewSelectFilter(strategy="dataModel", include_global=True),
+        )
+        instance_type = dm_select.select_instance_type(
+            view.used_for, message=f"What type of instances does {data_file.name!r} contain?"
+        )
+        match = self.match_instance_columns(columns, view, instance_type)
+        client.console.print(self._create_column_table(match, data_file, view))
+
+        if match.unknown_columns:
+            self.warn(
+                MediumSeverityWarning(
+                    f"The view {view.space}:{view.external_id}(version={view.version}) does not have the "
+                    f"properties {humanize_collection(match.unknown_columns)}. The upload will fail unless you "
+                    "rename or remove these columns."
+                ),
+                console=client.console,
+            )
+            if not questionary.confirm("Do you want to create the manifest anyway?", default=False).unsafe_ask():
+                return None
+
+        manifest_file = data_file.with_name(f"{data_file.stem}{DATA_MANIFEST_SUFFIX}")
+        manifest_display = self._path_as_display_name(manifest_file).as_posix()
+        if (
+            manifest_file.exists()
+            and not questionary.confirm(
+                f"The manifest {manifest_display!r} already exists. Do you want to overwrite it?", default=False
+            ).unsafe_ask()
+        ):
+            return None
+
+        selector = InstanceViewSelector(
+            view=SelectedView(space=view.space, external_id=view.external_id, version=view.version),
+            instance_type=instance_type,
+        )
+        manifest = selector.model_dump(mode="json", by_alias=True, exclude_none=True)
+        safe_write(manifest_file, yaml_safe_dump(manifest), encoding="utf-8")
+        client.console.print(f"Created manifest {manifest_display!r}.")
+
+        other_files = [file for file in selector.find_data_files(data_file.parent, manifest_file) if file != data_file]
+        if other_files:
+            self.warn(
+                MediumSeverityWarning(
+                    f"'cdf data upload dir' will also upload {humanize_collection([f.name for f in other_files])} "
+                    f"with this manifest, as their names start with {data_file.stem!r}."
+                ),
+                console=client.console,
+            )
+        return selector
+
+    @staticmethod
+    def match_instance_columns(
+        columns: Sequence[str], view: ViewResponse, instance_type: Literal["node", "edge"]
+    ) -> InstanceColumnMatch:
+        """Matches the columns of a table file to the instance fields and the properties of the view.
+
+        Raises:
+            ToolkitValueError: If a column required to identify the instances is missing.
+        """
+        missing = [column for column in REQUIRED_INSTANCE_COLUMNS_BY_TYPE[instance_type] if column not in columns]
+        if missing:
+            raise ToolkitValueError(
+                f"The file is missing the column(s) {humanize_collection(missing)}, which are required to upload "
+                f"{instance_type}s."
+            )
+        instance_columns = INSTANCE_COLUMNS_BY_TYPE[instance_type]
+        properties = {
+            prop_id: prop for prop_id, prop in view.properties.items() if isinstance(prop, ViewCorePropertyResponse)
+        }
+        match = InstanceColumnMatch()
+        for column in columns:
+            if column in instance_columns:
+                match.instance_columns.append(column)
+            elif column in properties:
+                match.property_type_by_column[column] = properties[column].type.type
+            else:
+                match.unknown_columns.append(column)
+        return match
+
+    @staticmethod
+    def _create_column_table(match: InstanceColumnMatch, data_file: Path, view: ViewResponse) -> Table:
+        table = Table(title=f"Columns in {data_file.name!r} matched to view {view.space}:{view.external_id}")
+        table.add_column("Column")
+        table.add_column("Used as")
+        for column in match.instance_columns:
+            table.add_row(column, "Instance field")
+        for column, property_type in match.property_type_by_column.items():
+            table.add_row(column, f"Property ({property_type})")
+        for column in match.unknown_columns:
+            table.add_row(column, "[red]Not a property in the view[/red]")
+        return table
 
     def _topological_sort_if_instance_selector(
         self, data_files_by_selector: Mapping[Selector, DataSource], client: ToolkitClient
