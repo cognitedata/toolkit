@@ -52,14 +52,14 @@ class TestClassicDeprecationRuleSet:
 
         assert [(item.code, item.message, item.source_file, item.line) for item in insights] == [
             (
-                "DEPRECATED-RESOURCE",
+                "DEPRECATED-FEATURE",
                 "Found 2 assets, the first is 'pump'. The Assets API is deprecated and will be retired on "
                 "December 31, 2027.",
                 assets.resolve(),
                 3,
             ),
             (
-                "DEPRECATED-RESOURCE",
+                "DEPRECATED-FEATURE",
                 "Found 1 label, 'my_label'. The Labels API is deprecated and will be retired on December 31, 2027.",
                 labels.resolve(),
                 1,
