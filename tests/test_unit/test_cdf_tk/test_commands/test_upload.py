@@ -16,8 +16,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model i
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableRequest, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
-from cognite_toolkit._cdf_tk.commands._upload import SQLiteTableSource
-from cognite_toolkit._cdf_tk.constants import DATA_RESOURCE_DIR
+from cognite_toolkit._cdf_tk.commands._upload import InstanceColumnMatch, SQLiteTableSource
+from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.dataio import RawIO
 from cognite_toolkit._cdf_tk.dataio._asset_centric import AssetDataIO
 from cognite_toolkit._cdf_tk.dataio._base import DataItem, Page
@@ -34,13 +34,16 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     Selector,
 )
 from cognite_toolkit._cdf_tk.dataio.selectors._asset_centric import DataSetSelector
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRepeatedUploadFailureError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRepeatedUploadFailureError, ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import RawTableIO
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
+from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, SchemaColumn, SQLiteWriter, Uncompressed
+from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
 from tests.constants import CDF_CLUSTER
 from tests.test_unit.approval_client import ApprovalToolkitClient
+from tests.test_unit.utils import MockQuestionary
 
 
 @pytest.fixture
@@ -305,3 +308,65 @@ class TestUploadCommand:
                 logger=NoOpLogger(),
                 get_log_file=MagicMock(),
             )
+
+
+class TestUploadInstances:
+    @staticmethod
+    def _get_view(data_model: DataModelResponseWithViews, external_id: str) -> ViewResponse:
+        return next(view for view in data_model.views or [] if view.external_id == external_id)
+
+    def test_match_instance_columns(self, cognite_core_no_3D: DataModelResponseWithViews) -> None:
+        view = self._get_view(cognite_core_no_3D, "CogniteAsset")
+
+        match = UploadCommand.match_instance_columns(["space", "externalId", "name", "notAProperty"], view, "node")
+
+        assert match == InstanceColumnMatch(
+            instance_columns=["space", "externalId"],
+            property_type_by_column={"name": "text"},
+            unknown_columns=["notAProperty"],
+        )
+
+    def test_match_instance_columns_missing_required(self, cognite_core_no_3D: DataModelResponseWithViews) -> None:
+        view = self._get_view(cognite_core_no_3D, "CogniteAsset")
+
+        with pytest.raises(ToolkitValueError) as exc_info:
+            UploadCommand.match_instance_columns(["space", "externalId"], view, "edge")
+
+        assert str(exc_info.value) == (
+            "The file is missing the column(s) endNode.externalId, endNode.space, startNode.externalId, "
+            "startNode.space, type.externalId and type.space, which are required to upload edges."
+        )
+
+    def test_upload_instances_creates_manifest(
+        self, tmp_path: Path, cognite_core_no_3D: DataModelResponseWithViews
+    ) -> None:
+        data_file = tmp_path / "my_assets.csv"
+        data_file.write_text("space,externalId,name\nmy_space,asset_1,Asset 1\n", encoding="utf-8")
+        view = self._get_view(cognite_core_no_3D, "CogniteAsset")
+        answers = [cognite_core_no_3D, view, "node", "skip"]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary([UploadCommand.__module__, DataModelingSelect.__module__], answers),
+        ):
+            client.data_models.list.return_value = [cognite_core_no_3D]
+            UploadCommand(silent=True, skip_tracking=True).upload_instances(data_file, client, verbose=False)
+
+        assert read_yaml_file(tmp_path / f"my_assets{DATA_MANIFEST_SUFFIX}") == {
+            "type": "instanceView",
+            "kind": "Instances",
+            "view": {"space": "cdf_cdm", "externalId": "CogniteAsset", "version": "v1"},
+            "instanceType": "node",
+            "endpoint": "query",
+        }
+
+    def test_create_instance_manifest_rejects_sqlite(self, tmp_path: Path) -> None:
+        data_file = tmp_path / "my_assets.sqlite"
+
+        with monkeypatch_toolkit_client() as client, pytest.raises(ToolkitValueError) as exc_info:
+            UploadCommand(silent=True, skip_tracking=True).create_instance_manifest(data_file, client)
+
+        assert str(exc_info.value) == (
+            "Cannot create a manifest for 'my_assets.sqlite'. SQLite databases store the selector with each table, "
+            "upload them with 'cdf data upload dir'."
+        )

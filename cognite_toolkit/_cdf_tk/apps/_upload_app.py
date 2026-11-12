@@ -6,15 +6,33 @@ import typer
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.commands import UploadCommand
+from cognite_toolkit._cdf_tk.commands._upload import INSTANCE_FILE_READER_BY_FORMAT
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR, DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import SQLiteReader
 
 from ._helpers import print_help_if_no_subcommand
 
 DEFAULT_INPUT_DIR = Path.cwd() / DATA_DEFAULT_DIR
+
+
+def _validate_table_file(value: str) -> bool | str:
+    path = Path(value)
+    if not path.is_file():
+        return "Enter the path to an existing file."
+    if path.suffix not in INSTANCE_FILE_READER_BY_FORMAT:
+        return f"The file must be one of the formats {humanize_collection(INSTANCE_FILE_READER_BY_FORMAT.keys())}."
+    return True
+
+
+def _prompt_table_file() -> Path:
+    answer = questionary.path(
+        "Enter the path to the CSV or Parquet file you want to upload:", validate=_validate_table_file
+    ).unsafe_ask()
+    return Path(answer).resolve()
 
 
 def _validate_cdf_project(cli_cdf_project: str | None, client_cdf_project: str) -> None:
@@ -42,6 +60,8 @@ class UploadApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.upload_main)
         self.command("dir")(self.upload_dir)
+        if Flags.EXTEND_UPLOAD.is_enabled():
+            self.command("instances")(self.upload_instances)
 
     @staticmethod
     def upload_main(ctx: typer.Context) -> None:
@@ -151,3 +171,42 @@ class UploadApp(typer.Typer):
                 overwrite=overwrite,
             )
         )
+
+    @staticmethod
+    def upload_instances(
+        ctx: typer.Context,
+        data_file: Annotated[
+            Path | None,
+            typer.Argument(
+                help="The CSV or Parquet file with one instance per row. If not specified, an interactive prompt "
+                "will ask for the file.",
+                exists=True,
+                file_okay=True,
+                dir_okay=False,
+                resolve_path=True,
+            ),
+        ] = None,
+        cdf_project: Annotated[
+            str | None,
+            typer.Option(
+                "--cdf-project",
+                help="The CDF Project you are uploading to. This is used to verify against the credentials you have set. "
+                "If it is not passed, you will be prompted for it.",
+            ),
+        ] = None,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Guided upload of a CSV or Parquet file as instances to a view. Creates the manifest file for you."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = UploadCommand(client=client)
+        _validate_cdf_project(cdf_project, client.config.project)
+        selected_file = data_file or _prompt_table_file()
+
+        cmd.run(lambda: cmd.upload_instances(data_file=selected_file, client=client, verbose=verbose))
