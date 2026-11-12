@@ -8,7 +8,7 @@ from datetime import UTC, date, datetime
 from io import TextIOWrapper
 from itertools import product
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
@@ -26,13 +26,20 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     FailedParsing,
     FileReader,
     FileWriter,
+    GzipCompression,
     MultiFileReader,
     SchemaColumn,
+    SQLiteReader,
+    SQLiteTable,
+    SQLiteWriter,
     Uncompressed,
 )
 from cognite_toolkit._cdf_tk.utils.fileio._readers import YAMLBaseReader
 from cognite_toolkit._cdf_tk.utils.fileio._writers import NDJsonWriter, YAMLBaseWriter
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+
+# SQLite writes a single uncompressed database file, so it is tested separately in TestSQLite.
+PART_FILE_FORMATS = [format_ for format_ in FILE_WRITE_CLS_BY_FORMAT if format_ != SQLiteWriter.FORMAT]
 
 
 @pytest.fixture()
@@ -501,7 +508,7 @@ class TestFileReader:
 class TestFileIO:
     @pytest.mark.parametrize(
         "format, compression_name",
-        list(product(FILE_WRITE_CLS_BY_FORMAT.keys(), COMPRESSION_BY_NAME.keys())),
+        list(product(PART_FILE_FORMATS, COMPRESSION_BY_NAME.keys())),
     )
     def test_write_read(
         self,
@@ -536,7 +543,7 @@ class TestFileIO:
 
     @pytest.mark.parametrize(
         "format, compression_name",
-        list(product(FILE_WRITE_CLS_BY_FORMAT.keys(), COMPRESSION_BY_NAME.keys())),
+        list(product(PART_FILE_FORMATS, COMPRESSION_BY_NAME.keys())),
     )
     def test_write_cell_chunks(
         self,
@@ -559,7 +566,7 @@ class TestFileIO:
 
     @pytest.mark.parametrize(
         "format, compression_name",
-        list(product(FILE_WRITE_CLS_BY_FORMAT.keys(), COMPRESSION_BY_NAME.keys())),
+        list(product(PART_FILE_FORMATS, COMPRESSION_BY_NAME.keys())),
     )
     def test_write_split_files(
         self,
@@ -724,3 +731,92 @@ value3,789,"{""key"": ""value3""}",true,1.41
             {"id": "1", "space": "space1", "externalId": "id1", "number": "1.30"},
             {"id": "2", "space": "space2", "externalId": "id2", "number": "42.0"},
         ]
+
+
+class TestSQLite:
+    COLUMNS: ClassVar[list[SchemaColumn]] = [
+        SchemaColumn(name="text", type="string"),
+        SchemaColumn(name="integer", type="integer"),
+        SchemaColumn(name="float", type="float"),
+        SchemaColumn(name="boolean", type="boolean"),
+        SchemaColumn(name="json", type="json"),
+        SchemaColumn(name="date", type="date"),
+        SchemaColumn(name="timestamp", type="timestamp"),
+        SchemaColumn(name="epoch", type="epoch"),
+        SchemaColumn(name="integers", type="integer", is_array=True),
+        SchemaColumn(name="timestamps", type="timestamp", is_array=True),
+    ]
+    ROWS: ClassVar[list[dict[str, CellValue]]] = [
+        {
+            "text": "a",
+            "integer": 1,
+            "float": 1.5,
+            "boolean": True,
+            "json": {"key": [1, "two"]},
+            "date": date(2024, 1, 2),
+            "timestamp": datetime(2024, 1, 2, 3, 4, 5, tzinfo=UTC),
+            "epoch": 1704164645000,
+            "integers": [1, 2],
+            "timestamps": [datetime(2024, 1, 2, tzinfo=UTC)],
+        },
+        {
+            "text": "b",
+            "integer": None,
+            "float": None,
+            "boolean": False,
+            "json": None,
+            "date": None,
+            "timestamp": None,
+            "epoch": None,
+            "integers": None,
+            "timestamps": None,
+        },
+    ]
+
+    def test_write_read_all_data_types(self, tmp_path: Path) -> None:
+        metadata: dict[str, JsonVal] = {"type": "mySelector"}
+        with SQLiteWriter(tmp_path, "Test", Uncompressed, self.COLUMNS, metadata=metadata) as writer:
+            writer.write_chunks(self.ROWS[:1], filestem="table1")
+            writer.write_chunks(self.ROWS[1:], filestem="table1")
+            writer.write_chunks(self.ROWS[:1], filestem='table "2"')
+
+        database = tmp_path / "Test.sqlite"
+        result = {
+            "tables": SQLiteReader.list_tables(database),
+            "table1": list(SQLiteReader(database, "table1").read_chunks()),
+            "count": SQLiteReader(database, 'table "2"').count(),
+        }
+
+        assert result == {
+            "tables": [
+                SQLiteTable(name="table1", schema=self.COLUMNS, metadata=metadata),
+                SQLiteTable(name='table "2"', schema=self.COLUMNS, metadata=metadata),
+            ],
+            "table1": self.ROWS,
+            "count": 1,
+        }
+
+    def test_single_file_ignoring_compression(self, tmp_path: Path) -> None:
+        writer = SQLiteWriter(tmp_path, "Test", GzipCompression, self.COLUMNS, max_file_size_bytes=1)
+        with writer:
+            writer.write_chunks(self.ROWS, filestem="table1")
+            writer.write_chunks(self.ROWS, filestem="table2")
+            file_count = writer.file_count
+
+        assert (file_count, [file.name for file in tmp_path.iterdir()]) == (1, ["Test.sqlite"])
+
+    def test_write_in_worker_thread_close_in_main_thread(self, tmp_path: Path) -> None:
+        with SQLiteWriter(tmp_path, "Test", Uncompressed, self.COLUMNS) as writer:
+            thread = threading.Thread(target=writer.write_chunks, args=(self.ROWS,))
+            thread.start()
+            thread.join()
+
+        assert list(SQLiteReader(tmp_path / "Test.sqlite").read_chunks()) == self.ROWS
+
+    def test_reader_requires_table_when_multiple(self, tmp_path: Path) -> None:
+        with SQLiteWriter(tmp_path, "Test", Uncompressed, self.COLUMNS) as writer:
+            writer.write_chunks(self.ROWS, filestem="table1")
+            writer.write_chunks(self.ROWS, filestem="table2")
+
+        with pytest.raises(ToolkitValueError, match="Expected exactly one table"):
+            SQLiteReader(tmp_path / "Test.sqlite")
