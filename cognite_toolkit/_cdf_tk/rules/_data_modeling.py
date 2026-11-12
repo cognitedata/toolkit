@@ -188,7 +188,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
 
     def __init__(
         self,
-        resources: Sequence[ResourceRef],
+        resources: Sequence[ResourceRef] | None = None,
         results: Sequence[DeploymentResult] | None = None,
         client: ToolkitClient | None = None,
     ) -> None:

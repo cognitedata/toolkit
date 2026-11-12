@@ -151,7 +151,9 @@ class ToolkitRuleSet(ABC):
     """Validation rules for a specific type of resources, e.g., streams or functions.
 
     Args:
-        resources: The resources to validate.
+        resources: The local resources to validate. Rules in the 'cdf' context, which validate the resources
+            in CDF, do not need them.
+        results: The deployment results, used by rules that validate the changes a deployment would make.
         client: The ToolkitClient to use. This is required by some rules.
     """
 
@@ -161,11 +163,11 @@ class ToolkitRuleSet(ABC):
 
     def __init__(
         self,
-        resources: Sequence[ResourceRef],
+        resources: Sequence[ResourceRef] | None = None,
         results: Sequence[DeploymentResult] | None = None,
         client: ToolkitClient | None = None,
     ) -> None:
-        self.resources = ResourceRefList(resources)
+        self.resources = ResourceRefList(resources or [])
         self.results = results
         self.client = client
 

@@ -39,7 +39,7 @@ jobs:
           path: .venv
           key: venv-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('uv.lock') }}
 
-      - run: uv sync --all-extras
+      - run: uv sync --locked --all-extras
 
       - name: Run smoke tests
         env:

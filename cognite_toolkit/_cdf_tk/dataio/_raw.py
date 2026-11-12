@@ -265,7 +265,7 @@ class RawIO(
         data_name = "row" if reader.is_table else "line"
         # Validate that the key exists in all files
         for input_file in sorted(reader.input_files, key=reader._part_no):
-            iterable = reader.reader_class(input_file).read_chunks()
+            iterable = reader.create_reader(input_file).read_chunks()
             try:
                 first = next(iterable)
             except StopIteration:

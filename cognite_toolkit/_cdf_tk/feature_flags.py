@@ -120,6 +120,10 @@ class Flags(Enum):
         description="Enables support for config.<>.yaml files including on other config YAML files through "
         "the 'include' field.",
     )
+    CHECK = FlagMetadata(
+        visible=False,
+        description="Enables the check command plugin for checking CDF resources and configurations",
+    )
 
     def is_enabled(self) -> bool:
         if self == Flags.CDF_GROUP_EMAILS:

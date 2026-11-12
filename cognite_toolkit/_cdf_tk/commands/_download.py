@@ -30,6 +30,8 @@ from cognite_toolkit._cdf_tk.utils.fileio import (
     MultiFileReader,
     NDJsonWriter,
     SchemaColumn,
+    SQLiteReader,
+    SQLiteWriter,
     Uncompressed,
 )
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
@@ -49,10 +51,28 @@ class DownloadStep(Generic[T_Selector]):
     schema: list[SchemaColumn] | None
     format_type: FormatType
     limit: int | None
+    database: Path | None = None
 
     @property
     def is_table(self) -> bool:
         return self.format_type == "table"
+
+    @property
+    def table_name(self) -> str:
+        # Selectors from different download directories share the database, e.g., RAW tables from different databases.
+        return f"{self.target_dir.name}.{self.filestem}"
+
+    def writer_stem(self, writer: FileWriter) -> str:
+        return self.table_name if isinstance(writer, SQLiteWriter) else self.filestem
+
+    @property
+    def root_dir(self) -> Path:
+        """The directory for the log file and resource configurations."""
+        return self.database.parent if self.database else self.target_dir
+
+    @property
+    def location(self) -> Path:
+        return self.database or self.target_dir
 
     @property
     def download_count(self) -> int | None:
@@ -65,10 +85,12 @@ class DownloadStep(Generic[T_Selector]):
         if self.count == 0:
             return f"No items to download for {self.selector!s}. Skipping."
         elif self._already_downloaded():
-            return f"Data for {self.selector!s} already exists in {self.target_dir.as_posix()!r}. Skipping download."
+            return f"Data for {self.selector!s} already exists in {self.location.as_posix()!r}. Skipping download."
         return None
 
     def _already_downloaded(self) -> bool:
+        if self.database is not None:
+            return self._table_exists(self.database)
         if not self.target_dir.exists():
             return False
 
@@ -83,6 +105,15 @@ class DownloadStep(Generic[T_Selector]):
                 return True
 
         return False
+
+    def _table_exists(self, database: Path) -> bool:
+        if not database.exists():
+            return False
+        try:
+            tables = SQLiteReader.list_tables(database)
+        except ToolkitValueError:
+            return False
+        return any(table.name == self.table_name for table in tables)
 
 
 class DownloadCommand(ToolkitCommand):
@@ -117,14 +148,16 @@ class DownloadCommand(ToolkitCommand):
                 continue
             elif verbose:
                 console.print(
-                    f"Downloading {step.selector.display_name} '{step.selector!s}' to {step.target_dir.as_posix()!r}"
+                    f"Downloading {step.selector.display_name} '{step.selector!s}' to {step.location.as_posix()!r}"
                 )
 
-            step.selector.dump_to_file(step.target_dir)
+            if step.database is None:
+                # SQLite databases store the selector together with the table.
+                step.selector.dump_to_file(step.target_dir)
 
             with (
                 self._create_data_file_writer(step, file_format, compression) as writer,
-                self._create_log_file_writer(step.target_dir) as log_file,
+                self._create_log_file_writer(step.root_dir) as log_file,
                 FileWithAggregationLogger(log_file) as logger,
             ):
                 file_count = self._download_data(io, step, writer, logger, console)
@@ -134,7 +167,14 @@ class DownloadCommand(ToolkitCommand):
             if step.format_type == "delayed-table" and isinstance(io, TableDataIO):
                 self._convert_json_to_table(io, step, file_format, compression, console)
 
-            console.print(f"Downloaded {step.selector!s} to {file_count} file(s) in {step.target_dir.as_posix()!r}.")
+            if step.database is not None:
+                console.print(
+                    f"Downloaded {step.selector!s} to table {step.table_name!r} in {step.database.as_posix()!r}."
+                )
+            else:
+                console.print(
+                    f"Downloaded {step.selector!s} to {file_count} file(s) in {step.target_dir.as_posix()!r}."
+                )
 
     @classmethod
     def _create_plan(
@@ -152,7 +192,10 @@ class DownloadCommand(ToolkitCommand):
 
             filestem = sanitize_filename(str(selector))
             columns, format_type = cls._get_columns(io, selector, file_format)
-            plan.append(DownloadStep(selector, count, filestem, target_dir, columns, format_type, limit))
+            database = (
+                SQLiteWriter.database_path(output_dir, selector.kind) if file_format == SQLiteWriter.FORMAT else None
+            )
+            plan.append(DownloadStep(selector, count, filestem, target_dir, columns, format_type, limit, database))
         return plan
 
     @classmethod
@@ -204,6 +247,17 @@ class DownloadCommand(ToolkitCommand):
         cls, step: DownloadStep[T_Selector], file_format: str, compression: str, is_conversion: bool = False
     ) -> FileWriter:
         use_file_format = file_format if step.format_type != "delayed-table" or is_conversion else ".ndjson"
+        if use_file_format == SQLiteWriter.FORMAT and step.database is not None:
+            if step.schema is None:
+                raise RuntimeError("Bug in Toolkit. Schema should be set before writing to SQLite.")
+            return SQLiteWriter(
+                step.database.parent,
+                step.selector.kind,
+                Uncompressed,
+                columns=step.schema,
+                default_filestem=step.table_name,
+                metadata=step.selector.model_dump(mode="json", by_alias=True),
+            )
         return FileWriter.create_from_format(
             use_file_format,
             step.target_dir,
@@ -230,13 +284,13 @@ class DownloadCommand(ToolkitCommand):
         executor = ProducerWorkerExecutor[Page[T_DataResponse], Page[dict[str, JsonVal]]](
             download_iterable=io.stream_data(step.selector, step.limit),
             process=self.create_data_process(io=io, selector=step.selector, is_table=step.is_table),
-            write=self.create_writer(writer, step.filestem),
+            write=self.create_writer(writer, step.writer_stem(writer)),
             total_item_count=step.count,
             # Limit queue size to avoid filling up memory before the workers can write to disk.
             max_queue_size=8 * 10,  # 8 workers, 10 items per worker
             download_description=f"Downloading {step.selector!s}",
             process_description="Processing",
-            write_description=f"Writing to {step.target_dir.as_posix()!r} in files with stem {step.filestem!r}",
+            write_description=f"Writing to {step.location.as_posix()!r} with stem {step.writer_stem(writer)!r}",
             console=console,
         )
         executor.run()
@@ -273,8 +327,8 @@ class DownloadCommand(ToolkitCommand):
     @staticmethod
     def _dump_configuration(io: ConfigurableDataIO[T_Selector, T_DataResponse], step: DownloadStep[T_Selector]) -> None:
         for config in io.configurations(step.selector):
-            filename = config.filename or step.filestem
-            config_file = step.target_dir / DATA_RESOURCE_DIR / config.folder_name / f"{filename}.{config.kind}.yaml"
+            filename = config.filename or (step.table_name if step.database else step.filestem)
+            config_file = step.root_dir / DATA_RESOURCE_DIR / config.folder_name / f"{filename}.{config.kind}.yaml"
             config_file.parent.mkdir(parents=True, exist_ok=True)
             safe_write(config_file, yaml_safe_dump(config.value))
 
@@ -300,7 +354,7 @@ class DownloadCommand(ToolkitCommand):
             executor = ProducerWorkerExecutor[Page[dict[str, JsonVal]], Page[dict[str, JsonVal]]](
                 download_iterable=UploadableDataIO.read_chunks(reader, step.selector),
                 process=cls._create_json_to_row(io),
-                write=cls.create_writer(writer, step.filestem),
+                write=cls.create_writer(writer, step.writer_stem(writer)),
                 total_item_count=step.download_count if step.download_count else reader.count(),
                 # Limit queue size to avoid filling up memory before the workers can write to disk.
                 max_queue_size=8 * 10,  # 8 workers, 10 items per worker
@@ -315,6 +369,9 @@ class DownloadCommand(ToolkitCommand):
 
         for file in json_files:
             file.unlink()
+        if step.database is not None and not any(step.target_dir.iterdir()):
+            # The directory only held the temporary .ndjson files, the data is in the SQLite database.
+            step.target_dir.rmdir()
 
     @classmethod
     def _create_json_to_row(
