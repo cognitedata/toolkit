@@ -496,11 +496,11 @@ class TestReverseDirectRelations:
     @pytest.mark.parametrize(
         "index_yaml, is_list, expected_codes",
         [
-            pytest.param("", False, ["MISSING-INDEX"], id="no-index"),
+            pytest.param("", False, ["PERFORMANCE-DEGRADED"], id="no-index"),
             pytest.param(
                 "indexes:\n  idx:\n    indexType: btree\n    properties:\n    - related\n",
                 False,
-                ["MISSING-INDEX"],
+                ["PERFORMANCE-DEGRADED"],
                 id="not-cursorable",
             ),
             pytest.param("", True, [], id="list-of-direct-relations"),
@@ -536,7 +536,7 @@ class TestReverseDirectRelations:
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
         assert [(insight.code, "my_space:MyContainer.related" in insight.message) for insight in insights] == [
-            ("MISSING-INDEX", True)
+            ("PERFORMANCE-DEGRADED", True)
         ]
 
 
@@ -685,7 +685,7 @@ class TestMissingRequiresConstraints:
         rule = DataModelingRuleSet(resources=_schema_resources(tmp_path, views, containers))
 
         insights = [insight for insight in rule.validate() if isinstance(insight, InsightDefinition)]
-        expected = [] if expected_fix is None else [("MISSING-CONSTRAINT", True)]
+        expected = [] if expected_fix is None else [("PERFORMANCE-DEGRADED", True)]
         assert [(insight.code, (insight.fix or "").startswith(expected_fix or "")) for insight in insights] == expected
 
     def test_views_in_implements_cycle_are_skipped(self, tmp_path: Path) -> None:
@@ -698,7 +698,7 @@ class TestMissingRequiresConstraints:
         insights = [insight for insight in DataModelingRuleSet(resources=resources).validate()]
         assert [insight.code for insight in insights] == ["INVALID-VALUE"]
 
-    @pytest.mark.parametrize("with_client, expected_codes", [(True, ["MISSING-CONSTRAINT"]), (False, [])])
+    @pytest.mark.parametrize("with_client, expected_codes", [(True, ["PERFORMANCE-DEGRADED"]), (False, [])])
     def test_requires_to_cdf_parent_view(self, with_client: bool, expected_codes: list[str], tmp_path: Path) -> None:
         cdf_parent_id = ViewId(space="cdf_cdm", external_id="CogniteEquipment", version="v1")
         cdf_parent = _cdf_view(cdf_parent_id, {}).model_copy(
