@@ -257,22 +257,44 @@ class DataModelingRuleSet(ToolkitRuleSet):
         except Exception:
             # Already reported by the schema reference check.
             return
-        cycles = self._implements_cycles(local_views)
+        implements_graph, view_error = self._implements_graph(local_views)
+        if view_error is not None:
+            yield view_error
+        cycles = self._implements_cycles(implements_graph)
         yield from self._check_implements_cycles(cycles, local_views)
         in_cycle = {view_id for cycle in cycles for view_id in cycle}
         yield from self._check_requires_constraints(local_containers, local_views, skip=in_cycle)
         yield from self._check_reverse_relation_indexes(local_containers, local_views)
+
+    def _implements_graph(
+        self, local_views: dict[ViewId, _LocalView]
+    ) -> tuple[dict[ViewId, list[ViewId]], InternalValidatorException | None]:
+        """The implemented views by view, for the local views and the CDF views they implement, directly or
+        transitively. Local views take precedence over their deployed version. Views not found are leaves."""
+        graph = {view_id: list(view_request.implements or []) for view_id, (_, view_request) in local_views.items()}
+        first_error: InternalValidatorException | None = None
+        frontier = {parent_id for parents in graph.values() for parent_id in parents if parent_id not in graph}
+        while frontier:
+            cdf_views, error = self._retrieve_views(frontier)
+            first_error = first_error or error
+            for view_id in frontier:
+                graph[view_id] = list(cdf_views[view_id].implements or []) if view_id in cdf_views else []
+            frontier = {parent_id for view_id in frontier for parent_id in graph[view_id] if parent_id not in graph}
+        return graph, first_error
 
     @staticmethod
     def _check_implements_cycles(
         cycles: list[tuple[ViewId, ...]], local_views: dict[ViewId, _LocalView]
     ) -> Iterable[Insight]:
         for cycle in cycles:
-            resource, _ = local_views[cycle[0]]
+            local_view_id = next((view_id for view_id in cycle if view_id in local_views), None)
+            if local_view_id is None:
+                continue
+            resource, _ = local_views[local_view_id]
             path = " -> ".join(str(view_id) for view_id in (*cycle, cycle[0]))
             yield with_position(
                 BuildError(
-                    code="CYCLIC-IMPLEMENTS",
+                    code="INVALID-VALUE",
                     message=f"Detected a cycle of view implements: {path}.",
                     fix="Remove one of the implements in the cycle. Views cannot inherit from themselves.",
                     source_file=_source_file(resource),
@@ -283,22 +305,19 @@ class DataModelingRuleSet(ToolkitRuleSet):
             )
 
     @classmethod
-    def _implements_cycles(cls, local_views: dict[ViewId, _LocalView]) -> list[tuple[ViewId, ...]]:
-        """Cycles in the implements graph of the local views, each starting at its lowest view ID.
-
-        Non-local views are not followed, as views deployed to CDF cannot form a cycle.
-        """
+    def _implements_cycles(cls, implements_graph: dict[ViewId, list[ViewId]]) -> list[tuple[ViewId, ...]]:
+        """Cycles in the implements graph, each starting at its lowest view ID."""
         cycles: list[tuple[ViewId, ...]] = []
         visited: set[ViewId] = set()
-        for view_id in sorted(local_views, key=str):
-            cls._find_cycles(view_id, local_views, visited, [], cycles)
+        for view_id in sorted(implements_graph, key=str):
+            cls._find_cycles(view_id, implements_graph, visited, [], cycles)
         return cycles
 
     @classmethod
     def _find_cycles(
         cls,
         view_id: ViewId,
-        local_views: dict[ViewId, _LocalView],
+        implements_graph: dict[ViewId, list[ViewId]],
         visited: set[ViewId],
         path: list[ViewId],
         cycles: list[tuple[ViewId, ...]],
@@ -317,13 +336,12 @@ class DataModelingRuleSet(ToolkitRuleSet):
             if rotated not in cycles:
                 cycles.append(rotated)
             return
-        if view_id in visited or view_id not in local_views:
+        if view_id in visited:
             return
         visited.add(view_id)
         path.append(view_id)
-        _, view_request = local_views[view_id]
-        for parent_id in view_request.implements or []:
-            cls._find_cycles(parent_id, local_views, visited, path, cycles)
+        for parent_id in implements_graph.get(view_id, []):
+            cls._find_cycles(parent_id, implements_graph, visited, path, cycles)
         path.pop()
 
     def _check_requires_constraints(
@@ -422,6 +440,8 @@ class DataModelingRuleSet(ToolkitRuleSet):
         self, missing: set[ContainerId], local_containers: dict[ContainerId, _LocalContainer]
     ) -> list[ContainerId]:
         """The missing containers that are not already required by another missing container."""
+        # Retrieved in one request, instead of one request per container below.
+        self._retrieve_containers(missing - set(local_containers))
         required_by = {
             container_id: self._required_containers({container_id}, local_containers)[0] - {container_id}
             for container_id in missing
@@ -447,7 +467,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
         constraints = "a 'requires' constraint" if len(to_require) == 1 else "'requires' constraints"
         return with_position(
             Recommendation(
-                code="MISSING-REQUIRES-CONSTRAINT",
+                code="MISSING-CONSTRAINT",
                 message=(
                     f"View '{view_id}' is not optimized for querying. None of its own containers require "
                     f"{required}, mapped by the views it implements."
@@ -550,7 +570,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
         for resource in relation.resources:
             yield with_position(
                 Recommendation(
-                    code="MISSING-REVERSE-RELATION-INDEX",
+                    code="MISSING-INDEX",
                     message=(
                         f"The reverse direct relation through '{relation.through}' in "
                         f"{self._referenced_by(resource)} cannot be queried efficiently, since the direct relation "
