@@ -1019,7 +1019,9 @@ class BuildV2Command(ToolkitCommand):
             )
         module_absolute_path = (organization_dir / MODULES).resolve()
         # Git reports paths relative to the repository root, not the current working directory.
-        repo_root = git.get_root() or Path.cwd()
+        repo_root = git.get_root()
+        if repo_root is None:
+            raise ToolkitValueError("Failed to determine the Git repository root directory.")
         deploy_branch = user_deploy_branch or git.get_default_branch()
         current_branch = git.get_current_branch()
         if current_branch == deploy_branch:
