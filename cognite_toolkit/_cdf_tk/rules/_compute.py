@@ -23,7 +23,16 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     InternalValidatorException,
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_ios import TransformationIO
+from cognite_toolkit._cdf_tk.resource_ios import (
+    FunctionIO,
+    FunctionScheduleIO,
+    HostedExtractorDestinationIO,
+    TransformationIO,
+    TransformationScheduleIO,
+    WorkflowIO,
+    WorkflowTriggerIO,
+    WorkflowVersionIO,
+)
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet
 
 _INVALID_SESSION_STATUSES = frozenset({"CANCELLED", "EXPIRED", "REVOKED", "ACCESS_LOST"})
@@ -52,14 +61,25 @@ def _workflow_refs_by_transformation(
     return refs_by_transformation
 
 
-class TransformationRuleSet(ToolkitRuleSet):
-    """Validates the transformations in CDF.
+class ComputeRuleSet(ToolkitRuleSet):
+    """Validates compute resources in CDF.
 
     Checks that transformations are not blocked, that they are triggered by a schedule or a workflow, and that
     the credentials they run with are set and still valid.
     """
 
-    RESOURCE_TYPES = frozenset({TransformationIO.as_resource_type()})
+    RESOURCE_TYPES = frozenset(
+        {
+            TransformationIO.as_resource_type(),
+            WorkflowTriggerIO.as_resource_type(),
+            WorkflowVersionIO.as_resource_type(),
+            WorkflowIO.as_resource_type(),
+            FunctionIO.as_resource_type(),
+            FunctionScheduleIO.as_resource_type(),
+            TransformationScheduleIO.as_resource_type(),
+            HostedExtractorDestinationIO.as_resource_type(),
+        }
+    )
     CONTEXT = frozenset({"cdf"})
     DISPLAY_NAME = "Transformations"
 

@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule imp
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.commands._validation import ValidationCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import InsightDefinition
-from cognite_toolkit._cdf_tk.rules import TransformationRuleSet
+from cognite_toolkit._cdf_tk.rules import ComputeRuleSet
 
 API_URL = "https://bluefield.cognitedata.com/api/v1/projects/my_project"
 
@@ -96,7 +96,7 @@ def _client() -> MagicMock:
 
 class TestTransformationRuleSet:
     def test_validate_transformations_in_cdf(self) -> None:
-        rule = TransformationRuleSet(client=_client())
+        rule = ComputeRuleSet(client=_client())
 
         insights = sorted(
             (insight.code, insight.source_url) for insight in rule.validate() if isinstance(insight, InsightDefinition)
@@ -112,7 +112,7 @@ class TestTransformationRuleSet:
     def test_unverified_credentials_when_sessions_cannot_be_retrieved(self) -> None:
         client = _client()
         client.sessions.retrieve.side_effect = ToolkitAPIError("Forbidden", code=403)
-        rule = TransformationRuleSet(client=client)
+        rule = ComputeRuleSet(client=client)
 
         codes = {insight.code for insight in rule.validate()}
 
@@ -121,4 +121,4 @@ class TestTransformationRuleSet:
     def test_planned_in_cdf_context_without_resources(self) -> None:
         plan = ValidationCommand._create_validation_plan(client=MagicMock(), context="cdf")
 
-        assert TransformationRuleSet in {type(step.rule) for step in plan}
+        assert ComputeRuleSet in {type(step.rule) for step in plan}
