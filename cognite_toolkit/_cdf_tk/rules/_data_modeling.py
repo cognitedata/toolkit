@@ -227,7 +227,8 @@ class DataModelingRuleSet(ToolkitRuleSet):
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
         yield from self._check_schema_references()
-        yield from self._check_schema_design()
+        if Flags.ALPHA_RULES.is_enabled():
+            yield from self._check_schema_design()
         if self.client is None:
             return
         yield from self._validate_data_modeling_changes(self.client)
@@ -302,6 +303,13 @@ class DataModelingRuleSet(ToolkitRuleSet):
         path: list[ViewId],
         cycles: list[tuple[ViewId, ...]],
     ) -> None:
+        """Depth-first search through the implements graph, collecting cycles reachable from view_id.
+
+        `path` is the current chain of views from the search root; a view already in `path` closes a cycle.
+        Views are appended before visiting their parents and popped afterwards (backtracking), so `path`
+        only reflects the current branch. `visited` persists across branches so each view is expanded once.
+        Cycles are rotated to start at their lowest view ID to avoid duplicates.
+        """
         if view_id in path:
             cycle = path[path.index(view_id) :]
             start = cycle.index(min(cycle, key=str))
