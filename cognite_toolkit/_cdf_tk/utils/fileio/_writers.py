@@ -1,6 +1,7 @@
 import csv
 import importlib.util
 import json
+import sqlite3
 import threading
 from abc import ABC, abstractmethod
 from collections import Counter
@@ -18,9 +19,18 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, To
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
-from cognite_toolkit._cdf_tk.utils.useful_types import DataType
+from cognite_toolkit._cdf_tk.utils.useful_types import DataType, JsonVal
 
-from ._base import T_IO, CellValue, Chunk, FileIO, PrimaryCellValue, SchemaColumn
+from ._base import (
+    SQLITE_METADATA_TABLE,
+    T_IO,
+    CellValue,
+    Chunk,
+    FileIO,
+    PrimaryCellValue,
+    SchemaColumn,
+    quote_sqlite_identifier,
+)
 from ._compression import Compression, Uncompressed
 
 if TYPE_CHECKING:
@@ -164,6 +174,65 @@ class TableWriter(FileWriter[T_IO], ABC):
     ) -> None:
         super().__init__(output_dir, kind, compression, default_filestem, max_file_size_bytes)
         self.columns = columns
+
+    @classmethod
+    def _to_datetime(cls, value: CellValue) -> datetime | None:
+        if isinstance(value, datetime) or value is None:
+            output = value
+        elif isinstance(value, date):
+            output = datetime.combine(value, datetime.min.time())
+        elif isinstance(value, int | float):
+            # Assuming the value is a timestamp in milliseconds
+            output = datetime.fromtimestamp(value / 1000.0, tz=UTC)
+        elif isinstance(value, str):
+            output = cls._convert_data_modelling_timestamp(value)
+        else:
+            raise ToolkitTypeError(
+                f"Unsupported value type for datetime conversion: {type(value)}. Expected datetime, date, int, float, or str."
+            )
+        if output is not None and output.tzinfo is None:
+            # Ensure the datetime is in UTC
+            output = output.replace(tzinfo=UTC)
+        elif output is not None and output.tzinfo is not None:
+            # Convert to UTC if it has a timezone
+            output = output.astimezone(UTC)
+        return output
+
+    @classmethod
+    def _to_date(cls, value: CellValue) -> date | None:
+        if isinstance(value, datetime):
+            return value.date()
+        elif isinstance(value, date) or value is None:
+            return value
+        elif isinstance(value, int | float):
+            # Assuming the value is a timestamp in milliseconds
+            return datetime.fromtimestamp(value / 1000.0, tz=UTC).date()
+        elif isinstance(value, str):
+            return cls._convert_data_modelling_timestamp(value).date()
+        else:
+            raise ToolkitTypeError(
+                f"Unsupported value type for date conversion: {type(value)}. Expected date, datetime, int, float, or str."
+            )
+
+    @classmethod
+    def _convert_data_modelling_timestamp(cls, timestamp: str) -> datetime:
+        """Convert a timestamp string from the data modeling format to a datetime object."""
+        try:
+            return datetime.fromisoformat(timestamp)
+        except ValueError:
+            # Typically hits if the timestamp has truncated milliseconds,
+            # For example, "2021-01-01T00:00:00.17+00:00".
+            # In Python 3.10, the strptime requires exact formats so we need both formats below.
+            # In Python 3.11-13, if the timestamp matches on the second it will match on the first,
+            # so when we set lower bound to 3.11 the loop will not be needed.
+            for format_ in ["%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z"]:
+                try:
+                    return datetime.strptime(timestamp, format_)
+                except ValueError:
+                    continue
+            raise ValueError(
+                f"Invalid timestamp format: {timestamp}. Expected ISO 8601 format with optional milliseconds and timezone."
+            )
 
 
 class NDJsonWriter(FileWriter[TextIOWrapper]):
@@ -336,65 +405,6 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):
     def _date_columns(self) -> set[str]:
         return {col.name for col in self.columns if col.type == "date"}
 
-    @classmethod
-    def _to_datetime(cls, value: CellValue) -> datetime | None:
-        if isinstance(value, datetime) or value is None:
-            output = value
-        elif isinstance(value, date):
-            output = datetime.combine(value, datetime.min.time())
-        elif isinstance(value, int | float):
-            # Assuming the value is a timestamp in milliseconds
-            output = datetime.fromtimestamp(value / 1000.0)
-        elif isinstance(value, str):
-            output = cls._convert_data_modelling_timestamp(value)
-        else:
-            raise ToolkitTypeError(
-                f"Unsupported value type for datetime conversion: {type(value)}. Expected datetime, date, int, float, or str."
-            )
-        if output is not None and output.tzinfo is None:
-            # Ensure the datetime is in UTC
-            output = output.replace(tzinfo=UTC)
-        elif output is not None and output.tzinfo is not None:
-            # Convert to UTC if it has a timezone
-            output = output.astimezone(UTC)
-        return output
-
-    @classmethod
-    def _to_date(cls, value: CellValue) -> date | None:
-        if isinstance(value, date) or value is None:
-            return value
-        elif isinstance(value, datetime):
-            return value.date()
-        elif isinstance(value, int | float):
-            # Assuming the value is a timestamp in milliseconds
-            return date.fromtimestamp(value / 1000.0)
-        elif isinstance(value, str):
-            return cls._convert_data_modelling_timestamp(value).date()
-        else:
-            raise ToolkitTypeError(
-                f"Unsupported value type for date conversion: {type(value)}. Expected date, datetime, int, float, or str."
-            )
-
-    @classmethod
-    def _convert_data_modelling_timestamp(cls, timestamp: str) -> datetime:
-        """Convert a timestamp string from the data modeling format to a datetime object."""
-        try:
-            return datetime.fromisoformat(timestamp)
-        except ValueError:
-            # Typically hits if the timestamp has truncated milliseconds,
-            # For example, "2021-01-01T00:00:00.17+00:00".
-            # In Python 3.10, the strptime requires exact formats so we need both formats below.
-            # In Python 3.11-13, if the timestamp matches on the second it will match on the first,
-            # so when we set lower bound to 3.11 the loop will not be needed.
-            for format_ in ["%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z"]:
-                try:
-                    return datetime.strptime(timestamp, format_)
-                except ValueError:
-                    continue
-            raise ValueError(
-                f"Invalid timestamp format: {timestamp}. Expected ISO 8601 format with optional milliseconds and timezone."
-            )
-
     @lru_cache(maxsize=1)
     def _create_schema(self) -> "pa.Schema":
         """Create a pyarrow schema from the schema definition."""
@@ -441,6 +451,132 @@ class ParquetWriter(TableWriter["pq.ParquetWriter"]):
         if is_array:
             pa_type = pa.list_(pa_type)
         return pa_type
+
+
+class SQLiteWriter(TableWriter[sqlite3.Connection]):
+    """Writes all tables to a single SQLite database file named after the kind.
+
+    Each filestem becomes a table in the database. The schema and the optional metadata of each table
+    are stored in the metadata table, such that the SQLiteReader can restore the original data types.
+    The database is never split into multiple files, and compression is not supported.
+
+    Args:
+        output_dir: The directory where the database file is written.
+        kind: The kind of data, used as the database filename.
+        compression: Ignored, SQLite databases are not compressed.
+        columns: The columns of the tables written by this writer.
+        default_filestem: The table name used when no filestem is given. Defaults to the kind.
+        max_file_size_bytes: Ignored, SQLite databases are not split.
+        metadata: Optional metadata stored with every table written by this writer.
+    """
+
+    FORMAT = ".sqlite"
+
+    def __init__(
+        self,
+        output_dir: Path,
+        kind: str,
+        compression: type[Compression],
+        columns: Sequence[SchemaColumn],
+        default_filestem: str | None = None,
+        max_file_size_bytes: int = 128 * 1024 * 1024,
+        metadata: Mapping[str, JsonVal] | None = None,
+    ) -> None:
+        super().__init__(output_dir, kind, compression, columns, default_filestem, max_file_size_bytes)
+        if not columns:
+            raise ToolkitValueError("Cannot write a SQLite table without columns.")
+        self.metadata = metadata
+        self._created_tables: set[str] = set()
+
+    @property
+    def filepath(self) -> Path:
+        return self.output_dir / f"{sanitize_filename(self.kind)}{self.FORMAT}"
+
+    def write_chunks(self, chunks: Iterable[Mapping[str, CellValue]], filestem: str = "") -> None:
+        with self._lock:
+            table = filestem or self.default_filestem or self.kind
+            connection = self._get_writer(self._get_filepath(table), table)
+            self._write_table(connection, table, chunks)
+
+    def _get_filepath(self, filestem: str) -> Path:
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        return self.filepath
+
+    def _is_above_file_size_limit(self, filepath: Path, writer: sqlite3.Connection) -> bool:
+        return False
+
+    def _create_writer(self, filepath: Path) -> sqlite3.Connection:
+        # The connection is used in the writer thread of the ProducerWorkerExecutor, but closed in the main thread.
+        connection = sqlite3.connect(filepath, check_same_thread=False)
+        connection.execute(
+            f"CREATE TABLE IF NOT EXISTS {quote_sqlite_identifier(SQLITE_METADATA_TABLE)} "
+            "(table_name TEXT PRIMARY KEY, schema TEXT NOT NULL, metadata TEXT)"
+        )
+        connection.commit()
+        return connection
+
+    def _write(self, writer: sqlite3.Connection, chunks: Iterable[Mapping[str, CellValue]]) -> None:
+        self._write_table(writer, self.default_filestem or self.kind, chunks)
+
+    def _write_table(
+        self, connection: sqlite3.Connection, table: str, chunks: Iterable[Mapping[str, CellValue]]
+    ) -> None:
+        if table not in self._created_tables:
+            self._create_table(connection, table)
+            self._created_tables.add(table)
+        rows = [tuple(self._to_sqlite_value(chunk.get(col.name), col) for col in self.columns) for chunk in chunks]
+        if not rows:
+            return
+        column_names = ", ".join(quote_sqlite_identifier(col.name) for col in self.columns)
+        placeholders = ", ".join("?" for _ in self.columns)
+        connection.executemany(
+            f"INSERT INTO {quote_sqlite_identifier(table)} ({column_names}) VALUES ({placeholders})", rows
+        )
+        connection.commit()
+
+    def _create_table(self, connection: sqlite3.Connection, table: str) -> None:
+        column_definitions = ", ".join(
+            f"{quote_sqlite_identifier(col.name)} {self._as_sqlite_type(col)}" for col in self.columns
+        )
+        connection.execute(f"CREATE TABLE IF NOT EXISTS {quote_sqlite_identifier(table)} ({column_definitions})")
+        connection.execute(
+            f"INSERT OR REPLACE INTO {quote_sqlite_identifier(SQLITE_METADATA_TABLE)} "
+            "(table_name, schema, metadata) VALUES (?, ?, ?)",
+            (
+                table,
+                json.dumps([col.dump() for col in self.columns]),
+                json.dumps(self.metadata) if self.metadata is not None else None,
+            ),
+        )
+        connection.commit()
+
+    @staticmethod
+    def _as_sqlite_type(column: SchemaColumn) -> str:
+        if column.is_array:
+            return "TEXT"
+        elif column.type in ("integer", "epoch", "boolean"):
+            return "INTEGER"
+        elif column.type == "float":
+            return "REAL"
+        return "TEXT"
+
+    @classmethod
+    def _to_sqlite_value(cls, value: CellValue, column: SchemaColumn) -> str | int | float | None:
+        if value is None:
+            return None
+        elif column.is_array or column.type == "json" or isinstance(value, list | dict):
+            return json.dumps(value, cls=NDJsonWriter._DateTimeEncoder)
+        elif column.type == "timestamp":
+            timestamp = cls._to_datetime(value)
+            return timestamp.isoformat() if timestamp else None
+        elif column.type == "date":
+            date_ = cls._to_date(value)
+            return date_.isoformat() if date_ else None
+        elif isinstance(value, bool):
+            return int(value)
+        elif isinstance(value, date | datetime):
+            return value.isoformat()
+        return value
 
 
 FILE_WRITE_CLS_BY_FORMAT: Mapping[str, type[FileWriter]] = {}
