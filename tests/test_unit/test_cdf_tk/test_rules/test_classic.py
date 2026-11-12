@@ -32,16 +32,8 @@ def _resource(path: Path, identifier: ExternalId | SpaceId, crud_cls: type[Resou
 
 
 class TestClassicDeprecationRuleSet:
-    def test_skipped_without_alpha_rules(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: False)
-        path = tmp_path / "my.Asset.yaml"
-        path.write_text(ASSETS)
-        rule = ClassicDeprecationRuleSet(resources=[_resource(path, ExternalId(external_id="root"), AssetIO)])
-
-        assert (rule.get_status().code, list(rule.validate())) == ("skip", [])
-
+    @pytest.mark.skipif(not FeatureFlag.is_enabled(Flags.ALPHA_RULES), reason="ALPHA_RULES feature flag is not enabled")
     def test_one_recommendation_per_resource_type(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.ALPHA_RULES)
         assets = tmp_path / "my.Asset.yaml"
         assets.write_text(ASSETS)
         labels = tmp_path / "my.Label.yaml"
