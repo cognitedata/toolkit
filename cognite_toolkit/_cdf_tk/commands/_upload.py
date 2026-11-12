@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeployOptions, De
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DataTracking
 from cognite_toolkit._cdf_tk.dataio import (
+    CanvasIO,
     ChartIO,
     CogniteFileContentIO,
     FileContentIO,
@@ -272,6 +273,10 @@ class UploadCommand(ToolkitCommand):
                 if reader.is_table and isinstance(io, TableDataIO):
                     schema = io.get_schema(selector)
                     reader = MultiFileReader(datafiles, schema=schema)
+
+                if isinstance(io, CanvasIO):
+                    for warning in io.check_view_references(reader):
+                        warning.print_warning(console=console)
 
                 item_count = io.count_items(reader, selector)
 

@@ -157,7 +157,7 @@ class GroupRuleSet(ToolkitRuleSet):
         )
         if status == "DATA_MODELING_ONLY":
             insight: Insight = BuildWarning(
-                code="DEPRECATED-CAPABILITY",
+                code="DEPRECATED-FEATURE",
                 message=f"{message} This project is DATA_MODELING_ONLY, so it should not use deprecated resources.",
                 fix=f"Remove {usage.acl_name!r} from the group. See {DEPRECATED_FEATURES_URL} for the replacement.",
                 source_file=usage.source,
@@ -165,7 +165,7 @@ class GroupRuleSet(ToolkitRuleSet):
             )
         else:
             insight = Recommendation(
-                code="DEPRECATED-CAPABILITY",
+                code="DEPRECATED-FEATURE",
                 message=message,
                 fix=(
                     f"Plan to move away from the {usage.api} and remove {usage.acl_name!r} from the group. "
