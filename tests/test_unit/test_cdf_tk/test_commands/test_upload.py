@@ -343,13 +343,13 @@ class TestUploadInstances:
         data_file = tmp_path / "my_assets.csv"
         data_file.write_text("space,externalId,name\nmy_space,asset_1,Asset 1\n", encoding="utf-8")
         view = self._get_view(cognite_core_no_3D, "CogniteAsset")
-        answers = [cognite_core_no_3D, view, "node", "skip"]
+        answers = [view, "node", "skip"]
 
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary([UploadCommand.__module__, DataModelingSelect.__module__], answers),
         ):
-            client.data_models.list.return_value = [cognite_core_no_3D]
+            client.views.list.return_value = cognite_core_no_3D.views
             UploadCommand(silent=True, skip_tracking=True).upload_instances(data_file, client, verbose=False)
 
         assert read_yaml_file(tmp_path / f"my_assets{DATA_MANIFEST_SUFFIX}") == {

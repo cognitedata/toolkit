@@ -206,7 +206,13 @@ class UploadApp(typer.Typer):
         """Guided upload of a CSV or Parquet file as instances to a view. Creates the manifest file for you."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = UploadCommand(client=client)
-        _validate_cdf_project(cdf_project, client.config.project)
         selected_file = data_file or _prompt_table_file()
 
-        cmd.run(lambda: cmd.upload_instances(data_file=selected_file, client=client, verbose=verbose))
+        cmd.run(
+            lambda: cmd.upload_instances(
+                data_file=selected_file,
+                client=client,
+                verbose=verbose,
+                validate_project=lambda: _validate_cdf_project(cdf_project, client.config.project),
+            )
+        )

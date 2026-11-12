@@ -186,13 +186,20 @@ class UploadCommand(ToolkitCommand):
             overwrite,
         )
 
-    def upload_instances(self, data_file: Path, client: ToolkitClient, verbose: bool) -> None:
+    def upload_instances(
+        self,
+        data_file: Path,
+        client: ToolkitClient,
+        verbose: bool,
+        validate_project: Callable[[], None] | None = None,
+    ) -> None:
         """Guides the user through creating a manifest for a CSV or Parquet file and uploading it as instances.
 
         Args:
             data_file: The CSV or Parquet file with one instance per row.
             client: An instance of ToolkitClient to interact with CDF.
             verbose: If True, prints detailed information about the upload process.
+            validate_project: Called after the user has chosen to upload or dry run, to confirm the CDF project.
         """
         selector = self.create_instance_manifest(data_file, client)
         if selector is None:
@@ -211,6 +218,8 @@ class UploadCommand(ToolkitCommand):
                 "to upload the file later."
             )
             return
+        if validate_project is not None:
+            validate_project()
         data_files_by_selector: dict[Selector, DataSource] = {selector: [data_file]}
         self.upload_data(
             data_files_by_selector,
@@ -243,8 +252,8 @@ class UploadCommand(ToolkitCommand):
 
         dm_select = DataModelingSelect(client, "upload instances", console=client.console)
         view = dm_select.select_view(
-            message="Select the view to upload the instances to:",
-            filter=ViewSelectFilter(strategy="dataModel", include_global=True),
+            message="Select the view to upload the instances to (type to search):",
+            filter=ViewSelectFilter(strategy="all", include_global=True),
         )
         instance_type = dm_select.select_instance_type(
             view.used_for, message=f"What type of instances does {data_file.name!r} contain?"
