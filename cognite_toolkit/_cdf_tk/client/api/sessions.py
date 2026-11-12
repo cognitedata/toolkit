@@ -97,17 +97,21 @@ class SessionAPI(CDFResourceAPI[SessionResponse]):
             raise ToolkitAPIError("Failed to create one-shot token exchange session. No response received.")
         return response[0]
 
-    def retrieve(self, items: Sequence[InternalId]) -> builtins.list[SessionResponse]:
+    def retrieve(self, items: Sequence[InternalId], ignore_unknown_ids: bool = False) -> builtins.list[SessionResponse]:
         """Retrieve sessions by ID.
-
-        The request fails if any ID does not belong to an existing session.
 
         Args:
             items: Session IDs to retrieve.
+            ignore_unknown_ids: Whether to ignore unknown IDs. If False, an error will be raised
+                if any of the provided IDs do not exist.
 
         Returns:
             Sessions for the given IDs.
         """
+        if ignore_unknown_ids:
+            # The CDF API does not support ignore_unknown_ids for sessions,
+            # so we implement it by splitting failed requests and skipping unknown items.
+            return self._request_item_split_retries(items, "retrieve")
         return self._request_item_response(items, "retrieve")
 
     def revoke(self, items: Sequence[InternalId]) -> builtins.list[SessionResponse]:
