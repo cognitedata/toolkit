@@ -9,7 +9,13 @@ from _pytest.mark import ParameterSet
 from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NameId, RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    ExternalId,
+    NameId,
+    PostgresGatewayUserId,
+    RawDatabaseId,
+    RawTableId,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
@@ -33,6 +39,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     GroupResourceScopedIO,
     IntegrationsIO,
     LocationFilterIO,
+    PostgresGatewayUserIO,
     RawDatabaseIO,
     RawTableIO,
     ResourceIO,
@@ -253,8 +260,8 @@ def group_acl_expected_dependency() -> Iterable[ParameterSet]:
     )
     yield pytest.param(
         PostgresGatewayAcl(actions=["READ"], scope=PostgresGatewayUsersScope(usernames=["my_user"])),
-        [],
-        id="PostgresGatewayAcl with PostgresGatewayUsersScope has no dependencies",
+        [(PostgresGatewayUserIO, PostgresGatewayUserId(username="my_user"))],
+        id="PostgresGatewayAcl with PostgresGatewayUsersScope",
     )
 
 

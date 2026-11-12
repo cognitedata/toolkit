@@ -29,6 +29,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     InternalId,
     InternalUnwrappedId,
     NameId,
+    PostgresGatewayUserId,
     RawDatabaseId,
     RawTableId,
 )
@@ -163,6 +164,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         from ._extraction_pipeline import ExtractionPipelineIO
         from ._integrations import IntegrationsIO
         from ._location import LocationFilterIO
+        from ._postgres_gateway import PostgresGatewayUserIO
         from ._raw import RawDatabaseIO, RawTableIO
         from ._sap_writeback import SAPInstanceIO
         from ._timeseries import TimeSeriesIO
@@ -206,6 +208,9 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             elif isinstance(scope, yaml_cap.AppExternalIdScope):
                 for app_id in scope.external_ids:
                     yield AppIO, ExternalId(external_id=app_id)
+            elif isinstance(scope, yaml_cap.PostgresGatewayUsersScope):
+                for username in scope.usernames:
+                    yield PostgresGatewayUserIO, PostgresGatewayUserId(username=username)
             elif isinstance(scope, yaml_cap.IDScope | yaml_cap.IDScopeLowerCase):
                 loader: type[ResourceIO] | None = None
                 if isinstance(capability, yaml_cap.DataSetsAcl):
