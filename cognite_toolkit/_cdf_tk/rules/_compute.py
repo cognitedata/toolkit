@@ -11,7 +11,8 @@ from pydantic import ValidationError
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, RawTableId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import EpochTimestampRange, FunctionCallFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
@@ -27,6 +28,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionResponse, SessionStatus
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule import TransformationScheduleResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowExecutionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     ScheduleTriggerRule,
     WorkflowTriggerResponse,
@@ -77,13 +79,30 @@ ROTATE_RECOMMENDATION_DAYS = 7
 ROTATE_WARNING_DAYS = 2
 # Warn when this many compute resources of the same type are scheduled to start in the same minute.
 THUNDERING_HERD_THRESHOLD = 5
+# How far back to look for the last call of a function and the last execution of a workflow.
+RUN_HISTORY_DAYS = 7
 
 _DAY_MS = 24 * 60 * 60 * 1000
 _HOUR_MS = 60 * 60 * 1000
+_MAX_ERROR_LENGTH = 500
 _MAX_LISTED_NAMES = 10
 _WEEKDAY_NAMES = ("Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays")
 _SESSIONS_ENDPOINT = "/sessions/byids"
 _VALID_SESSION_STATUSES: frozenset[SessionStatus] = frozenset({"READY", "ACTIVE"})
+
+_FAILED_FUNCTION_CALLS = {
+    "Failed": "failed",
+    "Timeout": "timed out",
+    "ConcurrencyLimitExceeded": "was rejected because the concurrency limit of the function was exceeded",
+}
+_FAILED_WORKFLOW_EXECUTIONS = {"FAILED": "failed", "TIMED_OUT": "timed out"}
+_FAILED_TASK_STATUSES = frozenset({"FAILED", "FAILED_WITH_TERMINAL_ERROR", "TIMED_OUT"})
+_FAILED_HOSTED_EXTRACTOR_JOBS = {
+    "startup_error": "Fix the configuration of the job, its source, or its destination, then restart the job.",
+    "connection_error": "Ensure that the source system is reachable and that the credentials of the source are valid.",
+    "transform_error": "Update the format or mapping of the job to match the messages from the source.",
+    "cdf_write_error": "Ensure that the credentials of the destination can write to the target resources in CDF.",
+}
 
 _Severity = Literal["error", "warning", "recommendation"]
 _INSIGHT_BY_SEVERITY: dict[_Severity, type[BuildError] | type[BuildWarning] | type[Recommendation]] = {
@@ -172,22 +191,41 @@ class _Reference:
 
 
 @dataclass(frozen=True)
+class _Failure:
+    """The last run of a compute resource failed."""
+
+    url: str
+    message: str
+    fix: str
+    concurrency_limited: bool = False
+
+
+@dataclass(frozen=True)
 class _Finding:
-    """A potential issue with a compute resource."""
+    """A potential issue with a compute resource.
+
+    Args:
+        explains: The failures this finding can cause, any failure or only failures from exceeding a concurrency limit.
+    """
 
     url: str
     severity: _Severity
     code: InsightCode
     message: str
     fix: str
+    explains: Literal["any", "concurrency"] | None = None
+
+    def explains_failure(self, failure: _Failure) -> bool:
+        return self.explains == "any" or (self.explains == "concurrency" and failure.concurrency_limited)
 
 
 class ComputeRuleSet(ToolkitRuleSet):
     """Validates the compute resources in CDF: transformations, functions, workflows, and hosted extractor jobs.
 
-    Finds credentials whose session is missing or no longer valid, has expired, or expires soon, certificates
-    that have expired or expire soon, many resources scheduled to start at the same time, and resources they
-    depend on that do not exist.
+    First, finds potential issues: credentials whose session is missing or no longer valid, has expired, or expires
+    soon, certificates that have expired or expire soon, many resources scheduled to start at the same time, and
+    resources they depend on that do not exist. Then, reports the resources whose last run failed, with the potential
+    issue as the cause if one explains the failure. The remaining potential issues are reported as is.
     """
 
     RESOURCE_TYPES = frozenset(
@@ -221,8 +259,8 @@ class ComputeRuleSet(ToolkitRuleSet):
         return RuleSetStatus(
             code="ready",
             message=(
-                "Will validate the credentials, schedules, and dependencies of transformations, functions, "
-                "workflows, and hosted extractor jobs in CDF."
+                "Will validate the credentials, schedules, dependencies, and last runs of transformations, "
+                "functions, workflows, and hosted extractor jobs in CDF."
             ),
         )
 
@@ -238,7 +276,7 @@ class ComputeRuleSet(ToolkitRuleSet):
         inventory, exceptions = self._load_inventory(client)
         yield from exceptions
 
-        findings: list[_Finding] = []
+        findings_by_url: dict[str, list[_Finding]] = defaultdict(list)
         potential_issues = (
             *self._check_credentials(client, inventory, now),
             *self._check_schedules(client, inventory),
@@ -248,9 +286,16 @@ class ComputeRuleSet(ToolkitRuleSet):
             if isinstance(item, InternalValidatorException):
                 yield item
             else:
-                findings.append(item)
+                findings_by_url[item.url].append(item)
 
-        yield from self._report(findings)
+        failure_by_url: dict[str, _Failure] = {}
+        for failure in self._find_failures(client, inventory, now):
+            if isinstance(failure, InternalValidatorException):
+                yield failure
+            else:
+                failure_by_url[failure.url] = failure
+
+        yield from self._report(findings_by_url, failure_by_url)
 
     def _load_inventory(self, client: ToolkitClient) -> tuple[_Inventory, list[InternalValidatorException]]:
         inventory = _Inventory()
@@ -317,6 +362,7 @@ class ComputeRuleSet(ToolkitRuleSet):
             code="INVALID-CREDENTIALS",
             message=f"{credential.name} are invalid, {reason}",
             fix=credential.fix,
+            explains="any",
         )
 
     @staticmethod
@@ -475,6 +521,7 @@ class ComputeRuleSet(ToolkitRuleSet):
                     ),
                     fix=f"Spread the start times of the {kind} over different minutes, for example, "
                     "'7 * * * *' instead of '0 * * * *'.",
+                    explains="concurrency",
                 )
 
     @staticmethod
@@ -570,6 +617,7 @@ class ComputeRuleSet(ToolkitRuleSet):
                         code="MISSING-REFERENCED-RESOURCE",
                         message=f"{reference.referrer} {reference.verb} the {target}, which does not exist.",
                         fix=f"Create the {target}, or stop using it.",
+                        explains="any",
                     )
 
     def _references(
@@ -638,15 +686,167 @@ class ComputeRuleSet(ToolkitRuleSet):
                     identifier=source,
                 )
 
-    # 4. Report
+    # 4. Failures
+
+    def _find_failures(
+        self, client: ToolkitClient, inventory: _Inventory, now: int
+    ) -> Iterable[_Failure | InternalValidatorException]:
+        yield from self._transformation_failures(client, inventory.transformations)
+        yield from self._function_failures(client, inventory.functions, now)
+        yield from self._workflow_failures(client, inventory.workflow_versions, now)
+        yield from self._hosted_extractor_failures(client, inventory.hosted_extractor_jobs)
 
     @staticmethod
-    def _report(findings: Sequence[_Finding]) -> Iterable[Insight]:
-        alpha = Flags.ALPHA_RULES.is_enabled()
-        for finding in findings:
-            yield _INSIGHT_BY_SEVERITY[finding.severity](
-                code=finding.code, message=finding.message, fix=finding.fix, source_url=finding.url, alpha=alpha
+    def _transformation_failures(
+        client: ToolkitClient, transformations: Sequence[TransformationResponse]
+    ) -> Iterable[_Failure]:
+        for transformation in transformations:
+            last_job = transformation.last_finished_job or {}
+            if last_job.get("status") != "Failed":
+                continue
+            error = last_job.get("error")
+            yield _Failure(
+                url=_transformation_url(client, transformation),
+                message=f"The last run of the transformation '{transformation.external_id}' failed"
+                f"{_with_reason(error if isinstance(error, str) else None)}",
+                fix="Fix the error in the query or configuration of the transformation, then run it again.",
             )
+
+    def _function_failures(
+        self, client: ToolkitClient, functions: Sequence[FunctionResponse], now: int
+    ) -> Iterable[_Failure | InternalValidatorException]:
+        call_filter = FunctionCallFilter(start_time=EpochTimestampRange(min_=now - RUN_HISTORY_DAYS * _DAY_MS))
+        for function in functions:
+            url = _function_url(client, function.id)
+            name = function.external_id or function.name
+            if function.status == "Failed":
+                yield _Failure(
+                    url=url,
+                    message=f"The function '{name}' failed to deploy"
+                    f"{_with_reason(function.error.message if function.error else None)}",
+                    fix="Fix the error in the code or requirements of the function, then deploy it again.",
+                )
+                continue
+            try:
+                calls = client.functions.calls.list(function.id, filter=call_filter, limit=None)
+            except ToolkitAPIError as error:
+                yield self._retrieve_failed(f"the calls of the function '{name}'", error)
+                continue
+            finished = [call for call in calls if call.status != "Running"]
+            if not finished:
+                continue
+            last_call = max(finished, key=lambda call: call.start_time)
+            if (outcome := _FAILED_FUNCTION_CALLS.get(last_call.status)) is None:
+                continue
+            logs_url = client.config.create_api_url(f"/functions/{function.id}/calls/{last_call.id}/logs")
+            yield _Failure(
+                url=url,
+                message=f"The last call of the function '{name}' {outcome}{_with_reason(last_call.error)}",
+                fix=f"Check the logs of the call at {logs_url}, and fix the code of the function or its input data.",
+                concurrency_limited=last_call.status == "ConcurrencyLimitExceeded",
+            )
+
+    def _workflow_failures(
+        self, client: ToolkitClient, workflow_versions: Sequence[WorkflowVersionResponse], now: int
+    ) -> Iterable[_Failure | InternalValidatorException]:
+        if not workflow_versions:
+            return
+        version_ids = {workflow_version.as_id() for workflow_version in workflow_versions}
+        try:
+            executions = client.workflows.executions.list(
+                created_time_start=now - RUN_HISTORY_DAYS * _DAY_MS, limit=None
+            )
+        except ToolkitAPIError as error:
+            yield self._retrieve_failed("workflow executions", error)
+            return
+        last_by_version_id: dict[WorkflowVersionId, WorkflowExecutionResponse] = {}
+        for execution in executions:
+            if execution.status == "RUNNING" or execution.version is None:
+                continue
+            version_id = execution.as_workflow_id()
+            if version_id not in version_ids:
+                continue
+            last = last_by_version_id.get(version_id)
+            if last is None or execution.created_time > last.created_time:
+                last_by_version_id[version_id] = execution
+        for version_id, execution in last_by_version_id.items():
+            if (outcome := _FAILED_WORKFLOW_EXECUTIONS.get(execution.status)) is None:
+                continue
+            yield _Failure(
+                url=_workflow_version_url(client, version_id.workflow_external_id, version_id.version),
+                message=f"The last execution of the workflow '{version_id.workflow_external_id}' version "
+                f"'{version_id.version}' {outcome}{_with_reason(self._workflow_failure_reason(client, execution))}",
+                fix="Fix the failed task of the workflow, then run the workflow again.",
+            )
+
+    @staticmethod
+    def _workflow_failure_reason(client: ToolkitClient, execution: WorkflowExecutionResponse) -> str | None:
+        try:
+            detailed = client.workflows.executions.retrieve([execution.as_id()], ignore_unknown_ids=True)
+        except ToolkitAPIError:
+            return execution.reason_for_incompletion
+        failed_tasks = [
+            f"the task '{task.external_id}' failed with: {task.reason_for_incompletion or task.status}"
+            for item in detailed
+            for task in item.executed_tasks
+            if task.status in _FAILED_TASK_STATUSES
+        ]
+        return "; ".join(failed_tasks) or execution.reason_for_incompletion
+
+    @staticmethod
+    def _hosted_extractor_failures(
+        client: ToolkitClient, jobs: Sequence[HostedExtractorJobResponse]
+    ) -> Iterable[_Failure]:
+        for job in jobs:
+            if job.status is None or (fix := _FAILED_HOSTED_EXTRACTOR_JOBS.get(job.status)) is None:
+                continue
+            try:
+                logs = client.hosted_extractors.jobs.list_logs(job=job.external_id, limit=10)
+            except ToolkitAPIError:
+                logs = []
+            reasons = [next((log.message for log in logs if log.type == job.status and log.message), None)]
+            if job.status == "transform_error":
+                try:
+                    messages = client.hosted_extractors.jobs.list_dlq_messages(job=job.external_id, limit=1)
+                except ToolkitAPIError:
+                    # The dead letter queue is not enabled for the job, or the token cannot read RAW.
+                    messages = []
+                reasons.extend(
+                    f"for example, a message failed with {message.columns.error_category}: {message.columns.error}"
+                    for message in messages
+                )
+            yield _Failure(
+                url=_hosted_extractor_job_url(client, job),
+                message=f"The hosted extractor job '{job.external_id}' is failing with status '{job.status}'"
+                f"{_with_reason('; '.join(reason for reason in reasons if reason) or None)}",
+                fix=fix,
+            )
+
+    # 5. Report
+
+    @staticmethod
+    def _report(findings_by_url: dict[str, list[_Finding]], failure_by_url: dict[str, _Failure]) -> Iterable[Insight]:
+        alpha = Flags.ALPHA_RULES.is_enabled()
+        for url in dict.fromkeys([*findings_by_url, *failure_by_url]):
+            findings = findings_by_url.get(url, [])
+            failure = failure_by_url.get(url)
+            if failure is not None and not any(finding.explains_failure(failure) for finding in findings):
+                yield BuildError(
+                    code="FAILED-EXECUTION", message=failure.message, fix=failure.fix, source_url=url, alpha=alpha
+                )
+            for finding in findings:
+                if failure is not None and finding.explains_failure(failure):
+                    yield BuildError(
+                        code=finding.code,
+                        message=f"{failure.message} Likely cause: {finding.message}",
+                        fix=finding.fix,
+                        source_url=url,
+                        alpha=alpha,
+                    )
+                else:
+                    yield _INSIGHT_BY_SEVERITY[finding.severity](
+                        code=finding.code, message=finding.message, fix=finding.fix, source_url=url, alpha=alpha
+                    )
 
 
 def _transformation_url(client: ToolkitClient, transformation: TransformationResponse) -> str:
@@ -674,6 +874,14 @@ def _function_name(schedule: FunctionScheduleResponse, function_by_id: dict[int,
     if function is None:
         return str(schedule.function_id)
     return function.external_id or function.name
+
+
+def _with_reason(reason: str | None) -> str:
+    if not reason:
+        return "."
+    if len(reason) > _MAX_ERROR_LENGTH:
+        reason = f"{reason[:_MAX_ERROR_LENGTH]}..."
+    return f": {reason.rstrip('.')}."
 
 
 def _humanize_duration(ms: int) -> str:
