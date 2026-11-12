@@ -3,6 +3,16 @@ from typing import Any
 from unittest.mock import MagicMock
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
+    HostedExtractorDestinationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import HostedExtractorJobResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
+    CertificateResponse,
+    RESTSourceResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.commands._validation import ValidationCommand
@@ -59,18 +69,43 @@ class TestComputeRuleSet:
             _transformation(3, "tr_expires_this_week", destinationSession=_session_info(12)),
             _transformation(4, "tr_expires_next_month", sourceSession=_session_info(13)),
         ]
+        client.functions.list.return_value = [FunctionResponse(id=7, name="fn", file_id=1, created_time=0)]
+        client.functions.schedules.list.return_value = [
+            FunctionScheduleResponse(
+                id=1, name="daily", cron_expression="0 3 * * *", created_time=0, when="", function_id=7, session_id=14
+            )
+        ]
+        client.hosted_extractors.jobs.list.return_value = [
+            HostedExtractorJobResponse.model_validate(
+                {
+                    "externalId": "job",
+                    "sourceId": "src",
+                    "destinationId": "dst",
+                    "format": {"type": "cognite"},
+                    "createdTime": 0,
+                    "lastUpdatedTime": 0,
+                }
+            )
+        ]
+        client.hosted_extractors.destinations.list.return_value = [
+            HostedExtractorDestinationResponse(external_id="dst", session_id=15, created_time=0, last_updated_time=0)
+        ]
         client.sessions.retrieve.return_value = [
             SessionResponse(id=10, expiration_time=NOW - DAY),
             SessionResponse(id=11, expiration_time=NOW + DAY),
             SessionResponse(id=12, expiration_time=NOW + 5 * DAY),
             SessionResponse(id=13, expiration_time=NOW + 30 * DAY),
+            SessionResponse(id=14, expiration_time=NOW - DAY),
+            SessionResponse(id=15, expiration_time=NOW + DAY),
         ]
 
         insights = sorted((insight.insight_type, insight.code, insight.source_url) for insight in _validate(client))
 
         assert insights == [
+            ("Error", "INVALID-CREDENTIALS", f"{API_URL}/functions/7"),
             ("Error", "INVALID-CREDENTIALS", f"{API_URL}/transformations/1"),
             ("Recommendation", "EXPIRING-CREDENTIALS", f"{API_URL}/transformations/3"),
+            ("Warning", "EXPIRING-CREDENTIALS", f"{API_URL}/hostedextractors/jobs/logs?job=job"),
             ("Warning", "EXPIRING-CREDENTIALS", f"{API_URL}/transformations/2"),
         ]
 
@@ -125,6 +160,39 @@ class TestComputeRuleSet:
         codes = {insight.code for insight in _validate(client)}
 
         assert codes == {"UNVERIFIED-CREDENTIALS"}
+
+    def test_certificates_are_checked_when_sessions_cannot_be_retrieved(self) -> None:
+        client = _client()
+        client.transformations.list.return_value = [_transformation(1, "tr", sourceSession=_session_info(10))]
+        client.hosted_extractors.jobs.list.return_value = [
+            HostedExtractorJobResponse.model_validate(
+                {
+                    "externalId": "job",
+                    "sourceId": "src",
+                    "destinationId": "dst",
+                    "format": {"type": "cognite"},
+                    "createdTime": 0,
+                    "lastUpdatedTime": 0,
+                }
+            )
+        ]
+        client.hosted_extractors.sources.list.return_value = [
+            RESTSourceResponse(
+                external_id="src",
+                host="example.com",
+                ca_certificate=CertificateResponse(thumbprint="abc", expires_at=NOW - DAY),
+                created_time=0,
+                last_updated_time=0,
+            )
+        ]
+        client.sessions.retrieve.side_effect = ToolkitAPIError("Forbidden", code=403)
+
+        insights = sorted((insight.insight_type, insight.code, insight.source_url) for insight in _validate(client))
+
+        assert insights == [
+            ("Error", "INVALID-CREDENTIALS", f"{API_URL}/hostedextractors/jobs/logs?job=job"),
+            ("Warning", "UNVERIFIED-CREDENTIALS", f"{API_URL}/sessions/byids"),
+        ]
 
     def test_missing_session_is_reported_as_expired(self) -> None:
         client = _client()
