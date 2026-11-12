@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dependencies
-        run: uv sync --all-extras
+        run: uv sync --locked --all-extras
       - name: Cache pre-commit environments
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -53,13 +53,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dependencies
-        run: |
-          pip install uv
-          uv sync --all-extras
+        run: uv sync --locked --all-extras
       - name: Turn off alpha features
         run: uv run python dev.py alpha --off
       - name: Run pytest
@@ -88,13 +87,12 @@ jobs:
           - "3.15"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: |
-          pip install uv
-          uv sync --all-extras
+        run: uv sync --locked --all-extras
       - name: Run pytest
         env:
           IS_GITHUB_ACTIONS: "true"
@@ -111,13 +109,12 @@ jobs:
       IDP_TOKEN_URL: ${{ vars.IDP_TOKEN_URL }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dependencies
-        run: |
-          pip install uv
-          uv sync --all-extras
+        run: uv sync --locked --all-extras
       - name: Create test coverage report
         env:
           IS_GITHUB_ACTIONS: "true"
@@ -162,15 +159,14 @@ jobs:
           fi
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         if: steps.skip.outputs.skip != 'true'
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         if: steps.skip.outputs.skip != 'true'
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dependencies
         if: steps.skip.outputs.skip != 'true'
-        run: |
-          pip install uv
-          uv sync --all-extras
+        run: uv sync --locked --all-extras
       - name: Build the package
         if: steps.skip.outputs.skip != 'true'
         run: uv build
@@ -251,13 +247,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dependencies
-        run: |
-          pip install uv
-          uv sync --all-extras
+        run: uv sync --locked --all-extras
       - name: Dump description to file
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
