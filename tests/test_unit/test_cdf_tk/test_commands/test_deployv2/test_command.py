@@ -87,7 +87,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     TimeSeriesIO,
     WorkflowTriggerIO,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, LowSeverityWarning
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -419,6 +419,35 @@ class TestApplyPlan:
             ),
             pytest.param(
                 ApplyPlanTestCase(
+                    yaml_files={
+                        "functions/my.Schedule.yaml": "cronExpression: '* * * * *'\nname: my schedule\nfunctionExternalId: 'my_function'\nfunctionId: 37\nauthentication:\n  clientId: test_id\n  clientSecret: test_secret\n"
+                    },
+                    crud_cls=FunctionScheduleIO,
+                    cdf_resources=[],
+                    acls_missing=False,
+                    options=DeployOptions(dry_run=True),
+                    expected=[
+                        DeploymentResult(
+                            resource_name="function schedules",
+                            is_dry_run=True,
+                            updated_ids=[],
+                            unchanged_ids=[],
+                            deleted_ids=[],
+                            is_missing_write_acl=False,
+                            created_ids=[FunctionScheduleId(function_external_id="my_function", name="my schedule")],
+                            warnings=[
+                                LowSeverityWarning(
+                                    "FunctionId will be ignored in the schedule "
+                                    "FunctionScheduleId(function_external_id='my_function', name='my schedule')"
+                                )
+                            ],
+                        )
+                    ],
+                ),
+                id="function_schedule_warning_is_collected_in_result",
+            ),
+            pytest.param(
+                ApplyPlanTestCase(
                     yaml_files={"data_modeling/my.Space.yaml": "space: my_space\nname: Updated Name\n"},
                     crud_cls=SpaceIO,
                     cdf_resources=[
@@ -630,7 +659,7 @@ class TestDeployResourcesValidationError:
         an unexpected JSON structure that will cause a pydantic ValidationError.
         """
         client = ToolkitClient(config=toolkit_config)
-        crud = SpaceIO.create_io(client)
+        crud = SpaceIO(client)
 
         resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy()
         resources.to_create = [SpaceRequest(space="my_space")]
@@ -678,7 +707,7 @@ class TestDeployResourcesRetryDump:
     ) -> None:
         """A 502 is retried once, then a 409 fails and the request is written with retriedStatusCodes [502]."""
         client = ToolkitClient(config=toolkit_config)
-        crud = SpaceIO.create_io(client)
+        crud = SpaceIO(client)
 
         resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy()
         resources.to_create = [SpaceRequest(space="my_space")]
@@ -737,7 +766,7 @@ class TestCategorizeResources:
         dataset_raw = {"externalId": "my_dataset", "name": "My DataSet"}
         request = DataSetRequest.model_validate(dataset_raw)
         result = DeployV2Command.categorize_resources(
-            DataSetsIO.create_io(toolkit_client_cheap),
+            DataSetsIO(toolkit_client_cheap),
             resource_by_id={
                 request.as_id(): ReadResource(request, dataset_raw, [MagicMock()]),
             },
@@ -772,7 +801,7 @@ class TestCategorizeResources:
                 },
             ),
         )
-        loader = WorkflowTriggerIO.create_io(toolkit_client_approval.mock_client)
+        loader = WorkflowTriggerIO(toolkit_client_approval.mock_client)
 
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = """externalId: my_trigger
@@ -889,7 +918,7 @@ class TestDeployResourcesRelatedInsights:
         client = MagicMock()
         client.console = Console(file=console_output, width=200)
         client.spaces.create.side_effect = ToolkitAPIError("API failed")
-        crud = SpaceIO.create_io(client)
+        crud = SpaceIO(client)
         with pytest.raises(ResourceCreationError, match="Likely causes detected during"):
             DeployV2Command.deploy_resources(
                 crud, resources, skipped_cruds=set(), insights_by_resource=insights_by_resource
@@ -926,7 +955,7 @@ class TestDryRunDataSetPlaceholders:
     def test_validate_access_dry_run_never_retrieves_dry_run_dataset(self) -> None:
         client = MagicMock()
         client.token.verify_acls.return_value = []
-        loader = AssetIO.create_io(client)
+        loader = AssetIO(client)
         resource = AssetRequest(name="my_asset", external_id="my_asset", data_set_id=DRY_RUN_ID)
         is_missing_read, is_missing_write, is_write_acl_unknown = DeployV2Command.validate_access(
             loader, [resource], is_dry_run=True
@@ -988,7 +1017,7 @@ class TestDryRunDataSetPlaceholders:
     ) -> None:
         client = MagicMock()
         client.token.verify_acls.return_value = []
-        io = FunctionIO.create_io(client)
+        io = FunctionIO(client)
         _ = DeployV2Command.validate_access(io, resources, is_dry_run=False)
 
         assert client.token.verify_acls.call_args_list == [call(expected_checked_acls)]

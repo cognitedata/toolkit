@@ -31,7 +31,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_user impor
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ResourceUpdateError, ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, WarningHandler
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
@@ -60,8 +60,8 @@ class PostgresGatewayUserIO(
     support_drop = False
     _doc_url = "Postgres-Gateway-Users/operation/update_users"
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None) -> None:
+        super().__init__(client, on_warning=on_warning)
         self._credentials_by_username: dict[str, ClientCredentialsSessionRequest] = {}
         self._session_client_id_by_id: dict[int, str | None] = {}
 

@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sequence import (
     SequenceResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, WarningHandler
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
@@ -290,8 +290,8 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
     yaml_cls = SequenceRowYAML
     support_update = False
 
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, on_warning=on_warning)
         # Used in the .diff_list method to keep track of the last column in the local list
         # such that the values in the rows can be matched to the correct column.
         self._last_column: tuple[dict[int, int], list[int]] = {}, []
@@ -409,7 +409,7 @@ class SequenceRowIO(ResourceIO[ExternalId, SequenceRowsRequest, SequenceRowsResp
             if len(cdf) == len(local_by_cdf) + len(added):
                 return local_by_cdf, added
             else:
-                LowSeverityWarning("Number of rows in does not match the number of columns").print_warning()
+                self.on_warning(LowSeverityWarning("Number of rows in does not match the number of columns"))
                 # Just assume that the rows are in the correct order
                 return {no: no for no in range(len(cdf))}, []
         return super().diff_list(local, cdf, json_path)

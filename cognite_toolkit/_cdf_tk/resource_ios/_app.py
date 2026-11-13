@@ -17,7 +17,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
+    FailedReadExtra,
+    ReadExtra,
+    ResourceIO,
+    SuccessExtra,
+    WarningHandler,
+)
 from cognite_toolkit._cdf_tk.utils.file import create_zip_in_memory
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash
 from cognite_toolkit._cdf_tk.yaml_classes import AppVersionYAML, AppYAML
@@ -125,8 +131,8 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
     dependencies = frozenset({AppIO, GroupAllScopedIO})
     _doc_url = "Apps/operation/appsCreate"
 
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, on_warning=on_warning)
         self.zip_path_by_version_id: dict[AppVersionId, Path] = {}
 
     @property

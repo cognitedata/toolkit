@@ -495,12 +495,14 @@ class InFieldCDMLocationConfigIO(
         to_create: list[InFieldCDMLocationConfigRequest] = []
         for item in items:
             if item.data_storage and item.data_storage.app_instance_space in legacy_instance_spaces:
-                HighSeverityWarning(
-                    f"Skipping creation of {self.display_name} {item.as_id()}. It is set to write InField data to"
-                    f" an instance space {item.data_storage.app_instance_space!r} that is already used by the "
-                    "legacy InField APM_Config."
-                    "This is not allowed as it will cause the data to be corrupted in the legacy InField."
-                ).print_warning(console=self.console)
+                self.on_warning(
+                    HighSeverityWarning(
+                        f"Skipping creation of {self.display_name} {item.as_id()}. It is set to write InField data to"
+                        f" an instance space {item.data_storage.app_instance_space!r} that is already used by the "
+                        "legacy InField APM_Config."
+                        "This is not allowed as it will cause the data to be corrupted in the legacy InField."
+                    )
+                )
             else:
                 to_create.append(item)
 

@@ -43,7 +43,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, WarningHandler
 from cognite_toolkit._cdf_tk.resource_ios._data_organization import DataSetsIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash, humanize_collection
@@ -146,11 +146,13 @@ class HostedExtractorSourceIO(
             else:
                 to_create.append(item)
         if to_skip:
-            HighSeverityWarning(
-                f"{len(to_skip)} MQTT broker sources will not be created by Toolkit. You will need to create them manually through the CDF API, Toolkit can update them once they are created. "
-                f"The reason is that MQTT broker responses return auth information in the response. If you had created them through Toolkit this would be lost."
-                f"The following MQTT broker sources will not be created: {humanize_collection(to_skip)}"
-            ).print_warning(console=self.client.console)
+            self.on_warning(
+                HighSeverityWarning(
+                    f"{len(to_skip)} MQTT broker sources will not be created by Toolkit. You will need to create them manually through the CDF API, Toolkit can update them once they are created. "
+                    f"The reason is that MQTT broker responses return auth information in the response. If you had created them through Toolkit this would be lost."
+                    f"The following MQTT broker sources will not be created: {humanize_collection(to_skip)}"
+                )
+            )
 
         return self.client.hosted_extractors.sources.create(to_create)
 
@@ -342,8 +344,8 @@ class HostedExtractorDestinationIO(
     class _MetadataKey:
         AUTH_HASH = "toolkit-hash-credentials"
 
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, on_warning=on_warning)
         self._authentication_by_id: dict[str, ClientCredentialsSessionRequest] = {}
 
     @property

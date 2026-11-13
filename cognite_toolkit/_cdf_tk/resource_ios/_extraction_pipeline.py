@@ -343,17 +343,21 @@ class ExtractionPipelineConfigIO(
             result = read_yaml_content(config_raw)
         except yaml.YAMLError as e:
             id_ = self._get_id(resource, default="missing")
-            HighSeverityWarning(
-                f"Configuration for {id_!r} could not be parsed "
-                f"as valid YAML, which is the recommended format. Error: {e}"
-            ).print_warning(console=self.console)
+            self.on_warning(
+                HighSeverityWarning(
+                    f"Configuration for {id_!r} could not be parsed "
+                    f"as valid YAML, which is the recommended format. Error: {e}"
+                )
+            )
         else:
             if isinstance(result, dict):
                 return result
             id_ = self._get_id(resource, default="missing")
-            HighSeverityWarning(
-                f"Configuration for {id_!r} is not a valid YAML mapping (dict). Got {type(result).__name__} instead."
-            ).print_warning(console=self.console)
+            self.on_warning(
+                HighSeverityWarning(
+                    f"Configuration for {id_!r} is not a valid YAML mapping (dict). Got {type(result).__name__} instead."
+                )
+            )
         return {}
 
     def _get_id(self, resource: dict[str, Any], default: str) -> str:
