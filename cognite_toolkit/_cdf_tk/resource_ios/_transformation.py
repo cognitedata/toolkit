@@ -36,7 +36,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast, final
 
 from cognite.client.data_classes import OidcCredentials
-from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -87,7 +86,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO, SuccessExtra, WarningHandler
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_hash,
@@ -170,8 +169,8 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     # larger number of transformations. Thus, we use a conservative batch size.
     _BATCH_SIZE = 20  # The maximum number of transformations to create in a single batch
 
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, on_warning=on_warning)
         self._authentication_by_id_operation: dict[
             tuple[str, Literal["read", "write"]], ClientCredentialsSessionRequest | OidcCredentials
         ] = {}
@@ -379,10 +378,11 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
                 query_file = self._try_get_adjacent_sql_file_implicitly(filepath, identifier)
 
             if query_file is None and "query" not in item:
-                warning = HighSeverityWarning(
-                    f"query property or is missing in {filepath.as_posix()!r}. It can be inline or a separate file named {filepath.stem}.sql or {external_id}.sql",
+                self.on_warning(
+                    HighSeverityWarning(
+                        f"query property or is missing in {filepath.as_posix()!r}. It can be inline or a separate file named {filepath.stem}.sql or {external_id}.sql",
+                    )
                 )
-                warning.print_warning(console=self.console)
             elif query_file and not query_file.exists():
                 # We checked above that filepath is not None
                 raise ToolkitFileNotFoundError(f"Query file {query_file.as_posix()} not found", filepath)
@@ -596,10 +596,12 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
         chunk: Sequence[TransformationRequest],
         api_call: Callable[[Sequence[TransformationRequest]], list[TransformationResponse]],
     ) -> list[TransformationResponse]:
-        MediumSeverityWarning(
-            f"Failed to create {len(chunk)} transformations in a batch due to nonce binding error. "
-            "Trying to recover by creating them one by one."
-        ).print_warning(console=self.client.console)
+        self.on_warning(
+            MediumSeverityWarning(
+                f"Failed to create {len(chunk)} transformations in a batch due to nonce binding error. "
+                "Trying to recover by creating them one by one."
+            )
+        )
         # Retry one by one
         failed_ids: list[str] = []
         success_count = 0
@@ -624,7 +626,7 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
         else:
             message += "."
         if failed_ids:
-            HighSeverityWarning(message).print_warning(include_timestamp=True, console=self.client.console)
+            self.on_warning(HighSeverityWarning(message))
         else:
             self.client.console.print(message)
         return results
@@ -752,8 +754,10 @@ class TransformationScheduleIO(
             if not e.duplicated:
                 raise
             existing = {external_id for dup in e.duplicated if (external_id := dup.get("externalId", None))}
-            print(
-                f"  [bold yellow]WARNING:[/] {len(e.duplicated)} transformation schedules already exist(s): {existing}"
+            self.on_warning(
+                MediumSeverityWarning(
+                    f"{len(e.duplicated)} transformation schedules already exist(s): {humanize_collection(existing)}"
+                )
             )
             new_items = [item for item in items if item.external_id not in existing]
             return self.client.transformations.schedules.create(new_items)

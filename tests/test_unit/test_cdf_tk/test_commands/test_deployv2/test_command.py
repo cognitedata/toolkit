@@ -87,7 +87,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     TimeSeriesIO,
     WorkflowTriggerIO,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, LowSeverityWarning
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -419,6 +419,35 @@ class TestApplyPlan:
             ),
             pytest.param(
                 ApplyPlanTestCase(
+                    yaml_files={
+                        "functions/my.Schedule.yaml": "cronExpression: '* * * * *'\nname: my schedule\nfunctionExternalId: 'my_function'\nfunctionId: 37\nauthentication:\n  clientId: test_id\n  clientSecret: test_secret\n"
+                    },
+                    crud_cls=FunctionScheduleIO,
+                    cdf_resources=[],
+                    acls_missing=False,
+                    options=DeployOptions(dry_run=True),
+                    expected=[
+                        DeploymentResult(
+                            resource_name="function schedules",
+                            is_dry_run=True,
+                            updated_ids=[],
+                            unchanged_ids=[],
+                            deleted_ids=[],
+                            is_missing_write_acl=False,
+                            created_ids=[FunctionScheduleId(function_external_id="my_function", name="my schedule")],
+                            warnings=[
+                                LowSeverityWarning(
+                                    "FunctionId will be ignored in the schedule "
+                                    "FunctionScheduleId(function_external_id='my_function', name='my schedule')"
+                                )
+                            ],
+                        )
+                    ],
+                ),
+                id="function_schedule_warning_is_collected_in_result",
+            ),
+            pytest.param(
+                ApplyPlanTestCase(
                     yaml_files={"data_modeling/my.Space.yaml": "space: my_space\nname: Updated Name\n"},
                     crud_cls=SpaceIO,
                     cdf_resources=[
@@ -630,7 +659,7 @@ class TestDeployResourcesValidationError:
         an unexpected JSON structure that will cause a pydantic ValidationError.
         """
         client = ToolkitClient(config=toolkit_config)
-        crud = SpaceIO.create_io(client)
+        crud = SpaceIO(client)
 
         resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy()
         resources.to_create = [SpaceRequest(space="my_space")]

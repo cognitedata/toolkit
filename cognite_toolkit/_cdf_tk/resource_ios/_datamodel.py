@@ -115,6 +115,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     ResourceContainerIO,
     ResourceIO,
     SuccessExtra,
+    WarningHandler,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -165,8 +166,8 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
     _doc_url = "Spaces/operation/ApplySpaces"
     delete_recreate_limit_seconds: int = 10
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None) -> None:
+        super().__init__(client, on_warning=on_warning)
         self._deleted_time_by_id: dict[SpaceId, float] = {}
 
     @property
@@ -231,8 +232,10 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
         existing = self.client.spaces.retrieve(list(ids))
         is_global = {space.space for space in existing if space.is_global}
         if is_global:
-            print(
-                f"  [bold yellow]WARNING:[/] Spaces {list(is_global)} are global and cannot be deleted, skipping delete, for these."
+            self.on_warning(
+                MediumSeverityWarning(
+                    f"Spaces {humanize_collection(is_global)} are global and cannot be deleted, skipping delete, for these."
+                )
             )
         to_delete = [space_ref for space_ref in ids if space_ref.space not in is_global]
         self.client.spaces.delete(to_delete)
@@ -301,8 +304,8 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
     _doc_url = "Containers/operation/ApplyContainers"
     sub_folder_name = "containers"
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None) -> None:
+        super().__init__(client, on_warning=on_warning)
         self._container_by_id: dict[ContainerId, ContainerResponse] = {}
 
     @property
@@ -452,10 +455,12 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
 
         batches, oversized_sccs = pack_into_batches(dependencies_by_id, containers_by_id, CONTAINER_UPSERT_BATCH_LIMIT)
         for scc in oversized_sccs:
-            MediumSeverityWarning(
-                f"Found a strongly interdependent set of {len(scc)} containers: {humanize_collection(scc)}. "
-                "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
-            ).print_warning(console=self.console)
+            self.on_warning(
+                MediumSeverityWarning(
+                    f"Found a strongly interdependent set of {len(scc)} containers: {humanize_collection(scc)}. "
+                    "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
+                )
+            )
         return batches
 
     def _find_modified_or_deleted_constraints_and_indexes(
@@ -538,12 +543,11 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
         if only_in_cdf_indexes:
             lines.append(f"• Indexes missing in your local YAML: [bold]{', '.join(only_in_cdf_indexes)}[/bold]")
 
-        HighSeverityWarning("\n".join(lines)).print_warning(console=self.console)
-
-        self.console.print(
+        lines.append(
             f"{HINT_LEAD_TEXT}To remove this warning, you can run [bold]cdf modules pull[/bold] to retrieve the missing container config from CDF. This will overwrite your local YAML file(s)."
         )
-        self.console.print(f"{HINT_LEAD_TEXT}For more details on allowed container changes, see {URL.dm_changes_docs}")
+        lines.append(f"{HINT_LEAD_TEXT}For more details on allowed container changes, see {URL.dm_changes_docs}")
+        self.on_warning(HighSeverityWarning("\n".join(lines)))
 
         is_verbose = "-v" in sys.argv or "--verbose" in sys.argv
         if is_verbose:
@@ -630,9 +634,11 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             for container in retrieved_containers:
                 self._container_by_id[container.as_id()] = container
         if warn and (missing_container_ids := set(container_ids) - set(self._container_by_id.keys())):
-            MediumSeverityWarning(
-                f"Containers {missing_container_ids} not found or you don't have permission to access them."
-            ).print_warning(console=self.console)
+            self.on_warning(
+                MediumSeverityWarning(
+                    f"Containers {humanize_collection(missing_container_ids)} not found or you don't have permission to access them."
+                )
+            )
         return {
             container_id: self._container_by_id[container_id]
             for container_id in container_ids
@@ -717,8 +723,9 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
         self,
         client: ToolkitClient,
         topological_sort_implements: bool = False,
+        on_warning: WarningHandler | None = None,
     ) -> None:
-        super().__init__(client)
+        super().__init__(client, on_warning=on_warning)
         self._topological_sort_implements = topological_sort_implements
         self._view_by_id: dict[ViewId, ViewResponse] = {}
 
@@ -822,8 +829,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
                     view_id.dump() for view_id in self.topological_sort_implements(resource.implements)
                 ]
             except ToolkitCycleError as e:
-                warning = MediumSeverityWarning(f"Failed to sort implements for view {resource.as_id()}: {e}")
-                warning.print_warning(console=self.console)
+                self.on_warning(MediumSeverityWarning(f"Failed to sort implements for view {resource.as_id()}: {e}"))
 
         for key in ["filter", "name", "description"]:
             if dumped.get(key) is None and key not in local:
@@ -920,10 +926,12 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
 
         batches, oversized_sccs = pack_into_batches(dependencies_by_id, views_by_id, VIEW_UPSERT_BATCH_LIMIT)
         for scc in oversized_sccs:
-            MediumSeverityWarning(
-                f"Found a strongly interdependent set of {len(scc)} views: {humanize_collection(scc)}. "
-                "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
-            ).print_warning(console=self.console)
+            self.on_warning(
+                MediumSeverityWarning(
+                    f"Found a strongly interdependent set of {len(scc)} views: {humanize_collection(scc)}. "
+                    "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
+                )
+            )
         return batches
 
     def retrieve(self, ids: Sequence[ViewId | ViewNoVersionId]) -> list[ViewResponse]:
@@ -1044,9 +1052,11 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
 
         view_by_ids = self._lookup_views(view_ids)
         if missing_view_ids := set(view_ids) - set(view_by_ids.keys()):
-            MediumSeverityWarning(
-                f"Views {missing_view_ids} not found or you don't have permission to access them, skipping dependency check."
-            ).print_warning(console=self.console)
+            self.on_warning(
+                MediumSeverityWarning(
+                    f"Views {humanize_collection(missing_view_ids)} not found or you don't have permission to access them, skipping dependency check."
+                )
+            )
             return view_ids, []
 
         view_to_containers: dict[ViewId, set[ContainerId]] = {}
@@ -1056,7 +1066,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
             for container_id in view_to_containers[view_id]:
                 container_to_views[container_id].add(view_id)
 
-        container_crud = ContainerIO.create_io(self.client)
+        container_crud = ContainerIO.create_io(self.client, on_warning=self.on_warning)
         container_dependencies_by_id = container_crud._find_direct_and_indirect_container_dependencies(
             list(container_to_views.keys())
         )
@@ -1249,8 +1259,9 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
         self,
         client: ToolkitClient,
         view_id: ViewId | None = None,
+        on_warning: WarningHandler | None = None,
     ) -> None:
-        super().__init__(client)
+        super().__init__(client, on_warning=on_warning)
         # View ID is used to retrieve nodes with properties.
         self.view_id = view_id
         self._constrained_properties_by_source: dict[ViewId | ContainerId, set[str]] = {}
@@ -1503,8 +1514,8 @@ class GraphQLIO(
     _doc_url = "Data-models/operation/createDataModels"
     _hash_name = "CDFToolkitHash:"
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None) -> None:
+        super().__init__(client, on_warning=on_warning)
         self._graphql_filepath_cache: dict[DataModelId, Path] = {}
         self._datamodels_by_view_id: dict[ViewId, set[DataModelId]] = defaultdict(set)
         self._dependencies_by_datamodel_id: dict[DataModelId, set[ViewId | DataModelId]] = {}
@@ -1652,7 +1663,7 @@ class GraphQLIO(
             hash_ = calculate_hash(graphql_content)[:8]
             suffix = f"{self._hash_name}{hash_}"
             if len(description) + len(suffix) > 1024:
-                LowSeverityWarning(f"Description is above limit for {model_id}. Truncating...").print_warning()
+                self.on_warning(LowSeverityWarning(f"Description is above limit for {model_id}. Truncating..."))
                 description = description[: 1024 - len(suffix) + 1 - 3] + "..."
             description += f" {suffix}"
             item["description"] = description

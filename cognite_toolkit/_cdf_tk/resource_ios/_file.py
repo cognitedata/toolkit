@@ -49,6 +49,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     ResourceContainerIO,
     ResourceIO,
     SuccessExtra,
+    WarningHandler,
 )
 from cognite_toolkit._cdf_tk.utils import (
     calculate_hash,
@@ -88,8 +89,9 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
         self,
         client: ToolkitClient,
         support_upload: bool = True,
+        on_warning: WarningHandler | None = None,
     ) -> None:
-        super().__init__(client)
+        super().__init__(client, on_warning=on_warning)
         self._filepath_by_external_id: dict[str, Path] = {}
         self.support_upload = support_upload
 
@@ -356,8 +358,9 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
         self,
         client: ToolkitClient,
         support_upload: bool = True,
+        on_warning: WarningHandler | None = None,
     ) -> None:
-        super().__init__(client)
+        super().__init__(client, on_warning=on_warning)
         self._filepath_by_node_id: dict[NodeId, Path] = {}
         self.support_upload = support_upload
 

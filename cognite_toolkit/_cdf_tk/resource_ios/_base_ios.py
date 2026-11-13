@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Iterable, Sequence
+from collections.abc import Callable, Hashable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 from types import GenericAlias
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeAlias, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from typing_extensions import TypeForm
@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 from cognite_toolkit._cdf_tk.client.resource_classes.group import ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
 from typing import Self
 
 T_YamlResource = TypeVar("T_YamlResource")
+WarningHandler: TypeAlias = Callable[[ToolkitWarning], None]
 
 
 class ReadExtra(BaseModel):
@@ -265,9 +267,13 @@ class ResourceIO(
     # the resource type does not have a parent resource.
     parent_resource: "frozenset[type[ResourceIO]]" = frozenset()
 
-    def __init__(self, client: ToolkitClient) -> None:
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None) -> None:
         self.client = client
         self.console = client.console
+        self.on_warning = on_warning or self._print_warning
+
+    def _print_warning(self, warning: ToolkitWarning) -> None:
+        warning.print_warning(console=self.console)
 
     @classmethod
     def as_crud_type(cls) -> ResourceType:
@@ -443,10 +449,10 @@ class ResourceIO(
         yield
 
     @classmethod
-    def create_io(cls, client: ToolkitClient) -> Self:
-        return cls(client)
+    def create_io(cls, client: ToolkitClient, on_warning: WarningHandler | None = None) -> Self:
+        return cls(client, on_warning=on_warning)
 
-        # Helper methods
+    # Helper methods
 
     @property
     def display_name(self) -> str:

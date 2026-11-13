@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Literal, cast, final
 
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
-from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -38,7 +37,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceIO, WarningHandler
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
@@ -84,8 +83,9 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         self,
         client: ToolkitClient,
         file_upload_timeout_seconds: float = CDF_TOML.cdf.file_upload_timeout_seconds,
+        on_warning: WarningHandler | None = None,
     ):
-        super().__init__(client)
+        super().__init__(client, on_warning=on_warning)
         self.data_set_id_by_external_id: dict[str, int] = {}
         self.space_by_external_id: dict[str, str] = {}
         self.function_dir_by_external_id: dict[str, Path] = {}
@@ -301,17 +301,15 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         if status.status == "activated":
             return True
         if status.status == "requested":
-            print(
-                HighSeverityWarning(
-                    f"Function service activation is in progress, cannot {action} functions."
-                ).get_message()
+            self.on_warning(
+                HighSeverityWarning(f"Function service activation is in progress, cannot {action} functions.")
             )
             return False
         else:
-            print(
+            self.on_warning(
                 HighSeverityWarning(
                     "Function service has not been activated, activating now, this may take up to 2 hours..."
-                ).get_message()
+                )
             )
             self.client.functions.activate()
         return False
@@ -426,8 +424,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
                 upload_file_id = created_files[0].id
         return InternalId(id=upload_file_id)
 
-    @staticmethod
-    def _warn_if_cpu_or_memory_changed(created_item: FunctionResponse, item: FunctionRequest) -> None:
+    def _warn_if_cpu_or_memory_changed(self, created_item: FunctionResponse, item: FunctionRequest) -> None:
         is_cpu_increased = (
             isinstance(item.cpu, float) and isinstance(created_item.cpu, float) and item.cpu < created_item.cpu
         )
@@ -449,9 +446,9 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
             return
         # The server sets the CPU and Memory to the default values, if the user pass in a lower value.
         # This happens on Azure and AWS. Warning the user about this.
-        LowSeverityWarning(
-            f"Function {prefix} is not configurable. Function {item.external_id!r} set {suffix}"
-        ).print_warning()
+        self.on_warning(
+            LowSeverityWarning(f"Function {prefix} is not configurable. Function {item.external_id!r} set {suffix}")
+        )
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[FunctionResponse]:
         if not self._is_activated("retrieve"):
@@ -508,8 +505,8 @@ class FunctionScheduleIO(
     _hash_key = "cdf-auth"
     _description_character_limit = 500
 
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, on_warning=on_warning)
         self.authentication_by_id: dict[FunctionScheduleId, ClientCredentialsSessionRequest] = {}
 
     @property
@@ -584,9 +581,7 @@ class FunctionScheduleIO(
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionScheduleRequest:
         if "functionId" in resource:
             identifier = self.get_id(resource)
-            LowSeverityWarning(f"FunctionId will be ignored in the schedule {identifier!r}").print_warning(
-                console=self.console
-            )
+            self.on_warning(LowSeverityWarning(f"FunctionId will be ignored in the schedule {identifier!r}"))
             resource.pop("functionId", None)
         # Remove authentication from resource dict as it contains clientId/clientSecret
         # which are stored separately in _authentication_by_id and converted to nonce at creation time

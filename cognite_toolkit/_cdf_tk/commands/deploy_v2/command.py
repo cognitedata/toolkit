@@ -1,8 +1,8 @@
 import csv
 import json
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Mapping, Sequence, Set
-from contextlib import AbstractContextManager, nullcontext
+from collections.abc import Generator, Iterable, Mapping, Sequence, Set
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -230,6 +230,7 @@ class DeploymentResult:
     is_missing_read_acl: bool = False
     is_write_acl_unknown: bool = False
     skipped: list[Skipped] = field(default_factory=list)
+    warnings: list[ToolkitWarning] = field(default_factory=list)
 
     @property
     def created_count(self) -> int:
@@ -260,6 +261,8 @@ class DeploymentResult:
         self.is_missing_read_acl = self.is_missing_read_acl or other.is_missing_read_acl
         self.is_write_acl_unknown = self.is_write_acl_unknown or other.is_write_acl_unknown
         self.skipped.extend(other.skipped)
+        # The clean and deploy passes read the same files, so they can emit the same warnings.
+        self.warnings.extend(warning for warning in other.warnings if warning not in self.warnings)
         self.created_ids.extend(other.created_ids)
         self.updated_ids.extend(other.updated_ids)
         self.deleted_ids.extend(other.deleted_ids)
@@ -688,7 +691,7 @@ class DeployV2Command(ToolkitCommand):
         for step in plan:
             if step.crud_cls not in (SpaceIO, NodeIO, EdgeIO):
                 continue
-            crud = cast(ResourceContainerIO[Any, Any, Any, Any], step.crud_cls.create_io(client))
+            crud = cast(ResourceContainerIO[Any, Any, Any, Any], step.crud_cls(client))
             resource_by_id = self._read_resource_files(crud, step.files, options)
             if not resource_by_id:
                 continue
@@ -804,11 +807,13 @@ class DeployV2Command(ToolkitCommand):
 
         results: list[DeploymentResult] = []
         console = client.console
-        with Progress(console=console) as progress:
+        collected_warnings: list[ToolkitWarning] = []
+        with cls._print_warnings_on_error(collected_warnings, console), Progress(console=console) as progress:
             total_files = sum(len(step.files) for step in plan)
             task_id = progress.add_task(f"Starting {options.operation}", total=total_files)
             for step in plan:
-                crud = step.crud_cls.create_io(client)
+                step_warning_start = len(collected_warnings)
+                crud = step.crud_cls.create_io(client, on_warning=collected_warnings.append)
                 resource_name = crud.display_name
                 progress.update(task_id, description=f"Reading {resource_name}")
 
@@ -854,6 +859,7 @@ class DeployV2Command(ToolkitCommand):
                                 )
                                 for resource in resource_by_id.values()
                             ],
+                            warnings=collected_warnings[step_warning_start:],
                         )
                     )
                     progress.update(task_id, advance=len(step.files))
@@ -904,12 +910,24 @@ class DeployV2Command(ToolkitCommand):
                     )
                     progress.update(task_id, description=f"{options.operation.title()}ed {resource_name} successfully.")
 
+                result.warnings.extend(collected_warnings[step_warning_start:])
                 results.append(result)
 
                 progress.update(task_id, advance=len(step.files))
             finished = "Finished dry-run." if options.dry_run else f"Finished {options.operation}ing."
             progress.update(task_id, description=finished)
         return results
+
+    @staticmethod
+    @contextmanager
+    def _print_warnings_on_error(warnings: list[ToolkitWarning], console: Console) -> Generator[None, None, None]:
+        """Collected warnings are only shown in the results, which are never displayed if the deployment fails."""
+        try:
+            yield
+        except BaseException:
+            for warning in warnings:
+                warning.print_warning(console=console)
+            raise
 
     @classmethod
     def _read_resource_files(
@@ -1534,6 +1552,9 @@ class DeployV2Command(ToolkitCommand):
 
         sections: list[RenderableType] = [ToolkitPanelSection(content=[table.as_panel_detail()])]
 
+        if warning_rows := cls._warning_rows(results):
+            sections.append(ToolkitPanelSection(title="Warnings", content=warning_rows))
+
         if total.skipped and not verbose:
             most_common = Counter(skip.code for skip in total.skipped).most_common(n=3)
             sections.append(
@@ -1549,6 +1570,18 @@ class DeployV2Command(ToolkitCommand):
         console.print(ToolkitPanel(Group(*sections), title=panel_title))
         if verbose:
             cls._print_verbose_resources(results, is_dry_run, console)
+
+    @staticmethod
+    def _warning_rows(results: Sequence[DeploymentResult]) -> list[RenderableType]:
+        return [
+            hanging_indent(
+                "!",
+                f"[bold]{escape(result.resource_name)}[/] {warning.get_message()}",
+                marker_style="yellow",
+            )
+            for result in results
+            for warning in result.warnings
+        ]
 
     # Outcome order puts the long unchanged list last so creates, updates, deletes, and skips stay visible.
     _VERBOSE_OUTCOMES: tuple[tuple[str, str, str], ...] = (

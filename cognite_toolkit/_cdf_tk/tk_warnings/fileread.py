@@ -37,12 +37,6 @@ class FileExistsWarning(FileReadWarning):
 
 
 @dataclass(frozen=True)
-class IdentifiedResourceFileReadWarning(FileReadWarning, ABC):
-    id_value: str
-    id_name: str
-
-
-@dataclass(frozen=True)
 class YAMLFileWarning(FileReadWarning, ABC):
     def __post_init__(self) -> None:
         if self.filepath.suffix not in {".yaml", ".yml"}:

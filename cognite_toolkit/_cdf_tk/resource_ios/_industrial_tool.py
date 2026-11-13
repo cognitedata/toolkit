@@ -30,7 +30,13 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotADirectoryError,
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
+    FailedReadExtra,
+    ReadExtra,
+    ResourceIO,
+    SuccessExtra,
+    WarningHandler,
+)
 from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     safe_read,
@@ -58,8 +64,8 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
 
     extra_kinds = frozenset({FileMetadataIO.kind})
 
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, on_warning=on_warning)
         self._source_file_by_external_id: dict[str, Path] = {}
         self.filemetadata_by_external_id: dict[str, Path] = {}
 
