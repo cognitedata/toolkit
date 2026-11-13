@@ -234,7 +234,7 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
         if is_global:
             self.on_warning(
                 MediumSeverityWarning(
-                    f"Spaces {list(is_global)} are global and cannot be deleted, skipping delete, for these."
+                    f"Spaces {humanize_collection(is_global)} are global and cannot be deleted, skipping delete, for these."
                 )
             )
         to_delete = [space_ref for space_ref in ids if space_ref.space not in is_global]
@@ -636,7 +636,7 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
         if warn and (missing_container_ids := set(container_ids) - set(self._container_by_id.keys())):
             self.on_warning(
                 MediumSeverityWarning(
-                    f"Containers {missing_container_ids} not found or you don't have permission to access them."
+                    f"Containers {humanize_collection(missing_container_ids)} not found or you don't have permission to access them."
                 )
             )
         return {
@@ -1054,7 +1054,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
         if missing_view_ids := set(view_ids) - set(view_by_ids.keys()):
             self.on_warning(
                 MediumSeverityWarning(
-                    f"Views {missing_view_ids} not found or you don't have permission to access them, skipping dependency check."
+                    f"Views {humanize_collection(missing_view_ids)} not found or you don't have permission to access them, skipping dependency check."
                 )
             )
             return view_ids, []
