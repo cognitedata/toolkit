@@ -232,8 +232,10 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
         existing = self.client.spaces.retrieve(list(ids))
         is_global = {space.space for space in existing if space.is_global}
         if is_global:
-            print(
-                f"  [bold yellow]WARNING:[/] Spaces {list(is_global)} are global and cannot be deleted, skipping delete, for these."
+            self.on_warning(
+                MediumSeverityWarning(
+                    f"Spaces {list(is_global)} are global and cannot be deleted, skipping delete, for these."
+                )
             )
         to_delete = [space_ref for space_ref in ids if space_ref.space not in is_global]
         self.client.spaces.delete(to_delete)
@@ -1064,7 +1066,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
             for container_id in view_to_containers[view_id]:
                 container_to_views[container_id].add(view_id)
 
-        container_crud = ContainerIO(self.client, on_warning=self.on_warning)
+        container_crud = ContainerIO.create_io(self.client, on_warning=self.on_warning)
         container_dependencies_by_id = container_crud._find_direct_and_indirect_container_dependencies(
             list(container_to_views.keys())
         )

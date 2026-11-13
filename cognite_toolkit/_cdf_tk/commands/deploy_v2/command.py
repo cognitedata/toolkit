@@ -718,7 +718,7 @@ class DeployV2Command(ToolkitCommand):
         for step in plan:
             if step.crud_cls is not ContainerIO:
                 continue
-            crud = step.crud_cls(client)
+            crud = step.crud_cls.create_io(client)
             resource_by_id = self._read_resource_files(crud, step.files, options)
             if not resource_by_id:
                 continue
@@ -730,7 +730,7 @@ class DeployV2Command(ToolkitCommand):
         for step in plan:
             if step.crud_cls is not ViewIO:
                 continue
-            view_crud = step.crud_cls(client)
+            view_crud = step.crud_cls.create_io(client)
             view_resource_by_id = self._read_resource_files(view_crud, step.files, options)
             in_scope_view_ids.update(view_resource_by_id.keys())
         inspect_results = client.containers.inspect(container_ids)
@@ -813,7 +813,7 @@ class DeployV2Command(ToolkitCommand):
             task_id = progress.add_task(f"Starting {options.operation}", total=total_files)
             for step in plan:
                 step_warning_start = len(collected_warnings)
-                crud = step.crud_cls(client, on_warning=collected_warnings.append)
+                crud = step.crud_cls.create_io(client, on_warning=collected_warnings.append)
                 resource_name = crud.display_name
                 progress.update(task_id, description=f"Reading {resource_name}")
 

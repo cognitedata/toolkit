@@ -36,7 +36,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast, final
 
 from cognite.client.data_classes import OidcCredentials
-from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -755,8 +754,8 @@ class TransformationScheduleIO(
             if not e.duplicated:
                 raise
             existing = {external_id for dup in e.duplicated if (external_id := dup.get("externalId", None))}
-            print(
-                f"  [bold yellow]WARNING:[/] {len(e.duplicated)} transformation schedules already exist(s): {existing}"
+            self.on_warning(
+                MediumSeverityWarning(f"{len(e.duplicated)} transformation schedules already exist(s): {existing}")
             )
             new_items = [item for item in items if item.external_id not in existing]
             return self.client.transformations.schedules.create(new_items)
