@@ -1,3 +1,4 @@
+import warnings
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -86,12 +87,14 @@ class ResourceLineageItem(_BaseLineageModel):
             safe_read(organization_path / self.source_file), self.variables, self.source_file.suffix
         )
         resource_io = get_resource_build_io(self.type.resource_folder, self.type.kind)
-        raw = load_yaml_inject_variables(
+        raw, warning = load_yaml_inject_variables(
             content,
             environment_variables,
             validate=validate,
             original_filepath=organization_path / self.source_file,
         )
+        if warning:
+            warnings.warn(warning, stacklevel=2)
         if isinstance(raw, dict):
             return raw
         elif isinstance(raw, list):
