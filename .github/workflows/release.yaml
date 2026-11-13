@@ -71,7 +71,6 @@ jobs:
         run: uv run twine upload --skip-existing --verbose dist/*
       - name: Release to snakepit
         if: env.version != '0.0.0'
-        continue-on-error: true
         env:
           TWINE_USERNAME: ${{ secrets.ARTIFACTORY_PUBLISH_TOKEN_USER }}
           TWINE_PASSWORD: ${{ secrets.ARTIFACTORY_PUBLISH_TOKEN }}
