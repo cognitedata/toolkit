@@ -5,7 +5,7 @@ from typing import get_args
 import pytest
 import yaml
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning, Recommendation
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
@@ -312,28 +312,28 @@ class TestContainerYAML:
             pytest.param(
                 {"code": "{type: text}"},
                 "btree",
-                [(Recommendation, "PERFORMANCE-DEGRADED", "has no maxTextSize")],
+                [(BuildWarning, "MISSING-VALUE", "has no maxTextSize")],
                 id="text-without-max-size",
             ),
             pytest.param({"code": "{type: text, maxTextSize: 255}"}, "btree", [], id="bounded-text"),
             pytest.param(
                 {"code": "{type: text, maxTextSize: 4000}"},
                 "btree",
-                [(Recommendation, "PERFORMANCE-DEGRADED", "up to 4000 bytes")],
+                [(BuildWarning, "EXCEEDED-LIMIT", "up to 4000 bytes")],
                 id="text-too-large",
             ),
             pytest.param(
                 {"codes": "{type: int64, list: true}"},
                 "btree",
-                [(BuildWarning, "MODELING-SUBOPTIMAL", "has no maxListSize")],
+                [(BuildWarning, "MISSING-VALUE", "has no maxListSize")],
                 id="list-without-max-size",
             ),
             pytest.param(
                 {"codes": "{type: text, list: true}"},
                 "btree",
                 [
-                    (BuildWarning, "MODELING-SUBOPTIMAL", "has no maxListSize"),
-                    (Recommendation, "PERFORMANCE-DEGRADED", "has no maxTextSize"),
+                    (BuildWarning, "MISSING-VALUE", "has no maxListSize"),
+                    (BuildWarning, "MISSING-VALUE", "has no maxTextSize"),
                 ],
                 id="text-list-without-bounds",
             ),
@@ -341,14 +341,23 @@ class TestContainerYAML:
             pytest.param(
                 {"codes": "{type: int64, list: true, maxListSize: 301}"},
                 "btree",
-                [(Recommendation, "PERFORMANCE-DEGRADED", "up to 2408 bytes")],
+                [(BuildWarning, "EXCEEDED-LIMIT", "up to 2408 bytes")],
                 id="int64-over-limit",
             ),
             pytest.param({"codes": "{type: int32, list: true, maxListSize: 600}"}, "btree", [], id="int32-at-limit"),
             pytest.param(
+                {"codes": "{type: float32, list: true, maxListSize: 600}"}, "btree", [], id="float32-at-limit"
+            ),
+            pytest.param(
+                {"codes": "{type: timestamp, list: true, maxListSize: 301}"},
+                "btree",
+                [(BuildWarning, "EXCEEDED-LIMIT", "up to 2408 bytes")],
+                id="timestamp-over-limit",
+            ),
+            pytest.param(
                 {"code": "{type: text, maxTextSize: 1500}", "other": "{type: text, maxTextSize: 1500}"},
                 "btree",
-                [(Recommendation, "PERFORMANCE-DEGRADED", "up to 3000 bytes")],
+                [(BuildWarning, "EXCEEDED-LIMIT", "up to 3000 bytes")],
                 id="composite-too-large",
             ),
             pytest.param({"codes": "{type: text, list: true}"}, "inverted", [], id="inverted-index"),
