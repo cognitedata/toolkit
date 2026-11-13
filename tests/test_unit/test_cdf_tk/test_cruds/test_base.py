@@ -33,8 +33,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA,
     RESOURCE_IO_BY_FOLDER_NAME,
     RESOURCE_IO_LIST,
-    AppIO,
-    AppVersionIO,
     FunctionIO,
     FunctionScheduleIO,
     GroupResourceScopedIO,
@@ -44,7 +42,6 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     PostgresGatewayUserIO,
     ResourceIO,
     ResourceTypes,
-    StreamlitIO,
     TransformationIO,
     WorkflowTriggerIO,
 )
@@ -437,23 +434,19 @@ class TestResourceCRUDs:
             pytest.fail(f"Cyclic dependencies between resource IOs: {[cls.__name__ for cls in e.args[1]]}")
 
     @pytest.mark.parametrize(
-        "loader_cls, identifier, expected",
+        "identifier, expected",
         [
-            pytest.param(StreamlitIO, ExternalId(external_id="../../evil"), ".._.._evil", id="StreamlitIO"),
-            pytest.param(LocationFilterIO, ExternalId(external_id="../../evil"), ".._.._evil", id="LocationFilterIO"),
-            pytest.param(AppIO, ExternalId(external_id="..\\..\\evil"), ".._.._evil", id="AppIO"),
+            pytest.param(ExternalId(external_id="../../evil"), ".._.._evil", id="ExternalId posix"),
+            pytest.param(ExternalId(external_id="..\\..\\evil"), ".._.._evil", id="ExternalId windows"),
             pytest.param(
-                AppVersionIO,
                 AppVersionId(app_external_id="../../evil", version="1.0.0"),
-                ".._.._evil_1.0.0",
-                id="AppVersionIO",
+                ".._.._evil.1.0.0",
+                id="AppVersionId",
             ),
         ],
     )
-    def test_as_filename_sanitizes_identifier(
-        self, loader_cls: type[ResourceIO], identifier: Identifier, expected: str
-    ) -> None:
-        assert loader_cls.as_filename(identifier) == expected
+    def test_as_filename_sanitizes_identifier(self, identifier: Identifier, expected: str) -> None:
+        assert identifier.as_filename() == expected
 
 
 class TestLoaders:

@@ -28,7 +28,6 @@ from cognite_toolkit._cdf_tk.utils import (
     humanize_collection,
     load_yaml_inject_variables,
     safe_read,
-    sanitize_filename,
 )
 from cognite_toolkit._cdf_tk.yaml_classes import SkillYAML
 from cognite_toolkit._cdf_tk.yaml_classes.skill import SkillMarkdown
@@ -68,10 +67,6 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[SkillRequest]) -> ScopeDefinition:

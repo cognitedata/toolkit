@@ -387,7 +387,7 @@ class TestDataModelFinder:
             )
 
         dumped = sorted(path.name for path in tmp_path.glob("**/*.DataModel.yaml"))
-        assert dumped == ["first_model.DataModel.yaml", "second_model.DataModel.yaml"]
+        assert dumped == ["my_space.first_model.v1.DataModel.yaml", "other_space.second_model.v1.DataModel.yaml"]
 
 
 @pytest.fixture()
@@ -900,7 +900,7 @@ class TestDumpFunctions:
         assert selected == ("functionB", "functionC")
 
     @pytest.mark.parametrize("external_id", [".", ".."])
-    def test_dump_function_code_rejects_path_traversal(self, tmp_path: Path, external_id: str) -> None:
+    def test_dump_function_code_stays_in_function_directory(self, tmp_path: Path, external_id: str) -> None:
         function = FunctionResponse(id=1, external_id=external_id, name="Evil", created_time=1, file_id=123)
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w") as zf:
@@ -911,11 +911,11 @@ class TestDumpFunctions:
             monkeypatch_toolkit_client() as client,
             patch(f"{FunctionFinder.__module__}._download_file_bytes", return_value=buffer.getvalue()),
         ):
-            finder = FunctionFinder(client, None)
-            with pytest.raises(ValueError, match=r"Invalid identifier"):
-                finder.dump_function_code(function, output)
+            FunctionFinder(client, None).dump_function_code(function, output)
 
-        assert not (output / "handler.py").exists()
+        assert sorted(path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*.py")) == [
+            "functions/_/handler.py"
+        ]
 
     @pytest.mark.parametrize(
         "external_id, folder_name",
@@ -1234,7 +1234,7 @@ class TestDumpStreamlitApps:
         assert written == {"dump/streamlit/.._.._evil.Streamlit.yaml", "dump/streamlit/.._.._evil/main.py"}
 
     @pytest.mark.parametrize("external_id", [".", ".."])
-    def test_dump_code_rejects_path_traversal(
+    def test_dump_code_contains_dot_identifiers(
         self, external_id: str, three_streamlit_apps: list[StreamlitResponse], tmp_path: Path
     ) -> None:
         app = three_streamlit_apps[1].model_copy(update={"external_id": external_id})
@@ -1248,11 +1248,10 @@ class TestDumpStreamlitApps:
             patch(f"{StreamlitFinder.__module__}.httpx2.stream", return_value=_DownloadStream(content)),
         ):
             _mock_file_bytes(client, content)
-            finder = StreamlitFinder(client, (external_id,))
-            with pytest.raises(ValueError, match=r"Invalid identifier"):
-                finder.dump_code(app, output)
+            StreamlitFinder(client, (external_id,)).dump_code(app, output)
 
-        assert not list(tmp_path.rglob("main.py"))
+        written = {path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*") if path.is_file()}
+        assert written == {"streamlit/_/main.py"}
 
     @pytest.mark.parametrize(
         "malicious_path",
