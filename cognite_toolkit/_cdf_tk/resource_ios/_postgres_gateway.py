@@ -34,7 +34,6 @@ from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ResourceUp
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import PostgresGatewayTableYAML, PostgresGatewayUserYAML
 from cognite_toolkit._cdf_tk.yaml_classes.postgres_gateway_table import RawRowsTableYAML, ViewTableYAML
 
@@ -85,10 +84,6 @@ class PostgresGatewayUserIO(
     @classmethod
     def dump_id(cls, id: PostgresGatewayUserId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: PostgresGatewayUserId) -> str:
-        return sanitize_filename(id.username)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[PostgresGatewayUserRequest]) -> ScopeDefinition:
@@ -245,10 +240,6 @@ class PostgresGatewayTableIO(
     @classmethod
     def dump_id(cls, id: PostgresGatewayTableId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: PostgresGatewayTableId) -> str:
-        return sanitize_filename(f"{id.username}.{id.tablename}")
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[PostgresGatewayTableRequest]) -> ScopeDefinition:

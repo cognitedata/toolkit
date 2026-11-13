@@ -95,10 +95,6 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
         # so we fix it here.
         return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
 
-    @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return id.external_id
-
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LocationFilterRequest:
         def _normalize_asset_subtree_ids(asset_filter: dict[str, Any]) -> None:
             subtree_external_ids = asset_filter.pop("assetSubtreeExternalIds", None)

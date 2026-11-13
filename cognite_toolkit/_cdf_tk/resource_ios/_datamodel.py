@@ -124,7 +124,6 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
     safe_read,
-    sanitize_filename,
     to_diff,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions, space_scoped_resource
@@ -193,10 +192,6 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
     @classmethod
     def dump_id(cls, id: SpaceId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: SpaceId) -> str:
-        return sanitize_filename(id.space)
 
     @classmethod
     def get_dependencies(cls, resource: SpaceYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
@@ -698,10 +693,6 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
     def _chunker(seq: Sequence, size: int) -> Iterable[Sequence]:
         return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
-    @classmethod
-    def as_filename(cls, id: ContainerId) -> str:
-        return sanitize_filename(f"{id.space}_{id.external_id}")
-
 
 class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
     folder_name = "data_modeling"
@@ -958,10 +949,6 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
     ) -> Iterable[ViewResponse]:
         for batch in self.client.views.iterate(filter=ViewFilter(space=space, all_versions=True), limit=None):
             yield from batch
-
-    @classmethod
-    def as_filename(cls, id: ViewId) -> str:
-        return sanitize_filename(id.external_id)
 
     def _lookup_views(self, view_ids: list[ViewId]) -> dict[ViewId, ViewResponse]:
         """Looks up views by their IDs and caches them."""
@@ -1228,10 +1215,6 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
         ):
             yield from batch
 
-    @classmethod
-    def as_filename(cls, id: DataModelId) -> str:
-        return sanitize_filename(id.external_id)
-
 
 @final
 class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
@@ -1484,10 +1467,6 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
     def drop_data(self, ids: Sequence[NodeId]) -> int:
         # Nodes will be deleted in .delete call.
         return 0
-
-    @classmethod
-    def as_filename(cls, id: NodeId) -> str:
-        return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
 class GraphQLIO(
@@ -1792,10 +1771,6 @@ class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
     @classmethod
     def dump_id(cls, id: EdgeId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: EdgeId) -> str:
-        return sanitize_filename(f"{id.space}_{id.external_id}")
 
     @classmethod
     def get_dependencies(cls, resource: EdgeYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

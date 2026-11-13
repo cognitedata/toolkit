@@ -70,10 +70,6 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
 
-    @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
-
     @staticmethod
     def _yaml_data_model_dependencies(
         data_models: list[AgentDataModel],

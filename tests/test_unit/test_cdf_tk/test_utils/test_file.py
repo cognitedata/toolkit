@@ -63,6 +63,14 @@ class TestSanitizeFilename:
             ("invalid>filename.json", "invalid_filename.json"),
             ("invalid|filename.yaml", "invalid_filename.yaml"),
             ("inva|lid:fi*le?name<.json", "inva_lid_fi_le_name_.json"),
+            (".", "_"),
+            ("..", "_"),
+            ("...", "..."),
+            ("../../../some_other_place.txt", ".._.._.._some_other_place.txt"),
+            ("..\\..\\..\\some_other_place.txt", ".._.._.._some_other_place.txt"),
+            ("/etc/passwd", "_etc_passwd"),
+            ("C:\\Windows\\System32\\evil.dll", "C_Windows_System32_evil.dll"),
+            ("./../.", "._.._."),
         ],
     )
     def test_sanitize_filename(self, filename: str, expected: str) -> None:

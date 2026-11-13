@@ -22,7 +22,6 @@ from cognite_toolkit._cdf_tk.utils import (
     humanize_collection,
     load_yaml_inject_variables,
     safe_read,
-    sanitize_filename,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions
 from cognite_toolkit._cdf_tk.yaml_classes import RuleSetVersionYAML, RuleSetYAML
@@ -150,10 +149,6 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
     @classmethod
     def dump_id(cls, id: RuleSetVersionId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: RuleSetVersionId) -> str:
-        return sanitize_filename(f"{id.rule_set_external_id}_v{id.version}")
 
     @classmethod
     def get_required_capability(

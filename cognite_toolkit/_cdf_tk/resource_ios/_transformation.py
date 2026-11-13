@@ -96,7 +96,6 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
     safe_read,
-    sanitize_filename,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import get_ext_onelake_source_ids, read_auth, try_find_error
@@ -210,10 +209,6 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_dependencies(cls, resource: TransformationYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -738,10 +733,6 @@ class TransformationScheduleIO(
         return id.dump()
 
     @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
-
-    @classmethod
     def get_dependencies(cls, resource: TransformationScheduleYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield TransformationIO, ExternalId(external_id=resource.external_id)
 
@@ -855,10 +846,6 @@ class TransformationNotificationIO(
             dumped.pop("transformationId", None)
             dumped["transformationExternalId"] = local["transformationExternalId"]
         return dumped
-
-    @classmethod
-    def as_filename(cls, id: TransformationNotificationId) -> str:
-        return sanitize_filename(f"{id.transformation_external_id}_{id.destination}")
 
     def create(self, items: Sequence[TransformationNotificationRequest]) -> list[TransformationNotificationResponse]:
         return self.client.transformations.notifications.create(list(items))
