@@ -757,7 +757,9 @@ class TransformationScheduleIO(
                 raise
             existing = {external_id for dup in e.duplicated if (external_id := dup.get("externalId", None))}
             self.on_warning(
-                MediumSeverityWarning(f"{len(e.duplicated)} transformation schedules already exist(s): {existing}")
+                MediumSeverityWarning(
+                    f"{len(e.duplicated)} transformation schedules already exist(s): {humanize_collection(existing)}"
+                )
             )
             new_items = [item for item in items if item.external_id not in existing]
             return self.client.transformations.schedules.create(new_items)

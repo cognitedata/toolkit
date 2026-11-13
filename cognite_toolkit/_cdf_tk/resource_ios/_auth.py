@@ -475,7 +475,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         if duplicates := {name for name, count in counts_by_name.items() if count > 1}:
             self.on_warning(
                 MediumSeverityWarning(
-                    f"The following names are used by multiple groups (all will be deleted): {duplicates}"
+                    f"The following names are used by multiple groups (all will be deleted): {humanize_collection(duplicates)}"
                 )
             )
 
