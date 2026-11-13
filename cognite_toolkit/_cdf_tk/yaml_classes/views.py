@@ -121,7 +121,7 @@ class ViewYAML(ToolkitResource):
         if view_labels:
             noun = "view" if len(view_labels) == 1 else "views"
             warning = BuildWarning(
-                code="MODELING-SUBOPTIMAL",
+                code="ANTI-PATTERN",
                 message=(
                     f"View '{view_id}' has a hasData filter on the {noun} {humanize_collection(view_labels, sort=False)}. "
                     "A hasData filter on a view is resolved through the containers of that view, and CDF rejects "

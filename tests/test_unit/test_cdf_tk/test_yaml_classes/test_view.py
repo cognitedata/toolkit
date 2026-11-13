@@ -296,7 +296,7 @@ class TestViewYAML:
             ),
             pytest.param(
                 "{and: [{hasData: [{type: view, space: my_space, externalId: other_view, version: '1'}]}]}",
-                [(BuildWarning, "MODELING-SUBOPTIMAL", 4)],
+                [(BuildWarning, "ANTI-PATTERN", 4)],
                 id="has-data-on-view",
             ),
             pytest.param(
