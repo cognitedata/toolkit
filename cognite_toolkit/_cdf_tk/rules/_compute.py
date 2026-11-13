@@ -6,6 +6,7 @@ from typing import Literal
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionResponse, SessionStatus
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
@@ -50,7 +51,7 @@ class _Credential:
     url: str
     name: str
     fix: str
-    session_id: int | None = None
+    session_id: int
     expires_at: int | None = None
 
 
@@ -110,31 +111,47 @@ class ComputeRuleSet(ToolkitRuleSet):
         return InternalValidatorException(message=f"Failed to retrieve {what}: {error}", source=self.DISPLAY_NAME)
 
     # 1. Credentials
-
     def _check_credentials(
         self, client: ToolkitClient, inventory: _Inventory, now: int
     ) -> Iterable[_Finding | InternalValidatorException]:
         credentials = self._credentials(client, inventory)
-        session_ids = sorted({credential.session_id for credential in credentials if credential.session_id})
-        expiry_by_session_id, unverified = self._session_expiry(client, session_ids)
-        if unverified:
-            yield unverified
+        session_ids = sorted({credential.session_id for credential in credentials})
+        expiry_by_session_id, error = self._find_sessions(client, session_ids)
+        if error:
+            yield error
+            return
         for credential in credentials:
-            if credential.session_id is not None:
-                expires_at = expiry_by_session_id.get(credential.session_id)
-                if expires_at is None and unverified is None:
-                    yield _Finding(
-                        url=credential.url,
-                        severity="error",
-                        code="EXPIRED-CREDENTIALS",
-                        message=f"{credential.name} are invalid, their session {credential.session_id} was not found.",
-                        fix=credential.fix,
-                    )
-                    continue
-            else:
-                expires_at = credential.expires_at
-            if expires_at is not None and (finding := self._expiry_finding(credential, expires_at, now)):
+            session = expiry_by_session_id.get(credential.session_id)
+            if session is None:
+                # Missing sessions are treated as expired, since the credentials cannot be verified.
+                yield self._create_expired_finding(credential, f"the session {credential.session_id} was not found.")
+                continue
+            if session.expiration_time and (
+                finding := self._expiry_finding(credential, session.expiration_time, now, session.status)
+            ):
                 yield finding
+            if session.status is None:
+                # The session exists, but the caller cannot verify its status or expire time. We report nothing.
+                continue
+            if session.status.casefold() in ("ready", "active"):
+                continue
+            yield _Finding(
+                url=credential.url,
+                severity="error",
+                code="INVALID-CREDENTIALS",
+                message=f"{credential.name} is invalid because the session {credential.session_id} is {session.status}.",
+                fix=credential.fix,
+            )
+
+    @staticmethod
+    def _create_expired_finding(credential: _Credential, reason: str) -> _Finding:
+        return _Finding(
+            url=credential.url,
+            severity="error",
+            code="INVALID-CREDENTIALS",
+            message=f"{credential.name} {reason}",
+            fix=credential.fix,
+        )
 
     @staticmethod
     def _credentials(client: ToolkitClient, inventory: _Inventory) -> list[_Credential]:
@@ -158,7 +175,9 @@ class ComputeRuleSet(ToolkitRuleSet):
         return credentials
 
     @staticmethod
-    def _session_expiry(client: ToolkitClient, session_ids: Sequence[int]) -> tuple[dict[int, int], _Finding | None]:
+    def _find_sessions(
+        client: ToolkitClient, session_ids: Sequence[int]
+    ) -> tuple[dict[int, SessionResponse], _Finding | None]:
         """The expiry of the sessions by ID, and a finding if the expiry of some could not be verified."""
         if not session_ids:
             return {}, None
@@ -168,32 +187,25 @@ class ComputeRuleSet(ToolkitRuleSet):
                 [InternalId(id=session_id) for session_id in session_ids], ignore_unknown_ids=True
             )
         except ToolkitAPIError as error:
-            sessions = None
-            message = f"{message} Failed to retrieve their sessions: {error}"
-        expiry_by_session_id = {
-            session.id: session.expiration_time for session in sessions or [] if session.expiration_time is not None
-        }
-        if sessions is not None and len(expiry_by_session_id) == len(session_ids):
-            return expiry_by_session_id, None
-        return expiry_by_session_id, _Finding(
-            url=client.config.create_api_url(_SESSIONS_ENDPOINT),
-            severity="warning",
-            code="UNVERIFIED-CREDENTIALS",
-            message=message,
-            fix="Ensure that the provided token has LIST access to sessions (sessionsAcl:LIST).",
-        )
+            message = f"{message} Failed to retrieve {len(session_ids)} sessions: {error}"
+            return {}, _Finding(
+                url=client.config.create_api_url(_SESSIONS_ENDPOINT),
+                severity="warning",
+                code="UNVERIFIED-CREDENTIALS",
+                message=message,
+                fix="Ensure that the provided token has LIST access to sessions (sessionsAcl:LIST).",
+            )
+        return {session.id: session for session in sessions}, None
 
-    @staticmethod
-    def _expiry_finding(credential: _Credential, expires_at: int, now: int) -> _Finding | None:
+    @classmethod
+    def _expiry_finding(
+        cls, credential: _Credential, expires_at: int, now: int, session_status: SessionStatus | None
+    ) -> _Finding | None:
         remaining = expires_at - now
         expiry = ms_to_datetime(expires_at).strftime("%Y-%m-%d %H:%M UTC")
         if remaining <= 0:
-            return _Finding(
-                url=credential.url,
-                severity="error",
-                code="EXPIRED-CREDENTIALS",
-                message=f"{credential.name} expired {_humanize_duration(-remaining)} ago, on {expiry}.",
-                fix=credential.fix,
+            return cls._create_expired_finding(
+                credential, f"expired {_humanize_duration(-remaining)} ago, on {expiry}."
             )
         severity: _Severity
         if remaining < ROTATE_WARNING_DAYS * _DAY_MS:
@@ -205,7 +217,7 @@ class ComputeRuleSet(ToolkitRuleSet):
         return _Finding(
             url=credential.url,
             severity=severity,
-            code="EXPIRING-CREDENTIALS",
+            code="INVALID-CREDENTIALS",
             message=f"{credential.name} will expire in {_humanize_duration(remaining)}, on {expiry}.",
             fix=credential.fix,
         )
