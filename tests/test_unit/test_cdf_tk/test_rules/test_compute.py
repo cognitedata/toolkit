@@ -83,6 +83,18 @@ class TestComputeRuleSet:
 
         assert codes == {"UNVERIFIED-CREDENTIALS"}
 
+    def test_missing_session_is_reported_as_expired(self) -> None:
+        client = _client()
+        client.transformations.list.return_value = [
+            _transformation(1, "tr_valid", sourceSession=_session_info(10)),
+            _transformation(2, "tr_deleted_session", sourceSession=_session_info(11)),
+        ]
+        client.sessions.retrieve.return_value = [SessionResponse(id=10, expiration_time=NOW + 30 * DAY)]
+
+        insights = [(insight.insight_type, insight.code, insight.source_url) for insight in _validate(client)]
+
+        assert insights == [("Error", "EXPIRED-CREDENTIALS", f"{API_URL}/transformations/2")]
+
     def test_planned_in_cdf_context_without_resources(self) -> None:
         plan = ValidationCommand._create_validation_plan(client=MagicMock(), context="cdf")
 

@@ -122,6 +122,15 @@ class ComputeRuleSet(ToolkitRuleSet):
         for credential in credentials:
             if credential.session_id is not None:
                 expires_at = expiry_by_session_id.get(credential.session_id)
+                if expires_at is None and unverified is None:
+                    yield _Finding(
+                        url=credential.url,
+                        severity="error",
+                        code="EXPIRED-CREDENTIALS",
+                        message=f"{credential.name} are invalid, their session {credential.session_id} was not found.",
+                        fix=credential.fix,
+                    )
+                    continue
             else:
                 expires_at = credential.expires_at
             if expires_at is not None and (finding := self._expiry_finding(credential, expires_at, now)):
