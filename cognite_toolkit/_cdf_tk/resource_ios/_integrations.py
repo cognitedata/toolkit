@@ -177,10 +177,8 @@ class IntegrationConfigsIO(
     ) -> list[dict[str, Any]]:
         # Environment variable keys inside config are preserved for the extractor to resolve.
         raw_str = self.safe_read(filepath)
-        original = load_yaml_inject_variables(raw_str, {}, validate=False, original_filepath=filepath)
-        replaced = load_yaml_inject_variables(
-            raw_str, environment_variables or {}, validate=False, original_filepath=filepath
-        )
+        original, _ = load_yaml_inject_variables(raw_str, {}, original_filepath=filepath)
+        replaced, _ = load_yaml_inject_variables(raw_str, environment_variables or {}, original_filepath=filepath)
         if isinstance(original, dict) and isinstance(replaced, dict):
             if "config" in original:
                 replaced["config"] = original.get("config")

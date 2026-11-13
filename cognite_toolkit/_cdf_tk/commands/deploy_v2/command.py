@@ -80,7 +80,6 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     EnvironmentVariableMissingWarning,
     LowSeverityWarning,
     ToolkitWarning,
-    catch_warnings,
 )
 from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.ui import (
@@ -940,18 +939,11 @@ class DeployV2Command(ToolkitCommand):
         to_deploy_by_id: dict[T_Identifier, ReadResource[T_RequestResource]] = {}
         environment_variables = options.environment_variables or {}
         for filepath in filepaths:
-            with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
+            with cls._capture_missing_env_vars(crud) as missing_env_vars:
                 try:
                     resource_list = crud.load_resource_file(filepath, environment_variables)
                 except YAMLError as e:
                     raise ToolkitYAMLFormatError(f"YAML validation error for {filepath.as_posix()}: {e}")
-            # Note we only catch EnvironmentVariableMissingWarning, so all warnings should be of that type.
-            missing_env_vars = {
-                env_var
-                for warning in warning_list
-                if isinstance(warning, EnvironmentVariableMissingWarning)
-                for env_var in warning.variables
-            }
             for resource_dict in resource_list:
                 try:
                     # The load resource modifies the resource_dict, so we deepcopy it to avoid side effects.
@@ -974,6 +966,25 @@ class DeployV2Command(ToolkitCommand):
                     to_deploy_by_id[identifier].source_files.append(filepath)
 
         return to_deploy_by_id
+
+    @staticmethod
+    @contextmanager
+    def _capture_missing_env_vars(crud: ResourceIO) -> Generator[set[str], None, None]:
+        """Missing environment variables are not shown to the user, only used to explain failed deployments."""
+        missing_env_vars: set[str] = set()
+        forward_warning = crud.on_warning
+
+        def on_warning(warning: ToolkitWarning) -> None:
+            if isinstance(warning, EnvironmentVariableMissingWarning):
+                missing_env_vars.update(warning.variables)
+            else:
+                forward_warning(warning)
+
+        crud.on_warning = on_warning
+        try:
+            yield missing_env_vars
+        finally:
+            crud.on_warning = forward_warning
 
     @classmethod
     def validate_access(

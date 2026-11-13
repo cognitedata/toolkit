@@ -195,7 +195,7 @@ class TestLoadYamlInjectVariables:
     YAML = "externalId: my_mqtt\nauthCertificate:\n  certificate: ${MQTT_CERT}\n"
 
     def test_multiline_value_injected_from_env(self) -> None:
-        loaded = load_yaml_inject_variables(self.YAML, {"MQTT_CERT": self.PEM}, required_return_type="dict")
+        loaded, _ = load_yaml_inject_variables(self.YAML, {"MQTT_CERT": self.PEM}, required_return_type="dict")
 
         assert loaded["authCertificate"]["certificate"] == self.PEM
         assert loaded["externalId"] == "my_mqtt"
@@ -203,6 +203,6 @@ class TestLoadYamlInjectVariables:
     def test_escaped_newlines_are_preserved(self) -> None:
         # Unescaping is resource specific, e.g., done by HostedExtractorSourceIO for certificates.
         escaped = self.PEM.replace("\n", "\\n")
-        loaded = load_yaml_inject_variables(self.YAML, {"MQTT_CERT": escaped}, required_return_type="dict")
+        loaded, _ = load_yaml_inject_variables(self.YAML, {"MQTT_CERT": escaped}, required_return_type="dict")
 
         assert loaded["authCertificate"]["certificate"] == escaped

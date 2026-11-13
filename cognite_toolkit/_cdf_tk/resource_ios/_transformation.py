@@ -361,11 +361,13 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
-        resources = load_yaml_inject_variables(
+        resources, warning = load_yaml_inject_variables(
             self.safe_read(filepath),
             environment_variables or {},
             original_filepath=filepath,
         )
+        if warning:
+            self.on_warning(warning)
 
         raw_list = resources if isinstance(resources, list) else [resources]
         for item in raw_list:

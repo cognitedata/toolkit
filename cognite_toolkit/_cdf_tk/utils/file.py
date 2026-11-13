@@ -8,7 +8,6 @@ import sys
 import tempfile
 import time
 import typing
-import warnings
 from abc import abstractmethod
 from collections import UserDict, defaultdict
 from collections.abc import ItemsView, KeysView, ValuesView
@@ -35,9 +34,8 @@ def load_yaml_inject_variables(
     filepath: Path | str,
     environment_variables: dict[str, str | None],
     required_return_type: Literal["list"],
-    validate: bool = True,
     original_filepath: Path | None = None,
-) -> list[dict[str, Any]]: ...
+) -> tuple[list[dict[str, Any]], EnvironmentVariableMissingWarning | None]: ...
 
 
 @overload
@@ -45,9 +43,8 @@ def load_yaml_inject_variables(
     filepath: Path | str,
     environment_variables: dict[str, str | None],
     required_return_type: Literal["dict"],
-    validate: bool = True,
     original_filepath: Path | None = None,
-) -> dict[str, Any]: ...
+) -> tuple[dict[str, Any], EnvironmentVariableMissingWarning | None]: ...
 
 
 @overload
@@ -55,30 +52,28 @@ def load_yaml_inject_variables(
     filepath: Path | str,
     environment_variables: dict[str, str | None],
     required_return_type: Literal["any", "list", "dict"] = "any",
-    validate: bool = True,
     original_filepath: Path | None = None,
-) -> dict[str, Any] | list[dict[str, Any]]: ...
+) -> tuple[dict[str, Any] | list[dict[str, Any]], EnvironmentVariableMissingWarning | None]: ...
 
 
 def load_yaml_inject_variables(
     filepath: Path | str,
     environment_variables: dict[str, str | None],
     required_return_type: Literal["any", "list", "dict"] = "any",
-    validate: bool = True,
     original_filepath: Path | None = None,
-) -> dict[str, Any] | list[dict[str, Any]]:
+) -> tuple[dict[str, Any] | list[dict[str, Any]], EnvironmentVariableMissingWarning | None]:
     """Loads a YAML file and injects environment variables into it.
 
     Args:
         filepath (Path | str): Path to the YAML file or file content.
         environment_variables (dict[str, str | None]): Dictionary with environment variables.
         required_return_type (Literal["any", "list", "dict"], optional): The required return type. Defaults to "any".
-        validate (bool, optional): Whether to validate that all environment variables were replaced. Defaults to True.
         original_filepath (Path | None, optional): In case the filepath is a string, this is the original path.
             Used for error messages. Defaults to None.
 
     Returns:
-        dict[str, Any] | list[dict[str, Any]]: The YAML content with the environment variables injected.
+        tuple[dict[str, Any] | list[dict[str, Any]], EnvironmentVariableMissingWarning | None]: The YAML content
+            with the environment variables injected, and a warning if any environment variables were not replaced.
 
     """
     if isinstance(filepath, str):
@@ -89,26 +84,27 @@ def load_yaml_inject_variables(
         if value is None:
             continue
         content = _inject_variable(content, f"${{{key}}}", str(value))
-    if validate and (missing_variables := [match.group(1) for match in ENV_VAR_PATTERN.finditer(content)]):
+    warning: EnvironmentVariableMissingWarning | None = None
+    if missing_variables := [match.group(1) for match in ENV_VAR_PATTERN.finditer(content)]:
         if isinstance(filepath, Path):
             source = filepath
         elif original_filepath:
             source = original_filepath
         else:
             source = Path("UNKNOWN")
-        warnings.warn(EnvironmentVariableMissingWarning(source, frozenset(missing_variables)), stacklevel=2)
+        warning = EnvironmentVariableMissingWarning(source, frozenset(missing_variables))
 
     result = read_yaml_content(content)
 
     if required_return_type == "any":
-        return result
+        return result, warning
     elif required_return_type == "list":
         if isinstance(result, list):
-            return result
+            return result, warning
         raise ValueError(f"Expected a list, but got {type(result)}")
     elif required_return_type == "dict":
         if isinstance(result, dict):
-            return result
+            return result, warning
         raise ValueError(f"Expected a dict, but got {type(result)}")
     else:
         raise ValueError(f"Unknown required_return_type {required_return_type}")
