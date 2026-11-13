@@ -47,6 +47,8 @@ class DuplicateRuleSet(ToolkitRuleSet):
             return
         definitions_by_id: dict[tuple[ResourceType, Identifier], list[tuple[ResourceRef, Path]]] = defaultdict(list)
         for resource in self.resources:
+            if not resource.has_valid_syntax:
+                continue
             # Unresolved variables are reported on their own.
             if isinstance(resource.source, Path) and not contains_unresolved_variable(resource.identifier):
                 definitions_by_id[(resource.type, resource.identifier)].append((resource, resource.source))
