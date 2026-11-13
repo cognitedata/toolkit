@@ -4,7 +4,9 @@ from typing import Any
 from unittest.mock import MagicMock
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.request_classes.filters import FunctionCallFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationResponse,
@@ -350,16 +352,17 @@ class TestComputeRuleSet:
             )
         ]
         client.transformations.retrieve.return_value = []
-        client.workflows.executions.list.return_value = [
-            WorkflowExecutionResponse(
-                id="exec1",
-                workflow_external_id="wf",
-                version="v1",
-                status="FAILED",
-                created_time=NOW - DAY,
-                reason_for_incompletion="Task run failed",
-            )
-        ]
+        failed_execution = WorkflowExecutionResponse(
+            id="exec1",
+            workflow_external_id="wf",
+            version="v1",
+            status="FAILED",
+            created_time=NOW - DAY,
+            reason_for_incompletion="Task run failed",
+        )
+        client.workflows.executions.list.side_effect = lambda statuses, **_: (
+            [failed_execution] if "FAILED" in statuses else []
+        )
         client.hosted_extractors.jobs.list.return_value = [
             HostedExtractorJobResponse.model_validate(
                 {
@@ -411,6 +414,48 @@ class TestComputeRuleSet:
                 "The last execution of the workflow 'wf' version 'v1' failed: Task run failed. Likely cause: The "
                 "workflow 'wf' version 'v1' runs the transformation 'tr_gone', which does not exist.",
             ),
+        ]
+
+    def test_only_runs_failing_since_their_last_success_are_reported(self) -> None:
+        client = _client()
+        client.functions.list.return_value = [
+            FunctionResponse(id=1, name="fn_recovered", file_id=1, created_time=0),
+            FunctionResponse(id=2, name="fn_failing", file_id=1, created_time=0),
+        ]
+
+        def list_calls(function_id: int, filter: FunctionCallFilter, limit: int) -> list[FunctionCallResponse]:
+            if filter.status == "Timeout":
+                return [FunctionCallResponse(id=10, function_id=function_id, start_time=NOW - DAY, status="Timeout")]
+            if filter.status == "Completed" and function_id == 1:
+                return [FunctionCallResponse(id=20, function_id=function_id, start_time=NOW, status="Completed")]
+            return []
+
+        client.functions.calls.list.side_effect = list_calls
+        client.workflows.versions.list.return_value = [
+            WorkflowVersionResponse.model_validate(
+                {
+                    "workflowExternalId": "wf",
+                    "version": "v1",
+                    "createdTime": 0,
+                    "lastUpdatedTime": 0,
+                    "workflowDefinition": {"tasks": []},
+                }
+            )
+        ]
+        failed = WorkflowExecutionResponse(
+            id="exec1", workflow_external_id="wf", version="v1", status="FAILED", created_time=NOW - DAY
+        )
+        completed = WorkflowExecutionResponse(
+            id="exec2", workflow_external_id="wf", version="v1", status="COMPLETED", created_time=NOW
+        )
+        client.workflows.executions.list.side_effect = lambda statuses, **_: (
+            [failed] if "FAILED" in statuses else [completed]
+        )
+
+        insights = [(insight.code, insight.source_url, insight.message) for insight in _validate(client)]
+
+        assert insights == [
+            ("FAILED-EXECUTION", f"{API_URL}/functions/2", "The last call of the function 'fn_failing' timed out.")
         ]
 
     def test_unverified_credentials_when_sessions_cannot_be_retrieved(self) -> None:

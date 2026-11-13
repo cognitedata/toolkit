@@ -2,6 +2,7 @@ import importlib.util
 import time
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any, Literal
 from urllib.parse import quote
@@ -81,6 +82,9 @@ ROTATE_WARNING_DAYS = 2
 THUNDERING_HERD_THRESHOLD = 5
 # How far back to look for the last call of a function and the last execution of a workflow.
 RUN_HISTORY_DAYS = 7
+# Caps the failed calls listed per status of a function, so a function that fails constantly stays cheap to check.
+_MAX_FAILED_RUNS = 100
+_MAX_WORKERS = 8
 
 _DAY_MS = 24 * 60 * 60 * 1000
 _HOUR_MS = 60 * 60 * 1000
@@ -96,6 +100,8 @@ _FAILED_FUNCTION_CALLS = {
     "ConcurrencyLimitExceeded": "was rejected because the concurrency limit of the function was exceeded",
 }
 _FAILED_WORKFLOW_EXECUTIONS = {"FAILED": "failed", "TIMED_OUT": "timed out"}
+# A later execution with one of these statuses means the workflow is no longer failing.
+_RECOVERED_WORKFLOW_EXECUTIONS = ("COMPLETED", "TERMINATED")
 _FAILED_TASK_STATUSES = frozenset({"FAILED", "FAILED_WITH_TERMINAL_ERROR", "TIMED_OUT"})
 _FAILED_HOSTED_EXTRACTOR_JOBS = {
     "startup_error": "Fix the configuration of the job, its source, or its destination, then restart the job.",
@@ -715,36 +721,56 @@ class ComputeRuleSet(ToolkitRuleSet):
     def _function_failures(
         self, client: ToolkitClient, functions: Sequence[FunctionResponse], now: int
     ) -> Iterable[_Failure | InternalValidatorException]:
-        call_filter = FunctionCallFilter(start_time=EpochTimestampRange(min_=now - RUN_HISTORY_DAYS * _DAY_MS))
-        for function in functions:
-            url = _function_url(client, function.id)
-            name = function.external_id or function.name
-            if function.status == "Failed":
-                yield _Failure(
-                    url=url,
-                    message=f"The function '{name}' failed to deploy"
-                    f"{_with_reason(function.error.message if function.error else None)}",
-                    fix="Fix the error in the code or requirements of the function, then deploy it again.",
-                )
-                continue
-            try:
-                calls = client.functions.calls.list(function.id, filter=call_filter, limit=None)
-            except ToolkitAPIError as error:
-                yield self._retrieve_failed(f"the calls of the function '{name}'", error)
-                continue
-            finished = [call for call in calls if call.status != "Running"]
-            if not finished:
-                continue
-            last_call = max(finished, key=lambda call: call.start_time)
-            if (outcome := _FAILED_FUNCTION_CALLS.get(last_call.status)) is None:
-                continue
-            logs_url = client.config.create_api_url(f"/functions/{function.id}/calls/{last_call.id}/logs")
-            yield _Failure(
+        window_start = now - RUN_HISTORY_DAYS * _DAY_MS
+        with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as executor:
+            results = executor.map(lambda function: self._function_failure(client, function, window_start), functions)
+            yield from (result for result in results if result is not None)
+
+    def _function_failure(
+        self, client: ToolkitClient, function: FunctionResponse, window_start: int
+    ) -> _Failure | InternalValidatorException | None:
+        """The failure of the last finished call of the function, found by listing failed calls first."""
+        url = _function_url(client, function.id)
+        name = function.external_id or function.name
+        if function.status == "Failed":
+            return _Failure(
                 url=url,
-                message=f"The last call of the function '{name}' {outcome}{_with_reason(last_call.error)}",
-                fix=f"Check the logs of the call at {logs_url}, and fix the code of the function or its input data.",
-                concurrency_limited=last_call.status == "ConcurrencyLimitExceeded",
+                message=f"The function '{name}' failed to deploy"
+                f"{_with_reason(function.error.message if function.error else None)}",
+                fix="Fix the error in the code or requirements of the function, then deploy it again.",
             )
+        try:
+            failed_calls = [
+                call
+                for status in _FAILED_FUNCTION_CALLS
+                for call in client.functions.calls.list(
+                    function.id,
+                    filter=FunctionCallFilter(status=status, start_time=EpochTimestampRange(min_=window_start)),
+                    limit=_MAX_FAILED_RUNS,
+                )
+            ]
+            if not failed_calls:
+                return None
+            last_call = max(failed_calls, key=lambda call: call.start_time)
+            recovered = client.functions.calls.list(
+                function.id,
+                filter=FunctionCallFilter(
+                    status="Completed", start_time=EpochTimestampRange(min_=last_call.start_time)
+                ),
+                limit=1,
+            )
+        except ToolkitAPIError as error:
+            return self._retrieve_failed(f"the calls of the function '{name}'", error)
+        if recovered:
+            return None
+        outcome = _FAILED_FUNCTION_CALLS[last_call.status]
+        logs_url = client.config.create_api_url(f"/functions/{function.id}/calls/{last_call.id}/logs")
+        return _Failure(
+            url=url,
+            message=f"The last call of the function '{name}' {outcome}{_with_reason(last_call.error)}",
+            fix=f"Check the logs of the call at {logs_url}, and fix the code of the function or its input data.",
+            concurrency_limited=last_call.status == "ConcurrencyLimitExceeded",
+        )
 
     def _workflow_failures(
         self, client: ToolkitClient, workflow_versions: Sequence[WorkflowVersionResponse], now: int
@@ -753,15 +779,17 @@ class ComputeRuleSet(ToolkitRuleSet):
             return
         version_ids = {workflow_version.as_id() for workflow_version in workflow_versions}
         try:
-            executions = client.workflows.executions.list(
-                created_time_start=now - RUN_HISTORY_DAYS * _DAY_MS, limit=None
+            failed_executions = client.workflows.executions.list(
+                created_time_start=now - RUN_HISTORY_DAYS * _DAY_MS,
+                statuses=list(_FAILED_WORKFLOW_EXECUTIONS),
+                limit=None,
             )
         except ToolkitAPIError as error:
             yield self._retrieve_failed("workflow executions", error)
             return
         last_by_version_id: dict[WorkflowVersionId, WorkflowExecutionResponse] = {}
-        for execution in executions:
-            if execution.status == "RUNNING" or execution.version is None:
+        for execution in failed_executions:
+            if execution.version is None:
                 continue
             version_id = execution.as_workflow_id()
             if version_id not in version_ids:
@@ -770,8 +798,21 @@ class ComputeRuleSet(ToolkitRuleSet):
             if last is None or execution.created_time > last.created_time:
                 last_by_version_id[version_id] = execution
         for version_id, execution in last_by_version_id.items():
-            if (outcome := _FAILED_WORKFLOW_EXECUTIONS.get(execution.status)) is None:
+            try:
+                recovered = client.workflows.executions.list(
+                    workflow_version_ids=[version_id],
+                    created_time_start=execution.created_time,
+                    statuses=list(_RECOVERED_WORKFLOW_EXECUTIONS),
+                    limit=1,
+                )
+            except ToolkitAPIError as error:
+                yield self._retrieve_failed(
+                    f"the executions of the workflow '{version_id.workflow_external_id}'", error
+                )
                 continue
+            if recovered:
+                continue
+            outcome = _FAILED_WORKFLOW_EXECUTIONS[execution.status]
             yield _Failure(
                 url=_workflow_version_url(client, version_id.workflow_external_id, version_id.version),
                 message=f"The last execution of the workflow '{version_id.workflow_external_id}' version "
