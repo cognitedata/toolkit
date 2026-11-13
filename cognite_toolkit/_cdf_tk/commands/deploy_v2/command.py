@@ -688,7 +688,7 @@ class DeployV2Command(ToolkitCommand):
         for step in plan:
             if step.crud_cls not in (SpaceIO, NodeIO, EdgeIO):
                 continue
-            crud = cast(ResourceContainerIO[Any, Any, Any, Any], step.crud_cls.create_io(client))
+            crud = cast(ResourceContainerIO[Any, Any, Any, Any], step.crud_cls(client))
             resource_by_id = self._read_resource_files(crud, step.files, options)
             if not resource_by_id:
                 continue
@@ -715,7 +715,7 @@ class DeployV2Command(ToolkitCommand):
         for step in plan:
             if step.crud_cls is not ContainerIO:
                 continue
-            crud = step.crud_cls.create_io(client)
+            crud = step.crud_cls(client)
             resource_by_id = self._read_resource_files(crud, step.files, options)
             if not resource_by_id:
                 continue
@@ -727,7 +727,7 @@ class DeployV2Command(ToolkitCommand):
         for step in plan:
             if step.crud_cls is not ViewIO:
                 continue
-            view_crud = step.crud_cls.create_io(client)
+            view_crud = step.crud_cls(client)
             view_resource_by_id = self._read_resource_files(view_crud, step.files, options)
             in_scope_view_ids.update(view_resource_by_id.keys())
         inspect_results = client.containers.inspect(container_ids)
@@ -808,7 +808,7 @@ class DeployV2Command(ToolkitCommand):
             total_files = sum(len(step.files) for step in plan)
             task_id = progress.add_task(f"Starting {options.operation}", total=total_files)
             for step in plan:
-                crud = step.crud_cls.create_io(client)
+                crud = step.crud_cls(client)
                 resource_name = crud.display_name
                 progress.update(task_id, description=f"Reading {resource_name}")
 

@@ -1056,7 +1056,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
             for container_id in view_to_containers[view_id]:
                 container_to_views[container_id].add(view_id)
 
-        container_crud = ContainerIO.create_io(self.client)
+        container_crud = ContainerIO(self.client)
         container_dependencies_by_id = container_crud._find_direct_and_indirect_container_dependencies(
             list(container_to_views.keys())
         )

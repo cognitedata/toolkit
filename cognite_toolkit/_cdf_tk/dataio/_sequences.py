@@ -194,7 +194,7 @@ class SequenceRowIO(
         yield StorageIOConfig(
             kind=SequenceIO.kind,
             folder_name=SequenceIO.folder_name,
-            value=SequenceIO.create_io(self.client).dump_resource(sequence),
+            value=SequenceIO(self.client).dump_resource(sequence),
             filename=sanitize_filename(selector.external_id),
         )
 

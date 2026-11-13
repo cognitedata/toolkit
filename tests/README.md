@@ -241,7 +241,7 @@ def test_pull_transformation(
         typer_context: typer.Context,
         init_project: Path,
 ) -> None:
-    loader = TransformationLoader.create_io(cdf_tool_config.toolkit_client)
+    loader = TransformationLoader(cdf_tool_config.toolkit_client)
 
     loaded = load_transformation()
 

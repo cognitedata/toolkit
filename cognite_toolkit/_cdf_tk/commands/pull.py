@@ -143,7 +143,7 @@ class PullV2Command(ToolkitCommand):
 
         results: list[PullResult] = []
         for resource_type, resources in resources_by_type.items():
-            resource_io = resources[0].crud_cls.create_io(client)
+            resource_io = resources[0].crud_cls(client)
 
             cdf_resources = resource_io.retrieve([resource.identifier for resource in resources])
             cdf_resource_by_id = {resource_io.get_id(r): r for r in cdf_resources}

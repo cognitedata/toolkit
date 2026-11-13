@@ -424,7 +424,7 @@ timeSeriesIds:
 - {three_timeseries[1].external_id}
 - {three_timeseries[2].external_id}
 """
-        loader = DatapointSubscriptionIO.create_io(toolkit_client)
+        loader = DatapointSubscriptionIO(toolkit_client)
 
         assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
@@ -680,7 +680,7 @@ class TestGroupLoader:
             group_id = created_group.as_request_resource().as_id()
             toolkit_client.timeseries.delete([to_delete.as_id()])
 
-            loader = GroupIO.create_io(toolkit_client)
+            loader = GroupIO(toolkit_client)
 
             dumped = loader.dump_resource(created_group)
             assert "capabilities" in dumped
@@ -750,7 +750,7 @@ workflowDefinition:
         externalId: some_transformation
     retries: null
 """
-        loader = WorkflowVersionIO.create_io(toolkit_client)
+        loader = WorkflowVersionIO(toolkit_client)
 
         assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
@@ -773,7 +773,7 @@ authentication:
   clientSecret: ${IDP_CLIENT_SECRET}
 """
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
-        loader = TransformationIO.create_io(toolkit_client)
+        loader = TransformationIO(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = transformation_text
 
@@ -808,7 +808,7 @@ authentication:
     clientSecret: ${IDP_CLIENT_SECRET}
         """
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
-        loader = TransformationIO.create_io(toolkit_client)
+        loader = TransformationIO(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = transformation_text
 
@@ -859,7 +859,7 @@ authentication:
             for i in range(1, N + 1)
         ]
 
-        loader = TransformationIO.create_io(toolkit_client)
+        loader = TransformationIO(toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = "\n".join(definition_yaml)
 
@@ -896,7 +896,7 @@ ignoreNullFields: true
         self, toolkit_client: ToolkitClient, transformation_yaml: str, monkeypatch
     ) -> None:
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
-        crud = TransformationIO.create_io(toolkit_client)
+        crud = TransformationIO(toolkit_client)
 
         assert to_deploy_status(transformation_yaml, crud) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
@@ -971,7 +971,7 @@ properties:
       type: container
     containerPropertyIdentifier: name
         """
-        loader = ViewIO.create_io(toolkit_client)
+        loader = ViewIO(toolkit_client)
 
         assert to_deploy_status(definition_yaml, loader) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
@@ -1094,7 +1094,7 @@ source: here
 documentation: To Do
 createdBy: null
 """
-        io = ExtractionPipelineIO.create_io(toolkit_client)
+        io = ExtractionPipelineIO(toolkit_client)
         raw_data = load_local_yaml(definition_yaml, io)
         cdf_resource = io.load_resource(deepcopy(raw_data))
         retrieved = io.retrieve([cdf_resource.as_id()])

@@ -630,7 +630,7 @@ class TestDeployResourcesValidationError:
         an unexpected JSON structure that will cause a pydantic ValidationError.
         """
         client = ToolkitClient(config=toolkit_config)
-        crud = SpaceIO.create_io(client)
+        crud = SpaceIO(client)
 
         resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy()
         resources.to_create = [SpaceRequest(space="my_space")]
@@ -678,7 +678,7 @@ class TestDeployResourcesRetryDump:
     ) -> None:
         """A 502 is retried once, then a 409 fails and the request is written with retriedStatusCodes [502]."""
         client = ToolkitClient(config=toolkit_config)
-        crud = SpaceIO.create_io(client)
+        crud = SpaceIO(client)
 
         resources: ResourceToDeploy[SpaceId, SpaceRequest] = ResourceToDeploy()
         resources.to_create = [SpaceRequest(space="my_space")]
@@ -737,7 +737,7 @@ class TestCategorizeResources:
         dataset_raw = {"externalId": "my_dataset", "name": "My DataSet"}
         request = DataSetRequest.model_validate(dataset_raw)
         result = DeployV2Command.categorize_resources(
-            DataSetsIO.create_io(toolkit_client_cheap),
+            DataSetsIO(toolkit_client_cheap),
             resource_by_id={
                 request.as_id(): ReadResource(request, dataset_raw, [MagicMock()]),
             },
@@ -772,7 +772,7 @@ class TestCategorizeResources:
                 },
             ),
         )
-        loader = WorkflowTriggerIO.create_io(toolkit_client_approval.mock_client)
+        loader = WorkflowTriggerIO(toolkit_client_approval.mock_client)
 
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = """externalId: my_trigger
@@ -889,7 +889,7 @@ class TestDeployResourcesRelatedInsights:
         client = MagicMock()
         client.console = Console(file=console_output, width=200)
         client.spaces.create.side_effect = ToolkitAPIError("API failed")
-        crud = SpaceIO.create_io(client)
+        crud = SpaceIO(client)
         with pytest.raises(ResourceCreationError, match="Likely causes detected during"):
             DeployV2Command.deploy_resources(
                 crud, resources, skipped_cruds=set(), insights_by_resource=insights_by_resource
@@ -926,7 +926,7 @@ class TestDryRunDataSetPlaceholders:
     def test_validate_access_dry_run_never_retrieves_dry_run_dataset(self) -> None:
         client = MagicMock()
         client.token.verify_acls.return_value = []
-        loader = AssetIO.create_io(client)
+        loader = AssetIO(client)
         resource = AssetRequest(name="my_asset", external_id="my_asset", data_set_id=DRY_RUN_ID)
         is_missing_read, is_missing_write, is_write_acl_unknown = DeployV2Command.validate_access(
             loader, [resource], is_dry_run=True
@@ -988,7 +988,7 @@ class TestDryRunDataSetPlaceholders:
     ) -> None:
         client = MagicMock()
         client.token.verify_acls.return_value = []
-        io = FunctionIO.create_io(client)
+        io = FunctionIO(client)
         _ = DeployV2Command.validate_access(io, resources, is_dry_run=False)
 
         assert client.token.verify_acls.call_args_list == [call(expected_checked_acls)]

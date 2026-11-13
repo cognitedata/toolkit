@@ -43,7 +43,7 @@ class TestHostedExtractorSourceIO:
     def test_load_certificates_from_environment_variables(
         self, env_vars: dict[str, str | None], toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        io = HostedExtractorSourceIO.create_io(toolkit_client_approval.mock_client)
+        io = HostedExtractorSourceIO(toolkit_client_approval.mock_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = SOURCE_YAML
 
@@ -60,7 +60,7 @@ class TestHostedExtractorSourceIO:
         assert loaded.auth_certificate.certificate == PEM_CERT
 
     def test_escaped_and_real_newlines_give_same_hash(self, toolkit_client_cheap: ToolkitClient) -> None:
-        io = HostedExtractorSourceIO.create_io(toolkit_client_cheap)
+        io = HostedExtractorSourceIO(toolkit_client_cheap)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = SOURCE_YAML
 

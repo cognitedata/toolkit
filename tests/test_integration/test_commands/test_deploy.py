@@ -161,7 +161,7 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
             continue
         if loader_cls in SKIPPED_ALPHA_CRUDS:
             continue
-        loader = loader_cls.create_io(client)
+        loader = loader_cls(client)
 
         files = loader.find_files(build_dir / loader.folder_name)
         if not files:
