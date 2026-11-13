@@ -1,4 +1,5 @@
 import time
+from collections import Counter
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -175,6 +176,25 @@ class TestComputeRuleSet:
             "'tr_5'. Starting many at once can exceed concurrency limits, which delays or fails runs."
         )
         assert insights == {("CONGESTED-SCHEDULE", f"{API_URL}/transformations/{id_}", message) for id_ in range(1, 6)}
+
+    def test_overlapping_congested_schedules_warn_once_per_resource(self) -> None:
+        client = _client()
+        client.transformations.list.return_value = [_transformation(id_, f"tr_{id_}") for id_ in range(1, 7)]
+        client.transformations.schedules.list.return_value = [
+            TransformationScheduleResponse(
+                id=id_,
+                external_id=f"tr_{id_}",
+                interval="0 0 * * *" if id_ == 6 else "0 * * * *",
+                is_paused=False,
+                created_time=0,
+                last_updated_time=0,
+            )
+            for id_ in range(1, 7)
+        ]
+
+        warning_count_by_url = Counter(insight.source_url for insight in _validate(client))
+
+        assert warning_count_by_url == {f"{API_URL}/transformations/{id_}": 1 for id_ in range(1, 7)}
 
     def test_unverified_credentials_when_sessions_cannot_be_retrieved(self) -> None:
         client = _client()

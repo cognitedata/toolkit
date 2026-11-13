@@ -384,22 +384,26 @@ class ComputeRuleSet(ToolkitRuleSet):
             for minute, indices in schedule_indices_by_minute.items():
                 if len(indices) >= THUNDERING_HERD_THRESHOLD:
                     minutes_by_herd[tuple(indices)].append(minute)
-            for indices, minutes in minutes_by_herd.items():
+            # A resource can be in several herds, report only the one it starts with most often, then the largest.
+            herd_by_url: dict[str, tuple[int, ...]] = {}
+            for indices in sorted(minutes_by_herd, key=lambda herd: (len(minutes_by_herd[herd]), len(herd))):
+                for index in indices:
+                    herd_by_url[schedules[index].url] = indices
+            for url, indices in herd_by_url.items():
                 herd = [schedules[index] for index in indices]
-                message = (
-                    f"{len(herd)} {kind} start at the same time, {_describe_start_times(minutes)}: "
-                    f"{_humanize_names([schedule.name for schedule in herd])}. Starting many at once can exceed "
-                    "concurrency limits, which delays or fails runs."
+                yield _Finding(
+                    url=url,
+                    severity="warning",
+                    code="CONGESTED-SCHEDULE",
+                    message=(
+                        f"{len(herd)} {kind} start at the same time, "
+                        f"{_describe_start_times(minutes_by_herd[indices])}: "
+                        f"{_humanize_names([schedule.name for schedule in herd])}. Starting many at once can exceed "
+                        "concurrency limits, which delays or fails runs."
+                    ),
+                    fix=f"Spread the start times of the {kind} over different minutes, for example, "
+                    "'7 * * * *' instead of '0 * * * *'.",
                 )
-                for url in dict.fromkeys(schedule.url for schedule in herd):
-                    yield _Finding(
-                        url=url,
-                        severity="warning",
-                        code="CONGESTED-SCHEDULE",
-                        message=message,
-                        fix=f"Spread the start times of the {kind} over different minutes, for example, "
-                        "'7 * * * *' instead of '0 * * * *'.",
-                    )
 
     @staticmethod
     def _schedules(client: ToolkitClient, inventory: _Inventory) -> dict[str, list[_Schedule]]:
