@@ -110,10 +110,12 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
 from cognite_toolkit._cdf_tk.yaml_classes.transformation_destination import (
     DataModelSource,
     RawDataSource,
+    SequenceRowDataSource,
     ViewDataSource,
 )
 
 from ._auth import GroupAllScopedIO
+from ._classic import SequenceIO
 from ._data_organization import DataSetsIO
 from ._datamodel import DataModelIO, SpaceIO, ViewIO
 from ._externaldata import ExternalDataSourceIO
@@ -249,6 +251,8 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
                         version=destination.data_model.version,
                     ),
                 )
+            elif isinstance(destination, SequenceRowDataSource):
+                yield SequenceIO, ExternalId(external_id=destination.external_id)
 
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:

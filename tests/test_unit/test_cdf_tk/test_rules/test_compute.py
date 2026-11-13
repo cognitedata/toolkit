@@ -15,10 +15,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
     RESTSourceResponse,
     UnknownSourceResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule import TransformationScheduleResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
+    ScheduleTriggerRule,
+    WorkflowTriggerResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.commands._validation import ValidationCommand
 from cognite_toolkit._cdf_tk.data_classes._insights import InsightDefinition
@@ -212,6 +216,7 @@ class TestComputeRuleSet:
                 destination={"type": "raw", "database": "dst_db", "table": "table_ok"},
             ),
         ]
+        client.raw.databases.list.return_value = [RAWDatabaseResponse(name="dst_db", created_time=0)]
         client.raw.tables.list.side_effect = lambda db_name, limit: (
             [RAWTableResponse(db_name="dst_db", name="table_ok", created_time=0)] if db_name == "dst_db" else []
         )
@@ -239,11 +244,48 @@ class TestComputeRuleSet:
                 }
             )
         ]
+        client.workflows.triggers.list.return_value = [
+            WorkflowTriggerResponse(
+                external_id="trigger",
+                trigger_rule=ScheduleTriggerRule(cron_expression="7 * * * *"),
+                workflow_external_id="wf",
+                workflow_version="v2",
+                is_paused=False,
+                created_time=0,
+                last_updated_time=0,
+            )
+        ]
+        client.hosted_extractors.jobs.list.return_value = [
+            HostedExtractorJobResponse.model_validate(
+                {
+                    "externalId": "job",
+                    "sourceId": "src",
+                    "destinationId": "dst",
+                    "format": {"type": "custom", "mappingId": "mapping_gone"},
+                    "createdTime": 0,
+                    "lastUpdatedTime": 0,
+                }
+            )
+        ]
+        client.hosted_extractors.sources.list.return_value = [
+            UnknownSourceResponse(type="custom", external_id="src", created_time=0, last_updated_time=0)
+        ]
+        client.hosted_extractors.destinations.list.return_value = [
+            HostedExtractorDestinationResponse(external_id="dst", created_time=0, last_updated_time=0)
+        ]
         client.transformations.retrieve.return_value = []
+        client.workflows.versions.retrieve.return_value = []
+        client.hosted_extractors.mappings.retrieve.return_value = []
 
         insights = sorted((insight.code, insight.source_url, insight.message) for insight in _validate(client))
 
         assert insights == [
+            (
+                "MISSING-REFERENCED-RESOURCE",
+                f"{API_URL}/hostedextractors/jobs/logs?job=job",
+                "The hosted extractor job 'job' uses the hosted extractor mapping 'mapping_gone', which does not "
+                "exist.",
+            ),
             (
                 "MISSING-REFERENCED-RESOURCE",
                 f"{API_URL}/transformations/1",
@@ -251,9 +293,14 @@ class TestComputeRuleSet:
             ),
             (
                 "MISSING-REFERENCED-RESOURCE",
+                f"{API_URL}/workflows/triggers/trigger/history",
+                "The workflow trigger 'trigger' runs the workflow version workflowExternalId='wf', version='v2', "
+                "which does not exist.",
+            ),
+            (
+                "MISSING-REFERENCED-RESOURCE",
                 f"{API_URL}/workflows/wf/versions/v1",
-                "The task 'run' of the workflow 'wf' version 'v1' runs the transformation 'tr_gone', which does "
-                "not exist.",
+                "The workflow 'wf' version 'v1' runs the transformation 'tr_gone', which does not exist.",
             ),
         ]
 
