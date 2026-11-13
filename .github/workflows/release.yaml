@@ -37,6 +37,8 @@ jobs:
   release-pypi-docker-hub:
     runs-on: ubuntu-latest
     environment: CD
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -56,25 +58,24 @@ jobs:
       - id: version
         name: Read the new version
         # Read the version from the cognite_toolkit/_version.py file
-        run: echo "version=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' cognite_toolkit/_version.py)" >> $GITHUB_ENV
+        run: echo "version=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' cognite_toolkit/_version.py)" | tee -a $GITHUB_ENV >> $GITHUB_OUTPUT
       - name: Create CHANGELOG entry
         if: env.version != '0.0.0'
         run: uv run python dev.py changelog
       - name: Build package
         if: env.version != '0.0.0'
         run: uv build
+      - name: Upload package
+        if: env.version != '0.0.0'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: dist
+          path: dist/
       - name: Release to PyPI
         if: env.version != '0.0.0'
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: uv run twine upload --skip-existing --verbose dist/*
-      - name: Release to snakepit
-        if: env.version != '0.0.0'
-        env:
-          TWINE_USERNAME: ${{ secrets.ARTIFACTORY_PUBLISH_TOKEN_USER }}
-          TWINE_PASSWORD: ${{ secrets.ARTIFACTORY_PUBLISH_TOKEN }}
-          TWINE_REPOSITORY_URL: https://cognite.jfrog.io/cognite/api/pypi/snakepit
         run: uv run twine upload --skip-existing --verbose dist/*
       - name: Add entry to CHANGELOG
         if: env.version != '0.0.0'
@@ -106,3 +107,25 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
           push: true
           tags: cognite/toolkit:${{ env.version }}, cognite/toolkit:latest
+
+  release-snakepit:
+    needs: release-pypi-docker-hub
+    if: needs.release-pypi-docker-hub.outputs.version != '0.0.0'
+    runs-on: ubuntu-latest
+    environment: CD
+    steps:
+      - name: Download package
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: dist
+          path: dist/
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Release to snakepit
+        env:
+          TWINE_USERNAME: ${{ secrets.ARTIFACTORY_PUBLISH_TOKEN_USER }}
+          TWINE_PASSWORD: ${{ secrets.ARTIFACTORY_PUBLISH_TOKEN }}
+          TWINE_REPOSITORY_URL: https://cognite.jfrog.io/cognite/api/pypi/snakepit
+        run: uvx twine==6.2.0 upload --verbose --non-interactive dist/*
