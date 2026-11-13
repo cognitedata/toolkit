@@ -4,12 +4,17 @@ from typing import Any
 from unittest.mock import MagicMock
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.request_classes.filters import FunctionCallFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import HostedExtractorJobResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import (
+    HostedExtractorJobLogResponse,
+    HostedExtractorJobResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
     CertificateResponse,
     RESTSourceResponse,
@@ -19,6 +24,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseRespo
 from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule import TransformationScheduleResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowExecutionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     ScheduleTriggerRule,
     WorkflowTriggerResponse,
@@ -59,6 +65,10 @@ def _session_info(session_id: int) -> dict[str, Any]:
     return {"sessionId": session_id, "projectName": "my_project"}
 
 
+def _failed_job(error: str) -> dict[str, Any]:
+    return {"status": "Failed", "error": error}
+
+
 def _client() -> MagicMock:
     client = MagicMock()
     client.config.create_api_url.side_effect = lambda endpoint: f"{API_URL}{endpoint}"
@@ -73,7 +83,9 @@ class TestComputeRuleSet:
     def test_credentials_are_rated_by_time_to_expiry(self) -> None:
         client = _client()
         client.transformations.list.return_value = [
-            _transformation(1, "tr_expired", sourceSession=_session_info(10)),
+            _transformation(
+                1, "tr_expired", sourceSession=_session_info(10), lastFinishedJob=_failed_job("Unauthorized")
+            ),
             _transformation(2, "tr_expires_tomorrow", sourceSession=_session_info(11)),
             _transformation(3, "tr_expires_this_week", destinationSession=_session_info(12)),
             _transformation(4, "tr_expires_next_month", sourceSession=_session_info(13)),
@@ -302,6 +314,148 @@ class TestComputeRuleSet:
                 f"{API_URL}/workflows/wf/versions/v1",
                 "The workflow 'wf' version 'v1' runs the transformation 'tr_gone', which does not exist.",
             ),
+        ]
+
+    def test_failures_are_reported_with_their_likely_cause(self) -> None:
+        client = _client()
+        client.transformations.list.return_value = [
+            _transformation(
+                1,
+                "tr_missing_source",
+                query="SELECT * FROM src_db.gone",
+                destination={"type": "raw", "database": "dst_db", "table": "table_ok"},
+                lastFinishedJob=_failed_job("Table not found"),
+            ),
+            _transformation(2, "tr_broken_query", lastFinishedJob=_failed_job("Syntax error")),
+        ]
+        client.raw.databases.list.return_value = [RAWDatabaseResponse(name="dst_db", created_time=0)]
+        client.raw.tables.list.side_effect = lambda db_name, limit: (
+            [RAWTableResponse(db_name="dst_db", name="table_ok", created_time=0)] if db_name == "dst_db" else []
+        )
+        client.workflows.versions.list.return_value = [
+            WorkflowVersionResponse.model_validate(
+                {
+                    "workflowExternalId": "wf",
+                    "version": "v1",
+                    "createdTime": 0,
+                    "lastUpdatedTime": 0,
+                    "workflowDefinition": {
+                        "tasks": [
+                            {
+                                "externalId": "run",
+                                "type": "transformation",
+                                "parameters": {"transformation": {"externalId": "tr_gone"}},
+                            }
+                        ]
+                    },
+                }
+            )
+        ]
+        client.transformations.retrieve.return_value = []
+        failed_execution = WorkflowExecutionResponse(
+            id="exec1",
+            workflow_external_id="wf",
+            version="v1",
+            status="FAILED",
+            created_time=NOW - DAY,
+            reason_for_incompletion="Task run failed",
+        )
+        client.workflows.executions.list.side_effect = lambda statuses, **_: (
+            [failed_execution] if "FAILED" in statuses else []
+        )
+        client.hosted_extractors.jobs.list.return_value = [
+            HostedExtractorJobResponse.model_validate(
+                {
+                    "externalId": "job_failing",
+                    "sourceId": "src",
+                    "destinationId": "dst",
+                    "format": {"type": "cognite"},
+                    "status": "transform_error",
+                    "createdTime": 0,
+                    "lastUpdatedTime": 0,
+                }
+            )
+        ]
+        client.hosted_extractors.sources.list.return_value = [
+            UnknownSourceResponse(type="custom", external_id="src", created_time=0, last_updated_time=0)
+        ]
+        client.hosted_extractors.destinations.list.return_value = [
+            HostedExtractorDestinationResponse(external_id="dst", created_time=0, last_updated_time=0)
+        ]
+        client.hosted_extractors.jobs.list_logs.return_value = [
+            HostedExtractorJobLogResponse(
+                job_external_id="job_failing", type="transform_error", created_time=NOW, message="Invalid JSON"
+            )
+        ]
+        client.hosted_extractors.jobs.list_dlq_messages.side_effect = ToolkitAPIError("DLQ is not enabled", code=400)
+
+        insights = sorted((insight.code, insight.source_url, insight.message) for insight in _validate(client))
+
+        assert insights == [
+            (
+                "FAILED-EXECUTION",
+                f"{API_URL}/hostedextractors/jobs/logs?job=job_failing",
+                "The hosted extractor job 'job_failing' is failing with status 'transform_error': Invalid JSON.",
+            ),
+            (
+                "FAILED-EXECUTION",
+                f"{API_URL}/transformations/2",
+                "The last run of the transformation 'tr_broken_query' failed: Syntax error.",
+            ),
+            (
+                "MISSING-REFERENCED-RESOURCE",
+                f"{API_URL}/transformations/1",
+                "The last run of the transformation 'tr_missing_source' failed: Table not found. Likely cause: The "
+                "transformation 'tr_missing_source' reads from the RAW table 'src_db.gone', which does not exist.",
+            ),
+            (
+                "MISSING-REFERENCED-RESOURCE",
+                f"{API_URL}/workflows/wf/versions/v1",
+                "The last execution of the workflow 'wf' version 'v1' failed: Task run failed. Likely cause: The "
+                "workflow 'wf' version 'v1' runs the transformation 'tr_gone', which does not exist.",
+            ),
+        ]
+
+    def test_only_runs_failing_since_their_last_success_are_reported(self) -> None:
+        client = _client()
+        client.functions.list.return_value = [
+            FunctionResponse(id=1, name="fn_recovered", file_id=1, created_time=0),
+            FunctionResponse(id=2, name="fn_failing", file_id=1, created_time=0),
+        ]
+
+        def list_calls(function_id: int, filter: FunctionCallFilter, limit: int) -> list[FunctionCallResponse]:
+            if filter.status == "Timeout":
+                return [FunctionCallResponse(id=10, function_id=function_id, start_time=NOW - DAY, status="Timeout")]
+            if filter.status == "Completed" and function_id == 1:
+                return [FunctionCallResponse(id=20, function_id=function_id, start_time=NOW, status="Completed")]
+            return []
+
+        client.functions.calls.list.side_effect = list_calls
+        client.workflows.versions.list.return_value = [
+            WorkflowVersionResponse.model_validate(
+                {
+                    "workflowExternalId": "wf",
+                    "version": "v1",
+                    "createdTime": 0,
+                    "lastUpdatedTime": 0,
+                    "workflowDefinition": {"tasks": []},
+                }
+            )
+        ]
+        failed = WorkflowExecutionResponse(
+            id="exec1", workflow_external_id="wf", version="v1", status="FAILED", created_time=NOW - DAY
+        )
+        completed = WorkflowExecutionResponse(
+            id="exec2", workflow_external_id="wf", version="v1", status="COMPLETED", created_time=NOW
+        )
+        client.workflows.executions.list.side_effect = lambda statuses, **_: (
+            [failed] if "FAILED" in statuses else [completed]
+        )
+
+        insights = [(insight.code, insight.source_url, insight.message) for insight in _validate(client)]
+
+        assert insights == [
+            ("FAILED-EXECUTION", f"{API_URL}/functions/2", "The last call of the function 'fn_failing' timed out.")
         ]
 
     def test_unverified_credentials_when_sessions_cannot_be_retrieved(self) -> None:
