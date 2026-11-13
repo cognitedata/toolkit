@@ -167,7 +167,7 @@ class ContainerYAML(ToolkitResource):
             for prop_id, prop_type in type_by_property.items():
                 if _is_missing_max_list_size(prop_type):
                     warning = BuildWarning(
-                        code="EXCEEDED-LIMIT",
+                        code="MISSING-VALUE",
                         message=(
                             f"List property '{prop_id}' in B-tree index '{index_id}' of container '{container_id}' "
                             "has no maxListSize. CDF requires maxListSize on list properties in a new B-tree index, "
@@ -182,8 +182,8 @@ class ContainerYAML(ToolkitResource):
                     )
                     insights.append(with_position(warning, keys=[prop_id, index_id]))
                 if _is_missing_max_text_size(prop_type):
-                    recommendation = Recommendation(
-                        code="PERFORMANCE-DEGRADED",
+                    recommendation = BuildWarning(
+                        code="MISSING-VALUE",
                         message=(
                             f"Text property '{prop_id}' in B-tree index '{index_id}' of container '{container_id}' "
                             f"has no maxTextSize. Values larger than {_BTREE_MAX_BYTES} bytes make ingestion fail, "
@@ -205,8 +205,8 @@ class ContainerYAML(ToolkitResource):
             if sum(size_by_property.values()) <= _BTREE_MAX_BYTES:
                 continue
             properties = humanize_collection([f"'{prop_id}'" for prop_id in size_by_property], sort=False)
-            recommendation = Recommendation(
-                code="PERFORMANCE-DEGRADED",
+            recommendation = BuildWarning(
+                code="EXCEEDED-LIMIT",
                 message=(
                     f"B-tree index '{index_id}' of container '{container_id}' allows values of up to "
                     f"{sum(size_by_property.values())} bytes, which exceeds the limit of {_BTREE_MAX_BYTES} bytes. "
