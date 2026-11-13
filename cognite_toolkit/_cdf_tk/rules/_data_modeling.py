@@ -10,12 +10,14 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, _resource_base
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerDirectId, ContainerId, DataModelId, ViewDirectId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    BtreeIndex,
     ContainerPropertyDefinition,
     ContainerRequest,
     ContainerResponse,
     DataModelRequest,
     DataModelResponse,
     DirectNodeRelation,
+    RequiresConstraintDefinition,
     ReverseDirectRelationProperty,
     ViewCorePropertyRequest,
     ViewCorePropertyResponse,
@@ -31,6 +33,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     BuildError,
     BuildWarning,
     Insight,
+    Recommendation,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
@@ -54,12 +57,27 @@ _ReferenceStatus = Literal["ok", "not_direct", "missing"]
 _DATA_MODELING_LIMIT_PREFIX = "data_modeling."
 _INSTANCES_ENDPOINT = "/models/instances"
 _INSTANCES = ("nodes", "edges")
+# Spaces with CDF built-in schemas, which cannot be modified by users.
+_COGNITE_SPACES = frozenset(
+    {
+        "cdf_cdm",
+        "cdf_idm",
+        "cdf_360_image_schema",
+        "cdf_3d_schema",
+        "cdf_apm",
+        "cdf_apps_shared",
+        "cdf_cdm_3d",
+        "cdf_time_series_data",
+        "cdf_cdm_units",
+    }
+)
 
 
 _LocalContainer = tuple[ResourceRef, ContainerRequest]
 _LocalView = tuple[ResourceRef, ViewRequest]
 _LocalDataModel = tuple[ResourceRef, DataModelRequest]
 _CountByResource = dict[str, int]
+_Container = ContainerRequest | ContainerResponse
 
 
 @dataclass(frozen=True)
@@ -153,6 +171,8 @@ class DataModelingRuleSet(ToolkitRuleSet):
     resolved against local modules first. Anything still missing is checked in CDF when a client is
     available. Property and per-resource limits are checked from the local configuration. Project
     capacity for spaces, views, and similar counts is checked when deployment results are available.
+    Cycles in view implements are errors, while missing requires constraints and missing indexes for
+    reverse direct relations are recommendations for query performance.
     """
 
     RESOURCE_TYPES = frozenset(
@@ -175,6 +195,10 @@ class DataModelingRuleSet(ToolkitRuleSet):
         super().__init__(resources, results, client)
         self._local_by_io: dict[type[Any], dict[Any, tuple[ResourceRef, Any]]] = {}
         self._limits: DataModelingLimits | None = None
+        self._cdf_containers: dict[ContainerId, ContainerResponse] = {}
+        self._requested_container_ids: set[ContainerId] = set()
+        self._cdf_views: dict[ViewId, ViewResponse] = {}
+        self._requested_view_ids: set[ViewId] = set()
 
     def get_status(self) -> RuleSetStatus:
         if self.client is None:
@@ -203,6 +227,8 @@ class DataModelingRuleSet(ToolkitRuleSet):
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
         yield from self._check_schema_references()
+        if Flags.ALPHA_RULES.is_enabled():
+            yield from self._check_schema_design()
         if self.client is None:
             return
         yield from self._validate_data_modeling_changes(self.client)
@@ -222,6 +248,373 @@ class DataModelingRuleSet(ToolkitRuleSet):
             return
         references = self._find_references(local_views)
         yield from self._validate_references(references, local_containers, local_views)
+
+    def _check_schema_design(self) -> Iterable[Insight | InternalValidatorException]:
+        """Checks the implements graph of views, and the requires constraints and indexes needed for queries."""
+        try:
+            local_containers = self._load_containers()
+            local_views = self._load_views()
+        except Exception:
+            # Already reported by the schema reference check.
+            return
+        implements_graph, view_error = self._implements_graph(local_views)
+        if view_error is not None:
+            yield view_error
+        cycles = self._implements_cycles(implements_graph)
+        yield from self._check_implements_cycles(cycles, local_views)
+        in_cycle = {view_id for cycle in cycles for view_id in cycle}
+        yield from self._check_requires_constraints(local_containers, local_views, skip=in_cycle)
+        yield from self._check_reverse_relation_indexes(local_containers, local_views)
+
+    def _implements_graph(
+        self, local_views: dict[ViewId, _LocalView]
+    ) -> tuple[dict[ViewId, list[ViewId]], InternalValidatorException | None]:
+        """The implemented views by view, for the local views and the CDF views they implement, directly or
+        transitively. Local views take precedence over their deployed version. Views not found are leaves."""
+        graph = {view_id: list(view_request.implements or []) for view_id, (_, view_request) in local_views.items()}
+        first_error: InternalValidatorException | None = None
+        frontier = {parent_id for parents in graph.values() for parent_id in parents if parent_id not in graph}
+        while frontier:
+            cdf_views, error = self._retrieve_views(frontier)
+            first_error = first_error or error
+            for view_id in frontier:
+                graph[view_id] = list(cdf_views[view_id].implements or []) if view_id in cdf_views else []
+            frontier = {parent_id for view_id in frontier for parent_id in graph[view_id] if parent_id not in graph}
+        return graph, first_error
+
+    @staticmethod
+    def _check_implements_cycles(
+        cycles: list[tuple[ViewId, ...]], local_views: dict[ViewId, _LocalView]
+    ) -> Iterable[Insight]:
+        for cycle in cycles:
+            local_view_id = next((view_id for view_id in cycle if view_id in local_views), None)
+            if local_view_id is None:
+                continue
+            resource, _ = local_views[local_view_id]
+            path = " -> ".join(str(view_id) for view_id in (*cycle, cycle[0]))
+            yield with_position(
+                BuildError(
+                    code="INVALID-VALUE",
+                    message=f"Detected a cycle of view implements: {path}.",
+                    fix="Remove one of the implements in the cycle. Views cannot inherit from themselves.",
+                    source_file=_source_file(resource),
+                    alpha=Flags.ALPHA_RULES.is_enabled(),
+                ),
+                keys=["implements"],
+                variables=resource.variables,
+            )
+
+    @classmethod
+    def _implements_cycles(cls, implements_graph: dict[ViewId, list[ViewId]]) -> list[tuple[ViewId, ...]]:
+        """Cycles in the implements graph, each starting at its lowest view ID."""
+        cycles: list[tuple[ViewId, ...]] = []
+        visited: set[ViewId] = set()
+        for view_id in sorted(implements_graph, key=str):
+            cls._find_cycles(view_id, implements_graph, visited, [], cycles)
+        return cycles
+
+    @classmethod
+    def _find_cycles(
+        cls,
+        view_id: ViewId,
+        implements_graph: dict[ViewId, list[ViewId]],
+        visited: set[ViewId],
+        path: list[ViewId],
+        cycles: list[tuple[ViewId, ...]],
+    ) -> None:
+        """Depth-first search through the implements graph, collecting cycles reachable from view_id.
+
+        `path` is the current chain of views from the search root; a view already in `path` closes a cycle.
+        Views are appended before visiting their parents and popped afterwards (backtracking), so `path`
+        only reflects the current branch. `visited` persists across branches so each view is expanded once.
+        Cycles are rotated to start at their lowest view ID to avoid duplicates.
+        """
+        if view_id in path:
+            cycle = path[path.index(view_id) :]
+            start = cycle.index(min(cycle, key=str))
+            rotated = (*cycle[start:], *cycle[:start])
+            if rotated not in cycles:
+                cycles.append(rotated)
+            return
+        if view_id in visited:
+            return
+        visited.add(view_id)
+        path.append(view_id)
+        for parent_id in implements_graph.get(view_id, []):
+            cls._find_cycles(parent_id, implements_graph, visited, path, cycles)
+        path.pop()
+
+    def _check_requires_constraints(
+        self,
+        local_containers: dict[ContainerId, _LocalContainer],
+        local_views: dict[ViewId, _LocalView],
+        skip: set[ViewId],
+    ) -> Iterable[Insight | InternalValidatorException]:
+        """Recommends requires constraints from the containers of a view to the containers of the views it implements.
+
+        Queries through a view are optimized when one of its containers requires, directly or transitively,
+        all the other containers the view maps to.
+        """
+        ancestors_by_view = {
+            view_id: self._view_precedence(view_id, local_views)[1:]
+            for view_id, (_, view_request) in local_views.items()
+            if view_request.implements and view_id not in skip
+        }
+        remote_ancestor_ids = {
+            ancestor_id
+            for ancestors in ancestors_by_view.values()
+            for ancestor_id in ancestors
+            if ancestor_id not in local_views
+        }
+        cdf_views, view_error = self._retrieve_views(remote_ancestor_ids)
+        if view_error is not None:
+            yield view_error
+
+        for view_id, ancestors in ancestors_by_view.items():
+            resource, view_request = local_views[view_id]
+            own_containers = self._mapped_containers(view_request)
+            parent_containers = self._inherited_containers(view_request, ancestors, local_views, cdf_views)
+            sources = {
+                container_id
+                for container_id in own_containers - parent_containers
+                if container_id in local_containers and not contains_unresolved_variable(container_id)
+            }
+            targets = parent_containers - own_containers
+            if not sources or not targets:
+                continue
+            missing_by_source: dict[ContainerId, frozenset[ContainerId]] = {}
+            has_unresolved = False
+            first_error: InternalValidatorException | None = None
+            for source in sources:
+                reachable, unresolved, error = self._required_containers({source}, local_containers)
+                first_error = first_error or error
+                has_unresolved = has_unresolved or bool(unresolved)
+                missing_by_source[source] = frozenset(targets - reachable)
+            if first_error is not None:
+                yield first_error
+            if any(not missing for missing in missing_by_source.values()) or has_unresolved:
+                # A single source must reach all targets. Unresolved containers may require the missing ones.
+                continue
+            missing = min(missing_by_source.values(), key=lambda m: (len(m), sorted(str(c) for c in m)))
+            best_sources = {source for source, source_missing in missing_by_source.items() if source_missing == missing}
+            yield self._missing_requires_recommendation(
+                resource, view_id, best_sources, self._minimal_requires(set(missing), local_containers)
+            )
+
+    @staticmethod
+    def _mapped_containers(view: ViewRequest) -> set[ContainerId]:
+        return {
+            prop.container for prop in (view.properties or {}).values() if isinstance(prop, ViewCorePropertyRequest)
+        }
+
+    @staticmethod
+    def _inherited_containers(
+        view: ViewRequest,
+        ancestors: list[ViewId],
+        local_views: dict[ViewId, _LocalView],
+        cdf_views: dict[ViewId, ViewResponse],
+    ) -> set[ContainerId]:
+        """The containers mapped by properties the view inherits, that is, properties not overridden by the view
+        or by an ancestor with higher precedence. The ancestors must be ordered by precedence, highest first."""
+        defined = set(view.properties or {})
+        containers: set[ContainerId] = set()
+        for ancestor_id in ancestors:
+            if ancestor_id in local_views:
+                properties: dict[str, Any] = dict(local_views[ancestor_id][1].properties or {})
+            elif ancestor_id in cdf_views:
+                properties = dict(cdf_views[ancestor_id].properties)
+            else:
+                continue
+            for prop_id, prop in properties.items():
+                if prop_id in defined:
+                    continue
+                defined.add(prop_id)
+                if isinstance(prop, ViewCorePropertyRequest | ViewCorePropertyResponse):
+                    containers.add(prop.container)
+        return containers
+
+    def _required_containers(
+        self, starts: set[ContainerId], local_containers: dict[ContainerId, _LocalContainer]
+    ) -> tuple[set[ContainerId], set[ContainerId], InternalValidatorException | None]:
+        """The containers required, directly or transitively, by the start containers, including the start containers.
+
+        Returns the reachable containers, the reachable containers that were not found locally or in CDF, and any
+        error from retrieving containers from CDF.
+        """
+        reachable = set(starts)
+        unresolved: set[ContainerId] = set()
+        first_error: InternalValidatorException | None = None
+        frontier = set(starts)
+        while frontier:
+            cdf_containers, error = self._retrieve_containers(frontier - set(local_containers))
+            first_error = first_error or error
+            next_frontier: set[ContainerId] = set()
+            for container_id in frontier:
+                container: _Container | None = (
+                    local_containers[container_id][1]
+                    if container_id in local_containers
+                    else cdf_containers.get(container_id)
+                )
+                if container is None:
+                    unresolved.add(container_id)
+                    continue
+                for constraint in (container.constraints or {}).values():
+                    if isinstance(constraint, RequiresConstraintDefinition) and constraint.require not in reachable:
+                        reachable.add(constraint.require)
+                        next_frontier.add(constraint.require)
+            frontier = next_frontier
+        return reachable, unresolved, first_error
+
+    def _minimal_requires(
+        self, missing: set[ContainerId], local_containers: dict[ContainerId, _LocalContainer]
+    ) -> list[ContainerId]:
+        """The missing containers that are not already required by another missing container."""
+        # Retrieved in one request, instead of one request per container below.
+        self._retrieve_containers(missing - set(local_containers))
+        required_by = {
+            container_id: self._required_containers({container_id}, local_containers)[0] - {container_id}
+            for container_id in missing
+        }
+        minimal = [
+            container_id
+            for container_id in missing
+            if not any(container_id in required_by[other] for other in missing if other != container_id)
+        ]
+        return sorted(minimal or missing, key=str)
+
+    @staticmethod
+    def _missing_requires_recommendation(
+        resource: ResourceRef, view_id: ViewId, sources: set[ContainerId], to_require: list[ContainerId]
+    ) -> Recommendation:
+        source_names = [f"'{container_id}'" for container_id in sorted(sources, key=str)]
+        source_text = (
+            f"container {source_names[0]}"
+            if len(source_names) == 1
+            else f"one of the containers {humanize_collection(source_names, bind_word='or', sort=False)}"
+        )
+        required = humanize_collection([f"'{container_id}'" for container_id in to_require], sort=False)
+        constraints = "a 'requires' constraint" if len(to_require) == 1 else "'requires' constraints"
+        return with_position(
+            Recommendation(
+                code="DEGRADED-PERFORMANCE",
+                message=(
+                    f"View '{view_id}' is not optimized for querying. None of its own containers require "
+                    f"{required}, mapped by the views it implements."
+                ),
+                fix=(
+                    f"Add {constraints} from {source_text} to {required}. Note that instances "
+                    f"must then exist in {required} before they can be written to the requiring container."
+                ),
+                source_file=_source_file(resource),
+                alpha=Flags.ALPHA_RULES.is_enabled(),
+            ),
+            keys=["implements"],
+            variables=resource.variables,
+        )
+
+    def _check_reverse_relation_indexes(
+        self, local_containers: dict[ContainerId, _LocalContainer], local_views: dict[ViewId, _LocalView]
+    ) -> Iterable[Insight | InternalValidatorException]:
+        """Recommends a cursorable B-tree index on the direct relations that reverse direct relations go through."""
+        relations = [
+            relation
+            for relation in self._find_references(local_views).reverse_direct_relations
+            if not contains_unresolved_variable(relation.through)
+        ]
+        needed_view_ids = {
+            relation.through: self._reverse_fetch_ids(relation.through, local_views)[1] for relation in relations
+        }
+        cdf_views, view_error = self._retrieve_views(set().union(*needed_view_ids.values()))
+        if view_error is not None:
+            yield view_error
+
+        targets: list[tuple[_ReverseDirectRelationReference, ContainerId, str]] = []
+        for relation in relations:
+            if needed_view_ids[relation.through] - set(cdf_views):
+                continue
+            target = self._through_container_property(relation.through, local_views, cdf_views)
+            if target is not None and target[0].space not in _COGNITE_SPACES:
+                targets.append((relation, *target))
+
+        remote_ids = {
+            container_id
+            for _, container_id, property_id in targets
+            if property_id
+            not in (local_containers[container_id][1].properties if container_id in local_containers else {})
+        }
+        cdf_containers, container_error = self._retrieve_containers(remote_ids)
+        if container_error is not None:
+            yield container_error
+
+        for relation, container_id, property_id in targets:
+            container = self._container_with_property(container_id, property_id, local_containers, cdf_containers)
+            if container is None:
+                continue
+            property_type = container.properties[property_id].type
+            # Reverse relations through a list of direct relations are traversed with search, which indexes do not help.
+            if not isinstance(property_type, DirectNodeRelation) or property_type.list:
+                continue
+            if self._has_cursorable_index(container, property_id):
+                continue
+            yield from self._missing_index_recommendations(relation, container_id, property_id)
+
+    def _through_container_property(
+        self,
+        through: ContainerDirectId | ViewDirectId,
+        local_views: dict[ViewId, _LocalView],
+        cdf_views: dict[ViewId, ViewResponse],
+    ) -> tuple[ContainerId, str] | None:
+        if isinstance(through, ContainerDirectId):
+            return through.source, through.identifier
+        prop = self._find_view_property(through.source, through.identifier, local_views, cdf_views)
+        if isinstance(prop, ViewCorePropertyRequest | ViewCorePropertyResponse):
+            return prop.container, prop.container_property_identifier
+        return None
+
+    @staticmethod
+    def _container_with_property(
+        container_id: ContainerId,
+        property_identifier: str,
+        local_containers: dict[ContainerId, _LocalContainer],
+        cdf_containers: dict[ContainerId, ContainerResponse],
+    ) -> _Container | None:
+        local = local_containers.get(container_id)
+        if local is not None and property_identifier in local[1].properties:
+            return local[1]
+        cdf_container = cdf_containers.get(container_id)
+        if cdf_container is not None and property_identifier in cdf_container.properties:
+            return cdf_container
+        return None
+
+    @staticmethod
+    def _has_cursorable_index(container: _Container, property_identifier: str) -> bool:
+        return any(
+            isinstance(index, BtreeIndex) and index.properties == [property_identifier] and index.cursorable
+            for index in (container.indexes or {}).values()
+        )
+
+    def _missing_index_recommendations(
+        self, relation: _ReverseDirectRelationReference, container_id: ContainerId, property_identifier: str
+    ) -> Iterable[Insight]:
+        for resource in relation.resources:
+            yield with_position(
+                Recommendation(
+                    code="DEGRADED-PERFORMANCE",
+                    message=(
+                        f"The reverse direct relation through '{relation.through}' in "
+                        f"{self._referenced_by(resource)} cannot be queried efficiently, since the direct relation "
+                        f"'{container_id}.{property_identifier}' has no cursorable B-tree index."
+                    ),
+                    fix=(
+                        f"Add a B-tree index with 'cursorable: true' on property '{property_identifier}' "
+                        f"in container '{container_id}'."
+                    ),
+                    source_file=_source_file(resource),
+                    alpha=Flags.ALPHA_RULES.is_enabled(),
+                ),
+                values=[relation.through.identifier],
+                variables=resource.variables,
+            )
 
     @classmethod
     def _find_references(cls, local_views: dict[ViewId, _LocalView]) -> _SchemaReferences:
@@ -513,30 +906,50 @@ class DataModelingRuleSet(ToolkitRuleSet):
     def _retrieve_containers(
         self, container_ids: set[ContainerId]
     ) -> tuple[dict[ContainerId, ContainerResponse], InternalValidatorException | None]:
+        """Retrieves containers from CDF. Each container is requested at most once, so a failure is only reported
+        to the first caller."""
         if not container_ids or self.client is None:
             return {}, None
-        try:
-            items = ContainerIO(self.client).retrieve(list(container_ids))
-        except ToolkitAPIError as e:
-            return {}, InternalValidatorException(
-                message=f"Failed to verify existence of {ContainerIO.kind.lower()} in CDF: {e}",
-                source=ContainerIO.kind,
-            )
-        return {item.as_id(): item for item in items}, None
+        to_request = container_ids - self._requested_container_ids
+        self._requested_container_ids.update(to_request)
+        error: InternalValidatorException | None = None
+        if to_request:
+            try:
+                items = ContainerIO(self.client).retrieve(list(to_request))
+            except ToolkitAPIError as e:
+                error = InternalValidatorException(
+                    message=f"Failed to verify existence of {ContainerIO.kind.lower()} in CDF: {e}",
+                    source=ContainerIO.kind,
+                )
+            else:
+                self._cdf_containers.update({item.as_id(): item for item in items})
+        return {
+            container_id: self._cdf_containers[container_id]
+            for container_id in container_ids
+            if container_id in self._cdf_containers
+        }, error
 
     def _retrieve_views(
         self, view_ids: set[ViewId]
     ) -> tuple[dict[ViewId, ViewResponse], InternalValidatorException | None]:
+        """Retrieves views, with inherited properties, from CDF. Each view is requested at most once, so a failure
+        is only reported to the first caller."""
         if not view_ids or self.client is None:
             return {}, None
-        try:
-            items = self.client.views.retrieve(list(view_ids), include_inherited_properties=True)
-        except ToolkitAPIError as e:
-            return {}, InternalValidatorException(
-                message=f"Failed to verify existence of {ViewIO.kind.lower()} in CDF: {e}",
-                source=ViewIO.kind,
-            )
-        return {item.as_id(): item for item in items}, None
+        to_request = view_ids - self._requested_view_ids
+        self._requested_view_ids.update(to_request)
+        error: InternalValidatorException | None = None
+        if to_request:
+            try:
+                items = self.client.views.retrieve(list(to_request), include_inherited_properties=True)
+            except ToolkitAPIError as e:
+                error = InternalValidatorException(
+                    message=f"Failed to verify existence of {ViewIO.kind.lower()} in CDF: {e}",
+                    source=ViewIO.kind,
+                )
+            else:
+                self._cdf_views.update({item.as_id(): item for item in items})
+        return {view_id: self._cdf_views[view_id] for view_id in view_ids if view_id in self._cdf_views}, error
 
     def _unverified_properties(self, missing_properties: list[_ContainerPropertyReference]) -> Iterable[Insight]:
         for ref in missing_properties:
