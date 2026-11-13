@@ -363,7 +363,7 @@ def populated_raw_table(toolkit_client: ToolkitClient, raw_data: RowWriteList) -
 
 @pytest.fixture(scope="session")
 def aggregator_raw_db(toolkit_client: ToolkitClient) -> str:
-    loader = RawDatabaseIO.create_io(toolkit_client)
+    loader = RawDatabaseIO(toolkit_client)
     db_name = "toolkit_aggregators_test_db"
     if not loader.retrieve([RawDatabaseId(name=db_name)]):
         loader.create([RAWDatabaseRequest(name=db_name)])
@@ -413,7 +413,7 @@ def _upload_file_content(
 
 
 def create_raw_table_with_data(client: ToolkitClient, table: RAWTableRequest, rows: list[RowWrite]) -> None:
-    loader = RawTableIO.create_io(client)
+    loader = RawTableIO(client)
     existing_tables = loader.retrieve([table.as_id()])
     if not existing_tables:
         loader.create([table])
