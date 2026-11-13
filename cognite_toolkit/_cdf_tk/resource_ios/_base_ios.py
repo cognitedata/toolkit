@@ -26,8 +26,6 @@ if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
     from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, BuildWarning
 
-from typing import Self
-
 T_YamlResource = TypeVar("T_YamlResource")
 
 
@@ -442,11 +440,7 @@ class ResourceIO(
         return
         yield
 
-    @classmethod
-    def create_io(cls, client: ToolkitClient) -> Self:
-        return cls(client)
-
-        # Helper methods
+    # Helper methods
 
     @property
     def display_name(self) -> str:

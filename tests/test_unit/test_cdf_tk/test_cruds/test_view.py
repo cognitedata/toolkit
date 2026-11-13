@@ -112,7 +112,7 @@ def _create_test_view(external_id: str, container: ContainerResponse) -> ViewRes
 
 class TestViewLoader:
     def test_unchanged_view_int_version(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        loader = ViewIO.create_io(toolkit_client_approval.mock_client)
+        loader = ViewIO(toolkit_client_approval.mock_client)
         raw_file = """- space: sp_space
   externalId: my_view
   version: 1"""
@@ -217,7 +217,7 @@ class TestViewLoader:
         test_description: str,
     ) -> None:
         """Test various dependency patterns: transitive chains, independent chains, and diamond dependencies."""
-        loader = ViewIO.create_io(toolkit_client_approval.mock_client)
+        loader = ViewIO(toolkit_client_approval.mock_client)
         toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views or [])
         toolkit_client_approval.append(ContainerResponse, cognite_core_containers_no_3D)
 
@@ -243,7 +243,7 @@ class TestViewLoader:
     ) -> None:
         """Test that views with cyclical dependencies are returned separately from the sorted views."""
 
-        loader = ViewIO.create_io(toolkit_client_approval.mock_client)
+        loader = ViewIO(toolkit_client_approval.mock_client)
 
         # Create three containers that form a cycle: A -> B -> C -> A
         container_a = _create_test_container(
@@ -320,7 +320,7 @@ class TestViewLoader:
         expected_readonly_props: set[str],
     ) -> None:
         """Test that get_readonly_properties identifies readonly properties from containers."""
-        loader = ViewIO.create_io(toolkit_client_approval.mock_client)
+        loader = ViewIO(toolkit_client_approval.mock_client)
         toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views or [])
 
         readonly_props = loader.get_readonly_properties(view_id)
@@ -335,7 +335,7 @@ class TestRecordViewSupport:
         assert request.dump()["streamId"] == ["my_stream"]
 
     def test_dump_resource_preserves_stream_id(self, toolkit_client_cheap: ToolkitClient) -> None:
-        loader = ViewIO.create_io(toolkit_client_cheap)
+        loader = ViewIO(toolkit_client_cheap)
         dumped = loader.dump_resource(_record_view_response())
         assert dumped["streamId"] == ["my_stream"]
 

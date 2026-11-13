@@ -486,7 +486,7 @@ class AuthCommand(ToolkitCommand):
                 # time series, events, sequences) are not suggested on DATA_MODELING_ONLY projects.
                 continue
 
-            crud = crud_cls.create_io(client)
+            crud = crud_cls(client)
             try:
                 warning_str = crud.prerequisite_warning()
             except ToolkitAPIError:
