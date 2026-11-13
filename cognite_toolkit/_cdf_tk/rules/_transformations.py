@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     TransformationTaskParameters,
     WorkflowVersionResponse,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
     BuildWarning,
     Insight,

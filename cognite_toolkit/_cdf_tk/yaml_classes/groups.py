@@ -14,7 +14,7 @@ from .base import ToolkitResource
 from .capabilities import AllScope, CapabilityType, Scope, TableScope, UnknownCapability
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning, Recommendation
+    from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning, Recommendation
     from cognite_toolkit._cdf_tk.resource_ios import ResourceType
 
 
@@ -39,7 +39,7 @@ class BaseGroupYAML(ToolkitResource):
     def _unrecognized_capability_warnings(self, source_file: Path) -> "list[BuildWarning]":
         """Return warnings for capabilities that are not recognized by the toolkit."""
         # Lazy import to avoid circular dependency (yaml_classes → commands.build_v2 → resource_ios → yaml_classes).
-        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning
+        from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning
         from cognite_toolkit._cdf_tk.rules._base import with_position
 
         capabilities = self.capabilities or []
@@ -70,7 +70,7 @@ class BaseGroupYAML(ToolkitResource):
         other ACLs of the same type. A space-scoped ``dataModelInstancesAcl`` is redundant when
         another ``dataModelInstancesAcl`` grants the same actions on ``all``.
         """
-        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
+        from cognite_toolkit._cdf_tk.data_classes._insights import Recommendation
         from cognite_toolkit._cdf_tk.rules._base import with_position
 
         entries_by_acl: dict[str, list[_AclEntry]] = defaultdict(list)

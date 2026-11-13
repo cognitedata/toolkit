@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError, BuildWarning
+    from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, BuildWarning
 
 from typing import Self
 

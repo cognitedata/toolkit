@@ -15,13 +15,13 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     UNRESOLVED_VARIABLE_PATTERN,
     ValidatableResource,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
+from cognite_toolkit._cdf_tk.data_classes._insights import (
     Insight,
     InternalValidatorException,
     T_Insight,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
-from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.resource_ios import ResourceIO, ResourceType
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.file import yaml_find_position

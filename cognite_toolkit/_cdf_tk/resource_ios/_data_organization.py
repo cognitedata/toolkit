@@ -50,7 +50,7 @@ from ._auth import GroupAllScopedIO
 from ._base_ios import ResourceType
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError, BuildWarning
+    from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, BuildWarning
 
 
 @final
@@ -292,7 +292,7 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
             try:
                 validated = DataSetYAML.model_validate(crud_resource)
             except ValidationError as error:
-                from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
+                from cognite_toolkit._cdf_tk.data_classes._insights import BuildError
 
                 yield BuildError(
                     code="INVALID-VALUE",

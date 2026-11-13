@@ -6,13 +6,14 @@ import yaml
 from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, RelativeDirPath
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._config import VariableSource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import (
     BuildLineage,
     ModuleLineageItem,
     ResourceLineageItem,
 )
+from cognite_toolkit._cdf_tk.data_classes._types import RelativeDirPath
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 
 

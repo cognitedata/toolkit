@@ -5,7 +5,7 @@ from typing import get_args
 import pytest
 import yaml
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses

@@ -4,8 +4,8 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SpaceId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import InsightDefinition
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
+from cognite_toolkit._cdf_tk.data_classes._insights import InsightDefinition
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import AssetIO, LabelIO, ResourceIO, SpaceIO
 from cognite_toolkit._cdf_tk.rules._classic import ClassicDeprecationRuleSet

@@ -10,18 +10,16 @@ from rich.progress import Progress
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
-    InsightList,
-)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     ValidationResult,
     ValidationResultList,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
+from cognite_toolkit._cdf_tk.data_classes._insights import (
     Insight,
+    InsightList,
     InternalValidatorException,
 )
-from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
 )

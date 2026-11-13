@@ -20,8 +20,9 @@ from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuiltModule
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ERROR_TYPE
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.data_classes._insights import ERROR_TYPE
+from cognite_toolkit._cdf_tk.data_classes._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingResourceError,
     ToolkitValidationError,
@@ -40,7 +41,6 @@ from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
 from ._config import DeployProtection
 from ._module import BuildVariable
-from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath
 
 
 class _BaseLineageModel(BaseModel):

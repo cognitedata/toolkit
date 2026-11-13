@@ -15,8 +15,8 @@ from pydantic import (
 )
 from pydantic_core.core_schema import ValidationInfo
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import URL, AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.data_classes._types import URL, AbsoluteFilePath
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError
 from cognite_toolkit._cdf_tk.utils.file import format_insight_source_file, relative_to_modules
 

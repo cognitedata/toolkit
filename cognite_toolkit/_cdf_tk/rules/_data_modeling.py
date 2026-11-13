@@ -29,15 +29,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.limits import LimitValueResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.statistics import ProjectStatisticsResponse
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import contains_unresolved_variable
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
+from cognite_toolkit._cdf_tk.constants import URL
+from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
     BuildWarning,
     Insight,
     Recommendation,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
-from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
-from cognite_toolkit._cdf_tk.constants import URL
+from cognite_toolkit._cdf_tk.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO, DataModelIO, ResourceIO, SpaceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection

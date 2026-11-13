@@ -8,7 +8,7 @@ from pydantic.alias_generators import to_camel
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning, Recommendation
+    from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning, Recommendation
     from cognite_toolkit._cdf_tk.resource_ios import ResourceType
 
 
@@ -40,7 +40,7 @@ class ToolkitResource(BaseModelResource):
         if supports_space and getattr(self, "space", None) is not None:
             return []
         # Lazy import to avoid circular dependency (yaml_classes → commands.build_v2 → resource_ios → yaml_classes).
-        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
+        from cognite_toolkit._cdf_tk.data_classes._insights import Recommendation
         from cognite_toolkit._cdf_tk.rules._base import quote_identifier
 
         kind = resource_type.kind

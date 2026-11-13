@@ -6,7 +6,7 @@ from pydantic import TypeAdapter
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning, InsightList, Recommendation
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning, InsightList, Recommendation
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import GroupIO
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning

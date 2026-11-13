@@ -51,7 +51,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployOptions, DeployV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError, InsightList
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ModuleLineageItem, ResourceLineageItem
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     DeploymentResult,
@@ -63,6 +62,7 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     Skipped,
 )
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, URL
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, InsightList
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ResourceCreationError,

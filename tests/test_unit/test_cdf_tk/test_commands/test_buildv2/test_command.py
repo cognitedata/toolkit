@@ -12,9 +12,8 @@ from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, BuildParameters, RelativeDirPath
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, BuildParameters
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning, InsightList
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
     FailedReadYAMLFile,
@@ -26,6 +25,8 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SuccessfulReadYAMLFile,
 )
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning, InsightList
+from cognite_toolkit._cdf_tk.data_classes._types import RelativeDirPath
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import FileMetadataIO, SearchConfigIO, SpaceIO

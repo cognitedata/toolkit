@@ -12,13 +12,13 @@ from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue, fie
 from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, BuildWarning, Recommendation
+from cognite_toolkit._cdf_tk.data_classes._types import AbsoluteFilePath, RelativeDirPath, RelativeFilePath
 from cognite_toolkit._cdf_tk.resource_ios import ResourceTypes
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceType
 from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResource
 
 from ._config import VariableSource
-from ._insights import BuildError, BuildWarning, Recommendation
-from ._types import AbsoluteFilePath, RelativeDirPath, RelativeFilePath
 
 FileSuffix: TypeAlias = Literal[".yaml", ".sql", ".yml", ".json", ".md", ".ttl"]
 SUPPORTS_VARIABLE_REPLACEMENT = frozenset(get_args(FileSuffix))

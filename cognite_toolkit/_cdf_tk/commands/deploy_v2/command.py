@@ -40,12 +40,12 @@ from cognite_toolkit._cdf_tk.commands._utils import (
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Insight, InsightCode, InsightList
 from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import (
     ModuleLockManager,
     SuccessfulLockResult,
 )
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, HINT_LEAD_TEXT
+from cognite_toolkit._cdf_tk.data_classes._insights import Insight, InsightCode, InsightList
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable, Selector
 from cognite_toolkit._cdf_tk.exceptions import (

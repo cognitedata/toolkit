@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import Recommendation
+from cognite_toolkit._cdf_tk.data_classes._insights import Recommendation
 from cognite_toolkit._cdf_tk.resource_ios import WorkflowIO
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic

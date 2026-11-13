@@ -6,11 +6,11 @@ from pydantic.alias_generators import to_camel
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view import ViewResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
     Insight,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
+from cognite_toolkit._cdf_tk.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitRuleSet, with_position
 from cognite_toolkit._cdf_tk.utils import humanize_collection

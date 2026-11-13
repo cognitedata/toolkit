@@ -35,7 +35,7 @@ from .container_field_definitions import (
 )
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning, Recommendation
+    from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning, Recommendation
     from cognite_toolkit._cdf_tk.resource_ios import ResourceType
 
 KEY_PATTERN = re.compile(CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN)
@@ -122,7 +122,7 @@ class ContainerYAML(ToolkitResource):
         if not Flags.ALPHA_RULES.is_enabled():
             return []
         # Lazy import to avoid circular dependency (yaml_classes → commands.build_v2 → resource_ios → yaml_classes).
-        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning
+        from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning
         from cognite_toolkit._cdf_tk.rules._base import with_position
 
         return [
@@ -153,7 +153,7 @@ class ContainerYAML(ToolkitResource):
         if not Flags.ALPHA_RULES.is_enabled():
             return []
         # Lazy import to avoid circular dependency (yaml_classes → commands.build_v2 → resource_ios → yaml_classes).
-        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning, Recommendation
+        from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning, Recommendation
         from cognite_toolkit._cdf_tk.rules._base import with_position
 
         container_id = f"{self.space}:{self.external_id}"

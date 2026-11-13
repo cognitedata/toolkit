@@ -19,6 +19,7 @@ from pydantic import (
 )
 from pydantic_core.core_schema import ValidationInfo
 
+from cognite_toolkit._cdf_tk.data_classes._types import ValidationType
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -26,7 +27,6 @@ from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible, safe_rea
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
 from ._base import YAMLFile
-from ._types import ValidationType
 
 CONFIG_FILE_SUFFIXES = frozenset({".yaml", ".yml"})
 

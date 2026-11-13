@@ -30,14 +30,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.statistics import (
     ProjectStatisticsResponse,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
+from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
+from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
     BuildWarning,
     InsightDefinition,
     InternalValidatorException,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
-from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     ContainerIO,

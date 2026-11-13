@@ -7,7 +7,7 @@ import pytest
 import yaml
 
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, DataModelId, NodeId, SpaceId, ViewId
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError, BuildWarning
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, BuildWarning
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import CrudResource
 from cognite_toolkit._cdf_tk.resource_ios._neat._neat_io import NeatIO
 from cognite_toolkit._cdf_tk.resource_ios._neat._reader import NeatTableError, NeatTableReader

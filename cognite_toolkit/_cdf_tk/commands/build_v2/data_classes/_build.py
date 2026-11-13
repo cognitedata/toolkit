@@ -12,6 +12,21 @@ from pydantic_core.core_schema import FieldValidationInfo
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier, T_Identifier, T_RequestResource
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.data_classes._insights import (
+    BuildError,
+    BuildWarning,
+    Insight,
+    InsightList,
+    InternalValidatorException,
+    Recommendation,
+)
+from cognite_toolkit._cdf_tk.data_classes._types import (
+    AbsoluteDirPath,
+    AbsoluteFilePath,
+    RelativeDirPath,
+    RelativeFilePath,
+    ValidationType,
+)
 from cognite_toolkit._cdf_tk.resource_ios import FunctionIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     FailedReadExtra,
@@ -22,16 +37,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
 from cognite_toolkit._cdf_tk.utils.file import find_variable_position
 
 from ._config import DeployProtection, VariableLocation, VariableSource
-from ._insights import (
-    BuildError,
-    BuildWarning,
-    Insight,
-    InsightList,
-    InternalValidatorException,
-    Recommendation,
-)
 from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId
-from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
 UNRESOLVED_VARIABLE_PATTERN = re.compile(r"\{\{.*?\}\}")
 

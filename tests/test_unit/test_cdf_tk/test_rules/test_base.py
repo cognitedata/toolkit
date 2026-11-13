@@ -1,8 +1,8 @@
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._config import VariableSource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning
 from cognite_toolkit._cdf_tk.rules._base import ToolkitRuleSet, with_position
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses

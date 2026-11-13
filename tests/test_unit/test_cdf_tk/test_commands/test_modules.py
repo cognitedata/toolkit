@@ -18,11 +18,11 @@ from cognite_toolkit._cdf_tk.commands._changes import Changes
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ModuleDirectory
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning, Recommendation
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ModuleLineageItem, ResourceLineageItem
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import Package, Packages
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning, Recommendation
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from tests.data import COMPLETE_ORG, EXTERNAL_PACKAGE
 from tests.test_unit.utils import MockQuestionary

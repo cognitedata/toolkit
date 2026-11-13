@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import Trans
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule import TransformationScheduleResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.commands._validation import ValidationCommand
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import InsightDefinition
+from cognite_toolkit._cdf_tk.data_classes._insights import InsightDefinition
 from cognite_toolkit._cdf_tk.rules import TransformationRuleSet
 
 API_URL = "https://bluefield.cognitedata.com/api/v1/projects/my_project"

@@ -3,7 +3,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+from cognite_toolkit._cdf_tk.data_classes._insights import (
     Insight,
     InternalValidatorException,
     Recommendation,

@@ -32,12 +32,9 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildVariable,
     BuiltModule,
     ConfigYAML,
-    InsightList,
     Module,
     ModuleDirectory,
-    RelativeDirPath,
     SuccessfulReadYAMLFile,
-    ValidationType,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     UNRESOLVED_VARIABLE_PATTERN,
@@ -47,13 +44,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     ValidationResultList,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._config import DeployProtection
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
-    BuildError,
-    BuildWarning,
-    Insight,
-    InsightDefinition,
-    Recommendation,
-)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SUPPORTS_VARIABLE_REPLACEMENT,
     FailedReadYAMLFile,
@@ -63,7 +53,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     ReadResource,
     ReadYAMLFile,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import (
     BUILD_FOLDER_ENCODING,
     BUILD_MODULE_ARG,
@@ -71,7 +60,16 @@ from cognite_toolkit._cdf_tk.constants import (
     HINT_LEAD_TEXT,
     MODULES,
 )
+from cognite_toolkit._cdf_tk.data_classes._insights import (
+    BuildError,
+    BuildWarning,
+    Insight,
+    InsightDefinition,
+    InsightList,
+    Recommendation,
+)
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import BuildTracking, ResourceBuildStat
+from cognite_toolkit._cdf_tk.data_classes._types import AbsoluteFilePath, RelativeDirPath, ValidationType
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
