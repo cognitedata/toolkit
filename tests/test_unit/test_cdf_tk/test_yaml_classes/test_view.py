@@ -286,12 +286,12 @@ class TestViewYAML:
             pytest.param(
                 "{nested: {scope: [my_space, my_view/1, related], filter: {equals: {property: [node, space], "
                 "value: my_space}}}}",
-                [(Recommendation, "PERFORMANCE-DEGRADED", 4)],
+                [(Recommendation, "DEGRADED-PERFORMANCE", 4)],
                 id="nested",
             ),
             pytest.param(
                 "{not: {nested: {scope: [my_space, my_view/1, related], filter: {exists: {property: [node, space]}}}}}",
-                [(Recommendation, "PERFORMANCE-DEGRADED", 4)],
+                [(Recommendation, "DEGRADED-PERFORMANCE", 4)],
                 id="nested-within-not",
             ),
             pytest.param(

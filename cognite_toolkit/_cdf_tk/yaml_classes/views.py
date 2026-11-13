@@ -99,7 +99,7 @@ class ViewYAML(ToolkitResource):
         insights: list[BuildWarning | Recommendation] = []
         if any(filter_type == "nested" for filter_type, _ in expressions):
             recommendation = Recommendation(
-                code="PERFORMANCE-DEGRADED",
+                code="DEGRADED-PERFORMANCE",
                 message=(
                     f"View '{view_id}' has a nested filter. Nested filters follow a direct relation for every "
                     "instance queried through the view, and are not supported by the instances inspect endpoint."

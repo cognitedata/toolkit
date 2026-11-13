@@ -30,6 +30,7 @@ PATH_SEP_CSV = " | "  # Separator for multiple source files in CSV output
 InsightCode: TypeAlias = Literal[
     "ANTI-PATTERN",
     "BLOCKED-RESOURCE",
+    "DEGRADED-PERFORMANCE",
     "DEPRECATED-FEATURE",
     "DUPLICATED-IDENTIFIER",
     "EXCEEDED-LIMIT",
@@ -53,7 +54,6 @@ InsightCode: TypeAlias = Literal[
     "MISSING-REFERENCED-RESOURCE",
     "MISSING-VALUE",
     "NONEMPTY-RESOURCE",
-    "PERFORMANCE-DEGRADED",
     "REDUNDANT-PROPERTY",
     "UNGOVERNED-RESOURCE",
     "UNREADABLE-FILE",
