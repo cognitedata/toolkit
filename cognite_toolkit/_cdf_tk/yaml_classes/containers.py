@@ -18,15 +18,20 @@ from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
 from .base import ToolkitResource
 from .container_field_definitions import (
+    BooleanPrimitiveProperty,
     BtreeIndex,
     ConstraintType,
     ContainerPropertyDefinition,
+    DatePrimitiveProperty,
+    Float32PrimitiveProperty,
+    Float64PrimitiveProperty,
     IndexType,
     Int32PrimitiveProperty,
     Int64PrimitiveProperty,
     ListablePropertyTypeDefinition,
     PropertyTypeDefinition,
     TextProperty,
+    TimestampPrimitiveProperty,
 )
 
 if TYPE_CHECKING:
@@ -52,8 +57,13 @@ _DEPRECATED_CDF_REFERENCE_FIXES = {
 # elements in a B-tree index.
 _BTREE_MAX_BYTES = 2400
 _BTREE_LIST_ELEMENT_BYTES: dict[type[PropertyTypeDefinition], int] = {
+    BooleanPrimitiveProperty: 1,
+    DatePrimitiveProperty: 8,
+    Float32PrimitiveProperty: 4,
+    Float64PrimitiveProperty: 8,
     Int32PrimitiveProperty: 4,
     Int64PrimitiveProperty: 8,
+    TimestampPrimitiveProperty: 8,
 }
 
 
@@ -157,7 +167,7 @@ class ContainerYAML(ToolkitResource):
             for prop_id, prop_type in type_by_property.items():
                 if _is_missing_max_list_size(prop_type):
                     warning = BuildWarning(
-                        code="MODELING-SUBOPTIMAL",
+                        code="EXCEEDED-LIMIT",
                         message=(
                             f"List property '{prop_id}' in B-tree index '{index_id}' of container '{container_id}' "
                             "has no maxListSize. CDF requires maxListSize on list properties in a new B-tree index, "
