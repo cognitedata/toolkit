@@ -315,10 +315,8 @@ class ExtractionPipelineConfigIO(
     ) -> list[dict[str, Any]]:
         raw_str = self.safe_read(filepath)
 
-        original, _ = load_yaml_inject_variables(raw_str, {}, validate=False, original_filepath=filepath)
-        replaced, _ = load_yaml_inject_variables(
-            raw_str, environment_variables or {}, validate=False, original_filepath=filepath
-        )
+        original, _ = load_yaml_inject_variables(raw_str, {}, original_filepath=filepath)
+        replaced, _ = load_yaml_inject_variables(raw_str, environment_variables or {}, original_filepath=filepath)
 
         if isinstance(original, dict) and isinstance(replaced, dict):
             if "config" in original:
