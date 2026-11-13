@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import warnings
 from pathlib import Path
 from typing import cast
 from unittest.mock import MagicMock, patch
@@ -70,6 +71,7 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import AgentIO, LocationFilterIO, WorkflowVersionIO
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from tests.constants import CDF_PROJECT, chdir
 from tests.data import (
@@ -1284,6 +1286,41 @@ capabilities:
         "Expected MISSING-REFERENCED-RESOURCE for 'my_non_existent_space' even when group has an unknown capability"
     )
     assert "my_non_existent_space" in unknown_refs[0].message
+
+
+def test_build_validation_does_not_warn_about_set_environment_variables(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    function_yaml = """name: my_function
+externalId: my_function
+space: my_space
+secrets:
+  my-secret: ${MY_SECRET}
+"""
+    my_org = tmp_path / "my_org"
+    function_dir = my_org / MODULES / "my_module" / "functions"
+    (function_dir / "my_function").mkdir(parents=True)
+    (function_dir / "my_function" / "handler.py").write_text("def handle(client, data):\n    return {}\n")
+    (function_dir / "my_function.Function.yaml").write_text(function_yaml, encoding="utf-8")
+    monkeypatch.setenv("MY_SECRET", "super-secret")
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        folder = BuildV2Command(silent=True, skip_tracking=True).build(
+            client=None,
+            parameters=BuildParameters(
+                organization_dir=my_org, build_dir=tmp_path / "build", user_selected_modules=[f"{MODULES}/"]
+            ),
+        )
+        ValidationCommand(silent=True, skip_tracking=True).validate(
+            [resource for module in folder.built_modules for resource in module.resources],
+            [],
+            None,
+            None,
+            display=False,
+        )
+
+    assert [str(w.message) for w in caught if isinstance(w.message, EnvironmentVariableMissingWarning)] == []
 
 
 @pytest.mark.skipif(not Flags.CDF_GROUP_EMAILS.is_enabled(), reason="CDF_GROUP_EMAILS feature flag is not enabled")
