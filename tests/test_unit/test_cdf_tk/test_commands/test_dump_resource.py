@@ -387,7 +387,7 @@ class TestDataModelFinder:
             )
 
         dumped = sorted(path.name for path in tmp_path.glob("**/*.DataModel.yaml"))
-        assert dumped == ["first_model.DataModel.yaml", "second_model.DataModel.yaml"]
+        assert dumped == ["my_space.first_model.v1.DataModel.yaml", "other_space.second_model.v1.DataModel.yaml"]
 
 
 @pytest.fixture()
@@ -900,7 +900,7 @@ class TestDumpFunctions:
         assert selected == ("functionB", "functionC")
 
     @pytest.mark.parametrize("external_id", [".", ".."])
-    def test_dump_function_code_rejects_path_traversal(self, tmp_path: Path, external_id: str) -> None:
+    def test_dump_function_code_stays_in_function_directory(self, tmp_path: Path, external_id: str) -> None:
         function = FunctionResponse(id=1, external_id=external_id, name="Evil", created_time=1, file_id=123)
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w") as zf:
@@ -911,11 +911,11 @@ class TestDumpFunctions:
             monkeypatch_toolkit_client() as client,
             patch(f"{FunctionFinder.__module__}._download_file_bytes", return_value=buffer.getvalue()),
         ):
-            finder = FunctionFinder(client, None)
-            with pytest.raises(ValueError, match=r"Invalid identifier"):
-                finder.dump_function_code(function, output)
+            FunctionFinder(client, None).dump_function_code(function, output)
 
-        assert not (output / "handler.py").exists()
+        assert sorted(path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*.py")) == [
+            "functions/_/handler.py"
+        ]
 
     @pytest.mark.parametrize(
         "external_id, folder_name",

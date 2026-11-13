@@ -3,7 +3,7 @@
 import types
 from abc import ABC, abstractmethod
 from functools import total_ordering
-from typing import Annotated, Any, ClassVar, Generic, Literal, Self, TypeVar, Union, get_args, get_origin
+from typing import Annotated, Any, ClassVar, Generic, Literal, Self, TypeVar, Union, final, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
@@ -93,7 +93,7 @@ T_RequestItem = TypeVar("T_RequestItem", bound=RequestItem)
 
 
 @total_ordering
-class Identifier(RequestItem):
+class Identifier(RequestItem, ABC):
     """Base class for all identifier objects typically
     {"externalId": "..."}, {"id": ...}, {"space": "...", "externalId: "..."}."""
 
@@ -118,6 +118,7 @@ class Identifier(RequestItem):
             return NotImplemented
         return str(self) < str(other)
 
+    @final
     def as_filename(self, include_type: bool = False) -> str:
         return sanitize_filename(self._as_filename(include_type))
 

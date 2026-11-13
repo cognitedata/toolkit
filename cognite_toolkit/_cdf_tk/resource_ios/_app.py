@@ -69,10 +69,6 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
         return id.dump()
 
     @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return str(id)
-
-    @classmethod
     def get_dependencies(cls, resource: AppYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         return []
 
@@ -157,10 +153,6 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
     @classmethod
     def dump_id(cls, id: AppVersionId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: AppVersionId) -> str:
-        return str(id)
 
     @classmethod
     def get_dependencies(cls, resource: AppVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

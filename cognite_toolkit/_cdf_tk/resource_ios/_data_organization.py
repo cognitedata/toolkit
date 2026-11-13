@@ -41,7 +41,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import CrudResource, ResourceFileIO, ResourceIO
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable
-from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 from cognite_toolkit._cdf_tk.yaml_classes import DataSetYAML, LabelsYAML
 from cognite_toolkit._cdf_tk.yaml_classes.catalog_dataset import CatalogDataSetYAML
@@ -90,10 +89,6 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSet
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_dependencies(cls, resource: DataSetYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":

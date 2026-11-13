@@ -756,13 +756,9 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
 
     def dump_function_code(self, function: FunctionResponse, folder: Path) -> None:
         external_id = function.external_id or "unknown_external_id"
-        # Separators in an external ID are filename-safe (`team/func` → `team_func`). `.` and `..` are not:
-        # they resolve to this folder or its parent, so the code would land outside the function directory.
         safe_name = sanitize_filename(external_id)
         base = folder.resolve()
         function_dir = (folder / safe_name).resolve()
-        if function_dir == base or not function_dir.is_relative_to(base):
-            raise ValueError(f"Invalid identifier {external_id!r}: must not escape the function directory")
         try:
             zip_bytes = _download_file_bytes(self.client, function.file_id)
         except ToolkitAPIError as e:
@@ -1108,7 +1104,7 @@ class DumpResourceCommand(ToolkitCommand):
             resource_folder.mkdir(exist_ok=True, parents=True)
             for resource in resources:
                 resource_id = loader.get_id(resource)
-                name = loader.as_filename(resource_id)
+                name = resource_id.as_filename()
                 base_filepath = resource_folder / f"{name}.{loader.kind}.yaml"
                 if base_filepath.exists():
                     self.warn(FileExistsWarning(base_filepath, "Skipping... Use --clean to remove existing files."))

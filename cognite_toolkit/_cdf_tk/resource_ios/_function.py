@@ -170,10 +170,6 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
         return id.dump()
 
     @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
-
-    @classmethod
     def get_dependencies(cls, resource: FunctionsYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.data_set_external_id:
             yield DataSetsIO, ExternalId(external_id=resource.data_set_external_id)
@@ -544,10 +540,6 @@ class FunctionScheduleIO(
         if item.function_external_id is None or item.name is None:
             raise ToolkitRequiredValueError("FunctionSchedule must have functionExternalId and Name set.")
         return FunctionScheduleId(function_external_id=item.function_external_id, name=item.name)
-
-    @classmethod
-    def as_filename(cls, id: FunctionScheduleId) -> str:
-        return sanitize_filename(f"{id.function_external_id}-{id.name}")
 
     @classmethod
     def get_dependencies(cls, resource: FunctionScheduleYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

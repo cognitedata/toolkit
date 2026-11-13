@@ -18,7 +18,6 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
 from cognite_toolkit._cdf_tk.resource_ios._data_organization import DataSetsIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.yaml_classes import ExternalDataSourceYAML
 
@@ -71,10 +70,6 @@ class ExternalDataSourceIO(
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_dependencies(cls, resource: ExternalDataSourceYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

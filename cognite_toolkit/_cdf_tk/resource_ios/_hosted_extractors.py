@@ -48,7 +48,6 @@ from cognite_toolkit._cdf_tk.resource_ios._data_organization import DataSetsIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash, humanize_collection
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth
-from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import (
     HostedExtractorDestinationYAML,
     HostedExtractorJobYAML,
@@ -119,10 +118,6 @@ class HostedExtractorSourceIO(
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[HostedExtractorSourceRequestUnion]) -> ScopeDefinition:
@@ -365,10 +360,6 @@ class HostedExtractorDestinationIO(
         return id.dump()
 
     @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[HostedExtractorDestinationRequest]) -> ScopeDefinition:
         return AllScope()
 
@@ -504,10 +495,6 @@ class HostedExtractorJobIO(
         return id.dump()
 
     @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[HostedExtractorJobRequest]) -> ScopeDefinition:
         return AllScope()
 
@@ -605,10 +592,6 @@ class HostedExtractorMappingIO(
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[HostedExtractorMappingRequest]) -> ScopeDefinition:

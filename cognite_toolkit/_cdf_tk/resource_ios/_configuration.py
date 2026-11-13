@@ -13,7 +13,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigRequest, SearchConfigResponse
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.yaml_classes import SearchConfigYAML
 
@@ -61,10 +60,6 @@ class SearchConfigIO(ResourceIO[ViewNoVersionId, SearchConfigRequest, SearchConf
     @classmethod
     def dump_id(cls, id: ViewNoVersionId) -> dict[str, Any]:
         return {"view": id.dump()}
-
-    @classmethod
-    def as_filename(cls, id: ViewNoVersionId) -> str:
-        return sanitize_filename(f"{id.external_id}_{id.space}")
 
     @classmethod
     def get_dependencies(cls, resource: SearchConfigYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

@@ -391,6 +391,9 @@ def create_logfile_stem(log_dir: Path, base_logstem: str) -> str:
 def sanitize_filename(text: str) -> str:
     """Convert a string to be a valid filename by replacing illegal characters with underscores."""
     cleaned = _ILLEGAL_CHARACTERS.sub("_", text)
+    if cleaned in {".", ".."}:
+        # These refer to the current and parent directory, which could be used to escape the target directory.
+        return "_"
     # Replace multiple underscores with a single one
     return re.sub(r"_+", "_", cleaned)
 
