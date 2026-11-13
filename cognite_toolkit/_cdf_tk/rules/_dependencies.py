@@ -12,10 +12,7 @@ from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildWarning,
     Insight,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ResourceIO, ResourceType
-from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import relative_to_modules
 
 from ._base import (
     InternalValidatorException,
@@ -54,38 +51,6 @@ class DependencyRuleSet(ToolkitRuleSet):
             return RuleSetStatus(code="ready", message="Will validate dependencies and state changes against CDF.")
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
-        if Flags.ALPHA_RULES.is_enabled():
-            yield from self._validate_duplicates()
-        yield from self._validate_references()
-
-    def _validate_duplicates(self) -> Iterable[Insight]:
-        """Resources with the same identifier overwrite each other, only the first definition is deployed."""
-        resources_by_id: dict[tuple[ResourceType, Identifier], list[tuple[ResourceRef, Path]]] = defaultdict(list)
-        for resource in self.resources:
-            if isinstance(resource.source, Path) and not self._is_unresolved(resource.identifier):
-                resources_by_id[(resource.type, resource.identifier)].append((resource, resource.source))
-
-        for (resource_type, identifier), definitions in resources_by_id.items():
-            if len(definitions) < 2:
-                continue
-            display_paths = [relative_to_modules(source_path) for _, source_path in definitions]
-            for index, (resource, source_path) in enumerate(definitions[1:], start=1):
-                other_paths = list(dict.fromkeys(display_paths[:index] + display_paths[index + 1 :]))
-                yield with_position(
-                    BuildWarning(
-                        code="DUPLICATED-IDENTIFIER",
-                        message=f"The {resource_type.kind.lower()} {quote_identifier(identifier)} is also defined in "
-                        f"{humanize_collection(other_paths, sort=False)}. "
-                        f"Only the definition in {display_paths[0]} will be deployed.",
-                        fix="Remove the duplicate definition or give it a unique identifier.",
-                        source_file=source_path,
-                        alpha=True,
-                    ),
-                    values=identifier_values(identifier),
-                    variables=resource.variables,
-                )
-
-    def _validate_references(self) -> Iterable[Insight | InternalValidatorException]:
         """CDF dependency validations are validations that require checking the existence of resources in CDF."""
         local_resource_ids: set[tuple[ResourceType, Identifier]] = {
             (resource.type, resource.identifier) for resource in self.resources

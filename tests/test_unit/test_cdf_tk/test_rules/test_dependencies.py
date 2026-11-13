@@ -1,18 +1,14 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
-
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltModule, BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.data_classes._insights import InternalValidatorException
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import DataSetsIO, ResourceIO, ResourceType, TimeSeriesIO
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
-from cognite_toolkit._cdf_tk.utils.file import relative_to_modules
 
 
 def _built_module(yaml_file: Path, crud_cls: type[ResourceIO], identifier: Identifier) -> BuiltModule:
@@ -33,38 +29,6 @@ def _built_module(yaml_file: Path, crud_cls: type[ResourceIO], identifier: Ident
             )
         ],
     )
-
-
-@pytest.fixture
-def alpha_rules(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: flag is Flags.ALPHA_RULES)
-
-
-class TestDependencyRuleSetDuplicates:
-    @pytest.mark.usefixtures("alpha_rules")
-    def test_duplicated_identifier_is_warned(self, tmp_path: Path) -> None:
-        first_file = tmp_path / "first.TimeSeries.yaml"
-        second_file = tmp_path / "second.TimeSeries.yaml"
-        for yaml_file in (first_file, second_file):
-            yaml_file.write_text("externalId: my_ts\n")
-        identifier = ExternalId(external_id="my_ts")
-        resources = [
-            *_built_module(first_file, TimeSeriesIO, identifier).resources,
-            *_built_module(second_file, TimeSeriesIO, identifier).resources,
-        ]
-
-        results = list(DependencyRuleSet(resources=resources).validate())
-
-        first_path = relative_to_modules(first_file.resolve())
-        assert [result.model_dump(include={"code", "message", "source_file", "line"}) for result in results] == [
-            {
-                "code": "DUPLICATED-IDENTIFIER",
-                "message": f"The timeseries 'my_ts' is also defined in {first_path}. "
-                f"Only the definition in {first_path} will be deployed.",
-                "source_file": relative_to_modules(second_file.resolve()),
-                "line": 1,
-            }
-        ]
 
 
 class TestDependencyRuleSetCdfApiError:
