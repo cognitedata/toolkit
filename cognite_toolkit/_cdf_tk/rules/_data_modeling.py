@@ -496,7 +496,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
         constraints = "a 'requires' constraint" if len(to_require) == 1 else "'requires' constraints"
         return with_position(
             Recommendation(
-                code="PERFORMANCE-DEGRADED",
+                code="DEGRADED-PERFORMANCE",
                 message=(
                     f"View '{view_id}' is not optimized for querying. None of its own containers require "
                     f"{required}, mapped by the views it implements."
@@ -599,7 +599,7 @@ class DataModelingRuleSet(ToolkitRuleSet):
         for resource in relation.resources:
             yield with_position(
                 Recommendation(
-                    code="PERFORMANCE-DEGRADED",
+                    code="DEGRADED-PERFORMANCE",
                     message=(
                         f"The reverse direct relation through '{relation.through}' in "
                         f"{self._referenced_by(resource)} cannot be queried efficiently, since the direct relation "
