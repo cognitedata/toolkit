@@ -5,6 +5,7 @@ from typing import get_args
 import pytest
 import yaml
 
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning, Recommendation
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerIO
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
@@ -306,44 +307,58 @@ class TestContainerYAML:
         ]
 
     @pytest.mark.parametrize(
-        "type_by_property, index_type, expected_fragments",
+        "type_by_property, index_type, expected",
         [
-            pytest.param({"code": "{type: text}"}, "btree", ["has no maxTextSize"], id="text-without-max-size"),
+            pytest.param(
+                {"code": "{type: text}"},
+                "btree",
+                [(Recommendation, "PERFORMANCE-DEGRADED", "has no maxTextSize")],
+                id="text-without-max-size",
+            ),
             pytest.param({"code": "{type: text, maxTextSize: 255}"}, "btree", [], id="bounded-text"),
             pytest.param(
-                {"code": "{type: text, maxTextSize: 4000}"}, "btree", ["up to 4000 bytes"], id="text-too-large"
+                {"code": "{type: text, maxTextSize: 4000}"},
+                "btree",
+                [(Recommendation, "PERFORMANCE-DEGRADED", "up to 4000 bytes")],
+                id="text-too-large",
             ),
             pytest.param(
-                {"codes": "{type: int64, list: true}"}, "btree", ["has no maxListSize"], id="list-without-max-size"
+                {"codes": "{type: int64, list: true}"},
+                "btree",
+                [(BuildWarning, "MODELING-SUBOPTIMAL", "has no maxListSize")],
+                id="list-without-max-size",
             ),
             pytest.param(
                 {"codes": "{type: text, list: true}"},
                 "btree",
-                ["has no maxListSize and maxTextSize"],
+                [
+                    (BuildWarning, "MODELING-SUBOPTIMAL", "has no maxListSize"),
+                    (Recommendation, "PERFORMANCE-DEGRADED", "has no maxTextSize"),
+                ],
                 id="text-list-without-bounds",
             ),
             pytest.param({"codes": "{type: int64, list: true, maxListSize: 300}"}, "btree", [], id="int64-at-limit"),
             pytest.param(
                 {"codes": "{type: int64, list: true, maxListSize: 301}"},
                 "btree",
-                ["up to 2408 bytes"],
+                [(Recommendation, "PERFORMANCE-DEGRADED", "up to 2408 bytes")],
                 id="int64-over-limit",
             ),
             pytest.param({"codes": "{type: int32, list: true, maxListSize: 600}"}, "btree", [], id="int32-at-limit"),
             pytest.param(
                 {"code": "{type: text, maxTextSize: 1500}", "other": "{type: text, maxTextSize: 1500}"},
                 "btree",
-                ["up to 3000 bytes"],
+                [(Recommendation, "PERFORMANCE-DEGRADED", "up to 3000 bytes")],
                 id="composite-too-large",
             ),
             pytest.param({"codes": "{type: text, list: true}"}, "inverted", [], id="inverted-index"),
         ],
     )
-    def test_btree_index_size_recommendations(
+    def test_btree_index_size_insights(
         self,
         type_by_property: dict[str, str],
         index_type: str,
-        expected_fragments: list[str],
+        expected: list[tuple[type, str, str]],
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -361,6 +376,6 @@ class TestContainerYAML:
 
         insights = container.extra_insights(source, ContainerIO.as_resource_type())
         assert [
-            (insight.code, fragment in insight.message)
-            for insight, fragment in zip(insights, expected_fragments, strict=True)
-        ] == [("PERFORMANCE-DEGRADED", True)] * len(expected_fragments)
+            (type(insight), insight.code, fragment in insight.message)
+            for insight, (_, _, fragment) in zip(insights, expected, strict=True)
+        ] == [(insight_type, code, True) for insight_type, code, _ in expected]
