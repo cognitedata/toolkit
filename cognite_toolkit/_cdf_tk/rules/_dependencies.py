@@ -12,7 +12,9 @@ from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildWarning,
     Insight,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ResourceIO, ResourceType
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import relative_to_modules
 
 from ._base import (
@@ -52,7 +54,8 @@ class DependencyRuleSet(ToolkitRuleSet):
             return RuleSetStatus(code="ready", message="Will validate dependencies and state changes against CDF.")
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
-        yield from self._validate_duplicates()
+        if Flags.ALPHA_RULES.is_enabled():
+            yield from self._validate_duplicates()
         yield from self._validate_references()
 
     def _validate_duplicates(self) -> Iterable[Insight]:
@@ -65,15 +68,18 @@ class DependencyRuleSet(ToolkitRuleSet):
         for (resource_type, identifier), definitions in resources_by_id.items():
             if len(definitions) < 2:
                 continue
-            first_path = relative_to_modules(definitions[0][1])
-            for resource, source_path in definitions[1:]:
+            display_paths = [relative_to_modules(source_path) for _, source_path in definitions]
+            for index, (resource, source_path) in enumerate(definitions[1:], start=1):
+                other_paths = list(dict.fromkeys(display_paths[:index] + display_paths[index + 1 :]))
                 yield with_position(
                     BuildWarning(
                         code="DUPLICATED-IDENTIFIER",
-                        message=f"The {resource_type.kind.lower()} {quote_identifier(identifier)} is defined "
-                        f"multiple times. Only the definition in {first_path} will be deployed.",
+                        message=f"The {resource_type.kind.lower()} {quote_identifier(identifier)} is also defined in "
+                        f"{humanize_collection(other_paths, sort=False)}. "
+                        f"Only the definition in {display_paths[0]} will be deployed.",
                         fix="Remove the duplicate definition or give it a unique identifier.",
                         source_file=source_path,
+                        alpha=True,
                     ),
                     values=identifier_values(identifier),
                     variables=resource.variables,
