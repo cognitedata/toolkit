@@ -55,6 +55,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
     HostedExtractorMappingYAML,
     HostedExtractorSourceYAML,
 )
+from cognite_toolkit._cdf_tk.yaml_classes.hosted_extractor_job import CustomFormat
 
 
 @final
@@ -567,6 +568,8 @@ class HostedExtractorJobIO(
             yield HostedExtractorSourceIO, ExternalId(external_id=resource.source_id)
         if resource.destination_id:
             yield HostedExtractorDestinationIO, ExternalId(external_id=resource.destination_id)
+        if isinstance(resource.format, CustomFormat):
+            yield HostedExtractorMappingIO, ExternalId(external_id=resource.format.mapping_id)
 
 
 @final
