@@ -44,7 +44,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.neat._table_source import NeatTableSou
 from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ViewPropertyType
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    from cognite_toolkit._cdf_tk.data_classes._insights import (
         BuildError,
         BuildWarning,
         InsightCode,
@@ -165,7 +165,7 @@ class NeatTableReader:
         validation_type: Any | None = None,
         code: "InsightCode" = "INVALID-VALUE",
     ) -> None:
-        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
+        from cognite_toolkit._cdf_tk.data_classes._insights import BuildError
 
         if isinstance(validation_error, ValidationError):
             errors = humanize_validation_error(validation_error, validation_type)
@@ -188,7 +188,7 @@ class NeatTableReader:
         )
 
     def _create_warning(self, code: "InsightCode", message: str, loc: tuple[int | str, ...]) -> None:
-        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildWarning
+        from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning
 
         location = self.source.location(loc)
         if isinstance(location, str):

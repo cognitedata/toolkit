@@ -3,7 +3,7 @@ import io
 
 import pytest
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
+from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
     BuildWarning,
     InsightList,

@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import contains_unresolved_variable
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
     BuildWarning,
     Insight,

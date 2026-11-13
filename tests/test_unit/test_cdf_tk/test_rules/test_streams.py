@@ -8,9 +8,9 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.limits import LimitValueResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError, InternalValidatorException
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, InternalValidatorException
 from cognite_toolkit._cdf_tk.resource_ios import ResourceType, StreamIO
 from cognite_toolkit._cdf_tk.rules._streams import StreamLimits, StreamRuleSet
 

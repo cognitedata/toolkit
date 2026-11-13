@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SequenceRowId
 from .base import BaseModelResource, ToolkitResource
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning, Recommendation
+    from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning, Recommendation
     from cognite_toolkit._cdf_tk.resource_ios import ResourceType
 
 
@@ -131,7 +131,7 @@ class SequenceRowYAML(ToolkitResource):
         Returns:
             A list of extra insights for the resource.
         """
-        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildWarning
+        from cognite_toolkit._cdf_tk.data_classes._insights import BuildWarning
 
         global _HAS_WARNED
         insights: list[BuildWarning | Recommendation] = []

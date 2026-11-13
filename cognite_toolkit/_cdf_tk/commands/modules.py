@@ -40,15 +40,6 @@ from cognite_toolkit._cdf_tk.commands._changes import (
 from cognite_toolkit._cdf_tk.commands.build_v2._module_parser import ModuleParser
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage, ModuleDirectory
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
-    ERROR_TYPE,
-    RECOMMENDATION_TYPE,
-    WARNING_TYPE,
-    BuildError,
-    BuildWarning,
-    InsightDefinition,
-    Recommendation,
-)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._lineage import ModuleLineageItem
 from cognite_toolkit._cdf_tk.constants import (
     DEFAULT_ENV,
@@ -62,6 +53,15 @@ from cognite_toolkit._cdf_tk.data_classes import (
     InitConfigYAML,
     Package,
     Packages,
+)
+from cognite_toolkit._cdf_tk.data_classes._insights import (
+    ERROR_TYPE,
+    RECOMMENDATION_TYPE,
+    WARNING_TYPE,
+    BuildError,
+    BuildWarning,
+    InsightDefinition,
+    Recommendation,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory

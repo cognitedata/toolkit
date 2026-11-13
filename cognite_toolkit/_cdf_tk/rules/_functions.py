@@ -4,7 +4,7 @@ from pathlib import Path
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionLimits, FunctionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, FunctionsAcl
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
     Insight,
     InternalValidatorException,

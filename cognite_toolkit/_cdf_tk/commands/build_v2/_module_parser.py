@@ -7,11 +7,8 @@ from typing import Any, cast
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildInput,
     ModuleDirectory,
-    RelativeDirPath,
-    RelativeFilePath,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._config import VariableLocation, VariableSource
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     AmbiguousSelection,
     BuildVariable,
@@ -20,8 +17,9 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     ModuleScanResult,
     NonExistingModuleName,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, MODULES, RESOURCE_FOLDERS_WITH_CODE_BUNDLES
+from cognite_toolkit._cdf_tk.data_classes._insights import BuildError
+from cognite_toolkit._cdf_tk.data_classes._types import AbsoluteFilePath, RelativeDirPath, RelativeFilePath
 from cognite_toolkit._cdf_tk.resource_ios import RESOURCE_BASE_IO_BY_FOLDER_NAME_INCLUDE_ALPHA, ResourceTypes
 
 

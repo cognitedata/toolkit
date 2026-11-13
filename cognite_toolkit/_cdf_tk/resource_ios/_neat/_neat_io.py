@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.neat._constant import SHEET_METADATA
 from cognite_toolkit._cdf_tk.yaml_classes.neat._table_source import NeatYAMLSource
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError, BuildWarning
+    from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, BuildWarning
 
 
 @final
