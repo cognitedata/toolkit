@@ -249,8 +249,8 @@ class WorkflowVersionIO(
         # JSONPaths that are part of the API and thus should not be replaced.
         raw_str = self.safe_read(filepath)
 
-        original = load_yaml_inject_variables(raw_str, {}, validate=False, original_filepath=filepath)
-        replaced = load_yaml_inject_variables(
+        original, _ = load_yaml_inject_variables(raw_str, {}, validate=False, original_filepath=filepath)
+        replaced, _ = load_yaml_inject_variables(
             raw_str, environment_variables or {}, validate=False, original_filepath=filepath
         )
 

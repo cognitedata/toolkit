@@ -181,11 +181,13 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
-        raw_yaml = load_yaml_inject_variables(
+        raw_yaml, warning = load_yaml_inject_variables(
             self.safe_read(filepath),
             environment_variables or {},
             original_filepath=filepath,
         )
+        if warning:
+            self.on_warning(warning)
         filestem = filepath.stem
         if filestem.lower().endswith(self.kind.lower()):
             filestem = filestem[: -len(self.kind.lower())].rstrip(".")
