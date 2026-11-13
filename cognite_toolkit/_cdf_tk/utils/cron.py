@@ -28,10 +28,11 @@ _ANY = frozenset({"*", "?"})
 
 
 def cron_minutes_of_week(expression: str, utc_offset_minutes: int = 0) -> set[int]:
-    """The minutes of the week a cron expression runs at, counted in UTC from Monday 00:00.
+    """The minutes of the week a cron expression runs at every week, counted in UTC from Monday 00:00.
 
-    The day of month and month are validated but not expanded, as the days they select can fall on any day of
-    the week. An expression restricted only by them can thus run on any day of the week.
+    An expression restricted to some months, or to some days of the month without a weekday, does not run every
+    week and thus has no such minutes. If both the day of month and the weekday are restricted, cron runs when
+    either matches, so the expression runs every week on the given weekdays.
 
     Args:
         expression: A five-field cron expression, e.g. '0 6 * * MON-FRI', or a macro such as '@daily'.
@@ -49,14 +50,12 @@ def cron_minutes_of_week(expression: str, utc_offset_minutes: int = 0) -> set[in
     minute_field, hour_field, day_of_month_field, month_field, weekday_field = fields
     minutes = _expand(minute_field, 0, 59)
     hours = _expand(hour_field, 0, 23)
-    _expand(day_of_month_field, 1, 31)
-    _expand(month_field, 1, 12, _MONTHS)
-    if weekday_field in _ANY or day_of_month_field not in _ANY:
-        # Cron runs when either the day of month or the weekday matches, if both are restricted.
-        weekdays = set(range(7))
-    else:
-        # Cron counts weekdays from Sunday (0 or 7), we count from Monday (0).
-        weekdays = {(weekday - 1) % 7 for weekday in _expand(weekday_field, 0, 7, _WEEKDAYS)}
+    days_of_month = _expand(day_of_month_field, 1, 31)
+    months = _expand(month_field, 1, 12, _MONTHS)
+    # Cron counts weekdays from Sunday (0 or 7), we count from Monday (0).
+    weekdays = {(weekday - 1) % 7 for weekday in _expand(weekday_field, 0, 7, _WEEKDAYS)}
+    if len(months) < 12 or (len(days_of_month) < 31 and weekday_field in _ANY):
+        return set()
     return {
         (weekday * MINUTES_PER_DAY + hour * 60 + minute - utc_offset_minutes) % MINUTES_PER_WEEK
         for weekday in weekdays

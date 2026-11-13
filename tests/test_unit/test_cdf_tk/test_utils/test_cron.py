@@ -15,9 +15,13 @@ class TestCronMinutesOfWeek:
             pytest.param("*/20 0 * * MON", 0, {0, 20, 40}, id="Step and weekday name"),
             pytest.param("0 0 * * 0,6", 0, {SATURDAY * MINUTES_PER_DAY, SUNDAY * MINUTES_PER_DAY}, id="Sunday as 0"),
             pytest.param("0 0 * * 1-2", 60, {MINUTES_PER_WEEK - 60, MONDAY * MINUTES_PER_DAY + 23 * 60}, id="Offset"),
-            pytest.param(
-                "0 0 1 * *", 0, {day * MINUTES_PER_DAY for day in range(7)}, id="Day of month can be any weekday"
-            ),
+            pytest.param("0 0 1 * *", 0, set(), id="Day of month does not run every week"),
+            pytest.param("0 0 * 1 *", 0, set(), id="Month does not run every week"),
+            pytest.param("0 0 * 1-6 MON", 0, set(), id="Weekday in some months does not run every week"),
+            pytest.param("0 0 1 * MON", 0, {MONDAY * MINUTES_PER_DAY}, id="Day of month or weekday runs on weekday"),
+            pytest.param("0 0 1-31 JAN-DEC *", 0, {day * MINUTES_PER_DAY for day in range(7)}, id="Full ranges"),
+            pytest.param("@monthly", 0, set()),
+            pytest.param("@yearly", 0, set()),
             pytest.param("@hourly", 0, {day * MINUTES_PER_DAY + hour * 60 for day in range(7) for hour in range(24)}),
         ],
     )
