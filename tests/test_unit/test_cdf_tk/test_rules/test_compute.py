@@ -69,10 +69,37 @@ class TestComputeRuleSet:
         insights = sorted((insight.insight_type, insight.code, insight.source_url) for insight in _validate(client))
 
         assert insights == [
-            ("Error", "EXPIRED-CREDENTIALS", f"{API_URL}/transformations/1"),
-            ("Recommendation", "EXPIRING-CREDENTIALS", f"{API_URL}/transformations/3"),
-            ("Warning", "EXPIRING-CREDENTIALS", f"{API_URL}/transformations/2"),
+            ("Error", "INVALID-CREDENTIALS", f"{API_URL}/transformations/1"),
+            ("Recommendation", "INVALID-CREDENTIALS", f"{API_URL}/transformations/3"),
+            ("Warning", "INVALID-CREDENTIALS", f"{API_URL}/transformations/2"),
         ]
+
+    def test_credentials_are_invalid_when_session_status_is_not_valid(self) -> None:
+        client = _client()
+        client.transformations.list.return_value = [
+            _transformation(1, "tr_ready", sourceSession=_session_info(10)),
+            _transformation(2, "tr_active", sourceSession=_session_info(11)),
+            _transformation(3, "tr_revoked", sourceSession=_session_info(12)),
+            _transformation(4, "tr_unknown_status", sourceSession=_session_info(13)),
+            _transformation(5, "tr_expired_and_status_expired", destinationSession=_session_info(14)),
+        ]
+        client.sessions.retrieve.return_value = [
+            SessionResponse(id=10, status="READY", expiration_time=NOW + 30 * DAY),
+            SessionResponse(id=11, status="ACTIVE", expiration_time=NOW + 30 * DAY),
+            SessionResponse(id=12, status="REVOKED", expiration_time=NOW + 30 * DAY),
+            SessionResponse(id=13),
+            SessionResponse(id=14, status="EXPIRED", expiration_time=NOW - DAY),
+        ]
+
+        results = _validate(client)
+        insights = [(insight.insight_type, insight.code, insight.source_url) for insight in results]
+
+        # A credential is reported at most once, even if both its status and expiry are invalid.
+        assert insights == [
+            ("Error", "INVALID-CREDENTIALS", f"{API_URL}/transformations/3"),
+            ("Error", "INVALID-CREDENTIALS", f"{API_URL}/transformations/5"),
+        ]
+        assert "session 12 is revoked" in results[0].message
 
     def test_unverified_credentials_when_sessions_cannot_be_retrieved(self) -> None:
         client = _client()
@@ -93,7 +120,7 @@ class TestComputeRuleSet:
 
         insights = [(insight.insight_type, insight.code, insight.source_url) for insight in _validate(client)]
 
-        assert insights == [("Error", "EXPIRED-CREDENTIALS", f"{API_URL}/transformations/2")]
+        assert insights == [("Error", "INVALID-CREDENTIALS", f"{API_URL}/transformations/2")]
 
     def test_planned_in_cdf_context_without_resources(self) -> None:
         plan = ValidationCommand._create_validation_plan(client=MagicMock(), context="cdf")

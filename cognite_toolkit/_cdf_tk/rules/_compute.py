@@ -28,6 +28,7 @@ ROTATE_WARNING_DAYS = 2
 _DAY_MS = 24 * 60 * 60 * 1000
 _HOUR_MS = 60 * 60 * 1000
 _SESSIONS_ENDPOINT = "/sessions/byids"
+_VALID_SESSION_STATUSES: frozenset[SessionStatus] = frozenset({"READY", "ACTIVE"})
 
 _Severity = Literal["error", "warning", "recommendation"]
 _INSIGHT_BY_SEVERITY: dict[_Severity, type[BuildError] | type[BuildWarning] | type[Recommendation]] = {
@@ -46,13 +47,12 @@ class _Inventory:
 
 @dataclass(frozen=True)
 class _Credential:
-    """Credentials a compute resource runs with. They expire when either the session or the certificate does."""
+    """Credentials a compute resource runs with, backed by a session."""
 
     url: str
     name: str
     fix: str
     session_id: int
-    expires_at: int | None = None
 
 
 @dataclass(frozen=True)
@@ -69,7 +69,7 @@ class _Finding:
 class ComputeRuleSet(ToolkitRuleSet):
     """Validates the compute resources in CDF.
 
-    Finds credentials that expire soon, or have already expired.
+    Finds credentials whose session is missing or no longer valid, has expired, or expires soon.
     """
 
     RESOURCE_TYPES = frozenset({TransformationIO.as_resource_type()})
@@ -116,40 +116,30 @@ class ComputeRuleSet(ToolkitRuleSet):
     ) -> Iterable[_Finding | InternalValidatorException]:
         credentials = self._credentials(client, inventory)
         session_ids = sorted({credential.session_id for credential in credentials})
-        expiry_by_session_id, error = self._find_sessions(client, session_ids)
-        if error:
-            yield error
+        session_by_id, unverified = self._find_sessions(client, session_ids)
+        if unverified:
+            yield unverified
             return
         for credential in credentials:
-            session = expiry_by_session_id.get(credential.session_id)
+            session = session_by_id.get(credential.session_id)
             if session is None:
-                # Missing sessions are treated as expired, since the credentials cannot be verified.
-                yield self._create_expired_finding(credential, f"the session {credential.session_id} was not found.")
-                continue
-            if session.expiration_time and (
-                finding := self._expiry_finding(credential, session.expiration_time, now, session.status)
+                yield self._invalid_finding(credential, f"the session {credential.session_id} was not found.")
+            elif session.status is not None and session.status not in _VALID_SESSION_STATUSES:
+                yield self._invalid_finding(
+                    credential, f"the session {credential.session_id} is {session.status.casefold()}."
+                )
+            elif session.expiration_time is not None and (
+                finding := self._expiry_finding(credential, session.expiration_time, now)
             ):
                 yield finding
-            if session.status is None:
-                # The session exists, but the caller cannot verify its status or expire time. We report nothing.
-                continue
-            if session.status.casefold() in ("ready", "active"):
-                continue
-            yield _Finding(
-                url=credential.url,
-                severity="error",
-                code="INVALID-CREDENTIALS",
-                message=f"{credential.name} is invalid because the session {credential.session_id} is {session.status}.",
-                fix=credential.fix,
-            )
 
     @staticmethod
-    def _create_expired_finding(credential: _Credential, reason: str) -> _Finding:
+    def _invalid_finding(credential: _Credential, reason: str) -> _Finding:
         return _Finding(
             url=credential.url,
             severity="error",
             code="INVALID-CREDENTIALS",
-            message=f"{credential.name} {reason}",
+            message=f"{credential.name} are invalid, {reason}",
             fix=credential.fix,
         )
 
@@ -178,7 +168,7 @@ class ComputeRuleSet(ToolkitRuleSet):
     def _find_sessions(
         client: ToolkitClient, session_ids: Sequence[int]
     ) -> tuple[dict[int, SessionResponse], _Finding | None]:
-        """The expiry of the sessions by ID, and a finding if the expiry of some could not be verified."""
+        """The sessions by ID, and a finding if they could not be retrieved."""
         if not session_ids:
             return {}, None
         message = "Could not verify when the credentials of all compute resources expire."
@@ -198,15 +188,11 @@ class ComputeRuleSet(ToolkitRuleSet):
         return {session.id: session for session in sessions}, None
 
     @classmethod
-    def _expiry_finding(
-        cls, credential: _Credential, expires_at: int, now: int, session_status: SessionStatus | None
-    ) -> _Finding | None:
+    def _expiry_finding(cls, credential: _Credential, expires_at: int, now: int) -> _Finding | None:
         remaining = expires_at - now
         expiry = ms_to_datetime(expires_at).strftime("%Y-%m-%d %H:%M UTC")
         if remaining <= 0:
-            return cls._create_expired_finding(
-                credential, f"expired {_humanize_duration(-remaining)} ago, on {expiry}."
-            )
+            return cls._invalid_finding(credential, f"they expired {_humanize_duration(-remaining)} ago, on {expiry}.")
         severity: _Severity
         if remaining < ROTATE_WARNING_DAYS * _DAY_MS:
             severity = "warning"
