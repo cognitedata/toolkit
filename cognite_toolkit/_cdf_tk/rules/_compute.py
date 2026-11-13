@@ -173,7 +173,7 @@ class ComputeRuleSet(ToolkitRuleSet):
         expiry_by_session_id = {
             session.id: session.expiration_time for session in sessions or [] if session.expiration_time is not None
         }
-        if sessions is not None and len(expiry_by_session_id) == len(sessions):
+        if sessions is not None and len(expiry_by_session_id) == len(session_ids):
             return expiry_by_session_id, None
         return expiry_by_session_id, _Finding(
             url=client.config.create_api_url(_SESSIONS_ENDPOINT),
