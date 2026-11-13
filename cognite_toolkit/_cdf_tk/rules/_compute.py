@@ -266,7 +266,7 @@ class ComputeRuleSet(ToolkitRuleSet):
             if not isinstance(source, KafkaSourceResponse | MQTTSourceResponse | RESTSourceResponse):
                 continue
             for kind, certificate in (("CA", source.ca_certificate), ("authentication", source.auth_certificate)):
-                if certificate is None:
+                if certificate is None or certificate.expires_at is None:
                     continue
                 certificates.append(
                     _Certificate(
