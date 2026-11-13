@@ -34,7 +34,6 @@ def load_yaml_inject_variables(
     filepath: Path | str,
     environment_variables: dict[str, str | None],
     required_return_type: Literal["list"],
-    validate: bool = True,
     original_filepath: Path | None = None,
 ) -> tuple[list[dict[str, Any]], EnvironmentVariableMissingWarning | None]: ...
 
@@ -44,7 +43,6 @@ def load_yaml_inject_variables(
     filepath: Path | str,
     environment_variables: dict[str, str | None],
     required_return_type: Literal["dict"],
-    validate: bool = True,
     original_filepath: Path | None = None,
 ) -> tuple[dict[str, Any], EnvironmentVariableMissingWarning | None]: ...
 
@@ -54,7 +52,6 @@ def load_yaml_inject_variables(
     filepath: Path | str,
     environment_variables: dict[str, str | None],
     required_return_type: Literal["any", "list", "dict"] = "any",
-    validate: bool = True,
     original_filepath: Path | None = None,
 ) -> tuple[dict[str, Any] | list[dict[str, Any]], EnvironmentVariableMissingWarning | None]: ...
 
@@ -63,7 +60,6 @@ def load_yaml_inject_variables(
     filepath: Path | str,
     environment_variables: dict[str, str | None],
     required_return_type: Literal["any", "list", "dict"] = "any",
-    validate: bool = True,
     original_filepath: Path | None = None,
 ) -> tuple[dict[str, Any] | list[dict[str, Any]], EnvironmentVariableMissingWarning | None]:
     """Loads a YAML file and injects environment variables into it.
@@ -72,7 +68,6 @@ def load_yaml_inject_variables(
         filepath (Path | str): Path to the YAML file or file content.
         environment_variables (dict[str, str | None]): Dictionary with environment variables.
         required_return_type (Literal["any", "list", "dict"], optional): The required return type. Defaults to "any".
-        validate (bool, optional): Whether to validate that all environment variables were replaced. Defaults to True.
         original_filepath (Path | None, optional): In case the filepath is a string, this is the original path.
             Used for error messages. Defaults to None.
 
@@ -90,7 +85,7 @@ def load_yaml_inject_variables(
             continue
         content = _inject_variable(content, f"${{{key}}}", str(value))
     warning: EnvironmentVariableMissingWarning | None = None
-    if validate and (missing_variables := [match.group(1) for match in ENV_VAR_PATTERN.finditer(content)]):
+    if missing_variables := [match.group(1) for match in ENV_VAR_PATTERN.finditer(content)]:
         if isinstance(filepath, Path):
             source = filepath
         elif original_filepath:

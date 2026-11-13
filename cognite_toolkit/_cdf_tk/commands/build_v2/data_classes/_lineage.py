@@ -90,10 +90,9 @@ class ResourceLineageItem(_BaseLineageModel):
         raw, warning = load_yaml_inject_variables(
             content,
             environment_variables,
-            validate=validate,
             original_filepath=organization_path / self.source_file,
         )
-        if warning:
+        if validate and warning:
             warnings.warn(warning, stacklevel=2)
         if isinstance(raw, dict):
             return raw
