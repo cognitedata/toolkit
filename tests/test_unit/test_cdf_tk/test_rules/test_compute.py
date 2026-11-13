@@ -70,9 +70,25 @@ class TestComputeRuleSet:
 
         assert insights == [
             ("Error", "INVALID-CREDENTIALS", f"{API_URL}/transformations/1"),
-            ("Recommendation", "INVALID-CREDENTIALS", f"{API_URL}/transformations/3"),
-            ("Warning", "INVALID-CREDENTIALS", f"{API_URL}/transformations/2"),
+            ("Recommendation", "EXPIRING-CREDENTIALS", f"{API_URL}/transformations/3"),
+            ("Warning", "EXPIRING-CREDENTIALS", f"{API_URL}/transformations/2"),
         ]
+
+    def test_expiry_message_includes_session_status_when_available(self) -> None:
+        client = _client()
+        client.transformations.list.return_value = [
+            _transformation(1, "tr_with_status", sourceSession=_session_info(10)),
+            _transformation(2, "tr_without_status", sourceSession=_session_info(11)),
+        ]
+        client.sessions.retrieve.return_value = [
+            SessionResponse(id=10, status="ACTIVE", expiration_time=NOW + DAY),
+            SessionResponse(id=11, expiration_time=NOW + DAY),
+        ]
+
+        with_status, without_status = _validate(client)
+
+        assert with_status.message.endswith("The session 10 is active.")
+        assert "The session" not in without_status.message
 
     def test_credentials_are_invalid_when_session_status_is_not_valid(self) -> None:
         client = _client()

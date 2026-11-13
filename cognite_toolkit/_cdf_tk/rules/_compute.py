@@ -129,7 +129,7 @@ class ComputeRuleSet(ToolkitRuleSet):
                     credential, f"the session {credential.session_id} is {session.status.casefold()}."
                 )
             elif session.expiration_time is not None and (
-                finding := self._expiry_finding(credential, session.expiration_time, now)
+                finding := self._expiry_finding(credential, session.expiration_time, now, session.status)
             ):
                 yield finding
 
@@ -188,11 +188,16 @@ class ComputeRuleSet(ToolkitRuleSet):
         return {session.id: session for session in sessions}, None
 
     @classmethod
-    def _expiry_finding(cls, credential: _Credential, expires_at: int, now: int) -> _Finding | None:
+    def _expiry_finding(
+        cls, credential: _Credential, expires_at: int, now: int, session_status: SessionStatus | None
+    ) -> _Finding | None:
         remaining = expires_at - now
         expiry = ms_to_datetime(expires_at).strftime("%Y-%m-%d %H:%M UTC")
+        status = f" The session {credential.session_id} is {session_status.casefold()}." if session_status else ""
         if remaining <= 0:
-            return cls._invalid_finding(credential, f"they expired {_humanize_duration(-remaining)} ago, on {expiry}.")
+            return cls._invalid_finding(
+                credential, f"they expired {_humanize_duration(-remaining)} ago, on {expiry}.{status}"
+            )
         severity: _Severity
         if remaining < ROTATE_WARNING_DAYS * _DAY_MS:
             severity = "warning"
@@ -203,8 +208,8 @@ class ComputeRuleSet(ToolkitRuleSet):
         return _Finding(
             url=credential.url,
             severity=severity,
-            code="INVALID-CREDENTIALS",
-            message=f"{credential.name} will expire in {_humanize_duration(remaining)}, on {expiry}.",
+            code="EXPIRING-CREDENTIALS",
+            message=f"{credential.name} will expire in {_humanize_duration(remaining)}, on {expiry}.{status}",
             fix=credential.fix,
         )
 
