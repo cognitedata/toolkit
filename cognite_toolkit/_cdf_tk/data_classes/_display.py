@@ -10,7 +10,7 @@ from rich.progress import Progress
 class CommandDisplay:
     """Class for controlling command display options"""
 
-    intro: bool = True
+    header: bool = True
     progress: Progress | None = None
     results: bool = True
 

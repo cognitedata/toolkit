@@ -117,7 +117,7 @@ class PullV2Command(ToolkitCommand):
             build_folder = BuildV2Command(print_warning=False, skip_tracking=True, silent=True, client=client).build(
                 parameters,
                 client=client,
-                display=CommandDisplay(intro=False, results=False),
+                display=CommandDisplay(header=False, results=False),
             )
         except ToolkitError as e:
             raise ToolkitError(f"Failed to build module {humanize_collection(user_selected_modules or '')}.") from e

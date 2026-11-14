@@ -154,7 +154,7 @@ class BuildV2Command(ToolkitCommand):
             parameters.organization_dir, parameters.config_yamls, parameters.user_selected_modules, parameters.operation
         )
 
-        if display.intro:
+        if display.header:
             self._display_module_sources(
                 module_scan_result, console, parameters.verbose, selection_source, parameters.config_file_name
             )
@@ -429,7 +429,7 @@ class BuildV2Command(ToolkitCommand):
                 build_parameters,
                 context="stand-alone",
                 client=client,
-                display=CommandDisplay(intro=False, results=False),
+                display=CommandDisplay(header=False, results=False),
             )
             cdf_project = client.config.project if client else None
             lineage = BuildLineage.from_build(
