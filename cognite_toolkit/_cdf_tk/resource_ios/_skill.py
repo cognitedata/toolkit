@@ -157,7 +157,7 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
             original_filepath=filepath,
         )
         if warning:
-            self.on_warning(warning)
+            self._warn_missing_environment_variables(warning, filepath)
         raw_list = resources if isinstance(resources, list) else [resources]
         for item in raw_list:
             external_id = self.get_id(item).external_id

@@ -226,7 +226,7 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
             original_filepath=filepath,
         )
         if warning:
-            self.on_warning(warning)
+            self._warn_missing_environment_variables(warning, filepath)
         raw_list = resources if isinstance(resources, list) else [resources]
 
         for item in raw_list:

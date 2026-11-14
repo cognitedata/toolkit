@@ -28,7 +28,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions, space_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
@@ -542,13 +541,13 @@ class InFieldCDMLocationConfigIO(
         to_create: list[InFieldCDMLocationConfigRequest] = []
         for item in items:
             if item.data_storage and item.data_storage.app_instance_space in legacy_instance_spaces:
-                self.on_warning(
-                    HighSeverityWarning(
-                        f"Skipping creation of {self.display_name} {item.as_id()}. It is set to write InField data to"
-                        f" an instance space {item.data_storage.app_instance_space!r} that is already used by the "
-                        "legacy InField APM_Config."
-                        "This is not allowed as it will cause the data to be corrupted in the legacy InField."
-                    )
+                self._warn(
+                    "INVALID-VALUE",
+                    f"Skipping creation of {self.display_name} {item.as_id()}. It is set to write InField data to"
+                    f" an instance space {item.data_storage.app_instance_space!r} that is already used by the "
+                    "legacy InField APM_Config. "
+                    "This is not allowed as it will cause the data to be corrupted in the legacy InField.",
+                    source_url=self.client.infield.cdm_config.endpoint_url("upsert"),
                 )
             else:
                 to_create.append(item)
