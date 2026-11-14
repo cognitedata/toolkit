@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import (
     SuccessfulLockResult,
 )
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, HINT_LEAD_TEXT
+from cognite_toolkit._cdf_tk.data_classes import CommandDisplay
 from cognite_toolkit._cdf_tk.data_classes._insights import Insight, InsightCode, InsightList
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable, Selector
@@ -278,6 +279,7 @@ class DeployV2Command(ToolkitCommand):
         env_vars: EnvironmentVariables | None = None,
         client: ToolkitClient | None = None,
         options: DeployOptions | None = None,
+        display: CommandDisplay = CommandDisplay(),
     ) -> Sequence[DeploymentResult]:
         options = options or DeployOptions(environment_variables=env_vars.dump() if env_vars else None)
         build_lineage = self.read_build_lineage(user_build_dir)
@@ -291,9 +293,10 @@ class DeployV2Command(ToolkitCommand):
 
         with self._module_lock_context(client, options.dry_run, build_lineage, console):
             plan = self.create_deployment_plan(build_dir)
-            self._display_setup(options.operation, build_dir, plan, client.config.project, console, options.verbose)
+            if display.header:
+                self._display_setup(options.operation, build_dir, plan, client.config.project, console, options.verbose)
 
-            with Progress(console=console) as progress:
+            with display.progress_bar(console) as progress:
                 clean_result = self._drop_phase(client, plan, options, progress, console, insights_by_resource)
 
                 if options.operation == "clean":
@@ -308,7 +311,8 @@ class DeployV2Command(ToolkitCommand):
         if clean_result is not None:
             self._merge_clean_results(results, clean_result)
 
-        self._display_results(results, options.operation, console, options.verbose)
+        if display.results:
+            self._display_results(results, options.operation, console, options.verbose)
         self._track_deployment_result(self.tracker, client, results, options.operation)
 
         if build_lineage and (raw_files := self._find_raw_tables(build_lineage)):
@@ -321,7 +325,7 @@ class DeployV2Command(ToolkitCommand):
                 user_build_dir,
                 client,
                 options.dry_run,
-                client.console,
+                console,
                 options.verbose,
                 self.tracker,
             )
