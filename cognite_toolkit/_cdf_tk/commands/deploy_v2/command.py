@@ -293,14 +293,17 @@ class DeployV2Command(ToolkitCommand):
             plan = self.create_deployment_plan(build_dir)
             self._display_setup(options.operation, build_dir, plan, client.config.project, console, options.verbose)
 
-            clean_result = self._drop_phase(client, plan, options, insights_by_resource)
+            with Progress(console=console) as progress:
+                clean_result = self._drop_phase(client, plan, options, progress, console, insights_by_resource)
 
-            if options.operation == "clean":
-                clean_result = clean_result or []
-                self._display_results(clean_result, options.operation, console, options.verbose)
-                return clean_result
+                if options.operation == "clean":
+                    clean_result = clean_result or []
+                    self._display_results(clean_result, options.operation, console, options.verbose)
+                    return clean_result
 
-            results = self.apply_plan(client, plan, options, insights_by_resource=insights_by_resource)
+                results = self.apply_plan(
+                    client, plan, options, progress, console=console, insights_by_resource=insights_by_resource
+                )
 
         if clean_result is not None:
             self._merge_clean_results(results, clean_result)
@@ -330,6 +333,8 @@ class DeployV2Command(ToolkitCommand):
         client: ToolkitClient,
         plan: list[DeploymentStep],
         options: DeployOptions,
+        progress: Progress,
+        console: Console,
         insights_by_resource: InsightsByResource | None,
     ) -> Sequence[DeploymentResult] | None:
         """Validates, confirms, and runs the delete pass. Raises ToolkitUserAbortError if the user declines."""
@@ -341,7 +346,13 @@ class DeployV2Command(ToolkitCommand):
         if not options.runs_delete_pass:
             return None
         return self.apply_plan(
-            client, list(reversed(plan)), options, is_delete=True, insights_by_resource=insights_by_resource
+            client,
+            list(reversed(plan)),
+            options,
+            is_delete=True,
+            progress=progress,
+            console=console,
+            insights_by_resource=insights_by_resource,
         )
 
     @staticmethod
@@ -794,7 +805,9 @@ class DeployV2Command(ToolkitCommand):
         client: ToolkitClient,
         plan: list[DeploymentStep],
         options: DeployOptions,
+        progress: Progress,
         is_delete: bool = False,
+        console: Console | None = None,
         insights_by_resource: InsightsByResource | None = None,
     ) -> Sequence[DeploymentResult]:
         """Applies the given plan using the given client.
@@ -803,7 +816,9 @@ class DeployV2Command(ToolkitCommand):
             client: The client to use to apply the plan.
             plan: The plan to apply.
             options: The options to use when applying the plan.
+            progress: The progress bar to use when applying the plan.
             is_delete: Whether this plan application is a delete/clean operation.
+            console: The console to use for output. If None, a new console will be created.
             insights_by_resource: Optional mapping of resources to related build insights.
 
         Returns:
@@ -811,11 +826,11 @@ class DeployV2Command(ToolkitCommand):
         """
 
         results: list[DeploymentResult] = []
-        console = client.console
+        console = console or client.console
         collected_warnings: list[ToolkitWarning] = []
-        with cls._print_warnings_on_error(collected_warnings, console), Progress(console=console) as progress:
-            total_files = sum(len(step.files) for step in plan)
-            task_id = progress.add_task(f"Starting {options.operation}", total=total_files)
+        total_files = sum(len(step.files) for step in plan)
+        task_id = progress.add_task(f"Starting {options.operation}", total=total_files)
+        with cls._print_warnings_on_error(collected_warnings, console):
             for step in plan:
                 step_warning_start = len(collected_warnings)
                 crud = step.crud_cls(client, on_warning=collected_warnings.append)
@@ -894,9 +909,7 @@ class DeployV2Command(ToolkitCommand):
                 )
 
                 if options.dry_run:
-                    result = cls.deploy_dry_run(
-                        crud, resources_to_deploy, is_missing_write, is_write_acl_unknown, options
-                    )
+                    result = cls.deploy_dry_run(crud, resources_to_deploy, is_missing_write, is_write_acl_unknown, options)
                     progress.update(task_id, description=f"Would have {options.operation}ed {resource_name} to CDF")
                 else:
                     if resources_to_deploy.to_delete and crud.drop_confirmation_message:
@@ -919,8 +932,8 @@ class DeployV2Command(ToolkitCommand):
                 results.append(result)
 
                 progress.update(task_id, advance=len(step.files))
-            finished = "Finished dry-run." if options.dry_run else f"Finished {options.operation}ing."
-            progress.update(task_id, description=finished)
+        finished = "Finished dry-run." if options.dry_run else f"Finished {options.operation}ing."
+        progress.update(task_id, description=finished, completed=total_files)
         return results
 
     @staticmethod
