@@ -3,12 +3,14 @@ from pathlib import Path
 
 from pydantic.alias_generators import to_camel
 
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view import ViewResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
     Insight,
+    InternalValidatorException,
 )
 from cognite_toolkit._cdf_tk.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.resource_ios import InFieldCDMLocationConfigIO
@@ -54,7 +56,7 @@ class InFieldCDMRuleSet(ToolkitRuleSet):
             message="Will validate InField CDM location configurations.",
         )
 
-    def validate(self) -> Iterable[Insight]:
+    def validate(self) -> Iterable[Insight | InternalValidatorException]:
         if self.client is None:
             return
         card_view_refs: list[_CardViewRef] = []
@@ -73,7 +75,15 @@ class InFieldCDMRuleSet(ToolkitRuleSet):
                 app_instance_space_refs.append((resource.source, data_storage.app_instance_space))
 
         if app_instance_space_refs:
-            yield from self._check_legacy_app_instance_spaces(app_instance_space_refs, crud.legacy_instance_spaces)
+            try:
+                legacy_instance_spaces = crud.legacy_instance_spaces
+            except ToolkitAPIError as error:
+                yield InternalValidatorException(
+                    message=f"Failed to retrieve legacy InField (APM_Config) instance spaces: {error}",
+                    source=self.DISPLAY_NAME,
+                )
+            else:
+                yield from self._check_legacy_app_instance_spaces(app_instance_space_refs, legacy_instance_spaces)
 
         if not card_view_refs and not field_config_refs:
             return

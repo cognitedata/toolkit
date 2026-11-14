@@ -506,6 +506,28 @@ class TestInFieldCDMRuleSet:
         rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
         assert [insight.code for insight in rule.validate()] == expected_codes
 
+    def test_legacy_infield_lookup_failure_is_reported(
+        self,
+        tmp_path: Path,
+        write_config_yaml: Callable[[Path, dict], None],
+        create_built_resource: Callable[[Path, Path], BuiltResource],
+        create_module: Callable[[Path, list[BuiltResource]], BuiltModule],
+    ) -> None:
+        yaml_file = tmp_path / "cdf_applications" / "my_location.InFieldCDMLocationConfig.yaml"
+        write_config_yaml(
+            yaml_file,
+            {
+                "space": "sp_instance",
+                "externalId": "my_location_config",
+                "dataStorage": {"appInstanceSpace": "my_app_space"},
+            },
+        )
+        module = create_module(tmp_path, [create_built_resource(yaml_file, yaml_file)])
+        mock_client = MagicMock()
+        mock_client.infield.apm_config.list.side_effect = ToolkitAPIError("Forbidden", code=403)
+        rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
+        assert [insight.code for insight in rule.validate()] == ["INTERNAL-VALIDATOR-EXCEPTION"]
+
     def test_retrieve_batch_failure_propagates(
         self,
         tmp_path: Path,
