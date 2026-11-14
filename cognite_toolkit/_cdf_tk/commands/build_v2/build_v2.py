@@ -143,7 +143,7 @@ class BuildV2Command(ToolkitCommand):
             BuildFolder: The result of the build, including the source files, source modules, and build folder.
 
         """
-        console = self._create_console(client)
+        console = self.create_console(client)
 
         # Track build duration
         build_start_time = datetime.now(UTC)
@@ -186,7 +186,7 @@ class BuildV2Command(ToolkitCommand):
         return build_folder
 
     @classmethod
-    def _create_console(cls, client: ToolkitClient | None) -> Console:
+    def create_console(cls, client: ToolkitClient | None) -> Console:
         return client.console if client else Console(markup=True)
 
     def post_build(
@@ -219,7 +219,7 @@ class BuildV2Command(ToolkitCommand):
         Returns:
 
         """
-        console = console or self._create_console(client)
+        console = console or self.create_console(client)
         parameters = parameters or PostBuildParameters()
 
         # We report all insights in Mixpanel, but only display to the user the insights they have not ignored.
@@ -381,7 +381,7 @@ class BuildV2Command(ToolkitCommand):
         modules that have changed since the last run. If a config YAML is passed and its
         content has changed, the entire cache is invalidated and all modules are rebuilt.
         """
-        console = self._create_console(client)
+        console = self.create_console(client)
         self.validate_build_parameters(
             BuildParameters(organization_dir=organization_dir, config_yamls=[config_yaml] if config_yaml else None),
             console,
