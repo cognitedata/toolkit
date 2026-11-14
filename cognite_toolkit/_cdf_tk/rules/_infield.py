@@ -59,6 +59,7 @@ class InFieldCDMRuleSet(ToolkitRuleSet):
             return
         card_view_refs: list[_CardViewRef] = []
         field_config_refs: list[_FieldConfigRef] = []
+        app_instance_space_refs: list[tuple[Path, str]] = []
 
         crud = InFieldCDMLocationConfigIO(self.client)
         for resource, validatable in self.resources.get_refs_and_resource_of_type(crud):
@@ -67,6 +68,12 @@ class InFieldCDMRuleSet(ToolkitRuleSet):
             card_refs, field_refs = self._collect_refs(resource.source, validatable.request)
             card_view_refs.extend(card_refs)
             field_config_refs.extend(field_refs)
+            data_storage = validatable.request.data_storage
+            if data_storage and data_storage.app_instance_space:
+                app_instance_space_refs.append((resource.source, data_storage.app_instance_space))
+
+        if app_instance_space_refs:
+            yield from self._check_legacy_app_instance_spaces(app_instance_space_refs, crud.legacy_instance_spaces)
 
         if not card_view_refs and not field_config_refs:
             return
@@ -133,6 +140,27 @@ class InFieldCDMRuleSet(ToolkitRuleSet):
                 )
 
         return card_refs, field_refs
+
+    @staticmethod
+    def _check_legacy_app_instance_spaces(
+        app_instance_space_refs: list[tuple[Path, str]], legacy_instance_spaces: set[str]
+    ) -> Iterable[Insight]:
+        for source_path, app_instance_space in app_instance_space_refs:
+            if app_instance_space not in legacy_instance_spaces:
+                continue
+            yield with_position(
+                BuildError(
+                    code="INVALID-VALUE",
+                    message=(
+                        f"The appInstanceSpace {app_instance_space!r} is already used by legacy InField (APM_Config). "
+                        "Writing InField on CDM data to it will corrupt the data in legacy InField, "
+                        "and the location config will not be deployed."
+                    ),
+                    fix="Use a new instance space for dataStorage.appInstanceSpace.",
+                    source_file=source_path,
+                ),
+                keys=["appInstanceSpace"],
+            )
 
     def _check_required_properties(
         self,
