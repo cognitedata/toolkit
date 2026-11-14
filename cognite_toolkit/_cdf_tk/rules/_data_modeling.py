@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelRequest,
     DataModelResponse,
     DirectNodeRelation,
+    EnumProperty,
     RequiresConstraintDefinition,
     ReverseDirectRelationProperty,
     ViewCorePropertyRequest,
@@ -1143,14 +1144,15 @@ class DataModelingRuleSet(ToolkitRuleSet):
         Per CDF's container property update rules: the type (including list state, collation and, for
         direct relations, the target container), and autoIncrement can never change. A property can go
         from nullable to non-nullable, but not the other way around. Everything else (name, description,
-        defaultValue) is metadata and can always change.
+        defaultValue) is metadata and can always change. Enum values can be added, while removed enum
+        values are reported separately as a warning.
 
         Fields left unset locally (list, collation, ...) fall back to CDF's own defaults, so an omitted
         field is never treated as a change: only fields the local YAML actually set are compared.
         """
         local_type, cdf_type = local_property.type, cdf_property.type
         if type(local_type) is not type(cdf_type) or any(
-            field_name != "type" and getattr(local_type, field_name) != getattr(cdf_type, field_name)
+            field_name not in {"type", "values"} and getattr(local_type, field_name) != getattr(cdf_type, field_name)
             for field_name in local_type.model_fields_set
         ):
             return True
@@ -1162,6 +1164,15 @@ class DataModelingRuleSet(ToolkitRuleSet):
         if cdf_property.nullable is False and local_property.nullable is True:
             return True
         return False
+
+    @staticmethod
+    def _removed_enum_values(
+        local_property: ContainerPropertyDefinition, cdf_property: ContainerPropertyDefinition
+    ) -> list[str]:
+        local_type, cdf_type = local_property.type, cdf_property.type
+        if not isinstance(local_type, EnumProperty) or not isinstance(cdf_type, EnumProperty):
+            return []
+        return sorted(set(cdf_type.values) - set(local_type.values))
 
     def _container_insights(
         self,
@@ -1212,6 +1223,28 @@ class DataModelingRuleSet(ToolkitRuleSet):
                     source_file=source_path,
                 ),
                 keys=["properties"],
+            )
+
+        for name in sorted(set(cdf_properties) & set(local_properties)):
+            if name in changed:
+                continue
+            removed_values = self._removed_enum_values(local_properties[name], cdf_properties[name])
+            if not removed_values:
+                continue
+            yield with_position(
+                BuildWarning(
+                    code="UNSUPPORTED-RESOURCE-REMOVAL",
+                    message=(
+                        f"Local config for container {container_id} is missing enum values "
+                        f"{humanize_collection([f'{value!r}' for value in removed_values])} of property {name!r} that have previously been deployed to CDF. "
+                        f"Deploying the current local YAML config will not remove or rename them in the container in CDF, since this is not a supported operation."
+                    ),
+                    fix=(
+                        f"Add the enum values back to your local YAML config, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
+                    ),
+                    source_file=source_path,
+                ),
+                keys=[name, "properties"],
             )
 
         # usedFor defaults to "node" when omitted, both locally and by CDF, so an omitted local value is
