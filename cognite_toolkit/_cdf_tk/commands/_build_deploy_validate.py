@@ -37,7 +37,7 @@ class BuildDeployValidateCommand(ToolkitCommand):
             print_warning=self.print_warning,
         )
 
-        build_folder = build_cmd.build(parameters, context="integrated", client=client, display=True)
+        build_folder = build_cmd.build(parameters, context="integrated", client=client)
         if validation in ("none", "syntax-only"):
             return build_folder, ValidationResultList()
 
