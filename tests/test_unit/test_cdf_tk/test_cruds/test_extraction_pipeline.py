@@ -5,15 +5,14 @@ from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 from _pytest.monkeypatch import MonkeyPatch
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config import (
-    ExtractionPipelineConfigRequest,
     ExtractionPipelineConfigResponse,
 )
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.data_classes._insights import DeployWarning
 from cognite_toolkit._cdf_tk.resource_ios import (
     ExtractionPipelineConfigIO,
     ExtractionPipelineIO,
@@ -148,65 +147,51 @@ class TestExtractionPipelineDocumentationFile:
 
 
 class TestExtractionPipelineConfigCRUD:
-    def test_load_resource_no_warning_on_keyvault(self, toolkit_client_cheap: ToolkitClient) -> None:
-        resource = {
-            "externalId": "ep_src_asset",
-            "config": """azure-keyvault:
-  authentication-method: client-secret
-  keyvault-name: CogniteKeyVault
-  tenant-id: ${AZ_ENTRA_TENANT_ID}
-  client-id: ${AZ_SERVICE_PRINCIPLE_APPLICATION_ID}
-  secret: ${AZ_SERVICE_PRINCIPLE_CLIENT_SECRET}
-  password: !keyvault value-secret-name
-databases:
--   connection-string:  !keyvault value-secret-name
-    name: my_db
-    type: odbc""",
-        }
-        print_mock = MagicMock()
-        crud = ExtractionPipelineConfigIO(toolkit_client_cheap)
+    def test_load_resource_file_no_warning_on_keyvault(
+        self, toolkit_client_cheap: ToolkitClient, tmp_path: Path
+    ) -> None:
+        filepath = tmp_path / "ep_src_asset.Config.yaml"
+        filepath.write_text("""externalId: ep_src_asset
+config:
+  azure-keyvault:
+    authentication-method: client-secret
+    keyvault-name: CogniteKeyVault
+    tenant-id: ${AZ_ENTRA_TENANT_ID}
+    client-id: ${AZ_SERVICE_PRINCIPLE_APPLICATION_ID}
+    secret: ${AZ_SERVICE_PRINCIPLE_CLIENT_SECRET}
+    password: !keyvault value-secret-name
+  databases:
+  -   connection-string:  !keyvault value-secret-name
+      name: my_db
+      type: odbc
+""")
+        warnings: list[DeployWarning] = []
+        crud = ExtractionPipelineConfigIO(toolkit_client_cheap, on_warning=warnings.append)
 
-        loaded = crud.load_resource(resource)
+        crud.load_resource_file(filepath)
 
-        assert isinstance(loaded, ExtractionPipelineConfigRequest)
-        # No warning should be printed
-        print_mock.assert_not_called()
+        assert warnings == []
 
-    def test_load_resource_invalid_yaml_warning(self) -> None:
-        resource = {
-            "externalId": "ep_src_asset",
-            "config": "invalid-yaml: [unclosed_list",
-        }
-        client = MagicMock()
-        console = MagicMock(spec=Console)
-        client.console = console
-        print_mock = MagicMock()
-        console.print = print_mock
-        crud = ExtractionPipelineConfigIO(client)
-        loaded = crud.load_resource(resource)
+    def test_load_resource_file_invalid_yaml_warning(self, toolkit_client_cheap: ToolkitClient, tmp_path: Path) -> None:
+        filepath = tmp_path / "ep_src_asset.Config.yaml"
+        filepath.write_text("externalId: ep_src_asset\nconfig: 'invalid-yaml: [unclosed_list'\n")
+        warnings: list[DeployWarning] = []
+        crud = ExtractionPipelineConfigIO(toolkit_client_cheap, on_warning=warnings.append)
 
-        assert isinstance(loaded, ExtractionPipelineConfigRequest)
-        print_mock.assert_called_once()
-        args, _ = print_mock.call_args
-        _, message = args
-        assert "ep_src_asset" in message
+        crud.load_resource_file(filepath)
 
-    def test_load_resource_yaml_array(self) -> None:
-        resource = {
-            "externalId": "ep_src_asset",
-            "config": "- item1: value1",
-        }
-        client = MagicMock()
-        console = MagicMock(spec=Console)
-        client.console = console
-        print_mock = MagicMock()
-        console.print = print_mock
-        crud = ExtractionPipelineConfigIO(client)
-        loaded = crud.load_resource(resource)
+        assert [(warning.code, warning.source_file, "ep_src_asset" in warning.message) for warning in warnings] == [
+            ("INVALID-VALUE", filepath.resolve(), True)
+        ]
 
-        assert isinstance(loaded, ExtractionPipelineConfigRequest)
-        print_mock.assert_called_once()
-        args, _ = print_mock.call_args
-        _, message = args
-        assert "ep_src_asset" in message
-        assert "a valid YAML mapping" in message
+    def test_load_resource_file_yaml_array(self, toolkit_client_cheap: ToolkitClient, tmp_path: Path) -> None:
+        filepath = tmp_path / "ep_src_asset.Config.yaml"
+        filepath.write_text("externalId: ep_src_asset\nconfig:\n  - item1: value1\n")
+        warnings: list[DeployWarning] = []
+        crud = ExtractionPipelineConfigIO(toolkit_client_cheap, on_warning=warnings.append)
+
+        crud.load_resource_file(filepath)
+
+        assert [
+            (warning.code, warning.source_file, "a valid YAML mapping" in warning.message) for warning in warnings
+        ] == [("INVALID-VALUE", filepath.resolve(), True)]

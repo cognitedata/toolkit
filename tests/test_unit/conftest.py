@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import Contai
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionCreateResponse
-from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.constants import MODULES
@@ -108,7 +108,9 @@ def toolkit_client_with_lookup() -> ToolkitClient:
     """Toolkit client with all lookup methods mocked. For tests that need to test lookup functionality.
     This is much faster than using the ApprovalToolkitClient, which requires a lot of setup and is slower to initialize.
     """
-    mock_client = _cheap_toolkit_client()
+    mock_client = ToolkitClientMock()
+    mock_client.console = Console(file=StringIO())
+    mock_client.config.project = CDF_PROJECT
     mock_client.lookup = MagicMock()
     # Setup mock for all lookup methods
     for lookup_api in [

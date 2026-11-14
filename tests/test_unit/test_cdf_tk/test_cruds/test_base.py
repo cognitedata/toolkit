@@ -108,11 +108,9 @@ class TestFormatConsistency:
         if isinstance(instance, TransformationSchedule):
             del instance.id  # Client validation does not allow id and externalid to be set simultaneously
 
-        file = MagicMock(spec=Path)
-        file.read_text.return_value = yaml.dump(instance.dump())
-        file.suffix = ".yaml"
-        file.name = "dict.yaml"
-        file.parent.name = loader.folder_name
+        file = tmp_path / loader.folder_name / "dict.yaml"
+        file.parent.mkdir(parents=True)
+        file.write_text(yaml.dump(instance.dump()), encoding="utf-8")
 
         loaded = loader.load_resource_file(filepath=file, environment_variables={})
         assert isinstance(loaded, list)
@@ -159,11 +157,9 @@ class TestFormatConsistency:
             for instance in instances:
                 del instance.id  # Client validation does not allow id and externalid to be set simultaneously
 
-        file = MagicMock(spec=Path)
-        file.read_text.return_value = yaml.dump([instance.dump() for instance in instances])
-        file.suffix = ".yaml"
-        file.name = "dict.yaml"
-        file.parent.name = loader.folder_name
+        file = tmp_path / loader.folder_name / "dict.yaml"
+        file.parent.mkdir(parents=True)
+        file.write_text(yaml.dump([instance.dump() for instance in instances]), encoding="utf-8")
 
         loaded = loader.load_resource_file(filepath=file, environment_variables={})
         assert isinstance(loaded, list)
