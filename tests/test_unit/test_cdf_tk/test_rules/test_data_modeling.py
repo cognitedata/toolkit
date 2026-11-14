@@ -12,6 +12,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerResponse,
     DataModelResponse,
     DirectNodeRelation,
+    EnumProperty,
+    EnumValue,
     Int32Property,
     TextProperty,
     ViewCorePropertyRequest,
@@ -824,6 +826,17 @@ properties:
     autoIncrement: false
 """
 
+CHANGE_CONTAINER_YAML_WITH_ENUM = """space: my_space
+externalId: MyContainer
+properties:
+  name:
+    type:
+      type: enum
+      values:
+        active: {}
+        archived: {}
+"""
+
 CHANGE_VIEW_YAML = """space: my_space
 externalId: MyView
 version: v1
@@ -989,6 +1002,12 @@ class TestIsDisallowedContainerPropertyChange:
                 False,
                 id="type-fields-left-unset-locally-are-not-flagged",
             ),
+            pytest.param(
+                ContainerPropertyDefinition(type=EnumProperty(values={"a": EnumValue(), "b": EnumValue()})),
+                ContainerPropertyDefinition(type=EnumProperty(values={"a": EnumValue()})),
+                False,
+                id="enum-value-added-is-allowed",
+            ),
         ],
     )
     def test_is_disallowed(
@@ -1111,6 +1130,19 @@ class TestDataModelingStateChanges:
                 ["INVALID-RESOURCE-CHANGE"],
                 "has modified usedFor",
                 id="container-used-for-change-is-disallowed",
+            ),
+            pytest.param(
+                CHANGE_CONTAINER_YAML_WITH_ENUM,
+                {
+                    "name": ContainerPropertyDefinition(
+                        type=EnumProperty(values={"active": EnumValue(), "inactive": EnumValue()})
+                    )
+                },
+                None,
+                "node",
+                ["UNSUPPORTED-RESOURCE-REMOVAL"],
+                "is missing enum values 'inactive' of property 'name'",
+                id="enum-value-removed-locally-is-warned",
             ),
         ],
     )
