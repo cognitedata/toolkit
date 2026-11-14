@@ -5,7 +5,6 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerInspectResultItem
@@ -119,21 +118,22 @@ def print_soft_delete_panel(
     )
 
 
-def confirm_by_typing_project_name(message: str, client: ToolkitClient) -> bool:
+def confirm_by_typing_project_name(message: str, client_project: str, console: Console) -> bool:
     """Prompt the user to type the CDF project name to confirm a destructive operation.
 
     Args:
         message: Description of the operation shown before the confirmation prompt.
-        client: Toolkit client; its project name and console are used for the prompt.
+        client_project: The name of the CDF project.
+        console: Console to use for printing messages.
+
 
     Returns:
         True if the user typed the correct project name, False otherwise.
     """
-    client_project = client.config.project
-    client.console.print(f"{message} in the CDF project [bold]{client_project!r}[/bold]")
+    console.print(f"{message} in the CDF project [bold]{client_project!r}[/bold]")
     typed_project = questionary.text("To confirm, please type the name of the CDF project: ").unsafe_ask()
     if typed_project != client_project:
-        client.console.print(
+        console.print(
             f"The CDF project you typed does not match your credentials {typed_project!r}≠{client_project!r}. Exiting..."
         )
         return False

@@ -344,7 +344,7 @@ class DeployV2Command(ToolkitCommand):
         """Validates, confirms, and runs the delete pass. Raises ToolkitUserAbortError if the user declines."""
         if not options.drop:
             return None
-        self._validate_plan_container_references(client, plan, options)
+        self._validate_plan_container_references(client, plan, options, console)
         if options.requires_drop_confirmation and not self._confirm_drop_data(client, plan, options):
             raise ToolkitUserAbortError("Drop data aborted by user. No resources were deleted.")
         if not options.runs_delete_pass:
@@ -375,6 +375,7 @@ class DeployV2Command(ToolkitCommand):
             dry_run,
             build_lineage.deploy_branch,
             module_ids=[module.module_id for module in build_lineage.module_lineage],
+            console=console,
         )
 
     @classmethod
@@ -732,6 +733,7 @@ class DeployV2Command(ToolkitCommand):
         client: ToolkitClient,
         plan: list[DeploymentStep],
         options: DeployOptions,
+        console: Console,
     ) -> None:
         """Raise ToolkitValueError if any container in the plan is referenced by views outside the build directory."""
         container_ids: list[ContainerId] = []
@@ -761,14 +763,11 @@ class DeployV2Command(ToolkitCommand):
             if options.operation == "clean"
             else "deploying with --drop flag",
             scope="build directory",
-            console=client.console,
+            console=console,
         )
 
     def _confirm_drop_data(
-        self,
-        client: ToolkitClient,
-        plan: list[DeploymentStep],
-        options: DeployOptions,
+        self, client: ToolkitClient, plan: list[DeploymentStep], options: DeployOptions, console: Console | None = None
     ) -> bool:
         """Show safety gates before any --drop-data deletion. Returns False if the user aborts."""
         instance_count = self._count_dms_instances_in_plan(client, plan, options)
@@ -784,7 +783,7 @@ class DeployV2Command(ToolkitCommand):
                 project_instance_statistics.soft_deleted_instances,
                 project_instance_statistics.soft_deleted_instances_limit,
                 instance_count,
-                client.console,
+                console or client.console,
             )
             acknowledge = questionary.confirm(
                 "Do you understand the soft-delete resource limit impact and wish to continue?",
@@ -792,7 +791,7 @@ class DeployV2Command(ToolkitCommand):
             ).ask()
             if not acknowledge:
                 return False
-        client.console.print(
+        (console or client.console).print(
             ToolkitPanel(
                 "[red]WARNING:[/red] This operation [bold]cannot be undone[/bold]! "
                 "Resources and their data will be permanently deleted.",
@@ -801,7 +800,9 @@ class DeployV2Command(ToolkitCommand):
                 expand=False,
             )
         )
-        return confirm_by_typing_project_name("You are about to delete resources and their data", client)
+        return confirm_by_typing_project_name(
+            "You are about to delete resources and their data", client.config.project, console or client.console
+        )
 
     @classmethod
     def apply_plan(

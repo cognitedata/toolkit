@@ -294,7 +294,9 @@ class TestCheckNoOutOfScopeViewReferences:
             patch.object(ContainerIO, "retrieve", return_value=[container_mock]),
             raises_ctx,
         ):
-            cmd._validate_plan_container_references(client, plan, DeployOptions(drop=True, operation=operation))
+            cmd._validate_plan_container_references(
+                client, plan, DeployOptions(drop=True, operation=operation), client.console
+            )
 
 
 class TestDeployResourcesSpecialUpsertHandling:

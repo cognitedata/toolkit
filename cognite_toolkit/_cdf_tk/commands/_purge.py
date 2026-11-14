@@ -393,7 +393,9 @@ class PurgeCommand(ToolkitCommand):
                     return DeployResults([], "purge", dry_run=dry_run)
             self._print_panel("space", selected_space)
 
-            confirm = confirm_by_typing_project_name(f"You are about purge the {selected_space!r} space", client)
+            confirm = confirm_by_typing_project_name(
+                f"You are about purge the {selected_space!r} space", client.config.project, client.console
+            )
             if not confirm:
                 return DeployResults([], "purge", dry_run=dry_run)
             self._validate_production(client, "space")
@@ -627,7 +629,9 @@ class PurgeCommand(ToolkitCommand):
             self._print_panel("dataSet", selected_data_set_external_id)
         if not dry_run and not auto_yes:
             confirm = confirm_by_typing_project_name(
-                f"You are about to purge the {selected_data_set_external_id!r} dataSet", client
+                f"You are about to purge the {selected_data_set_external_id!r} dataSet",
+                client.config.project,
+                client.console,
             )
             if not confirm:
                 return DeployResults([], "purge", dry_run=dry_run)
@@ -859,7 +863,7 @@ class PurgeCommand(ToolkitCommand):
             self._print_panel("instances", str(selector))
 
             confirm_purge = confirm_by_typing_project_name(
-                f"You are about to purge all {total:,} instances in {selector!s}", client
+                f"You are about to purge all {total:,} instances in {selector!s}", client.config.project, client.console
             )
             if not confirm_purge:
                 return DeleteResults()
