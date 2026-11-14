@@ -257,7 +257,16 @@ class DataModelingRuleSet(ToolkitRuleSet):
         except Exception:
             # Already reported by the schema reference check.
             return
-        implements_graph, view_error = self._implements_graph(local_views)
+        try:
+            local_data_models = self._load_data_models()
+        except Exception as e:
+            yield InternalValidatorException(
+                message=f"Failed to load local data models: {e}",
+                source="DataModeling",
+            )
+            local_data_models = {}
+        model_view_ids = {view_id for _, data_model in local_data_models.values() for view_id in data_model.views or []}
+        implements_graph, view_error = self._implements_graph(local_views, model_view_ids)
         if view_error is not None:
             yield view_error
         cycles = self._implements_cycles(implements_graph)
@@ -265,15 +274,18 @@ class DataModelingRuleSet(ToolkitRuleSet):
         in_cycle = {view_id for cycle in cycles for view_id in cycle}
         yield from self._check_requires_constraints(local_containers, local_views, skip=in_cycle)
         yield from self._check_reverse_relation_indexes(local_containers, local_views)
+        yield from self._check_missing_parent_views(local_data_models, implements_graph)
 
     def _implements_graph(
-        self, local_views: dict[ViewId, _LocalView]
+        self, local_views: dict[ViewId, _LocalView], other_view_ids: set[ViewId] | None = None
     ) -> tuple[dict[ViewId, list[ViewId]], InternalValidatorException | None]:
-        """The implemented views by view, for the local views and the CDF views they implement, directly or
-        transitively. Local views take precedence over their deployed version. Views not found are leaves."""
+        """The implemented views by view, for the local views, the other views, and the CDF views they implement,
+        directly or transitively. Local views take precedence over their deployed version. Views not found are
+        leaves."""
         graph = {view_id: list(view_request.implements or []) for view_id, (_, view_request) in local_views.items()}
         first_error: InternalValidatorException | None = None
         frontier = {parent_id for parents in graph.values() for parent_id in parents if parent_id not in graph}
+        frontier |= {view_id for view_id in other_view_ids or set() if view_id not in graph}
         while frontier:
             cdf_views, error = self._retrieve_views(frontier)
             first_error = first_error or error
@@ -343,6 +355,56 @@ class DataModelingRuleSet(ToolkitRuleSet):
         for parent_id in implements_graph.get(view_id, []):
             cls._find_cycles(parent_id, implements_graph, visited, path, cycles)
         path.pop()
+
+    @classmethod
+    def _check_missing_parent_views(
+        cls, local_data_models: dict[DataModelId, _LocalDataModel], implements_graph: dict[ViewId, list[ViewId]]
+    ) -> Iterable[Insight]:
+        """Recommends adding the views implemented, directly or transitively, by the views of a data model to it.
+
+        The implemented views become interfaces in the GraphQL schema generated for the data model, and the
+        schema is invalid if an interface is not part of the data model.
+        """
+        for model_id, (resource, data_model) in local_data_models.items():
+            model_views = data_model.views or []
+            included = set(model_views)
+            missing: list[ViewId] = []
+            for view_id in model_views:
+                for ancestor_id in cls._ancestors(view_id, implements_graph):
+                    if ancestor_id not in included and ancestor_id not in missing:
+                        missing.append(ancestor_id)
+            if not missing:
+                continue
+            noun = "view" if len(missing) == 1 else "views"
+            labels = humanize_collection([f"'{view_id}'" for view_id in missing], sort=False)
+            yield with_position(
+                Recommendation(
+                    code="MISSING-VALUE",
+                    message=(
+                        f"Data model {quote_identifier(model_id)} is missing the {noun} {labels}, implemented by "
+                        "its views. Implemented views become interfaces in the GraphQL schema of the data model, "
+                        "and the schema is invalid if an interface is not part of the data model."
+                    ),
+                    fix=f"Add {labels} to the views of the data model.",
+                    source_file=_source_file(resource),
+                    alpha=Flags.ALPHA_RULES.is_enabled(),
+                ),
+                keys=["views"],
+                variables=resource.variables,
+            )
+
+    @staticmethod
+    def _ancestors(view_id: ViewId, implements_graph: dict[ViewId, list[ViewId]]) -> list[ViewId]:
+        """The views implemented by the view, directly or transitively, in depth-first order."""
+        ancestors: list[ViewId] = []
+        stack = list(reversed(implements_graph.get(view_id, [])))
+        while stack:
+            parent_id = stack.pop()
+            if parent_id == view_id or parent_id in ancestors:
+                continue
+            ancestors.append(parent_id)
+            stack.extend(reversed(implements_graph.get(parent_id, [])))
+        return ancestors
 
     def _check_requires_constraints(
         self,
