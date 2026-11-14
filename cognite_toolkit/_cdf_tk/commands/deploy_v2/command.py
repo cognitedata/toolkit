@@ -285,20 +285,19 @@ class DeployV2Command(ToolkitCommand):
         build_dir = self.read_build_directory(user_build_dir, options.include, build_lineage)
 
         client = self._get_client(client, env_vars, build_dir.is_strict_validation)
+        console = client.console if client else Console(markup=True)
 
         self._validate_cdf_project(build_dir, options.operation, options.cdf_project, client.config.project)
 
-        with self._module_lock_context(client, options.dry_run, build_lineage):
+        with self._module_lock_context(client, options.dry_run, build_lineage, console):
             plan = self.create_deployment_plan(build_dir)
-            self._display_setup(
-                options.operation, build_dir, plan, client.config.project, client.console, options.verbose
-            )
+            self._display_setup(options.operation, build_dir, plan, client.config.project, console, options.verbose)
 
             clean_result = self._drop_phase(client, plan, options, insights_by_resource)
 
             if options.operation == "clean":
                 clean_result = clean_result or []
-                self._display_results(clean_result, options.operation, client.console, options.verbose)
+                self._display_results(clean_result, options.operation, console, options.verbose)
                 return clean_result
 
             results = self.apply_plan(client, plan, options, insights_by_resource=insights_by_resource)
@@ -306,14 +305,14 @@ class DeployV2Command(ToolkitCommand):
         if clean_result is not None:
             self._merge_clean_results(results, clean_result)
 
-        self._display_results(results, options.operation, client.console, options.verbose)
+        self._display_results(results, options.operation, console, options.verbose)
         self._track_deployment_result(self.tracker, client, results, options.operation)
 
         if build_lineage and (raw_files := self._find_raw_tables(build_lineage)):
             # To aviod circular imports, we import UploadCommand here.
             from cognite_toolkit._cdf_tk.commands import UploadCommand
 
-            self._display_deprecation_warning(raw_files, client.console)
+            self._display_deprecation_warning(raw_files, console)
             UploadCommand.upload_data(
                 cast(Mapping[Selector, list[Path]], raw_files),
                 user_build_dir,
@@ -347,7 +346,7 @@ class DeployV2Command(ToolkitCommand):
 
     @staticmethod
     def _module_lock_context(
-        client: ToolkitClient, dry_run: bool, build_lineage: BuildLineage | None
+        client: ToolkitClient, dry_run: bool, build_lineage: BuildLineage | None, console: Console
     ) -> AbstractContextManager[SuccessfulLockResult | None, bool | None]:
         if (
             not Flags.DEPLOY_PROTECTION.is_enabled()
