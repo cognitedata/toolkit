@@ -185,7 +185,8 @@ class BuildV2Command(ToolkitCommand):
         )
         return build_folder
 
-    def _create_console(self, client: ToolkitClient | None) -> Console:
+    @classmethod
+    def _create_console(cls, client: ToolkitClient | None) -> Console:
         return client.console if client else Console(markup=True)
 
     def post_build(

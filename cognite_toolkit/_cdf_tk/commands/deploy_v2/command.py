@@ -300,6 +300,7 @@ class DeployV2Command(ToolkitCommand):
                 clean_result = clean_result or []
                 self._display_results(clean_result, options.operation, client.console, options.verbose)
                 return clean_result
+
             results = self.apply_plan(client, plan, options, insights_by_resource=insights_by_resource)
 
         if clean_result is not None:
