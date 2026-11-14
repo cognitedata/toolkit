@@ -71,7 +71,7 @@ class TestConfirmDropData:
         monkeypatch.setattr(cmd, "_count_dms_instances_in_plan", lambda c, p, o: 0)
         monkeypatch.setattr(
             "cognite_toolkit._cdf_tk.commands.deploy_v2.command.confirm_by_typing_project_name",
-            lambda msg, client: True,
+            lambda msg, project, console: True,
         )
 
         result = cmd._confirm_drop_data(client, [], options)
@@ -88,7 +88,7 @@ class TestConfirmDropData:
         monkeypatch.setattr(cmd, "_count_dms_instances_in_plan", lambda c, p, o: 0)
         monkeypatch.setattr(
             "cognite_toolkit._cdf_tk.commands.deploy_v2.command.confirm_by_typing_project_name",
-            lambda msg, client: False,
+            lambda msg, project, console: False,
         )
 
         result = cmd._confirm_drop_data(client, [], options)
@@ -111,7 +111,7 @@ class TestConfirmDropData:
         )
         monkeypatch.setattr(
             "cognite_toolkit._cdf_tk.commands.deploy_v2.command.confirm_by_typing_project_name",
-            lambda msg, client: True,
+            lambda msg, project, console: True,
         )
 
         result = cmd._confirm_drop_data(client, [], options)
