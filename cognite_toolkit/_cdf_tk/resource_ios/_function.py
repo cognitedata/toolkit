@@ -57,7 +57,6 @@ from ._data_organization import DataSetsIO
 from ._datamodel import SpaceIO
 from ._file import CogniteFileIO, FileMetadataIO
 from ._function_code_bundle import FunctionCodeBundle
-from ._group_scoped import GroupResourceScopedIO
 
 CDF_TOML: CDFToml = CDFToml.load_module_context()
 
@@ -500,7 +499,7 @@ class FunctionScheduleIO(
     resource_write_cls = FunctionScheduleRequest
     kind = "Schedule"
     yaml_cls = FunctionScheduleYAML
-    dependencies = frozenset({FunctionIO, GroupResourceScopedIO, GroupAllScopedIO})
+    dependencies = frozenset({FunctionIO, GroupAllScopedIO})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
     parent_resource = frozenset({FunctionIO})
     support_update = False

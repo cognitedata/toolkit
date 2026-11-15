@@ -20,7 +20,6 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.resource_ios._datamodel import DataModelIO, SpaceIO
 from cognite_toolkit._cdf_tk.resource_ios._function import FunctionIO
-from cognite_toolkit._cdf_tk.resource_ios._group_scoped import GroupResourceScopedIO
 from cognite_toolkit._cdf_tk.resource_ios._skill import SkillIO
 from cognite_toolkit._cdf_tk.utils import (
     calculate_hash,
@@ -424,7 +423,3 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
                 get_identifier=lambda ref: ref.get("agentExternalId", "") if isinstance(ref, dict) else "",
             )
         return super().diff_list(local, cdf, json_path)
-
-
-# _group_scoped cannot import AgentIO: _agent -> _function -> _group_scoped would be circular.
-GroupResourceScopedIO.dependencies = GroupResourceScopedIO.dependencies | {AgentIO}

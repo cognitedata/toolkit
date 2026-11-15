@@ -17,6 +17,7 @@ from typing import final
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 
+from ._agent import AgentIO
 from ._app import AppIO
 from ._auth import GroupIO, SecurityCategoryIO
 from ._classic import AssetIO
@@ -34,7 +35,6 @@ from ._timeseries import TimeSeriesIO
 
 @final
 class GroupResourceScopedIO(GroupIO):
-    # AgentIO is added in _agent.py to avoid a circular import.
     dependencies = frozenset(
         {
             SpaceIO,
@@ -51,6 +51,7 @@ class GroupResourceScopedIO(GroupIO):
             SAPInstanceIO,
             AppIO,
             PostgresGatewayUserIO,
+            AgentIO,
         }
     )
 
