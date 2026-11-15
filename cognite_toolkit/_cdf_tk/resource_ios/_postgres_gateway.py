@@ -40,7 +40,6 @@ from cognite_toolkit._cdf_tk.yaml_classes.postgres_gateway_table import RawRowsT
 
 from ._auth import GroupAllScopedIO
 from ._datamodel import ViewIO
-from ._group_scoped import GroupResourceScopedIO
 from ._raw import RawDatabaseIO, RawTableIO
 
 _INACTIVE_SESSION_STATUSES = frozenset({"CANCELLED", "EXPIRED", "REVOKED", "ACCESS_LOST"})
@@ -55,7 +54,7 @@ class PostgresGatewayUserIO(
     resource_write_cls = PostgresGatewayUserRequest
     kind = "PostgresGatewayUser"
     yaml_cls = PostgresGatewayUserYAML
-    dependencies = frozenset({GroupAllScopedIO, GroupResourceScopedIO})
+    dependencies = frozenset({GroupAllScopedIO})
     # CDF generates the username on create, so Toolkit cannot recreate a dropped user.
     support_drop = False
     _doc_url = "Postgres-Gateway-Users/operation/update_users"

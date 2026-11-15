@@ -26,6 +26,7 @@ from ._datamodel import SpaceIO
 from ._extraction_pipeline import ExtractionPipelineIO
 from ._integrations import IntegrationsIO
 from ._location import LocationFilterIO
+from ._postgres_gateway import PostgresGatewayUserIO
 from ._raw import RawDatabaseIO, RawTableIO
 from ._sap_writeback import SAPInstanceIO
 from ._timeseries import TimeSeriesIO
@@ -34,7 +35,6 @@ from ._timeseries import TimeSeriesIO
 @final
 class GroupResourceScopedIO(GroupIO):
     # AgentIO is added in _agent.py to avoid a circular import.
-    # PostgresGatewayUserIO depends on this class, so it cannot be listed here.
     dependencies = frozenset(
         {
             SpaceIO,
@@ -50,6 +50,7 @@ class GroupResourceScopedIO(GroupIO):
             IntegrationsIO,
             SAPInstanceIO,
             AppIO,
+            PostgresGatewayUserIO,
         }
     )
 
