@@ -120,12 +120,10 @@ from cognite_toolkit._cdf_tk.yaml_classes.transformation_destination import (
     ViewDataSource,
 )
 
-from ._auth import GroupAllScopedIO
 from ._classic import SequenceIO
 from ._data_organization import DataSetsIO
 from ._datamodel import DataModelIO, SpaceIO, ViewIO
 from ._externaldata import ExternalDataSourceIO
-from ._group_scoped import GroupResourceScopedIO
 from ._raw import RawDatabaseIO, RawTableIO
 
 if TYPE_CHECKING:
@@ -159,12 +157,10 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
         {
             DataSetsIO,
             RawDatabaseIO,
-            GroupAllScopedIO,
             SpaceIO,
             ViewIO,
             DataModelIO,
             RawTableIO,
-            GroupResourceScopedIO,
             ExternalDataSourceIO,
             SequenceIO,
         }

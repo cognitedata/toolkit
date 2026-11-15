@@ -52,7 +52,6 @@ from cognite_toolkit._cdf_tk.utils.file import (
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 from cognite_toolkit._cdf_tk.yaml_classes import FunctionScheduleYAML, FunctionsYAML
 
-from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
 from ._datamodel import SpaceIO
 from ._file import CogniteFileIO, FileMetadataIO
@@ -69,7 +68,7 @@ class FunctionIO(ResourceIO[ExternalId, FunctionRequest, FunctionResponse, Funct
     resource_write_cls = FunctionRequest
     kind = "Function"
     yaml_cls = FunctionsYAML
-    dependencies = frozenset({DataSetsIO, GroupAllScopedIO, SpaceIO})
+    dependencies = frozenset({DataSetsIO, SpaceIO})
     _doc_url = "Functions/operation/postFunctions"
     metadata_value_limit = 512
     support_update = False
@@ -499,7 +498,7 @@ class FunctionScheduleIO(
     resource_write_cls = FunctionScheduleRequest
     kind = "Schedule"
     yaml_cls = FunctionScheduleYAML
-    dependencies = frozenset({FunctionIO, GroupAllScopedIO})
+    dependencies = frozenset({FunctionIO})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
     parent_resource = frozenset({FunctionIO})
     support_update = False

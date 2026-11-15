@@ -64,7 +64,6 @@ from cognite_toolkit._cdf_tk.utils.acl_helper import data_set_scope_from_ids
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import ExtractionPipelineConfigYAML, ExtractionPipelineYAML
 
-from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
 from ._raw import RawDatabaseIO, RawTableIO
 
@@ -80,7 +79,7 @@ class ExtractionPipelineIO(
     resource_cls = ExtractionPipelineResponse
     resource_write_cls = ExtractionPipelineRequest
     kind = "ExtractionPipeline"
-    dependencies = frozenset({DataSetsIO, RawDatabaseIO, RawTableIO, GroupAllScopedIO})
+    dependencies = frozenset({DataSetsIO, RawDatabaseIO, RawTableIO})
     yaml_cls = ExtractionPipelineYAML
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 

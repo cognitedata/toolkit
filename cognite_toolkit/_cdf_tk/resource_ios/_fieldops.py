@@ -40,7 +40,6 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
 from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import DataFilter
 from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ViewReference
 
-from ._auth import GroupAllScopedIO
 from ._classic import AssetIO
 from ._data_organization import DataSetsIO
 from ._datamodel import NodeIO, SpaceIO, ViewIO
@@ -55,7 +54,7 @@ class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse, In
     resource_write_cls = APMConfigRequest
     kind = "InfieldV1"
     yaml_cls = InfieldV1YAML
-    dependencies = frozenset({DataSetsIO, AssetIO, SpaceIO, GroupAllScopedIO, GroupResourceScopedIO, SAPEndpointIO})
+    dependencies = frozenset({DataSetsIO, AssetIO, SpaceIO, GroupResourceScopedIO, SAPEndpointIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
     _root_location_filters: tuple[str, ...] = ("general", "assets", "files", "timeseries")
     _group_keys: tuple[str, ...] = ("templateAdmins", "checklistAdmins")
@@ -265,7 +264,7 @@ class InFieldLocationConfigIO(
     resource_write_cls = InFieldLocationConfigRequest
     kind = "InFieldLocationConfig"
     yaml_cls = InfieldLocationConfigYAML
-    dependencies = frozenset({SpaceIO, GroupAllScopedIO, GroupResourceScopedIO, SAPEndpointIO})
+    dependencies = frozenset({SpaceIO, GroupResourceScopedIO, SAPEndpointIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @property
@@ -308,7 +307,7 @@ class InFieldLocationConfigIO(
             for group_name in resource.access_management.checklist_admins or []:
                 yield GroupResourceScopedIO, NameId(name=group_name)
             for group_name in resource.access_management.template_admins or []:
-                yield GroupAllScopedIO, NameId(name=group_name)
+                yield GroupResourceScopedIO, NameId(name=group_name)
         if resource.app_instance_space:
             yield SpaceIO, SpaceId(space=resource.app_instance_space)
         if resource.feature_toggles and resource.feature_toggles.observations:
@@ -398,7 +397,7 @@ class InFieldCDMLocationConfigIO(
     resource_write_cls = InFieldCDMLocationConfigRequest
     kind = "InFieldCDMLocationConfig"
     yaml_cls = InFieldCDMLocationConfigYAML
-    dependencies = frozenset({SpaceIO, GroupAllScopedIO, GroupResourceScopedIO, ViewIO, NodeIO, SAPEndpointIO})
+    dependencies = frozenset({SpaceIO, GroupResourceScopedIO, ViewIO, NodeIO, SAPEndpointIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @property
