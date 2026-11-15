@@ -26,6 +26,7 @@
 # limitations under the License.
 
 
+import importlib.util
 import random
 import re
 import time
@@ -99,7 +100,12 @@ from cognite_toolkit._cdf_tk.utils import (
     sanitize_filename,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
-from cognite_toolkit._cdf_tk.utils.cdf import get_ext_onelake_source_ids, read_auth, try_find_error
+from cognite_toolkit._cdf_tk.utils.cdf import (
+    get_ext_onelake_source_ids,
+    get_transformation_sources,
+    read_auth,
+    try_find_error,
+)
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 from cognite_toolkit._cdf_tk.yaml_classes import (
@@ -224,6 +230,11 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
         if resource.query:
             for source_id in get_ext_onelake_source_ids(resource.query):
                 yield ExternalDataSourceIO, ExternalId(external_id=source_id)
+            if importlib.util.find_spec("sqlparse") is not None:
+                for source in get_transformation_sources(resource.query):
+                    if isinstance(source, RawTableId):
+                        yield RawDatabaseIO, RawDatabaseId(name=source.db_name)
+                        yield RawTableIO, source
         if destination := resource.destination:
             if isinstance(destination, RawDataSource):
                 yield RawDatabaseIO, RawDatabaseId(name=destination.database)

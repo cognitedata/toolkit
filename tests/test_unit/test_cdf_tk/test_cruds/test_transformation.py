@@ -1,3 +1,4 @@
+import importlib.util
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -6,7 +7,7 @@ from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     AutoCreateOptions,
     NonceCredentials,
@@ -18,6 +19,8 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.resource_ios import (
     ExternalDataSourceIO,
+    RawDatabaseIO,
+    RawTableIO,
     SequenceIO,
     TransformationIO,
 )
@@ -37,6 +40,20 @@ def _ext_onelake_transformation_yaml() -> TransformationYAML:
             "name": "my_transformation",
             "ignoreNullFields": True,
             "query": "select * from ext_onelake('fabric-prod', 'assets')",
+            "destination": {"type": "assets"},
+        }
+    )
+
+
+def _raw_source_transformation_yaml() -> TransformationYAML:
+    return TransformationYAML.model_validate(
+        {
+            "externalId": "my_transformation",
+            "name": "my_transformation",
+            "ignoreNullFields": True,
+            "query": "select * from my_db.my_table "
+            "join `other_db`.`other_table` on my_table.key = other_table.key "
+            "join _cdf.assets on my_table.key = assets.externalId",
             "destination": {"type": "assets"},
         }
     )
@@ -185,6 +202,22 @@ authentication:
         assert list(TransformationIO.get_dependencies(resource)) == [
             (SequenceIO, ExternalId(external_id="my_sequence"))
         ]
+
+    def test_get_dependencies_raw_sources(self) -> None:
+        resource = _raw_source_transformation_yaml()
+
+        assert list(TransformationIO.get_dependencies(resource)) == [
+            (RawDatabaseIO, RawDatabaseId(name="my_db")),
+            (RawTableIO, RawTableId(db_name="my_db", name="my_table")),
+            (RawDatabaseIO, RawDatabaseId(name="other_db")),
+            (RawTableIO, RawTableId(db_name="other_db", name="other_table")),
+        ]
+
+    def test_get_dependencies_raw_sources_without_sqlparse(self, monkeypatch: MonkeyPatch) -> None:
+        resource = _raw_source_transformation_yaml()
+        monkeypatch.setattr(importlib.util, "find_spec", lambda name, *args: None)
+
+        assert list(TransformationIO.get_dependencies(resource)) == []
 
     def test_create_session_nonce_error(self) -> None:
         transformations = [
