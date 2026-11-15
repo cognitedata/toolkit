@@ -97,14 +97,7 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
     resource_cls = WorkflowResponse
     resource_write_cls = WorkflowRequest
     kind = "Workflow"
-    dependencies = frozenset(
-        {
-            GroupAllScopedIO,
-            TransformationIO,
-            FunctionIO,
-            DataSetsIO,
-        }
-    )
+    dependencies = frozenset({GroupAllScopedIO, DataSetsIO})
     yaml_cls = WorkflowYAML
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflows/operation/CreateOrUpdateWorkflow"
@@ -202,7 +195,7 @@ class WorkflowVersionIO(
     resource_cls = WorkflowVersionResponse
     resource_write_cls = WorkflowVersionRequest
     kind = "WorkflowVersion"
-    dependencies = frozenset({WorkflowIO})
+    dependencies = frozenset({WorkflowIO, FunctionIO, TransformationIO, SimulatorRoutineIO})
     parent_resource = frozenset({WorkflowIO})
     yaml_cls = WorkflowVersionYAML
 

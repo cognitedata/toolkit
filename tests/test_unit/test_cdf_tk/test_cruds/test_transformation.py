@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.resource_ios import (
     ExternalDataSourceIO,
+    SequenceIO,
     TransformationIO,
 )
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
@@ -169,6 +170,21 @@ authentication:
         resource = _ext_onelake_transformation_yaml()
         deps = list(TransformationIO.get_dependencies(resource))
         assert (ExternalDataSourceIO, ExternalId(external_id="fabric-prod")) in deps
+
+    def test_get_dependencies_sequence_rows(self) -> None:
+        resource = TransformationYAML.model_validate(
+            {
+                "externalId": "my_transformation",
+                "name": "my_transformation",
+                "ignoreNullFields": True,
+                "query": "select 1",
+                "destination": {"type": "sequence_rows", "externalId": "my_sequence"},
+            }
+        )
+
+        assert list(TransformationIO.get_dependencies(resource)) == [
+            (SequenceIO, ExternalId(external_id="my_sequence"))
+        ]
 
     def test_create_session_nonce_error(self) -> None:
         transformations = [

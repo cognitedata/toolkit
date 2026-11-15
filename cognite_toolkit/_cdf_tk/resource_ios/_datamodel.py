@@ -708,6 +708,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
     resource_cls = ViewResponse
     resource_write_cls = ViewRequest
     kind = "View"
+    # StreamIO is added in _streams.py to avoid a circular import.
     dependencies = frozenset({SpaceIO, ContainerIO})
     yaml_cls = ViewYAML
     _doc_url = "Views/operation/ApplyViews"

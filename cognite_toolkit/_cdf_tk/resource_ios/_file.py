@@ -77,7 +77,7 @@ class FileMetadataIO(ResourceContainerIO[ExternalId, FileMetadataRequest, FileMe
     resource_write_cls = FileMetadataRequest
     yaml_cls = FileMetadataYAML
     kind: str = "FileMetadata"
-    dependencies = frozenset({DataSetsIO, GroupAllScopedIO, LabelIO, AssetIO})
+    dependencies = frozenset({DataSetsIO, GroupAllScopedIO, LabelIO, AssetIO, SecurityCategoryIO})
 
     _doc_url = "Files/operation/initFileUpload"
 
@@ -343,7 +343,7 @@ class CogniteFileIO(ResourceContainerIO[NodeId, CogniteFileRequest, CogniteFileR
     resource_cls = CogniteFileResponse
     resource_write_cls = CogniteFileRequest
     yaml_cls = CogniteFileYAML
-    dependencies = frozenset({GroupAllScopedIO, SpaceIO, ViewIO})
+    dependencies = frozenset({GroupAllScopedIO, SpaceIO, ViewIO, NodeIO})
 
     _doc_url = "Files/operation/initFileUpload"
     # 128,000 bytes (UTF-8) is the maximum, worse case utf-8 will use 4 bytes per character

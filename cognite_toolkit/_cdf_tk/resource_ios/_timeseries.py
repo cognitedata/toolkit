@@ -61,7 +61,7 @@ class TimeSeriesIO(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeries
     resource_write_cls = TimeSeriesRequest
     yaml_cls = TimeSeriesYAML
     kind = "TimeSeries"
-    dependencies = frozenset({DataSetsIO, GroupAllScopedIO, AssetIO})
+    dependencies = frozenset({DataSetsIO, GroupAllScopedIO, AssetIO, SecurityCategoryIO})
     _doc_url = "Time-series/operation/postTimeSeries"
 
     @property
@@ -208,7 +208,7 @@ class DatapointSubscriptionIO(
     resource_write_cls = DatapointSubscriptionRequest
     kind = "DatapointSubscription"
     _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
-    dependencies = frozenset({TimeSeriesIO, GroupAllScopedIO, NodeIO})
+    dependencies = frozenset({DataSetsIO, TimeSeriesIO, GroupAllScopedIO, NodeIO})
     yaml_cls = DatapointSubscriptionYAML
 
     _hash_key = "cdf-hash"
@@ -312,6 +312,8 @@ class DatapointSubscriptionIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DatapointSubscriptionResponse]:
+        if data_set_external_id or space or parent_ids:
+            return
         for subscriptions in self.client.datapoint_subscriptions.iterate(limit=None):
             yield from subscriptions
 

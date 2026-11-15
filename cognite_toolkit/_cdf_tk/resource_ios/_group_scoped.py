@@ -17,19 +17,24 @@ from typing import final
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 
+from ._app import AppIO
 from ._auth import GroupIO, SecurityCategoryIO
 from ._classic import AssetIO
 from ._data_organization import DataSetsIO
 from ._data_product import DataProductIO
 from ._datamodel import SpaceIO
 from ._extraction_pipeline import ExtractionPipelineIO
+from ._integrations import IntegrationsIO
 from ._location import LocationFilterIO
 from ._raw import RawDatabaseIO, RawTableIO
+from ._sap_writeback import SAPInstanceIO
 from ._timeseries import TimeSeriesIO
 
 
 @final
 class GroupResourceScopedIO(GroupIO):
+    # AgentIO is added in _agent.py to avoid a circular import.
+    # PostgresGatewayUserIO depends on this class, so it cannot be listed here.
     dependencies = frozenset(
         {
             SpaceIO,
@@ -42,6 +47,9 @@ class GroupResourceScopedIO(GroupIO):
             AssetIO,
             RawDatabaseIO,
             RawTableIO,
+            IntegrationsIO,
+            SAPInstanceIO,
+            AppIO,
         }
     )
 
