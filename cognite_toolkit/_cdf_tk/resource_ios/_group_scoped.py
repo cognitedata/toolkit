@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from ._agent import AgentIO
 from ._app import AppIO
 from ._auth import GroupIO, SecurityCategoryIO
+from ._base_ios import WarningHandler
 from ._classic import AssetIO
 from ._data_organization import DataSetsIO
 from ._data_product import DataProductIO
@@ -55,8 +56,8 @@ class GroupResourceScopedIO(GroupIO):
         }
     )
 
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client, "resource_scoped_only")
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, "resource_scoped_only", on_warning=on_warning)
 
     @property
     def display_name(self) -> str:
