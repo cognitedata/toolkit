@@ -40,11 +40,11 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
 from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import DataFilter
 from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ViewReference
 
-from ._auth import GroupAllScopedIO
 from ._classic import AssetIO
 from ._data_organization import DataSetsIO
-from ._datamodel import SpaceIO, ViewIO
+from ._datamodel import NodeIO, SpaceIO, ViewIO
 from ._group_scoped import GroupResourceScopedIO
+from ._sap_writeback import SAPEndpointIO
 
 
 @final
@@ -54,7 +54,7 @@ class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse, In
     resource_write_cls = APMConfigRequest
     kind = "InfieldV1"
     yaml_cls = InfieldV1YAML
-    dependencies = frozenset({DataSetsIO, AssetIO, SpaceIO, GroupAllScopedIO, GroupResourceScopedIO})
+    dependencies = frozenset({DataSetsIO, AssetIO, SpaceIO, GroupResourceScopedIO, SAPEndpointIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
     _root_location_filters: tuple[str, ...] = ("general", "assets", "files", "timeseries")
     _group_keys: tuple[str, ...] = ("templateAdmins", "checklistAdmins")
@@ -145,6 +145,12 @@ class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse, In
                 yield GroupResourceScopedIO, NameId(name=group)
             for group in config.checklist_admins or []:
                 yield GroupResourceScopedIO, NameId(name=group)
+            if config.feature_toggles and config.feature_toggles.observations:
+                observations = config.feature_toggles.observations
+                if observations.notifications_endpoint_external_id:
+                    yield SAPEndpointIO, ExternalId(external_id=observations.notifications_endpoint_external_id)
+                if observations.attachments_endpoint_external_id:
+                    yield SAPEndpointIO, ExternalId(external_id=observations.attachments_endpoint_external_id)
             if not config.data_filters:
                 continue
             for filter_ in [
@@ -159,6 +165,10 @@ class InfieldV1IO(ResourceIO[ExternalId, APMConfigRequest, APMConfigResponse, In
                     yield DataSetsIO, ExternalId(external_id=data_set_external_id)
                 for asset_external_id in filter_.asset_subtree_external_ids or []:
                     yield AssetIO, ExternalId(external_id=asset_external_id)
+                for asset_external_id in filter_.root_asset_external_ids or []:
+                    yield AssetIO, ExternalId(external_id=asset_external_id)
+                for space in filter_.spaces or []:
+                    yield SpaceIO, SpaceId(space=space)
 
     @classmethod
     def safe_read(cls, filepath: Path | str) -> str:
@@ -254,7 +264,7 @@ class InFieldLocationConfigIO(
     resource_write_cls = InFieldLocationConfigRequest
     kind = "InFieldLocationConfig"
     yaml_cls = InfieldLocationConfigYAML
-    dependencies = frozenset({SpaceIO, GroupAllScopedIO, GroupResourceScopedIO})
+    dependencies = frozenset({SpaceIO, GroupResourceScopedIO, SAPEndpointIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @property
@@ -292,13 +302,33 @@ class InFieldLocationConfigIO(
 
     @classmethod
     def get_dependencies(cls, resource: InfieldLocationConfigYAML) -> "Iterable[tuple[type[ResourceIO], Identifier]]":
+        yield SpaceIO, SpaceId(space=resource.space)
         if resource.access_management:
             for group_name in resource.access_management.checklist_admins or []:
                 yield GroupResourceScopedIO, NameId(name=group_name)
             for group_name in resource.access_management.template_admins or []:
-                yield GroupAllScopedIO, NameId(name=group_name)
+                yield GroupResourceScopedIO, NameId(name=group_name)
         if resource.app_instance_space:
             yield SpaceIO, SpaceId(space=resource.app_instance_space)
+        if resource.feature_toggles and resource.feature_toggles.observations:
+            observations = resource.feature_toggles.observations
+            if observations.notifications_endpoint_external_id:
+                yield SAPEndpointIO, ExternalId(external_id=observations.notifications_endpoint_external_id)
+            if observations.attachments_endpoint_external_id:
+                yield SAPEndpointIO, ExternalId(external_id=observations.attachments_endpoint_external_id)
+        if resource.data_filters:
+            for filter_ in [
+                resource.data_filters.general,
+                resource.data_filters.assets,
+                resource.data_filters.files,
+                resource.data_filters.timeseries,
+            ]:
+                if filter_ is None:
+                    continue
+                for space in filter_.spaces or []:
+                    yield SpaceIO, SpaceId(space=space)
+        if resource.data_exploration_config and resource.data_exploration_config.space:
+            yield SpaceIO, SpaceId(space=resource.data_exploration_config.space)
 
     def dump_resource(
         self, resource: InFieldLocationConfigResponse, local: dict[str, Any] | None = None
@@ -367,7 +397,7 @@ class InFieldCDMLocationConfigIO(
     resource_write_cls = InFieldCDMLocationConfigRequest
     kind = "InFieldCDMLocationConfig"
     yaml_cls = InFieldCDMLocationConfigYAML
-    dependencies = frozenset({SpaceIO, GroupAllScopedIO, GroupResourceScopedIO, ViewIO})
+    dependencies = frozenset({SpaceIO, GroupResourceScopedIO, ViewIO, NodeIO, SAPEndpointIO})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @property
@@ -408,6 +438,11 @@ class InFieldCDMLocationConfigIO(
     @classmethod
     def get_dependencies(cls, resource: InFieldCDMLocationConfigYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         yield SpaceIO, SpaceId(space=resource.space)
+        if resource.access_management is not None:
+            for group_name in resource.access_management.template_admins or []:
+                yield GroupResourceScopedIO, NameId(name=group_name)
+            for group_name in resource.access_management.checklist_admins or []:
+                yield GroupResourceScopedIO, NameId(name=group_name)
         if resource.data_exploration_config is not None:
             for value in vars(resource.data_exploration_config).values():
                 if isinstance(value, ViewReference):
@@ -417,16 +452,27 @@ class InFieldCDMLocationConfigIO(
                 if attr == "observation":
                     for obs_config in value or []:
                         yield (ViewIO, obs_config.view.as_id())
+                        if obs_config.write_back is None:
+                            continue
+                        write_back = obs_config.write_back
+                        yield SAPEndpointIO, ExternalId(external_id=write_back.notifications_endpoint_external_id)
+                        if write_back.attachments_endpoint_external_id:
+                            yield SAPEndpointIO, ExternalId(external_id=write_back.attachments_endpoint_external_id)
                 elif isinstance(value, ViewReference):
                     yield (ViewIO, value.as_id())
         if resource.data_filters is not None:
             for data_filter in vars(resource.data_filters).values():
                 if isinstance(data_filter, DataFilter):
+                    if data_filter.path is not None:
+                        yield (SpaceIO, SpaceId(space=data_filter.path.space))
+                        yield (NodeIO, NodeId(space=data_filter.path.space, external_id=data_filter.path.external_id))
                     for instance_space in data_filter.instance_spaces or []:
                         yield (SpaceIO, SpaceId(space=instance_space))
         if resource.data_storage is not None:
             if resource.data_storage.root_location is not None:
-                yield (SpaceIO, SpaceId(space=resource.data_storage.root_location.space))
+                root_location = resource.data_storage.root_location
+                yield (SpaceIO, SpaceId(space=root_location.space))
+                yield (NodeIO, NodeId(space=root_location.space, external_id=root_location.external_id))
             if resource.data_storage.app_instance_space is not None:
                 yield (SpaceIO, SpaceId(space=resource.data_storage.app_instance_space))
 
@@ -495,12 +541,14 @@ class InFieldCDMLocationConfigIO(
         to_create: list[InFieldCDMLocationConfigRequest] = []
         for item in items:
             if item.data_storage and item.data_storage.app_instance_space in legacy_instance_spaces:
-                HighSeverityWarning(
-                    f"Skipping creation of {self.display_name} {item.as_id()}. It is set to write InField data to"
-                    f" an instance space {item.data_storage.app_instance_space!r} that is already used by the "
-                    "legacy InField APM_Config."
-                    "This is not allowed as it will cause the data to be corrupted in the legacy InField."
-                ).print_warning(console=self.console)
+                self.on_warning(
+                    HighSeverityWarning(
+                        f"Skipping creation of {self.display_name} {item.as_id()}. It is set to write InField data to"
+                        f" an instance space {item.data_storage.app_instance_space!r} that is already used by the "
+                        "legacy InField APM_Config."
+                        "This is not allowed as it will cause the data to be corrupted in the legacy InField."
+                    )
+                )
             else:
                 to_create.append(item)
 

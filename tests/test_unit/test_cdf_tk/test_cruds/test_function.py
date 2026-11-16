@@ -36,7 +36,7 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 class TestFunctionLoader:
     def test_load_functions(self, env_vars_with_client_cheap: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_io(env_vars_with_client_cheap.get_client())
+        loader = FunctionIO(env_vars_with_client_cheap.get_client())
 
         raw_list = loader.load_resource_file(
             LOAD_DATA / "functions" / "1.my_functions.yaml", env_vars_with_client_cheap.dump()
@@ -45,7 +45,7 @@ class TestFunctionLoader:
         assert len(raw_list) == 2
 
     def test_load_function(self, env_vars_with_client: EnvironmentVariables) -> None:
-        loader = FunctionIO.create_io(env_vars_with_client.get_client())
+        loader = FunctionIO(env_vars_with_client.get_client())
 
         raw_list = loader.load_resource_file(
             LOAD_DATA / "functions" / "1.my_function.yaml", env_vars_with_client.dump()
@@ -58,7 +58,7 @@ class TestFunctionLoader:
         """Avoid poisoning the shared lookup cache when dry-run and a DataSet is created in the same deploy."""
         client = MagicMock()
         client.lookup.data_sets.id.return_value = 42
-        loader = FunctionIO.create_io(client)
+        loader = FunctionIO(client)
         resource = {
             "externalId": "fn_test",
             "name": "test",
@@ -106,7 +106,7 @@ secrets:
         filepath.read_text.return_value = local_yaml
         filepath.parent.name = FunctionIO.folder_name
 
-        loader = FunctionIO.create_io(env_vars_with_client.get_client())
+        loader = FunctionIO(env_vars_with_client.get_client())
         resource_dict = loader.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
         resource = loader.load_resource(deepcopy(resource_dict[0]))
@@ -181,7 +181,7 @@ secrets:
                 ),
             },
         )
-        loader = FunctionIO.create_io(env_vars_with_client.get_client())
+        loader = FunctionIO(env_vars_with_client.get_client())
 
         dumped = loader.dump_resource(cdf_function, local_dict)
 
@@ -210,7 +210,7 @@ secrets:
                 ),
             },
         )
-        loader = FunctionIO.create_io(env_vars_with_client.get_client())
+        loader = FunctionIO(env_vars_with_client.get_client())
 
         dumped = loader.dump_resource(cdf_function, local_dict)
 
@@ -239,7 +239,7 @@ secrets:
                 ),
             },
         )
-        loader = FunctionIO.create_io(env_vars_with_client.get_client())
+        loader = FunctionIO(env_vars_with_client.get_client())
 
         dumped = loader.dump_resource(cdf_function, local_dict)
 
@@ -325,7 +325,7 @@ class TestFunctionScheduleLoader:
         )
         with monkeypatch_toolkit_client() as client:
             client.config = config
-            loader = FunctionScheduleIO.create_io(client)
+            loader = FunctionScheduleIO(client)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = yaml.dump(schedule)

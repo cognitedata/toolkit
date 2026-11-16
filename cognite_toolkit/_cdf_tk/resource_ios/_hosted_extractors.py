@@ -7,6 +7,7 @@ from typing_extensions import TypeForm
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
@@ -43,8 +44,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, WarningHandler
 from cognite_toolkit._cdf_tk.resource_ios._data_organization import DataSetsIO
+from cognite_toolkit._cdf_tk.resource_ios._datamodel import SpaceIO
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash, humanize_collection
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth
@@ -55,6 +57,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
     HostedExtractorMappingYAML,
     HostedExtractorSourceYAML,
 )
+from cognite_toolkit._cdf_tk.yaml_classes.hosted_extractor_job import CustomFormat, DataModelFormat
 
 
 @final
@@ -146,11 +149,13 @@ class HostedExtractorSourceIO(
             else:
                 to_create.append(item)
         if to_skip:
-            HighSeverityWarning(
-                f"{len(to_skip)} MQTT broker sources will not be created by Toolkit. You will need to create them manually through the CDF API, Toolkit can update them once they are created. "
-                f"The reason is that MQTT broker responses return auth information in the response. If you had created them through Toolkit this would be lost."
-                f"The following MQTT broker sources will not be created: {humanize_collection(to_skip)}"
-            ).print_warning(console=self.client.console)
+            self.on_warning(
+                HighSeverityWarning(
+                    f"{len(to_skip)} MQTT broker sources will not be created by Toolkit. You will need to create them manually through the CDF API, Toolkit can update them once they are created. "
+                    f"The reason is that MQTT broker responses return auth information in the response. If you had created them through Toolkit this would be lost."
+                    f"The following MQTT broker sources will not be created: {humanize_collection(to_skip)}"
+                )
+            )
 
         return self.client.hosted_extractors.sources.create(to_create)
 
@@ -342,8 +347,8 @@ class HostedExtractorDestinationIO(
     class _MetadataKey:
         AUTH_HASH = "toolkit-hash-credentials"
 
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, on_warning=on_warning)
         self._authentication_by_id: dict[str, ClientCredentialsSessionRequest] = {}
 
     @property
@@ -475,101 +480,6 @@ class HostedExtractorDestinationIO(
 
 
 @final
-class HostedExtractorJobIO(
-    ResourceIO[ExternalId, HostedExtractorJobRequest, HostedExtractorJobResponse, HostedExtractorJobYAML]
-):
-    folder_name = "hosted_extractors"
-    resource_cls = HostedExtractorJobResponse
-    resource_write_cls = HostedExtractorJobRequest
-    dependencies = frozenset({HostedExtractorSourceIO, HostedExtractorDestinationIO})
-    kind = "Job"
-    yaml_cls = HostedExtractorJobYAML
-    _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
-    _doc_url = "Jobs/operation/create_jobs"
-
-    @property
-    def display_name(self) -> str:
-        return "hosted extractor jobs"
-
-    @classmethod
-    def get_id(cls, item: HostedExtractorJobRequest | HostedExtractorJobResponse | ExternalId | dict) -> ExternalId:
-        if isinstance(item, ExternalId):
-            return item
-        if isinstance(item, dict):
-            return ExternalId(external_id=item["externalId"])
-        return ExternalId(external_id=item.external_id)
-
-    @classmethod
-    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
-        return id.dump()
-
-    @classmethod
-    def as_filename(cls, id: ExternalId) -> str:
-        return sanitize_filename(id.external_id)
-
-    @classmethod
-    def get_minimum_scope(cls, items: Sequence[HostedExtractorJobRequest]) -> ScopeDefinition:
-        return AllScope()
-
-    @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        if isinstance(scope, AllScope):
-            yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
-
-    def dump_resource(
-        self, resource: HostedExtractorJobResponse, local: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        dumped = resource.as_request_resource().dump()
-        local = local or {}
-        if not dumped.get("config") and "config" not in local:
-            dumped.pop("config", None)
-        cdf_format: dict | None = dumped["format"] if isinstance(dumped.get("format"), dict) else None
-        if cdf_format:
-            if isinstance(local_format := local.get("format"), dict):
-                if cdf_format.get("encoding") == "utf8" and "encoding" not in local_format:
-                    # The API returns a default encoding of "utf8" even if it is not set. We remove it to avoid unnecessary redeploys.
-                    cdf_format.pop("encoding")
-            if cdf_format.get("type") == "custom" and "expression" in cdf_format:
-                # The API returns a default expression fetched from the mapping itself.
-                # removing it.
-                cdf_format.pop("expression")
-
-        return dumped
-
-    def create(self, items: Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
-        return self.client.hosted_extractors.jobs.create(list(items))
-
-    def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorJobResponse]:
-        return self.client.hosted_extractors.jobs.retrieve(list(ids), ignore_unknown_ids=True)
-
-    def update(self, items: Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
-        return self.client.hosted_extractors.jobs.update(list(items), mode="replace")
-
-    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
-        id_list = list(ids)
-        if not id_list:
-            return []
-        self.client.hosted_extractors.jobs.delete(id_list, ignore_unknown_ids=True)
-        return id_list
-
-    def _iterate(
-        self,
-        data_set_external_id: str | None = None,
-        space: str | None = None,
-        parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[HostedExtractorJobResponse]:
-        for jobs in self.client.hosted_extractors.jobs.iterate(limit=None):
-            yield from jobs
-
-    @classmethod
-    def get_dependencies(cls, resource: HostedExtractorJobYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
-        if resource.source_id:
-            yield HostedExtractorSourceIO, ExternalId(external_id=resource.source_id)
-        if resource.destination_id:
-            yield HostedExtractorDestinationIO, ExternalId(external_id=resource.destination_id)
-
-
-@final
 class HostedExtractorMappingIO(
     ResourceIO[
         ExternalId,
@@ -647,3 +557,104 @@ class HostedExtractorMappingIO(
     ) -> Iterable[HostedExtractorMappingResponse]:
         for mappings in self.client.hosted_extractors.mappings.iterate(limit=None):
             yield from mappings
+
+
+@final
+class HostedExtractorJobIO(
+    ResourceIO[ExternalId, HostedExtractorJobRequest, HostedExtractorJobResponse, HostedExtractorJobYAML]
+):
+    folder_name = "hosted_extractors"
+    resource_cls = HostedExtractorJobResponse
+    resource_write_cls = HostedExtractorJobRequest
+    dependencies = frozenset({HostedExtractorSourceIO, HostedExtractorDestinationIO, HostedExtractorMappingIO, SpaceIO})
+    kind = "Job"
+    yaml_cls = HostedExtractorJobYAML
+    _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
+    _doc_url = "Jobs/operation/create_jobs"
+
+    @property
+    def display_name(self) -> str:
+        return "hosted extractor jobs"
+
+    @classmethod
+    def get_id(cls, item: HostedExtractorJobRequest | HostedExtractorJobResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
+        if isinstance(item, dict):
+            return ExternalId(external_id=item["externalId"])
+        return ExternalId(external_id=item.external_id)
+
+    @classmethod
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
+
+    @classmethod
+    def as_filename(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[HostedExtractorJobRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
+        if isinstance(scope, AllScope):
+            yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
+
+    def dump_resource(
+        self, resource: HostedExtractorJobResponse, local: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
+        local = local or {}
+        if not dumped.get("config") and "config" not in local:
+            dumped.pop("config", None)
+        cdf_format: dict | None = dumped["format"] if isinstance(dumped.get("format"), dict) else None
+        if cdf_format:
+            if isinstance(local_format := local.get("format"), dict):
+                if cdf_format.get("encoding") == "utf8" and "encoding" not in local_format:
+                    # The API returns a default encoding of "utf8" even if it is not set. We remove it to avoid unnecessary redeploys.
+                    cdf_format.pop("encoding")
+            if cdf_format.get("type") == "custom" and "expression" in cdf_format:
+                # The API returns a default expression fetched from the mapping itself.
+                # removing it.
+                cdf_format.pop("expression")
+
+        return dumped
+
+    def create(self, items: Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
+        return self.client.hosted_extractors.jobs.create(list(items))
+
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorJobResponse]:
+        return self.client.hosted_extractors.jobs.retrieve(list(ids), ignore_unknown_ids=True)
+
+    def update(self, items: Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
+        return self.client.hosted_extractors.jobs.update(list(items), mode="replace")
+
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.hosted_extractors.jobs.delete(id_list, ignore_unknown_ids=True)
+        return id_list
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
+    ) -> Iterable[HostedExtractorJobResponse]:
+        if data_set_external_id or space or parent_ids:
+            return
+        for jobs in self.client.hosted_extractors.jobs.iterate(limit=None):
+            yield from jobs
+
+    @classmethod
+    def get_dependencies(cls, resource: HostedExtractorJobYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        if resource.source_id:
+            yield HostedExtractorSourceIO, ExternalId(external_id=resource.source_id)
+        if resource.destination_id:
+            yield HostedExtractorDestinationIO, ExternalId(external_id=resource.destination_id)
+        if isinstance(resource.format, CustomFormat):
+            yield HostedExtractorMappingIO, ExternalId(external_id=resource.format.mapping_id)
+        elif isinstance(resource.format, DataModelFormat) and resource.format.data_models:
+            yield SpaceIO, SpaceId(space=resource.format.data_models.space)
