@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
     SimulatorRoutineRevisionResponse,
 )
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ToolkitNotSupported
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO, WarningHandler
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.acl_helper import data_set_scope_from_ids
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
@@ -182,8 +182,9 @@ class SimulatorModelRevisionIO(
         self,
         client: ToolkitClient,
         file_upload_timeout_seconds: float = CDF_TOML.cdf.file_upload_timeout_seconds,
+        on_warning: WarningHandler | None = None,
     ):
-        super().__init__(client)
+        super().__init__(client, on_warning=on_warning)
         self._file_upload_timeout_seconds = file_upload_timeout_seconds
 
     @property
