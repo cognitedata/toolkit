@@ -696,7 +696,7 @@ class TestDumpHostedExtractor:
             last_updated_time=1,
         )
         with monkeypatch_toolkit_client() as client:
-            dumped = HostedExtractorSourceIO.create_io(client).dump_resource(source)
+            dumped = HostedExtractorSourceIO(client).dump_resource(source)
         assert dumped == {"type": "mqtt5", "externalId": "sourceA", "host": "localhost"}
 
     def test_dump_destination_without_local_translates_dataset(self) -> None:
@@ -708,7 +708,7 @@ class TestDumpHostedExtractor:
         )
         with monkeypatch_toolkit_client() as client:
             client.lookup.data_sets.external_id.return_value = "ds_files"
-            dumped = HostedExtractorDestinationIO.create_io(client).dump_resource(destination)
+            dumped = HostedExtractorDestinationIO(client).dump_resource(destination)
         assert dumped == {"externalId": "destA", "targetDataSetExternalId": "ds_files"}
 
     def test_dump_destination_with_local_credentials_preserves_credentials(self) -> None:
@@ -724,7 +724,7 @@ class TestDumpHostedExtractor:
             "credentials": {"clientId": "client_id", "clientSecret": "client_secret"},
         }
         with monkeypatch_toolkit_client() as client:
-            dumped = HostedExtractorDestinationIO.create_io(client).dump_resource(destination, local)
+            dumped = HostedExtractorDestinationIO(client).dump_resource(destination, local)
         assert dumped == local
 
 

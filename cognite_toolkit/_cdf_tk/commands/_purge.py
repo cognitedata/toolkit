@@ -419,7 +419,7 @@ class PurgeCommand(ToolkitCommand):
             for item in to_delete:
                 results[item.display_name] = ResourceDeployResult(item.display_name, deleted=item.total)
             if include_space:
-                space_loader = SpaceIO.create_io(client)
+                space_loader = SpaceIO(client)
                 results[space_loader.display_name] = ResourceDeployResult(space_loader.display_name, deleted=1)
         else:
             results = self._delete_resources(to_delete, client, verbose, selected_space, None, log_dir)
@@ -434,9 +434,9 @@ class PurgeCommand(ToolkitCommand):
     ) -> list[ToDelete]:
         config = client.config
         to_delete = [
-            EdgeToDelete(EdgeIO.create_io(client), stats.edges, config.create_api_url("/models/instances/delete")),
+            EdgeToDelete(EdgeIO(client), stats.edges, config.create_api_url("/models/instances/delete")),
             NodesToDelete(
-                NodeIO.create_io(client),
+                NodeIO(client),
                 stats.nodes,
                 config.create_api_url(
                     "/models/instances/delete",
@@ -445,13 +445,13 @@ class PurgeCommand(ToolkitCommand):
                 delete_file_content=delete_file_content,
             ),
             DataModelingToDelete(
-                DataModelIO.create_io(client),
+                DataModelIO(client),
                 stats.data_models,
                 config.create_api_url("/models/datamodels/delete"),
             ),
-            DataModelingToDelete(ViewIO.create_io(client), stats.views, config.create_api_url("/models/views/delete")),
+            DataModelingToDelete(ViewIO(client), stats.views, config.create_api_url("/models/views/delete")),
             DataModelingToDelete(
-                ContainerIO.create_io(client),
+                ContainerIO(client),
                 stats.containers,
                 config.create_api_url("/models/containers/delete"),
             ),
@@ -459,7 +459,7 @@ class PurgeCommand(ToolkitCommand):
         return to_delete
 
     def _delete_space(self, client: ToolkitClient, selected_space: str, results: DeployResults) -> None:
-        space_loader = SpaceIO.create_io(client)
+        space_loader = SpaceIO(client)
         try:
             space_loader.delete([SpaceId(space=selected_space)])
             print(f"Space {selected_space} deleted")
@@ -726,31 +726,31 @@ class PurgeCommand(ToolkitCommand):
         to_delete: list[ToDelete] = []
 
         if include_data:
-            three_d_crud = ThreeDModelIO.create_io(client)
+            three_d_crud = ThreeDModelIO(client)
             to_delete.extend(
                 [
                     ExternalIdToDelete(
-                        RelationshipIO.create_io(client),
+                        RelationshipIO(client),
                         RelationshipAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/relationships/delete"),
                     ),
                     IdResourceToDelete(
-                        EventIO.create_io(client),
+                        EventIO(client),
                         EventAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/events/delete"),
                     ),
                     IdResourceToDelete(
-                        FileMetadataIO.create_io(client),
+                        FileMetadataIO(client),
                         FileAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/files/delete"),
                     ),
                     IdResourceToDelete(
-                        TimeSeriesIO.create_io(client),
+                        TimeSeriesIO(client),
                         TimeSeriesAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/timeseries/delete"),
                     ),
                     IdResourceToDelete(
-                        SequenceIO.create_io(client),
+                        SequenceIO(client),
                         SequenceAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/sequences/delete"),
                     ),
@@ -760,22 +760,22 @@ class PurgeCommand(ToolkitCommand):
                         config.create_api_url("/3d/models/delete"),
                     ),
                     AssetToDelete(
-                        AssetIO.create_io(client),
+                        AssetIO(client),
                         AssetAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/assets/delete"),
                         recursive=asset_recursive,
                     ),
                     ExternalIdToDelete(
-                        LabelIO.create_io(client),
+                        LabelIO(client),
                         LabelCountAggregator(client).count(data_set_external_id=data_set_external_id),
                         config.create_api_url("/labels/delete"),
                     ),
                 ]
             )
         if include_configurations:
-            transformation_crud = TransformationIO.create_io(client)
-            workflow_crud = WorkflowIO.create_io(client)
-            extraction_pipeline_crud = ExtractionPipelineIO.create_io(client)
+            transformation_crud = TransformationIO(client)
+            workflow_crud = WorkflowIO(client)
+            extraction_pipeline_crud = ExtractionPipelineIO(client)
 
             to_delete.extend(
                 [
