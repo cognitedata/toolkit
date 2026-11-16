@@ -74,10 +74,8 @@ from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import (
     TransformationTask,
 )
 
-from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
 from ._function import FunctionIO
-from ._group_scoped import GroupResourceScopedIO
 from ._simulators import SimulatorRoutineIO
 from ._streams import StreamIO
 from ._transformation import TransformationIO
@@ -97,14 +95,7 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
     resource_cls = WorkflowResponse
     resource_write_cls = WorkflowRequest
     kind = "Workflow"
-    dependencies = frozenset(
-        {
-            GroupAllScopedIO,
-            TransformationIO,
-            FunctionIO,
-            DataSetsIO,
-        }
-    )
+    dependencies = frozenset({DataSetsIO})
     yaml_cls = WorkflowYAML
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflows/operation/CreateOrUpdateWorkflow"
@@ -202,7 +193,7 @@ class WorkflowVersionIO(
     resource_cls = WorkflowVersionResponse
     resource_write_cls = WorkflowVersionRequest
     kind = "WorkflowVersion"
-    dependencies = frozenset({WorkflowIO})
+    dependencies = frozenset({WorkflowIO, FunctionIO, TransformationIO, SimulatorRoutineIO})
     parent_resource = frozenset({WorkflowIO})
     yaml_cls = WorkflowVersionYAML
 
@@ -521,7 +512,7 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
     resource_cls = WorkflowTriggerResponse
     resource_write_cls = WorkflowTriggerRequest
     kind = "WorkflowTrigger"
-    dependencies = frozenset({WorkflowIO, WorkflowVersionIO, GroupResourceScopedIO, GroupAllScopedIO, StreamIO})
+    dependencies = frozenset({WorkflowIO, WorkflowVersionIO, StreamIO})
     parent_resource = frozenset({WorkflowIO})
     yaml_cls = WorkflowTriggerYAML
 

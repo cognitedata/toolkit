@@ -2,7 +2,7 @@ from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, Literal, final
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.client.identifiers import DataProductVersionId, ExternalId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import DataProductVersionId, ExternalId, SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import (
     DataProductVersionRequest,
     DataProductVersionResponse,
@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import DataProductsAcl
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.resource_ios._datamodel import ViewIO
+from cognite_toolkit._cdf_tk.resource_ios._datamodel import SpaceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductVersionYAML
 
@@ -32,7 +32,7 @@ class DataProductVersionIO(
     resource_write_cls = DataProductVersionRequest
     kind = "DataProductVersion"
     yaml_cls = DataProductVersionYAML
-    dependencies = frozenset({DataProductIO, RuleSetVersionIO, ViewIO})
+    dependencies = frozenset({DataProductIO, RuleSetVersionIO, ViewIO, SpaceIO})
     parent_resource = frozenset({DataProductIO})
     support_drop = True
     support_update = True
@@ -79,6 +79,8 @@ class DataProductVersionIO(
                 yield RuleSetVersionIO, rule.as_id()
         for view in resource.views:
             yield ViewIO, ViewId(space=view.space, external_id=view.external_id, version=str(view.version))
+            for space in [*view.instance_spaces.read, *view.instance_spaces.write]:
+                yield SpaceIO, SpaceId(space=space)
 
     def dump_resource(
         self, resource: DataProductVersionResponse, local: dict[str, Any] | None = None
@@ -130,6 +132,8 @@ class DataProductVersionIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DataProductVersionResponse]:
+        if data_set_external_id or space:
+            return
         if parent_ids is not None:
             dp_ext_ids = {
                 pid.external_id if isinstance(pid, ExternalId) else pid

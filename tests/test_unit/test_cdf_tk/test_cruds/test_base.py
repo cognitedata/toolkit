@@ -1,6 +1,7 @@
 import typing
 from collections import Counter, defaultdict
 from collections.abc import Iterable
+from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import get_args, get_origin
 from unittest.mock import MagicMock
@@ -421,6 +422,14 @@ class TestResourceCRUDs:
         missing = [loader_cls.__name__ for loader_cls in RESOURCE_IO_LIST if loader_cls.yaml_cls is None]
 
         assert not missing, f"The following loaders are missing yaml_cls: {missing}"
+
+    def test_dependencies_are_acyclic(self) -> None:
+        dependencies = {io_cls: io_cls.dependencies for io_cls in get_concrete_subclasses(ResourceIO)}
+
+        try:
+            TopologicalSorter(dependencies).prepare()
+        except CycleError as e:
+            pytest.fail(f"Cyclic dependencies between resource IOs: {[cls.__name__ for cls in e.args[1]]}")
 
 
 class TestLoaders:

@@ -47,7 +47,7 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_lis
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
 from cognite_toolkit._cdf_tk.yaml_classes import DatapointSubscriptionYAML, TimeSeriesYAML
 
-from ._auth import GroupAllScopedIO, SecurityCategoryIO
+from ._auth import SecurityCategoryIO
 from ._classic import AssetIO
 from ._data_organization import DataSetsIO
 from ._datamodel import NodeIO
@@ -61,7 +61,7 @@ class TimeSeriesIO(ResourceContainerIO[ExternalId, TimeSeriesRequest, TimeSeries
     resource_write_cls = TimeSeriesRequest
     yaml_cls = TimeSeriesYAML
     kind = "TimeSeries"
-    dependencies = frozenset({DataSetsIO, GroupAllScopedIO, AssetIO})
+    dependencies = frozenset({DataSetsIO, AssetIO, SecurityCategoryIO})
     _doc_url = "Time-series/operation/postTimeSeries"
 
     @property
@@ -208,7 +208,7 @@ class DatapointSubscriptionIO(
     resource_write_cls = DatapointSubscriptionRequest
     kind = "DatapointSubscription"
     _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
-    dependencies = frozenset({TimeSeriesIO, GroupAllScopedIO, NodeIO})
+    dependencies = frozenset({DataSetsIO, TimeSeriesIO, NodeIO})
     yaml_cls = DatapointSubscriptionYAML
 
     _hash_key = "cdf-hash"
@@ -312,6 +312,8 @@ class DatapointSubscriptionIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DatapointSubscriptionResponse]:
+        if data_set_external_id or space or parent_ids:
+            return
         for subscriptions in self.client.datapoint_subscriptions.iterate(limit=None):
             yield from subscriptions
 
