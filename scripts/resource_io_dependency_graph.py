@@ -15,8 +15,94 @@ from cognite_toolkit._cdf_tk import resource_ios  # noqa: F401 - ensures all Res
 from cognite_toolkit._cdf_tk.resource_ios import ResourceIO
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
-# Index = number of dependencies; the last color is used for that count and above.
-DEPENDENCY_COUNT_COLORS = ["#2ca02c", "#1f77b4", "#ff7f0e", "#9467bd", "#d62728", "#8c564b", "#7f7f7f"]
+# Category -> resource names (class name without the "IO" suffix).
+CATEGORIES: dict[str, list[str]] = {
+    "Compute": [
+        "Transformation",
+        "TransformationSchedule",
+        "TransformationNotification",
+        "Function",
+        "FunctionSchedule",
+        "HostedExtractorSource",
+        "HostedExtractorDestination",
+        "HostedExtractorJob",
+        "HostedExtractorMapping",
+        "SimulatorModel",
+        "SimulatorModelRevision",
+        "SimulatorRoutine",
+        "SimulatorRoutineRevision",
+        "Workflow",
+        "WorkflowVersion",
+        "WorkflowTrigger",
+        "RuleSet",
+        "RuleSetVersion",
+    ],
+    "Storage": [
+        "RawDatabase",
+        "RawTable",
+        "Container",
+        "View",
+        "DataModel",
+        "GraphQL",
+        "Node",
+        "Edge",
+        "Stream",
+        "CogniteFile",
+        "ResourceViewMapping",
+    ],
+    "Classic": [
+        "Asset",
+        "Event",
+        "Sequence",
+        "SequenceRow",
+        "FileMetadata",
+        "TimeSeries",
+        "DatapointSubscription",
+        "Relationship",
+        "Label",
+        "ThreeDModel",
+    ],
+    "Access": ["GroupAllScoped", "GroupResourceScoped", "Space", "DataSets", "SecurityCategory"],
+    "Consumption": [
+        "App",
+        "AppVersion",
+        "LocationFilter",
+        "SearchConfig",
+        "InFieldLocationConfig",
+        "InFieldCDMLocationConfig",
+        "InfieldV1",
+        "Streamlit",
+        "DataProduct",
+        "DataProductVersion",
+        "Agent",
+        "Skill",
+    ],
+    "Integration": [
+        "ExtractionPipeline",
+        "ExtractionPipelineConfig",
+        "Integrations",
+        "IntegrationConfigs",
+        "ExternalDataSource",
+        "PostgresGatewayTable",
+        "PostgresGatewayUser",
+        "SAPInstance",
+        "SAPEndpoint",
+        "SchemaMapping",
+        "SignalSink",
+        "SignalSubscription",
+    ],
+}
+UNCATEGORIZED = "Uncategorized"
+CATEGORY_COLORS = {
+    "Compute": "#d62728",
+    "Storage": "#1f77b4",
+    "Classic": "#8c564b",
+    "Access": "#2ca02c",
+    "Consumption": "#ff7f0e",
+    "Integration": "#9467bd",
+    UNCATEGORIZED: "#7f7f7f",
+}
+CATEGORY_BY_RESOURCE = {name: category for category, names in CATEGORIES.items() for name in names}
 
 
 TABLE_SCRIPT = """
@@ -50,24 +136,23 @@ def node_name(cls: type) -> str:
     return cls.__name__.removesuffix("IO")
 
 
-def count_color(count: int) -> str:
-    return DEPENDENCY_COUNT_COLORS[min(count, len(DEPENDENCY_COUNT_COLORS) - 1)]
+def category_of(cls: type) -> str:
+    return CATEGORY_BY_RESOURCE.get(node_name(cls), UNCATEGORIZED)
+
+
+def color_dot(color: str, size: int = 12) -> str:
+    return (
+        f'<span style="display:inline-block;width:{size}px;height:{size}px;border-radius:50%;'
+        f'background:{color};margin-right:6px"></span>'
+    )
 
 
 def legend_html() -> str:
-    last = len(DEPENDENCY_COUNT_COLORS) - 1
-    rows = []
-    for count, color in enumerate(DEPENDENCY_COUNT_COLORS):
-        label = "0 (independent)" if count == 0 else f"{count} or more" if count == last else str(count)
-        rows.append(
-            f'<tr><td>{label}</td><td><span style="display:inline-block;width:14px;height:14px;'
-            f'border-radius:50%;background:{color}"></span></td></tr>'
-        )
+    rows = "".join(f"<tr><td>{color_dot(color, 14)}{category}</td></tr>" for category, color in CATEGORY_COLORS.items())
     return (
         '<div style="position:fixed;top:10px;left:10px;z-index:1000;background:white;'
         'border:1px solid #ccc;border-radius:4px;padding:8px;font-family:sans-serif;font-size:13px">'
-        '<table><tr><th style="padding-right:12px">Dependencies</th><th>Color</th></tr>'
-        f"{''.join(rows)}</table></div>"
+        f"<table><tr><th style='text-align:left'>Category</th></tr>{rows}</table></div>"
     )
 
 
@@ -85,12 +170,12 @@ def table_html(io_classes: list[type[ResourceIO]]) -> str:
         depended_on_by = sorted(dependents[name])
         rows.append(
             f"<tr><td>{name}</td>"
-            f'<td data-sort="{count}"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;'
-            f'background:{count_color(count)};margin-right:6px"></span>{count}</td>'
+            f"<td>{color_dot(CATEGORY_COLORS[category_of(io_cls)])}{category_of(io_cls)}</td>"
+            f'<td data-sort="{count}">{count}</td>'
             f"<td>{depends_on}</td>"
             f'<td data-sort="{len(depended_on_by)}">{", ".join(depended_on_by)}</td></tr>'
         )
-    headers = ["Resource", "Dependencies", "Depends on", "Depended on by"]
+    headers = ["Resource", "Category", "Dependencies", "Depends on", "Depended on by"]
     header_cells = "".join(
         f'<th style="cursor:pointer;text-align:left;border-bottom:2px solid #333;padding:4px 8px" '
         f'onclick="sortDependencyTable({i})">{header} &#8597;</th>'
@@ -111,12 +196,12 @@ def table_html(io_classes: list[type[ResourceIO]]) -> str:
 
 
 def add_node(net: Network, io_cls: type[ResourceIO]) -> None:
-    count = len(io_cls.dependencies)
+    category = category_of(io_cls)
     net.add_node(
         node_name(io_cls),
         label=node_name(io_cls),
-        title=f"{io_cls.__name__} ({count} dependencies)",
-        color=count_color(count),
+        title=f"{io_cls.__name__} ({category}, {len(io_cls.dependencies)} dependencies)",
+        color=CATEGORY_COLORS[category],
     )
 
 
@@ -134,6 +219,12 @@ def build_graph(output: Path) -> None:
                 add_node(net, dependency)
             # Edge points from the class to the dependency it requires.
             net.add_edge(node_name(io_cls), node_name(dependency))
+
+    nodes = set(net.get_nodes())
+    if uncategorized := sorted(nodes - CATEGORY_BY_RESOURCE.keys()):
+        print(f"Warning: uncategorized resources: {', '.join(uncategorized)}")
+    if unknown := sorted(CATEGORY_BY_RESOURCE.keys() - nodes):
+        print(f"Warning: categorized resources that do not exist: {', '.join(unknown)}")
 
     html = net.generate_html(notebook=False).replace("<body>", f"<body>\n{legend_html()}", 1)
     html = html.replace("</body>", f"{table_html(io_classes)}\n</body>", 1)
