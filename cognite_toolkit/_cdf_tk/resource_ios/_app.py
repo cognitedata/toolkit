@@ -28,8 +28,6 @@ from cognite_toolkit._cdf_tk.utils.file import create_zip_in_memory
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash
 from cognite_toolkit._cdf_tk.yaml_classes import AppVersionYAML, AppYAML
 
-from ._auth import GroupAllScopedIO
-
 
 @final
 class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
@@ -40,7 +38,7 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
     resource_write_cls = AppRequest
     kind = "App"
     yaml_cls = AppYAML
-    dependencies = frozenset({GroupAllScopedIO})
+    dependencies = frozenset()
     _doc_url = "Apps/operation/appsCreate"
     drop_confirmation_message = (
         "WARNING: Apps are soft-deleted for up to 30 days after deletion. "
@@ -128,7 +126,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
     resource_write_cls = AppVersionRequest
     kind = "AppVersion"
     yaml_cls = AppVersionYAML
-    dependencies = frozenset({AppIO, GroupAllScopedIO})
+    dependencies = frozenset({AppIO})
     _doc_url = "Apps/operation/appsCreate"
 
     def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):

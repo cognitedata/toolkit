@@ -79,6 +79,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     DataSetsIO,
     FunctionIO,
     FunctionScheduleIO,
+    GroupAllScopedIO,
     LabelIO,
     RawDatabaseIO,
     RawTableIO,
@@ -263,6 +264,26 @@ class TestCreateDeploymentPlan:
                     DeploymentStep(CogniteFileIO, [Path("build/files/my.CogniteFile.yaml")], skipped_cruds={SpaceIO}),
                 ],
                 id="Skipped potential dependency",
+            ),
+            pytest.param(
+                ReadBuildDirectory(
+                    path=Path("build"),
+                    resource_directories=[
+                        ResourceDirectory(
+                            directory=Path("build/data_modeling"),
+                            files_by_crud={SpaceIO: [Path("build/data_modeling/my.Space.yaml")]},
+                        ),
+                        ResourceDirectory(
+                            directory=Path("build/auth"),
+                            files_by_crud={GroupAllScopedIO: [Path("build/auth/my.Group.yaml")]},
+                        ),
+                    ],
+                ),
+                [
+                    DeploymentStep(GroupAllScopedIO, [Path("build/auth/my.Group.yaml")]),
+                    DeploymentStep(SpaceIO, [Path("build/data_modeling/my.Space.yaml")]),
+                ],
+                id="All-scoped groups first",
             ),
         ],
     )

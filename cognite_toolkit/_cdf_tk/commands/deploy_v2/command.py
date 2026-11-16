@@ -68,6 +68,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     ContainerIO,
     EdgeIO,
     FunctionIO,
+    GroupAllScopedIO,
     NodeIO,
     RawTableIO,
     ResourceContainerIO,
@@ -644,6 +645,10 @@ class DeployV2Command(ToolkitCommand):
             ordered = list(TopologicalSorter(dependencies_by_crud).static_order())
         except CycleError as e:
             raise RuntimeError("Bug in Toolkit. Cyclic dependencies in support resource types detected.") from e
+
+        if GroupAllScopedIO in ordered:
+            ordered.remove(GroupAllScopedIO)
+            ordered.insert(0, GroupAllScopedIO)
 
         plan: list[DeploymentStep] = []
         for step in ordered:

@@ -4,8 +4,18 @@ from unittest.mock import MagicMock
 import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import MQTTSourceRequest
-from cognite_toolkit._cdf_tk.resource_ios import HostedExtractorSourceIO
+from cognite_toolkit._cdf_tk.resource_ios import (
+    HostedExtractorDestinationIO,
+    HostedExtractorJobIO,
+    HostedExtractorMappingIO,
+    HostedExtractorSourceIO,
+    ResourceIO,
+    SpaceIO,
+)
+from cognite_toolkit._cdf_tk.yaml_classes import HostedExtractorJobYAML
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 PEM_CERT = "-----BEGIN CERTIFICATE-----\nMIIBszCCAVmgAwIBAgIU\n-----END CERTIFICATE-----"
@@ -70,3 +80,31 @@ class TestHostedExtractorSourceIO:
         )[0]
 
         assert real["metadata"] == escaped["metadata"]
+
+
+class TestHostedExtractorJobIO:
+    @pytest.mark.parametrize(
+        "job_format, expected",
+        [
+            pytest.param(
+                {"type": "custom", "mappingId": "my_mapping"},
+                (HostedExtractorMappingIO, ExternalId(external_id="my_mapping")),
+                id="custom format",
+            ),
+            pytest.param(
+                {"type": "cognite", "dataModels": {"space": "my_space"}},
+                (SpaceIO, SpaceId(space="my_space")),
+                id="data model format",
+            ),
+        ],
+    )
+    def test_get_dependencies(self, job_format: dict, expected: tuple[type[ResourceIO], Identifier]) -> None:
+        resource = HostedExtractorJobYAML.model_validate(
+            {"externalId": "my_job", "sourceId": "my_source", "destinationId": "my_destination", "format": job_format}
+        )
+
+        assert list(HostedExtractorJobIO.get_dependencies(resource)) == [
+            (HostedExtractorSourceIO, ExternalId(external_id="my_source")),
+            (HostedExtractorDestinationIO, ExternalId(external_id="my_destination")),
+            expected,
+        ]

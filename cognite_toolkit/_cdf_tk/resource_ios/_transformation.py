@@ -26,6 +26,7 @@
 # limitations under the License.
 
 
+import importlib.util
 import random
 import re
 import time
@@ -98,7 +99,12 @@ from cognite_toolkit._cdf_tk.utils import (
     sanitize_filename,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
-from cognite_toolkit._cdf_tk.utils.cdf import get_ext_onelake_source_ids, read_auth, try_find_error
+from cognite_toolkit._cdf_tk.utils.cdf import (
+    get_ext_onelake_source_ids,
+    get_transformation_sources,
+    read_auth,
+    try_find_error,
+)
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 from cognite_toolkit._cdf_tk.yaml_classes import (
@@ -109,14 +115,14 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
 from cognite_toolkit._cdf_tk.yaml_classes.transformation_destination import (
     DataModelSource,
     RawDataSource,
+    SequenceRowDataSource,
     ViewDataSource,
 )
 
-from ._auth import GroupAllScopedIO
+from ._classic import SequenceIO
 from ._data_organization import DataSetsIO
 from ._datamodel import DataModelIO, SpaceIO, ViewIO
 from ._externaldata import ExternalDataSourceIO
-from ._group_scoped import GroupResourceScopedIO
 from ._raw import RawDatabaseIO, RawTableIO
 
 if TYPE_CHECKING:
@@ -150,14 +156,12 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
         {
             DataSetsIO,
             RawDatabaseIO,
-            GroupAllScopedIO,
             SpaceIO,
             ViewIO,
             DataModelIO,
             RawTableIO,
-            RawDatabaseIO,
-            GroupResourceScopedIO,
             ExternalDataSourceIO,
+            SequenceIO,
         }
     )
 
@@ -221,6 +225,11 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
         if resource.query:
             for source_id in get_ext_onelake_source_ids(resource.query):
                 yield ExternalDataSourceIO, ExternalId(external_id=source_id)
+            if importlib.util.find_spec("sqlparse") is not None:
+                for source in get_transformation_sources(resource.query):
+                    if isinstance(source, RawTableId):
+                        yield RawDatabaseIO, RawDatabaseId(name=source.db_name)
+                        yield RawTableIO, source
         if destination := resource.destination:
             if isinstance(destination, RawDataSource):
                 yield RawDatabaseIO, RawDatabaseId(name=destination.database)
@@ -248,6 +257,8 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
                         version=destination.data_model.version,
                     ),
                 )
+            elif isinstance(destination, SequenceRowDataSource):
+                yield SequenceIO, ExternalId(external_id=destination.external_id)
 
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:

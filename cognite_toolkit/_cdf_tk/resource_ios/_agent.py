@@ -6,7 +6,7 @@ from typing import Any, Literal, TypeVar, cast, final
 from yaml.error import YAMLError
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.client.identifiers import DataModelId, ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import DataModelId, ExternalId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import Agent, AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
-from cognite_toolkit._cdf_tk.resource_ios._datamodel import DataModelIO
+from cognite_toolkit._cdf_tk.resource_ios._datamodel import DataModelIO, SpaceIO
 from cognite_toolkit._cdf_tk.resource_ios._function import FunctionIO
 from cognite_toolkit._cdf_tk.resource_ios._skill import SkillIO
 from cognite_toolkit._cdf_tk.utils import (
@@ -32,7 +32,9 @@ from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.yaml_classes import AgentYAML
 from cognite_toolkit._cdf_tk.yaml_classes.agent import (
     AgentDataModel,
+    AgentInstanceSpaces,
     CallFunction,
+    ManualInstanceSpaces,
     ManualQueryDataModels,
     Query,
     QueryKnowledgeGraph,
@@ -53,6 +55,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
             FunctionIO,
             DataModelIO,
             SkillIO,
+            SpaceIO,
         }
     )
     _doc_base_url = ""
@@ -93,16 +96,26 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         yield FunctionIO, ExternalId(external_id=tool.configuration.external_id)
 
     @staticmethod
-    def _query_knowledge_graph_dependencies(
-        tool: QueryKnowledgeGraph,
-    ) -> Iterable[tuple[type[ResourceIO], DataModelId]]:
-        yield from AgentIO._yaml_data_model_dependencies(tool.configuration.data_models)
+    def _instance_space_dependencies(
+        instance_spaces: AgentInstanceSpaces,
+    ) -> Iterable[tuple[type[ResourceIO], SpaceId]]:
+        if isinstance(instance_spaces, ManualInstanceSpaces):
+            for space in instance_spaces.spaces:
+                yield SpaceIO, SpaceId(space=space)
 
     @staticmethod
-    def _query_dependencies(tool: Query) -> Iterable[tuple[type[ResourceIO], DataModelId]]:
+    def _query_knowledge_graph_dependencies(
+        tool: QueryKnowledgeGraph,
+    ) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        yield from AgentIO._yaml_data_model_dependencies(tool.configuration.data_models)
+        yield from AgentIO._instance_space_dependencies(tool.configuration.instance_spaces)
+
+    @staticmethod
+    def _query_dependencies(tool: Query) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         dm_scope = tool.configuration.data_models
         if dm_scope.type == "manual" and isinstance(dm_scope, ManualQueryDataModels):
             yield from AgentIO._yaml_data_model_dependencies(dm_scope.data_models)
+        yield from AgentIO._instance_space_dependencies(tool.configuration.instance_spaces)
 
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
@@ -360,6 +373,8 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[AgentResponse]:
+        if data_set_external_id or space or parent_ids:
+            return []
         return self.client.agents.list(limit=None)
 
     def dump_resource(self, resource: AgentResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:

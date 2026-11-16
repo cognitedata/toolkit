@@ -46,7 +46,6 @@ from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash, calculate_hash
 from cognite_toolkit._cdf_tk.yaml_classes import FileMetadataYAML, StreamlitYAML
 
-from ._auth import GroupAllScopedIO
 from ._data_organization import DataSetsIO
 from ._file import FileMetadataIO
 
@@ -57,7 +56,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
     resource_cls = StreamlitResponse
     resource_write_cls = StreamlitRequest
     kind = "Streamlit"
-    dependencies = frozenset({DataSetsIO, GroupAllScopedIO})
+    dependencies = frozenset({DataSetsIO})
     _doc_url = "Files/operation/initFileUpload"
     _metadata_hash_key = "cdf-toolkit-app-hash"
     yaml_cls = StreamlitYAML

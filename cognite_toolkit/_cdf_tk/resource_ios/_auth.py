@@ -547,7 +547,7 @@ class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCat
     kind = "SecurityCategory"
     yaml_cls = SecurityCategoriesYAML
     folder_name = "auth"
-    dependencies = frozenset({GroupAllScopedIO})
+    dependencies = frozenset()
     _doc_url = "Security-categories/operation/createSecurityCategories"
     support_update = False
 
