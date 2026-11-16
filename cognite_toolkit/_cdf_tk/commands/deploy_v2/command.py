@@ -914,7 +914,9 @@ class DeployV2Command(ToolkitCommand):
                 )
 
                 if options.dry_run:
-                    result = cls.deploy_dry_run(crud, resources_to_deploy, is_missing_write, is_write_acl_unknown, options)
+                    result = cls.deploy_dry_run(
+                        crud, resources_to_deploy, is_missing_write, is_write_acl_unknown, options
+                    )
                     progress.update(task_id, description=f"Would have {options.operation}ed {resource_name} to CDF")
                 else:
                     if resources_to_deploy.to_delete and crud.drop_confirmation_message:
