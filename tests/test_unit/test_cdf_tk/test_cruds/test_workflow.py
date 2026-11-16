@@ -64,7 +64,7 @@ workflowVersion: v1
         )
         with monkeypatch_toolkit_client() as client:
             client.config = config
-            loader = WorkflowTriggerIO.create_io(client)
+            loader = WorkflowTriggerIO(client)
 
         with pytest.raises(ToolkitRequiredValueError):
             loader.load_resource_file(trigger_file, {})

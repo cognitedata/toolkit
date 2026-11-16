@@ -11,7 +11,6 @@ from .fileread import (
     FileReadWarning,
     MissingReferencedWarning,
     YAMLFileWarning,
-    YAMLFileWithElementWarning,
 )
 from .other import (
     HighSeverityWarning,
@@ -40,6 +39,5 @@ __all__ = [
     "ToolkitWarning",
     "WarningList",
     "YAMLFileWarning",
-    "YAMLFileWithElementWarning",
     "catch_warnings",
 ]

@@ -74,14 +74,14 @@ class TestAppIODumpResource:
     )
     def test_dump_fields(self, description, expected):
         with monkeypatch_toolkit_client() as client:
-            loader = AppIO.create_io(client)
+            loader = AppIO(client)
 
         response = AppResponse(external_id="my-app", name="My App", description=description)
         assert loader.dump_resource(response) == expected
 
     def test_dump_prefers_local_name_and_description(self):
         with monkeypatch_toolkit_client() as client:
-            loader = AppIO.create_io(client)
+            loader = AppIO(client)
 
         response = AppResponse(external_id="my-app", name="Remote Name")
         local = {"name": "Local Name", "description": "Local desc"}
@@ -95,7 +95,7 @@ class TestAppVersionIODeploy:
     @pytest.fixture
     def version_io_with_zip(self, tmp_path: Path):
         with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_io(client)
+            loader = AppVersionIO(client)
             zip_path = tmp_path / "my-app.zip"
             _write_zip(zip_path)
             version_id = AppVersionId(app_external_id="my-app", version="1.0.0")
@@ -137,7 +137,7 @@ class TestAppVersionIODeploy:
 
     def test_deploy_raises_when_zip_missing(self, tmp_path: Path):
         with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_io(client)
+            loader = AppVersionIO(client)
             version_id = AppVersionId(app_external_id="my-app", version="1.0.0")
             loader.zip_path_by_version_id[version_id] = tmp_path / "my-app.zip"  # registered but not on disk
             item = _make_app_version_request()
@@ -169,7 +169,7 @@ class TestAppVersionIOLoadResourceFile:
         yaml_file.write_text("appExternalId: my-app\nversion: 1.0.0\n")
 
         with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_io(client)
+            loader = AppVersionIO(client)
             result = loader.load_resource_file(yaml_file)
 
         assert result == [{"appExternalId": "my-app", "version": "1.0.0"}]
@@ -184,7 +184,7 @@ class TestAppVersionIOLoadResourceFile:
         yaml_file.write_text("appExternalId: my-app\nversion: 1.0.0\n")
 
         with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_io(client)
+            loader = AppVersionIO(client)
             result = loader.load_resource_file(yaml_file)
 
         assert result == []
@@ -200,7 +200,7 @@ class TestAppVersionIODumpResource:
     )
     def test_dump_omits_none_alias(self, alias, alias_in_dump):
         with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_io(client)
+            loader = AppVersionIO(client)
 
         response = AppVersionResponse(
             app_external_id="my-app", version="1.0.0", lifecycle_state="PUBLISHED", alias=alias
@@ -211,7 +211,7 @@ class TestAppVersionIODumpResource:
 
     def test_copies_source_path_from_local(self):
         with monkeypatch_toolkit_client() as client:
-            loader = AppVersionIO.create_io(client)
+            loader = AppVersionIO(client)
 
         response = AppVersionResponse(
             app_external_id="my-app",

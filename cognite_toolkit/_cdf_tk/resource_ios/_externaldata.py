@@ -94,10 +94,12 @@ class ExternalDataSourceIO(
         # is create-only (support_update = False), an always-changed resource is deleted and
         # recreated on every deploy, not upserted.
         if local:
-            HighSeverityWarning(
-                "External data sources will always be considered different, and thus will always be "
-                "deleted and re-created on deploy."
-            ).print_warning(console=self.client.console)
+            self.on_warning(
+                HighSeverityWarning(
+                    "External data sources will always be considered different, and thus will always be "
+                    "deleted and re-created on deploy."
+                )
+            )
             return self.dump_id(self.get_id(resource))
         dumped = resource.dump()
         dumped.pop("createdTime", None)

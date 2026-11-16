@@ -17,14 +17,20 @@ from typing import final
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 
+from ._agent import AgentIO
+from ._app import AppIO
 from ._auth import GroupIO, SecurityCategoryIO
+from ._base_ios import WarningHandler
 from ._classic import AssetIO
 from ._data_organization import DataSetsIO
 from ._data_product import DataProductIO
 from ._datamodel import SpaceIO
 from ._extraction_pipeline import ExtractionPipelineIO
+from ._integrations import IntegrationsIO
 from ._location import LocationFilterIO
+from ._postgres_gateway import PostgresGatewayUserIO
 from ._raw import RawDatabaseIO, RawTableIO
+from ._sap_writeback import SAPInstanceIO
 from ._timeseries import TimeSeriesIO
 
 
@@ -42,11 +48,16 @@ class GroupResourceScopedIO(GroupIO):
             AssetIO,
             RawDatabaseIO,
             RawTableIO,
+            IntegrationsIO,
+            SAPInstanceIO,
+            AppIO,
+            PostgresGatewayUserIO,
+            AgentIO,
         }
     )
 
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client, "resource_scoped_only")
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, "resource_scoped_only", on_warning=on_warning)
 
     @property
     def display_name(self) -> str:
