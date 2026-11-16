@@ -102,7 +102,7 @@ class TestLoadResources:
             last_updated_time=0,
             uploaded=True,
         )
-        loader = FileMetadataIO.create_io(toolkit_client_cheap)
+        loader = FileMetadataIO(toolkit_client_cheap)
 
         dumped = loader.dump_resource(metadata)
 

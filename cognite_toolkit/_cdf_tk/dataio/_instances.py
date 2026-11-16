@@ -86,7 +86,7 @@ class InstanceIO(
         self._remove_existing_version = remove_existing_version
         # Cache for view to read-only properties mapping
         self._view_readonly_properties_cache: dict[ViewId, set[str]] = {}
-        self._view_crud = ViewIO.create_io(self.client)
+        self._view_crud = ViewIO(self.client)
 
     @staticmethod
     def _exclude_deleted(items: Iterable[InstanceResponse]) -> list[InstanceResponse]:
@@ -652,7 +652,7 @@ class InstanceIO(
         spaces = list(set((selector.get_instance_spaces() or []) + (selector.get_schema_spaces() or [])))
         if not spaces:
             return
-        space_crud = SpaceIO.create_io(self.client)
+        space_crud = SpaceIO(self.client)
         retrieved_spaces = space_crud.retrieve([SpaceId(space=space) for space in spaces])
         retrieved_spaces = [space for space in retrieved_spaces if not space.is_global]
         if not retrieved_spaces:
@@ -684,7 +684,7 @@ class InstanceIO(
         container_ids = list({container for view in views for container in view.mapped_containers})
         if not container_ids:
             return
-        container_crud = ContainerIO.create_io(self.client)
+        container_crud = ContainerIO(self.client)
         containers = container_crud.retrieve(container_ids)
         containers = [container for container in containers if not container.is_global]
         if not containers:

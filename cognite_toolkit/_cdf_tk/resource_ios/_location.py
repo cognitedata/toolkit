@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelId,
+    NodeId,
     SpaceId,
     ViewId,
 )
@@ -28,11 +29,9 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_lis
 from cognite_toolkit._cdf_tk.yaml_classes import LocationYAML
 from cognite_toolkit._cdf_tk.yaml_classes.location import AssetCentricFields
 
-from ._classic import AssetIO, SequenceIO
+from ._classic import AssetIO
 from ._data_organization import DataSetsIO
-from ._datamodel import DataModelIO, SpaceIO, ViewIO
-from ._file import FileMetadataIO
-from ._timeseries import TimeSeriesIO
+from ._datamodel import DataModelIO, NodeIO, SpaceIO, ViewIO
 
 
 @final
@@ -48,9 +47,7 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
             DataModelIO,
             SpaceIO,
             ViewIO,
-            SequenceIO,
-            FileMetadataIO,
-            TimeSeriesIO,
+            NodeIO,
         }
     )
     kind = "LocationFilter"
@@ -242,6 +239,11 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
 
     @classmethod
     def get_dependencies(cls, resource: LocationYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
+        if resource.parent_external_id:
+            yield cls, ExternalId(external_id=resource.parent_external_id)
+        if resource.scene:
+            yield SpaceIO, SpaceId(space=resource.scene.space)
+            yield NodeIO, NodeId(space=resource.scene.space, external_id=resource.scene.external_id)
         if resource.asset_centric:
             yield from cls._asset_centric_deps(resource.asset_centric)
             for subfilter in [

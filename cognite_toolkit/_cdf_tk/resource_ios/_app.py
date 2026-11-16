@@ -17,12 +17,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
+    FailedReadExtra,
+    ReadExtra,
+    ResourceIO,
+    SuccessExtra,
+    WarningHandler,
+)
 from cognite_toolkit._cdf_tk.utils.file import create_zip_in_memory
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash
 from cognite_toolkit._cdf_tk.yaml_classes import AppVersionYAML, AppYAML
-
-from ._auth import GroupAllScopedIO
 
 
 @final
@@ -34,7 +38,7 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
     resource_write_cls = AppRequest
     kind = "App"
     yaml_cls = AppYAML
-    dependencies = frozenset({GroupAllScopedIO})
+    dependencies = frozenset()
     _doc_url = "Apps/operation/appsCreate"
     drop_confirmation_message = (
         "WARNING: Apps are soft-deleted for up to 30 days after deletion. "
@@ -122,11 +126,11 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
     resource_write_cls = AppVersionRequest
     kind = "AppVersion"
     yaml_cls = AppVersionYAML
-    dependencies = frozenset({AppIO, GroupAllScopedIO})
+    dependencies = frozenset({AppIO})
     _doc_url = "Apps/operation/appsCreate"
 
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, on_warning=on_warning)
         self.zip_path_by_version_id: dict[AppVersionId, Path] = {}
 
     @property

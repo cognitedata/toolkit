@@ -38,11 +38,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWTableRequest,
     RAWTableResponse,
 )
-from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceContainerIO, ResourceIO
+from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceContainerIO, ResourceIO, WarningHandler
 from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_list_write_actions
 from cognite_toolkit._cdf_tk.yaml_classes import DatabaseYAML, TableYAML
-
-from ._auth import GroupAllScopedIO
 
 
 @final
@@ -53,12 +51,12 @@ class RawDatabaseIO(ResourceContainerIO[RawDatabaseId, RAWDatabaseRequest, RAWDa
     resource_write_cls = RAWDatabaseRequest
     kind = "Database"
     yaml_cls = DatabaseYAML
-    dependencies = frozenset({GroupAllScopedIO})
+    dependencies = frozenset()
     support_update = False
     _doc_url = "Raw/operation/createDBs"
 
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, on_warning=on_warning)
         self._loaded_db_names: set[str] = set()
 
     @property
@@ -160,12 +158,12 @@ class RawTableIO(ResourceContainerIO[RawTableId, RAWTableRequest, RAWTableRespon
     kind = "Table"
     yaml_cls = TableYAML
     support_update = False
-    dependencies = frozenset({RawDatabaseIO, GroupAllScopedIO})
+    dependencies = frozenset({RawDatabaseIO})
     _doc_url = "Raw/operation/createTables"
     parent_resource = frozenset({RawDatabaseIO})
 
-    def __init__(self, client: ToolkitClient):
-        super().__init__(client)
+    def __init__(self, client: ToolkitClient, on_warning: WarningHandler | None = None):
+        super().__init__(client, on_warning=on_warning)
         self._printed_warning = False
 
     @property
