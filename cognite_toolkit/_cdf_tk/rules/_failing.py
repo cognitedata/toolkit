@@ -1,35 +1,33 @@
-from collections import defaultdict
-from collections.abc import Iterable
-from pathlib import Path
+from collections.abc import Iterable, Sequence
+from datetime import datetime
+from typing import Any
 
-from cognite_toolkit._cdf_tk.client._resource_base import (
-    Identifier,
-)
-from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import contains_unresolved_variable
 from cognite_toolkit._cdf_tk.data_classes._insights import (
-    BuildError,
-    BuildWarning,
     Insight,
 )
-from cognite_toolkit._cdf_tk.resource_ios import ResourceIO, ResourceType
-
 from ._base import (
     InternalValidatorException,
     ResourceRef,
     RuleSetStatus,
     ToolkitRuleSet,
-    identifier_values,
-    quote_identifier,
-    with_position,
 )
 from ..client import ToolkitClient
+from ..commands.deploy_v2.command import DeploymentResult
 
 
 class Failing(ToolkitRuleSet):
     """Checks for failing resources, i.e. workflows, transformations, functions, and hosted extractors that
     are currently failing in CDF.
     """
+    def __init__(
+        self,
+        from_timestamp: datetime | None = None,
+        resources: Sequence[ResourceRef] | None = None,
+        results: Sequence[DeploymentResult] | None = None,
+        client: ToolkitClient | None = None,
+    ) -> None:
+        super().__init__(resources=resources, results=results, client=client)
+        self.from_timestamp = from_timestamp
 
     def get_status(self) -> RuleSetStatus:
         raise NotImplementedError()
@@ -40,14 +38,21 @@ class Failing(ToolkitRuleSet):
         inventory = self._load_inventory(self.client)
         standardized = self._standardize(inventory)
         failures_with_reason = self._identify_reason(standardized)
-        yield from self._reprot_failures(failures_with_reason)
+        yield from self._report_failures(failures_with_reason)
 
-
-    def _load_inventory(self, client: ToolkitClient) -> None:
+    def _load_inventory(self, client: ToolkitClient) -> Sequence[Any]:
         """Loads the inventory of resources from CDF and yields insights for any failing resources."""
-        ...
+        client.workflows.versions.list()
+        return []
 
-    def _standardize(self) -> None:
+    def _standardize(self, inventory: Sequence[Any]) -> Sequence[Any]:
         """Ensure that resources that are part of a failing workflow, is not reported twice, and that it is in the workflow failure instead"""
         ...
 
+    def _identify_reason(self, failures: Sequence[Any]) -> Sequence[Any]:
+        """Identify the reason for the failure, e.g. if it is a workflow, transformation, function, or hosted extractor"""
+        ...
+
+    def _report_failures(self, failures: Any) -> Iterable[Insight | InternalValidatorException]:
+        """Report the failures as insights"""
+        ...
