@@ -48,6 +48,7 @@ class FailingRuleSet(ToolkitRuleSet):
     are currently failing in CDF.
     """
 
+    DISPLAY_NAME = "Failing Resources"
     RESOURCE_TYPES = frozenset(
         {
             WorkflowIO.as_resource_type(),
@@ -60,10 +61,10 @@ class FailingRuleSet(ToolkitRuleSet):
 
     def __init__(
         self,
-        lookback_period: timedelta = timedelta(days=7),
         resources: Sequence[ResourceRef] | None = None,
         results: Sequence[DeploymentResult] | None = None,
         client: ToolkitClient | None = None,
+        lookback_period: timedelta = timedelta(days=7),
     ) -> None:
         super().__init__(resources=resources, results=results, client=client)
         self.lookback_period = lookback_period
