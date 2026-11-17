@@ -1,17 +1,18 @@
 """Unit tests for DataProductIO."""
 
 from cognite_toolkit._cdf_tk.client.identifiers import SpaceId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewNoVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.resource_ios._data_product import DataProductIO
-from cognite_toolkit._cdf_tk.resource_ios._datamodel import SpaceIO
+from cognite_toolkit._cdf_tk.resource_ios._datamodel import SpaceIO, ViewIO
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductYAML
 
 SCOPE_SOURCE = {"type": "view", "space": "sales_schema", "externalId": "Order"}
 
 
 class TestDataProductInstanceScope:
-    def test_get_dependencies_yields_scope_spaces(self) -> None:
+    def test_get_dependencies_yields_scope_views_and_spaces(self) -> None:
         resource = DataProductYAML.model_validate(
             {
                 "externalId": "sales",
@@ -26,10 +27,14 @@ class TestDataProductInstanceScope:
             }
         )
 
-        actual = {identifier for _, identifier in DataProductIO.get_dependencies(resource)}
+        actual = set(DataProductIO.get_dependencies(resource))
 
-        assert actual == {SpaceId(space="sales_schema"), SpaceId(space="sales_prod"), SpaceId(space="sales_eu")}
-        assert all(crud is SpaceIO for crud, _ in DataProductIO.get_dependencies(resource))
+        assert actual == {
+            (ViewIO, ViewNoVersionId(space="sales_schema", external_id="Order")),
+            (SpaceIO, SpaceId(space="sales_schema")),
+            (SpaceIO, SpaceId(space="sales_prod")),
+            (SpaceIO, SpaceId(space="sales_eu")),
+        }
 
     def test_as_update_sets_instance_scope(self) -> None:
         request = DataProductRequest.model_validate(
