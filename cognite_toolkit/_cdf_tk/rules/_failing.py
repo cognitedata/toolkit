@@ -43,7 +43,7 @@ class FailingResource:
     suggested_fix: str | None = None
 
 
-class Failing(ToolkitRuleSet):
+class FailingRuleSet(ToolkitRuleSet):
     """Checks for failing resources, i.e. workflows, transformations, functions, and hosted extractors that
     are currently failing in CDF.
     """
@@ -70,7 +70,15 @@ class Failing(ToolkitRuleSet):
         self.from_time_epoc = datetime_to_ms(datetime.now(UTC) - self.lookback_period)
 
     def get_status(self) -> RuleSetStatus:
-        raise NotImplementedError()
+        if self.client is None:
+            return RuleSetStatus(
+                code="skip",
+                message="Cannot check for failing resources without a ToolkitClient. Provide one to the rule set.",
+            )
+        return RuleSetStatus(
+            code="ready",
+            message=f"Checks for failing resources in CDF within the last {self.lookback_period.days} days.",
+        )
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
         if self.client is None:
