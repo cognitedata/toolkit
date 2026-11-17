@@ -220,6 +220,11 @@ class TestContainerIO:
           name:
             type:
               type: text
+          withUnit:
+            type:
+              type: float64
+              unit:
+                externalId: time:sec
         indexes:
           nameIndex:
             indexType: btree
