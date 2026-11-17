@@ -85,6 +85,8 @@ class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
         created_time: EpochTimestampRange | None = None,
         cron_expression: str | None = None,
     ) -> dict[str, Any] | None:
+        if function_id is not None and function_external_id is not None:
+            raise ValueError("Only one of function_id and function_external_id can be set.")
         filter: dict[str, Any] = {}
         if function_id is not None:
             filter["functionId"] = function_id

@@ -129,6 +129,11 @@ class RelationshipFilter(Filter):
 
 
 class ExtractionPipelineFilter(Filter):
+    """Filter for listing extraction pipelines.
+
+    ``schedule`` is either "On trigger", "Continuous", or a cron expression.
+    """
+
     external_id_prefix: str | None = None
     name: str | None = None
     data_set_ids: list[ExternalId | InternalId] | None = Field(default=None, min_length=1, max_length=100)

@@ -158,3 +158,10 @@ def test_list_sends_filter_as_query_parameters(
     list_items(ToolkitClient(config=toolkit_config))
 
     assert dict(respx_mock.calls[0].request.url.params) == expected_params
+
+
+def test_list_function_schedules_rejects_both_function_id_and_external_id(toolkit_config: ToolkitClientConfig) -> None:
+    client = ToolkitClient(config=toolkit_config)
+
+    with pytest.raises(ValueError, match="Only one of function_id and function_external_id"):
+        client.functions.schedules.list(function_id=1, function_external_id="my_function")
