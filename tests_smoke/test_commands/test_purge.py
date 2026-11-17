@@ -14,7 +14,7 @@ from cognite.client.utils import datetime_to_ms
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, NodeId, ViewId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter, RelationshipFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceResponse,
@@ -76,7 +76,10 @@ def _labels_in_dataset(client: ToolkitClient, dataset_external_id: str) -> list[
 def _relationships_from_source(client: ToolkitClient, source_external_id: str | None) -> list[RelationshipResponse]:
     if source_external_id is None:
         return []
-    return [item for item in client.relationships.list(limit=None) if item.source_external_id == source_external_id]
+    return client.relationships.list(
+        filter=RelationshipFilter(source_external_ids=[source_external_id]),
+        limit=None,
+    )
 
 
 def _retrieve_3d_model(client: ToolkitClient, model_id: int) -> ThreeDModelClassicResponse | None:
