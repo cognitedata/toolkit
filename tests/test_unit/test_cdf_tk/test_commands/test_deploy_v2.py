@@ -268,12 +268,9 @@ class TestCheckNoOutOfScopeViewReferences:
         container_mock = MagicMock()
         container_mock.space = "my_space"
         container_mock.external_id = "my_container"
-        mock_container_crud = MagicMock()
-        mock_container_crud.retrieve.return_value = [container_mock]
-        mock_view_crud = MagicMock()
 
         def mock_read_files(crud, files, opts):
-            if crud is mock_container_crud:
+            if isinstance(crud, ContainerIO):
                 return {"container_key": MagicMock()}
             return {view_id: MagicMock() for view_id in plan_view_ids}
 
@@ -294,8 +291,7 @@ class TestCheckNoOutOfScopeViewReferences:
         ]
         raises_ctx = pytest.raises(ToolkitValueError, match=error_match) if should_raise else nullcontext()
         with (
-            patch.object(ContainerIO, "create_io", return_value=mock_container_crud),
-            patch.object(ViewIO, "create_io", return_value=mock_view_crud),
+            patch.object(ContainerIO, "retrieve", return_value=[container_mock]),
             raises_ctx,
         ):
             cmd._validate_plan_container_references(client, plan, DeployOptions(drop=True, operation=operation))
