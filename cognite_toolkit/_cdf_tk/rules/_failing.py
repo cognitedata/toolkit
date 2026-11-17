@@ -3,12 +3,11 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from cognite.client.data_classes import TimestampRange
-from cognite.client.data_classes.functions import FunctionCallsFilter
-
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId, WorkflowVersionId
-from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import EpochTimestampRange, FunctionCallFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowExecutionResponse
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
@@ -19,8 +18,6 @@ from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, HostedExtractorJobI
 from cognite_toolkit._cdf_tk.utils.time import datetime_to_ms
 from cognite_toolkit._cdf_tk.yaml_classes import WorkflowVersionYAML
 
-from ..client._resource_base import Identifier
-from ..client.resource_classes.workflow_execution import WorkflowExecutionResponse
 from ._base import (
     InternalValidatorException,
     ResourceRef,
@@ -77,6 +74,7 @@ class Failing(ToolkitRuleSet):
             ].append(execution)
 
         io = WorkflowVersionIO(client)
+
         failing_workflow_version = io.retrieve(list(failed_executions_by_id.keys()))
         already_reported_: set[tuple[type[ResourceIO], Identifier]] = set()
         for workflow in failing_workflow_version:
@@ -96,36 +94,35 @@ class Failing(ToolkitRuleSet):
                 )
             )
 
-        for function_status in ["Failed", "Timeout", "ConcurrencyLimitExceeded"]:
-            failing_function_calls = client.functions.calls.list(
-                filter=FunctionCallsFilter(
-                    status=function_status,
-                    start_time=TimestampRange(min=self.from_time_epoc),
-                ),
-                limit=None,
-            )
-            failing_calls_by_function_id: dict[int, list[FunctionCallResponse]] = defaultdict(list)
-            for call in failing_function_calls:
-                failing_calls_by_function_id[call.function_id].append(call)
-
-            failing_functions = client.functions.retrieve(
-                InternalId.from_ids(list(failing_calls_by_function_id.keys()))
-            )
-
-            for function in failing_functions:
+        for function_list in client.functions.iterate(limit=None):
+            for function in function_list:
                 if (FunctionIO, function.as_id()) in already_reported_:
                     continue
-                failed_calls = failing_calls_by_function_id[function.id]
-                latest_call = max(failed_calls, key=lambda c: c.start_time)
-                failures.append(
-                    FailingResource(
-                        resource_type="Function",
-                        identifier=function.as_id(),
-                        reason=latest_call.error or "Unknown reason",
-                        url=client.config.create_api_url(f"/functions/{function.id}/"),
-                        failed_executions=len(failed_calls),
-                    )
+                if function.last_called is None:
+                    continue
+                function_calls = client.functions.calls.list(
+                    function_id=function.id,
+                    filter=FunctionCallFilter(
+                        start_time=EpochTimestampRange(min=self.from_time_epoc),
+                    ),
+                    limit=None,
                 )
+                failing_function_calls = [
+                    call
+                    for call in function_calls
+                    if call.status.casefold() in {"failed", "timeout", "concurrencylimitexceeded"}
+                ]
+                if failing_function_calls:
+                    latest_call = max(failing_function_calls, key=lambda c: c.start_time)
+                    failures.append(
+                        FailingResource(
+                            resource_type="Function",
+                            identifier=function.as_id(),
+                            reason=latest_call.error or "Unknown reason",
+                            url=client.config.create_api_url(f"/functions/{function.id}/"),
+                            failed_executions=len(failing_function_calls),
+                        )
+                    )
 
         # # For transformations, always include blocked executions, even if their failure is not within the lookback period, as they are still failing.
         # for transformation_list in client.transformations.iterate(limit=None):

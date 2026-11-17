@@ -60,6 +60,7 @@ class FunctionResponse(FunctionBase, ResponseResource[FunctionRequest]):
     runtime_version: str | None = None
     status: FunctionStatus | None = None
     error: FunctionAPIError | None = None
+    last_called: int | None = None
 
     @classmethod
     def request_cls(cls) -> type[FunctionRequest]:
