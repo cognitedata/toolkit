@@ -407,7 +407,13 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
                     cdf_type.pop(key, None)
             cdf_unit = cdf_type.get("unit", {})
             local_unit = local_type.get("unit", {})
-            if has_local and "space" not in (local_unit or {}) and (cdf_unit or {}).get("space") == "cdf_units":
+            if (
+                has_local
+                and isinstance(cdf_unit, dict)
+                and isinstance(local_unit, dict)
+                and "space" not in local_unit
+                and cdf_unit.get("space") == "cdf_units"
+            ):
                 cdf_unit.pop("space", None)
             if has_local and "usedFor" not in local and dumped.get("usedFor") == "node":
                 # Only drop if set to default by server.
