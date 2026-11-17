@@ -1224,6 +1224,82 @@ class TestDumpStreamlitApps:
             assert expected_warning in actual_message
             assert expected_severity in str(severity).casefold()
 
+    def test_dump_streamlit_app_sanitizes_external_id(
+        self, three_streamlit_apps: list[StreamlitResponse], tmp_path: Path
+    ) -> None:
+        app = three_streamlit_apps[1].model_copy(update={"external_id": "../../evil"})
+        content = json.dumps(
+            {"entrypoint": "main.py", "files": {"main.py": {"content": {"text": "print('hi')"}}}}
+        ).encode("utf-8")
+        with (
+            monkeypatch_toolkit_client() as client,
+            patch(f"{StreamlitFinder.__module__}.httpx2.stream", return_value=_DownloadStream(content)),
+        ):
+            client.streamlit.retrieve.return_value = [app]
+            _mock_file_bytes(client, content)
+            DumpResourceCommand(silent=True).dump_to_yamls(
+                StreamlitFinder(client, (app.external_id,)), output_dir=tmp_path / "dump", clean=False, verbose=False
+            )
+
+        written = {path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*") if path.is_file()}
+        assert written == {"dump/streamlit/.._.._evil.Streamlit.yaml", "dump/streamlit/.._.._evil/main.py"}
+
+    @pytest.mark.parametrize("external_id", [".", ".."])
+    def test_dump_code_rejects_path_traversal(
+        self, external_id: str, three_streamlit_apps: list[StreamlitResponse], tmp_path: Path
+    ) -> None:
+        app = three_streamlit_apps[1].model_copy(update={"external_id": external_id})
+        content = json.dumps(
+            {"entrypoint": "main.py", "files": {"main.py": {"content": {"text": "print('hi')"}}}}
+        ).encode("utf-8")
+        output = tmp_path / "streamlit"
+        output.mkdir()
+        with (
+            monkeypatch_toolkit_client() as client,
+            patch(f"{StreamlitFinder.__module__}.httpx2.stream", return_value=_DownloadStream(content)),
+        ):
+            _mock_file_bytes(client, content)
+            finder = StreamlitFinder(client, (external_id,))
+            with pytest.raises(ValueError, match=r"Invalid identifier"):
+                finder.dump_code(app, output)
+
+        assert not list(tmp_path.rglob("main.py"))
+
+    @pytest.mark.parametrize(
+        "malicious_path",
+        [
+            pytest.param("../evil.py", id="Parent folder"),
+            pytest.param("../../../evil.py", id="Outside dump folder"),
+            pytest.param("pages/../../../../evil.py", id="Nested traversal"),
+            pytest.param("{tmp_path}/evil.py", id="Absolute path"),
+        ],
+    )
+    def test_dump_code_rejects_file_outside_app_folder(
+        self, malicious_path: str, three_streamlit_apps: list[StreamlitResponse], tmp_path: Path
+    ) -> None:
+        content = json.dumps(
+            {
+                "entrypoint": "main.py",
+                "files": {
+                    "main.py": {"content": {"text": "print('hi')"}},
+                    malicious_path.format(tmp_path=tmp_path.as_posix()): {"content": {"text": "print('hacked')"}},
+                },
+            }
+        ).encode("utf-8")
+        output = tmp_path / "dump" / "streamlit"
+        output.mkdir(parents=True)
+        with (
+            monkeypatch_toolkit_client() as client,
+            patch(f"{StreamlitFinder.__module__}.httpx2.stream", return_value=_DownloadStream(content)),
+        ):
+            _mock_file_bytes(client, content)
+            finder = StreamlitFinder(client, ("appB",))
+            with pytest.raises(ValueError, match=r"Malicious file path detected"):
+                finder.dump_code(three_streamlit_apps[1], output)
+
+        # The legitimate main.py is not written either, all paths are checked before writing.
+        assert not list(tmp_path.rglob("*.py"))
+
 
 @pytest.fixture()
 def three_spaces() -> dm.SpaceList:
