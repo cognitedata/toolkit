@@ -1,9 +1,38 @@
+from typing import Annotated, Literal
+
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
-from .base import ToolkitResource
+from .base import BaseModelResource, ToolkitResource
+
+SpaceId = Annotated[str, Field(pattern=SPACE_FORMAT_PATTERN, min_length=1, max_length=43)]
+
+
+class InstanceScopeView(BaseModelResource):
+    type: Literal["view"] = Field(default="view", description="The kind of resource this scope applies to.")
+    space: SpaceId = Field(description="The space where the view is located.")
+    external_id: str = Field(description="External ID of the view.")
+
+
+class DataProductInstanceScope(BaseModelResource):
+    source: InstanceScopeView = Field(description="The view this scope applies to. It covers all versions of the view.")
+    read: list[SpaceId] = Field(
+        description="Instance spaces that can be read through this view when using the data product.",
+        min_length=1,
+        max_length=100,
+    )
+    upsert: list[SpaceId] = Field(
+        default_factory=list,
+        description="Instance spaces that can be upserted through this view when using the data product.",
+        max_length=100,
+    )
+    delete: list[SpaceId] = Field(
+        default_factory=list,
+        description="Instance spaces that can be deleted through this view when using the data product.",
+        max_length=100,
+    )
 
 
 class DataProductYAML(ToolkitResource):
@@ -36,6 +65,14 @@ class DataProductYAML(ToolkitResource):
     )
     tags: list[str] | None = Field(
         default=None, description="A list of distinct tags for categorization and filtering.", max_length=10
+    )
+    instance_scope: list[DataProductInstanceScope] | None = Field(
+        default=None,
+        description=(
+            "The instance spaces that can be accessed through each view of the data product. "
+            "Each view can appear at most once. Version views and role access filters must stay within this scope."
+        ),
+        max_length=100,
     )
 
     def as_id(self) -> ExternalId:

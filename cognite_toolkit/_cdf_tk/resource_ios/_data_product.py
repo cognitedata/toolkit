@@ -47,6 +47,9 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
     def get_dependencies(cls, resource: DataProductYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
         if resource.schema_space:
             yield SpaceIO, SpaceId(space=resource.schema_space)
+        for scope in resource.instance_scope or []:
+            for space in [scope.source.space, *scope.read, *scope.upsert, *scope.delete]:
+                yield SpaceIO, SpaceId(space=space)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[DataProductRequest]) -> ScopeDefinition | None:
@@ -78,7 +81,30 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
         for key, default in defaults:
             if dumped.get(key) == default and key not in local:
                 dumped.pop(key, None)
+        if not dumped.get("instanceScope") and "instanceScope" not in local:
+            dumped.pop("instanceScope", None)
+        else:
+            self._strip_scope_defaults(dumped.get("instanceScope"), local.get("instanceScope"))
         return dumped
+
+    @staticmethod
+    def _strip_scope_defaults(
+        dumped_scope: list[dict[str, Any]] | None, local_scope: list[dict[str, Any]] | None
+    ) -> None:
+        """Remove source type and empty upsert/delete lists that the local entry for the same view leaves out."""
+        local_by_view = {
+            (entry.get("source", {}).get("space"), entry.get("source", {}).get("externalId")): entry
+            for entry in local_scope or []
+        }
+        for entry in dumped_scope or []:
+            local_entry = local_by_view.get((entry["source"]["space"], entry["source"]["externalId"]))
+            if local_entry is None:
+                continue
+            if "type" not in local_entry["source"]:
+                entry["source"].pop("type", None)
+            for key in ("upsert", "delete"):
+                if entry.get(key) == [] and key not in local_entry:
+                    entry.pop(key)
 
     def create(self, items: Sequence[DataProductRequest]) -> list[DataProductResponse]:
         return self.client.data_products.create(list(items))
