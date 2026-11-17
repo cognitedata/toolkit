@@ -86,17 +86,35 @@ class TestDataProductVersionIODumpResource:
 
         assert "quality" in dumped
 
+    def test_dump_resource_ignores_stored_instance_spaces(self) -> None:
+        client = ToolkitClientMock()
+        io = DataProductVersionIO(client)
+        view = {"space": "cdf_cdm", "externalId": "Cognite3DModel", "version": "v1"}
+        resource = DataProductVersionResponse.model_validate(
+            {
+                "version": "1.0.0",
+                "views": [{**view, "instanceSpaces": {"read": ["my-space"], "write": []}}],
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+            }
+        )
+
+        dumped = io.dump_resource(resource)
+
+        assert dumped["views"] == [view]
+
 
 class TestDataProductVersionRequest:
     _v_cdm_3d: ClassVar[dict] = {
         "space": "cdf_cdm",
         "externalId": "Cognite3DModel",
         "version": "v1",
-        "instanceSpaces": {"read": [], "write": []},
     }
 
     def _existing(self, **overrides: str) -> list[DataProductVersionView]:
-        return [DataProductVersionView.model_validate({**self._v_cdm_3d, **overrides})]
+        # Versions created before instanceSpaces was removed from the API still return it.
+        stored = {**self._v_cdm_3d, "instanceSpaces": {"read": [], "write": []}, **overrides}
+        return [DataProductVersionView.model_validate(stored)]
 
     def test_as_update_replace_adds_only_net_new_views(self) -> None:
         request = DataProductVersionRequest.model_validate(
@@ -118,7 +136,6 @@ class TestDataProductVersionRequest:
                     "space": "cdf_cdm",
                     "externalId": "OtherView",
                     "version": "v1",
-                    "instanceSpaces": {"read": [], "write": []},
                 }
             ]
         }
