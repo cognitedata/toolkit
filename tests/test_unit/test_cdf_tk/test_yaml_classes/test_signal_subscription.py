@@ -85,7 +85,7 @@ def invalid_test_cases() -> Iterable:
         {
             "Invalid value for filter: Input tag 'invalid_topic' found using 'topic' "
             "does not match any of the expected tags: 'cognite_integrations', 'cognite_workflows', "
-            "'cognite_hosted_extractors'",
+            "'cognite_hosted_extractors', 'cognite_sandbox', 'cognite_comment_notifications'",
         },
         id="invalid-topic",
     )

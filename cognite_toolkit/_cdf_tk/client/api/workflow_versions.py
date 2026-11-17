@@ -24,7 +24,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionResponse]):
             method_endpoint_map={
                 "upsert": Endpoint(method="POST", path="/workflows/versions", item_limit=1),
                 "retrieve": Endpoint(
-                    method="GET", path="/workflow/{workflowExternalId}/versions/{version}", item_limit=1
+                    method="GET", path="/workflows/{workflowExternalId}/versions/{version}", item_limit=1
                 ),
                 "delete": Endpoint(method="POST", path="/workflows/versions/delete", item_limit=100),
                 "list": Endpoint(method="POST", path="/workflows/versions/list", item_limit=1000),

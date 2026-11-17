@@ -4,7 +4,7 @@ from pydantic import Field, JsonValue, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Identifier, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeUntypedId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeUntypedId, ViewId
 
 
 class RecordId(Identifier):
@@ -21,11 +21,13 @@ class RecordId(Identifier):
 
 
 class RecordSource(BaseModelObject):
-    source: ContainerId
+    """Properties to write from one container, or from one view that writes to its mapped containers."""
+
+    source: ContainerId | ViewId
     properties: dict[str, JsonValue | NodeUntypedId | list[NodeUntypedId]]
 
     @field_serializer("source", mode="plain")
-    def serialize_source(self, value: ContainerId) -> Any:
+    def serialize_source(self, value: ContainerId | ViewId) -> Any:
         return {**value.dump(), "type": value.type}
 
 
@@ -89,6 +91,16 @@ class RecordResponse(ResponseResource[RecordRequest]):
                 RecordSource(source=source_ref, properties=props) for source_ref, props in self.properties.items()
             ]
         return RecordRequest.model_validate(dumped, extra="ignore")
+
+
+class RecordAggregateResponse(BaseModelObject):
+    """Aggregate results keyed by the identifiers used in the request.
+
+    ``typing`` is only returned when the request sets includeTyping.
+    """
+
+    aggregates: dict[str, dict[str, JsonValue]]
+    typing: dict[str, JsonValue] | None = None
 
 
 class RecordSyncResponse(PagedResponse[RecordResponse]):

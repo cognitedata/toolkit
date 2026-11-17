@@ -6,6 +6,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
     ExternalDataSourceRequest,
     ExternalDataSourceResponse,
+    OneLakeSettingsWrite,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
@@ -110,7 +111,7 @@ class ExternalDataSourceIO(
         return dumped
 
     def sensitive_strings(self, item: ExternalDataSourceRequest) -> Iterable[str]:
-        if item.settings and item.settings.credentials:
+        if isinstance(item.settings, OneLakeSettingsWrite) and item.settings.credentials:
             yield item.settings.credentials.client_secret
 
     def create(self, items: Sequence[ExternalDataSourceRequest]) -> list[ExternalDataSourceResponse]:

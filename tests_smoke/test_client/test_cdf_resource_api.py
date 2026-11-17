@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.client.api.apps import AppsAPI
 from cognite_toolkit._cdf_tk.client.api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
 from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobsAPI
 from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
+from cognite_toolkit._cdf_tk.client.api.data_product_roles import DataProductRoleAccessFiltersAPI, DataProductRolesAPI
 from cognite_toolkit._cdf_tk.client.api.data_product_versions import DataProductVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.datapoint_subscription import DatapointSubscriptionsAPI
@@ -25,6 +26,7 @@ from cognite_toolkit._cdf_tk.client.api.datapoints import DatapointsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
+from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_runs import ExtractionPipelineRunsAPI
 from cognite_toolkit._cdf_tk.client.api.function_calls import FunctionCallsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
@@ -53,10 +55,13 @@ from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCateg
 from cognite_toolkit._cdf_tk.client.api.sequence_rows import SequenceRowsAPI
 from cognite_toolkit._cdf_tk.client.api.sessions import SessionAPI
 from cognite_toolkit._cdf_tk.client.api.signal_subscriptions import SignalSubscriptionsAPI
+from cognite_toolkit._cdf_tk.client.api.simulator_integrations import SimulatorIntegrationsAPI
+from cognite_toolkit._cdf_tk.client.api.simulator_logs import SimulatorLogsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_routines import SimulatorRoutinesAPI
+from cognite_toolkit._cdf_tk.client.api.simulator_runs import SimulatorRunsAPI
 from cognite_toolkit._cdf_tk.client.api.statistics import SpaceStatisticsAPI, StatisticsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import (
@@ -311,6 +316,10 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         SimulatorRoutinesAPI,
         SimulatorModelRevisionsAPI,
         SimulatorRoutineRevisionsAPI,
+        # Runs need a routine and a connected simulator. Integrations are created by connectors, and logs are read-only.
+        SimulatorRunsAPI,
+        SimulatorIntegrationsAPI,
+        SimulatorLogsAPI,
         # Do not support delete.
         DataSetsAPI,
         # RAW tables depend on existing RAW databases, so they are tested together.
@@ -333,6 +342,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         ThreeDClassicRevisionsAPI,
         # Requires special handling of list call,
         ExtractionPipelineConfigsAPI,
+        # Runs are scoped to an existing extraction pipeline and cannot be deleted.
+        ExtractionPipelineRunsAPI,
         # Cannot be deleted and recreated frequently.
         StreamsAPI,
         AppsAPI,
@@ -363,6 +374,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # The dataproduct API is not yet supported in CDF.
         DataProductsAPI,
         DataProductVersionsAPI,
+        DataProductRolesAPI,
+        DataProductRoleAccessFiltersAPI,
         # Datapoints subscription has a special update method
         DatapointSubscriptionsAPI,
         # Statistics are read-only and have no items to create, update, or delete.

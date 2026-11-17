@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow import (
 )
 
 from .workflow_executions import WorkflowExecutionsAPI
+from .workflow_tasks import WorkflowTasksAPI
 from .workflow_triggers import WorkflowTriggersAPI
 from .workflow_versions import WorkflowVersionsAPI
 
@@ -35,6 +36,7 @@ class WorkflowsAPI(CDFResourceAPI[WorkflowResponse]):
         self.versions = WorkflowVersionsAPI(http_client)
         self.triggers = WorkflowTriggersAPI(http_client)
         self.executions = WorkflowExecutionsAPI(http_client)
+        self.tasks = WorkflowTasksAPI(http_client)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse

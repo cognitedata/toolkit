@@ -3,9 +3,10 @@ from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import SimulatorModelRevisionFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator import SimulatorModelRevisionDataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model_revision import (
     SimulatorModelRevisionRequest,
     SimulatorModelRevisionResponse,
@@ -58,6 +59,29 @@ class SimulatorModelRevisionsAPI(CDFResourceAPI[SimulatorModelRevisionResponse])
             return self._request_item_split_retries(items, method="retrieve")
         else:
             return self._request_item_response(items, method="retrieve")
+
+    def retrieve_data(
+        self, model_revision_external_ids: Sequence[str]
+    ) -> builtins.list[SimulatorModelRevisionDataResponse]:
+        """Retrieve the flowsheets the connector extracted from model revisions (alpha).
+
+        Args:
+            model_revision_external_ids: External IDs of the model revisions. Each is retrieved with its own request.
+
+        Returns:
+            The extracted data of each model revision.
+        """
+        results: builtins.list[SimulatorModelRevisionDataResponse] = []
+        for external_id in model_revision_external_ids:
+            request = RequestMessage(
+                endpoint_url=self._make_url("/simulators/models/revisions/data/list"),
+                method="POST",
+                body_content={"items": [{"modelRevisionExternalId": external_id}]},
+                api_version="alpha",
+            )
+            response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+            results.extend(ResponseItems[SimulatorModelRevisionDataResponse].model_validate_json(response.body).items)
+        return results
 
     def paginate(
         self,

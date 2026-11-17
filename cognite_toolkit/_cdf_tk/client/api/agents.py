@@ -8,11 +8,18 @@ Note: This is an alpha API and may change in future releases.
 
 import builtins
 from collections.abc import Iterable, Sequence
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse, ServicesAvailability
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import (
+    AgentChatResponse,
+    AgentChatUserMessage,
+    AgentRequest,
+    AgentResponse,
+    ServicesAvailability,
+)
 
 
 class AgentsAPI(CDFResourceAPI[AgentResponse]):
@@ -105,6 +112,52 @@ class AgentsAPI(CDFResourceAPI[AgentResponse]):
             List of AgentResponse objects.
         """
         return self._list(limit=limit)
+
+    def chat(
+        self,
+        agent: ExternalId,
+        messages: Sequence[AgentChatUserMessage | dict[str, Any]],
+        cursor: str | None = None,
+        actions: Sequence[dict[str, Any]] | None = None,
+        retention_policy: Literal["temporary", "persisted"] | None = None,
+        tool_confirmation_mode: Literal["default", "dangerouslyAllowAll"] | None = None,
+    ) -> AgentChatResponse:
+        """Send messages to an agent and wait for the reply.
+
+        Args:
+            agent: The agent to chat with.
+            messages: The user messages, or action messages answering the agent's previous actions.
+            cursor: The cursor from the previous reply, to continue the conversation.
+            actions: Client tools the agent may call, at most 20.
+            retention_policy: Whether the conversation is kept after the session.
+            tool_confirmation_mode: Whether tools that require confirmation run without asking.
+
+        Returns:
+            The agent's reply.
+        """
+        body: dict[str, Any] = {
+            "agentExternalId": agent.external_id,
+            "messages": [
+                message.dump() if isinstance(message, AgentChatUserMessage) else message for message in messages
+            ],
+            "stream": False,
+        }
+        if cursor is not None:
+            body["cursor"] = cursor
+        if actions is not None:
+            body["actions"] = list(actions)
+        if retention_policy is not None:
+            body["retentionPolicy"] = retention_policy
+        if tool_confirmation_mode is not None:
+            body["toolConfirmationMode"] = tool_confirmation_mode
+        request = RequestMessage(
+            endpoint_url=self._make_url("/ai/agents/chat"),
+            method="POST",
+            body_content=body,
+            api_version=self._api_version,
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        return AgentChatResponse.model_validate_json(response.body)
 
     def service_availability(self) -> ServicesAvailability:
         """Get the availability of AI services in the CDF project.

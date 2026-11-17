@@ -8,13 +8,14 @@ Note: This is a beta API and may change in future releases.
 
 import builtins
 from collections.abc import Iterable, Sequence
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     FailedResponse,
     HTTPClient,
     ItemsSuccessResponse,
+    RequestMessage,
     SuccessResponse,
     ToolkitAPIError,
 )
@@ -71,6 +72,16 @@ class SkillsAPI(CDFResourceAPI[SkillResponse]):
     def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
         """Delete skills from CDF."""
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
+
+    def download(self, item: ExternalId) -> bytes:
+        """Download a skill as a zip archive."""
+        request = RequestMessage(
+            endpoint_url=self._make_url(f"/ai/skills/{quote(item.external_id, safe='')}/download"),
+            method="GET",
+            accept="application/zip",
+            api_version=self._api_version,
+        )
+        return self._http_client.request_single_retries(request).get_success_or_raise(request).content
 
     def iterate(self, limit: int | None = None) -> Iterable[builtins.list[SkillResponse]]:
         """Iterate over skill summaries in CDF."""

@@ -74,6 +74,8 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
             ("isGoverned", False),
             ("description", None),
             ("tags", []),
+            ("instanceScope", []),
+            ("instanceScope", None),
         ]
         for key, default in defaults:
             if dumped.get(key) == default and key not in local:

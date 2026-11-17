@@ -92,6 +92,23 @@ class ExtractionPipelineConfigsAPI(CDFResourceAPI[ExtractionPipelineConfigRespon
 
         return results
 
+    def revert(self, item: ExtractionPipelineConfigId) -> ExtractionPipelineConfigResponse:
+        """Create a new configuration revision with the content of an earlier revision.
+
+        Args:
+            item: The extraction pipeline and the revision to revert to.
+
+        Returns:
+            The new configuration revision.
+        """
+        request = RequestMessage(
+            endpoint_url=self._make_url("/extpipes/config/revert"),
+            method="POST",
+            body_content=item.dump(),
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        return ExtractionPipelineConfigResponse.model_validate_json(response.body)
+
     def paginate(
         self,
         external_id: str,
