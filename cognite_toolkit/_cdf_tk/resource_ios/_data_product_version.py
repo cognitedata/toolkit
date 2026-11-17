@@ -94,7 +94,8 @@ class DataProductVersionIO(
         # Versions deployed before instanceSpaces was removed still have it stored, and the API still returns it
         # as of 17.11.2026.
         local_views = {
-            (view.get("space"), view.get("externalId"), view.get("version")): view for view in local.get("views") or []
+            (view.get("space"), view.get("externalId"), str(view.get("version"))): view
+            for view in local.get("views") or []
         }
         for view in dumped.get("views") or []:
             local_view = local_views.get((view["space"], view["externalId"], view["version"]), {})
