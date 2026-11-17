@@ -35,6 +35,12 @@ pip install cognite-toolkit
 
 Then run `cdf --help` to get started with the interactive command-line tool.
 
+or to try it out without any installation (requires `uv`):
+
+```bash
+uvx --from cognite-toolkit cdf --version
+```
+
 ## For more information
 
 More details about the tool can be found at
