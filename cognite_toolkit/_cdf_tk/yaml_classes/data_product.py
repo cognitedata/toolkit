@@ -1,4 +1,4 @@
-from typing import Annotated, Literal
+from typing import Literal
 
 from pydantic import Field
 
@@ -7,28 +7,31 @@ from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
 
-SpaceId = Annotated[str, Field(pattern=SPACE_FORMAT_PATTERN, min_length=1, max_length=43)]
-
 
 class InstanceScopeView(BaseModelResource):
     type: Literal["view"] = Field(default="view", description="The kind of resource this scope applies to.")
-    space: SpaceId = Field(description="The space where the view is located.")
+    space: str = Field(
+        description="The space where the view is located.",
+        min_length=1,
+        max_length=43,
+        pattern=SPACE_FORMAT_PATTERN,
+    )
     external_id: str = Field(description="External ID of the view.")
 
 
 class DataProductInstanceScope(BaseModelResource):
     source: InstanceScopeView = Field(description="The view this scope applies to. It covers all versions of the view.")
-    read: list[SpaceId] = Field(
+    read: list[str] = Field(
         description="Instance spaces that can be read through this view when using the data product.",
         min_length=1,
         max_length=100,
     )
-    upsert: list[SpaceId] = Field(
+    upsert: list[str] = Field(
         default_factory=list,
         description="Instance spaces that can be upserted through this view when using the data product.",
         max_length=100,
     )
-    delete: list[SpaceId] = Field(
+    delete: list[str] = Field(
         default_factory=list,
         description="Instance spaces that can be deleted through this view when using the data product.",
         max_length=100,

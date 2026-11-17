@@ -1,4 +1,4 @@
-from typing import Annotated, Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import Field
 
@@ -8,14 +8,11 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
-
-SpaceId = Annotated[str, Field(pattern=SPACE_FORMAT_PATTERN, max_length=43)]
 
 
 class InstanceScopeView(BaseModelObject):
     type: Literal["view"] = "view"
-    space: SpaceId
+    space: str
     external_id: str
 
 
@@ -23,9 +20,9 @@ class DataProductInstanceScope(BaseModelObject):
     """The instance spaces that can be accessed through a view when using the data product."""
 
     source: InstanceScopeView
-    read: list[SpaceId] = Field(min_length=1, max_length=100)
-    upsert: list[SpaceId] = Field(default_factory=list, max_length=100)
-    delete: list[SpaceId] = Field(default_factory=list, max_length=100)
+    read: list[str] = Field(min_length=1, max_length=100)
+    upsert: list[str] = Field(default_factory=list, max_length=100)
+    delete: list[str] = Field(default_factory=list, max_length=100)
 
 
 class DataProduct(BaseModelObject):
