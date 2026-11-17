@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError, ToolkitCycleError
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ResourceIO
-from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
+from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.yaml_classes import LocationYAML
 from cognite_toolkit._cdf_tk.yaml_classes.location import AssetCentricFields
@@ -94,7 +94,7 @@ class LocationFilterIO(ResourceIO[ExternalId, LocationFilterRequest, LocationFil
 
     @classmethod
     def as_filename(cls, id: ExternalId) -> str:
-        return id.external_id
+        return sanitize_filename(id.external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LocationFilterRequest:
         def _normalize_asset_subtree_ids(asset_filter: dict[str, Any]) -> None:

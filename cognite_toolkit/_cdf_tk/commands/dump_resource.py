@@ -849,6 +849,11 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             folder (Path): The directory where the app code will be saved.
             console (Console | None): Optional Rich console for printing warnings.
         """
+        # `.` and `..` pass through sanitize_filename and resolve to this folder or its parent.
+        base = folder.resolve()
+        app_path = (folder / sanitize_filename(app.external_id)).resolve()
+        if app_path == base or not app_path.is_relative_to(base):
+            raise ToolkitValueError(f"Invalid identifier {app.external_id!r}: must not escape the Streamlit directory")
         try:
             retrieved = self.client.filemetadata.retrieve(
                 [ExternalId(external_id=app.external_id)], ignore_unknown_ids=True
@@ -877,8 +882,6 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
             ).print_warning(console=console)
             return
 
-        app_folder = sanitize_filename(app.external_id)
-        app_path = folder / app_folder
         app_path.mkdir(exist_ok=True)
         if isinstance(json_content.get("requirements"), list):
             requirements_txt = app_path / "requirements.txt"
@@ -895,6 +898,13 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
                 f"The Streamlit app {app.external_id!r} does not have any files to dump. It is likely corrupted."
             ).print_warning(console=console)
             return
+        # Every path must stay inside the app folder, and all are checked before any file is written.
+        for relative_filepath in files:
+            target_path = (app_path / relative_filepath).resolve()
+            if target_path == app_path or not target_path.is_relative_to(app_path):
+                raise ToolkitValueError(
+                    f"Malicious file path detected in Streamlit app {app.external_id!r}: {relative_filepath!r}"
+                )
         created_files: set[str] = set()
         for relative_filepath, content in files.items():
             filepath = app_path / relative_filepath
