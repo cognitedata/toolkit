@@ -30,6 +30,11 @@ class FunctionBase(BaseModelObject):
     index_url: str | None = None
     extra_index_urls: list[str] | None = None
 
+    def as_id(self) -> ExternalId:
+        if self.external_id is None:
+            raise ValueError("Cannot create ExternalId: external_id is None")
+        return ExternalId(external_id=self.external_id)
+
 
 class FunctionRequest(FunctionBase, RequestResource):
     """Request resource for creating/updating functions."""
@@ -40,11 +45,6 @@ class FunctionRequest(FunctionBase, RequestResource):
     space: str | None = Field(None, exclude=True)
     # Local directory with the function code. Not part of the request payload.
     function_code: Path | None = Field(None, exclude=True)
-
-    def as_id(self) -> ExternalId:
-        if self.external_id is None:
-            raise ValueError("Cannot create ExternalId: external_id is None")
-        return ExternalId(external_id=self.external_id)
 
 
 class FunctionAPIError(BaseModelObject):
