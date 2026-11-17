@@ -90,6 +90,10 @@ class DataProductVersionIO(
         for key, value in dumped.items():
             if value == {}:
                 dumped[key] = None
+        # TODO(CDF-28953): Remove by May 2027, after verifying the API no longer returns instanceSpaces.
+        # Versions deployed before instanceSpaces was removed still have it stored, and the API returns it.
+        for view in dumped.get("views") or []:
+            view.pop("instanceSpaces", None)
         defaults: dict[str, Any | None] = {
             "status": "draft",
             "description": None,

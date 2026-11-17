@@ -1,6 +1,6 @@
 from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -14,9 +14,6 @@ SpaceId = Annotated[str, Field(pattern=SPACE_FORMAT_PATTERN, max_length=43)]
 
 
 class DataProductVersionView(BaseModelObject):
-    # Versions created before instanceSpaces was removed from the API still return it on reads.
-    model_config = ConfigDict(extra="ignore")
-
     space: SpaceId
     external_id: str
     version: str
