@@ -1,4 +1,5 @@
 from ._agents import AgentRuleSet
+from ._auth import CredentialsCheck
 from ._base import ToolkitRuleSet, get_global_rules_registry
 from ._classic import ClassicDeprecationRuleSet
 from ._data_modeling import DataModelingRuleSet
@@ -12,6 +13,7 @@ from ._transformations import TransformationRuleSet
 __all__ = [
     "AgentRuleSet",
     "ClassicDeprecationRuleSet",
+    "CredentialsCheck",
     "DataModelingRuleSet",
     "DependencyRuleSet",
     "FunctionRuleSet",
