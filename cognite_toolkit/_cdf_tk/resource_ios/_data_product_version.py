@@ -93,8 +93,13 @@ class DataProductVersionIO(
         # TODO(CDF-28953): Remove by May 2027, after verifying the API no longer returns instanceSpaces.
         # Versions deployed before instanceSpaces was removed still have it stored, and the API still returns it
         # as of 17.11.2026.
+        local_views = {
+            (view.get("space"), view.get("externalId"), view.get("version")): view for view in local.get("views") or []
+        }
         for view in dumped.get("views") or []:
-            view.pop("instanceSpaces", None)
+            local_view = local_views.get((view["space"], view["externalId"], view["version"]), {})
+            if "instanceSpaces" not in local_view:
+                view.pop("instanceSpaces", None)
         defaults: dict[str, Any | None] = {
             "status": "draft",
             "description": None,
