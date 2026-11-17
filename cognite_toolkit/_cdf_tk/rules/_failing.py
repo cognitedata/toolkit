@@ -14,7 +14,14 @@ from cognite_toolkit._cdf_tk.data_classes._insights import (
     Insight,
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_ios import FunctionIO, HostedExtractorJobIO, ResourceIO, WorkflowVersionIO
+from cognite_toolkit._cdf_tk.resource_ios import (
+    FunctionIO,
+    HostedExtractorJobIO,
+    ResourceIO,
+    TransformationIO,
+    WorkflowIO,
+    WorkflowVersionIO,
+)
 from cognite_toolkit._cdf_tk.utils.time import datetime_to_ms
 from cognite_toolkit._cdf_tk.yaml_classes import WorkflowVersionYAML
 
@@ -40,6 +47,16 @@ class Failing(ToolkitRuleSet):
     """Checks for failing resources, i.e. workflows, transformations, functions, and hosted extractors that
     are currently failing in CDF.
     """
+
+    RESOURCE_TYPES = frozenset(
+        {
+            WorkflowIO.as_resource_type(),
+            FunctionIO.as_resource_type(),
+            HostedExtractorJobIO.as_resource_type(),
+            TransformationIO.as_resource_type(),
+        }
+    )
+    CONTEXT = frozenset({"cdf"})
 
     def __init__(
         self,
