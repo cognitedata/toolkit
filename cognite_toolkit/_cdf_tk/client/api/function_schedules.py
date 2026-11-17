@@ -31,7 +31,8 @@ class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
                 "create": Endpoint(method="POST", path="/functions/schedules", item_limit=1),
                 "retrieve": Endpoint(method="POST", path="/functions/schedules/byids", item_limit=10_000),
                 "delete": Endpoint(method="POST", path="/functions/schedules/delete", item_limit=10_000),
-                "list": Endpoint(method="POST", path="/functions/schedules/list", item_limit=1000),
+                # The list endpoint has no cursor, so this is the most schedules list(limit=None) can return.
+                "list": Endpoint(method="POST", path="/functions/schedules/list", item_limit=10_000),
             },
         )
 
@@ -102,12 +103,15 @@ class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
     def paginate(
         self,
         function_id: int | None = None,
+        name: str | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[FunctionScheduleResponse]:
         """Get a page of function schedules from CDF.
 
         Args:
+            function_id: Only return schedules of this function.
+            name: Only return schedules with this name.
             limit: Maximum number of function schedules to return.
             cursor: Cursor for pagination.
 
@@ -117,23 +121,26 @@ class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body=self._create_list_request_body(function_id=function_id),
+            body=self._create_list_request_body(function_id=function_id, name=name),
         )
 
     def iterate(
         self,
         function_id: int | None = None,
+        name: str | None = None,
         limit: int | None = None,
     ) -> Iterable[builtins.list[FunctionScheduleResponse]]:
         """Iterate over all function schedules in CDF.
 
         Args:
+            function_id: Only return schedules of this function.
+            name: Only return schedules with this name.
             limit: Maximum total number of function schedules to return.
 
         Returns:
             Iterable of lists of FunctionScheduleResponse objects.
         """
-        return self._iterate(limit=limit, body=self._create_list_request_body(function_id=function_id))
+        return self._iterate(limit=limit, body=self._create_list_request_body(function_id=function_id, name=name))
 
     def list(
         self, function_id: int | None = None, name: str | None = None, limit: int | None = None
@@ -141,6 +148,8 @@ class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
         """List all function schedules in CDF.
 
         Args:
+            function_id: Only return schedules of this function.
+            name: Only return schedules with this name.
             limit: Maximum total number of function schedules to return.
 
         Returns:

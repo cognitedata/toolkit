@@ -86,6 +86,19 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
         """
         return self._update(items, mode=mode)
 
+    @staticmethod
+    def _list_body(
+        metadata: dict[str, str] | None, external_id_prefix: str | None, write_protected: bool | None
+    ) -> dict[str, Any]:
+        filter_body: dict[str, Any] = {}
+        if metadata is not None:
+            filter_body["metadata"] = metadata
+        if external_id_prefix is not None:
+            filter_body["externalIdPrefix"] = external_id_prefix
+        if write_protected is not None:
+            filter_body["writeProtected"] = write_protected
+        return {"filter": filter_body} if filter_body else {}
+
     def paginate(
         self,
         metadata: dict[str, str] | None = None,
@@ -106,18 +119,10 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
         Returns:
             PagedResponse of DataSetResponse objects.
         """
-        filter_body: dict[str, Any] = {}
-        if metadata is not None:
-            filter_body["metadata"] = metadata
-        if external_id_prefix is not None:
-            filter_body["externalIdPrefix"] = external_id_prefix
-        if write_protected is not None:
-            filter_body["writeProtected"] = write_protected
-
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body={"filter": filter_body} if filter_body else {},
+            body=self._list_body(metadata, external_id_prefix, write_protected),
         )
 
     def iterate(
@@ -138,23 +143,24 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
         Returns:
             Iterable of lists of DataSetResponse objects.
         """
-        filter_body: dict[str, Any] = {}
-        if metadata is not None:
-            filter_body["metadata"] = metadata
-        if external_id_prefix is not None:
-            filter_body["externalIdPrefix"] = external_id_prefix
-        if write_protected is not None:
-            filter_body["writeProtected"] = write_protected
+        return self._iterate(limit=limit, body=self._list_body(metadata, external_id_prefix, write_protected))
 
-        return self._iterate(
-            limit=limit,
-            body={"filter": filter_body} if filter_body else {},
-        )
-
-    def list(self, limit: int | None = 100) -> builtins.list[DataSetResponse]:
+    def list(
+        self,
+        metadata: dict[str, str] | None = None,
+        external_id_prefix: str | None = None,
+        write_protected: bool | None = None,
+        limit: int | None = 100,
+    ) -> builtins.list[DataSetResponse]:
         """List all data sets in CDF.
+
+        Args:
+            metadata: Filter by metadata.
+            external_id_prefix: Filter by external ID prefix.
+            write_protected: Filter by write protection status.
+            limit: Maximum number of items to return.
 
         Returns:
             List of DataSetResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, body=self._list_body(metadata, external_id_prefix, write_protected))
