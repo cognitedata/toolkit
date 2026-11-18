@@ -106,14 +106,16 @@ class SimulatorModelRevisionsAPI(CDFResourceAPI[SimulatorModelRevisionResponse])
 
     def list(
         self,
+        filter: SimulatorModelRevisionFilter | None = None,
         limit: int | None = 100,
     ) -> builtins.list[SimulatorModelRevisionResponse]:
         """List all simulator model revisions in CDF.
 
         Args:
+            filter: Filter to apply to the simulator model revisions.
             limit: Maximum number of items to return. None for all items.
 
         Returns:
             List of SimulatorModelRevisionResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, body={"filter": filter.dump() if filter else None})

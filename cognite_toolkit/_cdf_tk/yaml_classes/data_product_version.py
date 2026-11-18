@@ -10,22 +10,10 @@ from .base import BaseModelResource, ToolkitResource
 SpaceId = Annotated[str, Field(pattern=SPACE_FORMAT_PATTERN, min_length=1, max_length=43)]
 
 
-class ViewInstanceSpaces(BaseModelResource):
-    read: list[SpaceId] = Field(
-        default_factory=list, description="Instance space IDs from which you can read through this view."
-    )
-    write: list[SpaceId] = Field(
-        default_factory=list, description="Instance space IDs to which you can write through this view."
-    )
-
-
 class DataProductVersionView(BaseModelResource):
     space: SpaceId = Field(description="The space where the view is located.")
     external_id: str = Field(description="External ID of the view.")
     version: str = Field(description="Version of the view.")
-    instance_spaces: ViewInstanceSpaces = Field(
-        default_factory=ViewInstanceSpaces, description="Instance spaces for this view."
-    )
 
 
 class DataProductVersionTerms(BaseModelResource):
@@ -65,7 +53,7 @@ class DataProductVersionYAML(ToolkitResource):
     )
     views: list[DataProductVersionView] = Field(
         default_factory=list,
-        description="Collection of view references (space, externalId, version, instanceSpaces) associated with this version.",
+        description="Collection of view references (space, externalId, version) associated with this version.",
         max_length=100,
     )
     status: Literal["draft", "published", "deprecated"] = Field(

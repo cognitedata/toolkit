@@ -209,7 +209,7 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body={"filter": filter.model_dump(by_alias=True) if filter else {}},
+            body={"filter": filter.dump() if filter else {}},
         )
 
     def iterate(
@@ -228,7 +228,7 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         """
         return self._iterate(
             limit=limit,
-            body={"filter": filter.model_dump(by_alias=True) if filter else {}},
+            body={"filter": filter.dump() if filter else {}},
         )
 
     def list(
@@ -245,4 +245,4 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         Returns:
             List of TransformationResponse objects.
         """
-        return self._list(limit=limit, body={"filter": filter.model_dump(by_alias=True) if filter else {}})
+        return self._list(limit=limit, body={"filter": filter.dump() if filter else {}})
