@@ -1,6 +1,6 @@
-from typing import Any, Literal, TypeAlias, get_args
+from typing import Annotated, Any, Literal, TypeAlias, get_args
 
-from pydantic import Field, JsonValue, model_validator
+from pydantic import Discriminator, Field, JsonValue, Tag, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client._types import Metadata
@@ -147,15 +147,9 @@ class DocumentLine(BaseModelObject):
     words: list[DocumentTextBox] | None = None
 
 
-class DocumentElement(BaseModelObject):
-    """A parsed document element, such as a title, paragraph, list, table of contents, or table.
+class DocumentCell(BaseModelObject):
+    """A cell of a table. With element granularity the text and box are set, otherwise ``lines``."""
 
-    With element granularity, text elements have their text and box set directly. With line or word
-    granularity, they have ``lines`` instead. Tables have ``rows`` of cells, which are elements themselves.
-    """
-
-    type: str | None = None
-    level: int | None = None
     text: str | None = None
     page: int | None = None
     left: float | None = None
@@ -163,9 +157,42 @@ class DocumentElement(BaseModelObject):
     top: float | None = None
     bottom: float | None = None
     lines: list[DocumentLine] | None = None
+
+
+class DocumentTextElement(DocumentCell):
+    """A title, paragraph, list, or table of contents. Only titles have a ``level``, from 1 to 3."""
+
+    type: Literal["title", "paragraph", "list", "toc"]
+    level: int | None = None
+
+
+class DocumentTableElement(BaseModelObject):
+    type: Literal["table"]
     column_header_count: int | None = None
     row_header_count: int | None = None
-    rows: list[list["DocumentElement"]] | None = None
+    rows: list[list[DocumentCell]]
+
+
+class DocumentUnknownElement(BaseModelObject):
+    """An element of a type not known to the Toolkit."""
+
+    type: str | None = None
+
+
+_ELEMENT_TAG_BY_TYPE = {"title": "text", "paragraph": "text", "list": "text", "toc": "text", "table": "table"}
+
+
+def _element_tag(value: Any) -> str:
+    element_type = value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
+    return _ELEMENT_TAG_BY_TYPE.get(element_type, "unknown") if isinstance(element_type, str) else "unknown"
+
+
+DocumentElement: TypeAlias = Annotated[
+    Annotated[DocumentTextElement, Tag("text")]
+    | Annotated[DocumentTableElement, Tag("table")]
+    | Annotated[DocumentUnknownElement, Tag("unknown")],
+    Discriminator(_element_tag),
+]
 
 
 class DocumentElementsResponse(BaseModelObject):
