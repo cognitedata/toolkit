@@ -28,7 +28,7 @@ from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, RawTableId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -41,6 +41,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     TextProperty,
     ViewId,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductInstanceScope
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import DatapointSubscriptionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
@@ -101,6 +102,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     WorkflowVersionIO,
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
+from cognite_toolkit._cdf_tk.resource_ios._data_product import DataProductIO
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from tests.test_integration.constants import RUN_UNIQUE_ID
 from tests.test_integration.helpers import load_local_yaml, retry_on_deadlock
@@ -1156,6 +1158,47 @@ class TestSkillIO:
             assert "Used by toolkit integration tests (updated)." in retrieved[0].content
         finally:
             loader.delete([original.as_id()])
+
+
+class TestDataProductIO:
+    def test_unchanged_data_product_without_instance_scope_not_redeployed(
+        self, toolkit_client: ToolkitClient, cognite_client: CogniteClient
+    ) -> None:
+        external_id = "test_unchanged_data_product_not_redeployed"
+        # The schema space defaults to the externalId, and the test credentials cannot let the API create it.
+        cognite_client.data_modeling.spaces.apply(dm.SpaceApply(space=external_id))
+        local_yaml_content = f"""
+        externalId: {external_id}
+        name: Unchanged data product
+        description: Data product with an instanceScope that is not set locally
+        """
+        io = DataProductIO(toolkit_client)
+        raw_data = load_local_yaml(local_yaml_content, io)
+        data_product = io.load_resource(raw_data)
+        # The instanceScope is set outside the local YAML, for example, in the CDF UI.
+        cdf_data_product = data_product.model_copy(
+            update={
+                "instance_scope": [
+                    DataProductInstanceScope(
+                        source=ViewNoVersionId(space="cdf_cdm", external_id="CogniteAsset"), read=[external_id]
+                    )
+                ]
+            }
+        )
+        retrieved = io.retrieve([data_product.as_id()])
+        if len(retrieved) == 0 or not retrieved[0].instance_scope:
+            try:
+                if len(retrieved) == 0:
+                    io.create([cdf_data_product])
+                else:
+                    io.update([cdf_data_product])
+            except ToolkitAPIError as e:
+                if e.code == 403 and "Permissions API is not enabled" in str(e):
+                    pytest.skip("The Data Product Permissions API is not enabled on the test project.")
+                raise
+            retrieved = io.retrieve([data_product.as_id()])
+        assert retrieved[0].instance_scope, "The data product in CDF should have an instanceScope"
+        assert raw_data == io.dump_resource(retrieved[0], raw_data)
 
 
 class TestHostedExtractorSourceIO:
