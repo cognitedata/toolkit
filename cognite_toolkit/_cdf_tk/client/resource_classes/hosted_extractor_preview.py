@@ -15,7 +15,8 @@ class PreviewFormat(BaseModelObject):
 class HostedExtractorPreview(BaseModelObject):
     external_id: str
     source_id: str
-    config: MQTTConfig | KafkaConfig | RestConfig
+    # The API expects config, but this is likely a bug in the docs.
+    config: MQTTConfig | KafkaConfig | RestConfig | None = None
     format: PreviewFormat | None = None
 
 

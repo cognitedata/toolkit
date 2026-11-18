@@ -46,4 +46,6 @@ class HostedExtractorPreviewsAPI:
 
     def download(self, external_id: str) -> bytes:
         """`Download the raw message read by a preview. <https://api-docs.cognite.com/20230101/tag/Previews/operation/download_preview_payload>`_"""
-        return self._post("/hostedextractors/preview/download", {"externalId": external_id}, accept="*/*").content
+        return self._post(
+            "/hostedextractors/preview/download", {"externalId": external_id}, accept="application/binary"
+        ).content
