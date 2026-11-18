@@ -98,6 +98,8 @@ class IntegrationResponse(Integration, ResponseResource[IntegrationRequest]):
 class IntegrationTaskHistory(BaseModelObject):
     """One recorded run of an integration task."""
 
+    # Server-generated ID of the run, not the external ID of the integration.
+    external_id: str | None = None
     task_name: str
     error_count: int
     warning_count: int
@@ -113,6 +115,7 @@ class IntegrationTaskHistory(BaseModelObject):
 class IntegrationErrorResponse(BaseModelObject):
     """A historical error reported by an integration."""
 
+    external_id: str | None = None
     type: IntegrationErrorKind | str
     level: IntegrationErrorLevel | str
     description: str

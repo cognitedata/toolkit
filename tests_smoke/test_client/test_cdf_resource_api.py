@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.client.api.datapoints import DatapointsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
+from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_runs import ExtractionPipelineRunsAPI
 from cognite_toolkit._cdf_tk.client.api.function_calls import FunctionCallsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
@@ -333,6 +334,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         ThreeDClassicRevisionsAPI,
         # Requires special handling of list call,
         ExtractionPipelineConfigsAPI,
+        # Runs are scoped to an existing extraction pipeline and cannot be deleted.
+        ExtractionPipelineRunsAPI,
         # Cannot be deleted and recreated frequently.
         StreamsAPI,
         AppsAPI,
