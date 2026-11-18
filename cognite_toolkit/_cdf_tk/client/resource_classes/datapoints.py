@@ -76,8 +76,8 @@ class SyntheticQueryRequest(BaseModelObject):
     """A synthetic time series expression to evaluate, for example ``ts{externalId='a'} * 2``."""
 
     expression: str
-    start: Timestamp | None = None
-    end: Timestamp | None = None
+    start: Timestamp | str | None = None
+    end: Timestamp | str | None = None
     limit: int | None = None
     time_zone: str | None = None
 
