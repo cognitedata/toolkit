@@ -354,3 +354,39 @@ class ServicesAvailability(AgentObject):
             if version_info.version == runtime_version:
                 return capability in version_info.capabilities
         return None
+
+
+class AgentChatContent(AgentObject):
+    type: str = "text"
+    text: str | None = None
+
+
+class AgentChatUserMessage(AgentObject):
+    """A message from the user to the agent. Multi-part content is passed as a list of content parts."""
+
+    role: Literal["user"] = "user"
+    content: AgentChatContent | list[dict[str, Any]]
+
+
+class AgentChatAgentMessage(AgentObject):
+    """A message from the agent. ``actions`` are client tool calls or confirmations the agent asks for."""
+
+    role: Literal["agent"] = "agent"
+    content: AgentChatContent
+    actions: list[dict[str, Any]] | None = None
+    data: list[dict[str, Any]] | None = None
+    reasoning: list[dict[str, Any]] | None = None
+
+
+class AgentChatResult(AgentObject):
+    type: Literal["result"] = "result"
+    cursor: str | None = None
+    messages: list[AgentChatAgentMessage]
+
+
+class AgentChatResponse(AgentObject):
+    """The agent's reply. Pass ``response.cursor`` to the next chat call to continue the conversation."""
+
+    agent_external_id: str
+    agent_id: str
+    response: AgentChatResult
