@@ -136,8 +136,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetReque
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import DOCUMENT_PROPERTY_OPTIONS, DocumentPropertyPath
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
-    ExternalDataSourceRequest,
     ExternalDataSourceResponse,
+    OneLakeExternalDataSourceRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
@@ -2713,7 +2713,7 @@ class TestCDFResourceAPI:
         client = toolkit_client
 
         data_source_example = get_examples_minimum_requests(ExternalDataSourceResponse)[0]
-        data_source_request = ExternalDataSourceRequest.model_validate(data_source_example)
+        data_source_request = OneLakeExternalDataSourceRequest.model_validate(data_source_example)
         data_source_id = data_source_request.as_id()
 
         try:

@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessR
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
     ExternalDataSourceRequest,
-    ExternalDataSourceResponse,
+    ExternalDataSourceResponseUnion,
     ExternalDataSourceRotatedKeys,
     ExternalDataSourceRotateKeysRequest,
     ExternalDataSourceUsabilityResponse,
@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 
-class TransformationExternalDataSourcesAPI(CDFResourceAPI[ExternalDataSourceResponse]):
+class TransformationExternalDataSourcesAPI(CDFResourceAPI[ExternalDataSourceResponseUnion]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,
@@ -31,15 +31,15 @@ class TransformationExternalDataSourcesAPI(CDFResourceAPI[ExternalDataSourceResp
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
-    ) -> PagedResponse[ExternalDataSourceResponse]:
-        return PagedResponse[ExternalDataSourceResponse].model_validate_json(response.body)
+    ) -> PagedResponse[ExternalDataSourceResponseUnion]:
+        return PagedResponse[ExternalDataSourceResponseUnion].model_validate_json(response.body)
 
-    def create(self, items: Sequence[ExternalDataSourceRequest]) -> builtins.list[ExternalDataSourceResponse]:
+    def create(self, items: Sequence[ExternalDataSourceRequest]) -> builtins.list[ExternalDataSourceResponseUnion]:
         return self._request_item_response(items, "create")
 
     def retrieve(
         self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
-    ) -> builtins.list[ExternalDataSourceResponse]:
+    ) -> builtins.list[ExternalDataSourceResponseUnion]:
         return self._request_item_response(items, "retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
     def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
@@ -48,10 +48,10 @@ class TransformationExternalDataSourcesAPI(CDFResourceAPI[ExternalDataSourceResp
         else:
             self._request_no_response(items, "delete")
 
-    def list(self, limit: int | None = 100) -> builtins.list[ExternalDataSourceResponse]:
+    def list(self, limit: int | None = 100) -> builtins.list[ExternalDataSourceResponseUnion]:
         return self._list(limit=limit)
 
-    def iterate(self, limit: int | None = 100) -> Iterable[Sequence[ExternalDataSourceResponse]]:
+    def iterate(self, limit: int | None = 100) -> Iterable[Sequence[ExternalDataSourceResponseUnion]]:
         return self._iterate(limit=limit)
 
     def verify_usability(self, external_id: str) -> ExternalDataSourceUsabilityResponse:

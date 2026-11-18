@@ -6,9 +6,9 @@ from cognite_toolkit._cdf_tk.client.api.transformation_externaldata import Trans
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
-    ExternalDataSourceRequest,
     ExternalDataSourceUsabilityResponse,
     OneLakeCredentialsWrite,
+    OneLakeExternalDataSourceRequest,
     OneLakeLocationDescription,
     OneLakeSettingsWrite,
 )
@@ -27,8 +27,8 @@ _EXAMPLE_RESPONSE = {
 }
 
 
-def _make_request() -> ExternalDataSourceRequest:
-    return ExternalDataSourceRequest(
+def _make_request() -> OneLakeExternalDataSourceRequest:
+    return OneLakeExternalDataSourceRequest(
         external_id="fabric-lakehouse-prod",
         name="Production lakehouse",
         data_set_id=123,

@@ -21,8 +21,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
-    ExternalDataSourceResponse,
     OneLakeCredentialsRead,
+    OneLakeExternalDataSourceResponse,
     OneLakeLocationDescription,
     OneLakeSettingsRead,
 )
@@ -103,7 +103,7 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import MockQuestionary
 
 
-def _onelake_transformation_and_source() -> tuple[TransformationResponse, ExternalDataSourceResponse]:
+def _onelake_transformation_and_source() -> tuple[TransformationResponse, OneLakeExternalDataSourceResponse]:
     transformation = TransformationResponse(
         id=1,
         external_id="transformationA",
@@ -120,9 +120,8 @@ def _onelake_transformation_and_source() -> tuple[TransformationResponse, Extern
         has_source_oidc_credentials=False,
         has_destination_oidc_credentials=False,
     )
-    external_source = ExternalDataSourceResponse(
+    external_source = OneLakeExternalDataSourceResponse(
         external_id="fabric-prod",
-        format="one_lake",
         created_time=1,
         last_updated_time=1,
         settings=OneLakeSettingsRead(

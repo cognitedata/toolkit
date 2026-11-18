@@ -1,4 +1,6 @@
-from typing import Literal
+from typing import Annotated, Literal
+
+from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -84,28 +86,69 @@ class ExternalDataSourceCore(BaseModelObject):
 
 
 class ExternalDataSourceRequest(ExternalDataSourceCore, RequestResource):
-    """Request resource for creating or updating an external data source.
+    """Base request resource for creating an external data source."""
 
-    Snowflake data sources require ``expiry_time``, the expiry of the generated RSA key pair.
+    format: str
+
+
+class OneLakeExternalDataSourceRequest(ExternalDataSourceRequest):
+    """Request resource for creating a Fabric OneLake external data source."""
+
+    format: Literal["one_lake"] = "one_lake"
+    settings: OneLakeSettingsWrite | None = None
+
+
+class SnowflakeExternalDataSourceRequest(ExternalDataSourceRequest):
+    """Request resource for creating a Snowflake external data source.
+
+    ``expiry_time`` is the expiry of the RSA key pair Cognite generates for key-pair authentication.
     """
 
-    format: Literal["one_lake", "snowflake"] = "one_lake"
-    settings: OneLakeSettingsWrite | SnowflakeSettingsWrite | None = None
-    expiry_time: int | None = None
+    format: Literal["snowflake"] = "snowflake"
+    settings: SnowflakeSettingsWrite | None = None
+    expiry_time: int
 
 
 class ExternalDataSourceResponse(ExternalDataSourceCore, ResponseResource[ExternalDataSourceRequest]):
-    """Response resource for an external data source."""
+    """Base response resource for an external data source."""
 
     created_time: int
     last_updated_time: int
-    format: Literal["one_lake", "snowflake"] = "one_lake"
-    settings: OneLakeSettingsRead | SnowflakeSettingsRead | None = None
+    format: str
+
+
+class OneLakeExternalDataSourceResponse(ExternalDataSourceResponse):
+    """Response resource for a Fabric OneLake external data source."""
+
+    format: Literal["one_lake"] = "one_lake"
+    settings: OneLakeSettingsRead | None = None
+
+    @classmethod
+    def request_cls(cls) -> type[OneLakeExternalDataSourceRequest]:
+        return OneLakeExternalDataSourceRequest
+
+
+class SnowflakeExternalDataSourceResponse(ExternalDataSourceResponse):
+    """Response resource for a Snowflake external data source."""
+
+    format: Literal["snowflake"] = "snowflake"
+    settings: SnowflakeSettingsRead | None = None
     expiry_time: int | None = None
 
     @classmethod
-    def request_cls(cls) -> type[ExternalDataSourceRequest]:
-        return ExternalDataSourceRequest
+    def request_cls(cls) -> type[SnowflakeExternalDataSourceRequest]:
+        return SnowflakeExternalDataSourceRequest
+
+
+ExternalDataSourceRequestUnion = Annotated[
+    OneLakeExternalDataSourceRequest | SnowflakeExternalDataSourceRequest,
+    Field(discriminator="format"),
+]
+
+ExternalDataSourceResponseUnion = Annotated[
+    OneLakeExternalDataSourceResponse | SnowflakeExternalDataSourceResponse,
+    Field(discriminator="format"),
+]
 
 
 class ExternalDataSourceUsabilityResponse(BaseModelObject):
