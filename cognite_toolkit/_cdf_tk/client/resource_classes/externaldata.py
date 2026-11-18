@@ -44,6 +44,34 @@ class OneLakeSettingsWrite(BaseModelObject):
     location_description: OneLakeLocationDescription | None = None
 
 
+class SnowflakeCredentialsWrite(BaseModelObject):
+    """Snowflake user and role. Cognite generates the RSA key pair used for key-pair authentication."""
+
+    account_identifier: str
+    user_name: str
+    role_name: str
+
+
+class SnowflakeCredentialsRead(SnowflakeCredentialsWrite):
+    """Snowflake credentials returned from the API. Register the public key on the Snowflake user."""
+
+    public_key: str
+
+
+class SnowflakeLocationDescription(BaseModelObject):
+    warehouse_name: str
+
+
+class SnowflakeSettingsRead(BaseModelObject):
+    credentials: SnowflakeCredentialsRead
+    location_description: SnowflakeLocationDescription
+
+
+class SnowflakeSettingsWrite(BaseModelObject):
+    credentials: SnowflakeCredentialsWrite
+    location_description: SnowflakeLocationDescription
+
+
 class ExternalDataSourceCore(BaseModelObject):
     """Shared fields for external data source request and response resources."""
 
@@ -56,10 +84,14 @@ class ExternalDataSourceCore(BaseModelObject):
 
 
 class ExternalDataSourceRequest(ExternalDataSourceCore, RequestResource):
-    """Request resource for creating or updating an external data source."""
+    """Request resource for creating or updating an external data source.
 
-    format: Literal["one_lake"] = "one_lake"
-    settings: OneLakeSettingsWrite | None = None
+    Snowflake data sources require ``expiry_time``, the expiry of the generated RSA key pair.
+    """
+
+    format: Literal["one_lake", "snowflake"] = "one_lake"
+    settings: OneLakeSettingsWrite | SnowflakeSettingsWrite | None = None
+    expiry_time: int | None = None
 
 
 class ExternalDataSourceResponse(ExternalDataSourceCore, ResponseResource[ExternalDataSourceRequest]):
@@ -67,8 +99,9 @@ class ExternalDataSourceResponse(ExternalDataSourceCore, ResponseResource[Extern
 
     created_time: int
     last_updated_time: int
-    format: Literal["one_lake"] = "one_lake"
-    settings: OneLakeSettingsRead | None = None
+    format: Literal["one_lake", "snowflake"] = "one_lake"
+    settings: OneLakeSettingsRead | SnowflakeSettingsRead | None = None
+    expiry_time: int | None = None
 
     @classmethod
     def request_cls(cls) -> type[ExternalDataSourceRequest]:
@@ -80,3 +113,18 @@ class ExternalDataSourceUsabilityResponse(BaseModelObject):
 
     external_id: str
     usable_version: str | None = None
+
+
+class ExternalDataSourceRotateKeysRequest(BaseModelObject):
+    """Generate a new RSA key pair for a Snowflake external data source, valid until ``expiry_time``."""
+
+    external_id: str
+    expiry_time: int
+
+
+class ExternalDataSourceRotatedKeys(BaseModelObject):
+    """The new public key, which must be registered on the Snowflake user."""
+
+    external_id: str
+    public_key: str
+    expiry_time: int
