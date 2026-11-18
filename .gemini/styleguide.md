@@ -31,7 +31,9 @@
 ## Line Length and Formatting
 
 - **Maximum line length**: 120 characters (configured in ruff)
-- **Target Python version**: 3.10+
+- **Target Python version**: 3.11+ (`requires-python = ">=3.11"`). Python 3.11 features such as
+  `datetime.UTC`, `typing.Self`, and `StrEnum` are allowed. Don't suggest Python 3.10 fallbacks such as
+  `timezone.utc`
 - **Indentation**: 4 spaces per level
 
 ## Type Hints
@@ -61,7 +63,10 @@ def load_config(path: Path) -> dict[str, Any]:
 ## Imports
 
 - **Group imports**: Standard library, third-party, local application
-- **Absolute imports**: Always use absolute imports for clarity
+- **Absolute imports**: Use absolute imports by default
+- **Relative imports**: Allowed only for sibling modules within the same package (single dot), e.g.
+  `from ._base import ToolkitRuleSet` inside `rules/`, or re-exports in a package's `__init__.py`.
+  Never import from a parent package (`from ..x import y`)
 - **Sort alphabetically** within groups
 - **Type checking imports**: Use `TYPE_CHECKING` for type-only imports
 - **`_cdf_tk` imports**: Always use the full path `cognite_toolkit._cdf_tk`
@@ -82,8 +87,14 @@ from cog_ai.common.types import ModelConfig
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.commands.repo import RepoCommand
 
-# Bad - don't use relative _cdf_tk imports
+# Good - relative import of a sibling module in the same package
+from ._base import ToolkitRuleSet
+
+# Bad - don't import _cdf_tk without the cognite_toolkit prefix
 # from _cdf_tk.feature_flags import Flags  # ❌
+
+# Bad - don't use relative imports from a parent package
+# from ..feature_flags import Flags  # ❌
 
 if TYPE_CHECKING:
     from cog_ai.tools.query.types import QueryCompletion
