@@ -72,8 +72,10 @@ from cognite_toolkit._cdf_tk.client.api.transformation_notifications import Tran
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schema import TransformationSchemaAPI
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
+from cognite_toolkit._cdf_tk.client.api.units import UnitsAPI
 from cognite_toolkit._cdf_tk.client.api.user_profiles import UserProfilesAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_executions import WorkflowExecutionsAPI
+from cognite_toolkit._cdf_tk.client.api.workflow_tasks import WorkflowTasksAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
@@ -139,8 +141,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetReque
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import DOCUMENT_PROPERTY_OPTIONS, DocumentPropertyPath
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
-    ExternalDataSourceRequest,
     ExternalDataSourceResponse,
+    OneLakeExternalDataSourceRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
@@ -329,6 +331,10 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         WorkflowVersionsAPI,
         WorkflowTriggersAPI,
         WorkflowExecutionsAPI,
+        # Tasks only exist inside a running workflow execution and only support update.
+        WorkflowTasksAPI,
+        # The unit catalog is read-only and global, so it has no create, update, or delete.
+        UnitsAPI,
         # 3D Models are expensive to create, and AssetMappings depend on existing models and assets/nodes.
         ThreeDClassicModelsAPI,
         ThreeDDMAssetMappingAPI,
@@ -2731,7 +2737,7 @@ class TestCDFResourceAPI:
         client = toolkit_client
 
         data_source_example = get_examples_minimum_requests(ExternalDataSourceResponse)[0]
-        data_source_request = ExternalDataSourceRequest.model_validate(data_source_example)
+        data_source_request = OneLakeExternalDataSourceRequest.model_validate(data_source_example)
         data_source_id = data_source_request.as_id()
 
         try:
