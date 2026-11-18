@@ -90,6 +90,9 @@ class ThreeDRevisionClassicRequest(UpdatableRequestResource):
     metadata: Metadata | None = None
     camera: ThreeDRevisionCamera | None = None
     file_id: int
+    # Required when pipeline_configuration extracts photosphere images from point clouds.
+    nonce: str | None = None
+    pipeline_configuration: dict[str, JsonValue] | None = None
     # This field is used for update/delete and is not part of the create body schema.
     id: int | None = Field(None, exclude=True)
     # model_id is a path parameter, not part of the request body.
@@ -102,9 +105,9 @@ class ThreeDRevisionClassicRequest(UpdatableRequestResource):
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         update = super().as_update(mode)
-        # the FileId is immutable.
-        if "update" in update and "fileId" in update["update"]:
-            del update["update"]["fileId"]
+        # These can only be set on creation.
+        for key in ("fileId", "nonce", "pipelineConfiguration"):
+            update.get("update", {}).pop(key, None)
         return update
 
 
@@ -331,3 +334,36 @@ class ThreeDJobResult(BaseModelObject):
 
 class ThreeDJobRejection(BaseModelObject):
     rejected_key: str
+
+
+class ThreeDBoundingBoxFilter(BaseModelObject):
+    x_min: float
+    x_max: float
+    y_min: float
+    y_max: float
+    z_min: float
+    z_max: float
+
+
+class ThreeDNodeInBoundingBox(BaseModelObject):
+    id: int
+    tree_index: int
+    depth: int
+    name: str
+    subtree_size: int
+    bounding_box: BoundingBox3D
+
+
+class ThreeDRevisionLog(BaseModelObject):
+    timestamp: int
+    severity: int
+    type: str
+    info: str | None = None
+
+
+class ThreeDRevisionOutput(BaseModelObject):
+    """A file produced when the revision was processed, for example the reveal format used by the 3D viewer."""
+
+    format: str
+    version: int
+    blob_id: int
