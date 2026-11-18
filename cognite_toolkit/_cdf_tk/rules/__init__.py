@@ -4,7 +4,7 @@ from ._classic import ClassicDeprecationRuleSet
 from ._data_modeling import DataModelingRuleSet
 from ._dependencies import DependencyRuleSet
 from ._duplicates import DuplicateRuleSet
-from ._failing import FailingJobRuleSet
+from ._failing_jobs import FailingJobRuleSet
 from ._functions import FunctionRuleSet
 from ._groups import GroupRuleSet
 from ._infield import InFieldCDMRuleSet

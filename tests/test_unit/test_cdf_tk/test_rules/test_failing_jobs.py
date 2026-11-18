@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import W
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.data_classes._insights import BuildError
 from cognite_toolkit._cdf_tk.rules import FailingJobRuleSet
-from cognite_toolkit._cdf_tk.rules._failing import FailingResource
+from cognite_toolkit._cdf_tk.rules._failing_jobs import FailingJob
 from cognite_toolkit._cdf_tk.utils.time import datetime_to_ms
 
 API_URL = "https://bluefield.cognitedata.com/api/v1/projects/my_project"
@@ -162,7 +162,7 @@ def _client() -> MagicMock:
     return client
 
 
-class TestFailingRuleSet:
+class TestFailingJobRuleSet:
     def test_load_failures(self) -> None:
         client = _client()
         rule = FailingJobRuleSet(client=client)
@@ -170,7 +170,7 @@ class TestFailingRuleSet:
         failures = rule._load_failures(client)
 
         assert [
-            (failure.resource_type, str(failure.identifier), failure.reason, failure.failed_executions)
+            (failure.job_type, str(failure.identifier), failure.reason, failure.failed_executions)
             for failure in failures
         ] == [
             ("Workflow", "workflowExternalId='my_workflow', version='v1'", "Function task failed", 2),
@@ -226,9 +226,9 @@ class TestFailingRuleSet:
 
     def test_report_failures_uses_suggested_fix(self) -> None:
         rule = FailingJobRuleSet(client=_client())
-        failure = FailingResource(
-            resource_type="Function",
-            resource=_function(4, "fn_failing", last_called=RECENT),
+        failure = FailingJob(
+            job_type="Function",
+            job=_function(4, "fn_failing", last_called=RECENT),
             reason="Unauthorized",
             url=f"{API_URL}/functions/4/",
             failed_executions=3,
@@ -244,7 +244,7 @@ class TestFailingRuleSet:
         ] == [
             (
                 BuildError,
-                "FAILING-RESOURCE",
+                "FAILING-JOB",
                 "Give the function credentials access to the dataset.",
                 f"{API_URL}/functions/4/",
             )
