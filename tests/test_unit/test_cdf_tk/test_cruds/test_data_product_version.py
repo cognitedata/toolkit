@@ -103,6 +103,25 @@ class TestDataProductVersionIODumpResource:
 
         assert dumped["views"] == [view]
 
+    def test_dump_resource_keeps_instance_spaces_declared_locally(self) -> None:
+        client = ToolkitClientMock()
+        io = DataProductVersionIO(client)
+        instance_spaces = {"read": ["my-space"], "write": []}
+        view = {"space": "my_space", "externalId": "MyView", "version": "1"}
+        resource = DataProductVersionResponse.model_validate(
+            {
+                "version": "1.0.0",
+                "views": [{**view, "instanceSpaces": instance_spaces}],
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+            }
+        )
+        local = {"views": [{**view, "version": 1, "instanceSpaces": instance_spaces}]}
+
+        dumped = io.dump_resource(resource, local)
+
+        assert dumped["views"] == [{**view, "instanceSpaces": instance_spaces}]
+
 
 class TestDataProductVersionRequest:
     _v_cdm_3d: ClassVar[dict] = {
