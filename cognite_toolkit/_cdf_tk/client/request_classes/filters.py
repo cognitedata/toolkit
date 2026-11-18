@@ -7,7 +7,9 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, V
 from cognite_toolkit._cdf_tk.client.resource_classes import streamlit_
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationStatus, AnnotationType
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionStatus
 from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallStatus
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowExecutionStatus
 
 from .base import BaseModelRequest
 
@@ -49,10 +51,12 @@ class ClassicFilter(Filter):
         asset_subtree_id: str | int | list[str | int] | None = None,
         data_set_id: str | int | list[str | int] | None = None,
     ) -> Self:
-        return cls(
-            asset_subtree_ids=cls._as_internal_or_external_id_list(asset_subtree_id),
-            data_set_ids=cls._as_internal_or_external_id_list(data_set_id),
-        )
+        # Only set the given IDs, as dump() sends every set field and the API spec does not allow null for these.
+        ids = {
+            "asset_subtree_ids": cls._as_internal_or_external_id_list(asset_subtree_id),
+            "data_set_ids": cls._as_internal_or_external_id_list(data_set_id),
+        }
+        return cls.model_validate({key: value for key, value in ids.items() if value is not None})
 
     @classmethod
     def _as_internal_or_external_id_list(
@@ -153,10 +157,11 @@ class AnnotationFilter(Filter):
     annotated_resource_type: Literal["file", "threedmodel"]
     annotated_resource_ids: list[ExternalId | InternalId]
     annotation_type: AnnotationType | None = None
-    created_app: str | None = None
+    creating_app: str | None = None
     creating_app_version: str | None = None
     creating_user: str | None = None
     status: AnnotationStatus | None = None
+    data: dict[str, JsonValue] | None = None
 
 
 class ThreeDAssetMappingFilter(Filter): ...
@@ -244,6 +249,21 @@ class ChartMonitorModelFilter(Filter):
     timeseries_id: list[int] | None = None
 
 
+class FunctionFilter(Filter):
+    """Filter for listing functions. None means no filter on that field, so None values are not sent."""
+
+    name: str | None = None
+    owner: str | None = None
+    file_id: int | None = None
+    status: FunctionStatus | str | None = None
+    external_id_prefix: str | None = None
+    created_time: EpochTimestampRange | None = None
+    metadata: dict[str, str] | None = None
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        return self.model_dump(mode="json", by_alias=camel_case, exclude_none=True)
+
+
 class FunctionCallFilter(Filter):
     """Filter for listing calls of a single function."""
 
@@ -259,3 +279,21 @@ class ChartMonitorJobFilter(Filter):
     channel_ids: list[int] | None = None
     source: str | None = None
     model: ChartMonitorModelFilter | None = None
+
+
+class WorkflowFilterItem(BaseModelRequest):
+    """Match one workflow, or only one version of it when ``version`` is set."""
+
+    external_id: str
+    version: str | None = None
+
+
+class WorkflowFilter(Filter):
+    workflow_filters: list[WorkflowFilterItem] | None = Field(default=None, max_length=100)
+
+
+class WorkflowExecutionFilter(WorkflowFilter):
+    workflow_filters: list[WorkflowFilterItem] | None = Field(default=None, min_length=1, max_length=100)
+    created_time_start: int | None = None
+    created_time_end: int | None = None
+    status: list[WorkflowExecutionStatus | str] | None = None

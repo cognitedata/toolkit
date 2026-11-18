@@ -1,7 +1,7 @@
 import io
 import json
 import zipfile
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -12,6 +12,7 @@ from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import WorkflowFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse, AskDocument
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
@@ -265,6 +266,16 @@ def _workflow_version(workflow_external_id: str, version: str) -> WorkflowVersio
     )
 
 
+def _iterate_versions_by_filter(
+    versions: list[WorkflowVersionResponse],
+) -> Callable[..., list[list[WorkflowVersionResponse]]]:
+    def iterate(filter: WorkflowFilter, limit: int | None = None) -> list[list[WorkflowVersionResponse]]:
+        workflow_ids = {item.external_id for item in filter.workflow_filters or []}
+        return [[version for version in versions if version.workflow_external_id in workflow_ids]]
+
+    return iterate
+
+
 class TestWorkflowFinder:
     def test_select_workflows(self, three_workflows: list[WorkflowResponse], monkeypatch: MonkeyPatch) -> None:
         def select_workflows(choices) -> list[str]:
@@ -272,16 +283,18 @@ class TestWorkflowFinder:
             return [choices[1].value, choices[2].value]
 
         answers = [select_workflows]
-        versions = [_workflow_version("workflowB", "v1"), _workflow_version("workflowC", "v1")]
+        versions = [
+            _workflow_version("workflowA", "v1"),
+            _workflow_version("workflowB", "v1"),
+            _workflow_version("workflowC", "v1"),
+        ]
 
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary(WorkflowFinder.__module__, answers),
         ):
             client.workflows.list.return_value = three_workflows
-            client.workflows.versions.list.side_effect = lambda workflow_external_id, limit=None: [
-                v for v in versions if v.workflow_external_id == workflow_external_id
-            ]
+            client.workflows.versions.iterate.side_effect = _iterate_versions_by_filter(versions)
             finder = WorkflowFinder(client, None)
             selected = finder._interactive_select()
 
@@ -308,9 +321,7 @@ class TestWorkflowFinder:
             MockQuestionary(WorkflowFinder.__module__, answers),
         ):
             client.workflows.list.return_value = three_workflows
-            client.workflows.versions.list.side_effect = lambda workflow_external_id, limit=None: [
-                v for v in versions if v.workflow_external_id == workflow_external_id
-            ]
+            client.workflows.versions.iterate.side_effect = _iterate_versions_by_filter(versions)
             finder = WorkflowFinder(client, None)
             selected = finder._interactive_select()
 

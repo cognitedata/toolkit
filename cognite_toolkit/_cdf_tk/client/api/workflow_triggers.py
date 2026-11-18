@@ -1,6 +1,5 @@
 import builtins
 from collections.abc import Iterable, Sequence
-from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -109,74 +108,47 @@ class WorkflowTriggersAPI(CDFResourceAPI[WorkflowTriggerResponse]):
         """
         self._request_per_trigger(items, "/resume", ignore_unknown_ids)
 
+    # The list endpoint has no filter parameters, so callers filter triggers, for example by workflow, themselves.
     def paginate(
         self,
-        workflow_external_id: str | None = None,
-        workflow_version: str | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[WorkflowTriggerResponse]:
-        """Iterate over all workflow triggers in CDF.
+        """Fetch a page of workflow triggers from CDF.
 
         Args:
-            workflow_external_id: Filter by workflow external ID.
-            workflow_version: Filter by workflow version.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of WorkflowTriggerResponse objects.
         """
-        params = self._create_params(workflow_external_id, workflow_version)
-
-        return self._paginate(
-            cursor=cursor,
-            limit=limit,
-            params=params,
-        )
-
-    @classmethod
-    def _create_params(cls, workflow_external_id: str | None, workflow_version: str | None) -> dict[str, Any]:
-        params: dict[str, Any] = {}
-        if workflow_external_id:
-            params["workflowExternalId"] = workflow_external_id
-        if workflow_version:
-            params["workflowVersion"] = workflow_version
-        return params
+        return self._paginate(cursor=cursor, limit=limit)
 
     def iterate(
         self,
-        workflow_external_id: str | None = None,
-        workflow_version: str | None = None,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[builtins.list[WorkflowTriggerResponse]]:
         """Iterate over all workflow triggers in CDF.
 
         Args:
-            workflow_external_id: Filter by workflow external ID.
-            workflow_version: Filter by workflow version.
-            limit: Maximum number of items to return per page.
+            limit: Maximum number of items to return.
 
         Returns:
             Iterable of lists of WorkflowTriggerResponse objects.
         """
-        params = self._create_params(workflow_external_id, workflow_version)
-
-        return self._iterate(
-            limit=limit,
-            params=params,
-        )
+        return self._iterate(limit=limit)
 
     def list(
         self,
-        workflow_external_id: str | None = None,
-        workflow_version: str | None = None,
         limit: int | None = 100,
     ) -> builtins.list[WorkflowTriggerResponse]:
         """List all workflow triggers in CDF.
 
+        Args:
+            limit: Maximum number of items to return.
+
         Returns:
             List of WorkflowTriggerResponse objects.
         """
-        params = self._create_params(workflow_external_id, workflow_version)
-        return self._list(limit=limit, params=params)
+        return self._list(limit=limit)
