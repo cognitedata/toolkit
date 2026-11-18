@@ -84,6 +84,13 @@ class ExtractionPipelinesAPI(CDFResourceAPI[ExtractionPipelineResponse]):
         """
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
+    @staticmethod
+    def _list_body(filter: ClassicFilter | None, external_id_prefix: str | None) -> dict[str, Any] | None:
+        filter_body: dict[str, Any] = filter.dump() if filter else {}
+        if external_id_prefix is not None:
+            filter_body["externalIdPrefix"] = external_id_prefix
+        return {"filter": filter_body} if filter_body else None
+
     def paginate(
         self,
         filter: ClassicFilter | None = None,
@@ -102,15 +109,7 @@ class ExtractionPipelinesAPI(CDFResourceAPI[ExtractionPipelineResponse]):
         Returns:
             PagedResponse of ExtractionPipelineResponse objects.
         """
-        filter_body: dict[str, Any] = filter.dump() if filter else {}
-        if external_id_prefix is not None:
-            filter_body["externalIdPrefix"] = external_id_prefix
-
-        return self._paginate(
-            cursor=cursor,
-            limit=limit,
-            body={"filter": filter_body} if filter_body else None,
-        )
+        return self._paginate(cursor=cursor, limit=limit, body=self._list_body(filter, external_id_prefix))
 
     def iterate(
         self, filter: ClassicFilter | None = None, external_id_prefix: str | None = None, limit: int | None = 100
@@ -125,22 +124,19 @@ class ExtractionPipelinesAPI(CDFResourceAPI[ExtractionPipelineResponse]):
         Returns:
             Iterable of lists of ExtractionPipelineResponse objects.
         """
-        filter_body: dict[str, Any] = filter.dump() if filter else {}
-        if external_id_prefix is not None:
-            filter_body["externalIdPrefix"] = external_id_prefix
-
-        return self._iterate(
-            limit=limit,
-            body={"filter": filter_body} if filter_body else None,
-        )
+        return self._iterate(limit=limit, body=self._list_body(filter, external_id_prefix))
 
     def list(
-        self,
-        limit: int | None = 100,
+        self, filter: ClassicFilter | None = None, external_id_prefix: str | None = None, limit: int | None = 100
     ) -> builtins.list[ExtractionPipelineResponse]:
         """List all extraction pipelines in CDF.
+
+        Args:
+            filter: Filter by data set IDs.
+            external_id_prefix: Filter by external ID prefix.
+            limit: Maximum number of items to return.
 
         Returns:
             List of ExtractionPipelineResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, body=self._list_body(filter, external_id_prefix))
