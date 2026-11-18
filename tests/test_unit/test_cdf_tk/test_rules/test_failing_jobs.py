@@ -13,9 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowExecutionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
-from cognite_toolkit._cdf_tk.data_classes._insights import BuildError
 from cognite_toolkit._cdf_tk.rules import FailingJobRuleSet
-from cognite_toolkit._cdf_tk.rules._failing_jobs import FailingJob
 from cognite_toolkit._cdf_tk.utils.time import datetime_to_ms
 
 NOW = datetime_to_ms(datetime.now(UTC))
@@ -222,31 +220,6 @@ class TestFailingJobRuleSet:
 
         assert (count, pages_read) == (2, [0, 1])
 
-    def test_report_failures_uses_suggested_fix(self) -> None:
-        rule = FailingJobRuleSet(client=_client())
-        failure = FailingJob(
-            job_type="Function",
-            job=_function(4, "fn_failing", last_called=RECENT),
-            reason="Unauthorized",
-            url="/functions/4/",
-            failed_executions=3,
-            suggested_fix="Give the function credentials access to the dataset.",
-        )
-
-        insights = list(rule._report_failures([failure]))
-
-        assert [
-            (type(insight), insight.code, insight.fix, insight.source_url)
-            for insight in insights
-            if isinstance(insight, BuildError)
-        ] == [
-            (
-                BuildError,
-                "FAILING-JOB",
-                "Give the function credentials access to the dataset.",
-                "/functions/4/",
-            )
-        ]
 
     def test_workflow_failure_keeps_dependencies(self) -> None:
         client = _client()

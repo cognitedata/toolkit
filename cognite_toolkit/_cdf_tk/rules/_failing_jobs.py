@@ -259,7 +259,10 @@ class FailingJobRuleSet(ToolkitRuleSet):
         for failure in failures:
             message = f"Job {failure.job_type} with identifier {failure.identifier} is failing. Error: {failure.reason}"
             if failure.failed_executions is not None:
-                message += f"\nNumber of failed executions in the last {self.lookback_period.days} days: {failure.failed_executions}."
+                message += (
+                    f"\nNumber of failed executions in the last {self.lookback_period.days} days: "
+                    f"{failure.failed_executions}."
+                )
             yield BuildError(
                 code="FAILING-JOB",
                 message=message,
