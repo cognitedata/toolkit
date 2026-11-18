@@ -5,6 +5,14 @@ from pydantic import JsonValue
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import SinkRef
 
+SignalTopicName = Literal[
+    "cognite_integrations",
+    "cognite_workflows",
+    "cognite_hosted_extractors",
+    "cognite_sandbox",
+    "cognite_comment_notifications",
+]
+
 
 class SignalResponse(BaseModelObject):
     """A notification delivered to a sink, for example that an extractor reported an error.

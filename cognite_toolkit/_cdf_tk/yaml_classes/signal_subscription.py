@@ -1,6 +1,8 @@
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
+from pydantic.alias_generators import to_camel
+from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
@@ -43,6 +45,13 @@ class IntegrationsFilterYAML(BaseModelResource):
     )
     start_time: int | None = Field(default=None, description="Epoch milliseconds.")
     end_time: int | None = Field(default=None, description="Epoch milliseconds.")
+
+    @field_validator("start_time", "end_time", mode="after")
+    @classmethod
+    def task_name_required_with_time(cls, val: int | None, info: ValidationInfo) -> int | None:
+        if val is not None and info.data.get("task_name") is None:
+            raise ValueError(f"taskName must be set when {to_camel(info.field_name or '')} is set.")
+        return val
 
 
 class WorkflowsFilterYAML(BaseModelResource):

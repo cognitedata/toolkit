@@ -1,70 +1,114 @@
 import builtins
+from collections.abc import Iterable
 from typing import Any, Literal
 
-from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse, ResponseItems
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage, SuccessResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.signal import SignalResponse, SignalSyncResponse, SignalTopic
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse, ResponseItems
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.signal import (
+    SignalResponse,
+    SignalSyncResponse,
+    SignalTopic,
+    SignalTopicName,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import (
     CurrentUserSinkRef,
     SinkRefWithExternalId,
 )
 
 
-class SignalsAPI:
+class SignalsAPI(CDFResourceAPI[SignalResponse]):
     """Read the signals delivered to sinks. Signals are created by CDF services, such as integrations and workflows."""
 
-    _LIST_ENDPOINT = "/processes/signals/list"
     _SYNC_ENDPOINT = "/processes/signals/sync"
     _TOPICS_ENDPOINT = "/processes/signals/topics"
-    _PAGE_LIMIT = 1000
-    _API_VERSION = "alpha"
 
     def __init__(self, http_client: HTTPClient) -> None:
-        self._http_client = http_client
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                "list": Endpoint(method="POST", path="/processes/signals/list", item_limit=1000),
+            },
+            api_version="alpha",
+        )
+
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[SignalResponse]:
+        return PagedResponse[SignalResponse].model_validate_json(response.body)
 
     def _request(
         self, path: str, method: Literal["GET", "POST"], body: dict[str, Any] | None = None
     ) -> SuccessResponse:
         request = RequestMessage(
-            endpoint_url=self._http_client.config.create_api_url(path),
+            endpoint_url=self._make_url(path),
             method=method,
             body_content=body,
-            api_version=self._API_VERSION,
+            disable_gzip=self._disable_gzip,
+            api_version=self._api_version,
         )
         return self._http_client.request_single_retries(request).get_success_or_raise(request)
+
+    @staticmethod
+    def _create_list_body(
+        sink: SinkRefWithExternalId | CurrentUserSinkRef, topic: SignalTopicName | None
+    ) -> dict[str, Any]:
+        return {"sink": sink.dump(), "topic": topic}
+
+    def paginate(
+        self,
+        sink: SinkRefWithExternalId | CurrentUserSinkRef,
+        topic: SignalTopicName | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> PagedResponse[SignalResponse]:
+        """Fetch a page of the signals delivered to a sink.
+
+        Args:
+            sink: The sink the signals were delivered to.
+            topic: Only return signals of this topic.
+            limit: Maximum number of signals to return, at most 1000.
+            cursor: Cursor for pagination.
+
+        Returns:
+            PagedResponse of signals.
+        """
+        return self._paginate(limit=limit, cursor=cursor, body=self._create_list_body(sink, topic))
+
+    def iterate(
+        self,
+        sink: SinkRefWithExternalId | CurrentUserSinkRef,
+        topic: SignalTopicName | None = None,
+        limit: int | None = 100,
+    ) -> Iterable[builtins.list[SignalResponse]]:
+        """Iterate over the signals delivered to a sink.
+
+        Args:
+            sink: The sink the signals were delivered to.
+            topic: Only return signals of this topic.
+            limit: Maximum number of signals to return. None returns all.
+
+        Returns:
+            Iterable of lists of signals.
+        """
+        return self._iterate(limit=limit, body=self._create_list_body(sink, topic))
 
     def list(
         self,
         sink: SinkRefWithExternalId | CurrentUserSinkRef,
-        topic: str | None = None,
+        topic: SignalTopicName | None = None,
         limit: int | None = 100,
     ) -> builtins.list[SignalResponse]:
         """List the signals delivered to a sink.
 
         Args:
             sink: The sink the signals were delivered to.
-            topic: Only return signals of this topic, for example "cognite_workflows".
+            topic: Only return signals of this topic.
             limit: Maximum number of signals to return. None returns all.
 
         Returns:
             The signals.
         """
-        results: builtins.list[SignalResponse] = []
-        cursor: str | None = None
-        while True:
-            page_limit = self._PAGE_LIMIT if limit is None else min(limit - len(results), self._PAGE_LIMIT)
-            body: dict[str, Any] = {"sink": sink.dump(), "limit": page_limit}
-            if topic is not None:
-                body["topic"] = topic
-            if cursor is not None:
-                body["cursor"] = cursor
-            page = PagedResponse[SignalResponse].model_validate_json(
-                self._request(self._LIST_ENDPOINT, "POST", body).body
-            )
-            results.extend(page.items)
-            cursor = page.next_cursor
-            if cursor is None or not page.items or (limit is not None and len(results) >= limit):
-                return results
+        return self._list(limit=limit, body=self._create_list_body(sink, topic))
 
     def sync(
         self, sink: SinkRefWithExternalId | CurrentUserSinkRef, cursor: str | None = None, limit: int = 100

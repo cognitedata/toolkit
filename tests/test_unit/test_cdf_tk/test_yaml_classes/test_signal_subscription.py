@@ -108,6 +108,15 @@ def invalid_test_cases() -> Iterable:
         {"Missing required field in sink: 'externalId'"},
         id="email-sink-missing-external-id",
     )
+    yield pytest.param(
+        {
+            "externalId": "sub-1",
+            "sink": {"type": "current_user"},
+            "filter": {"topic": "cognite_integrations", "startTime": 1730204346000},
+        },
+        {"Invalid value at filter.startTime: taskName must be set when startTime is set."},
+        id="integrations-start-time-without-task-name",
+    )
 
 
 class TestSignalSubscriptionYAML:
