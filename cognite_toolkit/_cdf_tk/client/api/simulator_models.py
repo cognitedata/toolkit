@@ -2,6 +2,7 @@ import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
+from cognite_toolkit._cdf_tk.client.api._classic_aggregate import aggregate_count
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
@@ -29,6 +30,7 @@ class SimulatorModelsAPI(CDFResourceAPI[SimulatorModelResponse]):
                     method="POST", path="/simulators/models/delete", item_limit=1, concurrency_max_workers=1
                 ),
                 "list": Endpoint(method="POST", path="/simulators/models/list", item_limit=1000),
+                "aggregate": Endpoint(method="POST", path="/simulators/models/aggregate", item_limit=1),
             },
         )
 
@@ -91,6 +93,17 @@ class SimulatorModelsAPI(CDFResourceAPI[SimulatorModelResponse]):
             items: List of InternalOrExternalId objects to delete.
         """
         self._request_no_response(items, "delete")
+
+    def count(self, filter: SimulatorModelFilter | None = None) -> int:
+        """Count the simulator models that match a filter.
+
+        Args:
+            filter: Filter by simulator, external ID prefix, and data set.
+
+        Returns:
+            The number of matching simulator models.
+        """
+        return aggregate_count(self, filter=filter.dump() if filter else None)
 
     def paginate(
         self,
