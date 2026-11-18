@@ -122,3 +122,109 @@ class DocumentUniqueBucket(BaseModelObject):
         else:
             out["values"] = []
         return out
+
+
+class DocumentTextBox(BaseModelObject):
+    """Text with the page it is on and its bounding box. Pages start at 1."""
+
+    text: str
+    page: int
+    left: float
+    right: float
+    top: float
+    bottom: float
+
+
+class DocumentLine(BaseModelObject):
+    """A line of text. With word granularity only ``words`` is set, with line granularity the text and box."""
+
+    text: str | None = None
+    page: int | None = None
+    left: float | None = None
+    right: float | None = None
+    top: float | None = None
+    bottom: float | None = None
+    words: list[DocumentTextBox] | None = None
+
+
+class DocumentElement(BaseModelObject):
+    """A parsed document element, such as a title, paragraph, list, table of contents, or table.
+
+    With element granularity, text elements have their text and box set directly. With line or word
+    granularity, they have ``lines`` instead. Tables have ``rows`` of cells, which are elements themselves.
+    """
+
+    type: str | None = None
+    level: int | None = None
+    text: str | None = None
+    page: int | None = None
+    left: float | None = None
+    right: float | None = None
+    top: float | None = None
+    bottom: float | None = None
+    lines: list[DocumentLine] | None = None
+    column_header_count: int | None = None
+    row_header_count: int | None = None
+    rows: list[list["DocumentElement"]] | None = None
+
+
+class DocumentElementsResponse(BaseModelObject):
+    elements: list[DocumentElement]
+
+
+class DocumentPassageLocation(BaseModelObject):
+    page_number: int | None = None
+    left: float | None = None
+    right: float | None = None
+    up: float | None = None
+    bottom: float | None = None
+
+
+class DocumentPassageSourceFile(BaseModelObject):
+    name: str
+    hash: str | None = None
+
+
+class DocumentPassageDocument(BaseModelObject):
+    id: int
+    external_id: str | None = None
+    instance_id: NodeUntypedId | None = None
+    source_file: DocumentPassageSourceFile
+
+
+class DocumentPassage(BaseModelObject):
+    """A passage of a document that matches a passage search."""
+
+    text: str
+    locations: list[DocumentPassageLocation]
+    document: DocumentPassageDocument
+
+
+class DocumentProcessingStatus(BaseModelObject):
+    status: Literal["waiting", "running", "failed", "completed"]
+    available: bool
+    reason: str | None = None
+
+
+class DocumentPassagesStatus(DocumentProcessingStatus):
+    count: int | None = None
+
+
+class DocumentContentStatus(DocumentProcessingStatus):
+    pages: int | None = None
+
+
+class DocumentStatusResponse(BaseModelObject):
+    """How far the processing of a document has come, per kind of derived content."""
+
+    id: int | None = None
+    external_id: str | None = None
+    instance_id: NodeUntypedId | None = None
+    passages: DocumentPassagesStatus
+    elements: DocumentProcessingStatus
+    content: DocumentContentStatus
+
+
+class DocumentTemporaryLink(BaseModelObject):
+    temporary_link: str
+    expiration_time: int
