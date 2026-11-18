@@ -18,7 +18,6 @@ from cognite_toolkit._cdf_tk.rules import FailingJobRuleSet
 from cognite_toolkit._cdf_tk.rules._failing_jobs import FailingJob
 from cognite_toolkit._cdf_tk.utils.time import datetime_to_ms
 
-API_URL = "https://bluefield.cognitedata.com/api/v1/projects/my_project"
 NOW = datetime_to_ms(datetime.now(UTC))
 RECENT = NOW - int(timedelta(days=1).total_seconds() * 1000)
 OLD = NOW - int(timedelta(days=30).total_seconds() * 1000)
@@ -128,7 +127,6 @@ def _hosted_job(external_id: str, status: str) -> HostedExtractorJobResponse:
 
 def _client() -> MagicMock:
     client = MagicMock()
-    client.config.create_api_url.side_effect = lambda endpoint: f"{API_URL}{endpoint}"
     client.workflows.executions.list.return_value = [
         _execution("e1", RECENT - 10, "Old failure"),
         _execution("e2", RECENT, "Function task failed"),
@@ -230,7 +228,7 @@ class TestFailingJobRuleSet:
             job_type="Function",
             job=_function(4, "fn_failing", last_called=RECENT),
             reason="Unauthorized",
-            url=f"{API_URL}/functions/4/",
+            url="/functions/4/",
             failed_executions=3,
             suggested_fix="Give the function credentials access to the dataset.",
         )
@@ -246,7 +244,7 @@ class TestFailingJobRuleSet:
                 BuildError,
                 "FAILING-JOB",
                 "Give the function credentials access to the dataset.",
-                f"{API_URL}/functions/4/",
+                "/functions/4/",
             )
         ]
 

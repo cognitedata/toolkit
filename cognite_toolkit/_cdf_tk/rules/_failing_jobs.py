@@ -158,7 +158,7 @@ class FailingJobRuleSet(ToolkitRuleSet):
                     job_type="Workflow",
                     job=workflow,
                     reason=latest.reason_for_incompletion or "Unknown reason",
-                    url=client.config.create_api_url(f"/workflows/{workflow.workflow_external_id}/executions/"),
+                    url=f"/workflows/{workflow.workflow_external_id}/executions/",
                     failed_executions=len(executions),
                     dependencies=self._workflow_dependencies(io, workflow),
                 )
@@ -194,7 +194,7 @@ class FailingJobRuleSet(ToolkitRuleSet):
                     job_type="Function",
                     job=function,
                     reason=latest.error or "Unknown reason",
-                    url=client.config.create_api_url(f"/functions/{function.id}/"),
+                    url=f"/functions/{function.id}/",
                     failed_executions=len(failed_calls),
                 )
             )
@@ -205,7 +205,7 @@ class FailingJobRuleSet(ToolkitRuleSet):
         for transformation in client.transformations.list(limit=None):
             if (TransformationIO, transformation.as_id()) in skip:
                 continue
-            url = client.config.create_api_url(f"/transformations/{transformation.id}/")
+            url = f"/transformations/{transformation.id}/"
             last_job = transformation.last_finished_job
             if last_job and last_job.status.casefold() == "failed" and last_job.created_time >= self.from_time_epoch:
                 failures.append(
@@ -248,7 +248,7 @@ class FailingJobRuleSet(ToolkitRuleSet):
                 job_type="Hosted Extractor",
                 job=job,
                 reason=job.status,
-                url=client.config.create_api_url(f"/hosted-extractors/{job.external_id}/"),
+                url=f"/hosted-extractors/{job.external_id}/",
             )
             for job in client.hosted_extractors.jobs.list(limit=None)
             if job.status and job.status.casefold() in FAILED_HOSTED_EXTRACTOR_JOB_STATUSES
