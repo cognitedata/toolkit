@@ -98,6 +98,7 @@ from .api.security_categories import SecurityCategoriesAPI
 from .api.sequence_rows import SequenceRowsAPI
 from .api.sequences import SequencesAPI
 from .api.sessions import SessionAPI
+from .api.signals import SignalsAPI
 from .api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from .api.simulator_models import SimulatorModelsAPI
 from .api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
@@ -166,6 +167,7 @@ class ToolkitClientMock(ToolkitClient):
     search_configurations: MagicMock
     signal_sinks: MagicMock
     signal_subscriptions: MagicMock
+    signals: MagicMock
     simulators: MagicMock
     datasets: MagicMock
     documents: MagicMock
@@ -300,6 +302,7 @@ class ToolkitClientMock(ToolkitClient):
         self.search_configurations = MagicMock(spec_set=SearchConfigurationsAPI)
         self.signal_sinks = MagicMock(spec_set=SignalSinksAPI)
         self.signal_subscriptions = MagicMock(spec_set=SignalSubscriptionsAPI)
+        self.signals = MagicMock(spec_set=SignalsAPI)
         self.simulators = MagicMock(spec=SimulatorsAPI)
         self.simulators.models = MagicMock(spec_set=SimulatorModelsAPI)
         self.simulators.model_revisions = MagicMock(spec_set=SimulatorModelRevisionsAPI)

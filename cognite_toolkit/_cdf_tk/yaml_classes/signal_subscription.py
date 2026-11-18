@@ -37,6 +37,12 @@ class IntegrationsFilterYAML(BaseModelResource):
     severity: Literal["info", "warning", "error"] | None = None
     extractor_external_id: str | None = Field(default=None, min_length=1, max_length=255)
     extractor_version: str | None = Field(default=None, min_length=1, max_length=32)
+    task_name: str | None = Field(
+        default=None,
+        description="Only include signals about this task. Required if startTime or endTime is set.",
+    )
+    start_time: int | None = Field(default=None, description="Epoch milliseconds.")
+    end_time: int | None = Field(default=None, description="Epoch milliseconds.")
 
 
 class WorkflowsFilterYAML(BaseModelResource):
@@ -56,8 +62,27 @@ class HostedExtractorsFilterYAML(BaseModelResource):
     destination_external_id: str | None = Field(default=None, min_length=1, max_length=255)
 
 
+class SandboxFilterYAML(BaseModelResource):
+    topic: Literal["cognite_sandbox"]
+    resource: str | None = Field(default=None, min_length=1, max_length=512)
+    category: list[str] | None = None
+    severity: Literal["info", "warning", "error"] | None = None
+    tag: str | None = None
+
+
+class CommentNotificationsFilterYAML(BaseModelResource):
+    topic: Literal["cognite_comment_notifications"]
+    resource: str | None = Field(default=None, min_length=1, max_length=512)
+    category: list[str] | None = None
+    severity: Literal["info", "warning", "error"] | None = None
+
+
 SubscriptionFilterYAML = Annotated[
-    IntegrationsFilterYAML | WorkflowsFilterYAML | HostedExtractorsFilterYAML,
+    IntegrationsFilterYAML
+    | WorkflowsFilterYAML
+    | HostedExtractorsFilterYAML
+    | SandboxFilterYAML
+    | CommentNotificationsFilterYAML,
     Field(discriminator="topic"),
 ]
 
