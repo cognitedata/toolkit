@@ -6,7 +6,11 @@ from datetime import UTC, datetime, timedelta
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import EpochTimestampRange, FunctionCallFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import (
+    EpochTimestampRange,
+    FunctionCallFilter,
+    WorkflowExecutionFilter,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowExecutionResponse
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.data_classes._insights import (
@@ -91,10 +95,15 @@ class FailingRuleSet(ToolkitRuleSet):
         """Loads the inventory of resources from CDF and yields insights for any failing resources."""
         failures: list[FailingResource] = []
         failed_executions = client.workflows.executions.list(
-            statuses=["FAILED", "TERMINATED", "TIMED_OUT"], created_time_start=self.from_time_epoc, limit=None
+            filter=WorkflowExecutionFilter(
+                status=["FAILED", "TERMINATED", "TIMED_OUT"], created_time_start=self.from_time_epoc
+            ),
+            limit=None,
         )
         failed_executions_by_id: dict[WorkflowVersionId, list[WorkflowExecutionResponse]] = defaultdict(list)
         for execution in failed_executions:
+            if execution.version is None:
+                continue
             failed_executions_by_id[
                 WorkflowVersionId(workflow_external_id=execution.workflow_external_id, version=execution.version)
             ].append(execution)
