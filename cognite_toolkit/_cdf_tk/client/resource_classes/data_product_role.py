@@ -7,18 +7,20 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, ViewNoVersionUntypedId
+from cognite_toolkit._cdf_tk.client.identifiers import DataProductRoleId, ViewNoVersionUntypedId
 
 
 class DataProductRole(BaseModelObject):
     """A role of a data product. View access is managed separately through access filters."""
 
+    # data_product_external_id is a path parameter, not part of the request body.
+    data_product_external_id: str = Field(exclude=True)
     external_id: str
     name: str | None = None
     description: str | None = None
 
-    def as_id(self) -> ExternalId:
-        return ExternalId(external_id=self.external_id)
+    def as_id(self) -> DataProductRoleId:
+        return DataProductRoleId(data_product_external_id=self.data_product_external_id, external_id=self.external_id)
 
 
 class DataProductRoleRequest(DataProductRole, UpdatableRequestResource):
@@ -26,6 +28,8 @@ class DataProductRoleRequest(DataProductRole, UpdatableRequestResource):
 
 
 class DataProductRoleResponse(DataProductRole, ResponseResource[DataProductRoleRequest]):
+    # data_product_external_id is a path parameter, not returned in the API response body.
+    data_product_external_id: str = Field(default="", exclude=True)
     created_time: int
     last_updated_time: int
 
@@ -33,12 +37,17 @@ class DataProductRoleResponse(DataProductRole, ResponseResource[DataProductRoleR
     def request_cls(cls) -> type[DataProductRoleRequest]:
         return DataProductRoleRequest
 
+    def as_request_resource(self) -> DataProductRoleRequest:
+        dumped = self.dump()
+        dumped["dataProductExternalId"] = self.data_product_external_id
+        return DataProductRoleRequest.model_validate(dumped, extra="ignore")
+
 
 class DataProductRoleAccessCondition(BaseModelObject):
     """A top-level ``and`` of ``equals`` and ``in`` filters. An empty ``and`` grants access to all instances."""
 
     and_: list[dict[str, JsonValue]] = Field(alias="and")
-    resources: list[Literal["FILES", "DATA_POINTS"]] | None = None
+    resources: list[Literal["FILES", "DATA_POINTS"] | str] | None = None
 
 
 class DataProductRoleAccessFilterRequest(BaseModelObject):

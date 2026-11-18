@@ -1,112 +1,19 @@
-"""Data Product Roles API for managing roles and their view access filters of CDF data products."""
+"""Data Product Roles API for managing roles of CDF data products."""
 
 import builtins
 from collections.abc import Iterable, Sequence
 from functools import partial
-from typing import Any, Literal
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, ViewNoVersionId
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.identifiers import DataProductRoleId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product_role import (
-    DataProductRoleAccessFilter,
-    DataProductRoleAccessFilterRequest,
     DataProductRoleRequest,
     DataProductRoleResponse,
 )
 
-
-class DataProductRoleAccessFiltersAPI(CDFResourceAPI[DataProductRoleAccessFilter]):
-    """API for managing the view access filters of data product roles.
-
-    All endpoints are scoped under a parent data product: /dataproducts/{externalId}/roles/accessfilters.
-    """
-
-    def __init__(self, http_client: HTTPClient) -> None:
-        super().__init__(
-            http_client=http_client,
-            method_endpoint_map={
-                "update": Endpoint(
-                    method="POST", path="/dataproducts/{externalId}/roles/accessfilters/update", item_limit=1
-                ),
-                "list": Endpoint(method="GET", path="/dataproducts/{externalId}/roles/accessfilters", item_limit=100),
-            },
-            api_version="alpha",
-        )
-
-    def _validate_page_response(
-        self, response: SuccessResponse | ItemsSuccessResponse
-    ) -> PagedResponse[DataProductRoleAccessFilter]:
-        return PagedResponse[DataProductRoleAccessFilter].model_validate_json(response.body)
-
-    def update(
-        self,
-        data_product_external_id: str,
-        role_external_id: str,
-        *,
-        add: DataProductRoleAccessFilterRequest | None = None,
-        update: DataProductRoleAccessFilterRequest | None = None,
-        remove: ViewNoVersionId | None = None,
-    ) -> builtins.list[DataProductRoleAccessFilter]:
-        """Add, update, or remove the access filter of a role for one view each.
-
-        Args:
-            data_product_external_id: External ID of the data product the role belongs to.
-            role_external_id: External ID of the role.
-            add: A new access filter. Fails if the role already has an access filter for the view.
-            update: Changes to an existing access filter. Fields that are not set are left unchanged,
-                fields explicitly set to None are removed.
-            remove: The view whose access filter is removed.
-
-        Returns:
-            The access filters of the role after the change.
-        """
-        body: dict[str, Any] = {"roleExternalId": role_external_id}
-        if add is not None:
-            body["add"] = [add.dump()]
-        if update is not None:
-            dumped = update.dump()
-            patch: dict[str, Any] = {"view": dumped.pop("view")}
-            for key, value in dumped.items():
-                patch[key] = {"setNull": True} if value is None else {"set": value}
-            body["update"] = [patch]
-        if remove is not None:
-            body["remove"] = [remove.dump(include_type=False)]
-        if len(body) == 1:
-            raise ValueError("At least one of add, update, or remove must be provided.")
-        endpoint = self._method_endpoint_map["update"]
-        request = RequestMessage(
-            endpoint_url=self._make_url(endpoint.path.format(externalId=data_product_external_id)),
-            method=endpoint.method,
-            body_content=body,
-            api_version=self._api_version,
-        )
-        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
-        return self._validate_page_response(response).items
-
-    def paginate(
-        self,
-        data_product_external_id: str,
-        role_external_id: str | None = None,
-        limit: int = 10,
-        cursor: str | None = None,
-    ) -> PagedResponse[DataProductRoleAccessFilter]:
-        path = self._method_endpoint_map["list"].path.format(externalId=data_product_external_id)
-        return self._paginate(
-            limit=limit, cursor=cursor, params={"roleExternalId": role_external_id}, endpoint_path=path
-        )
-
-    def iterate(
-        self, data_product_external_id: str, role_external_id: str | None = None, limit: int | None = 10
-    ) -> Iterable[builtins.list[DataProductRoleAccessFilter]]:
-        path = self._method_endpoint_map["list"].path.format(externalId=data_product_external_id)
-        return self._iterate(limit=limit, params={"roleExternalId": role_external_id}, endpoint_path=path)
-
-    def list(
-        self, data_product_external_id: str, role_external_id: str | None = None, limit: int | None = 10
-    ) -> builtins.list[DataProductRoleAccessFilter]:
-        path = self._method_endpoint_map["list"].path.format(externalId=data_product_external_id)
-        return self._list(limit=limit, params={"roleExternalId": role_external_id}, endpoint_path=path)
+from .data_product_role_access_filters import DataProductRoleAccessFiltersAPI
 
 
 class DataProductRolesAPI(CDFResourceAPI[DataProductRoleResponse]):
@@ -137,39 +44,88 @@ class DataProductRolesAPI(CDFResourceAPI[DataProductRoleResponse]):
     def _path(self, method: Literal["create", "update", "delete", "list"], data_product_external_id: str) -> str:
         return self._method_endpoint_map[method].path.format(externalId=data_product_external_id)
 
-    def create(
-        self, data_product_external_id: str, items: Sequence[DataProductRoleRequest]
-    ) -> builtins.list[DataProductRoleResponse]:
-        return self._request_item_response(items, "create", endpoint=self._path("create", data_product_external_id))
+    @staticmethod
+    def _assign_data_product(items: Iterable[DataProductRoleResponse], data_product_external_id: str) -> None:
+        for item in items:
+            item.data_product_external_id = data_product_external_id
 
-    def update(
-        self,
-        data_product_external_id: str,
-        items: Sequence[DataProductRoleRequest],
-        mode: Literal["patch", "replace"] = "replace",
-    ) -> builtins.list[DataProductRoleResponse]:
+    def create(self, items: Sequence[DataProductRoleRequest]) -> builtins.list[DataProductRoleResponse]:
+        """Create data product roles.
+
+        Items are grouped by data_product_external_id and the path is formatted accordingly.
+
+        Args:
+            items: The roles to create.
+
+        Returns:
+            The created roles.
+        """
         results: builtins.list[DataProductRoleResponse] = []
-        for response in self._chunk_requests(
-            items,
-            "update",
-            partial(self._serialize_updates, mode=mode),
-            endpoint_path=self._path("update", data_product_external_id),
-        ):
-            results.extend(self._validate_page_response(response).items)
+        for (data_product_external_id,), group in self._group_items_by_text_field(
+            items, "data_product_external_id"
+        ).items():
+            created = self._request_item_response(
+                group, "create", endpoint=self._path("create", data_product_external_id)
+            )
+            self._assign_data_product(created, data_product_external_id)
+            results.extend(created)
         return results
 
-    def delete(self, data_product_external_id: str, external_ids: Sequence[ExternalId]) -> None:
-        self._request_no_response(external_ids, "delete", endpoint=self._path("delete", data_product_external_id))
+    def update(
+        self, items: Sequence[DataProductRoleRequest], mode: Literal["patch", "replace"] = "replace"
+    ) -> builtins.list[DataProductRoleResponse]:
+        """Update data product roles.
+
+        Items are grouped by data_product_external_id and the path is formatted accordingly.
+
+        Args:
+            items: The roles to update.
+            mode: The update mode. "patch" only updates explicitly set fields, "replace" replaces all fields.
+
+        Returns:
+            The updated roles.
+        """
+        results: builtins.list[DataProductRoleResponse] = []
+        for (data_product_external_id,), group in self._group_items_by_text_field(
+            items, "data_product_external_id"
+        ).items():
+            for response in self._chunk_requests(
+                group,
+                "update",
+                partial(self._serialize_updates, mode=mode),
+                endpoint_path=self._path("update", data_product_external_id),
+            ):
+                updated = self._validate_page_response(response).items
+                self._assign_data_product(updated, data_product_external_id)
+                results.extend(updated)
+        return results
+
+    def delete(self, ids: Sequence[DataProductRoleId]) -> None:
+        """Delete data product roles.
+
+        Args:
+            ids: The roles to delete.
+        """
+        for (data_product_external_id,), group in self._group_items_by_text_field(
+            ids, "data_product_external_id"
+        ).items():
+            self._request_no_response(group, "delete", endpoint=self._path("delete", data_product_external_id))
 
     def paginate(
         self, data_product_external_id: str, limit: int = 10, cursor: str | None = None
     ) -> PagedResponse[DataProductRoleResponse]:
-        return self._paginate(limit=limit, cursor=cursor, endpoint_path=self._path("list", data_product_external_id))
+        page = self._paginate(limit=limit, cursor=cursor, endpoint_path=self._path("list", data_product_external_id))
+        self._assign_data_product(page.items, data_product_external_id)
+        return page
 
     def iterate(
         self, data_product_external_id: str, limit: int | None = 10
     ) -> Iterable[builtins.list[DataProductRoleResponse]]:
-        return self._iterate(limit=limit, endpoint_path=self._path("list", data_product_external_id))
+        for items in self._iterate(limit=limit, endpoint_path=self._path("list", data_product_external_id)):
+            self._assign_data_product(items, data_product_external_id)
+            yield items
 
     def list(self, data_product_external_id: str, limit: int | None = 10) -> builtins.list[DataProductRoleResponse]:
-        return self._list(limit=limit, endpoint_path=self._path("list", data_product_external_id))
+        items = self._list(limit=limit, endpoint_path=self._path("list", data_product_external_id))
+        self._assign_data_product(items, data_product_external_id)
+        return items

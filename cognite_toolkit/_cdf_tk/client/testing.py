@@ -32,7 +32,8 @@ from .api.apps import AppsAPI
 from .api.assets import AssetsAPI
 from .api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
 from .api.charts_monitoring_job import ChartMonitoringJobsAPI
-from .api.data_product_roles import DataProductRoleAccessFiltersAPI, DataProductRolesAPI
+from .api.data_product_role_access_filters import DataProductRoleAccessFiltersAPI
+from .api.data_product_roles import DataProductRolesAPI
 from .api.data_product_versions import DataProductVersionsAPI
 from .api.data_products import DataProductsAPI
 from .api.datapoint_subscription import DatapointSubscriptionsAPI
