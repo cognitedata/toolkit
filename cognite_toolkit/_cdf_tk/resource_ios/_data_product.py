@@ -82,9 +82,12 @@ class DataProductIO(ResourceIO[ExternalId, DataProductRequest, DataProductRespon
         for key, default in defaults:
             if dumped.get(key) == default and key not in local:
                 dumped.pop(key, None)
-        if dumped.get("instanceScope"):
-            self._strip_scope_defaults(dumped["instanceScope"], local.get("instanceScope"))
-        elif local.get("instanceScope") == []:
+        # Toolkit only manages an instanceScope that the YAML declares.
+        if "instanceScope" not in local:
+            dumped.pop("instanceScope", None)
+        elif dumped.get("instanceScope"):
+            self._strip_scope_defaults(dumped["instanceScope"], local["instanceScope"])
+        elif local["instanceScope"] == []:
             # The API cannot tell an empty scope from an unset one, so it returns no instanceScope for both.
             dumped["instanceScope"] = []
         else:

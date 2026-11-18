@@ -1,5 +1,7 @@
 """Unit tests for DataProductIO."""
 
+import pytest
+
 from cognite_toolkit._cdf_tk.client.identifiers import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewNoVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
@@ -35,6 +37,21 @@ class TestDataProductInstanceScope:
             (SpaceIO, SpaceId(space="sales_prod")),
             (SpaceIO, SpaceId(space="sales_eu")),
         }
+
+    def test_yaml_rejects_duplicate_scope_views(self) -> None:
+        source = {"space": "sales_schema", "externalId": "Order"}
+
+        with pytest.raises(ValueError, match="Duplicate view in instanceScope: sales_schema:Order"):
+            DataProductYAML.model_validate(
+                {
+                    "externalId": "sales",
+                    "name": "Sales",
+                    "instanceScope": [
+                        {"source": source, "read": ["sales_prod"]},
+                        {"source": source, "read": ["sales_eu"]},
+                    ],
+                }
+            )
 
     def test_as_update_sets_instance_scope(self) -> None:
         request = DataProductRequest.model_validate(
@@ -84,6 +101,26 @@ class TestDataProductInstanceScope:
         assert dumped["instanceScope"] == [
             {"source": {"space": "sales_schema", "externalId": "Order"}, "read": ["sales_prod"]}
         ]
+
+    def test_dump_resource_drops_instance_scope_not_declared_locally(self) -> None:
+        io = DataProductIO(ToolkitClientMock())
+        resource = DataProductResponse.model_validate(
+            {
+                "externalId": "sales",
+                "name": "Sales",
+                "schemaSpace": "sales",
+                "isGoverned": False,
+                "tags": [],
+                "domains": [],
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+                "instanceScope": [{"source": SCOPE_SOURCE, "read": ["sales_prod"], "upsert": [], "delete": []}],
+            }
+        )
+
+        dumped = io.dump_resource(resource, {"externalId": "sales", "name": "Sales"})
+
+        assert "instanceScope" not in dumped
 
     def test_dump_resource_drops_empty_instance_scope(self) -> None:
         io = DataProductIO(ToolkitClientMock())

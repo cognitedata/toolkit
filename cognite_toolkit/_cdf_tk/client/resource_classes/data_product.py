@@ -7,19 +7,13 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-
-
-class InstanceScopeView(BaseModelObject):
-    type: Literal["view"] = "view"
-    space: str
-    external_id: str
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, ViewNoVersionId
 
 
 class DataProductInstanceScope(BaseModelObject):
     """The instance spaces that can be accessed through a view when using the data product."""
 
-    source: InstanceScopeView
+    source: ViewNoVersionId
     read: list[str] = Field(min_length=1, max_length=100)
     upsert: list[str] = Field(default_factory=list, max_length=100)
     delete: list[str] = Field(default_factory=list, max_length=100)
