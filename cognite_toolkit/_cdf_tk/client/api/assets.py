@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.api._classic_list import (
     TimeRange,
     aggregated_properties_normalized,
     classic_list_body,
+    classic_search_body,
     dump_model,
     int_ids,
     object_ids,
@@ -45,6 +46,7 @@ class AssetsAPI(CDFResourceAPI[AssetResponse]):
                 "delete": Endpoint(method="POST", path="/assets/delete", item_limit=1000, concurrency_max_workers=1),
                 "list": Endpoint(method="POST", path="/assets/list", item_limit=1000),
                 "aggregate": Endpoint(method="POST", path="/assets/aggregate", item_limit=1000),
+                "search": Endpoint(method="POST", path="/assets/search", item_limit=1000),
             },
         )
 
@@ -347,6 +349,26 @@ class AssetsAPI(CDFResourceAPI[AssetResponse]):
             partition=partition,
             extra={"aggregatedProperties": aggregated} if aggregated is not None else None,
         )
+
+    def search(
+        self,
+        query: str | None = None,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        limit: int = 100,
+    ) -> builtins.list[AssetResponse]:
+        """Search assets by text. Results are sorted by relevance.
+
+        ``query`` searches the name and description and generally gives better results than ``name`` and
+        ``description``, which are prefix and fuzzy searches on a single field. ``filter`` is the same strict
+        filter as :meth:`list`. Search is meant for human-centric use cases, use :meth:`list` in programs.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Assets/operation/searchAssets>`_.
+        """
+        body = classic_search_body(filter=filter, search={"query": query, "name": name, "description": description})
+        return self._search(body, limit)
 
     def count(
         self,

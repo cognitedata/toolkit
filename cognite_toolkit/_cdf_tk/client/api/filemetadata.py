@@ -6,11 +6,12 @@ from typing import IO, Any, Literal
 
 import httpx2
 
-from cognite_toolkit._cdf_tk.client.api._classic_aggregate import files_aggregate_count
+from cognite_toolkit._cdf_tk.client.api._classic_aggregate import filter_aggregate_count
 from cognite_toolkit._cdf_tk.client.api._classic_list import (
     ObjectIds,
     TimeRange,
     classic_list_body,
+    classic_search_body,
     dump_model,
     int_ids,
     object_ids,
@@ -78,11 +79,13 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                 "delete": Endpoint(method="POST", path="/files/delete", item_limit=1000, concurrency_max_workers=1),
                 "list": Endpoint(method="POST", path="/files/list", item_limit=1000),
                 "aggregate": Endpoint(method="POST", path="/files/aggregate", item_limit=1000),
+                "search": Endpoint(method="POST", path="/files/search", item_limit=1000),
             },
             api_version="alpha",
         )
         self._create_multipart = Endpoint(method="POST", path="/files", item_limit=1, concurrency_max_workers=1)
         self._download_link = Endpoint(method="POST", path="/files/downloadlink", item_limit=10)
+        self._icon = Endpoint(method="GET", path="/files/icon", item_limit=1)
         # Creates a new classic file and returns multipart URLs. Body is the file object, not wrapped in "items".
         self._multipart_file_upload_link = Endpoint(method="POST", path="/files/initmultipartupload", item_limit=1)
         # Returns multipart URLs for a file that already exists (externalId or instanceId). Body is {"items": [...]}.
@@ -446,7 +449,48 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
 
         See `API docs <https://api-docs.cognite.com/20230101/tag/Files/operation/aggregateFiles>`_.
         """
-        return files_aggregate_count(self, filter=filter)
+        return filter_aggregate_count(self, filter=filter)
+
+    def search(
+        self,
+        name: str | None = None,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        limit: int = 100,
+    ) -> builtins.list[FileMetadataResponse]:
+        """Search files by name. Results are sorted by relevance.
+
+        ``filter`` is the same strict filter as :meth:`list`. Search is meant for human-centric use cases,
+        use :meth:`list` in programs.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Files/operation/searchFiles>`_.
+        """
+        body = classic_search_body(filter=filter, search={"name": name})
+        return self._search(body, limit)
+
+    def icon(self, item: InternalId | ExternalId | InstanceId) -> bytes:
+        """Get a JPEG icon of an image file.
+
+        Args:
+            item: The file to get the icon for.
+
+        Returns:
+            The icon as JPEG bytes.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Files/operation/getIcon>`_.
+        """
+        if isinstance(item, InstanceId):
+            params = {"space": item.instance_id.space, "instanceExternalId": item.instance_id.external_id}
+        else:
+            params = item.dump()
+        request = RequestMessage(
+            endpoint_url=self._make_url(self._icon.path),
+            method=self._icon.method,
+            parameters=params,
+            accept="image/jpeg",
+            api_version=self._api_version,
+        )
+        return self._http_client.request_single_retries(request).get_success_or_raise(request).content
 
     def set_pending_ids(self, items: Sequence[PendingInstanceId]) -> builtins.list[FileMetadataResponse]:
         """Set pending instance IDs for one or more file metadata entries.
