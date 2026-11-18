@@ -669,7 +669,9 @@ class TestDumpHostedExtractor:
         ]
         with monkeypatch_toolkit_client() as client:
             client.hosted_extractors.sources.retrieve.return_value = selected_sources
-            client.hosted_extractors.jobs.list.return_value = jobs
+            client.hosted_extractors.jobs.list.side_effect = lambda source, limit: [
+                job for job in jobs if job.source_id == source
+            ]
             client.hosted_extractors.destinations.retrieve.return_value = destinations
             client.hosted_extractors.mappings.retrieve.return_value = mappings
 

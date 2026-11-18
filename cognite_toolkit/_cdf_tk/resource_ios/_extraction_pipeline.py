@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     RawDatabaseId,
     RawTableId,
 )
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ExtractionPipelineFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
     ExtractionPipelineResponse,
@@ -235,9 +235,9 @@ class ExtractionPipelineIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ExtractionPipelineResponse]:
-        filter: ClassicFilter | None = None
+        filter: ExtractionPipelineFilter | None = None
         if data_set_external_id is not None:
-            filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
+            filter = ExtractionPipelineFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
         for pipelines in self.client.extraction_pipelines.iterate(filter=filter, limit=None):
             yield from pipelines
 
