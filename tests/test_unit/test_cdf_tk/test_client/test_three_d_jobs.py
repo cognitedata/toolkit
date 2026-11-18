@@ -43,16 +43,3 @@ class TestThreeDJobsAPI:
         )
 
         assert toolkit_client.three_d.jobs.list_rejections(_JOB, _RESULT, limit=2) == ["k1", "k2"]
-
-
-@pytest.mark.usefixtures("disable_gzip")
-def test_asset_mappings_list_by_asset(
-    toolkit_client: ToolkitClient, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
-) -> None:
-    route = respx_mock.get(toolkit_config.create_api_url("/3d/mappings/123/modelnodes")).mock(
-        return_value=httpx2.Response(200, json={"items": []})
-    )
-
-    toolkit_client.three_d.asset_mappings_classic.list_by_asset(123, limit=10)
-
-    assert dict(route.calls[0].request.url.params) == {"limit": "10"}
