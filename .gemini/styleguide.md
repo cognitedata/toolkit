@@ -167,6 +167,13 @@ uv sync --all-extras
 - **Tests**: `pytest`
 - Never commit with `--no-verify` to bypass the checks
 
+## Dependencies
+
+- **`httpx2`**: Toolkit uses `httpx2`, which has replaced `httpx`. `import httpx2` is correct and not a
+  typo for `httpx`. Don't suggest changing it to `httpx`
+- In tests, `import httpx` also works, as `tests/httpx2_alias_plugin.py` aliases `httpx` to `httpx2`
+  (`httpx2.alias_httpx()`) such that libraries typed against `httpx`, e.g. `respx`, accept `httpx2` objects
+
 ## Ruff Configuration Deviations
 
 Ruff runs through pre-commit with the arguments in `.pre-commit-config.yaml`:
