@@ -5,6 +5,16 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.signal import (
+    CommentNotificationsSignalMetadata,
+    HostedExtractorsSignalMetadata,
+    IntegrationSignalMetadata,
+    SandboxSignalMetadata,
+    SignalMetadata,
+    SignalResponse,
+    UnknownSignalMetadata,
+    WorkflowSignalMetadata,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import CurrentUserSinkRef
 
 _SIGNAL = {
@@ -17,6 +27,47 @@ _SIGNAL = {
     "metadata": {},
     "message": "The workflow failed.",
 }
+
+
+@pytest.mark.parametrize(
+    "topic, metadata, expected_cls",
+    [
+        pytest.param(
+            "cognite_integrations",
+            {"extractorExternalId": "ext", "taskName": "t", "startTime": 1, "endTime": 2},
+            IntegrationSignalMetadata,
+            id="integrations",
+        ),
+        pytest.param(
+            "cognite_workflows",
+            {"executionStartTime": "a", "triggerExternalId": "trigger"},
+            WorkflowSignalMetadata,
+            id="workflows",
+        ),
+        pytest.param(
+            "cognite_hosted_extractors",
+            {"sourceType": "mqtt", "sourceExternalId": "src"},
+            HostedExtractorsSignalMetadata,
+            id="hosted-extractors",
+        ),
+        pytest.param("cognite_sandbox", {"tag": "my_tag", "detail": "d"}, SandboxSignalMetadata, id="sandbox"),
+        pytest.param(
+            "cognite_comment_notifications",
+            {"activityName": "a", "planId": "p"},
+            CommentNotificationsSignalMetadata,
+            id="comment-notifications",
+        ),
+        pytest.param("cognite_future", {"newField": "x"}, UnknownSignalMetadata, id="unknown-topic"),
+    ],
+)
+def test_signal_metadata_parsed_by_topic(
+    topic: str, metadata: dict[str, object], expected_cls: type[SignalMetadata]
+) -> None:
+    raw = {**_SIGNAL, "topic": topic, "metadata": metadata}
+
+    signal = SignalResponse.model_validate(raw)
+
+    assert (type(signal.metadata), signal.dump()) == (expected_cls, raw)
 
 
 @pytest.mark.usefixtures("disable_gzip")
