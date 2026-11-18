@@ -340,6 +340,11 @@ class SimulationRunFilter(SimulatorFilter):
     simulation_time: EpochTimestampRange | None = None
 
 
+class SimulationRunSort(BaseModelRequest):
+    property: Literal["createdTime", "simulationTime"]
+    order: Literal["asc", "desc"]
+
+
 class ChartMonitorModelFilter(Filter):
     timeseries_id: list[int] | None = None
 

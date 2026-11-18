@@ -1,11 +1,12 @@
 import builtins
 from collections.abc import Iterable, Sequence
+from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import SimulationRunFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import SimulationRunFilter, SimulationRunSort
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator import (
     SimulationRunDataResponse,
     SimulationRunRequest,
@@ -74,7 +75,11 @@ class SimulatorRunsAPI(CDFResourceAPI[SimulationRunResponse]):
         return results
 
     def paginate(
-        self, filter: SimulationRunFilter | None = None, limit: int = 100, cursor: str | None = None
+        self,
+        filter: SimulationRunFilter | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+        sort: SimulationRunSort | None = None,
     ) -> PagedResponse[SimulationRunResponse]:
         """Fetch a page of simulation runs.
 
@@ -82,36 +87,50 @@ class SimulatorRunsAPI(CDFResourceAPI[SimulationRunResponse]):
             filter: Filter by status, run type, simulator, model, routine, and time.
             limit: Maximum number of runs to return.
             cursor: Cursor for pagination.
+            sort: Sort by created time or simulation time.
 
         Returns:
             A page of runs.
         """
-        return self._paginate(limit=limit, cursor=cursor, body={"filter": filter.dump() if filter else None})
+        return self._paginate(limit=limit, cursor=cursor, body=self._list_body(filter, sort))
 
     def iterate(
-        self, filter: SimulationRunFilter | None = None, limit: int | None = 100
+        self,
+        filter: SimulationRunFilter | None = None,
+        limit: int | None = 100,
+        sort: SimulationRunSort | None = None,
     ) -> Iterable[builtins.list[SimulationRunResponse]]:
         """Iterate over simulation runs.
 
         Args:
             filter: Filter by status, run type, simulator, model, routine, and time.
             limit: Maximum number of runs to return. None returns all.
+            sort: Sort by created time or simulation time.
 
         Returns:
             Pages of runs.
         """
-        return self._iterate(limit=limit, body={"filter": filter.dump() if filter else None})
+        return self._iterate(limit=limit, body=self._list_body(filter, sort))
 
     def list(
-        self, filter: SimulationRunFilter | None = None, limit: int | None = 100
+        self,
+        filter: SimulationRunFilter | None = None,
+        limit: int | None = 100,
+        sort: SimulationRunSort | None = None,
     ) -> builtins.list[SimulationRunResponse]:
         """List simulation runs.
 
         Args:
             filter: Filter by status, run type, simulator, model, routine, and time.
             limit: Maximum number of runs to return. None returns all.
+            sort: Sort by created time or simulation time.
 
         Returns:
             The runs.
         """
-        return self._list(limit=limit, body={"filter": filter.dump() if filter else None})
+        return self._list(limit=limit, body=self._list_body(filter, sort))
+
+    @staticmethod
+    def _list_body(filter: SimulationRunFilter | None, sort: SimulationRunSort | None) -> dict[str, Any]:
+        # The API accepts a list but only supports sorting by one property.
+        return {"filter": filter.dump() if filter else None, "sort": [sort.dump()] if sort else None}

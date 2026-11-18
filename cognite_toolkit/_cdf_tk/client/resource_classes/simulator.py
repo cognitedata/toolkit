@@ -1,6 +1,7 @@
-from typing import Literal
+from abc import ABC
+from typing import Annotated, Any, Literal
 
-from pydantic import JsonValue
+from pydantic import ConfigDict, Discriminator, JsonValue, Tag, TypeAdapter
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestItem
 
@@ -85,25 +86,54 @@ class SimulationInputOverride(BaseModelObject):
     unit: SimulationInputUnit | None = None
 
 
-class SimulationRunRequest(RequestItem):
-    """Run a simulation.
+class SimulationRunRequest(RequestItem, ABC):
+    """Run a simulation. Use one of the subclasses to select what to run."""
 
-    Set ``routine_external_id`` to run the latest revision of a routine, or ``routine_revision_external_id``
-    and ``model_revision_external_id`` to run a given revision.
-    """
-
-    routine_external_id: str | None = None
-    routine_revision_external_id: str | None = None
-    model_revision_external_id: str | None = None
     run_time: int | None = None
     queue: bool | None = None
     log_severity: SimulatorLogSeverity | None = None
     inputs: list[SimulationInputOverride] | None = None
 
+
+class SimulationRunByRoutineRequest(SimulationRunRequest):
+    """Run the latest revision of a routine."""
+
+    routine_external_id: str
+
     def __str__(self) -> str:
-        if self.routine_external_id is not None:
-            return f"routineExternalId='{self.routine_external_id}'"
-        return f"routineRevisionExternalId='{self.routine_revision_external_id}'"
+        return f"routineExternalId='{self.routine_external_id}'"
+
+
+class SimulationRunByRoutineRevisionRequest(SimulationRunRequest):
+    """Run a given routine revision against a given model revision."""
+
+    routine_revision_external_id: str
+    model_revision_external_id: str
+
+    def __str__(self) -> str:
+        return (
+            f"routineRevisionExternalId='{self.routine_revision_external_id}', "
+            f"modelRevisionExternalId='{self.model_revision_external_id}'"
+        )
+
+
+def _simulation_run_request_tag(value: Any) -> str:
+    if isinstance(value, dict):
+        is_by_revision = "routineRevisionExternalId" in value or "routine_revision_external_id" in value
+    else:
+        is_by_revision = isinstance(value, SimulationRunByRoutineRevisionRequest)
+    return "routine_revision" if is_by_revision else "routine"
+
+
+SimulationRunRequestUnion = Annotated[
+    Annotated[SimulationRunByRoutineRequest, Tag("routine")]
+    | Annotated[SimulationRunByRoutineRevisionRequest, Tag("routine_revision")],
+    Discriminator(_simulation_run_request_tag),
+]
+
+SimulationRunRequestAdapter: TypeAdapter[SimulationRunRequestUnion] = TypeAdapter(
+    SimulationRunRequestUnion, config=ConfigDict(defer_build=True)
+)
 
 
 class SimulationRunResponse(BaseModelObject):
@@ -135,7 +165,7 @@ class SimulationValueUnit(BaseModelObject):
 class SimulationValue(BaseModelObject):
     reference_id: str
     value: JsonValue
-    value_type: str
+    value_type: Literal["STRING", "DOUBLE", "STRING_ARRAY", "DOUBLE_ARRAY"] | str
     unit: SimulationValueUnit | None = None
     simulator_object_reference: dict[str, str] | None = None
     timeseries_external_id: str | None = None
