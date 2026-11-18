@@ -150,11 +150,36 @@ class FailingRuleSet(ToolkitRuleSet):
                         )
                     )
 
-        # # For transformations, always include blocked executions, even if their failure is not within the lookback period, as they are still failing.
-        # for transformation_list in client.transformations.iterate(limit=None):
-        #     for transformation in transformation_list:
-        #         if transformation.last_finished_job and transformation.last_finished_job...
-        #             ...
+        for transformation_list in client.transformations.iterate(limit=None):
+            for transformation in transformation_list:
+                if (TransformationIO, transformation.as_id()) in already_reported_:
+                    continue
+                if (
+                    transformation.last_finished_job
+                    and transformation.last_finished_job.status.casefold() == "failed"
+                    and transformation.last_finished_job.created_time >= self.from_time_epoc
+                ):
+                    jobs = client.transformations.jobs.list(transformation.id, limit=1000)
+                    failures.append(
+                        FailingResource(
+                            resource_type="Transformation",
+                            identifier=transformation.as_id(),
+                            reason=transformation.last_finished_job.error or "Unknown reason",
+                            url=client.config.create_api_url(f"/transformations/{transformation.id}/"),
+                            failed_executions=len([job for job in jobs if job.status.casefold() == "failed"]),
+                        )
+                    )
+                elif transformation.blocked:
+                    # For transformations, always include blocked executions, even if their failure is not within
+                    # the lookback period, as they are still failing.
+                    failures.append(
+                        FailingResource(
+                            resource_type="Transformation",
+                            identifier=transformation.as_id(),
+                            reason=f"Blocked: {transformation.blocked.reason}",
+                            url=client.config.create_api_url(f"/transformations/{transformation.id}/"),
+                        )
+                    )
 
         for job_list in client.hosted_extractors.jobs.iterate(limit=None):
             for job in job_list:
