@@ -236,7 +236,7 @@ class TestDumpTransformations:
             finder = TransformationFinder(client, ("transformationA",))
             client.transformations.retrieve.return_value = [transformation]
             client.transformations.schedules.retrieve.return_value = []
-            client.transformations.external_data_sources.list.return_value = [external_source]
+            client.transformations.external_data_sources.retrieve.return_value = [external_source]
 
             batches = list(finder)
 

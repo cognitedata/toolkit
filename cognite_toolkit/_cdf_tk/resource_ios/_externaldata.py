@@ -126,12 +126,7 @@ class ExternalDataSourceIO(
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ExternalDataSourceResponseUnion]:
         if not ids:
             return []
-        id_set = {id_.external_id for id_ in ids}
-        return [
-            source
-            for source in self.client.transformations.external_data_sources.list(limit=None)
-            if source.external_id in id_set
-        ]
+        return self.client.transformations.external_data_sources.retrieve(list(ids), ignore_unknown_ids=True)
 
     def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
         id_list = list(ids)

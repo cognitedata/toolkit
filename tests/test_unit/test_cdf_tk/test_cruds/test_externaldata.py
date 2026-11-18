@@ -205,7 +205,7 @@ class TestExternalDataSourceIO:
             response = _make_response()
             api = client.transformations.external_data_sources
             api.create.return_value = [response]
-            api.list.return_value = [response]
+            api.retrieve.return_value = [response]
 
             assert loader.create([item]) == [response]
             assert loader.retrieve([ExternalId(external_id="fabric-lakehouse-prod")]) == [response]

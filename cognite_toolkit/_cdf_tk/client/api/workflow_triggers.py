@@ -76,6 +76,8 @@ class WorkflowTriggersAPI(CDFResourceAPI[WorkflowTriggerResponse]):
         Returns:
             The trigger runs.
         """
+        if limit is not None and limit <= 0:
+            return []
         url = self._make_url(f"/workflows/triggers/{item.external_id}/history")
         page_size = self._method_endpoint_map["list"].item_limit
         results: builtins.list[WorkflowTriggerRun] = []

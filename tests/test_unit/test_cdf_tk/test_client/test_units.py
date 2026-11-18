@@ -20,6 +20,29 @@ _UNIT = {
 
 @pytest.mark.usefixtures("disable_gzip")
 class TestUnitsAPI:
+    def test_list(
+        self, toolkit_client: ToolkitClient, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.get(toolkit_config.create_api_url("/units")).mock(
+            return_value=httpx2.Response(200, json={"items": [_UNIT]})
+        )
+
+        units = toolkit_client.units.list()
+
+        assert [unit.external_id for unit in units] == ["temperature:deg_c"]
+
+    def test_list_systems(
+        self, toolkit_client: ToolkitClient, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        system = {"name": "SI", "quantities": [{"name": "Temperature", "unitExternalId": "temperature:k"}]}
+        respx_mock.get(toolkit_config.create_api_url("/units/systems")).mock(
+            return_value=httpx2.Response(200, json={"items": [system]})
+        )
+
+        systems = toolkit_client.units.list_systems()
+
+        assert [s.dump() for s in systems] == [system]
+
     def test_retrieve(
         self, toolkit_client: ToolkitClient, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
     ) -> None:

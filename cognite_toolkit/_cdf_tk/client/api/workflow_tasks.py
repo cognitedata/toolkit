@@ -2,13 +2,25 @@ from typing import Literal
 
 from pydantic import JsonValue
 
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowTaskExecution
 
 
-class WorkflowTasksAPI:
+class WorkflowTasksAPI(CDFResourceAPI[WorkflowTaskExecution]):
     def __init__(self, http_client: HTTPClient) -> None:
-        self._http_client = http_client
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                "update": Endpoint(method="POST", path="/workflows/tasks/{taskId}/update", item_limit=1),
+            },
+        )
+
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[WorkflowTaskExecution]:
+        raise NotImplementedError("The task endpoints return a single task execution, not a page of items.")
 
     def update(
         self,
@@ -31,9 +43,10 @@ class WorkflowTasksAPI:
         body: dict[str, JsonValue] = {"status": status}
         if output is not None:
             body["output"] = output
+        endpoint = self._method_endpoint_map["update"]
         request = RequestMessage(
-            endpoint_url=self._http_client.config.create_api_url(f"/workflows/tasks/{task_id}/update"),
-            method="POST",
+            endpoint_url=self._make_url(endpoint.path.format(taskId=task_id)),
+            method=endpoint.method,
             body_content=body,
         )
         response = self._http_client.request_single_retries(request).get_success_or_raise(request)

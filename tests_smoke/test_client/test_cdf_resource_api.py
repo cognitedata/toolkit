@@ -72,8 +72,10 @@ from cognite_toolkit._cdf_tk.client.api.transformation_notifications import Tran
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schema import TransformationSchemaAPI
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
+from cognite_toolkit._cdf_tk.client.api.units import UnitsAPI
 from cognite_toolkit._cdf_tk.client.api.user_profiles import UserProfilesAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_executions import WorkflowExecutionsAPI
+from cognite_toolkit._cdf_tk.client.api.workflow_tasks import WorkflowTasksAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
@@ -326,6 +328,10 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         WorkflowVersionsAPI,
         WorkflowTriggersAPI,
         WorkflowExecutionsAPI,
+        # Tasks only exist inside a running workflow execution and only support update.
+        WorkflowTasksAPI,
+        # The unit catalog is read-only and global, so it has no create, update, or delete.
+        UnitsAPI,
         # 3D Models are expensive to create, and AssetMappings depend on existing models and assets/nodes.
         ThreeDClassicModelsAPI,
         ThreeDDMAssetMappingAPI,
