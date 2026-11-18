@@ -169,7 +169,7 @@ class ContainersAPI(CDFResourceAPI[ContainerResponse]):
     _DELETE_INDEXES_PATH = "/models/containers/indexes/delete"
     _RETRY_CONSTRAINTS_PATH = "/models/containers/constraints/retry"
     _RETRY_INDEXES_PATH = "/models/containers/indexes/retry"
-    _RETRY_PROPERTY_CONSTRAINTS_PATH = "/models/containers/properties/constraints/retry"
+    _RETRY_PROPERTY_CONSTRAINTS_PATH = "/models/containers/properties/retry"
     _SUB_RESOURCE_ITEM_LIMIT = 10
 
     def delete_constraints(self, items: Sequence[ContainerConstraintId]) -> builtins.list[ContainerConstraintId]:

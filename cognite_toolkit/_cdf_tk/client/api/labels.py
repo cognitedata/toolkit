@@ -59,6 +59,13 @@ class LabelsAPI(CDFResourceAPI[LabelResponse]):
         """
         self._request_no_response(items, "delete")
 
+    @staticmethod
+    def _list_body(filter: ClassicFilter | None, name: str | None) -> dict[str, Any] | None:
+        dumped = filter.dump() if filter else {}
+        if name is not None:
+            dumped["name"] = name
+        return {"filter": dumped} if dumped else None
+
     def paginate(
         self,
         filter: ClassicFilter | None = None,
@@ -66,57 +73,51 @@ class LabelsAPI(CDFResourceAPI[LabelResponse]):
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[LabelResponse]:
-        """Iterate over all labels in CDF.
+        """Get a page of labels from CDF.
 
         Args:
-            filter: Filter by data set IDs.
-            name: Filter by label name (prefix match).
+            filter: Filter by data set IDs and external ID prefix.
+            name: Only return labels with exactly this name.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of LabelResponse objects.
         """
-        body: dict[str, Any] = filter.dump() if filter else {}
-        if name:
-            body["name"] = name
-
-        return self._paginate(
-            cursor=cursor,
-            limit=limit,
-            body=body,
-        )
+        return self._paginate(cursor=cursor, limit=limit, body=self._list_body(filter, name))
 
     def iterate(
         self,
         filter: ClassicFilter | None = None,
+        name: str | None = None,
         limit: int | None = 100,
     ) -> Iterable[builtins.list[LabelResponse]]:
         """Iterate over all labels in CDF.
 
         Args:
-            filter: Filter by data set IDs.
-            name: Filter by label name (prefix match).
-            limit: Maximum number of items to return per page.
+            filter: Filter by data set IDs and external ID prefix.
+            name: Only return labels with exactly this name.
+            limit: Maximum number of items to return.
 
         Returns:
             Iterable of lists of LabelResponse objects.
         """
-        body: dict[str, Any] | None = None
-        if filter:
-            body = {"filter": filter.dump()}
-        return self._iterate(
-            limit=limit,
-            body=body,
-        )
+        return self._iterate(limit=limit, body=self._list_body(filter, name))
 
     def list(
         self,
+        filter: ClassicFilter | None = None,
+        name: str | None = None,
         limit: int | None = 100,
     ) -> builtins.list[LabelResponse]:
         """List all labels in CDF.
 
+        Args:
+            filter: Filter by data set IDs and external ID prefix.
+            name: Only return labels with exactly this name.
+            limit: Maximum number of items to return.
+
         Returns:
             List of LabelResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, body=self._list_body(filter, name))

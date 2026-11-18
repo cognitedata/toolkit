@@ -97,6 +97,9 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     EpochTimestampRange,
     FunctionCallFilter,
     SequenceRowFilter,
+    WorkflowExecutionFilter,
+    WorkflowFilter,
+    WorkflowFilterItem,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
@@ -1323,7 +1326,14 @@ class TestCDFResourceAPI:
         start_time = time.monotonic()
         while (time.monotonic() - start_time) < timeout_seconds:
             running_executions = client.workflows.executions.list(
-                workflow_version_ids=[workflow_version_id], statuses=["RUNNING"]
+                filter=WorkflowExecutionFilter(
+                    workflow_filters=[
+                        WorkflowFilterItem(
+                            external_id=workflow_version_id.workflow_external_id, version=workflow_version_id.version
+                        )
+                    ],
+                    status=["RUNNING"],
+                )
             )
             if not running_executions:
                 return
@@ -1990,7 +2000,12 @@ class TestCDFResourceAPI:
             # List workflow versions
             version_list_endpoint = client.workflows.versions._method_endpoint_map["list"]
             listed_versions = list(
-                client.workflows.versions.list(workflow_external_id=workflow_request.external_id, limit=1)
+                client.workflows.versions.list(
+                    filter=WorkflowFilter(
+                        workflow_filters=[WorkflowFilterItem(external_id=workflow_request.external_id)]
+                    ),
+                    limit=1,
+                )
             )
             if len(listed_versions) == 0:
                 raise EndpointAssertionError(
@@ -2034,7 +2049,10 @@ class TestCDFResourceAPI:
             list_endpoint = client.workflows.executions._method_endpoint_map["list"]
             try:
                 listed_executions = client.workflows.executions.list(
-                    workflow_version_ids=[workflow_version_id], limit=1
+                    filter=WorkflowExecutionFilter(
+                        workflow_filters=[WorkflowFilterItem(external_id=workflow_version_id.workflow_external_id)]
+                    ),
+                    limit=1,
                 )
             except ToolkitAPIError as e:
                 raise EndpointAssertionError(list_endpoint.path, f"list method failed with error: {e!s}") from e

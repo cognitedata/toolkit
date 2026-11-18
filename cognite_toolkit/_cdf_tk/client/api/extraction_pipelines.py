@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedRespo
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ExtractionPipelineFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
     ExtractionPipelineResponse,
@@ -84,63 +84,53 @@ class ExtractionPipelinesAPI(CDFResourceAPI[ExtractionPipelineResponse]):
         """
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
+    @staticmethod
+    def _list_body(filter: ExtractionPipelineFilter | None) -> dict[str, Any] | None:
+        filter_body = filter.dump() if filter else {}
+        return {"filter": filter_body} if filter_body else None
+
     def paginate(
         self,
-        filter: ClassicFilter | None = None,
-        external_id_prefix: str | None = None,
+        filter: ExtractionPipelineFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[ExtractionPipelineResponse]:
         """Iterate over all extraction pipelines in CDF.
 
         Args:
-            filter: Filter by data set IDs.
-            external_id_prefix: Filter by external ID prefix.
+            filter: Filter by external ID prefix, name, data set, schedule, contacts, and more.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of ExtractionPipelineResponse objects.
         """
-        filter_body: dict[str, Any] = filter.dump() if filter else {}
-        if external_id_prefix is not None:
-            filter_body["externalIdPrefix"] = external_id_prefix
-
-        return self._paginate(
-            cursor=cursor,
-            limit=limit,
-            body={"filter": filter_body} if filter_body else None,
-        )
+        return self._paginate(cursor=cursor, limit=limit, body=self._list_body(filter))
 
     def iterate(
-        self, filter: ClassicFilter | None = None, external_id_prefix: str | None = None, limit: int | None = 100
+        self, filter: ExtractionPipelineFilter | None = None, limit: int | None = 100
     ) -> Iterable[builtins.list[ExtractionPipelineResponse]]:
         """Iterate over all extraction pipelines in CDF.
 
         Args:
-            filter: Filter by data set IDs.
-            external_id_prefix: Filter by external ID prefix.
+            filter: Filter by external ID prefix, name, data set, schedule, contacts, and more.
             limit: Maximum number of items to return per page.
 
         Returns:
             Iterable of lists of ExtractionPipelineResponse objects.
         """
-        filter_body: dict[str, Any] = filter.dump() if filter else {}
-        if external_id_prefix is not None:
-            filter_body["externalIdPrefix"] = external_id_prefix
-
-        return self._iterate(
-            limit=limit,
-            body={"filter": filter_body} if filter_body else None,
-        )
+        return self._iterate(limit=limit, body=self._list_body(filter))
 
     def list(
-        self,
-        limit: int | None = 100,
+        self, filter: ExtractionPipelineFilter | None = None, limit: int | None = 100
     ) -> builtins.list[ExtractionPipelineResponse]:
         """List all extraction pipelines in CDF.
+
+        Args:
+            filter: Filter by external ID prefix, name, data set, schedule, contacts, and more.
+            limit: Maximum number of items to return.
 
         Returns:
             List of ExtractionPipelineResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, body=self._list_body(filter))
