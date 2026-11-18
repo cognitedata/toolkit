@@ -220,7 +220,6 @@ class TestFailingJobRuleSet:
 
         assert (count, pages_read) == (2, [0, 1])
 
-
     def test_workflow_failure_keeps_dependencies(self) -> None:
         client = _client()
         rule = FailingJobRuleSet(client=client)
