@@ -32,6 +32,7 @@ from .api.apps import AppsAPI
 from .api.assets import AssetsAPI
 from .api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
 from .api.charts_monitoring_job import ChartMonitoringJobsAPI
+from .api.data_product_roles import DataProductRoleAccessFiltersAPI, DataProductRolesAPI
 from .api.data_product_versions import DataProductVersionsAPI
 from .api.data_products import DataProductsAPI
 from .api.datapoint_subscription import DatapointSubscriptionsAPI
@@ -352,6 +353,8 @@ class ToolkitClientMock(ToolkitClient):
         self.workflows.tasks = MagicMock(spec_set=WorkflowTasksAPI)
         self.data_products = MagicMock(spec=DataProductsAPI)
         self.data_products.versions = MagicMock(spec_set=DataProductVersionsAPI)
+        self.data_products.roles = MagicMock(spec=DataProductRolesAPI)
+        self.data_products.roles.access_filters = MagicMock(spec_set=DataProductRoleAccessFiltersAPI)
         self.rulesets = MagicMock(spec=RuleSetsAPI)
         self.rulesets.versions = MagicMock(spec_set=RuleSetVersionsAPI)
 

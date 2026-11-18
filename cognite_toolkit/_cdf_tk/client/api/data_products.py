@@ -5,10 +5,11 @@ from collections.abc import Iterable, Sequence
 from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
 
+from .data_product_roles import DataProductRolesAPI
 from .data_product_versions import DataProductVersionsAPI
 
 
@@ -20,7 +21,7 @@ class DataProductsAPI(CDFResourceAPI[DataProductResponse]):
             http_client=http_client,
             method_endpoint_map={
                 "create": Endpoint(method="POST", path="/dataproducts", item_limit=1),
-                "retrieve": Endpoint(method="GET", path="/dataproducts/{externalId}", item_limit=1),
+                "retrieve": Endpoint(method="POST", path="/dataproducts/byids", item_limit=100),
                 "update": Endpoint(method="POST", path="/dataproducts/update", item_limit=1),
                 "delete": Endpoint(method="POST", path="/dataproducts/delete", item_limit=1),
                 "list": Endpoint(method="GET", path="/dataproducts", item_limit=100),
@@ -28,6 +29,7 @@ class DataProductsAPI(CDFResourceAPI[DataProductResponse]):
             api_version="alpha",
         )
         self.versions = DataProductVersionsAPI(http_client)
+        self.roles = DataProductRolesAPI(http_client)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
@@ -50,7 +52,7 @@ class DataProductsAPI(CDFResourceAPI[DataProductResponse]):
     ) -> builtins.list[DataProductResponse]:
         """Retrieve data products by external ID.
 
-        The API only supports single-item GET at /dataproducts/{externalId}.
+        The byids endpoint has no ignoreUnknownIds flag, so unknown IDs are skipped by splitting failed requests.
 
         Args:
             external_ids: List of ExternalId objects of the data products to retrieve.
@@ -60,22 +62,9 @@ class DataProductsAPI(CDFResourceAPI[DataProductResponse]):
             List of retrieved DataProductResponse objects.
 
         """
-        results: builtins.list[DataProductResponse] = []
-        endpoint = self._method_endpoint_map["retrieve"]
-        for ext_id in external_ids:
-            request = RequestMessage(
-                endpoint_url=self._make_url(endpoint.path.format(externalId=ext_id.external_id)),
-                method=endpoint.method,
-                api_version=self._api_version,
-            )
-            response = self._http_client.request_single_retries(request)
-            if isinstance(response, SuccessResponse):
-                results.append(DataProductResponse.model_validate_json(response.body))
-            elif ignore_unknown_ids:
-                continue
-            else:
-                _ = response.get_success_or_raise(request)
-        return results
+        if ignore_unknown_ids:
+            return self._request_item_split_retries(external_ids, "retrieve")
+        return self._request_item_response(external_ids, "retrieve")
 
     def update(
         self, items: Sequence[DataProductRequest], mode: Literal["patch", "replace"] = "replace"
