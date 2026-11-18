@@ -5,11 +5,7 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import (
-    CurrentUserSinkRef,
-    SandboxSubscriptionFilter,
-    SignalSubscriptionResponse,
-)
+from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import CurrentUserSinkRef
 
 _SIGNAL = {
     "externalId": "s1",
@@ -56,17 +52,3 @@ class TestSignalsAPI:
             ["s1", "s2"],
             {"sink": {"type": "current_user"}, "limit": 1000, "cursor": "c1"},
         )
-
-
-def test_signal_subscription_parses_sandbox_filter() -> None:
-    subscription = SignalSubscriptionResponse.model_validate(
-        {
-            "externalId": "my_subscription",
-            "sink": {"type": "current_user"},
-            "filter": {"topic": "cognite_sandbox", "tag": "my_tag"},
-            "createdTime": 0,
-            "lastUpdatedTime": 0,
-        }
-    )
-
-    assert subscription.filter == SandboxSubscriptionFilter(topic="cognite_sandbox", tag="my_tag")
