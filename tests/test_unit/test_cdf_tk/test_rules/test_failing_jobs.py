@@ -6,14 +6,23 @@ from unittest.mock import MagicMock
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, SessionsAcl
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
+    HostedExtractorDestinationResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import HostedExtractorJobResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.session import SessionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     TransformationJobResponse,
     TransformationResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowExecutionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
+from cognite_toolkit._cdf_tk.resource_ios import TransformationIO, WorkflowIO
 from cognite_toolkit._cdf_tk.rules import FailingJobRuleSet
+from cognite_toolkit._cdf_tk.rules._failing_jobs import FailingJob
 from cognite_toolkit._cdf_tk.utils.time import datetime_to_ms
 
 NOW = datetime_to_ms(datetime.now(UTC))
@@ -65,8 +74,12 @@ def _function(id_: int, external_id: str, last_called: int | None) -> FunctionRe
     )
 
 
-def _call(id_: int, status: str, start_time: int, error: str | None = None) -> FunctionCallResponse:
-    return FunctionCallResponse(id=id_, status=status, start_time=start_time, function_id=4, error=error)
+def _call(
+    id_: int, status: str, start_time: int, error: str | None = None, schedule_id: int | None = None
+) -> FunctionCallResponse:
+    return FunctionCallResponse(
+        id=id_, status=status, start_time=start_time, function_id=4, error=error, schedule_id=schedule_id
+    )
 
 
 def _job(id_: int, status: str, created_time: int, error: str | None = None) -> TransformationJobResponse:
@@ -143,12 +156,24 @@ def _client() -> MagicMock:
     client.functions.calls.list.return_value = [
         _call(1, "Completed", RECENT - 20),
         _call(2, "Failed", RECENT - 10, error="Old error"),
-        _call(3, "Timeout", RECENT, error="Function timed out"),
+        _call(3, "Timeout", RECENT, error="Function timed out", schedule_id=7),
         _call(4, "Running", RECENT + 10),
+    ]
+    client.functions.schedules.retrieve.return_value = [
+        FunctionScheduleResponse(
+            id=7, name="hourly", cron_expression="0 * * * *", created_time=0, when="hourly", session_id=300
+        )
     ]
     client.transformations.list.return_value = [
         _transformation(1, "tr_in_workflow", lastFinishedJob=_job(10, "Failed", RECENT, "Column not found").dump()),
-        _transformation(2, "tr_failed", lastFinishedJob=_job(11, "Failed", RECENT, "Column not found").dump()),
+        _transformation(
+            2,
+            "tr_failed",
+            lastFinishedJob=_job(11, "Failed", RECENT, "Column not found").dump(),
+            destination={"type": "raw", "database": "my_db", "table": "my_table"},
+            sourceSession={"sessionId": 100, "projectName": "my_project"},
+            destinationSession={"sessionId": 101, "projectName": "my_project"},
+        ),
         _transformation(3, "tr_failed_long_ago", lastFinishedJob=_job(12, "Failed", OLD).dump()),
         _transformation(4, "tr_blocked", blocked={"reason": "Too many failures", "createdTime": OLD}),
         _transformation(5, "tr_healthy", lastFinishedJob=_job(13, "Completed", RECENT).dump()),
@@ -159,6 +184,11 @@ def _client() -> MagicMock:
     client.hosted_extractors.jobs.list.return_value = [
         _hosted_job("job_running", "running"),
         _hosted_job("job_write_error", "cdf_write_error"),
+    ]
+    client.hosted_extractors.destinations.retrieve.return_value = [
+        HostedExtractorDestinationResponse(
+            external_id="my_destination", session_id=200, created_time=0, last_updated_time=0
+        )
     ]
     return client
 
@@ -258,4 +288,107 @@ class TestFailingJobRuleSet:
             ("WorkflowIO", ExternalId(external_id="my_workflow")),
             ("FunctionIO", ExternalId(external_id="fn_in_workflow")),
             ("TransformationIO", ExternalId(external_id="tr_in_workflow")),
+        }
+
+    def test_load_failures_keeps_dependencies_and_sessions(self) -> None:
+        client = _client()
+        rule = FailingJobRuleSet(client=client)
+
+        failures = rule._load_failures(client)
+
+        assert {
+            str(failure.identifier): (
+                {(io.__name__, str(identifier)) for io, identifier in failure.dependencies},
+                failure.session_ids,
+            )
+            for failure in failures
+            if failure.job_type != "Workflow"
+        } == {
+            "externalId='fn_failing'": (set(), {300}),
+            "externalId='tr_failed'": (
+                {("RawDatabaseIO", "name='my_db'"), ("RawTableIO", "my_db.my_table")},
+                {100, 101},
+            ),
+            "externalId='tr_blocked'": (set(), set()),
+            "externalId='job_write_error'": (
+                {
+                    ("HostedExtractorSourceIO", "externalId='my_source'"),
+                    ("HostedExtractorDestinationIO", "externalId='my_destination'"),
+                },
+                {200},
+            ),
+        }
+
+    def test_diagnose_failures_sets_suggested_fix_for_missing_dependencies_and_invalid_sessions(self) -> None:
+        client = MagicMock()
+        client.workflows.retrieve.return_value = [
+            WorkflowResponse(external_id="my_workflow", created_time=0, last_updated_time=0)
+        ]
+        client.transformations.retrieve.return_value = []
+        client.token.verify_acls.return_value = []
+        client.sessions.retrieve.return_value = [
+            SessionResponse(id=1, status="ACTIVE"),
+            SessionResponse(id=2, status="EXPIRED"),
+        ]
+        broken = FailingJob(
+            job_type="Workflow",
+            job=_workflow_version(),
+            url="/workflows/my_workflow/executions/",
+            dependencies={
+                (WorkflowIO, ExternalId(external_id="my_workflow")),
+                (TransformationIO, ExternalId(external_id="tr_missing")),
+            },
+            session_ids={2},
+        )
+        healthy = FailingJob(
+            job_type="Transformation",
+            job=_transformation(1, "tr_healthy"),
+            url="/transformations/1/",
+            reason="Column not found",
+            dependencies={(WorkflowIO, ExternalId(external_id="my_workflow"))},
+            session_ids={1},
+        )
+        rule = FailingJobRuleSet(client=client)
+
+        exceptions = list(rule._diagnose_failures(client, [broken, healthy]))
+
+        assert {
+            "exceptions": exceptions,
+            "broken": (broken.reason, broken.suggested_fix),
+            "healthy": (healthy.reason, healthy.suggested_fix),
+        } == {
+            "exceptions": [],
+            "broken": (
+                "It uses resources that do not exist in CDF. Its credentials are no longer valid.",
+                "Create Transformation 'tr_missing' in CDF, or remove the references to them. "
+                "Update the credentials used by the workflow, as session 2 is expired.",
+            ),
+            "healthy": ("Column not found", None),
+        }
+
+    def test_diagnose_failures_without_sessions_acl_does_not_report_invalid_credentials(self) -> None:
+        client = MagicMock()
+        client.token.verify_acls.return_value = [SessionsAcl(actions=["LIST"], scope=AllScope())]
+        failure = FailingJob(
+            job_type="Transformation",
+            job=_transformation(1, "tr_failed"),
+            url="/transformations/1/",
+            session_ids={1},
+        )
+        rule = FailingJobRuleSet(client=client)
+
+        exceptions = list(rule._diagnose_failures(client, [failure]))
+
+        assert {
+            "exceptions": exceptions,
+            "failure": (failure.reason, failure.suggested_fix),
+            "sessions_retrieved": client.sessions.retrieve.called,
+        } == {
+            "exceptions": [],
+            "failure": (
+                None,
+                "Couldn't verify the credentials used by the transformation. "
+                "Add sessionsAcl:LIST to your credentials to check them.",
+            ),
+            "sessions_retrieved": False,
         }
