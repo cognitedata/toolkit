@@ -2,8 +2,8 @@
 
 ## Key Principles
 
-- **Strong Typing**: Use type hints extensively with pyright. Avoid `Any` when possible
-- **Type Safety**: Use dataclasses and Pydantic models for complex data
+- **Strong Typing**: Use type hints extensively, checked with `ty`. Avoid `Any` when possible
+- **Type Safety**: Use Pydantic models (preferred) or dataclasses for complex data
   structures instead of untyped dictionaries
 - **IO Safety**: Always use typed data structures for file operations and data parsing
 - **Readability**: Code should be immediately understandable
@@ -31,14 +31,17 @@
 ## Line Length and Formatting
 
 - **Maximum line length**: 120 characters (configured in ruff)
-- **Target Python version**: 3.10+
+- **Target Python version**: 3.11+ (`requires-python = ">=3.11"`). Python 3.11 features such as
+  `datetime.UTC`, `typing.Self`, and `StrEnum` are allowed. Don't suggest Python 3.10 fallbacks such as
+  `timezone.utc`
 - **Indentation**: 4 spaces per level
 
 ## Type Hints
 
 - **Required**: All functions, methods, and class attributes must have type hints
+- **No `from __future__ import annotations`**: Never use it
 - **Avoid `Any`**: Use specific types whenever possible
-- **Complex data**: Use dataclasses or Pydantic models instead of `dict[str, Any]`
+- **Complex data**: Use Pydantic models (preferred) or dataclasses instead of `dict[str, Any]`
 - **File operations**: Always parse file content into typed structures
 
 ```python
@@ -61,32 +64,39 @@ def load_config(path: Path) -> dict[str, Any]:
 ## Imports
 
 - **Group imports**: Standard library, third-party, local application
-- **Absolute imports**: Always use absolute imports for clarity
-- **Sort alphabetically** within groups
-- **Type checking imports**: Use `TYPE_CHECKING` for type-only imports
+- **Absolute imports**: Use absolute imports by default
+- **Relative imports**: Allowed only for sibling modules within the same package (single dot), e.g.
+  `from ._base import ToolkitRuleSet` inside `rules/`, or re-exports in a package's `__init__.py`.
+  Never import from a parent package (`from ..x import y`)
+- **Imports at the top** of the file
+- **Sorting** is handled by ruff (`I` rules), don't comment on import order
+- **Type checking imports**: `TYPE_CHECKING` is optional, mainly used to avoid circular imports
 - **`_cdf_tk` imports**: Always use the full path `cognite_toolkit._cdf_tk`
 when importing from `_cdf_tk`, never use `from _cdf_tk import ...`
 
 ```python
 import json
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from cognite.client import CogniteClient
 from pydantic import BaseModel
-
-from cog_ai.common.types import ModelConfig
+from rich.console import Console
 
 # Good - full path for _cdf_tk imports
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.commands.repo import RepoCommand
 
-# Bad - don't use relative _cdf_tk imports
+# Good - relative import of a sibling module in the same package
+from ._base import ToolkitRuleSet
+
+# Bad - don't import _cdf_tk without the cognite_toolkit prefix
 # from _cdf_tk.feature_flags import Flags  # ❌
 
+# Bad - don't use relative imports from a parent package
+# from ..feature_flags import Flags  # ❌
+
 if TYPE_CHECKING:
-    from cog_ai.tools.query.types import QueryCompletion
+    from cognite_toolkit._cdf_tk.client import ToolkitClient
 ```
 
 ## Naming Conventions
@@ -99,20 +109,20 @@ if TYPE_CHECKING:
 
 ## Docstrings
 
-Use concise docstrings with Args/Returns format. Based on repository patterns:
+Use concise docstrings with Args/Returns format. Don't repeat the types in the docstring, they are
+already in the type hints.
 
 ```python
-def render_header(header: str) -> str:
-    """
-    Renders a (markdown) heading.
+def retrieve(self, items: Sequence[InternalId], ignore_unknown_ids: bool = False) -> list[FunctionResponse]:
+    """Retrieve functions from CDF.
 
     Args:
-        header (str): header
+        items: The IDs of the functions to retrieve.
+        ignore_unknown_ids: Whether to ignore IDs that are not found.
 
     Returns:
-        str: The rendered header
+        The retrieved functions.
     """
-    return f"{header}\n{'=' * len(header)}\n"
 
 def walk_sdk_documentation(content: Tag, parser: Parser[T]) -> Iterable[T]:
     """Parse the content of a file and yields documents. The parser controls how
@@ -130,56 +140,83 @@ def walk_sdk_documentation(content: Tag, parser: Parser[T]) -> Iterable[T]:
 
 ## Error Handling
 
-- **Specific exceptions**: Avoid broad `Exception` catches
-- **Graceful handling**: Provide meaningful error messages
+- **Specific exceptions**: Avoid broad `Exception` catches. Catch, for example, `ToolkitAPIError`
+- **User-facing errors**: Raise a subclass of `ToolkitError` (`cognite_toolkit._cdf_tk.exceptions`)
+  with a meaningful message
 - **Type safety**: Return `None` or use Union types for fallible operations
 
 ```python
-def load_llm_response(response: str) -> dict[str, Any] | None:
+def load_config(path: Path) -> Config | None:
     try:
-        return json.loads(response)
-    except (TypeError, json.JSONDecodeError) as e:
-        log.warning(f"Failed json load response from LLM: {e}")
+        return Config.model_validate_json(path.read_text(encoding="utf-8"))
+    except (OSError, ValidationError) as e:
+        MediumSeverityWarning(f"Failed to load config from {path}: {e}").print_warning()
         return None
 ```
 
 ## Tooling
 
-- **Formatter**: `uv run ruff format --force-exclude --quiet`
-- **Linter**: `uv run ruff check --force-exclude --fix --exit-non-zero-on-fix`
-- **Type checker**: `dmypy run -- cognite_toolkit/ --config-file pyproject.toml` (uses mypy)
-- **Pre-commit**: `pre-commit run --all-files` for comprehensive checks
+Sync with all optional dependencies before running any checks, CI does the same:
+
+```bash
+uv sync --all-extras
+```
+
+- **All checks**: `uv run pre-commit run --all-files` runs ruff check, ruff format, `ty`, and markdownlint
+- **Type checker**: `ty` through pre-commit, `uv run pre-commit run ty --all-files`
+- **Tests**: `pytest`
+- Never commit with `--no-verify` to bypass the checks
+
+## Dependencies
+
+- **`httpx2`**: Toolkit uses `httpx2`, which has replaced `httpx`. `import httpx2` is correct and not a
+  typo for `httpx`. Don't suggest changing it to `httpx`
+- In tests, `import httpx` also works, as `tests/httpx2_alias_plugin.py` aliases `httpx` to `httpx2`
+  (`httpx2.alias_httpx()`) such that libraries typed against `httpx`, e.g. `respx`, accept `httpx2` objects
 
 ## Ruff Configuration Deviations
 
-Current project configuration deviates from PEP 8:
+Ruff runs through pre-commit with the arguments in `.pre-commit-config.yaml`:
 
-- **Line length**: 120 characters (vs PEP 8's 79)
-- **Ignored rules**: E501 (line too long), UP017 (datetime.timezone.utc)
-- **Selected rules**: Includes bugbear (B0), pyupgrade (UP), and isort (I)
+- **Line length**: 120 characters (vs PEP 8's 79). Ruff format does not split long strings, so these
+  can still exceed the limit
+- **Target version**: `py311`
+- **Selected rules**: `E`, `W`, `F`, `I` (isort), `T`, `RUF`, `TID` (tidy imports), `UP` (pyupgrade)
+- **Ignored rules**: `E731` (lambda assignment), `E501` (line too long), `W605` (invalid escape
+  sequence), `T201` (print), `UP007` (`X | Y` unions, not auto-fixed, but `X | None` is still preferred over
+  `Optional[X]`)
+- `UP017` is enforced, use `datetime.UTC` instead of `datetime.timezone.utc`
 
 ## Data Structures
 
-**Prefer typed structures**:
+**Prefer typed structures**, Pydantic models are preferred:
 
 ```python
+# Good
+class FunctionError(BaseModel):
+    function_name: str
+    message: str
+
 # Good
 @dataclass
 class FunctionError:
     function_name: str
     message: str
 
-# Good
-class QueryCompletion(BaseModel):
-    query: str
-    variables: dict[str, Any]
-
 # Avoid
 error_data = {"function_name": "foo", "message": "bar"}
 ```
 
-## Logging
+## Tests
 
-- Use the `logging` module with appropriate levels
-- Include contextual information for debugging
-- Format: `log.warning(f"Description: {variable}")`
+- Use `pytest`
+- Be pragmatic and minimal: cover the bug or feature, don't over-test
+- Don't test Pydantic models or dataclasses unless they have custom logic
+
+## User Output and Logging
+
+- **User-facing output**: Use `rich` for console output
+- **Warnings to the user**: Use the classes in `cognite_toolkit._cdf_tk.tk_warnings`, e.g.
+  `MediumSeverityWarning("...").print_warning()`
+- **`logging`**: Only for internal diagnostics, such as in the HTTP client. Don't suggest replacing
+  `rich` output or Toolkit warnings with `logging`

@@ -42,7 +42,7 @@ from cognite_toolkit._cdf_tk.utils import (
     safe_read,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
-from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash, calculate_hash
 from cognite_toolkit._cdf_tk.yaml_classes import FileMetadataYAML, StreamlitYAML
 
@@ -101,7 +101,7 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
 
     @classmethod
     def as_filename(cls, id: ExternalId) -> str:
-        return id.external_id
+        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_dependencies(cls, resource: StreamlitYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -180,11 +180,13 @@ class StreamlitIO(ResourceIO[ExternalId, StreamlitRequest, StreamlitResponse, St
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
-        raw_yaml = load_yaml_inject_variables(
+        raw_yaml, warning = load_yaml_inject_variables(
             self.safe_read(filepath),
             environment_variables or {},
             original_filepath=filepath,
         )
+        if warning:
+            self.on_warning(warning)
         filestem = filepath.stem
         if filestem.lower().endswith(self.kind.lower()):
             filestem = filestem[: -len(self.kind.lower())].rstrip(".")

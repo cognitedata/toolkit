@@ -13,16 +13,13 @@ from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 SpaceId = Annotated[str, Field(pattern=SPACE_FORMAT_PATTERN, max_length=43)]
 
 
-class ViewInstanceSpaces(BaseModelObject):
-    read: list[SpaceId] = Field(default_factory=list)
-    write: list[SpaceId] = Field(default_factory=list)
-
-
 class DataProductVersionView(BaseModelObject):
     space: SpaceId
     external_id: str
     version: str
-    instance_spaces: ViewInstanceSpaces = Field(default_factory=ViewInstanceSpaces)
+    # Deprecated: no longer accepted by the API (moved to data product instanceScope), but still returned
+    # for versions created before the removal.
+    instance_spaces: dict[str, list[str]] | None = None
 
 
 class DataProductVersionTerms(BaseModelObject):
@@ -96,7 +93,7 @@ class DataProductVersionRequest(DataProductVersion, UpdatableRequestResource):
             existing_keys = {(v.space, v.external_id, v.version) for v in (cdf_views or [])}
             to_add = [v for v in self.views if (v.space, v.external_id, v.version) not in existing_keys]
             if to_add:
-                update["views"] = {"add": [v.model_dump(mode="json", by_alias=True) for v in to_add]}
+                update["views"] = {"add": [v.model_dump(mode="json", by_alias=True, exclude_none=True) for v in to_add]}
 
         update_item["update"] = update
         return update_item

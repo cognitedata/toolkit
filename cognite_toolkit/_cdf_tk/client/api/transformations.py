@@ -125,6 +125,19 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         return TransformationJobResponse.model_validate_json(response.body)
 
+    def cancel(self, item: InternalOrExternalId) -> None:
+        """`Cancel the running job of a transformation. <https://api-docs.cognite.com/20230101/tag/Transformations/operation/postApiV1ProjectsProjectTransformationsCancel>`_
+
+        Args:
+            item: Internal or external ID of the transformation.
+        """
+        request = RequestMessage(
+            endpoint_url=self._make_url("/transformations/cancel"),
+            method="POST",
+            body_content=item.dump(),
+        )
+        self._http_client.request_single_retries(request).get_success_or_raise(request)
+
     def run_query_preview(
         self,
         query: str,
@@ -196,7 +209,7 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body={"filter": filter.model_dump(by_alias=True) if filter else {}},
+            body={"filter": filter.dump() if filter else {}},
         )
 
     def iterate(
@@ -215,7 +228,7 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         """
         return self._iterate(
             limit=limit,
-            body={"filter": filter.model_dump(by_alias=True) if filter else {}},
+            body={"filter": filter.dump() if filter else {}},
         )
 
     def list(
@@ -232,4 +245,4 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         Returns:
             List of TransformationResponse objects.
         """
-        return self._list(limit=limit, body={"filter": filter.model_dump(by_alias=True) if filter else {}})
+        return self._list(limit=limit, body={"filter": filter.dump() if filter else {}})

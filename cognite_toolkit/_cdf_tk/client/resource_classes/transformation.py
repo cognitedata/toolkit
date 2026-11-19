@@ -1,13 +1,14 @@
 from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import BeforeValidator, Field, JsonValue, field_validator
+from pydantic import BeforeValidator, Field, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     ResponseResource,
     UpdatableRequestResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule import TransformationScheduleResponse
 from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field
 
 SchemaType = Literal[
@@ -146,6 +147,37 @@ class SessionInfo(BaseModelObject):
     project_name: str
 
 
+ConflictMode = Literal["abort", "delete", "update", "upsert"]
+
+
+class TransformationJobMetricResponse(BaseModelObject):
+    timestamp: int
+    name: str
+    count: int
+
+
+class TransformationJobResponse(BaseModelObject):
+    id: int
+    uuid: str
+    status: Literal["Running", "Created", "Completed", "Failed"] | str
+    transformation_id: int
+    transformation_external_id: str
+    source_project: str
+    destination_project: str
+    destination: Destination
+    conflict_mode: ConflictMode | str
+    query: str
+    ignore_null_fields: bool
+    created_time: int
+    error: str | None = None
+    started_time: int | None = None
+    finished_time: int | None = None
+    last_seen_time: int | None = None
+
+    def as_id(self) -> InternalId:
+        return InternalId(id=self.id)
+
+
 class Transformation(BaseModelObject):
     external_id: str
     name: str
@@ -165,7 +197,7 @@ class TransformationRequest(Transformation, UpdatableRequestResource):
         {"is_public", "query", "destination", "conflict_mode", "data_domain_external_id"}
     )
     query: str | None = None
-    conflict_mode: str | None = None
+    conflict_mode: ConflictMode | str | None = None
     destination: Destination | None = None
     source_nonce: NonceCredentials | None = None
     destination_nonce: NonceCredentials | None = None
@@ -178,7 +210,7 @@ class TransformationResponse(Transformation, ResponseResource[TransformationRequ
     last_updated_time: int
     query: str
     is_public: bool
-    conflict_mode: str
+    conflict_mode: ConflictMode | str
     destination: Destination
     blocked: BlockedInfo | None = None
     # In the API spec, owner is documented as a string, but the response is actually {"user": '<uuid>'}
@@ -188,9 +220,9 @@ class TransformationResponse(Transformation, ResponseResource[TransformationRequ
     has_destination_oidc_credentials: bool
     source_session: SessionInfo | None = None
     destination_session: SessionInfo | None = None
-    last_finished_job: dict[str, JsonValue] | None = None
-    running_job: dict[str, JsonValue] | None = None
-    schedule: dict[str, JsonValue] | None = None
+    last_finished_job: TransformationJobResponse | None = None
+    running_job: TransformationJobResponse | None = None
+    schedule: TransformationScheduleResponse | None = None
 
     @classmethod
     def request_cls(cls) -> type[TransformationRequest]:

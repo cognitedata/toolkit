@@ -10,6 +10,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import FunctionFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
 
 
@@ -143,6 +144,19 @@ class TestFunctionsAPI:
             "items": [{"externalId": "test_function"}],
             "ignoreUnknownIds": True,
         }
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_list_functions_sends_filter_without_none_values(
+        self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
+    ) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        respx_mock.post(toolkit_config.create_api_url("/functions/list")).mock(
+            return_value=Response(status_code=200, json={"items": []})
+        )
+
+        client.functions.list(filter=FunctionFilter(status="Ready", owner=None), limit=10)
+
+        assert json.loads(respx_mock.calls[0].request.content) == {"filter": {"status": "Ready"}, "limit": 10}
 
     def test_delete_function_429_succeed(
         self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
