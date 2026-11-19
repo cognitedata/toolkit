@@ -895,12 +895,14 @@ ignoreNullFields: true
         ],
     )
     def test_unchanged_transformation_not_redeployed(
-        self, toolkit_client: ToolkitClient, transformation_yaml: str, monkeypatch
+        self, toolkit_client: ToolkitClient, transformation_yaml: str, monkeypatch, tmp_path: Path
     ) -> None:
         monkeypatch.setattr(TransformationIO, "_try_get_adjacent_sql_file_implicitly", lambda *args, **kwargs: None)
         crud = TransformationIO(toolkit_client)
+        filepath = tmp_path / "transformation.Transformation.yaml"
+        filepath.write_text(transformation_yaml)
 
-        assert to_deploy_status(transformation_yaml, crud) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+        assert to_deploy_status(filepath, crud) == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
 class TestNodeLoader:
