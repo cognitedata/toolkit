@@ -42,6 +42,7 @@ from cognite_toolkit._cdf_tk.client.api.limits import LimitsAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.metering import MeteringAPI
 from cognite_toolkit._cdf_tk.client.api.migration import ResourceViewMappingsAPI
+from cognite_toolkit._cdf_tk.client.api.organization_users import OrganizationUsersAPI
 from cognite_toolkit._cdf_tk.client.api.postgres_gateway_tables import PostgresGatewayTablesAPI
 from cognite_toolkit._cdf_tk.client.api.postgres_gateway_users import PostgresGatewayUsersAPI
 from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
@@ -393,6 +394,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         LimitsAPI,
         # No create methods
         PrincipalsAPI,
+        # Read-only, tested in test_organization_users_list.
+        OrganizationUsersAPI,
         # Create payload is not a response resource, and delete is revoke.
         SessionAPI,
         PrincipalLoginSessionsAPI,
@@ -3085,6 +3088,17 @@ class TestCDFResourceAPI:
 
         # We do not test revoke session as it would revoke the session used for testing and
         # potentially cause issues for other tests.
+
+    def test_organization_users_list(self, toolkit_client: ToolkitClient) -> None:
+        list_endpoint = toolkit_client.organization_users._method_endpoint_map["list"]
+        try:
+            listed = toolkit_client.organization_users.list(limit=1)
+        except ToolkitAPIError as e:
+            if e.code in (401, 403):
+                pytest.skip(f"Not allowed to list organization users: {e!s}")
+            raise EndpointAssertionError(list_endpoint.path, f"Listing organization users failed: {e!s}") from None
+        if len(listed) != 1:
+            raise EndpointAssertionError(list_endpoint.path, f"Expected 1 listed organization user, got {len(listed)}")
 
     def test_user_profile_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
