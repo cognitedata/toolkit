@@ -111,7 +111,7 @@ from tests.utils import to_deploy_status
 
 class TestFunctionScheduleLoader:
     # The function schedule service is fairly unstable, so we need to rerun the tests if they fail.
-    @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError"])
+    @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError", "ToolkitAPIError"])
     def test_update_function_schedule(
         self,
         toolkit_client: ToolkitClient,

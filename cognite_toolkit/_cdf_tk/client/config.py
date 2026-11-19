@@ -136,9 +136,11 @@ class ToolkitClientConfig(ClientConfig):
         """A best effort attempt to extract the cluster from the base url when cluster was not explicitly provided in init."""
         if self._cluster is not None:
             return self._cluster
+        return parse_cdf_cluster(self.base_url)
 
-        if match := re.match(
-            r"https?://([^/\.\s]*\.plink\.)?([^/\.\s]+)\.cognitedata\.com(?::\d+)?(?:/|$)", self.base_url
-        ):
-            return match.group(2)
-        return None
+
+def parse_cdf_cluster(url: str) -> str | None:
+    """Extracts the CDF cluster from a CDF URL, e.g. 'https://westeurope-1.cognitedata.com' -> 'westeurope-1'."""
+    if match := re.match(r"https?://([^/\.\s]*\.plink\.)?([^/\.\s]+)\.cognitedata\.com(?::\d+)?(?:/|$)", url):
+        return match.group(2)
+    return None

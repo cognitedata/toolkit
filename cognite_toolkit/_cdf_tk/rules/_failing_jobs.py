@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, WorkflowExecutionId, WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     EpochTimestampRange,
     FunctionCallFilter,
@@ -18,15 +18,43 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope, SessionsAcl
-from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import HostedExtractorJobResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowExecutionResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
+    HostedExtractorDestinationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import (
+    CustomFormat,
+    HostedExtractorJobResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    AssetCentricDataSource,
+    DataModelSource,
+    Destination,
+    RawDataSource,
+    SequenceRowDataSource,
+    TransformationResponse,
+    UnknownDestinationDefinition,
+    ViewDataSource,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import (
+    WorkflowExecutionDetailedResponse,
+    WorkflowExecutionResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
+    CDFRequest,
+    CDFTaskParameters,
+    SimulationTaskParameters,
+    SubworkflowRef,
+    SubworkflowTaskParameters,
+    Task,
+    TransformationTaskParameters,
+    WorkflowVersionResponse,
+)
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
 from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
     Insight,
 )
+from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import (
     FunctionIO,
@@ -66,6 +94,8 @@ FAILED_HOSTED_EXTRACTOR_JOB_STATUSES = frozenset(
     {"startup_error", "connection_error", "transform_error", "cdf_write_error"}
 )
 VALID_SESSION_STATUSES = frozenset({"READY", "ACTIVE"})
+COMPLETED_TASK_STATUS = "COMPLETED"
+READ_ONLY_CDF_REQUEST_SUFFIXES = ("/list", "/byids", "/search", "/aggregate", "/query", "/sync", "/filter")
 
 
 @dataclass
@@ -81,10 +111,13 @@ class FailingJob:
     url: str
     reason: str | None = None
     failed_executions: int | None = None
+    impact: set[str] = field(default_factory=set)
     dependencies: Dependencies = field(default_factory=set)
     # Transformations have separate source and destination sessions, and a function can be
     # called by multiple schedules.
     session_ids: set[int] = field(default_factory=set)
+    # The latest execution of a failing workflow, used to find the tasks that did not complete.
+    execution_id: WorkflowExecutionId | None = None
     suggested_fix: str | None = None
 
     @property
@@ -137,6 +170,7 @@ class FailingJobRuleSet(ToolkitRuleSet):
         if self.client is None:
             return
         failures = self._load_failures(self.client)
+        yield from self._set_workflow_impact(self.client, failures)
         yield from self._diagnose_failures(self.client, failures)
         yield from self._report_failures(failures)
 
@@ -187,6 +221,7 @@ class FailingJobRuleSet(ToolkitRuleSet):
                     url=f"/workflows/{workflow.workflow_external_id}/executions/",
                     failed_executions=len(failed_executions),
                     dependencies=self._dependencies(io, workflow, WorkflowVersionYAML),
+                    execution_id=latest.as_id(),
                 )
             )
         return failures
@@ -271,6 +306,7 @@ class FailingJobRuleSet(ToolkitRuleSet):
                 failed_executions = None
             else:
                 continue
+            impact = self._get_transformation_impact(transformation.destination)
             failures.append(
                 FailingJob(
                     job_type="Transformation",
@@ -278,6 +314,7 @@ class FailingJobRuleSet(ToolkitRuleSet):
                     reason=reason,
                     url=f"/transformations/{transformation.id}/",
                     failed_executions=failed_executions,
+                    impact=impact,
                     dependencies=self._dependencies(io, transformation, TransformationYAML),
                     session_ids={
                         session.session_id
@@ -287,6 +324,40 @@ class FailingJobRuleSet(ToolkitRuleSet):
                 )
             )
         return failures
+
+    @staticmethod
+    def _get_transformation_impact(destination: Destination) -> set[str]:
+        """Returns a description of the resources that are not updated while the transformation is failing."""
+        impact: set[str] = set()
+        match destination:
+            case AssetCentricDataSource():
+                impact.add(f"{destination.type.replace('_', ' ')} (asset-centric)")
+            case DataModelSource():
+                data_model = destination.data_model
+                impact.add(f"data model {data_model.space}:{data_model.external_id}(version={data_model.version})")
+                if data_model.destination_relationship_from_type:
+                    impact.add(
+                        f"edges of property {data_model.destination_relationship_from_type}."
+                        f"{data_model.destination_type} in space {data_model.space}"
+                    )
+                else:
+                    impact.add(f"instances of type {data_model.destination_type} in space {data_model.space}")
+                if destination.instance_space:
+                    impact.add(f"instance space {destination.instance_space}")
+            case ViewDataSource():
+                view = destination.view
+                impact.add(f"{destination.type} of view {view.space}:{view.external_id}(version={view.version})")
+                if edge_type := destination.edge_type:
+                    impact.add(f"edges of type {edge_type.space}:{edge_type.external_id}")
+                if destination.instance_space:
+                    impact.add(f"instance space {destination.instance_space}")
+            case RawDataSource():
+                impact.add(f"RAW table {destination.database}.{destination.table}")
+            case SequenceRowDataSource():
+                impact.add(f"rows of sequence {destination.external_id}")
+            case UnknownDestinationDefinition():
+                impact.add(f"destination of type {destination.type}")
+        return impact
 
     def _count_failed_jobs(self, client: ToolkitClient, transformation_id: int) -> int:
         """Counts the failed jobs within the lookback period. Jobs are returned newest first, so we stop
@@ -315,27 +386,135 @@ class FailingJobRuleSet(ToolkitRuleSet):
             ],
             ignore_unknown_ids=True,
         )
-        session_by_destination_id = {
-            destination.external_id: destination.session_id
-            for destination in destinations
-            if destination.session_id is not None
-        }
+        destination_by_id = {destination.external_id: destination for destination in destinations}
         io = HostedExtractorJobIO(client)
-        return [
-            FailingJob(
-                job_type="Hosted Extractor",
-                job=job,
-                reason=job.status,
-                url=f"/hosted-extractors/{job.external_id}/",
-                dependencies=self._dependencies(io, job, HostedExtractorJobYAML),
-                session_ids=(
-                    {session_by_destination_id[job.destination_id]}
-                    if job.destination_id in session_by_destination_id
-                    else set()
-                ),
+        failures: list[FailingJob] = []
+        for job in failed_jobs:
+            destination = destination_by_id.get(job.destination_id)
+            failures.append(
+                FailingJob(
+                    job_type="Hosted Extractor",
+                    job=job,
+                    reason=job.status,
+                    url=f"/hosted-extractors/{job.external_id}/",
+                    impact=self._get_hosted_extractor_impact(job, destination),
+                    dependencies=self._dependencies(io, job, HostedExtractorJobYAML),
+                    session_ids=(
+                        {destination.session_id}
+                        if destination is not None and destination.session_id is not None
+                        else set()
+                    ),
+                )
             )
-            for job in failed_jobs
+        return failures
+
+    @staticmethod
+    def _get_hosted_extractor_impact(
+        job: HostedExtractorJobResponse, destination: HostedExtractorDestinationResponse | None
+    ) -> set[str]:
+        """Returns a description of the resources that are not updated while the hosted extractor is failing."""
+        impact: set[str] = set()
+        if destination is not None and destination.target_data_set_id is not None:
+            impact.add(f"resources in data set with id {destination.target_data_set_id}")
+        if isinstance(job.format, CustomFormat):
+            impact.add(f"resources written by mapping {job.format.mapping_id}")
+        elif data_models := getattr(job.format, "data_models", None):
+            impact.add(f"instances in space {data_models.space}")
+        return impact
+
+    def _set_workflow_impact(
+        self, client: ToolkitClient, failures: Sequence[FailingJob]
+    ) -> Iterable[InternalValidatorException]:
+        """Sets the impact of the failing workflows from the tasks that did not complete in their latest execution.
+
+        Functions are not included, as we cannot know what they write to.
+        """
+        failure_by_execution_id = {
+            failure.execution_id: failure for failure in failures if failure.execution_id is not None
+        }
+        if not failure_by_execution_id:
+            return
+        try:
+            executions = client.workflows.executions.retrieve(
+                list(failure_by_execution_id.keys()), ignore_unknown_ids=True
+            )
+        except ToolkitAPIError as e:
+            yield InternalValidatorException(
+                message=f"Failed to retrieve workflow executions from CDF: {e}", source="Workflow"
+            )
+            return
+        incomplete_by_execution_id = {execution.as_id(): self._incomplete_tasks(execution) for execution in executions}
+        transformation_ids = {
+            task.parameters.transformation.external_id
+            for tasks in incomplete_by_execution_id.values()
+            for task in tasks
+            if isinstance(task.parameters, TransformationTaskParameters)
+        }
+        transformation_by_id: dict[str, TransformationResponse] = {}
+        if transformation_ids:
+            try:
+                transformations = client.transformations.retrieve(
+                    [ExternalId(external_id=external_id) for external_id in sorted(transformation_ids)],
+                    ignore_unknown_ids=True,
+                )
+            except ToolkitAPIError as e:
+                yield InternalValidatorException(
+                    message=f"Failed to retrieve transformations from CDF: {e}", source="Transformation"
+                )
+            else:
+                transformation_by_id = {
+                    transformation.external_id: transformation for transformation in transformations
+                }
+        for execution_id, tasks in incomplete_by_execution_id.items():
+            if failure := failure_by_execution_id.get(execution_id):
+                for task in tasks:
+                    failure.impact.update(self._get_task_impact(task, transformation_by_id))
+
+    @classmethod
+    def _incomplete_tasks(cls, execution: WorkflowExecutionDetailedResponse) -> list[Task]:
+        """Returns the tasks, including those of inline subworkflows, that did not complete in the execution.
+        Tasks that were never started, for example because a task they depend on failed, are included."""
+        completed = {
+            task.external_id for task in execution.executed_tasks if task.status.upper() == COMPLETED_TASK_STATUS
+        }
+        return [
+            task
+            for task in cls._flatten_tasks(execution.workflow_definition.tasks)
+            if task.external_id not in completed
         ]
+
+    @classmethod
+    def _flatten_tasks(cls, tasks: Sequence[Task]) -> Iterable[Task]:
+        for task in tasks:
+            yield task
+            if isinstance(task.parameters, SubworkflowTaskParameters) and isinstance(
+                task.parameters.subworkflow, SubworkflowRef
+            ):
+                yield from cls._flatten_tasks(task.parameters.subworkflow.tasks)
+
+    @classmethod
+    def _get_task_impact(cls, task: Task, transformation_by_id: dict[str, TransformationResponse]) -> set[str]:
+        """Returns a description of the resources that are not updated by the task. Function tasks
+        are ignored, as we cannot know what they write to."""
+        match task.parameters:
+            case TransformationTaskParameters():
+                transformation = transformation_by_id.get(task.parameters.transformation.external_id)
+                if transformation is None:
+                    return set()
+                return cls._get_transformation_impact(transformation.destination)
+            case CDFTaskParameters():
+                return cls._get_cdf_request_impact(task.parameters.cdf_request)
+            case SimulationTaskParameters():
+                return {f"results of simulator routine {task.parameters.simulation.routine_external_id}"}
+        return set()
+
+    @staticmethod
+    def _get_cdf_request_impact(request: CDFRequest) -> set[str]:
+        method = request.method.upper()
+        path = request.resource_path.rstrip("/")
+        if method == "GET" or path.casefold().endswith(READ_ONLY_CDF_REQUEST_SUFFIXES):
+            return set()
+        return {f"target of CDF request {method} {request.resource_path}"}
 
     def _diagnose_failures(
         self, client: ToolkitClient, failures: Sequence[FailingJob]
@@ -366,15 +545,15 @@ class FailingJobRuleSet(ToolkitRuleSet):
         invalid_status_by_session_id: dict[int, str] = {}
         can_verify_sessions = True
         if session_ids := set().union(*(failure.session_ids for failure in failures)):
-            # Without sessionsAcl:LIST, retrieving sessions silently returns nothing, which would
-            # wrongly mark every session as not found.
-            if client.token.verify_acls([SessionsAcl(actions=["LIST"], scope=AllScope())]):
-                can_verify_sessions = False
-            else:
-                try:
+            try:
+                # Without sessionsAcl:LIST, retrieving sessions silently returns nothing, which would
+                # wrongly mark every session as not found.
+                if client.token.verify_acls([SessionsAcl(actions=["LIST"], scope=AllScope())]):
+                    can_verify_sessions = False
+                else:
                     invalid_status_by_session_id = self._invalid_sessions(client, session_ids)
-                except ToolkitAPIError as e:
-                    yield InternalValidatorException(message=f"Failed to verify sessions in CDF: {e}", source="Session")
+            except (ToolkitAPIError, AuthorizationError) as e:
+                yield InternalValidatorException(message=f"Failed to verify sessions in CDF: {e}", source="Session")
 
         for failure in failures:
             self._set_suggested_fix(
@@ -448,6 +627,8 @@ class FailingJobRuleSet(ToolkitRuleSet):
                     f"\nNumber of failed executions in the last {self.lookback_period.days} days: "
                     f"{failure.failed_executions}."
                 )
+            if failure.impact:
+                message += f"\nNot updated while failing: {humanize_collection(failure.impact)}."
             yield BuildError(
                 code="FAILING-JOB",
                 message=message,
