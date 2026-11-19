@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.client.api.datapoints import DatapointsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
+from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_runs import ExtractionPipelineRunsAPI
 from cognite_toolkit._cdf_tk.client.api.function_calls import FunctionCallsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
@@ -72,8 +73,10 @@ from cognite_toolkit._cdf_tk.client.api.transformation_notifications import Tran
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schema import TransformationSchemaAPI
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
+from cognite_toolkit._cdf_tk.client.api.units import UnitsAPI
 from cognite_toolkit._cdf_tk.client.api.user_profiles import UserProfilesAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_executions import WorkflowExecutionsAPI
+from cognite_toolkit._cdf_tk.client.api.workflow_tasks import WorkflowTasksAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
@@ -97,6 +100,9 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     EpochTimestampRange,
     FunctionCallFilter,
     SequenceRowFilter,
+    WorkflowExecutionFilter,
+    WorkflowFilter,
+    WorkflowFilterItem,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
@@ -136,8 +142,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetReque
 from cognite_toolkit._cdf_tk.client.resource_classes.documents import DOCUMENT_PROPERTY_OPTIONS, DocumentPropertyPath
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
-    ExternalDataSourceRequest,
     ExternalDataSourceResponse,
+    OneLakeExternalDataSourceRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
@@ -326,6 +332,10 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         WorkflowVersionsAPI,
         WorkflowTriggersAPI,
         WorkflowExecutionsAPI,
+        # Tasks only exist inside a running workflow execution and only support update.
+        WorkflowTasksAPI,
+        # The unit catalog is read-only and global, so it has no create, update, or delete.
+        UnitsAPI,
         # 3D Models are expensive to create, and AssetMappings depend on existing models and assets/nodes.
         ThreeDClassicModelsAPI,
         ThreeDDMAssetMappingAPI,
@@ -333,6 +343,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         ThreeDClassicRevisionsAPI,
         # Requires special handling of list call,
         ExtractionPipelineConfigsAPI,
+        # Runs are scoped to an existing extraction pipeline and cannot be deleted.
+        ExtractionPipelineRunsAPI,
         # Cannot be deleted and recreated frequently.
         StreamsAPI,
         AppsAPI,
@@ -1323,7 +1335,14 @@ class TestCDFResourceAPI:
         start_time = time.monotonic()
         while (time.monotonic() - start_time) < timeout_seconds:
             running_executions = client.workflows.executions.list(
-                workflow_version_ids=[workflow_version_id], statuses=["RUNNING"]
+                filter=WorkflowExecutionFilter(
+                    workflow_filters=[
+                        WorkflowFilterItem(
+                            external_id=workflow_version_id.workflow_external_id, version=workflow_version_id.version
+                        )
+                    ],
+                    status=["RUNNING"],
+                )
             )
             if not running_executions:
                 return
@@ -1990,7 +2009,12 @@ class TestCDFResourceAPI:
             # List workflow versions
             version_list_endpoint = client.workflows.versions._method_endpoint_map["list"]
             listed_versions = list(
-                client.workflows.versions.list(workflow_external_id=workflow_request.external_id, limit=1)
+                client.workflows.versions.list(
+                    filter=WorkflowFilter(
+                        workflow_filters=[WorkflowFilterItem(external_id=workflow_request.external_id)]
+                    ),
+                    limit=1,
+                )
             )
             if len(listed_versions) == 0:
                 raise EndpointAssertionError(
@@ -2034,7 +2058,10 @@ class TestCDFResourceAPI:
             list_endpoint = client.workflows.executions._method_endpoint_map["list"]
             try:
                 listed_executions = client.workflows.executions.list(
-                    workflow_version_ids=[workflow_version_id], limit=1
+                    filter=WorkflowExecutionFilter(
+                        workflow_filters=[WorkflowFilterItem(external_id=workflow_version_id.workflow_external_id)]
+                    ),
+                    limit=1,
                 )
             except ToolkitAPIError as e:
                 raise EndpointAssertionError(list_endpoint.path, f"list method failed with error: {e!s}") from e
@@ -2713,7 +2740,7 @@ class TestCDFResourceAPI:
         client = toolkit_client
 
         data_source_example = get_examples_minimum_requests(ExternalDataSourceResponse)[0]
-        data_source_request = ExternalDataSourceRequest.model_validate(data_source_example)
+        data_source_request = OneLakeExternalDataSourceRequest.model_validate(data_source_example)
         data_source_id = data_source_request.as_id()
 
         try:

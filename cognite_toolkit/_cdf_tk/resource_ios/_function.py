@@ -608,15 +608,13 @@ class FunctionScheduleIO(
         schedules: list[FunctionScheduleResponse] = []
         for func in functions:
             func_external_id = cast(str, func.external_id)
-            function_schedules = self.client.functions.schedules.list()
-            for schedule in function_schedules:
-                if schedule.function_id == func.id:
-                    schedule.function_external_id = func_external_id
-                    if schedule.name in names_by_function[func_external_id]:
-                        # Schedule data is not returned in the list call. Instead, we have to use a
-                        # separate request to get the data.
-                        schedule.data = self.client.functions.schedules.input_data(schedule.id).data
-                        schedules.append(schedule)
+            for schedule in self.client.functions.schedules.list(function_id=func.id, limit=None):
+                schedule.function_external_id = func_external_id
+                if schedule.name in names_by_function[func_external_id]:
+                    # Schedule data is not returned in the list call. Instead, we have to use a
+                    # separate request to get the data.
+                    schedule.data = self.client.functions.schedules.input_data(schedule.id).data
+                    schedules.append(schedule)
         return schedules
 
     def create(self, items: Sequence[FunctionScheduleRequest]) -> list[FunctionScheduleResponse]:

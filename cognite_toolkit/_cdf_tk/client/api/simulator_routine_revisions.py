@@ -19,7 +19,7 @@ class SimulatorRoutineRevisionsAPI(CDFResourceAPI[SimulatorRoutineRevisionRespon
             method_endpoint_map={
                 "create": Endpoint(method="POST", path="/simulators/routines/revisions", item_limit=1),
                 "retrieve": Endpoint(method="POST", path="/simulators/routines/revisions/byids", item_limit=1),
-                "list": Endpoint(method="POST", path="/simulators/routines/revisions/list", item_limit=1000),
+                "list": Endpoint(method="POST", path="/simulators/routines/revisions/list", item_limit=20),
             },
         )
 
@@ -64,7 +64,7 @@ class SimulatorRoutineRevisionsAPI(CDFResourceAPI[SimulatorRoutineRevisionRespon
     def paginate(
         self,
         filter: SimulatorModelRoutineRevisionFilter | None = None,
-        limit: int = 100,
+        limit: int = 20,
         cursor: str | None = None,
     ) -> PagedResponse[SimulatorRoutineRevisionResponse]:
         """Iterate over simulator routine revisions in CDF.
@@ -108,14 +108,16 @@ class SimulatorRoutineRevisionsAPI(CDFResourceAPI[SimulatorRoutineRevisionRespon
 
     def list(
         self,
+        filter: SimulatorModelRoutineRevisionFilter | None = None,
         limit: int | None = 100,
     ) -> builtins.list[SimulatorRoutineRevisionResponse]:
         """List all simulator routine revisions in CDF.
 
         Args:
+            filter: Filter to apply to the list of simulator routine revisions.
             limit: Maximum number of items to return. None for all items.
 
         Returns:
             List of SimulatorRoutineRevisionResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, body={"filter": filter.dump() if filter else None})

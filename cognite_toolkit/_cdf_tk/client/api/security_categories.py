@@ -85,11 +85,16 @@ class SecurityCategoriesAPI(CDFResourceAPI[SecurityCategoryResponse]):
 
     def list(
         self,
+        sort: Literal["ASC", "DESC"] = "ASC",
         limit: int | None = 100,
     ) -> builtins.list[SecurityCategoryResponse]:
         """List all security categories in CDF.
 
+        Args:
+            sort: Sort descending or ascending.
+            limit: Maximum number of items to return.
+
         Returns:
             List of SecurityCategoryResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, params={"sort": sort})

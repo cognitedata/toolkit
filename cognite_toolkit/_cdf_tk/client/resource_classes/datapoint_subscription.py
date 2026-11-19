@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeUntypedId
+from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import DatapointStatus
 
 # Unlike other resources, datapoints subscriptions have a separate update resource. This
 # is because datapoint subscriptions need to handle add/removing operations for timeSeriesIds and
@@ -94,3 +95,58 @@ class DatapointSubscriptionResponse(DatapointSubscription, ResponseResource[Data
     def request_cls(cls) -> type[DatapointSubscriptionRequest]:
         """Return the class of the corresponding request resource."""
         return DatapointSubscriptionRequest
+
+
+class DatapointSubscriptionPartition(BaseModelObject):
+    """A partition to read data from. Omit the cursor to start at initializeCursors."""
+
+    index: int
+    cursor: str | None = None
+
+
+class DatapointSubscriptionPartitionCursor(BaseModelObject):
+    index: int
+    next_cursor: str
+
+
+class DatapointSubscriptionTimeSeries(BaseModelObject):
+    id: int
+    external_id: str | None = None
+    instance_id: NodeUntypedId | None = None
+    is_string: bool
+    type: str
+
+
+class DatapointSubscriptionDatapoint(BaseModelObject):
+    """An upserted data point. State time series set string_value and numeric_value instead of value."""
+
+    timestamp: int
+    value: float | str | None = None
+    string_value: str | None = None
+    numeric_value: float | None = None
+    status: DatapointStatus | None = None
+
+
+class DatapointSubscriptionDeleteRange(BaseModelObject):
+    inclusive_begin: int
+    exclusive_end: int | None = None
+
+
+class DatapointSubscriptionDataUpdate(BaseModelObject):
+    time_series: DatapointSubscriptionTimeSeries | None = None
+    upserts: list[DatapointSubscriptionDatapoint] | None = None
+    deletes: list[DatapointSubscriptionDeleteRange] | None = None
+
+
+class DatapointSubscriptionChanges(BaseModelObject):
+    added: list[DatapointSubscriptionTimeSeries] | None = None
+    removed: list[DatapointSubscriptionTimeSeries] | None = None
+
+
+class DatapointSubscriptionDataResponse(BaseModelObject):
+    """Data changes for the requested partitions. Pass the partition cursors to the next request."""
+
+    updates: list[DatapointSubscriptionDataUpdate]
+    subscription_changes: DatapointSubscriptionChanges | None = None
+    partitions: list[DatapointSubscriptionPartitionCursor]
+    has_next: bool

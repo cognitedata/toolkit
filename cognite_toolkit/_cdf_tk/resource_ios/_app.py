@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     SuccessExtra,
     WarningHandler,
 )
-from cognite_toolkit._cdf_tk.utils.file import create_zip_in_memory
+from cognite_toolkit._cdf_tk.utils.file import create_zip_in_memory, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash
 from cognite_toolkit._cdf_tk.yaml_classes import AppVersionYAML, AppYAML
 
@@ -74,7 +74,7 @@ class AppIO(ResourceIO[ExternalId, AppRequest, AppResponse, AppYAML]):
 
     @classmethod
     def as_filename(cls, id: ExternalId) -> str:
-        return str(id)
+        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_dependencies(cls, resource: AppYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:
@@ -164,7 +164,7 @@ class AppVersionIO(ResourceIO[AppVersionId, AppVersionRequest, AppVersionRespons
 
     @classmethod
     def as_filename(cls, id: AppVersionId) -> str:
-        return str(id)
+        return sanitize_filename(f"{id.app_external_id}_{id.version}")
 
     @classmethod
     def get_dependencies(cls, resource: AppVersionYAML) -> Iterable[tuple[type[ResourceIO], Identifier]]:

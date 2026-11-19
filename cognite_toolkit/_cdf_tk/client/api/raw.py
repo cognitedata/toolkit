@@ -3,6 +3,8 @@ from collections.abc import Iterable, Sequence
 from typing import Any
 from urllib.parse import quote
 
+from pydantic import TypeAdapter
+
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.http_client import (
     FailedResponse,
@@ -21,6 +23,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWTableRequest,
     RAWTableResponse,
 )
+
+_CURSORS_ADAPTER = TypeAdapter(list[str])
 
 
 class RawDatabasesAPI(CDFResourceAPI[RAWDatabaseResponse]):
@@ -461,6 +465,42 @@ class RawRowsAPI(CDFResourceAPI[RAWRowResponse]):
         )
         self._stamp_parent(listed, db_name, table_name)
         return listed
+
+    def cursors(
+        self,
+        db_name: str,
+        table_name: str,
+        number_of_cursors: int | None = None,
+        min_last_updated_time: int | None = None,
+        max_last_updated_time: int | None = None,
+    ) -> builtins.list[str]:
+        """Get cursors to read the rows of a RAW table in parallel.
+
+        Pass each cursor to :meth:`paginate` to read one part of the table.
+
+        Args:
+            db_name: Database that contains the table.
+            table_name: Table to read.
+            number_of_cursors: Number of cursors to return. The API allows 1 to 10,000.
+            min_last_updated_time: Exclusive lower bound on ``lastUpdatedTime``, in epoch milliseconds.
+            max_last_updated_time: Inclusive upper bound on ``lastUpdatedTime``, in epoch milliseconds.
+
+        Returns:
+            The cursors.
+        """
+        self._require_parent(db_name, table_name)
+        params = self._row_list_params(None, min_last_updated_time, max_last_updated_time)
+        if number_of_cursors is not None:
+            params["numberOfCursors"] = number_of_cursors
+        request = RequestMessage(
+            endpoint_url=self._make_url(
+                f"/raw/dbs/{quote(db_name, safe='')}/tables/{quote(table_name, safe='')}/cursors"
+            ),
+            method="GET",
+            parameters=params or None,
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        return _CURSORS_ADAPTER.validate_python(response.body_json.get("items", []))
 
     @staticmethod
     def _require_parent(db_name: str, table_name: str) -> None:

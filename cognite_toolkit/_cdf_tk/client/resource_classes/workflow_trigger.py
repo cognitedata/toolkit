@@ -41,6 +41,7 @@ class RecordStreamTriggerRule(TriggerRuleDefinition):
     sources: list[RecordSource] | None = None
     batch_size: int
     batch_timeout: int
+    initialize_cursor: str | None = None
 
 
 class UnknownTriggerRule(TriggerRuleDefinition):
@@ -103,3 +104,15 @@ class WorkflowTriggerResponse(WorkflowTrigger, ResponseResource[WorkflowTriggerR
     @classmethod
     def request_cls(cls) -> type[WorkflowTriggerRequest]:
         return WorkflowTriggerRequest
+
+
+class WorkflowTriggerRun(BaseModelObject):
+    """A time the trigger fired, and whether it managed to start the workflow."""
+
+    fire_time: int
+    external_id: str
+    workflow_external_id: str
+    workflow_version: str
+    workflow_execution_id: str | None = None
+    status: Literal["success", "failed"]
+    reason_for_failure: str | None = None
