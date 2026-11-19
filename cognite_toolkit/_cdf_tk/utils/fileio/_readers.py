@@ -369,7 +369,7 @@ class ParquetReader(TableReader):
         # Parquet files have their own value types. The optional schema is only used to keep
         # string columns as strings, instead of parsing them as JSON.
         super().__init__(input_file, sniff_rows=None, schema=None, keep_failed_cells=False)
-        self._string_columns = frozenset(
+        self._string_columns: frozenset[str] = frozenset(
             column.name for column in schema or [] if column.type == "string" and not column.is_array
         )
 
