@@ -90,6 +90,9 @@ class DatapointsIO(
     KIND = "Datapoints"
     UPLOAD_ENDPOINT = "/timeseries/data"
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = None
+    # The count is the number of time series, while the download produces one row per datapoint.
+    COUNT_NAME = "Time Series Count"
+    COUNT_IS_PROGRESS_TOTAL = False
     MAX_CONSECUTIVE_FAILED_PAGES = 5
     MAX_TOTAL_DATAPOINTS = 10_000_000
     MAX_PER_REQUEST_DATAPOINTS = 100_000
@@ -402,7 +405,7 @@ class DatapointsIO(
         self, data_chunk: Page[DataPointListResponse], selector: DataPointsSelector | None = None
     ) -> Page[dict[str, JsonVal]]:
         raise ToolkitNotImplementedError(
-            f"Download of {type(DatapointsIO).__name__.removesuffix('IO')} does not support json format."
+            f"Download of {type(self).__name__.removesuffix('IO')} does not support json format."
         )
 
     def data_to_row(
@@ -751,7 +754,7 @@ class DatapointsIO(
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> DatapointsRequestAdapter:
         raise ToolkitNotImplementedError(
-            f"Upload of {type(DatapointsIO).__name__.removesuffix('IO')} does not support json format."
+            f"Upload of {type(self).__name__.removesuffix('IO')} does not support json format."
         )
 
     @classmethod

@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     DataPointsInstanceSpaceSelector,
     ExternalIdColumn,
 )
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -593,6 +594,22 @@ class TestDatapointsDownload:
             {"externalId": "ts_a", "timestamp": 1, "value": 1.0, "statusCode": None},
             {"externalId": "ts_a", "timestamp": 2, "value": None, "statusCode": BAD},
         ]
+
+    def test_unsupported_json_format_names_the_io(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            with pytest.raises(ToolkitNotImplementedError, match="Download of Datapoints does not support json format"):
+                DatapointsIO(client).data_to_json_chunk(Page("main", []))
+
+    def test_selector_names_include_data_type(self) -> None:
+        names = {
+            str(DataPointsDataSetSelector(data_set_external_id="ds", data_type=data_type))
+            for data_type in ("numeric", "string")
+        } | {
+            str(DataPointsInstanceSpaceSelector(instance_space="sp", data_type=data_type))
+            for data_type in ("numeric", "string", "state")
+        }
+
+        assert len(names) == 5
 
 
 class TestDatapointsUpload:

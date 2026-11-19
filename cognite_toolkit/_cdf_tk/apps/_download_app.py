@@ -1255,7 +1255,8 @@ class DownloadApp(typer.Typer):
             ApiFormat,
             typer.Option(
                 "--api-format",
-                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+                help="Not used for datapoints. Kept for backwards compatibility.",
+                hidden=True,
             ),
         ] = ApiFormat.request,
         output_dir: Annotated[
@@ -1344,7 +1345,6 @@ class DownloadApp(typer.Typer):
                 or None
             )
             file_format = _prompt_file_format("datapoints", DatapointFormats, file_format)
-            api_format = _prompt_api_format("datapoints", api_format)
             output_dir = _prompt_output_dir("datapoints", output_dir)
             limit = _prompt_limit(
                 "The maximum number of timeseries to download datapoints from. Use -1 to download all timeseries. "
@@ -1384,7 +1384,7 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=[selector],
-                io=DatapointsIO(client, api_format=api_format.value),
+                io=DatapointsIO(client),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression="none",
