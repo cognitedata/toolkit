@@ -255,3 +255,66 @@ class DocumentStatusResponse(BaseModelObject):
 class DocumentTemporaryLink(BaseModelObject):
     temporary_link: str
     expiration_time: int
+
+
+DocumentAILanguage: TypeAlias = Literal[
+    "Chinese",
+    "Dutch",
+    "English",
+    "French",
+    "German",
+    "Italian",
+    "Japanese",
+    "Korean",
+    "Latvian",
+    "Norwegian",
+    "Portuguese",
+    "Spanish",
+    "Swedish",
+]
+
+
+class DocumentAnswerLocation(BaseModelObject):
+    """A bounding box on a page of a document. Pages start at 1."""
+
+    page_number: int
+    left: float
+    right: float
+    top: float
+    bottom: float
+
+
+class DocumentAnswerReference(BaseModelObject):
+    """A document, and the locations in it, that a part of an answer is sourced from."""
+
+    file_id: int
+    file_name: str
+    external_id: str | None = None
+    instance_id: NodeUntypedId | None = None
+    locations: list[DocumentAnswerLocation]
+
+
+class DocumentAnswerContent(BaseModelObject):
+    """A part of an answer with the document locations it is sourced from."""
+
+    text: str
+    references: list[DocumentAnswerReference] = Field(default_factory=list)
+
+
+class DocumentAnswer(BaseModelObject):
+    """An answer to a question about documents, from ``POST /ai/tools/documents/ask``."""
+
+    content: list[DocumentAnswerContent]
+
+    @property
+    def text(self) -> str:
+        return "".join(part.text for part in self.content)
+
+
+class DocumentSummary(BaseModelObject):
+    """A summary of a document, from ``POST /ai/tools/documents/summarize``."""
+
+    id: int | None = None
+    external_id: str | None = None
+    instance_id: NodeUntypedId | None = None
+    summary: str
