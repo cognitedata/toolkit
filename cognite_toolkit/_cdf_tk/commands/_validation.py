@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import (
     ValidationResultList,
 )
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import DeploymentResult
+from cognite_toolkit._cdf_tk.data_classes import CommandDisplay
 from cognite_toolkit._cdf_tk.data_classes._insights import (
     Insight,
     InsightList,
@@ -47,17 +48,20 @@ class ValidationCommand(ToolkitCommand):
         results: Sequence[DeploymentResult] | None = None,
         resource_types: set[ResourceType] | None = None,
         client: ToolkitClient | None = None,
-        display: bool = True,
+        display: CommandDisplay = CommandDisplay(results=False),
         rule_context: Literal["local", "cdf"] = "local",
-        context: Literal["stand-alone", "integrated"] = "stand-alone",
     ) -> ValidationResultList:
         """Validates the built modules in the build folder."""
         console = client.console if client else Console(markup=True)
         plan = self._create_validation_plan(resources, results, resource_types, client, rule_context)
-        if display:
+
+        if display.header:
             self._display_validation_plan(plan, console)
-        validation_results = self._run_validation(plan, console)
-        if display and context == "stand-alone":
+
+        with display.progress_bar(console) as progress:
+            validation_results = self._run_validation(plan, progress)
+
+        if display.results:
             BuildV2Command._display_insights(
                 insights=InsightList([insight for result in validation_results for insight in result.insights]),
                 insight_path=Path("dummy"),
@@ -129,32 +133,35 @@ class ValidationCommand(ToolkitCommand):
         )
 
     @classmethod
-    def _run_validation(cls, plan: list[ValidationStep], console: Console) -> ValidationResultList:
-        with Progress(console=console) as progress:
-            ready_step_count = sum(1 for step in plan if step.status.code in EXECUTE_RULE_STATUS)
-            validating_task = progress.add_task("Checking modules", total=ready_step_count)
-            validation_results = ValidationResultList()
-            for step in plan:
-                if step.status.code not in EXECUTE_RULE_STATUS:
-                    continue
-                display_name = step.rule.DISPLAY_NAME
-                progress.update(validating_task, description=f"Running '{display_name}'...")
+    def _run_validation(cls, plan: list[ValidationStep], progress: Progress) -> ValidationResultList:
+        ready_step_count = sum(1 for step in plan if step.status.code in EXECUTE_RULE_STATUS)
+        validating_task = progress.add_task("Checking modules", total=ready_step_count)
+        validation_results = ValidationResultList()
+        for step in plan:
+            if step.status.code not in EXECUTE_RULE_STATUS:
+                continue
+            display_name = step.rule.DISPLAY_NAME
+            progress.update(validating_task, description=f"Running '{display_name}'...")
 
-                insights: list[Insight] = []
-                errors: list[InternalValidatorException] = []
-                for result in step.rule.validate():
-                    if isinstance(result, InternalValidatorException):
-                        errors.append(result)
-                    else:
-                        insights.append(result)
+            insights: list[Insight] = []
+            errors: list[InternalValidatorException] = []
+            for result in step.rule.validate():
+                if isinstance(result, InternalValidatorException):
+                    errors.append(result)
+                else:
+                    insights.append(result)
 
-                validation_results.append(ValidationResult(name=display_name, insights=insights, errors=errors))
-                progress.update(
-                    validating_task,
-                    advance=1,
-                    description=f"Finished validating {display_name}. Found {len(insights)} insights.",
-                )
-            progress.update(validating_task, description=f"Finished validating. Ran {ready_step_count} validations.")
+            validation_results.append(ValidationResult(name=display_name, insights=insights, errors=errors))
+            progress.update(
+                validating_task,
+                advance=1,
+                description=f"Finished validating {display_name}. Found {len(insights)} insights.",
+            )
+        progress.update(
+            validating_task,
+            completed=ready_step_count,
+            description=f"Finished validating. Ran {ready_step_count} validations.",
+        )
         return validation_results
 
     @classmethod

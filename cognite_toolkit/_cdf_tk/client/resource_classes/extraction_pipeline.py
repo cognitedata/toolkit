@@ -60,6 +60,10 @@ class ExtractionPipelineResponse(ExtractionPipeline, ResponseResource[Extraction
     id: int
     created_time: int
     last_updated_time: int
+    last_success: int | None = None
+    last_failure: int | None = None
+    last_message: str | None = None
+    last_seen: int | None = None
 
     @classmethod
     def request_cls(cls) -> type[ExtractionPipelineRequest]:

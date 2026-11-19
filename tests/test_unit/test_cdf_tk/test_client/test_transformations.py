@@ -117,3 +117,12 @@ class TestTransformationsAPI:
             "inferSchemaLimit": 10_000,
             "timeout": TransformationsAPI.DEFAULT_TIMEOUT_RUN_QUERY,
         }
+
+    def test_cancel(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        api = TransformationsAPI(HTTPClient(toolkit_config))
+        cancel_url = toolkit_config.create_api_url("/transformations/cancel")
+        respx_mock.post(cancel_url).mock(return_value=httpx2.Response(status_code=200, json={}))
+
+        api.cancel(ExternalId(external_id="transformation_001"))
+
+        assert _request_json(respx_mock.calls[-1].request) == {"externalId": "transformation_001"}

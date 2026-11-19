@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Generic
 
 from rich.console import Console
+from rich.progress import Progress
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -488,11 +489,13 @@ class MigrationCommand(ToolkitCommand):
                         resource_requests=[item.resource for item in to_create.resources],
                     ),
                 ]
-                step_results = deploy_cmd.apply_plan(
-                    client,
-                    plan,
-                    options=DeployOptions(operation="deploy", dry_run=dry_run, verbose=verbose),
-                )
+                with Progress(console=client.console) as progress:
+                    step_results = deploy_cmd.apply_plan(
+                        client,
+                        plan,
+                        options=DeployOptions(operation="deploy", dry_run=dry_run, verbose=verbose),
+                        progress=progress,
+                    )
                 deploy_cmd._display_results(step_results, "deploy", console=client.console, verbose=verbose)
                 results.extend(step_results)
 

@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuiltResource,
 )
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT
-from cognite_toolkit._cdf_tk.data_classes import YAMLComments
+from cognite_toolkit._cdf_tk.data_classes import CommandDisplay, YAMLComments
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import (
     ExtractionPipelineConfigIO,
@@ -115,7 +115,9 @@ class PullV2Command(ToolkitCommand):
                 verbose=False,
             )
             build_folder = BuildV2Command(print_warning=False, skip_tracking=True, silent=True, client=client).build(
-                parameters, client=client, display=False
+                parameters,
+                client=client,
+                display=CommandDisplay(header=False, results=False),
             )
         except ToolkitError as e:
             raise ToolkitError(f"Failed to build module {humanize_collection(user_selected_modules or '')}.") from e
