@@ -8,17 +8,17 @@ Note: This is an alpha API and may change in future releases.
 
 import builtins
 from collections.abc import Iterable, Sequence
-from typing import Any, Literal
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.agent import (
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse, ServicesAvailability
+from cognite_toolkit._cdf_tk.client.resource_classes.agent_chat import (
+    AgentChatClientAction,
+    AgentChatMessage,
+    AgentChatRequest,
     AgentChatResponse,
-    AgentChatUserMessage,
-    AgentRequest,
-    AgentResponse,
-    ServicesAvailability,
 )
 
 
@@ -116,11 +116,12 @@ class AgentsAPI(CDFResourceAPI[AgentResponse]):
     def chat(
         self,
         agent: ExternalId,
-        messages: Sequence[AgentChatUserMessage | dict[str, Any]],
+        messages: Sequence[AgentChatMessage],
         cursor: str | None = None,
-        actions: Sequence[dict[str, Any]] | None = None,
+        actions: Sequence[AgentChatClientAction] | None = None,
         retention_policy: Literal["temporary", "persisted"] | None = None,
         tool_confirmation_mode: Literal["default", "dangerouslyAllowAll"] | None = None,
+        content_type: str = "application/json",
     ) -> AgentChatResponse:
         """Send messages to an agent and wait for the reply.
 
@@ -131,29 +132,25 @@ class AgentsAPI(CDFResourceAPI[AgentResponse]):
             actions: Client tools the agent may call, at most 20.
             retention_policy: Whether the conversation is kept after the session.
             tool_confirmation_mode: Whether tools that require confirmation run without asking.
+            content_type: The content-type header of the request.
 
         Returns:
             The agent's reply.
         """
-        body: dict[str, Any] = {
-            "agentExternalId": agent.external_id,
-            "messages": [
-                message.dump() if isinstance(message, AgentChatUserMessage) else message for message in messages
-            ],
-            "stream": False,
-        }
+        body = AgentChatRequest(agent_external_id=agent.external_id, messages=list(messages))
         if cursor is not None:
-            body["cursor"] = cursor
+            body.cursor = cursor
         if actions is not None:
-            body["actions"] = list(actions)
+            body.actions = list(actions)
         if retention_policy is not None:
-            body["retentionPolicy"] = retention_policy
+            body.retention_policy = retention_policy
         if tool_confirmation_mode is not None:
-            body["toolConfirmationMode"] = tool_confirmation_mode
+            body.tool_confirmation_mode = tool_confirmation_mode
         request = RequestMessage(
             endpoint_url=self._make_url("/ai/agents/chat"),
             method="POST",
-            body_content=body,
+            body_content=body.dump(),
+            content_type=content_type,
             api_version=self._api_version,
         )
         response = self._http_client.request_single_retries(request).get_success_or_raise(request)
