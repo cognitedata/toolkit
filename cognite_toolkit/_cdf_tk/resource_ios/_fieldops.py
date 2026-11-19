@@ -490,7 +490,8 @@ class InFieldCDMLocationConfigIO(
             )
 
     @cached_property
-    def _legacy_instance_spaces(self) -> set[str]:
+    def legacy_instance_spaces(self) -> set[str]:
+        """The app data instance spaces used by legacy InField (APM_Config). InField on CDM must not write to these."""
         try:
             apm_configs = self.client.infield.apm_config.list(limit=None)
         except ToolkitAPIError as e:
@@ -537,7 +538,7 @@ class InFieldCDMLocationConfigIO(
                 cls._restore_local_none_fields(dumped_item, local_item)
 
     def create(self, items: Sequence[InFieldCDMLocationConfigRequest]) -> list[NodeId]:
-        legacy_instance_spaces = self._legacy_instance_spaces
+        legacy_instance_spaces = self.legacy_instance_spaces
         to_create: list[InFieldCDMLocationConfigRequest] = []
         for item in items:
             if item.data_storage and item.data_storage.app_instance_space in legacy_instance_spaces:
