@@ -64,6 +64,8 @@ from cognite_toolkit._cdf_tk.client.api.three_d import (
     ThreeDClassicModelsAPI,
     ThreeDClassicRevisionsAPI,
     ThreeDDMAssetMappingAPI,
+    ThreeDFilesAPI,
+    ThreeDJobsAPI,
     ThreeDNodesAPI,
 )
 from cognite_toolkit._cdf_tk.client.api.transformation_externaldata import TransformationExternalDataSourcesAPI
@@ -410,6 +412,9 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         FunctionCallsAPI,
         # Needs a 3D model processed
         ThreeDNodesAPI,
+        ThreeDFilesAPI,
+        # Jobs require a session nonce and 3D source data, and have no retrieve or update.
+        ThreeDJobsAPI,
         # Datapoints API requires a timeseries to exists.
         DatapointsAPI,
         # Schema do not have a create/update/delete, and the retrieve method requires a schema type.
