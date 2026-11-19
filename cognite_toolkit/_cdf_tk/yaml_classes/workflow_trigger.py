@@ -63,6 +63,12 @@ class RecordStreamTriggerRule(TriggerRuleYAML):
         ge=10,
         le=86400,
     )
+    initialize_cursor: str | None = Field(
+        None,
+        description='Where record stream syncing starts when the trigger has no cursor yet, for example "2d-ago". Defaults to "0d-ago".',
+        min_length=6,
+        max_length=100,
+    )
 
 
 TriggerRule = Annotated[

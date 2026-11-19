@@ -4,6 +4,7 @@ from rich.json import JSON
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import FunctionFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse, FunctionsActivation
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
@@ -31,8 +32,6 @@ class FunctionsAPICommand(ToolkitCommand):
     ) -> builtins.list[FunctionResponse]:
         """List functions, including their deployment status.
 
-        The Functions API cannot filter, so the filters are applied after the functions are fetched.
-
         Args:
             client: Toolkit client used to call CDF.
             limit: Maximum number of functions to return.
@@ -42,14 +41,7 @@ class FunctionsAPICommand(ToolkitCommand):
         Returns:
             The (matching) functions as returned by CDF.
         """
-        has_filter = status is not None or owner is not None
-        functions = client.functions.list(limit=None if has_filter else limit)
-        if has_filter:
-            functions = [
-                function
-                for function in functions
-                if (status is None or function.status == status) and (owner is None or function.owner == owner)
-            ][:limit]
+        functions = client.functions.list(filter=FunctionFilter(status=status, owner=owner), limit=limit)
         client.console.print(JSON.from_data([function.dump() for function in functions]))
         return functions
 

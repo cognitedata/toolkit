@@ -7,12 +7,22 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, V
 from cognite_toolkit._cdf_tk.client.resource_classes import streamlit_
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationStatus, AnnotationType
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import Contact, RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionStatus
 from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallStatus
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import SchemaType
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowExecutionStatus
 
 from .base import BaseModelRequest
 
 
 class Filter(BaseModelRequest): ...
+
+
+class EpochTimestampRange(BaseModelRequest):
+    model_config = ConfigDict(protected_namespaces=tuple())
+    min_: int | None = Field(default=None, alias="min")
+    max_: int | None = Field(default=None, alias="max")
 
 
 class LabelFilter(Filter):
@@ -49,10 +59,12 @@ class ClassicFilter(Filter):
         asset_subtree_id: str | int | list[str | int] | None = None,
         data_set_id: str | int | list[str | int] | None = None,
     ) -> Self:
-        return cls(
-            asset_subtree_ids=cls._as_internal_or_external_id_list(asset_subtree_id),
-            data_set_ids=cls._as_internal_or_external_id_list(data_set_id),
-        )
+        # Only set the given IDs, as dump() sends every set field and the API spec does not allow null for these.
+        ids = {
+            "asset_subtree_ids": cls._as_internal_or_external_id_list(asset_subtree_id),
+            "data_set_ids": cls._as_internal_or_external_id_list(data_set_id),
+        }
+        return cls.model_validate({key: value for key, value in ids.items() if value is not None})
 
     @classmethod
     def _as_internal_or_external_id_list(
@@ -75,11 +87,87 @@ class StreamlitFilter(ClassicFilter):
         return body
 
 
+RelationshipResourceType = Literal["asset", "timeSeries", "file", "event", "sequence"]
+
+
+class ConfidenceRange(BaseModelRequest):
+    min_: float | None = Field(default=None, alias="min")
+    max_: float | None = Field(default=None, alias="max")
+
+
+class RelationshipResourceReference(BaseModelRequest):
+    type: RelationshipResourceType
+    external_id: str
+
+
+class RelationshipFilter(Filter):
+    """Filter for listing relationships.
+
+    ``active_at_time`` matches relationships that are active at some point in the range, and ``sources_or_targets``
+    matches relationships where the resource is either the source or the target.
+    """
+
+    source_external_ids: list[str] | None = Field(default=None, min_length=1, max_length=1000)
+    source_types: list[RelationshipResourceType] | None = Field(default=None, min_length=1, max_length=1000)
+    target_external_ids: list[str] | None = Field(default=None, min_length=1, max_length=1000)
+    target_types: list[RelationshipResourceType] | None = Field(default=None, min_length=1, max_length=1000)
+    data_set_ids: list[ExternalId | InternalId] | None = Field(default=None, max_length=1000)
+    start_time: EpochTimestampRange | None = None
+    end_time: EpochTimestampRange | None = None
+    confidence: ConfidenceRange | None = None
+    last_updated_time: EpochTimestampRange | None = None
+    created_time: EpochTimestampRange | None = None
+    active_at_time: EpochTimestampRange | None = None
+    labels: LabelFilter | None = None
+    sources_or_targets: list[RelationshipResourceReference] | None = Field(default=None, min_length=1, max_length=1)
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        body = self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True, exclude={"labels"})
+        if self.labels is not None:
+            body["labels"] = self.labels.dump(camel_case)
+        return body
+
+
+class ExtractionPipelineFilter(Filter):
+    """Filter for listing extraction pipelines.
+
+    ``schedule`` is either "On trigger", "Continuous", or a cron expression.
+    """
+
+    external_id_prefix: str | None = None
+    name: str | None = None
+    data_set_ids: list[ExternalId | InternalId] | None = Field(default=None, min_length=1, max_length=100)
+    schedule: str | None = None
+    contacts: list[Contact] | None = None
+    raw_tables: list[RawTable] | None = None
+    metadata: dict[str, str] | None = None
+    source: str | None = None
+    documentation: str | None = None
+    created_by: str | None = None
+    created_time: EpochTimestampRange | None = None
+    last_updated_time: EpochTimestampRange | None = None
+
+
+class TransformationTagFilter(Filter):
+    contains_any: list[str]
+
+
 class TransformationFilter(Filter):
     data_set_ids: list[ExternalId | InternalId] | None = None
+    is_public: bool | None = None
+    name_regex: str | None = None
+    query_regex: str | None = None
+    destination_type: SchemaType | str | None = None
+    conflict_mode: Literal["abort", "delete", "update", "upsert"] | None = None
+    has_blocked_error: bool | None = None
+    cdf_project_name: str | None = None
+    created_time: EpochTimestampRange | None = None
+    last_updated_time: EpochTimestampRange | None = None
+    tags: TransformationTagFilter | None = None
 
 
 class TransformationNotificationFilter(Filter):
+    transformation_id: int | None = None
     transformation_external_id: str | None = None
     destination: str | None = None
 
@@ -153,10 +241,11 @@ class AnnotationFilter(Filter):
     annotated_resource_type: Literal["file", "threedmodel"]
     annotated_resource_ids: list[ExternalId | InternalId]
     annotation_type: AnnotationType | None = None
-    created_app: str | None = None
+    creating_app: str | None = None
     creating_app_version: str | None = None
     creating_user: str | None = None
     status: AnnotationStatus | None = None
+    data: dict[str, JsonValue] | None = None
 
 
 class ThreeDAssetMappingFilter(Filter): ...
@@ -209,12 +298,6 @@ class SimulatorFilter(Filter):
     simulator_external_ids: list[str] | None = None
 
 
-class EpochTimestampRange(BaseModelRequest):
-    model_config = ConfigDict(protected_namespaces=tuple())
-    min_: int | None = Field(default=None, alias="min")
-    max_: int | None = Field(default=None, alias="max")
-
-
 class SimulatorModelFilter(SimulatorFilter):
     external_id_prefix: str | None = None
     data_set_ids: list[int] | None = None
@@ -244,6 +327,21 @@ class ChartMonitorModelFilter(Filter):
     timeseries_id: list[int] | None = None
 
 
+class FunctionFilter(Filter):
+    """Filter for listing functions. None means no filter on that field, so None values are not sent."""
+
+    name: str | None = None
+    owner: str | None = None
+    file_id: int | None = None
+    status: FunctionStatus | str | None = None
+    external_id_prefix: str | None = None
+    created_time: EpochTimestampRange | None = None
+    metadata: dict[str, str] | None = None
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        return self.model_dump(mode="json", by_alias=camel_case, exclude_none=True)
+
+
 class FunctionCallFilter(Filter):
     """Filter for listing calls of a single function."""
 
@@ -259,3 +357,21 @@ class ChartMonitorJobFilter(Filter):
     channel_ids: list[int] | None = None
     source: str | None = None
     model: ChartMonitorModelFilter | None = None
+
+
+class WorkflowFilterItem(BaseModelRequest):
+    """Match one workflow, or only one version of it when ``version`` is set."""
+
+    external_id: str
+    version: str | None = None
+
+
+class WorkflowFilter(Filter):
+    workflow_filters: list[WorkflowFilterItem] | None = Field(default=None, max_length=100)
+
+
+class WorkflowExecutionFilter(WorkflowFilter):
+    workflow_filters: list[WorkflowFilterItem] | None = Field(default=None, min_length=1, max_length=100)
+    created_time_start: int | None = None
+    created_time_end: int | None = None
+    status: list[WorkflowExecutionStatus | str] | None = None
