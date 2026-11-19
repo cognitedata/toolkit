@@ -313,6 +313,7 @@ class SimulatorModelRevisionFilter(SimulatorFilter):
 class SimulatorModelRoutineFilter(SimulatorFilter):
     model_external_ids: list[str] | None = None
     simulator_integration_external_ids: list[str] | None = None
+    kind: Literal["long"] | None = None
 
 
 class SimulatorModelRoutineRevisionFilter(SimulatorFilter):
