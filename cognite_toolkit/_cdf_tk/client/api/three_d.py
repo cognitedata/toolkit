@@ -6,7 +6,7 @@ from typing import Any, Literal, TypeVar
 from urllib.parse import quote
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
@@ -40,45 +40,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDRevisionClassicResponse,
     ThreeDRevisionRevertMigrationRequest,
 )
-
-T_PageItem = TypeVar("T_PageItem", bound=BaseModelObject)
-
-
-def _collect_pages(
-    http_client: HTTPClient,
-    page_cls: type[PagedResponse[T_PageItem]],
-    path: str,
-    method: Literal["GET", "POST"],
-    limit: int | None,
-    page_size: int | None,
-    body: dict[str, Any] | None = None,
-    api_version: str | None = None,
-) -> builtins.list[T_PageItem]:
-    """Follow the cursor of a list endpoint until ``limit`` items are collected.
-
-    Without ``page_size``, the endpoint does not accept a limit, and the result is truncated client side.
-    """
-    items: builtins.list[T_PageItem] = []
-    cursor: str | None = None
-    while True:
-        paging: dict[str, Any] = {}
-        if page_size is not None:
-            paging["limit"] = page_size if limit is None else min(page_size, limit - len(items))
-        if cursor is not None:
-            paging["cursor"] = cursor
-        request = RequestMessage(
-            endpoint_url=http_client.config.create_api_url(path),
-            method=method,
-            body_content={**(body or {}), **paging} if method == "POST" else None,
-            parameters=(paging or None) if method == "GET" else None,
-            api_version=api_version,
-        )
-        response = http_client.request_single_retries(request).get_success_or_raise(request)
-        page = page_cls.model_validate_json(response.body)
-        items.extend(page.items)
-        cursor = page.next_cursor
-        if cursor is None or not page.items or (limit is not None and len(items) >= limit):
-            return items if limit is None else items[:limit]
 
 
 class ThreeDClassicModelsAPI(CDFResourceAPI[ThreeDModelClassicResponse]):
@@ -494,8 +455,7 @@ class ThreeDClassicAssetMappingAPI(CDFResourceAPI[AssetMappingClassicResponse]):
         Returns:
             The model, revision, and node of each mapping.
         """
-        return _collect_pages(
-            self._http_client,
+        return self._collect_pages(
             PagedResponse[ThreeDAssetNodeMapping],
             f"/3d/mappings/{asset_id}/modelnodes",
             "GET",
@@ -661,8 +621,7 @@ class ThreeDDMAssetMappingAPI(CDFResourceAPI[AssetMappingDMResponse]):
         Returns:
             The model, revision, and node of each mapping.
         """
-        return _collect_pages(
-            self._http_client,
+        return self._collect_pages(
             PagedResponse[ThreeDAssetNodeMapping],
             "/3d/mappings/modelnodes/filter",
             "POST",
@@ -1054,11 +1013,21 @@ class ThreeDNodesAPI(CDFResourceAPI[ThreeDNodeResponse]):
         return items
 
 
-class ThreeDFilesAPI:
+class ThreeDFilesAPI(CDFResourceAPI[BaseModelObject]):
     """Download the files of processed 3D revisions, such as thumbnails and the outputs used by the 3D viewer."""
 
     def __init__(self, http_client: HTTPClient) -> None:
-        self._http_client = http_client
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                "retrieve": Endpoint(method="GET", path="/3d/files/{fileId}", item_limit=1),
+            },
+        )
+
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[BaseModelObject]:
+        raise NotImplementedError("3D files are returned as raw bytes, not a page of items.")
 
     def retrieve(self, file_id: int, sub_path: str | None = None) -> bytes:
         """Download a 3D file.
@@ -1070,14 +1039,21 @@ class ThreeDFilesAPI:
         Returns:
             The content of the file.
         """
-        path = f"/3d/files/{file_id}"
+        endpoint = self._method_endpoint_map["retrieve"]
+        path = endpoint.path.format(fileId=file_id)
         if sub_path is not None:
             path = f"{path}/{quote(sub_path.lstrip('/'))}"
-        request = RequestMessage(endpoint_url=self._http_client.config.create_api_url(path), method="GET", accept="*/*")
+        request = RequestMessage(
+            endpoint_url=self._make_url(path),
+            method=endpoint.method,
+            accept="*/*",
+            disable_gzip=self._disable_gzip,
+            api_version=self._api_version,
+        )
         return self._http_client.request_single_retries(request).get_success_or_raise(request).content
 
 
-class ThreeDJobsAPI:
+class ThreeDJobsAPI(CDFResourceAPI[ThreeDJobResponse]):
     """Run jobs on 3D source data in data modeling projects.
 
     Optimizer jobs process a CAD model or point cloud file. ImageTextDetection jobs run OCR on a 360 image collection.
@@ -1088,11 +1064,26 @@ class ThreeDJobsAPI:
     _REJECTIONS = "/3d/job/result/rejections"
 
     def __init__(self, http_client: HTTPClient) -> None:
-        self._http_client = http_client
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                "create": Endpoint(method="POST", path=self._JOBS, item_limit=1),
+                "delete": Endpoint(method="POST", path=f"{self._JOBS}/delete", item_limit=1000),
+            },
+        )
+
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[ThreeDJobResponse]:
+        return PagedResponse[ThreeDJobResponse].model_validate_json(response.body)
 
     def _post(self, path: str, body: dict[str, Any]) -> SuccessResponse:
         request = RequestMessage(
-            endpoint_url=self._http_client.config.create_api_url(path), method="POST", body_content=body
+            endpoint_url=self._make_url(path),
+            method="POST",
+            body_content=body,
+            disable_gzip=self._disable_gzip,
+            api_version=self._api_version,
         )
         return self._http_client.request_single_retries(request).get_success_or_raise(request)
 
@@ -1105,10 +1096,11 @@ class ThreeDJobsAPI:
         Returns:
             The created jobs.
         """
+        endpoint = self._method_endpoint_map["create"]
         created: builtins.list[ThreeDJobResponse] = []
         for item in items:
-            response = self._post(self._JOBS, {"items": [item.dump()]})
-            created.extend(ResponseItems[ThreeDJobResponse].model_validate_json(response.body).items)
+            response = self._post(endpoint.path, {"items": [item.dump()]})
+            created.extend(self._validate_page_response(response).items)
         return created
 
     def delete(self, ids: Sequence[ThreeDJobId]) -> None:
@@ -1117,8 +1109,7 @@ class ThreeDJobsAPI:
         Args:
             ids: The jobs to delete.
         """
-        if ids:
-            self._post(f"{self._JOBS}/delete", {"items": [id_.dump() for id_ in ids]})
+        self._request_no_response(ids, "delete")
 
     def list(self, limit: int | None = 100) -> builtins.list[ThreeDJobResponse]:
         """List jobs.
@@ -1129,8 +1120,8 @@ class ThreeDJobsAPI:
         Returns:
             The jobs.
         """
-        return _collect_pages(
-            self._http_client, PagedResponse[ThreeDJobResponse], f"{self._JOBS}/list", "POST", limit, page_size=None
+        return self._collect_pages(
+            PagedResponse[ThreeDJobResponse], f"{self._JOBS}/list", "POST", limit, page_size=None
         )
 
     def list_results(self, job: ThreeDJobId, limit: int | None = 100) -> builtins.list[ThreeDJobResult]:
@@ -1143,8 +1134,7 @@ class ThreeDJobsAPI:
         Returns:
             The results.
         """
-        return _collect_pages(
-            self._http_client,
+        return self._collect_pages(
             PagedResponse[ThreeDJobResult],
             self._RESULTS,
             "POST",
@@ -1164,8 +1154,7 @@ class ThreeDJobsAPI:
         Returns:
             The rejected keys.
         """
-        rejections = _collect_pages(
-            self._http_client,
+        rejections = self._collect_pages(
             PagedResponse[ThreeDJobRejection],
             f"{self._REJECTIONS}/list",
             "POST",
