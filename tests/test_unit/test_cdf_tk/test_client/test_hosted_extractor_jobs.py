@@ -4,6 +4,10 @@ import respx
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import (
+    CogniteFormat,
+    HostedExtractorJobRequest,
+)
 
 _LOG = {"jobExternalId": "my_job", "type": "transform_error", "message": "Invalid JSON", "createdTime": 1730204346000}
 _METRICS = {
@@ -69,3 +73,22 @@ class TestHostedExtractorJobsAPI:
                 {"job": "my_job", "minLastUpdatedTime": "0", "limit": "1000", "cursor": "next"},
             ],
         }
+
+
+def test_hosted_extractor_job_status_fields_only_sent_on_update() -> None:
+    job = HostedExtractorJobRequest(
+        external_id="my_job",
+        destination_id="my_destination",
+        source_id="my_source",
+        format=CogniteFormat(),
+        target_status="paused",
+        dlq_enabled=True,
+    )
+
+    update = job.as_update(mode="patch")["update"]
+
+    assert (set(job.dump()) & {"targetStatus", "dlqEnabled"}, update["targetStatus"], update["dlqEnabled"]) == (
+        set(),
+        {"set": "paused"},
+        {"set": True},
+    )

@@ -60,6 +60,7 @@ from cognite_toolkit._cdf_tk.constants import (
     HINT_LEAD_TEXT,
     MODULES,
 )
+from cognite_toolkit._cdf_tk.data_classes import CommandDisplay
 from cognite_toolkit._cdf_tk.data_classes._insights import (
     BuildError,
     BuildWarning,
@@ -126,7 +127,7 @@ class BuildV2Command(ToolkitCommand):
         context: Literal["stand-alone", "integrated"] = "stand-alone",
         post_parameters: PostBuildParameters | None = None,
         client: ToolkitClient | None = None,
-        display: bool = True,
+        display: CommandDisplay = CommandDisplay(),
     ) -> BuildFolder:
         """Builds modules from the source system and returns the results.
 
@@ -137,13 +138,12 @@ class BuildV2Command(ToolkitCommand):
             post_parameters: The post-build parameters, including whether to write insights and lineage, and whether to enforce rules. Only used when context is "stand-alone".
             client: The ToolkitClient to use for validation. If None, no validation that depends on
                 the client will be performed.
-            display: Whether to display the build progress and results in the console. If False,
-                only progress bars will be printed.
+            display: The display options for the build command.
         Returns:
             BuildFolder: The result of the build, including the source files, source modules, and build folder.
 
         """
-        console = self._create_console(client)
+        console = self.create_console(client)
 
         # Track build duration
         build_start_time = datetime.now(UTC)
@@ -154,13 +154,14 @@ class BuildV2Command(ToolkitCommand):
             parameters.organization_dir, parameters.config_yamls, parameters.user_selected_modules, parameters.operation
         )
 
-        if display:
+        if display.header:
             self._display_module_sources(
                 module_scan_result, console, parameters.verbose, selection_source, parameters.config_file_name
             )
 
         self._prepare_build_directory(parameters.build_dir)
-        built_modules = self._build_modules(module_scan_result.modules, parameters.build_dir.resolve(), console)
+        with display.progress_bar(console) as progress:
+            built_modules = self._build_modules(module_scan_result.modules, parameters.build_dir.resolve(), progress)
 
         build_folder = BuildFolder(
             organization_dir=parameters.organization_dir.resolve(),
@@ -180,11 +181,12 @@ class BuildV2Command(ToolkitCommand):
             return build_folder
 
         self.post_build(
-            build_folder, ValidationResultList(), client, post_parameters, console, display, parameters.verbose
+            build_folder, ValidationResultList(), client, post_parameters, console, display.results, parameters.verbose
         )
         return build_folder
 
-    def _create_console(self, client: ToolkitClient | None) -> Console:
+    @classmethod
+    def create_console(cls, client: ToolkitClient | None) -> Console:
         return client.console if client else Console(markup=True)
 
     def post_build(
@@ -217,7 +219,7 @@ class BuildV2Command(ToolkitCommand):
         Returns:
 
         """
-        console = console or self._create_console(client)
+        console = console or self.create_console(client)
         parameters = parameters or PostBuildParameters()
 
         # We report all insights in Mixpanel, but only display to the user the insights they have not ignored.
@@ -379,7 +381,7 @@ class BuildV2Command(ToolkitCommand):
         modules that have changed since the last run. If a config YAML is passed and its
         content has changed, the entire cache is invalidated and all modules are rebuilt.
         """
-        console = self._create_console(client)
+        console = self.create_console(client)
         self.validate_build_parameters(
             BuildParameters(organization_dir=organization_dir, config_yamls=[config_yaml] if config_yaml else None),
             console,
@@ -424,7 +426,12 @@ class BuildV2Command(ToolkitCommand):
                 config_yamls=[config_yaml_path] if config_yaml_path else [],
                 user_selected_modules=user_selected_modules,
             )
-            build_folder = self.build(build_parameters, context="stand-alone", client=client, display=False)
+            build_folder = self.build(
+                build_parameters,
+                context="stand-alone",
+                client=client,
+                display=CommandDisplay(header=False, results=False),
+            )
             cdf_project = client.config.project if client else None
             lineage = BuildLineage.from_build(
                 build_folder, cdf_project, [config_yaml_path] if config_yaml_path else None
@@ -1101,66 +1108,68 @@ class BuildV2Command(ToolkitCommand):
         build_dir.mkdir(parents=True)
 
     def _build_modules(
-        self, module_sources: Sequence[ModuleDirectory], build_dir: Path, console: Console
+        self, module_sources: Sequence[ModuleDirectory], build_dir: Path, progress: Progress
     ) -> list[BuiltModule]:
         built_modules: list[BuiltModule] = []
         # If parallelizing the build, this should be a multiprocessing.Manager().Counter() or similar.
         resource_counter: Counter = Counter()
 
-        with Progress(console=console) as progress:
-            total_files = sum(source.total_files for source in module_sources)
-            build_task = progress.add_task("Building modules", total=total_files)
-            for source in module_sources:
-                module_name = source.name
-                progress.update(build_task, description=f"Building {module_name}")
+        total_files = sum(source.total_files for source in module_sources)
+        build_task = progress.add_task("Building modules", total=total_files)
+        for source in module_sources:
+            module_name = source.name
+            progress.update(build_task, description=f"Building {module_name}")
 
-                # Inside this loop, do not raise exceptions.
-                module = self._import_module(source)
+            # Inside this loop, do not raise exceptions.
+            module = self._import_module(source)
 
-                built_resources = self._export_resources(
-                    module.files, resource_counter, build_dir, source.variables, source.as_id()
+            built_resources = self._export_resources(
+                module.files, resource_counter, build_dir, source.variables, source.as_id()
+            )
+
+            built_modules.append(
+                BuiltModule(
+                    module_id=module.id,
+                    resources=built_resources,
+                    syntax_errors_by_source={
+                        file.source_path: file.syntax_errors
+                        for file in module.files
+                        if isinstance(file, SuccessfulReadYAMLFile)
+                        # If the file has unresolved variables (e.g. "{{space}}"), the syntax error is
+                        # almost certainly caused by that and is already reported as its own insight.
+                        and not file.unresolved_variables
+                        and file.syntax_errors
+                    },
+                    syntax_warnings_by_source={
+                        file.source_path: file.syntax_warnings
+                        for file in module.files
+                        if isinstance(file, SuccessfulReadYAMLFile)
+                        and file.syntax_warnings
+                        and not file.unresolved_variables
+                    },
+                    failed_files=[file for file in module.files if isinstance(file, FailedReadYAMLFile)],
+                    ignored_files=module.ignored_files,
+                    unresolved_variables_by_source={
+                        file.source_path: file.unresolved_variables
+                        for file in module.files
+                        if file.unresolved_variables
+                    },
+                    yaml_line_count=sum(
+                        file.line_count for file in module.files if isinstance(file, SuccessfulReadYAMLFile)
+                    ),
+                    ignore_rules_by_source={
+                        file.source_path: file.rules_ignore
+                        for file in module.files
+                        if isinstance(file, SuccessfulReadYAMLFile)
+                    },
+                    variables=source.variables,
                 )
+            )
+            progress.update(build_task, description=f"Built {module_name}", advance=source.total_files)
+        progress.update(
+            build_task, completed=total_files, description=f"Finished building. Built {len(built_modules)} modules"
+        )
 
-                built_modules.append(
-                    BuiltModule(
-                        module_id=module.id,
-                        resources=built_resources,
-                        syntax_errors_by_source={
-                            file.source_path: file.syntax_errors
-                            for file in module.files
-                            if isinstance(file, SuccessfulReadYAMLFile)
-                            # If the file has unresolved variables (e.g. "{{space}}"), the syntax error is
-                            # almost certainly caused by that and is already reported as its own insight.
-                            and not file.unresolved_variables
-                            and file.syntax_errors
-                        },
-                        syntax_warnings_by_source={
-                            file.source_path: file.syntax_warnings
-                            for file in module.files
-                            if isinstance(file, SuccessfulReadYAMLFile)
-                            and file.syntax_warnings
-                            and not file.unresolved_variables
-                        },
-                        failed_files=[file for file in module.files if isinstance(file, FailedReadYAMLFile)],
-                        ignored_files=module.ignored_files,
-                        unresolved_variables_by_source={
-                            file.source_path: file.unresolved_variables
-                            for file in module.files
-                            if file.unresolved_variables
-                        },
-                        yaml_line_count=sum(
-                            file.line_count for file in module.files if isinstance(file, SuccessfulReadYAMLFile)
-                        ),
-                        ignore_rules_by_source={
-                            file.source_path: file.rules_ignore
-                            for file in module.files
-                            if isinstance(file, SuccessfulReadYAMLFile)
-                        },
-                        variables=source.variables,
-                    )
-                )
-                progress.update(build_task, description=f"Built {module_name}", advance=source.total_files)
-            progress.update(build_task, description=f"Finished building. Built {len(built_modules)} modules")
         return built_modules
 
     def _import_module(self, source: ModuleDirectory) -> Module:

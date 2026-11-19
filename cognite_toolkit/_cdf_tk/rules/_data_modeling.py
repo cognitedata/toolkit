@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelRequest,
     DataModelResponse,
     DirectNodeRelation,
+    EnumProperty,
     RequiresConstraintDefinition,
     ReverseDirectRelationProperty,
     ViewCorePropertyRequest,
@@ -257,7 +258,16 @@ class DataModelingRuleSet(ToolkitRuleSet):
         except Exception:
             # Already reported by the schema reference check.
             return
-        implements_graph, view_error = self._implements_graph(local_views)
+        try:
+            local_data_models = self._load_data_models()
+        except Exception as e:
+            yield InternalValidatorException(
+                message=f"Failed to load local data models: {e}",
+                source="DataModeling",
+            )
+            local_data_models = {}
+        model_view_ids = {view_id for _, data_model in local_data_models.values() for view_id in data_model.views or []}
+        implements_graph, view_error = self._implements_graph(local_views, model_view_ids)
         if view_error is not None:
             yield view_error
         cycles = self._implements_cycles(implements_graph)
@@ -265,15 +275,18 @@ class DataModelingRuleSet(ToolkitRuleSet):
         in_cycle = {view_id for cycle in cycles for view_id in cycle}
         yield from self._check_requires_constraints(local_containers, local_views, skip=in_cycle)
         yield from self._check_reverse_relation_indexes(local_containers, local_views)
+        yield from self._check_missing_parent_views(local_data_models, implements_graph)
 
     def _implements_graph(
-        self, local_views: dict[ViewId, _LocalView]
+        self, local_views: dict[ViewId, _LocalView], other_view_ids: set[ViewId] | None = None
     ) -> tuple[dict[ViewId, list[ViewId]], InternalValidatorException | None]:
-        """The implemented views by view, for the local views and the CDF views they implement, directly or
-        transitively. Local views take precedence over their deployed version. Views not found are leaves."""
+        """The implemented views by view, for the local views, the other views, and the CDF views they implement,
+        directly or transitively. Local views take precedence over their deployed version. Views not found are
+        leaves."""
         graph = {view_id: list(view_request.implements or []) for view_id, (_, view_request) in local_views.items()}
         first_error: InternalValidatorException | None = None
         frontier = {parent_id for parents in graph.values() for parent_id in parents if parent_id not in graph}
+        frontier |= {view_id for view_id in other_view_ids or set() if view_id not in graph}
         while frontier:
             cdf_views, error = self._retrieve_views(frontier)
             first_error = first_error or error
@@ -343,6 +356,56 @@ class DataModelingRuleSet(ToolkitRuleSet):
         for parent_id in implements_graph.get(view_id, []):
             cls._find_cycles(parent_id, implements_graph, visited, path, cycles)
         path.pop()
+
+    @classmethod
+    def _check_missing_parent_views(
+        cls, local_data_models: dict[DataModelId, _LocalDataModel], implements_graph: dict[ViewId, list[ViewId]]
+    ) -> Iterable[Insight]:
+        """Recommends adding the views implemented, directly or transitively, by the views of a data model to it.
+
+        The implemented views become interfaces in the GraphQL schema generated for the data model, and the
+        schema is invalid if an interface is not part of the data model.
+        """
+        for model_id, (resource, data_model) in local_data_models.items():
+            model_views = data_model.views or []
+            included = set(model_views)
+            missing: list[ViewId] = []
+            for view_id in model_views:
+                for ancestor_id in cls._ancestors(view_id, implements_graph):
+                    if ancestor_id not in included and ancestor_id not in missing:
+                        missing.append(ancestor_id)
+            if not missing:
+                continue
+            noun = "view" if len(missing) == 1 else "views"
+            labels = humanize_collection([f"'{view_id}'" for view_id in missing], sort=False)
+            yield with_position(
+                Recommendation(
+                    code="MISSING-VALUE",
+                    message=(
+                        f"Data model {quote_identifier(model_id)} is missing the {noun} {labels}, implemented by "
+                        "its views. Implemented views become interfaces in the GraphQL schema of the data model, "
+                        "and the schema is invalid if an interface is not part of the data model."
+                    ),
+                    fix=f"Add {labels} to the views of the data model.",
+                    source_file=_source_file(resource),
+                    alpha=Flags.ALPHA_RULES.is_enabled(),
+                ),
+                keys=["views"],
+                variables=resource.variables,
+            )
+
+    @staticmethod
+    def _ancestors(view_id: ViewId, implements_graph: dict[ViewId, list[ViewId]]) -> list[ViewId]:
+        """The views implemented by the view, directly or transitively, in depth-first order."""
+        ancestors: list[ViewId] = []
+        stack = list(reversed(implements_graph.get(view_id, [])))
+        while stack:
+            parent_id = stack.pop()
+            if parent_id == view_id or parent_id in ancestors:
+                continue
+            ancestors.append(parent_id)
+            stack.extend(reversed(implements_graph.get(parent_id, [])))
+        return ancestors
 
     def _check_requires_constraints(
         self,
@@ -1143,14 +1206,15 @@ class DataModelingRuleSet(ToolkitRuleSet):
         Per CDF's container property update rules: the type (including list state, collation and, for
         direct relations, the target container), and autoIncrement can never change. A property can go
         from nullable to non-nullable, but not the other way around. Everything else (name, description,
-        defaultValue) is metadata and can always change.
+        defaultValue) is metadata and can always change. Enum values can be added, while removed enum
+        values are reported separately as a warning.
 
         Fields left unset locally (list, collation, ...) fall back to CDF's own defaults, so an omitted
         field is never treated as a change: only fields the local YAML actually set are compared.
         """
         local_type, cdf_type = local_property.type, cdf_property.type
         if type(local_type) is not type(cdf_type) or any(
-            field_name != "type" and getattr(local_type, field_name) != getattr(cdf_type, field_name)
+            field_name not in {"type", "values"} and getattr(local_type, field_name) != getattr(cdf_type, field_name)
             for field_name in local_type.model_fields_set
         ):
             return True
@@ -1162,6 +1226,15 @@ class DataModelingRuleSet(ToolkitRuleSet):
         if cdf_property.nullable is False and local_property.nullable is True:
             return True
         return False
+
+    @staticmethod
+    def _removed_enum_values(
+        local_property: ContainerPropertyDefinition, cdf_property: ContainerPropertyDefinition
+    ) -> list[str]:
+        local_type, cdf_type = local_property.type, cdf_property.type
+        if not isinstance(local_type, EnumProperty) or not isinstance(cdf_type, EnumProperty):
+            return []
+        return sorted(set(cdf_type.values) - set(local_type.values))
 
     def _container_insights(
         self,
@@ -1212,6 +1285,28 @@ class DataModelingRuleSet(ToolkitRuleSet):
                     source_file=source_path,
                 ),
                 keys=["properties"],
+            )
+
+        for name in sorted(set(cdf_properties) & set(local_properties)):
+            if name in changed:
+                continue
+            removed_values = self._removed_enum_values(local_properties[name], cdf_properties[name])
+            if not removed_values:
+                continue
+            yield with_position(
+                BuildWarning(
+                    code="UNSUPPORTED-RESOURCE-REMOVAL",
+                    message=(
+                        f"Local config for container {container_id} is missing enum values "
+                        f"{humanize_collection([f'{value!r}' for value in removed_values])} of property {name!r} that have previously been deployed to CDF. "
+                        f"Deploying the current local YAML config will not remove or rename them in the container in CDF, since this is not a supported operation."
+                    ),
+                    fix=(
+                        f"Add the enum values back to your local YAML config, or use 'cdf modules pull' to sync your local container config with the deployed version. See {URL.dm_changes_docs}."
+                    ),
+                    source_file=source_path,
+                ),
+                keys=[name, "properties"],
             )
 
         # usedFor defaults to "node" when omitted, both locally and by CDF, so an omitted local value is

@@ -653,7 +653,11 @@ class HostedExtractorFinder(ResourceFinder[tuple[str, ...]]):
         else:
             yield [ExternalId(external_id=external_id) for external_id in self.identifier], None, source_loader, None
 
-        jobs = [job for job in self.client.hosted_extractors.jobs.list(limit=None) if job.source_id in source_ids]
+        jobs = [
+            job
+            for source_id in sorted(source_ids)
+            for job in self.client.hosted_extractors.jobs.list(source=source_id, limit=None)
+        ]
         if jobs:
             yield [], jobs, HostedExtractorJobIO(self.client), None
 

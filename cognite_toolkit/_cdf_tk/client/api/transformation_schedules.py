@@ -85,44 +85,50 @@ class TransformationSchedulesAPI(CDFResourceAPI[TransformationScheduleResponse])
 
     def paginate(
         self,
+        include_public: bool = True,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[TransformationScheduleResponse]:
         """Fetch a page of transformation schedules from CDF.
 
         Args:
+            include_public: Whether to include schedules of public transformations.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of TransformationScheduleResponse objects.
         """
-        return self._paginate(
-            cursor=cursor,
-            limit=limit,
-        )
+        return self._paginate(cursor=cursor, limit=limit, params={"includePublic": include_public})
 
     def iterate(
         self,
+        include_public: bool = True,
         limit: int | None = 100,
     ) -> Iterable[builtins.list[TransformationScheduleResponse]]:
         """Iterate over all transformation schedules in CDF.
 
         Args:
+            include_public: Whether to include schedules of public transformations.
             limit: Maximum number of items to return per page.
 
         Returns:
             Iterable of lists of TransformationScheduleResponse objects.
         """
-        return self._iterate(limit=limit)
+        return self._iterate(limit=limit, params={"includePublic": include_public})
 
     def list(
         self,
+        include_public: bool = True,
         limit: int | None = 100,
     ) -> builtins.list[TransformationScheduleResponse]:
         """List all transformation schedules in CDF.
 
+        Args:
+            include_public: Whether to include schedules of public transformations.
+            limit: Maximum number of items to return.
+
         Returns:
             List of TransformationScheduleResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, params={"includePublic": include_public})

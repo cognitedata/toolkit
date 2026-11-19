@@ -34,6 +34,8 @@ class ClientCredentialAuthentication(BaseModelObject):
     token_url: str
     scopes: str
     default_expires_in: str | None = None
+    audience: str | None = None
+    resource: str | None = None
 
 
 class ClientCredentialAuthenticationRequest(ClientCredentialAuthentication, AuthenticationRequestDefinition):

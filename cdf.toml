@@ -24,6 +24,7 @@ multi-configs = true
 git-diff-select = true
 v010 = true
 extend-download = true
+extend-upload = true
 deploy-protection = true
 config-include = true
 cdf-group-emails = false

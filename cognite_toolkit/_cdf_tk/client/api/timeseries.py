@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.api._classic_list import (
     Sort,
     TimeRange,
     classic_list_body,
+    classic_search_body,
     int_ids,
     object_ids,
     str_ids,
@@ -50,6 +51,7 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
                 ),
                 "list": Endpoint(method="POST", path="/timeseries/list", item_limit=1000),
                 "aggregate": Endpoint(method="POST", path="/timeseries/aggregate", item_limit=1000),
+                "search": Endpoint(method="POST", path="/timeseries/search", item_limit=1000),
             },
             api_version="alpha",
         )
@@ -341,6 +343,31 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
             sort=sort,
             partition=partition,
         )
+
+    def search(
+        self,
+        query: str | None = None,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        include_all_types: bool | None = None,
+        limit: int = 100,
+    ) -> builtins.list[TimeSeriesResponse]:
+        """Search time series by text. Results are sorted by relevance.
+
+        ``query`` searches the name and description and generally gives better results than ``name`` and
+        ``description``, which are prefix and fuzzy searches on a single field. ``filter`` is the same strict
+        filter as :meth:`list`. Set ``include_all_types`` to False to only return numeric and string time series.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Time-series/operation/searchTimeSeries>`_.
+        """
+        body = classic_search_body(
+            filter=filter,
+            search={"query": query, "name": name, "description": description},
+            extra={"includeAllTypes": include_all_types} if include_all_types is not None else None,
+        )
+        return self._search(body, limit)
 
     def count(
         self,
