@@ -46,6 +46,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from tests.test_integration.constants import RUN_UNIQUE_ID
+from tests.test_unit.utils import MockQuestionary
 
 
 @dataclass
@@ -291,14 +292,15 @@ class TestPurge:
     ) -> None:
         # Create a dataset and a view with records in it
         purge = PurgeCommand(silent=True)
-        results = purge.space(
-            toolkit_client,
-            selected_space=space_with_records_view,
-            dry_run=False,
-            verbose=False,
-            log_dir=tmp_path,
-            include_space=True,
-        )
+        with MockQuestionary(PurgeCommand.__module__, [toolkit_client.config.project]):
+            results = purge.space(
+                toolkit_client,
+                selected_space=space_with_records_view,
+                dry_run=False,
+                verbose=False,
+                log_dir=tmp_path,
+                include_space=True,
+            )
         retrieved_space = toolkit_client.spaces.retrieve([SpaceId(space=space_with_records_view)])
         assert not retrieved_space
         assert [f"{resource_id}: {getattr(item, 'deleted')}" for resource_id, item in results.items()] == [
