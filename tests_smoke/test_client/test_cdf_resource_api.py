@@ -26,6 +26,8 @@ from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.documents import DocumentsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_runs import ExtractionPipelineRunsAPI
+from cognite_toolkit._cdf_tk.client.api.function_app_calls import FunctionAppCallsAPI
+from cognite_toolkit._cdf_tk.client.api.function_apps import FunctionAppsAPI
 from cognite_toolkit._cdf_tk.client.api.function_calls import FunctionCallsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
@@ -429,6 +431,9 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         IntegrationErrorsAPI,
         # Needs a function deployed to test against
         FunctionCallsAPI,
+        # Beta, read-only and calls need a deployed function app.
+        FunctionAppsAPI,
+        FunctionAppCallsAPI,
         # Needs a 3D model processed
         ThreeDNodesAPI,
         ThreeDFilesAPI,
@@ -2550,6 +2555,15 @@ class TestCDFResourceAPI:
                 call_list_endpoint.path,
                 f"Expected listed calls to include {function_call.id}, got {[item.id for item in listed_calls]}",
             )
+
+    def test_function_apps_list(self, toolkit_client: ToolkitClient) -> None:
+        list_endpoint = toolkit_client.functions.apps._method_endpoint_map["list"]
+        try:
+            toolkit_client.functions.apps.list(limit=1)
+        except ToolkitAPIError as e:
+            if e.code in (403, 404):
+                pytest.skip(f"Function apps are not available in this project: {e!s}")
+            raise EndpointAssertionError(list_endpoint.path, f"Listing function apps failed: {e!s}") from e
 
     def test_search_config_crudls(self, toolkit_client: ToolkitClient) -> None:
         # Search Config does not support delete.

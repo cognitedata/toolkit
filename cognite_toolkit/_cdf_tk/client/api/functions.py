@@ -8,6 +8,7 @@ import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
+from cognite_toolkit._cdf_tk.client.api.function_apps import FunctionAppsAPI
 from cognite_toolkit._cdf_tk.client.api.function_calls import FunctionCallsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
@@ -41,6 +42,7 @@ class FunctionsAPI(CDFResourceAPI[FunctionResponse]):
         )
         self.schedules = FunctionSchedulesAPI(http_client)
         self.calls = FunctionCallsAPI(http_client)
+        self.apps = FunctionAppsAPI(http_client)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
