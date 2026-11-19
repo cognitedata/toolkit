@@ -330,6 +330,29 @@ class TestPromptUserEnvironmentVariables:
         assert env.IDP_TENANT_ID == "my-tenant.onmicrosoft.com"
         assert not env.get_missing_vars()
 
+    def test_keeps_cdf_url_when_cluster_derived_from_url_is_unchanged(self) -> None:
+        cdf_url = "https://acme.plink.westeurope-1.cognitedata.com"
+        current = EnvironmentVariables(
+            CDF_PROJECT="my-project",
+            CDF_URL=cdf_url,
+            PROVIDER="entra_id",
+            LOGIN_FLOW="device_code",
+            IDP_TENANT_ID="my-tenant.onmicrosoft.com",
+        )
+        with MockQuestionary(
+            AUTH_MODULE,
+            answers=[
+                "entra_id",  # provider select
+                "westeurope-1",  # CDF cluster, the default derived from CDF_URL
+                "my-project",  # CDF project
+                "my-tenant.onmicrosoft.com",  # IDP_TENANT_ID
+                False,  # "change optional vars?"
+            ],
+        ):
+            env = prompt_user_environment_variables(current=current, login_flow="device_code")
+
+        assert env.cdf_url == cdf_url
+
 
 class TestParseLoginFlow:
     def test_accepts_canonical_snake_case(self) -> None:

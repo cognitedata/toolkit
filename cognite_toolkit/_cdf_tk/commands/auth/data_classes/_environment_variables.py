@@ -390,7 +390,9 @@ class EnvironmentVariables:
     def as_string(self) -> str:
         env_lines: list[str] = [f"CDF_URL={self.cdf_url}"]
         body = "\n".join(env_lines)
-        return f"CDF Project {self.CDF_PROJECT!r} in cluster {self.attempt_to_get_cdf_cluster()!r}:\n{body}"
+        if cluster := self.attempt_to_get_cdf_cluster():
+            return f"CDF Project {self.CDF_PROJECT!r} in cluster {cluster!r}:\n{body}"
+        return f"CDF Project {self.CDF_PROJECT!r}:\n{body}"
 
     def get_missing_vars(self) -> set[str]:
         provider, flow = self.PROVIDER, self.LOGIN_FLOW
