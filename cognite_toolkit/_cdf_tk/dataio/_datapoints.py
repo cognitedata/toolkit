@@ -1,3 +1,4 @@
+import itertools
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any, ClassVar, Literal, cast
@@ -91,34 +92,33 @@ class DatapointsIO(
         self._numeric_converter = _Float64Converter(nullable=True)
         self._string_converter = _TextConverter(nullable=True)
         self._state_converter = _Int32Converter(nullable=True)
+        self._batch_counter = itertools.count(1)
 
     def get_schema(self, selector: DataPointsSelector) -> list[SchemaColumn] | None:
-        value_columns = [
-            SchemaColumn(
-                name="value",
-                type="string"
-                if isinstance(selector, DataPointsDataSetSelector | DataPointsInstanceSpaceSelector)
-                and selector.data_type == "string"
-                else "float",
-            )
+        id_columns = [SchemaColumn(name="externalId", type="string")]
+        if isinstance(selector, DataPointsInstanceSpaceSelector):
+            id_columns.insert(0, SchemaColumn(name="space", type="string"))
+        return [
+            *id_columns,
+            SchemaColumn(name="timestamp", type="epoch"),
+            *self._value_columns(selector),
         ]
-        if not isinstance(selector, DataPointsInstanceSpaceSelector):
+
+    @staticmethod
+    def _value_columns(selector: DataPointsSelector) -> list[SchemaColumn]:
+        data_type = (
+            selector.data_type
+            if isinstance(selector, DataPointsDataSetSelector | DataPointsInstanceSpaceSelector)
+            else "numeric"
+        )
+        if data_type == "state":
             return [
-                SchemaColumn(name="externalId", type="string"),
-                SchemaColumn(name="timestamp", type="epoch"),
-                *value_columns,
-            ]
-        if selector.data_type == "state":
-            value_columns = [
                 SchemaColumn(name="numericValue", type="integer"),
                 SchemaColumn(name="stringValue", type="string"),
             ]
-        return [
-            SchemaColumn(name="space", type="string"),
-            SchemaColumn(name="externalId", type="string"),
-            SchemaColumn(name="timestamp", type="epoch"),
-            *value_columns,
-        ]
+        if data_type == "string":
+            return [SchemaColumn(name="value", type="string")]
+        return [SchemaColumn(name="value", type="float")]
 
     def stream_data(
         self,
@@ -169,7 +169,7 @@ class DatapointsIO(
         for page in pages:
             for start in range(0, len(page), self.DOWNLOAD_CHUNK_SIZE):
                 if nodes := page[start : start + self.DOWNLOAD_CHUNK_SIZE]:
-                    yield [{"instanceId": {"space": node.space, "externalId": node.external_id}} for node in nodes]
+                    yield [{"instanceId": node.as_id().dump(include_instance_type=False)} for node in nodes]
 
     def _instance_space_filter(self, selector: DataPointsInstanceSpaceSelector) -> dict[str, Any]:
         view = self.TIMESERIES_VIEW
@@ -216,54 +216,51 @@ class DatapointsIO(
         if not isinstance(response, SuccessResponse):
             return
         aggregate_response: DataPointListResponse = DataPointListResponse.FromString(response.content)
-        timeseries_ids_with_data: dict[int, int] = {}
+        remaining_by_id: dict[int, int] = {}
         for dp in aggregate_response.items:
             # State time series return their aggregates in stateAggregateDatapoints.
             aggregates = [*dp.aggregateDatapoints.datapoints, *dp.stateAggregateDatapoints.datapoints]
-            if aggregates:
-                timeseries_ids_with_data[dp.id] = int(sum(agg.count for agg in aggregates))
-        total_datapoints = int(sum(timeseries_ids_with_data.values()))
-        if total_datapoints == 0:
-            return
+            if count := int(sum(agg.count for agg in aggregates)):
+                remaining_by_id[dp.id] = min(count, limit_per_timeseries)
 
+        cursor_by_id: dict[int, str] = {}
+        while remaining_by_id:
+            batch = self._create_datapoints_batch(remaining_by_id, cursor_by_id, selector)
+            for item in batch:
+                remaining_by_id[item["id"]] -= item["limit"]
+            data_response = self._fetch_datapoints_batch(batch, config)
+            if data_response is None:
+                for item in batch:
+                    remaining_by_id.pop(item["id"], None)
+                continue
+            for response_item in data_response.items:
+                if response_item.nextCursor and remaining_by_id.get(response_item.id, 0) > 0:
+                    cursor_by_id[response_item.id] = response_item.nextCursor
+                else:
+                    remaining_by_id.pop(response_item.id, None)
+            tracking_id = f"datapoints batch {next(self._batch_counter)}"
+            yield self.emit_registered_page(Page("Main", [DataItem(tracking_id=tracking_id, item=data_response)]))
+
+    def _create_datapoints_batch(
+        self,
+        remaining_by_id: dict[int, int],
+        cursor_by_id: dict[int, str],
+        selector: DataPointsDataSetSelector | DataPointsInstanceSpaceSelector,
+    ) -> list[dict[str, Any]]:
         batch: list[dict[str, Any]] = []
         batch_count = 0
-        for ts_id, count in timeseries_ids_with_data.items():
-            count = min(count, limit_per_timeseries)
-            ts_limit = count
-            left_over = 0
-            if (batch_count + ts_limit) > self.MAX_PER_REQUEST_DATAPOINTS:
-                ts_limit = self.MAX_PER_REQUEST_DATAPOINTS - batch_count
-                left_over = count - ts_limit
-            batch.append(
-                {
-                    "id": ts_id,
-                    "start": selector.start,
-                    "end": selector.end,
-                    "limit": ts_limit,
-                }
-            )
+        for ts_id, remaining in remaining_by_id.items():
+            ts_limit = min(remaining, self.MAX_PER_REQUEST_DATAPOINTS - batch_count)
+            if ts_limit <= 0:
+                break
+            item: dict[str, Any] = {"id": ts_id, "start": selector.start, "end": selector.end, "limit": ts_limit}
+            if cursor := cursor_by_id.get(ts_id):
+                item["cursor"] = cursor
+            batch.append(item)
             batch_count += ts_limit
-            if batch_count >= self.MAX_PER_REQUEST_DATAPOINTS:
-                if page := self._fetch_datapoints_batch(batch, config):
-                    yield self.emit_registered_page(page)
-                batch = []
-                batch_count = 0
+        return batch
 
-            if left_over > 0:
-                batch.append(
-                    {
-                        "id": ts_id,
-                        "start": selector.start,
-                        "end": selector.end,
-                        "limit": left_over,
-                    }
-                )
-                batch_count += left_over
-        if batch and (page := self._fetch_datapoints_batch(batch, config)):
-            yield self.emit_registered_page(page)
-
-    def _fetch_datapoints_batch(self, batch: list[dict[str, Any]], config: Any) -> Page[DataPointListResponse] | None:
+    def _fetch_datapoints_batch(self, batch: list[dict[str, Any]], config: Any) -> DataPointListResponse | None:
         response = self.client.http_client.request_single_retries(
             RequestMessage(
                 endpoint_url=config.create_api_url("/timeseries/data/list"),
@@ -275,8 +272,7 @@ class DatapointsIO(
         )
         if not isinstance(response, SuccessResponse):
             return None
-        data_response: DataPointListResponse = DataPointListResponse.FromString(response.content)
-        return Page("Main", [DataItem(tracking_id="datapoints", item=data_response)])
+        return DataPointListResponse.FromString(response.content)
 
     def count(self, selector: DataPointsSelector) -> int | None:
         if isinstance(selector, DataPointsDataSetSelector):
