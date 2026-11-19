@@ -313,6 +313,7 @@ class SimulatorModelRevisionFilter(SimulatorFilter):
 class SimulatorModelRoutineFilter(SimulatorFilter):
     model_external_ids: list[str] | None = None
     simulator_integration_external_ids: list[str] | None = None
+    kind: Literal["long"] | None = None
 
 
 class SimulatorModelRoutineRevisionFilter(SimulatorFilter):
@@ -321,6 +322,27 @@ class SimulatorModelRoutineRevisionFilter(SimulatorFilter):
     model_external_ids: list[str] | None = None
     simulator_integration_external_ids: list[str] | None = None
     created_time: EpochTimestampRange | None = None
+
+
+class SimulatorIntegrationFilter(SimulatorFilter):
+    active: bool | None = None
+
+
+class SimulationRunFilter(SimulatorFilter):
+    status: Literal["queued", "ready", "running", "success", "failure"] | None = None
+    run_type: Literal["external", "manual", "scheduled"] | None = None
+    simulator_integration_external_ids: list[str] | None = None
+    model_external_ids: list[str] | None = None
+    model_revision_external_ids: list[str] | None = None
+    routine_external_ids: list[str] | None = None
+    routine_revision_external_ids: list[str] | None = None
+    created_time: EpochTimestampRange | None = None
+    simulation_time: EpochTimestampRange | None = None
+
+
+class SimulationRunSort(BaseModelRequest):
+    property: Literal["createdTime", "simulationTime"]
+    order: Literal["asc", "desc"]
 
 
 class ChartMonitorModelFilter(Filter):

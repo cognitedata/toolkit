@@ -5,7 +5,8 @@ from functools import partial
 from typing import Any, Literal, TypeVar
 from urllib.parse import quote
 
-from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
@@ -13,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId, ThreeDModelRevisionId
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeId, ThreeDJobId, ThreeDModelRevisionId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     ThreeDAssetMappingFilter,
     ThreeDNodeNameFilter,
@@ -24,13 +25,23 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
     AssetMappingDMRequestId,
     AssetMappingDMResponse,
+    ThreeDAssetNodeMapping,
+    ThreeDBoundingBoxFilter,
+    ThreeDInstanceReference,
+    ThreeDJobRejection,
+    ThreeDJobRequest,
+    ThreeDJobResponse,
+    ThreeDJobResult,
     ThreeDModelClassicRequest,
     ThreeDModelClassicResponse,
     ThreeDModelDMSRequest,
     ThreeDModelRevertMigrationRequest,
+    ThreeDNodeInBoundingBox,
     ThreeDNodeResponse,
     ThreeDRevisionClassicRequest,
     ThreeDRevisionClassicResponse,
+    ThreeDRevisionLog,
+    ThreeDRevisionOutput,
     ThreeDRevisionRevertMigrationRequest,
 )
 
@@ -193,6 +204,86 @@ class ThreeDClassicRevisionsAPI(CDFResourceAPI[ThreeDRevisionClassicResponse]):
                 item.model_id = int(model_id)
             results.extend(result)
         return results
+
+    def _revision_request(
+        self,
+        model_id: int,
+        revision_id: int,
+        suffix: str = "",
+        method: Literal["GET", "POST"] = "GET",
+        params: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
+    ) -> SuccessResponse:
+        request = RequestMessage(
+            endpoint_url=self._make_url(f"{self.ENDPOINT.format(modelId=model_id)}/{revision_id}{suffix}"),
+            method=method,
+            parameters=params,
+            body_content=body,
+            api_version=self._api_version,
+            disable_gzip=self._disable_gzip,
+        )
+        return self._http_client.request_single_retries(request).get_success_or_raise(request)
+
+    def retrieve(self, ids: Sequence[ThreeDModelRevisionId]) -> builtins.list[ThreeDRevisionClassicResponse]:
+        """Retrieve 3D revisions by their IDs.
+
+        Args:
+            ids: The revisions to retrieve. Each revision is retrieved with its own request.
+
+        Returns:
+            The retrieved revisions.
+        """
+        retrieved: builtins.list[ThreeDRevisionClassicResponse] = []
+        for id_ in ids:
+            item = ThreeDRevisionClassicResponse.model_validate_json(self._revision_request(id_.model_id, id_.id).body)
+            item.model_id = id_.model_id
+            retrieved.append(item)
+        return retrieved
+
+    def list_logs(
+        self, model_id: int, revision_id: int, severity: int | None = None
+    ) -> builtins.list[ThreeDRevisionLog]:
+        """List the processing logs of a 3D revision.
+
+        Args:
+            model_id: Model ID.
+            revision_id: Revision ID.
+            severity: Minimum severity of the logs to return (3 = INFO, 5 = WARN, 7 = ERROR). The API default is 5.
+
+        Returns:
+            The log entries.
+        """
+        params = None if severity is None else {"severity": severity}
+        response = self._revision_request(model_id, revision_id, "/logs", params=params)
+        return ResponseItems[ThreeDRevisionLog].model_validate_json(response.body).items
+
+    def list_outputs(
+        self, model_id: int, revision_id: int, format: str | None = None
+    ) -> builtins.list[ThreeDRevisionOutput]:
+        """List the files produced when a 3D revision was processed.
+
+        Args:
+            model_id: Model ID.
+            revision_id: Revision ID.
+            format: Only return outputs of this format, for example "reveal-directory" or "ept-pointcloud".
+                Use "all-outputs" to include internal outputs.
+
+        Returns:
+            The outputs.
+        """
+        params = None if format is None else {"format": format}
+        response = self._revision_request(model_id, revision_id, "/outputs", params=params)
+        return ResponseItems[ThreeDRevisionOutput].model_validate_json(response.body).items
+
+    def update_thumbnail(self, model_id: int, revision_id: int, file_id: int) -> None:
+        """Set the thumbnail of a 3D revision.
+
+        Args:
+            model_id: Model ID.
+            revision_id: Revision ID.
+            file_id: The ID of the uploaded image file to use as thumbnail.
+        """
+        self._revision_request(model_id, revision_id, "/thumbnail", method="POST", body={"fileId": file_id})
 
     def update(
         self,
@@ -438,6 +529,24 @@ class ThreeDClassicAssetMappingAPI(CDFResourceAPI[AssetMappingClassicResponse]):
             object.__setattr__(item, "revision_id", revision_id)
         return items
 
+    def list_by_asset(self, asset_id: int, limit: int | None = 100) -> builtins.list[ThreeDAssetNodeMapping]:
+        """List the 3D nodes an asset is mapped to, across all 3D models.
+
+        Args:
+            asset_id: The ID of the asset.
+            limit: Maximum number of mappings to return. None returns all.
+
+        Returns:
+            The model, revision, and node of each mapping.
+        """
+        return self._collect_pages(
+            PagedResponse[ThreeDAssetNodeMapping],
+            f"/3d/mappings/{asset_id}/modelnodes",
+            "GET",
+            limit,
+            page_size=self._method_endpoint_map["list"].item_limit,
+        )
+
 
 class ThreeDDMAssetMappingAPI(CDFResourceAPI[AssetMappingDMResponse]):
     ENDPOINT = "/3d/models/{modelId}/revisions/{revisionId}/mappings"
@@ -583,6 +692,28 @@ class ThreeDDMAssetMappingAPI(CDFResourceAPI[AssetMappingDMResponse]):
             object.__setattr__(item, "model_id", model_id)
             object.__setattr__(item, "revision_id", revision_id)
         return items
+
+    def list_by_asset_instance(
+        self, asset_instance_id: NodeId, limit: int | None = 100
+    ) -> builtins.list[ThreeDAssetNodeMapping]:
+        """List the 3D nodes an asset instance is mapped to, across all 3D models (beta).
+
+        Args:
+            asset_instance_id: The asset instance.
+            limit: Maximum number of mappings to return. None returns all.
+
+        Returns:
+            The model, revision, and node of each mapping.
+        """
+        return self._collect_pages(
+            PagedResponse[ThreeDAssetNodeMapping],
+            "/3d/mappings/modelnodes/filter",
+            "POST",
+            limit,
+            page_size=self._method_endpoint_map["list"].item_limit,
+            body={"filter": {"assetInstanceId": asset_instance_id.dump(include_instance_type=False)}},
+            api_version="beta",
+        )
 
 
 class ThreeDNodesAPI(CDFResourceAPI[ThreeDNodeResponse]):
@@ -965,6 +1096,248 @@ class ThreeDNodesAPI(CDFResourceAPI[ThreeDNodeResponse]):
         self._assign_revision(items, model_id, revision_id)
         return items
 
+    def list_in_bounding_box(
+        self,
+        model: NodeId,
+        revision: NodeId,
+        bounding_box: ThreeDBoundingBoxFilter,
+        node_ids: Sequence[int],
+    ) -> builtins.list[ThreeDNodeInBoundingBox]:
+        """Find which of the given nodes are within a bounding box. Only supported in data modeling projects.
+
+        Args:
+            model: The 3D model instance.
+            revision: The 3D revision instance.
+            bounding_box: The bounding box.
+            node_ids: The nodes to check, for example from the cadNodeReference of CogniteCADNode instances.
+
+        Returns:
+            The nodes within the bounding box.
+        """
+        body = {
+            "model": ThreeDInstanceReference(instance_id=model).dump(),
+            "revision": ThreeDInstanceReference(instance_id=revision).dump(),
+            "filterNodesByBoundingBox": {"boundingBox": bounding_box.dump(), "nodeIds": list(node_ids)},
+        }
+        request = RequestMessage(
+            endpoint_url=self._make_url("/3d/nodes/list"),
+            method="POST",
+            body_content=body,
+            disable_gzip=self._disable_gzip,
+            api_version=self._api_version,
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        return PagedResponse[ThreeDNodeInBoundingBox].model_validate_json(response.body).items
+
+
+class ThreeDFilesAPI(CDFResourceAPI[BaseModelObject]):
+    """Download the files of processed 3D revisions, such as thumbnails and the outputs used by the 3D viewer."""
+
+    def __init__(self, http_client: HTTPClient) -> None:
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                "retrieve": Endpoint(method="GET", path="/3d/files/{fileId}", item_limit=1),
+            },
+        )
+
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[BaseModelObject]:
+        raise NotImplementedError("3D files are returned as raw bytes, not a page of items.")
+
+    def retrieve(self, file_id: int, sub_path: str | None = None) -> bytes:
+        """Download a 3D file.
+
+        Args:
+            file_id: The ID of the 3D file, for example the blob ID of a revision output.
+            sub_path: The path of a file within a 3D directory, such as a reveal-directory output.
+
+        Returns:
+            The content of the file.
+        """
+        endpoint = self._method_endpoint_map["retrieve"]
+        path = endpoint.path.format(fileId=file_id)
+        if sub_path is not None:
+            path = f"{path}/{quote(sub_path.lstrip('/'))}"
+        request = RequestMessage(
+            endpoint_url=self._make_url(path),
+            method=endpoint.method,
+            accept="*/*",
+            disable_gzip=self._disable_gzip,
+            api_version=self._api_version,
+        )
+        return self._http_client.request_single_retries(request).get_success_or_raise(request).content
+
+
+class ThreeDJobsAPI(CDFResourceAPI[ThreeDJobResponse]):
+    """Run jobs on 3D source data in data modeling projects.
+
+    Optimizer jobs process a CAD model or point cloud file. ImageTextDetection jobs run OCR on a 360 image collection.
+    """
+
+    _JOBS = "/3d/jobs"
+    _RESULTS = "/3d/job/results/list"
+    _REJECTIONS = "/3d/job/result/rejections"
+
+    def __init__(self, http_client: HTTPClient) -> None:
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                "create": Endpoint(method="POST", path=self._JOBS, item_limit=1),
+                "delete": Endpoint(method="POST", path=f"{self._JOBS}/delete", item_limit=1000),
+            },
+        )
+
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[ThreeDJobResponse]:
+        return PagedResponse[ThreeDJobResponse].model_validate_json(response.body)
+
+    def _post(self, path: str, body: dict[str, Any]) -> SuccessResponse:
+        request = RequestMessage(
+            endpoint_url=self._make_url(path),
+            method="POST",
+            body_content=body,
+            disable_gzip=self._disable_gzip,
+            api_version=self._api_version,
+        )
+        return self._http_client.request_single_retries(request).get_success_or_raise(request)
+
+    def create(self, items: Sequence[ThreeDJobRequest]) -> builtins.list[ThreeDJobResponse]:
+        """Create jobs. Each job is created with its own request.
+
+        Args:
+            items: The jobs to create. Each must have a session nonce.
+
+        Returns:
+            The created jobs.
+        """
+        endpoint = self._method_endpoint_map["create"]
+        created: builtins.list[ThreeDJobResponse] = []
+        for item in items:
+            response = self._post(endpoint.path, {"items": [item.dump()]})
+            created.extend(self._validate_page_response(response).items)
+        return created
+
+    def delete(self, ids: Sequence[ThreeDJobId]) -> None:
+        """Delete jobs.
+
+        Args:
+            ids: The jobs to delete.
+        """
+        self._request_no_response(ids, "delete")
+
+    def paginate(self, cursor: str | None = None) -> PagedResponse[ThreeDJobResponse]:
+        """Fetch one page of jobs.
+
+        The endpoint does not accept a limit, so the page size is decided by the API.
+
+        Args:
+            cursor: Cursor for pagination.
+
+        Returns:
+            One page of jobs.
+        """
+        body = {"cursor": cursor} if cursor is not None else {}
+        return self._validate_page_response(self._post(f"{self._JOBS}/list", body))
+
+    def iterate(self, limit: int | None = 100, cursor: str | None = None) -> Iterable[builtins.list[ThreeDJobResponse]]:
+        """Iterate jobs, following pagination cursors.
+
+        Args:
+            limit: Maximum number of jobs to return in total. None returns all.
+            cursor: Cursor to start from.
+
+        Yields:
+            Batches of jobs.
+        """
+        next_cursor = cursor
+        total = 0
+        while True:
+            page = self.paginate(next_cursor)
+            items = page.items if limit is None else page.items[: limit - total]
+            yield items
+            total += len(items)
+            if page.next_cursor is None or not page.items or (limit is not None and total >= limit):
+                break
+            next_cursor = page.next_cursor
+
+    def list(self, limit: int | None = 100) -> builtins.list[ThreeDJobResponse]:
+        """List jobs.
+
+        Args:
+            limit: Maximum number of jobs to return. None returns all.
+
+        Returns:
+            The jobs.
+        """
+        return [item for batch in self.iterate(limit) for item in batch]
+
+    def list_results(self, job: ThreeDJobId, limit: int | None = 100) -> builtins.list[ThreeDJobResult]:
+        """List the instances a job created, for example the files with the text found by an ImageTextDetection job.
+
+        Args:
+            job: The job.
+            limit: Maximum number of results to return. None returns all.
+
+        Returns:
+            The results.
+        """
+        return self._collect_pages(
+            PagedResponse[ThreeDJobResult],
+            self._RESULTS,
+            "POST",
+            limit,
+            page_size=None,
+            body={"job": job.dump()},
+        )
+
+    def list_rejections(self, job: ThreeDJobId, result: NodeId, limit: int | None = 100) -> builtins.list[str]:
+        """List the keys that have been rejected in a job result.
+
+        Args:
+            job: The job.
+            result: The result instance.
+            limit: Maximum number of keys to return. None returns all.
+
+        Returns:
+            The rejected keys.
+        """
+        rejections = self._collect_pages(
+            PagedResponse[ThreeDJobRejection],
+            f"{self._REJECTIONS}/list",
+            "POST",
+            limit,
+            page_size=None,
+            body={"job": job.dump(), "result": ThreeDInstanceReference(instance_id=result).dump()},
+        )
+        return [rejection.rejected_key for rejection in rejections]
+
+    def update_rejections(
+        self,
+        job: ThreeDJobId,
+        result: NodeId,
+        add: Sequence[str] | None = None,
+        remove: Sequence[str] | None = None,
+    ) -> None:
+        """Reject keys in a job result, or undo rejections.
+
+        Args:
+            job: The job.
+            result: The result instance.
+            add: Keys to reject.
+            remove: Keys to no longer reject.
+        """
+        if not add and not remove:
+            raise ValueError("Provide at least one key to add or remove.")
+        body: dict[str, Any] = {"job": job.dump(), "result": ThreeDInstanceReference(instance_id=result).dump()}
+        # The API takes either add or remove in a request, not both.
+        if add:
+            self._post(self._REJECTIONS, {**body, "add": list(add)})
+        if remove:
+            self._post(self._REJECTIONS, {**body, "remove": list(remove)})
+
 
 class ThreeDMigrationAPI:
     """Revert 3D models and revisions migrated to data modeling back to classic.
@@ -1016,3 +1389,5 @@ class ThreeDAPI:
         self.nodes = ThreeDNodesAPI(http_client)
         self.asset_mappings_classic = ThreeDClassicAssetMappingAPI(http_client)
         self.asset_mappings_dm = ThreeDDMAssetMappingAPI(http_client)
+        self.files = ThreeDFilesAPI(http_client)
+        self.jobs = ThreeDJobsAPI(http_client)

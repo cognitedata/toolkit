@@ -54,10 +54,13 @@ from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCateg
 from cognite_toolkit._cdf_tk.client.api.sequence_rows import SequenceRowsAPI
 from cognite_toolkit._cdf_tk.client.api.sessions import SessionAPI
 from cognite_toolkit._cdf_tk.client.api.signal_subscriptions import SignalSubscriptionsAPI
+from cognite_toolkit._cdf_tk.client.api.simulator_integrations import SimulatorIntegrationsAPI
+from cognite_toolkit._cdf_tk.client.api.simulator_logs import SimulatorLogsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_routines import SimulatorRoutinesAPI
+from cognite_toolkit._cdf_tk.client.api.simulator_runs import SimulatorRunsAPI
 from cognite_toolkit._cdf_tk.client.api.statistics import SpaceStatisticsAPI, StatisticsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import (
@@ -65,6 +68,8 @@ from cognite_toolkit._cdf_tk.client.api.three_d import (
     ThreeDClassicModelsAPI,
     ThreeDClassicRevisionsAPI,
     ThreeDDMAssetMappingAPI,
+    ThreeDFilesAPI,
+    ThreeDJobsAPI,
     ThreeDNodesAPI,
 )
 from cognite_toolkit._cdf_tk.client.api.transformation_externaldata import TransformationExternalDataSourcesAPI
@@ -317,6 +322,10 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         SimulatorRoutinesAPI,
         SimulatorModelRevisionsAPI,
         SimulatorRoutineRevisionsAPI,
+        # Runs need a routine and a connected simulator. Integrations are created by connectors, and logs are read-only.
+        SimulatorRunsAPI,
+        SimulatorIntegrationsAPI,
+        SimulatorLogsAPI,
         # Do not support delete.
         DataSetsAPI,
         # RAW tables depend on existing RAW databases, so they are tested together.
@@ -422,6 +431,9 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         FunctionCallsAPI,
         # Needs a 3D model processed
         ThreeDNodesAPI,
+        ThreeDFilesAPI,
+        # Jobs require a session nonce and 3D source data, and have no retrieve or update.
+        ThreeDJobsAPI,
         # Datapoints API requires a timeseries to exists.
         DatapointsAPI,
         # Schema do not have a create/update/delete, and the retrieve method requires a schema type.

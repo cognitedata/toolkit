@@ -101,10 +101,13 @@ from .api.sequence_rows import SequenceRowsAPI
 from .api.sequences import SequencesAPI
 from .api.sessions import SessionAPI
 from .api.signals import SignalsAPI
+from .api.simulator_integrations import SimulatorIntegrationsAPI
+from .api.simulator_logs import SimulatorLogsAPI
 from .api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from .api.simulator_models import SimulatorModelsAPI
 from .api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
 from .api.simulator_routines import SimulatorRoutinesAPI
+from .api.simulator_runs import SimulatorRunsAPI
 from .api.simulators import SimulatorsAPI
 from .api.skills import SkillsAPI
 from .api.statistics import SpaceStatisticsAPI, StatisticsAPI
@@ -116,6 +119,8 @@ from .api.three_d import (
     ThreeDClassicModelsAPI,
     ThreeDClassicRevisionsAPI,
     ThreeDDMAssetMappingAPI,
+    ThreeDFilesAPI,
+    ThreeDJobsAPI,
     ThreeDMigrationAPI,
     ThreeDNodesAPI,
 )
@@ -287,6 +292,8 @@ class ToolkitClientMock(ToolkitClient):
         self.three_d.asset_mappings_classic = MagicMock(spec_set=ThreeDClassicAssetMappingAPI)
         self.three_d.asset_mappings_dm = MagicMock(spec_set=ThreeDDMAssetMappingAPI)
         self.three_d.migration = MagicMock(spec_set=ThreeDMigrationAPI)
+        self.three_d.files = MagicMock(spec_set=ThreeDFilesAPI)
+        self.three_d.jobs = MagicMock(spec_set=ThreeDJobsAPI)
         self.assets = MagicMock(spec_set=AssetsAPI)
         self.cognite_files = MagicMock(spec_set=CogniteFilesAPI)
         self.timeseries = MagicMock(spec=TimeSeriesAPI)
@@ -313,6 +320,9 @@ class ToolkitClientMock(ToolkitClient):
         self.simulators.model_revisions = MagicMock(spec_set=SimulatorModelRevisionsAPI)
         self.simulators.routines = MagicMock(spec_set=SimulatorRoutinesAPI)
         self.simulators.routine_revisions = MagicMock(spec_set=SimulatorRoutineRevisionsAPI)
+        self.simulators.runs = MagicMock(spec_set=SimulatorRunsAPI)
+        self.simulators.integrations = MagicMock(spec_set=SimulatorIntegrationsAPI)
+        self.simulators.logs = MagicMock(spec_set=SimulatorLogsAPI)
         self.datasets = MagicMock(spec_set=DataSetsAPI)
         self.documents = MagicMock(spec_set=DocumentsAPI)
         self.extraction_pipelines = MagicMock(spec=ExtractionPipelinesAPI)

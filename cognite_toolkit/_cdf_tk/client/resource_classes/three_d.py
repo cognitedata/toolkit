@@ -1,6 +1,6 @@
 from typing import Any, ClassVar, Literal, Self
 
-from pydantic import Field
+from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -10,7 +10,13 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeId, NodeUntypedId, ThreeDModelRevisionId
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    InternalId,
+    NodeId,
+    NodeUntypedId,
+    ThreeDJobId,
+    ThreeDModelRevisionId,
+)
 
 
 class RevisionStatus(BaseModelObject):
@@ -84,6 +90,9 @@ class ThreeDRevisionClassicRequest(UpdatableRequestResource):
     metadata: Metadata | None = None
     camera: ThreeDRevisionCamera | None = None
     file_id: int
+    # Required when pipeline_configuration extracts photosphere images from point clouds.
+    nonce: str | None = None
+    pipeline_configuration: dict[str, JsonValue] | None = None
     # This field is used for update/delete and is not part of the create body schema.
     id: int | None = Field(None, exclude=True)
     # model_id is a path parameter, not part of the request body.
@@ -96,9 +105,9 @@ class ThreeDRevisionClassicRequest(UpdatableRequestResource):
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         update = super().as_update(mode)
-        # the FileId is immutable.
-        if "update" in update and "fileId" in update["update"]:
-            del update["update"]["fileId"]
+        # These can only be set on creation.
+        for key in ("fileId", "nonce", "pipelineConfiguration"):
+            update.get("update", {}).pop(key, None)
         return update
 
 
@@ -206,6 +215,7 @@ class AssetMappingClassicResponse(ResponseResource[AssetMappingClassicRequestId]
 class AssetMappingDMResponse(ResponseResource[AssetMappingDMRequestId]):
     node_id: int
     asset_instance_id: NodeUntypedId
+    asset_id: int | None = None
     tree_index: int | None = None
     subtree_size: int | None = None
     # These fields are part of the path request and response, but they are included here for convenience.
@@ -273,3 +283,87 @@ class ThreeDNodeResponse(BaseModelObject):
     # Path parameters. The nodes API does not return them.
     model_id: int = Field(-1, exclude=True)
     revision_id: int = Field(-1, exclude=True)
+
+
+class ThreeDAssetNodeMapping(BaseModelObject):
+    """A node an asset is mapped to, in any 3D model and revision."""
+
+    model_id: int
+    revision_id: int
+    node_id: int
+
+
+class ThreeDJobSource(BaseModelObject):
+    """The instance the job processes: a CogniteFile for optimizer jobs, or a Cognite360ImageCollection."""
+
+    type: str
+    instance_id: NodeUntypedId
+
+
+class ThreeDJob(BaseModelObject):
+    """A job that processes 3D source data in a data modeling project.
+
+    ``type`` is "Optimizer" or "ImageTextDetection". Optimizer jobs set the model instance the result is
+    connected to in ``configuration``, for example ``cadModelInstanceId``.
+    """
+
+    space: str
+    external_id: str
+    name: str
+    type: str
+    source: ThreeDJobSource
+    configuration: dict[str, JsonValue] = Field(default_factory=dict)
+
+    def as_id(self) -> ThreeDJobId:
+        return ThreeDJobId(space=self.space, external_id=self.external_id)
+
+
+class ThreeDJobRequest(ThreeDJob):
+    nonce: str
+
+
+class ThreeDJobResponse(ThreeDJob):
+    status: Literal["Scheduled", "Started", "Failed", "Succeeded", "Cancelled"]
+    created_at: int
+
+
+class ThreeDJobResult(BaseModelObject):
+    type: str
+    instance_id: NodeUntypedId
+
+
+class ThreeDJobRejection(BaseModelObject):
+    rejected_key: str
+
+
+class ThreeDBoundingBoxFilter(BaseModelObject):
+    x_min: float
+    x_max: float
+    y_min: float
+    y_max: float
+    z_min: float
+    z_max: float
+
+
+class ThreeDNodeInBoundingBox(BaseModelObject):
+    id: int
+    tree_index: int
+    depth: int
+    name: str
+    subtree_size: int
+    bounding_box: BoundingBox3D
+
+
+class ThreeDRevisionLog(BaseModelObject):
+    timestamp: int
+    severity: int
+    type: str
+    info: str | None = None
+
+
+class ThreeDRevisionOutput(BaseModelObject):
+    """A file produced when the revision was processed, for example the reveal format used by the 3D viewer."""
+
+    format: str
+    version: int
+    blob_id: int

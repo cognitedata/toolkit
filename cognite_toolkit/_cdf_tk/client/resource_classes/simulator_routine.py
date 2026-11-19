@@ -1,3 +1,5 @@
+from typing import Literal
+
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
@@ -8,6 +10,7 @@ class SimulatorRoutine(BaseModelObject):
     simulator_integration_external_id: str
     name: str
     description: str | None = None
+    kind: Literal["long"] | None = None
 
 
 class SimulatorRoutineRequest(RequestResource, SimulatorRoutine):
