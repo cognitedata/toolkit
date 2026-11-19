@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewRequest,
 )
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
+from cognite_toolkit._cdf_tk.data_classes._deploy_results import ResourceDeployResult
 from tests.test_integration.constants import RUN_UNIQUE_ID
 from tests.test_unit.utils import MockQuestionary
 
@@ -303,8 +304,9 @@ class TestPurge:
             )
         retrieved_space = toolkit_client.spaces.retrieve([SpaceId(space=space_with_records_view)])
         assert not retrieved_space
-        assert [f"{resource_id}: {getattr(item, 'deleted')}" for resource_id, item in results.items()] == [
-            "SpaceId(space=space_with_records_view): True",
-            "ContainerId(space=space_with_records_view, external_id=ToBePurged_RUN_UNIQUE_ID): True",
-            "ViewId(space=space_with_records_view, external_id=ToBePurged_RUN_UNIQUE_ID, version=v1): True",
-        ]
+        deleted_by_kind = {
+            name: result.deleted
+            for name, result in results.items()
+            if isinstance(result, ResourceDeployResult) and result.deleted
+        }
+        assert deleted_by_kind == {"views": 1, "containers": 1, "spaces": 1}

@@ -354,7 +354,7 @@ class PurgeCommand(ToolkitCommand):
                 "Purging spaces containing instances currently requires datamodelsAcl:read with All scope."
             )
 
-        if stats.containers > 0:
+        if stats.total_containers > 0:
             container_ids = [
                 ContainerId(space=c.space, external_id=c.external_id)
                 for c in client.containers.list(filter=ContainerFilter(space=selected_space))
@@ -404,7 +404,7 @@ class PurgeCommand(ToolkitCommand):
         # We check for write even in dry-run mode. This is because dry-run is expected to fail
         # if the user cannot perform the purge.
         required_acls: list[AclType] = []
-        if include_space or (stats.containers + stats.views + stats.data_models) > 0:
+        if include_space or (stats.total_containers + stats.views + stats.data_models) > 0:
             required_acls.append(
                 DataModelsAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=[selected_space]))
             )
@@ -454,7 +454,7 @@ class PurgeCommand(ToolkitCommand):
             DataModelingToDelete(ViewIO(client), stats.views, config.create_api_url("/models/views/delete")),
             DataModelingToDelete(
                 ContainerIO(client),
-                stats.containers,
+                stats.total_containers,
                 config.create_api_url("/models/containers/delete"),
             ),
         ]
