@@ -7,10 +7,11 @@ import pytest
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
-    ExternalDataSourceRequest,
     ExternalDataSourceResponse,
     OneLakeCredentialsRead,
     OneLakeCredentialsWrite,
+    OneLakeExternalDataSourceRequest,
+    OneLakeExternalDataSourceResponse,
     OneLakeLocationDescription,
     OneLakeSettingsRead,
     OneLakeSettingsWrite,
@@ -42,8 +43,8 @@ settings:
 
 def _make_request(
     external_id: str = "fabric-lakehouse-prod", data_set_id: int | None = None
-) -> ExternalDataSourceRequest:
-    return ExternalDataSourceRequest(
+) -> OneLakeExternalDataSourceRequest:
+    return OneLakeExternalDataSourceRequest(
         external_id=external_id,
         data_set_id=data_set_id,
         settings=OneLakeSettingsWrite(
@@ -62,11 +63,10 @@ def _make_request(
 
 def _make_response(
     external_id: str = "fabric-lakehouse-prod", data_set_id: int | None = None
-) -> ExternalDataSourceResponse:
-    return ExternalDataSourceResponse(
+) -> OneLakeExternalDataSourceResponse:
+    return OneLakeExternalDataSourceResponse(
         external_id=external_id,
         data_set_id=data_set_id,
-        format="one_lake",
         created_time=1,
         last_updated_time=1,
         settings=OneLakeSettingsRead(
@@ -205,7 +205,7 @@ class TestExternalDataSourceIO:
             response = _make_response()
             api = client.transformations.external_data_sources
             api.create.return_value = [response]
-            api.list.return_value = [response]
+            api.retrieve.return_value = [response]
 
             assert loader.create([item]) == [response]
             assert loader.retrieve([ExternalId(external_id="fabric-lakehouse-prod")]) == [response]

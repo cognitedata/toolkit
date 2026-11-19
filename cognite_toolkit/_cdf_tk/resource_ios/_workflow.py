@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import WorkflowFilter, WorkflowFilterItem
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
@@ -62,6 +63,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
+from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
 from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import (
@@ -456,18 +458,20 @@ class WorkflowVersionIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowVersionResponse]:
-        # Note: The new API doesn't support filtering by workflow_ids in list, so we iterate over all
-        for versions in self.client.workflows.versions.iterate(limit=None):
-            if parent_ids is not None:
-                workflow_ids = {
-                    parent_id.external_id if isinstance(parent_id, ExternalId) else parent_id
-                    for parent_id in parent_ids
-                    if isinstance(parent_id, (str, ExternalId))
-                }
-                for version in versions:
-                    if version.workflow_external_id in workflow_ids:
-                        yield version
-            else:
+        if parent_ids is None:
+            for versions in self.client.workflows.versions.iterate(limit=None):
+                yield from versions
+            return
+        workflow_ids = list(
+            dict.fromkeys(
+                parent_id.external_id if isinstance(parent_id, ExternalId) else parent_id
+                for parent_id in parent_ids
+                if isinstance(parent_id, (str, ExternalId))
+            )
+        )
+        for chunk in chunker_sequence(workflow_ids, self._list_workflow_filter_limit):
+            filter_ = WorkflowFilter(workflow_filters=[WorkflowFilterItem(external_id=id_) for id_ in chunk])
+            for versions in self.client.workflows.versions.iterate(filter=filter_, limit=None):
                 yield from versions
 
     @classmethod

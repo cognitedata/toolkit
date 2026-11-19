@@ -119,12 +119,12 @@ class SimulatorModelsAPI(CDFResourceAPI[SimulatorModelResponse]):
     def iterate(
         self,
         filter: SimulatorModelFilter | None = None,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[builtins.list[SimulatorModelResponse]]:
         """Iterate over simulator models in CDF.
 
         Args:
-
+            filter: Filter to apply to the list of simulator models.
             limit: Maximum number of items to return per page.
 
         Returns:
@@ -139,14 +139,16 @@ class SimulatorModelsAPI(CDFResourceAPI[SimulatorModelResponse]):
 
     def list(
         self,
+        filter: SimulatorModelFilter | None = None,
         limit: int | None = 100,
     ) -> builtins.list[SimulatorModelResponse]:
         """List all simulator models in CDF.
 
         Args:
+            filter: Filter to apply to the list of simulator models.
             limit: Maximum number of items to return. None for all items.
 
         Returns:
             List of SimulatorModelResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, body={"filter": filter.dump() if filter else None})

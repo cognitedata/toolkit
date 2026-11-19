@@ -121,8 +121,10 @@ from .api.three_d import (
 from .api.timeseries import TimeSeriesAPI
 from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
+from .api.units import UnitsAPI
 from .api.user_profiles import UserProfilesAPI
 from .api.workflow_executions import WorkflowExecutionsAPI
+from .api.workflow_tasks import WorkflowTasksAPI
 from .api.workflow_triggers import WorkflowTriggersAPI
 from .api.workflow_versions import WorkflowVersionsAPI
 from .api.workflows import WorkflowsAPI
@@ -192,6 +194,7 @@ class ToolkitClientMock(ToolkitClient):
     metering: MagicMock
     user_profiles: MagicMock
     postgres_gateway: MagicMock
+    units: MagicMock
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         # Intentionally do NOT call super().__init__(): it would require a real
@@ -339,6 +342,7 @@ class ToolkitClientMock(ToolkitClient):
         self.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)
         self.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)
         self.workflows.executions = MagicMock(spec_set=WorkflowExecutionsAPI)
+        self.workflows.tasks = MagicMock(spec_set=WorkflowTasksAPI)
         self.data_products = MagicMock(spec=DataProductsAPI)
         self.data_products.versions = MagicMock(spec_set=DataProductVersionsAPI)
         self.rulesets = MagicMock(spec=RuleSetsAPI)
@@ -364,6 +368,7 @@ class ToolkitClientMock(ToolkitClient):
         self.postgres_gateway = MagicMock(spec=PostgresGatewayAPI)
         self.postgres_gateway.users = MagicMock(spec_set=PostgresGatewayUsersAPI)
         self.postgres_gateway.tables = MagicMock(spec_set=PostgresGatewayTablesAPI)
+        self.units = MagicMock(spec_set=UnitsAPI)
 
 
 @contextmanager
