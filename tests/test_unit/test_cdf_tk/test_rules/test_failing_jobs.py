@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowExecutionId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_call import FunctionCallResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
@@ -20,8 +20,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     TransformationResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import WorkflowExecutionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_execution import (
+    WorkflowExecutionDetailedResponse,
+    WorkflowExecutionResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
+from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from cognite_toolkit._cdf_tk.resource_ios import TransformationIO, WorkflowIO
 from cognite_toolkit._cdf_tk.rules import FailingJobRuleSet
 from cognite_toolkit._cdf_tk.rules._failing_jobs import FailingJob
@@ -126,13 +130,13 @@ def _transformation(id_: int, external_id: str, **extra: Any) -> TransformationR
     )
 
 
-def _hosted_job(external_id: str, status: str) -> HostedExtractorJobResponse:
+def _hosted_job(external_id: str, status: str, job_format: dict[str, Any] | None = None) -> HostedExtractorJobResponse:
     return HostedExtractorJobResponse.model_validate(
         {
             "externalId": external_id,
             "destinationId": "my_destination",
             "sourceId": "my_source",
-            "format": {"type": "cognite"},
+            "format": job_format or {"type": "cognite"},
             "status": status,
             "createdTime": 0,
             "lastUpdatedTime": 0,
@@ -435,3 +439,125 @@ class TestFailingJobRuleSet:
         transformation = _transformation(1, "tr", destination=destination)
 
         assert FailingJobRuleSet._get_transformation_impact(transformation.destination) == expected
+
+    @pytest.mark.parametrize(
+        "job_format, expected",
+        [
+            pytest.param(
+                {"type": "cognite", "dataModels": {"space": "my_space"}},
+                {"resources in data set with id 42", "instances in space my_space"},
+                id="data-models",
+            ),
+            pytest.param(
+                {"type": "custom", "mappingId": "my_mapping"},
+                {"resources in data set with id 42", "resources written by mapping my_mapping"},
+                id="custom",
+            ),
+        ],
+    )
+    def test_get_hosted_extractor_impact(self, job_format: dict[str, Any], expected: set[str]) -> None:
+        job = _hosted_job("job", "cdf_write_error", job_format)
+        destination = HostedExtractorDestinationResponse(
+            external_id="my_destination", target_data_set_id=42, created_time=0, last_updated_time=0
+        )
+
+        assert FailingJobRuleSet._get_hosted_extractor_impact(job, destination) == expected
+
+    def test_set_workflow_impact_from_incomplete_tasks(self) -> None:
+        client = MagicMock()
+        client.workflows.executions.retrieve.return_value = [
+            WorkflowExecutionDetailedResponse.model_validate(
+                {
+                    "id": "e1",
+                    "workflowExternalId": "my_workflow",
+                    "version": "v1",
+                    "status": "FAILED",
+                    "createdTime": RECENT,
+                    "workflowDefinition": {
+                        "tasks": [
+                            {
+                                "externalId": "done_tr",
+                                "type": "transformation",
+                                "parameters": {"transformation": {"externalId": "tr_done"}},
+                            },
+                            {
+                                "externalId": "failed_tr",
+                                "type": "transformation",
+                                "parameters": {"transformation": {"externalId": "tr_failed"}},
+                            },
+                            {
+                                "externalId": "call_fn",
+                                "type": "function",
+                                "parameters": {"function": {"externalId": "fn"}},
+                            },
+                            {
+                                "externalId": "sub",
+                                "type": "subworkflow",
+                                "parameters": {
+                                    "subworkflow": {
+                                        "tasks": [
+                                            {
+                                                "externalId": "write_dps",
+                                                "type": "cdf",
+                                                "parameters": {
+                                                    "cdfRequest": {
+                                                        "resourcePath": "/timeseries/data",
+                                                        "method": "POST",
+                                                    }
+                                                },
+                                            },
+                                            {
+                                                "externalId": "list_ts",
+                                                "type": "cdf",
+                                                "parameters": {
+                                                    "cdfRequest": {"resourcePath": "/timeseries/list", "method": "POST"}
+                                                },
+                                            },
+                                        ]
+                                    }
+                                },
+                            },
+                        ]
+                    },
+                    "executedTasks": [
+                        {"id": "t1", "externalId": "done_tr", "status": "COMPLETED"},
+                        {"id": "t2", "externalId": "failed_tr", "status": "FAILED"},
+                        {"id": "t3", "externalId": "call_fn", "status": "FAILED"},
+                    ],
+                }
+            )
+        ]
+        client.transformations.retrieve.return_value = [
+            _transformation(1, "tr_failed", destination={"type": "raw", "database": "db", "table": "tbl"})
+        ]
+        failure = FailingJob(
+            job_type="Workflow",
+            job=_workflow_version(),
+            url="/workflows/my_workflow/executions/",
+            execution_id=WorkflowExecutionId(id="e1"),
+        )
+        rule = FailingJobRuleSet(client=client)
+
+        exceptions = list(rule._set_workflow_impact(client, [failure]))
+
+        assert (exceptions, failure.impact) == (
+            [],
+            {"RAW table db.tbl", "target of CDF request POST /timeseries/data"},
+        )
+
+    def test_diagnose_failures_reports_failing_token_inspection(self) -> None:
+        client = MagicMock()
+        client.token.verify_acls.side_effect = AuthorizationError("Token inspection failed")
+        failure = FailingJob(
+            job_type="Transformation",
+            job=_transformation(1, "tr_failed"),
+            url="/transformations/1/",
+            session_ids={1},
+        )
+        rule = FailingJobRuleSet(client=client)
+
+        exceptions = list(rule._diagnose_failures(client, [failure]))
+
+        assert [exception.message for exception in exceptions] == [
+            "Failed to verify sessions in CDF: Token inspection failed"
+        ]
