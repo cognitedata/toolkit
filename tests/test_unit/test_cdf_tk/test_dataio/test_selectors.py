@@ -38,6 +38,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     CogniteFileTemplateSelectorV2,
     DataPointsDataSetSelector,
     DataPointsFileSelector,
+    DataPointsInstanceSpaceSelector,
     DataSelector,
     DataSetSelector,
     FileDataModelingTemplateSelector,
@@ -55,7 +56,10 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     SequenceRowSelector,
     ThreeDModelFilteredSelector,
     ThreeDModelIdSelector,
+    load_selector_from_dict,
 )
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
@@ -269,6 +273,17 @@ def example_selector_data() -> Iterable[tuple]:
     )
     yield pytest.param(
         {
+            "type": "datapointsInstanceSpace",
+            "instanceSpace": "my_instance_space",
+            "kind": "Datapoints",
+        },
+        DataPointsInstanceSpaceSelector,
+        DatapointsIO,
+        DatapointsIO.KIND,
+        id="DataPointsInstanceSpaceSelector",
+    )
+    yield pytest.param(
+        {
             "type": "recordContainer",
             "stream": {"externalId": "my_stream"},
             "container": {"space": "my_space", "externalId": "my_container"},
@@ -449,3 +464,12 @@ class TestDataSelectors:
         loaded = SelectorAdapter.validate_python(data)
         assert loaded.model_dump() == instance.model_dump()
         assert type(loaded) is type(instance)
+
+    @pytest.mark.parametrize("enabled", [True, False])
+    def test_alpha_selector_requires_flag(self, enabled: bool, monkeypatch: MonkeyPatch) -> None:
+        monkeypatch.setattr(FeatureFlag, "is_enabled", lambda flag: enabled)
+        data = {"type": "datapointsInstanceSpace", "instanceSpace": "my_instance_space", "kind": "Datapoints"}
+
+        loaded = load_selector_from_dict(data, Path("state.Manifest.yaml"))
+
+        assert type(loaded) is (DataPointsInstanceSpaceSelector if enabled else MediumSeverityWarning)
