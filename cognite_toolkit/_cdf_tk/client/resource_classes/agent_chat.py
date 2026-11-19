@@ -6,13 +6,13 @@ https://api-docs.cognite.com/20230101-alpha/tag/Agents/operation/agent_session_a
 Note: This is an alpha API and may change in future releases.
 """
 
-from collections.abc import Callable, Mapping
+from collections.abc import Set
 from datetime import datetime
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BeforeValidator, ConfigDict, Field, JsonValue
+from pydantic import ConfigDict, Discriminator, Field, JsonValue, Tag
 
-from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId
+from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId, ViewUntypedId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentObject
 
 AgentChatToolType: TypeAlias = (
@@ -49,15 +49,14 @@ AgentChatToolType: TypeAlias = (
 )
 
 
-def _parse_by_type(known: Mapping[str, type[AgentObject]], unknown: type[AgentObject]) -> Callable[[Any], Any]:
-    """Parses a dict into the class matching its 'type', falling back to the unknown class for new types."""
+def _type_discriminator(known: Set[str]) -> Discriminator:
+    """Discriminates on 'type', tagging types not yet known to Toolkit as 'unknown'."""
 
-    def parse(value: Any) -> Any:
-        if isinstance(value, dict):
-            return known.get(value.get("type", ""), unknown).model_validate(value)
-        return value
+    def get_tag(value: Any) -> str:
+        type_ = value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
+        return type_ if isinstance(type_, str) and type_ in known else "unknown"
 
-    return parse
+    return Discriminator(get_tag)
 
 
 class AgentChatTextContent(AgentObject):
@@ -74,12 +73,6 @@ class AgentChatImageContent(AgentObject):
 AgentChatContentPart: TypeAlias = Annotated[AgentChatTextContent | AgentChatImageContent, Field(discriminator="type")]
 
 
-class AgentChatView(AgentObject):
-    space: str
-    external_id: str
-    version: str
-
-
 class AgentChatPageReference(AgentObject):
     type: Literal["page"] = "page"
     page: int
@@ -90,27 +83,26 @@ class AgentChatDataDefinition(AgentObject):
     type: str
 
 
-class AgentChatInstanceData(AgentChatDataDefinition):
+class AgentChatInstanceDataDefinition(AgentChatDataDefinition):
+    """Data referencing a node, with the properties of the node in the view."""
+
+    view: ViewUntypedId
+    instance_id: NodeUntypedId
+    properties: dict[str, JsonValue] | None = None
+
+
+class AgentChatInstanceData(AgentChatInstanceDataDefinition):
     type: Literal["instance"] = "instance"
-    view: AgentChatView
-    instance_id: NodeUntypedId
-    properties: dict[str, JsonValue] | None = None
 
 
-class AgentChatTimeSeriesData(AgentChatDataDefinition):
+class AgentChatTimeSeriesData(AgentChatInstanceDataDefinition):
     type: Literal["timeseries"] = "timeseries"
-    view: AgentChatView
-    instance_id: NodeUntypedId
-    properties: dict[str, JsonValue] | None = None
     start_time: datetime | None = None
     end_time: datetime | None = None
 
 
-class AgentChatFileData(AgentChatDataDefinition):
+class AgentChatFileData(AgentChatInstanceDataDefinition):
     type: Literal["file"] = "file"
-    view: AgentChatView
-    instance_id: NodeUntypedId
-    properties: dict[str, JsonValue] | None = None
     references: list[AgentChatPageReference] | None = None
 
 
@@ -134,24 +126,13 @@ class UnknownAgentChatData(AgentChatDataDefinition):
 
 
 AgentChatData: TypeAlias = Annotated[
-    AgentChatInstanceData
-    | AgentChatTimeSeriesData
-    | AgentChatFileData
-    | AgentChatSandboxFileData
-    | AgentChatClientData
-    | UnknownAgentChatData,
-    BeforeValidator(
-        _parse_by_type(
-            {
-                "instance": AgentChatInstanceData,
-                "timeseries": AgentChatTimeSeriesData,
-                "file": AgentChatFileData,
-                "sandbox-file": AgentChatSandboxFileData,
-                "client": AgentChatClientData,
-            },
-            UnknownAgentChatData,
-        )
-    ),
+    Annotated[AgentChatInstanceData, Tag("instance")]
+    | Annotated[AgentChatTimeSeriesData, Tag("timeseries")]
+    | Annotated[AgentChatFileData, Tag("file")]
+    | Annotated[AgentChatSandboxFileData, Tag("sandbox-file")]
+    | Annotated[AgentChatClientData, Tag("client")]
+    | Annotated[UnknownAgentChatData, Tag("unknown")],
+    _type_discriminator({"instance", "timeseries", "file", "sandbox-file", "client"}),
 ]
 
 
@@ -244,6 +225,12 @@ class AgentChatClientAction(AgentObject):
     client_tool: ClientToolSchema
 
 
+class AgentChatStreamOptions(AgentObject):
+    return_cursor: bool | None = Field(
+        None, description="Whether to send the cursor as the first event, to resume an interrupted stream."
+    )
+
+
 class AgentChatRequest(AgentObject):
     model_config = ConfigDict(validate_assignment=True)
 
@@ -253,6 +240,8 @@ class AgentChatRequest(AgentObject):
     actions: list[AgentChatClientAction] | None = Field(None, max_length=20)
     retention_policy: Literal["temporary", "persisted"] | None = None
     tool_confirmation_mode: Literal["default", "dangerouslyAllowAll"] | None = None
+    stream: bool | None = None
+    stream_options: AgentChatStreamOptions | None = None
 
 
 class ToolConfirmationCaller(AgentObject):
@@ -317,20 +306,11 @@ class UnknownAgentChatAction(AgentChatActionDefinition):
 
 
 AgentChatAction: TypeAlias = Annotated[
-    AgentChatClientToolRequest
-    | AgentChatToolConfirmationRequest
-    | AgentChatUserSessionRequest
-    | UnknownAgentChatAction,
-    BeforeValidator(
-        _parse_by_type(
-            {
-                "clientTool": AgentChatClientToolRequest,
-                "toolConfirmation": AgentChatToolConfirmationRequest,
-                "userSession": AgentChatUserSessionRequest,
-            },
-            UnknownAgentChatAction,
-        )
-    ),
+    Annotated[AgentChatClientToolRequest, Tag("clientTool")]
+    | Annotated[AgentChatToolConfirmationRequest, Tag("toolConfirmation")]
+    | Annotated[AgentChatUserSessionRequest, Tag("userSession")]
+    | Annotated[UnknownAgentChatAction, Tag("unknown")],
+    _type_discriminator({"clientTool", "toolConfirmation", "userSession"}),
 ]
 
 
@@ -362,14 +342,64 @@ class AgentChatAgentMessage(AgentObject):
     reasoning: list[AgentReasoning] | None = None
 
 
-class AgentChatResult(AgentObject):
+class AgentChatResponseDefinition(AgentObject):
+    type: str
+
+
+class AgentChatResult(AgentChatResponseDefinition):
+    """The agent's complete reply. When streaming, this is the last event."""
+
     type: Literal["result"] = "result"
     cursor: str | None = None
     messages: list[AgentChatAgentMessage]
 
 
+class ToolCallProgress(AgentObject):
+    name: str
+    tool_type: AgentChatToolType
+    input: dict[str, JsonValue]
+
+
+class AgentChatProgress(AgentChatResponseDefinition):
+    """A status update while the agent is working. Only sent when streaming."""
+
+    type: Literal["progress"] = "progress"
+    content: str
+    tool_call: ToolCallProgress | None = None
+
+
+class AgentChatChunk(AgentChatResponseDefinition):
+    """A fragment of the agent's reply. Only sent when streaming."""
+
+    type: Literal["responseChunk"] = "responseChunk"
+    content: str
+
+
+class AgentChatCursor(AgentChatResponseDefinition):
+    """The conversation cursor, sent first when streaming with return_cursor."""
+
+    type: Literal["cursor"] = "cursor"
+    cursor: str
+
+
+class UnknownAgentChatResponse(AgentChatResponseDefinition):
+    """Fallback for response types not yet known to Toolkit."""
+
+    ...
+
+
+AgentChatResponseContent: TypeAlias = Annotated[
+    Annotated[AgentChatResult, Tag("result")]
+    | Annotated[AgentChatProgress, Tag("progress")]
+    | Annotated[AgentChatChunk, Tag("responseChunk")]
+    | Annotated[AgentChatCursor, Tag("cursor")]
+    | Annotated[UnknownAgentChatResponse, Tag("unknown")],
+    _type_discriminator({"result", "progress", "responseChunk", "cursor"}),
+]
+
+
 class AgentChatResponse(AgentObject):
-    """The agent's reply. Pass ``response.cursor`` to the next chat call to continue the conversation."""
+    """A reply from the agent. Pass the cursor of the result to the next chat call to continue the conversation."""
 
     agent_external_id: str
-    response: AgentChatResult
+    response: AgentChatResponseContent

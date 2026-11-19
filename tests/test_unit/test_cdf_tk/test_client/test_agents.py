@@ -5,16 +5,19 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent_chat import (
     AgentChatAgentMessage,
-    AgentChatResponse,
+    AgentChatChunk,
+    AgentChatCursor,
+    AgentChatProgress,
     AgentChatResult,
+    AgentChatStreamOptions,
     AgentChatTextContent,
     AgentChatToolConfirmation,
     AgentChatToolConfirmationInfo,
     AgentChatToolConfirmationRequest,
     AgentChatUserMessage,
+    UnknownAgentChatResponse,
 )
 
 CHAT_RESPONSE = {
@@ -56,7 +59,7 @@ class TestAgentsAPI:
         )
 
         toolkit_client.agents.chat(
-            ExternalId(external_id="my_agent"),
+            "my_agent",
             [
                 AgentChatUserMessage(content=AgentChatTextContent(text="Hi")),
                 AgentChatToolConfirmation(action_id="action_1", status="ALLOW"),
@@ -89,29 +92,72 @@ class TestAgentsAPI:
         )
 
         response = toolkit_client.agents.chat(
-            ExternalId(external_id="my_agent"), [AgentChatUserMessage(content=AgentChatTextContent(text="Hi"))]
+            "my_agent", [AgentChatUserMessage(content=AgentChatTextContent(text="Hi"))]
         )
 
-        assert response == AgentChatResponse(
-            agent_external_id="my_agent",
-            response=AgentChatResult(
-                cursor="abc",
-                messages=[
-                    AgentChatAgentMessage(
-                        content=AgentChatTextContent(text="May I run the function?"),
-                        actions=[
-                            AgentChatToolConfirmationRequest(
-                                action_id="action_1",
-                                tool_confirmation=AgentChatToolConfirmationInfo(
-                                    content=AgentChatTextContent(text="Run my_function"),
-                                    tool_name="my_function",
-                                    tool_description="Runs my function",
-                                    tool_type="callFunction",
-                                    tool_arguments={"x": 1},
-                                ),
-                            )
-                        ],
-                    )
-                ],
-            ),
+        assert response.response == AgentChatResult(
+            cursor="abc",
+            messages=[
+                AgentChatAgentMessage(
+                    content=AgentChatTextContent(text="May I run the function?"),
+                    actions=[
+                        AgentChatToolConfirmationRequest(
+                            action_id="action_1",
+                            tool_confirmation=AgentChatToolConfirmationInfo(
+                                content=AgentChatTextContent(text="Run my_function"),
+                                tool_name="my_function",
+                                tool_description="Runs my function",
+                                tool_type="callFunction",
+                                tool_arguments={"x": 1},
+                            ),
+                        )
+                    ],
+                )
+            ],
         )
+
+    def test_chat_stream(
+        self, toolkit_client: ToolkitClient, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        events = [
+            {"type": "cursor", "cursor": "abc"},
+            {"type": "progress", "content": "Searching"},
+            {"type": "responseChunk", "content": "Hel"},
+            {"type": "newEventType", "content": "lo"},
+            {"type": "result", "cursor": "abc", "messages": []},
+        ]
+        route = respx_mock.post(toolkit_config.create_api_url("/ai/agents/chat")).mock(
+            return_value=httpx2.Response(
+                200,
+                text="".join(
+                    f"data: {json.dumps({'agentExternalId': 'my_agent', 'response': event})}\n\n" for event in events
+                ),
+                headers={"content-type": "text/event-stream"},
+            )
+        )
+
+        responses = toolkit_client.agents.chat(
+            "my_agent",
+            [AgentChatUserMessage(content=AgentChatTextContent(text="Hi"))],
+            stream=True,
+            stream_options=AgentChatStreamOptions(return_cursor=True),
+        )
+
+        assert {
+            "body": json.loads(route.calls[0].request.content),
+            "responses": [response.response for response in responses],
+        } == {
+            "body": {
+                "agentExternalId": "my_agent",
+                "messages": [{"role": "user", "content": {"type": "text", "text": "Hi"}}],
+                "stream": True,
+                "streamOptions": {"returnCursor": True},
+            },
+            "responses": [
+                AgentChatCursor(cursor="abc"),
+                AgentChatProgress(content="Searching"),
+                AgentChatChunk(content="Hel"),
+                UnknownAgentChatResponse(type="newEventType", content="lo"),
+                AgentChatResult(cursor="abc", messages=[]),
+            ],
+        }

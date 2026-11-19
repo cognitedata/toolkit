@@ -8,7 +8,7 @@ Note: This is an alpha API and may change in future releases.
 
 import builtins
 from collections.abc import Iterable, Sequence
-from typing import Literal
+from typing import Literal, overload
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.agent_chat import (
     AgentChatMessage,
     AgentChatRequest,
     AgentChatResponse,
+    AgentChatStreamOptions,
 )
 
 
@@ -113,31 +114,65 @@ class AgentsAPI(CDFResourceAPI[AgentResponse]):
         """
         return self._list(limit=limit)
 
+    @overload
     def chat(
         self,
-        agent: ExternalId,
+        agent_external_id: str,
         messages: Sequence[AgentChatMessage],
         cursor: str | None = None,
         actions: Sequence[AgentChatClientAction] | None = None,
         retention_policy: Literal["temporary", "persisted"] | None = None,
         tool_confirmation_mode: Literal["default", "dangerouslyAllowAll"] | None = None,
+        stream: Literal[False] = False,
+        stream_options: AgentChatStreamOptions | None = None,
         content_type: str = "application/json",
-    ) -> AgentChatResponse:
+    ) -> AgentChatResponse: ...
+
+    @overload
+    def chat(
+        self,
+        agent_external_id: str,
+        messages: Sequence[AgentChatMessage],
+        cursor: str | None = None,
+        actions: Sequence[AgentChatClientAction] | None = None,
+        retention_policy: Literal["temporary", "persisted"] | None = None,
+        tool_confirmation_mode: Literal["default", "dangerouslyAllowAll"] | None = None,
+        *,
+        stream: Literal[True],
+        stream_options: AgentChatStreamOptions | None = None,
+        content_type: str = "application/json",
+    ) -> builtins.list[AgentChatResponse]: ...
+
+    def chat(
+        self,
+        agent_external_id: str,
+        messages: Sequence[AgentChatMessage],
+        cursor: str | None = None,
+        actions: Sequence[AgentChatClientAction] | None = None,
+        retention_policy: Literal["temporary", "persisted"] | None = None,
+        tool_confirmation_mode: Literal["default", "dangerouslyAllowAll"] | None = None,
+        stream: bool = False,
+        stream_options: AgentChatStreamOptions | None = None,
+        content_type: str = "application/json",
+    ) -> AgentChatResponse | builtins.list[AgentChatResponse]:
         """Send messages to an agent and wait for the reply.
 
         Args:
-            agent: The agent to chat with.
+            agent_external_id: The external ID of the agent to chat with.
             messages: The user messages, or action messages answering the agent's previous actions.
             cursor: The cursor from the previous reply, to continue the conversation.
             actions: Client tools the agent may call, at most 20.
             retention_policy: Whether the conversation is kept after the session.
             tool_confirmation_mode: Whether tools that require confirmation run without asking.
+            stream: Whether the agent streams its reply as server-sent events. The events are returned once the
+                stream is complete, ending with the result.
+            stream_options: Options for the stream.
             content_type: The content-type header of the request.
 
         Returns:
-            The agent's reply.
+            The agent's reply, or all events of the stream if stream is True.
         """
-        body = AgentChatRequest(agent_external_id=agent.external_id, messages=list(messages))
+        body = AgentChatRequest(agent_external_id=agent_external_id, messages=list(messages))
         if cursor is not None:
             body.cursor = cursor
         if actions is not None:
@@ -146,15 +181,33 @@ class AgentsAPI(CDFResourceAPI[AgentResponse]):
             body.retention_policy = retention_policy
         if tool_confirmation_mode is not None:
             body.tool_confirmation_mode = tool_confirmation_mode
+        if stream:
+            body.stream = stream
+        if stream_options is not None:
+            body.stream_options = stream_options
         request = RequestMessage(
             endpoint_url=self._make_url("/ai/agents/chat"),
             method="POST",
             body_content=body.dump(),
             content_type=content_type,
+            accept="text/event-stream" if stream else "application/json",
             api_version=self._api_version,
         )
         response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        if stream:
+            return self._parse_server_sent_events(response.body)
         return AgentChatResponse.model_validate_json(response.body)
+
+    @staticmethod
+    def _parse_server_sent_events(body: str) -> builtins.list[AgentChatResponse]:
+        events: builtins.list[AgentChatResponse] = []
+        for block in body.replace("\r\n", "\n").split("\n\n"):
+            data = "\n".join(
+                line.removeprefix("data:").removeprefix(" ") for line in block.splitlines() if line.startswith("data:")
+            )
+            if data:
+                events.append(AgentChatResponse.model_validate_json(data))
+        return events
 
     def service_availability(self) -> ServicesAvailability:
         """Get the availability of AI services in the CDF project.
