@@ -40,6 +40,7 @@ from .api.datasets import DataSetsAPI
 from .api.documents import DocumentsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
+from .api.extraction_pipeline_runs import ExtractionPipelineRunsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
 from .api.filemetadata import FileMetadataAPI
 from .api.function_calls import FunctionCallsAPI
@@ -49,6 +50,7 @@ from .api.groups import GroupsAPI
 from .api.hosted_extractor_destinations import HostedExtractorDestinationsAPI
 from .api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from .api.hosted_extractor_mappings import HostedExtractorMappingsAPI
+from .api.hosted_extractor_previews import HostedExtractorPreviewsAPI
 from .api.hosted_extractor_sources import HostedExtractorSourcesAPI
 from .api.infield import APMConfigAPI, InfieldAPI, InFieldCDMConfigAPI, InfieldConfigAPI
 from .api.instances import InstancesAPI
@@ -312,11 +314,13 @@ class ToolkitClientMock(ToolkitClient):
         self.documents = MagicMock(spec_set=DocumentsAPI)
         self.extraction_pipelines = MagicMock(spec=ExtractionPipelinesAPI)
         self.extraction_pipelines.configs = MagicMock(spec_set=ExtractionPipelineConfigsAPI)
+        self.extraction_pipelines.runs = MagicMock(spec_set=ExtractionPipelineRunsAPI)
         self.hosted_extractors = MagicMock(spec=HostedExtractorsAPI)
         self.hosted_extractors.sources = MagicMock(spec_set=HostedExtractorSourcesAPI)
         self.hosted_extractors.jobs = MagicMock(spec_set=HostedExtractorJobsAPI)
         self.hosted_extractors.destinations = MagicMock(spec_set=HostedExtractorDestinationsAPI)
         self.hosted_extractors.mappings = MagicMock(spec_set=HostedExtractorMappingsAPI)
+        self.hosted_extractors.previews = MagicMock(spec_set=HostedExtractorPreviewsAPI)
         self.labels = MagicMock(spec_set=LabelsAPI)
         self.raw = MagicMock(spec=RawAPI)
         self.raw.databases = MagicMock(spec_set=RawDatabasesAPI)
