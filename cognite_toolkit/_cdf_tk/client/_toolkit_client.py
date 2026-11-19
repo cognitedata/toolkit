@@ -46,6 +46,7 @@ from .api.sequences import SequencesAPI
 from .api.sessions import SessionAPI
 from .api.signal_sinks import SignalSinksAPI
 from .api.signal_subscriptions import SignalSubscriptionsAPI
+from .api.signals import SignalsAPI
 from .api.simulators import SimulatorsAPI
 from .api.skills import SkillsAPI
 from .api.spaces import SpacesAPI
@@ -112,6 +113,7 @@ class ToolkitClient:
         self.data_products = DataProductsAPI(http_client)
         self.signal_sinks = SignalSinksAPI(http_client)
         self.signal_subscriptions = SignalSubscriptionsAPI(http_client)
+        self.signals = SignalsAPI(http_client)
         self.streamlit = StreamlitAPI(http_client)
         self.lookup = LookUpGroup(self)
         self.canvas = IndustrialCanvasAPI(http_client)
