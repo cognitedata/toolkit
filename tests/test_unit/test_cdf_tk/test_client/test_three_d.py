@@ -94,6 +94,17 @@ class TestAssetsMappingsClassic:
         responses = toolkit_client.three_d.asset_mappings_classic.create([])
         assert len(responses) == 0
 
+    def test_list_by_asset(
+        self, toolkit_client: ToolkitClient, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        route = respx_mock.get(toolkit_config.create_api_url("/3d/mappings/123/modelnodes")).mock(
+            return_value=httpx2.Response(200, json={"items": []})
+        )
+
+        toolkit_client.three_d.asset_mappings_classic.list_by_asset(123, limit=10)
+
+        assert dict(route.calls[0].request.url.params) == {"limit": "10"}
+
 
 @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
 class TestAssetsMappingsDM:

@@ -5,7 +5,10 @@ from pydantic import BeforeValidator, ConfigDict
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, ResponseResource, UpdatableRequestResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses, registry_from_model_classes
+from cognite_toolkit._cdf_tk.utils._auxiliary import (
+    registry_from_model_classes,
+    registry_from_subclasses_with_type_field,
+)
 
 
 class SinkRefWithExternalId(BaseModelObject):
@@ -54,6 +57,10 @@ class IntegrationsSubscriptionFilter(SubscriptionFilterBase):
     severity: Literal["info", "warning", "error"] | None = None
     extractor_external_id: str | None = None
     extractor_version: str | None = None
+    # task_name is required when start_time or end_time is set.
+    task_name: str | None = None
+    start_time: int | None = None
+    end_time: int | None = None
 
 
 class WorkflowsSubscriptionFilter(SubscriptionFilterBase):
@@ -73,14 +80,27 @@ class HostedExtractorsSubscriptionFilter(SubscriptionFilterBase):
     destination_external_id: str | None = None
 
 
+class SandboxSubscriptionFilter(SubscriptionFilterBase):
+    topic: Literal["cognite_sandbox"]
+    resource: str | None = None
+    category: list[str] | None = None
+    severity: Literal["info", "warning", "error"] | None = None
+    tag: str | None = None
+
+
+class CommentNotificationsSubscriptionFilter(SubscriptionFilterBase):
+    topic: Literal["cognite_comment_notifications"]
+    resource: str | None = None
+    category: list[str] | None = None
+    severity: Literal["info", "warning", "error"] | None = None
+
+
 class UnknownSubscriptionFilter(SubscriptionFilterBase): ...
 
 
-_KNOWN_FILTERS: dict[str, type[SubscriptionFilterBase]] = {
-    cls_.model_fields["topic"].default: cls_
-    for cls_ in get_concrete_subclasses(SubscriptionFilterBase)
-    if cls_ is not UnknownSubscriptionFilter
-}
+_KNOWN_FILTERS: dict[str, type[SubscriptionFilterBase]] = registry_from_subclasses_with_type_field(
+    SubscriptionFilterBase, type_field="topic", exclude=(UnknownSubscriptionFilter,)
+)
 
 
 def _handle_unknown_filter(value: Any) -> Any:
@@ -97,6 +117,8 @@ SubscriptionFilter = Annotated[
     IntegrationsSubscriptionFilter
     | WorkflowsSubscriptionFilter
     | HostedExtractorsSubscriptionFilter
+    | SandboxSubscriptionFilter
+    | CommentNotificationsSubscriptionFilter
     | UnknownSubscriptionFilter,
     BeforeValidator(_handle_unknown_filter),
 ]

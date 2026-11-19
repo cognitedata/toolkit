@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     RawDatabaseId,
     RawTableId,
 )
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ExtractionPipelineFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
     ExtractionPipelineResponse,
@@ -235,9 +235,9 @@ class ExtractionPipelineIO(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ExtractionPipelineResponse]:
-        filter: ClassicFilter | None = None
+        filter: ExtractionPipelineFilter | None = None
         if data_set_external_id is not None:
-            filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
+            filter = ExtractionPipelineFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
         for pipelines in self.client.extraction_pipelines.iterate(filter=filter, limit=None):
             yield from pipelines
 
@@ -314,10 +314,8 @@ class ExtractionPipelineConfigIO(
     ) -> list[dict[str, Any]]:
         raw_str = self.safe_read(filepath)
 
-        original = load_yaml_inject_variables(raw_str, {}, validate=False, original_filepath=filepath)
-        replaced = load_yaml_inject_variables(
-            raw_str, environment_variables or {}, validate=False, original_filepath=filepath
-        )
+        original, _ = load_yaml_inject_variables(raw_str, {}, original_filepath=filepath)
+        replaced, _ = load_yaml_inject_variables(raw_str, environment_variables or {}, original_filepath=filepath)
 
         if isinstance(original, dict) and isinstance(replaced, dict):
             if "config" in original:

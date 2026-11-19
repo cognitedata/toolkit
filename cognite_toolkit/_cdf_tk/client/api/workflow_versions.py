@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import WorkflowFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowVersionRequest,
     WorkflowVersionResponse,
@@ -24,7 +25,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionResponse]):
             method_endpoint_map={
                 "upsert": Endpoint(method="POST", path="/workflows/versions", item_limit=1),
                 "retrieve": Endpoint(
-                    method="GET", path="/workflow/{workflowExternalId}/versions/{version}", item_limit=1
+                    method="GET", path="/workflows/{workflowExternalId}/versions/{version}", item_limit=1
                 ),
                 "delete": Endpoint(method="POST", path="/workflows/versions/delete", item_limit=100),
                 "list": Endpoint(method="POST", path="/workflows/versions/list", item_limit=1000),
@@ -95,61 +96,59 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionResponse]):
         """
         self._request_no_response(items, "delete")
 
-    def _create_list_body(self, workflow_external_id: str | None = None) -> dict[str, Any] | None:
-        body: dict[str, Any] = {}
-        if workflow_external_id:
-            body["filter"] = {"workflowFilters": [{"externalId": workflow_external_id}]}
-        return body or None
+    @staticmethod
+    def _create_list_body(filter: WorkflowFilter | None) -> dict[str, Any] | None:
+        if filter is None:
+            return None
+        dumped = filter.dump()
+        return {"filter": dumped} if dumped else None
 
     def paginate(
         self,
-        workflow_external_id: str | None = None,
+        filter: WorkflowFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[WorkflowVersionResponse]:
-        """Iterate over all workflow versions in CDF.
+        """Fetch a page of workflow versions from CDF.
 
         Args:
-            workflow_external_id: Filter by workflow external ID.
+            filter: Only return versions of these workflows, optionally limited to given versions.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of WorkflowVersionResponse objects.
         """
-        return self._paginate(
-            cursor=cursor,
-            limit=limit,
-            body=self._create_list_body(workflow_external_id),
-        )
+        return self._paginate(cursor=cursor, limit=limit, body=self._create_list_body(filter))
 
     def iterate(
         self,
-        workflow_external_id: str | None = None,
+        filter: WorkflowFilter | None = None,
         limit: int | None = 100,
     ) -> Iterable[builtins.list[WorkflowVersionResponse]]:
-        """Iterate over all workflow versions in CDF.
+        """Iterate over workflow versions in CDF.
 
         Args:
-            workflow_external_id: Filter by workflow external ID.
-            limit: Maximum number of items to return per page.
+            filter: Only return versions of these workflows, optionally limited to given versions.
+            limit: Maximum number of items to return.
 
         Returns:
             Iterable of lists of WorkflowVersionResponse objects.
         """
-        return self._iterate(
-            limit=limit,
-            body=self._create_list_body(workflow_external_id),
-        )
+        return self._iterate(limit=limit, body=self._create_list_body(filter))
 
     def list(
         self,
-        workflow_external_id: str | None = None,
+        filter: WorkflowFilter | None = None,
         limit: int | None = 100,
     ) -> builtins.list[WorkflowVersionResponse]:
-        """List all workflow versions in CDF.
+        """List workflow versions in CDF.
+
+        Args:
+            filter: Only return versions of these workflows, optionally limited to given versions.
+            limit: Maximum number of items to return.
 
         Returns:
             List of WorkflowVersionResponse objects.
         """
-        return self._list(limit=limit, body=self._create_list_body(workflow_external_id))
+        return self._list(limit=limit, body=self._create_list_body(filter))

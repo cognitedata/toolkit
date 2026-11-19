@@ -45,6 +45,7 @@ class TimeSeriesResponse(TimeSeries, ResponseResource[TimeSeriesRequest]):
     id: int
     instance_id: NodeUntypedId | None = None
     pending_instance_id: NodeUntypedId | None = None
+    state_set: NodeUntypedId | None = None
     type: str
     created_time: int
     last_updated_time: int

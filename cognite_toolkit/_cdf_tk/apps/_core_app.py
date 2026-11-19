@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, ConfigYAML
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import PostBuildParameters
 from cognite_toolkit._cdf_tk.constants import BUILD_MODULE_ARG, LOGS_DIRECTORY
+from cognite_toolkit._cdf_tk.data_classes import CommandDisplay
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
@@ -524,7 +525,7 @@ class CoreApp(typer.Typer):
             lambda: cmd.validate(
                 resource_types=None,
                 client=client,
-                display=True,
+                display=CommandDisplay(results=True),
                 rule_context="cdf",
             )
         )

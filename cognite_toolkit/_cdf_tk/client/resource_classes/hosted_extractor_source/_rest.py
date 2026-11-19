@@ -33,6 +33,7 @@ class RESTSourceResponse(
     RESTSource,
     ResponseResource[RESTSourceRequest],
 ):
+    scheme: Literal["https", "http"] | None = None
     authentication: AuthenticationResponseUnion | None = None
     ca_certificate: CertificateResponse | None = None
     auth_certificate: CertificateResponse | None = None

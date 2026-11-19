@@ -7,6 +7,11 @@ import yaml
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
+    APMConfigRequest,
+    FeatureConfiguration,
+    RootLocationConfiguration,
+)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleId
@@ -462,6 +467,66 @@ class TestInFieldCDMRuleSet:
         rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
         assert list(rule.validate()) == []
         mock_client.views.retrieve.assert_called_once_with([default_asset_id], include_inherited_properties=True)
+
+    @pytest.mark.parametrize(
+        "app_instance_space, expected_codes",
+        [
+            pytest.param("legacy_app_space", ["INVALID-VALUE"], id="legacy space is rejected"),
+            pytest.param("new_app_space", [], id="new space is accepted"),
+        ],
+    )
+    def test_app_instance_space_used_by_legacy_infield(
+        self,
+        app_instance_space: str,
+        expected_codes: list[str],
+        tmp_path: Path,
+        write_config_yaml: Callable[[Path, dict], None],
+        create_built_resource: Callable[[Path, Path], BuiltResource],
+        create_module: Callable[[Path, list[BuiltResource]], BuiltModule],
+    ) -> None:
+        yaml_file = tmp_path / "cdf_applications" / "my_location.InFieldCDMLocationConfig.yaml"
+        write_config_yaml(
+            yaml_file,
+            {
+                "space": "sp_instance",
+                "externalId": "my_location_config",
+                "dataStorage": {"appInstanceSpace": app_instance_space},
+            },
+        )
+        module = create_module(tmp_path, [create_built_resource(yaml_file, yaml_file)])
+        mock_client = MagicMock()
+        mock_client.infield.apm_config.list.return_value = [
+            APMConfigRequest(
+                external_id="legacy_config",
+                feature_configuration=FeatureConfiguration(
+                    root_location_configurations=[RootLocationConfiguration(app_data_instance_space="legacy_app_space")]
+                ),
+            )
+        ]
+        rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
+        assert [insight.code for insight in rule.validate()] == expected_codes
+
+    def test_legacy_infield_lookup_failure_is_reported(
+        self,
+        tmp_path: Path,
+        write_config_yaml: Callable[[Path, dict], None],
+        create_built_resource: Callable[[Path, Path], BuiltResource],
+        create_module: Callable[[Path, list[BuiltResource]], BuiltModule],
+    ) -> None:
+        yaml_file = tmp_path / "cdf_applications" / "my_location.InFieldCDMLocationConfig.yaml"
+        write_config_yaml(
+            yaml_file,
+            {
+                "space": "sp_instance",
+                "externalId": "my_location_config",
+                "dataStorage": {"appInstanceSpace": "my_app_space"},
+            },
+        )
+        module = create_module(tmp_path, [create_built_resource(yaml_file, yaml_file)])
+        mock_client = MagicMock()
+        mock_client.infield.apm_config.list.side_effect = ToolkitAPIError("Forbidden", code=403)
+        rule = InFieldCDMRuleSet(resources=module.resources, client=mock_client)
+        assert [insight.code for insight in rule.validate()] == ["INTERNAL-VALIDATOR-EXCEPTION"]
 
     def test_retrieve_batch_failure_propagates(
         self,
