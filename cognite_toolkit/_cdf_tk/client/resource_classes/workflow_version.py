@@ -215,6 +215,8 @@ class WorkflowVersionRequest(WorkflowVersion, RequestResource): ...
 class WorkflowVersionResponse(WorkflowVersion, ResponseResource[WorkflowVersionRequest]):
     created_time: int
     last_updated_time: int
+    # Only returned by upsert. Non-blocking issues, such as referenced resources that are not ready.
+    warnings: list[str] | None = None
 
     @classmethod
     def request_cls(cls) -> type[WorkflowVersionRequest]:

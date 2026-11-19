@@ -97,6 +97,8 @@ class RAWTableResponse(ResponseResource[RAWTableRequest]):
     db_name: str = Field(default="", exclude=True)
     name: str
     created_time: int
+    # Alpha. "UNGOVERNED" when the table is not associated with a data domain.
+    data_domain_external_id: str | None = None
 
     @classmethod
     def request_cls(cls) -> type[RAWTableRequest]:

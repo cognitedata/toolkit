@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, WorkflowExecutionId
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as ToolkitWorkflowVersionId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import WorkflowFilter, WorkflowFilterItem
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     NonceCredentials as TransformationNonceCredentials,
@@ -936,7 +937,7 @@ class RunWorkflowV2Command(ToolkitCommand):
 
     @classmethod
     def _interactive_select_workflow(cls, client: ToolkitClient) -> WorkflowVersionResponse:
-        workflow_versions = client.workflows.versions.list(workflow_external_id=None, limit=None)
+        workflow_versions = client.workflows.versions.list(limit=None)
 
         versions_by_external_id: dict[str, list[WorkflowVersionResponse]] = defaultdict(list)
         for item in workflow_versions:
@@ -990,17 +991,22 @@ class RunWorkflowV2Command(ToolkitCommand):
             # We specifically requested a version, so we know there is only one workflow in the list.
             return workflows[0]
         else:
-            options = client.workflows.versions.list(workflow_external_id=external_id, limit=None)
+            options = client.workflows.versions.list(
+                filter=WorkflowFilter(workflow_filters=[WorkflowFilterItem(external_id=external_id)]), limit=None
+            )
             if len(options) == 0:
                 raise ToolkitMissingResourceError(f"Could not find workflow with external id {external_id}")
             return max(options, key=lambda item: item.last_updated_time)
 
     @staticmethod
     def _get_trigger_input(client: ToolkitClient, id_: ToolkitWorkflowVersionId) -> dict[str, JsonValue] | None:
-        triggers = client.workflows.triggers.list(
-            workflow_external_id=id_.workflow_external_id, workflow_version=id_.version
-        )
-        triggers_with_data = [trigger for trigger in triggers if isinstance(trigger.input, dict)]
+        triggers_with_data = [
+            trigger
+            for trigger in client.workflows.triggers.list(limit=None)
+            if trigger.workflow_external_id == id_.workflow_external_id
+            and trigger.workflow_version == id_.version
+            and isinstance(trigger.input, dict)
+        ]
         if len(triggers_with_data) == 0:
             return None
         if len(triggers_with_data) == 1:

@@ -11,6 +11,7 @@ from typing import Any
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import EpochTimestampRange
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleData,
     FunctionScheduleRequest,
@@ -31,7 +32,8 @@ class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
                 "create": Endpoint(method="POST", path="/functions/schedules", item_limit=1),
                 "retrieve": Endpoint(method="POST", path="/functions/schedules/byids", item_limit=10_000),
                 "delete": Endpoint(method="POST", path="/functions/schedules/delete", item_limit=10_000),
-                "list": Endpoint(method="POST", path="/functions/schedules/list", item_limit=1000),
+                # The list endpoint has no cursor, so this is the most schedules list(limit=None) can return.
+                "list": Endpoint(method="POST", path="/functions/schedules/list", item_limit=10_000),
             },
         )
 
@@ -75,12 +77,27 @@ class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
         """
         self._request_no_response(items, "delete")
 
-    def _create_list_request_body(self, function_id: int | None, name: str | None = None) -> dict[str, Any] | None:
+    def _create_list_request_body(
+        self,
+        function_id: int | None,
+        function_external_id: str | None = None,
+        name: str | None = None,
+        created_time: EpochTimestampRange | None = None,
+        cron_expression: str | None = None,
+    ) -> dict[str, Any] | None:
+        if function_id is not None and function_external_id is not None:
+            raise ValueError("Only one of function_id and function_external_id can be set.")
         filter: dict[str, Any] = {}
         if function_id is not None:
             filter["functionId"] = function_id
+        if function_external_id is not None:
+            filter["functionExternalId"] = function_external_id
         if name is not None:
             filter["name"] = name
+        if created_time is not None:
+            filter["createdTime"] = created_time.dump()
+        if cron_expression is not None:
+            filter["cronExpression"] = cron_expression
         return {"filter": filter} if filter else None
 
     def input_data(self, schedule_id: int) -> FunctionScheduleData:
@@ -102,12 +119,21 @@ class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
     def paginate(
         self,
         function_id: int | None = None,
+        function_external_id: str | None = None,
+        name: str | None = None,
+        created_time: EpochTimestampRange | None = None,
+        cron_expression: str | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[FunctionScheduleResponse]:
         """Get a page of function schedules from CDF.
 
         Args:
+            function_id: Only return schedules of the function with this ID.
+            function_external_id: Only return schedules of the function with this external ID.
+            name: Only return schedules with this name.
+            created_time: Only return schedules created in this time range.
+            cron_expression: Only return schedules with this cron expression.
             limit: Maximum number of function schedules to return.
             cursor: Cursor for pagination.
 
@@ -117,33 +143,59 @@ class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body=self._create_list_request_body(function_id=function_id),
+            body=self._create_list_request_body(function_id, function_external_id, name, created_time, cron_expression),
         )
 
     def iterate(
         self,
         function_id: int | None = None,
+        function_external_id: str | None = None,
+        name: str | None = None,
+        created_time: EpochTimestampRange | None = None,
+        cron_expression: str | None = None,
         limit: int | None = None,
     ) -> Iterable[builtins.list[FunctionScheduleResponse]]:
         """Iterate over all function schedules in CDF.
 
         Args:
+            function_id: Only return schedules of the function with this ID.
+            function_external_id: Only return schedules of the function with this external ID.
+            name: Only return schedules with this name.
+            created_time: Only return schedules created in this time range.
+            cron_expression: Only return schedules with this cron expression.
             limit: Maximum total number of function schedules to return.
 
         Returns:
             Iterable of lists of FunctionScheduleResponse objects.
         """
-        return self._iterate(limit=limit, body=self._create_list_request_body(function_id=function_id))
+        return self._iterate(
+            limit=limit,
+            body=self._create_list_request_body(function_id, function_external_id, name, created_time, cron_expression),
+        )
 
     def list(
-        self, function_id: int | None = None, name: str | None = None, limit: int | None = None
+        self,
+        function_id: int | None = None,
+        function_external_id: str | None = None,
+        name: str | None = None,
+        created_time: EpochTimestampRange | None = None,
+        cron_expression: str | None = None,
+        limit: int | None = None,
     ) -> builtins.list[FunctionScheduleResponse]:
         """List all function schedules in CDF.
 
         Args:
+            function_id: Only return schedules of the function with this ID.
+            function_external_id: Only return schedules of the function with this external ID.
+            name: Only return schedules with this name.
+            created_time: Only return schedules created in this time range.
+            cron_expression: Only return schedules with this cron expression.
             limit: Maximum total number of function schedules to return.
 
         Returns:
             List of FunctionScheduleResponse objects.
         """
-        return self._list(limit=limit, body=self._create_list_request_body(function_id=function_id, name=name))
+        return self._list(
+            limit=limit,
+            body=self._create_list_request_body(function_id, function_external_id, name, created_time, cron_expression),
+        )

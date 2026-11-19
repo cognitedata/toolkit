@@ -1,7 +1,7 @@
 import io
 import json
 import zipfile
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -12,6 +12,7 @@ from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import WorkflowFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse, AskDocument
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
@@ -21,8 +22,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
-    ExternalDataSourceResponse,
     OneLakeCredentialsRead,
+    OneLakeExternalDataSourceResponse,
     OneLakeLocationDescription,
     OneLakeSettingsRead,
 )
@@ -103,7 +104,7 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import MockQuestionary
 
 
-def _onelake_transformation_and_source() -> tuple[TransformationResponse, ExternalDataSourceResponse]:
+def _onelake_transformation_and_source() -> tuple[TransformationResponse, OneLakeExternalDataSourceResponse]:
     transformation = TransformationResponse(
         id=1,
         external_id="transformationA",
@@ -120,9 +121,8 @@ def _onelake_transformation_and_source() -> tuple[TransformationResponse, Extern
         has_source_oidc_credentials=False,
         has_destination_oidc_credentials=False,
     )
-    external_source = ExternalDataSourceResponse(
+    external_source = OneLakeExternalDataSourceResponse(
         external_id="fabric-prod",
-        format="one_lake",
         created_time=1,
         last_updated_time=1,
         settings=OneLakeSettingsRead(
@@ -237,7 +237,7 @@ class TestDumpTransformations:
             finder = TransformationFinder(client, ("transformationA",))
             client.transformations.retrieve.return_value = [transformation]
             client.transformations.schedules.retrieve.return_value = []
-            client.transformations.external_data_sources.list.return_value = [external_source]
+            client.transformations.external_data_sources.retrieve.return_value = [external_source]
 
             batches = list(finder)
 
@@ -265,6 +265,16 @@ def _workflow_version(workflow_external_id: str, version: str) -> WorkflowVersio
     )
 
 
+def _iterate_versions_by_filter(
+    versions: list[WorkflowVersionResponse],
+) -> Callable[..., list[list[WorkflowVersionResponse]]]:
+    def iterate(filter: WorkflowFilter, limit: int | None = None) -> list[list[WorkflowVersionResponse]]:
+        workflow_ids = {item.external_id for item in filter.workflow_filters or []}
+        return [[version for version in versions if version.workflow_external_id in workflow_ids]]
+
+    return iterate
+
+
 class TestWorkflowFinder:
     def test_select_workflows(self, three_workflows: list[WorkflowResponse], monkeypatch: MonkeyPatch) -> None:
         def select_workflows(choices) -> list[str]:
@@ -272,16 +282,18 @@ class TestWorkflowFinder:
             return [choices[1].value, choices[2].value]
 
         answers = [select_workflows]
-        versions = [_workflow_version("workflowB", "v1"), _workflow_version("workflowC", "v1")]
+        versions = [
+            _workflow_version("workflowA", "v1"),
+            _workflow_version("workflowB", "v1"),
+            _workflow_version("workflowC", "v1"),
+        ]
 
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary(WorkflowFinder.__module__, answers),
         ):
             client.workflows.list.return_value = three_workflows
-            client.workflows.versions.list.side_effect = lambda workflow_external_id, limit=None: [
-                v for v in versions if v.workflow_external_id == workflow_external_id
-            ]
+            client.workflows.versions.iterate.side_effect = _iterate_versions_by_filter(versions)
             finder = WorkflowFinder(client, None)
             selected = finder._interactive_select()
 
@@ -308,9 +320,7 @@ class TestWorkflowFinder:
             MockQuestionary(WorkflowFinder.__module__, answers),
         ):
             client.workflows.list.return_value = three_workflows
-            client.workflows.versions.list.side_effect = lambda workflow_external_id, limit=None: [
-                v for v in versions if v.workflow_external_id == workflow_external_id
-            ]
+            client.workflows.versions.iterate.side_effect = _iterate_versions_by_filter(versions)
             finder = WorkflowFinder(client, None)
             selected = finder._interactive_select()
 
@@ -658,7 +668,9 @@ class TestDumpHostedExtractor:
         ]
         with monkeypatch_toolkit_client() as client:
             client.hosted_extractors.sources.retrieve.return_value = selected_sources
-            client.hosted_extractors.jobs.list.return_value = jobs
+            client.hosted_extractors.jobs.list.side_effect = lambda source, limit: [
+                job for job in jobs if job.source_id == source
+            ]
             client.hosted_extractors.destinations.retrieve.return_value = destinations
             client.hosted_extractors.mappings.retrieve.return_value = mappings
 
@@ -1212,6 +1224,82 @@ class TestDumpStreamlitApps:
             severity, actual_message = console.print.call_args.args
             assert expected_warning in actual_message
             assert expected_severity in str(severity).casefold()
+
+    def test_dump_streamlit_app_sanitizes_external_id(
+        self, three_streamlit_apps: list[StreamlitResponse], tmp_path: Path
+    ) -> None:
+        app = three_streamlit_apps[1].model_copy(update={"external_id": "../../evil"})
+        content = json.dumps(
+            {"entrypoint": "main.py", "files": {"main.py": {"content": {"text": "print('hi')"}}}}
+        ).encode("utf-8")
+        with (
+            monkeypatch_toolkit_client() as client,
+            patch(f"{StreamlitFinder.__module__}.httpx2.stream", return_value=_DownloadStream(content)),
+        ):
+            client.streamlit.retrieve.return_value = [app]
+            _mock_file_bytes(client, content)
+            DumpResourceCommand(silent=True).dump_to_yamls(
+                StreamlitFinder(client, (app.external_id,)), output_dir=tmp_path / "dump", clean=False, verbose=False
+            )
+
+        written = {path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*") if path.is_file()}
+        assert written == {"dump/streamlit/.._.._evil.Streamlit.yaml", "dump/streamlit/.._.._evil/main.py"}
+
+    @pytest.mark.parametrize("external_id", [".", ".."])
+    def test_dump_code_rejects_path_traversal(
+        self, external_id: str, three_streamlit_apps: list[StreamlitResponse], tmp_path: Path
+    ) -> None:
+        app = three_streamlit_apps[1].model_copy(update={"external_id": external_id})
+        content = json.dumps(
+            {"entrypoint": "main.py", "files": {"main.py": {"content": {"text": "print('hi')"}}}}
+        ).encode("utf-8")
+        output = tmp_path / "streamlit"
+        output.mkdir()
+        with (
+            monkeypatch_toolkit_client() as client,
+            patch(f"{StreamlitFinder.__module__}.httpx2.stream", return_value=_DownloadStream(content)),
+        ):
+            _mock_file_bytes(client, content)
+            finder = StreamlitFinder(client, (external_id,))
+            with pytest.raises(ValueError, match=r"Invalid identifier"):
+                finder.dump_code(app, output)
+
+        assert not list(tmp_path.rglob("main.py"))
+
+    @pytest.mark.parametrize(
+        "malicious_path",
+        [
+            pytest.param("../evil.py", id="Parent folder"),
+            pytest.param("../../../evil.py", id="Outside dump folder"),
+            pytest.param("pages/../../../../evil.py", id="Nested traversal"),
+            pytest.param("{tmp_path}/evil.py", id="Absolute path"),
+        ],
+    )
+    def test_dump_code_rejects_file_outside_app_folder(
+        self, malicious_path: str, three_streamlit_apps: list[StreamlitResponse], tmp_path: Path
+    ) -> None:
+        content = json.dumps(
+            {
+                "entrypoint": "main.py",
+                "files": {
+                    "main.py": {"content": {"text": "print('hi')"}},
+                    malicious_path.format(tmp_path=tmp_path.as_posix()): {"content": {"text": "print('hacked')"}},
+                },
+            }
+        ).encode("utf-8")
+        output = tmp_path / "dump" / "streamlit"
+        output.mkdir(parents=True)
+        with (
+            monkeypatch_toolkit_client() as client,
+            patch(f"{StreamlitFinder.__module__}.httpx2.stream", return_value=_DownloadStream(content)),
+        ):
+            _mock_file_bytes(client, content)
+            finder = StreamlitFinder(client, ("appB",))
+            with pytest.raises(ValueError, match=r"Malicious file path detected"):
+                finder.dump_code(three_streamlit_apps[1], output)
+
+        # The legitimate main.py is not written either, all paths are checked before writing.
+        assert not list(tmp_path.rglob("*.py"))
 
 
 @pytest.fixture()
