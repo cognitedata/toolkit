@@ -1167,7 +1167,7 @@ class RecordInteractiveSelect:
         return selected_stream
 
     def select_containers(self) -> list[ContainerResponse]:
-        record_containers = self.client.containers.list(filter=ContainerFilter(used_for="record"))
+        record_containers = self.client.containers.list(filter=ContainerFilter(used_for=["record"]))
         if not record_containers:
             raise ToolkitValueError("No record containers found in the project.")
         selected_containers = questionary.checkbox(
