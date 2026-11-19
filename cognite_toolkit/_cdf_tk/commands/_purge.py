@@ -357,7 +357,9 @@ class PurgeCommand(ToolkitCommand):
         if stats.total_containers > 0:
             container_ids = [
                 ContainerId(space=c.space, external_id=c.external_id)
-                for c in client.containers.list(filter=ContainerFilter(space=selected_space))
+                for c in client.containers.list(
+                    filter=ContainerFilter(space=selected_space, used_for=["node", "edge", "all", "record"])
+                )
             ]
             inspect_results = client.containers.inspect(container_ids)
             in_scope_view_ids = [
