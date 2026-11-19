@@ -101,7 +101,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
     WorkflowVersionIO,
 )
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, SuccessExtra
-from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from tests.test_integration.constants import RUN_UNIQUE_ID
 from tests.test_integration.helpers import load_local_yaml, retry_on_deadlock
 from tests.utils import to_deploy_status
@@ -719,10 +719,10 @@ workflowDefinition:
         file = MagicMock(spec=Path)
         file.read_text.return_value = definition_yaml
         with monkeypatch_toolkit_client() as client:
-            loader = WorkflowVersionIO(client)
+            warning_list: list[ToolkitWarning] = []
+            loader = WorkflowVersionIO(client, on_warning=warning_list.append)
 
-            with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
-                loaded = loader.load_resource_file(file, {"myTask1.output.data": "should-be-ignored"})
+            loaded = loader.load_resource_file(file, {"myTask1.output.data": "should-be-ignored"})
             definition = loader.load_resource(loaded[0])
 
         assert len(definition.workflow_definition.tasks) == 2

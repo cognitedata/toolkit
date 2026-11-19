@@ -279,9 +279,14 @@ class WorkflowFinder(ResourceFinder[tuple[WorkflowVersionId, ...]]):
             raise ToolkitValueError(f"No workflows selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         self._workflows = [workflows_by_id[external_id] for external_id in selected_workflow_ids]
 
+        versions_by_workflow_id: dict[str, list[WorkflowVersionResponse]] = defaultdict(list)
+        parent_ids = [ExternalId(external_id=workflow_id) for workflow_id in selected_workflow_ids]
+        for version in WorkflowVersionIO(self.client).iterate(parent_ids=parent_ids):
+            versions_by_workflow_id[version.workflow_external_id].append(version)
+
         selected_versions: list[WorkflowVersionResponse] = []
         for workflow_id in selected_workflow_ids:
-            versions = self.client.workflows.versions.list(workflow_external_id=workflow_id, limit=None)
+            versions = versions_by_workflow_id[workflow_id]
             if not versions:
                 HighSeverityWarning(f"No versions found for workflow {workflow_id}. Skipping.").print_warning(
                     console=self.client.console
@@ -648,7 +653,11 @@ class HostedExtractorFinder(ResourceFinder[tuple[str, ...]]):
         else:
             yield [ExternalId(external_id=external_id) for external_id in self.identifier], None, source_loader, None
 
-        jobs = [job for job in self.client.hosted_extractors.jobs.list(limit=None) if job.source_id in source_ids]
+        jobs = [
+            job
+            for source_id in sorted(source_ids)
+            for job in self.client.hosted_extractors.jobs.list(source=source_id, limit=None)
+        ]
         if jobs:
             yield [], jobs, HostedExtractorJobIO(self.client), None
 

@@ -537,6 +537,8 @@ class ViewSelectFilter:
     Args:
         strategy: The strategy used to create the view options.
             - "SchemaSpace": Ask the user to select a schema space first.
+            - "dataModel": Ask the user to select a data model first.
+            - "all": List all views directly.
         include_global: Whether to include global views in the options.
         schema_space : The schema space to look for view in.
         instance_type: If set, only include views that can be used for the given instance type ("node", "edge", or "all").
@@ -544,7 +546,7 @@ class ViewSelectFilter:
 
     """
 
-    strategy: Literal["schemaSpace", "dataModel"] = "schemaSpace"
+    strategy: Literal["schemaSpace", "dataModel", "all"] = "schemaSpace"
     include_global: bool | None = None
     schema_space: str | None = None
     instance_type: Literal["node", "edge", "all"] | None = None
@@ -630,7 +632,9 @@ class DataModelingSelect:
                 raise ToolkitValueError(f"Selected views is not a valid list of View objects: {selected_views!r}")
             return selected_views
         else:
-            selected_views = questionary.select(question, choices=choices).unsafe_ask()
+            selected_views = questionary.select(
+                question, choices=choices, use_search_filter=True, use_jk_keys=False
+            ).unsafe_ask()
             if not isinstance(selected_views, ViewResponse):
                 raise ToolkitValueError(f"Selected view is not a valid View object: {selected_views!r}")
             return selected_views
@@ -672,6 +676,15 @@ class DataModelingSelect:
             # Skip downloading parent views that belong to system (global) spaces
             parents = {parent for view in views for parent in view.implements or [] if parent in global_view_ids}
             views = [view for view in views if view.as_id() not in parents]
+        elif filter.strategy == "all":
+            views = self.client.views.list(
+                filter=ViewFilter(
+                    space=filter.schema_space,
+                    include_inherited_properties=True,
+                    include_global=filter.include_global,
+                ),
+                limit=None,
+            )
         else:
             raise NotImplementedError(f"Strategy {filter.strategy} is not implemented.")
         views = [

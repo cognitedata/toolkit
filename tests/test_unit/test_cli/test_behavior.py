@@ -67,6 +67,7 @@ from cognite_toolkit._cdf_tk.commands.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.data_classes import CommandDisplay
 from cognite_toolkit._cdf_tk.data_classes._insights import BuildError
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -1142,7 +1143,7 @@ capabilities:
         [],
         None,
         env_vars_with_client.get_client(),
-        display=False,
+        display=CommandDisplay(header=False, results=False),
     )
 
     insights = [insight for insight in validation_result.insights if insight.code == "MISSING-REFERENCED-RESOURCE"]
@@ -1277,7 +1278,7 @@ capabilities:
         [],
         None,
         env_vars_with_client.get_client(),
-        display=False,
+        display=CommandDisplay(header=False, results=False),
     )
     # The space reference in the VALID sibling capability must still be checked against CDF.
     unknown_refs = [i for i in validation_result.insights if i.code == "MISSING-REFERENCED-RESOURCE"]

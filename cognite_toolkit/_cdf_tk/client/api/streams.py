@@ -1,7 +1,7 @@
 import builtins
 from collections.abc import Sequence
 
-from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
@@ -10,7 +10,11 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
+    StreamRequest,
+    StreamResponse,
+    StreamTemplateResponse,
+)
 
 
 class StreamsAPI(CDFResourceAPI[StreamResponse]):
@@ -94,3 +98,13 @@ class StreamsAPI(CDFResourceAPI[StreamResponse]):
             List of StreamResponse items.
         """
         return self._list(limit=None)
+
+    def list_templates(self) -> builtins.list[StreamTemplateResponse]:
+        """List the stream templates available in the project.
+
+        Returns:
+            List of StreamTemplateResponse items.
+        """
+        request = RequestMessage(endpoint_url=self._make_url("/streams/templates"), method="GET")
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        return ResponseItems[StreamTemplateResponse].model_validate_json(response.body).items

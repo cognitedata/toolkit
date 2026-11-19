@@ -85,7 +85,7 @@ def invalid_test_cases() -> Iterable:
         {
             "Invalid value for filter: Input tag 'invalid_topic' found using 'topic' "
             "does not match any of the expected tags: 'cognite_integrations', 'cognite_workflows', "
-            "'cognite_hosted_extractors'",
+            "'cognite_hosted_extractors', 'cognite_sandbox', 'cognite_comment_notifications'",
         },
         id="invalid-topic",
     )
@@ -107,6 +107,15 @@ def invalid_test_cases() -> Iterable:
         },
         {"Missing required field in sink: 'externalId'"},
         id="email-sink-missing-external-id",
+    )
+    yield pytest.param(
+        {
+            "externalId": "sub-1",
+            "sink": {"type": "current_user"},
+            "filter": {"topic": "cognite_integrations", "startTime": 1730204346000},
+        },
+        {"Invalid value at filter.startTime: taskName must be set when startTime is set."},
+        id="integrations-start-time-without-task-name",
     )
 
 

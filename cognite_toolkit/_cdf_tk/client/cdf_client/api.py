@@ -120,6 +120,24 @@ class CDFResourceAPI(Generic[T_BaseModelObject], ABC):
         )
         return self._http_client.request_single_retries(request).get_success_or_raise(request)
 
+    def _search(self, body: dict[str, Any], limit: int) -> list[T_BaseModelObject]:
+        """POST the endpoint registered as ``search`` and return the matching items.
+
+        Search endpoints have no cursor, so ``limit`` is the maximum number of items returned.
+        """
+        search_endpoint = self._method_endpoint_map["search"]
+        if not 0 < limit <= search_endpoint.item_limit:
+            raise ValueError(f"Limit must be between 1 and {search_endpoint.item_limit}, got {limit}.")
+        request = RequestMessage(
+            endpoint_url=self._make_url(search_endpoint.path),
+            method=search_endpoint.method,
+            body_content={**(self._filter_out_none_values(body) or {}), "limit": limit},
+            disable_gzip=self._disable_gzip,
+            api_version=self._api_version,
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        return self._validate_page_response(response).items
+
     def _update(
         self, items: Sequence[UpdatableRequestResource], mode: Literal["patch", "replace"]
     ) -> list[T_BaseModelObject]:

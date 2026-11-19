@@ -60,6 +60,7 @@ from typing_extensions import TypeForm
 from cognite_toolkit._cdf_tk.client.resource_classes.group.capability import GroupCapability
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
 from tests.data import COMPLETE_ORG
 from tests.test_unit.get_type_hints import _TypeHints
@@ -86,25 +87,20 @@ def mock_read_yaml_file(
         filepath: Path | str,
         environment_variables: dict[str, str | None],
         required_return_type: Literal["any", "list", "dict"] = "any",
-        validate: bool = True,
         original_filepath: Path | None = None,
-    ) -> dict[str, Any] | list[dict[str, Any]]:
+    ) -> tuple[dict[str, Any] | list[dict[str, Any]], EnvironmentVariableMissingWarning | None]:
         if isinstance(filepath, str):
-            return load_yaml_inject_variables(
-                filepath, environment_variables, required_return_type, validate, original_filepath
-            )
+            return load_yaml_inject_variables(filepath, environment_variables, required_return_type, original_filepath)
         if file_content := file_content_by_name.get(filepath.name):
-            if modify:
-                source = load_yaml_inject_variables(
-                    filepath, environment_variables, required_return_type, validate, original_filepath
-                )
-                if isinstance(source, dict):
-                    source.update(file_content)
-                file_content = source
-            return file_content
-        return load_yaml_inject_variables(
-            filepath, environment_variables, required_return_type, validate, original_filepath
-        )
+            if not modify:
+                return file_content, None
+            source, warning = load_yaml_inject_variables(
+                filepath, environment_variables, required_return_type, original_filepath
+            )
+            if isinstance(source, dict):
+                source.update(file_content)
+            return source, warning
+        return load_yaml_inject_variables(filepath, environment_variables, required_return_type, original_filepath)
 
     monkeypatch.setattr("cognite_toolkit._cdf_tk.utils.read_yaml_file", fake_read_yaml_file)
     monkeypatch.setattr("cognite_toolkit._cdf_tk.data_classes._base.read_yaml_file", fake_read_yaml_file)

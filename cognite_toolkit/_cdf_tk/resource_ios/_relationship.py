@@ -4,7 +4,7 @@ from typing import Any, Literal, final
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import RelationshipFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
@@ -90,9 +90,9 @@ class RelationshipIO(ResourceIO[ExternalId, RelationshipRequest, RelationshipRes
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[RelationshipResponse]:
-        filter: ClassicFilter | None = None
+        filter: RelationshipFilter | None = None
         if data_set_external_id:
-            filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
+            filter = RelationshipFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
         for items in self.client.relationships.iterate(filter=filter, limit=None):
             yield from items
 

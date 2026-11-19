@@ -40,6 +40,7 @@ from .api.datasets import DataSetsAPI
 from .api.documents import DocumentsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
+from .api.extraction_pipeline_runs import ExtractionPipelineRunsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
 from .api.filemetadata import FileMetadataAPI
 from .api.function_calls import FunctionCallsAPI
@@ -49,6 +50,7 @@ from .api.groups import GroupsAPI
 from .api.hosted_extractor_destinations import HostedExtractorDestinationsAPI
 from .api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from .api.hosted_extractor_mappings import HostedExtractorMappingsAPI
+from .api.hosted_extractor_previews import HostedExtractorPreviewsAPI
 from .api.hosted_extractor_sources import HostedExtractorSourcesAPI
 from .api.infield import APMConfigAPI, InfieldAPI, InFieldCDMConfigAPI, InfieldConfigAPI
 from .api.instances import InstancesAPI
@@ -98,6 +100,7 @@ from .api.security_categories import SecurityCategoriesAPI
 from .api.sequence_rows import SequenceRowsAPI
 from .api.sequences import SequencesAPI
 from .api.sessions import SessionAPI
+from .api.signals import SignalsAPI
 from .api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from .api.simulator_models import SimulatorModelsAPI
 from .api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
@@ -121,8 +124,10 @@ from .api.three_d import (
 from .api.timeseries import TimeSeriesAPI
 from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
+from .api.units import UnitsAPI
 from .api.user_profiles import UserProfilesAPI
 from .api.workflow_executions import WorkflowExecutionsAPI
+from .api.workflow_tasks import WorkflowTasksAPI
 from .api.workflow_triggers import WorkflowTriggersAPI
 from .api.workflow_versions import WorkflowVersionsAPI
 from .api.workflows import WorkflowsAPI
@@ -168,6 +173,7 @@ class ToolkitClientMock(ToolkitClient):
     search_configurations: MagicMock
     signal_sinks: MagicMock
     signal_subscriptions: MagicMock
+    signals: MagicMock
     simulators: MagicMock
     datasets: MagicMock
     documents: MagicMock
@@ -192,6 +198,7 @@ class ToolkitClientMock(ToolkitClient):
     metering: MagicMock
     user_profiles: MagicMock
     postgres_gateway: MagicMock
+    units: MagicMock
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         # Intentionally do NOT call super().__init__(): it would require a real
@@ -304,6 +311,7 @@ class ToolkitClientMock(ToolkitClient):
         self.search_configurations = MagicMock(spec_set=SearchConfigurationsAPI)
         self.signal_sinks = MagicMock(spec_set=SignalSinksAPI)
         self.signal_subscriptions = MagicMock(spec_set=SignalSubscriptionsAPI)
+        self.signals = MagicMock(spec_set=SignalsAPI)
         self.simulators = MagicMock(spec=SimulatorsAPI)
         self.simulators.models = MagicMock(spec_set=SimulatorModelsAPI)
         self.simulators.model_revisions = MagicMock(spec_set=SimulatorModelRevisionsAPI)
@@ -313,11 +321,13 @@ class ToolkitClientMock(ToolkitClient):
         self.documents = MagicMock(spec_set=DocumentsAPI)
         self.extraction_pipelines = MagicMock(spec=ExtractionPipelinesAPI)
         self.extraction_pipelines.configs = MagicMock(spec_set=ExtractionPipelineConfigsAPI)
+        self.extraction_pipelines.runs = MagicMock(spec_set=ExtractionPipelineRunsAPI)
         self.hosted_extractors = MagicMock(spec=HostedExtractorsAPI)
         self.hosted_extractors.sources = MagicMock(spec_set=HostedExtractorSourcesAPI)
         self.hosted_extractors.jobs = MagicMock(spec_set=HostedExtractorJobsAPI)
         self.hosted_extractors.destinations = MagicMock(spec_set=HostedExtractorDestinationsAPI)
         self.hosted_extractors.mappings = MagicMock(spec_set=HostedExtractorMappingsAPI)
+        self.hosted_extractors.previews = MagicMock(spec_set=HostedExtractorPreviewsAPI)
         self.labels = MagicMock(spec_set=LabelsAPI)
         self.raw = MagicMock(spec=RawAPI)
         self.raw.databases = MagicMock(spec_set=RawDatabasesAPI)
@@ -339,6 +349,7 @@ class ToolkitClientMock(ToolkitClient):
         self.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)
         self.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)
         self.workflows.executions = MagicMock(spec_set=WorkflowExecutionsAPI)
+        self.workflows.tasks = MagicMock(spec_set=WorkflowTasksAPI)
         self.data_products = MagicMock(spec=DataProductsAPI)
         self.data_products.versions = MagicMock(spec_set=DataProductVersionsAPI)
         self.rulesets = MagicMock(spec=RuleSetsAPI)
@@ -364,6 +375,7 @@ class ToolkitClientMock(ToolkitClient):
         self.postgres_gateway = MagicMock(spec=PostgresGatewayAPI)
         self.postgres_gateway.users = MagicMock(spec_set=PostgresGatewayUsersAPI)
         self.postgres_gateway.tables = MagicMock(spec_set=PostgresGatewayTablesAPI)
+        self.units = MagicMock(spec_set=UnitsAPI)
 
 
 @contextmanager

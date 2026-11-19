@@ -1809,7 +1809,7 @@ description: Smoke test skill
             pytest.param("retry_indexes", "/models/containers/indexes/retry", ContainerIndexId, id="retry_indexes"),
             pytest.param(
                 "retry_property_constraints",
-                "/models/containers/properties/constraints/retry",
+                "/models/containers/properties/retry",
                 ContainerPropertyId,
                 id="retry_property_constraints",
             ),

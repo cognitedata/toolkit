@@ -5,10 +5,10 @@ from unittest.mock import MagicMock
 import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import FunctionFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.function import (
     FunctionResponse,
     FunctionsActivation,
-    FunctionStatus,
 )
 from cognite_toolkit._cdf_tk.commands.functions_api import FunctionsAPICommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
@@ -52,29 +52,17 @@ class TestFunctionsAPICommand:
         result = cmd.list(client, limit=10)
 
         assert result == [function]
-        client.functions.list.assert_called_once_with(limit=10)
+        client.functions.list.assert_called_once_with(filter=FunctionFilter(), limit=10)
         assert [item["externalId"] for item in self._printed(client)] == ["my_function"]
 
-    def test_list_filters_by_status_and_owner_before_applying_limit(self) -> None:
+    def test_list_filters_by_status_and_owner_in_cdf(self) -> None:
         client = MagicMock()
-        rows: list[tuple[FunctionStatus, str]] = [
-            ("Failed", "a"),
-            ("Ready", "a"),
-            ("Ready", "b"),
-            ("Ready", "a"),
-            ("Ready", "a"),
-        ]
-        functions = [
-            FunctionResponse(id=i, external_id=f"f{i}", name="F", file_id=2, created_time=1, status=status, owner=owner)
-            for i, (status, owner) in enumerate(rows)
-        ]
-        client.functions.list.return_value = functions
+        client.functions.list.return_value = []
         cmd = FunctionsAPICommand(skip_tracking=True, silent=True)
 
-        result = cmd.list(client, limit=2, status="Ready", owner="a")
+        cmd.list(client, limit=2, status="Ready", owner="a")
 
-        assert [function.external_id for function in result] == ["f1", "f3"]
-        client.functions.list.assert_called_once_with(limit=None)
+        client.functions.list.assert_called_once_with(filter=FunctionFilter(status="Ready", owner="a"), limit=2)
 
     def test_status_calls_api(self) -> None:
         client = MagicMock()

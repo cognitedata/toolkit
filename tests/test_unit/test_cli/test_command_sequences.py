@@ -76,7 +76,7 @@ def test_build_deploy_module(
 
     monkeypatch.setattr(
         "cognite_toolkit._cdf_tk.commands.deploy_v2.command.confirm_by_typing_project_name",
-        lambda msg, client: True,
+        lambda msg, project, console: True,
     )
     with patch.dict(
         os.environ,
@@ -180,7 +180,7 @@ def test_init_build_clean(
     )
     monkeypatch.setattr(
         "cognite_toolkit._cdf_tk.commands.deploy_v2.command.confirm_by_typing_project_name",
-        lambda msg, client: True,
+        lambda msg, project, console: True,
     )
     with patch.dict(
         os.environ,

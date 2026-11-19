@@ -78,6 +78,14 @@ class ClientCredentials(Authentication):
         None,
         description="Default value for the expires_in OAuth 2.0 parameter. If the identity provider does not return expires_in in token requests, this parameter must be set or the request will fail.",
     )
+    audience: str | None = Field(
+        None,
+        description="Audience passed as part of the token request. Some identity providers require this, and will reject token requests without it unless a default audience is configured.",
+    )
+    resource: str | None = Field(
+        None,
+        description="Resource passed as part of the token request.",
+    )
 
     @field_serializer("client_secret", when_used="json")
     def dump_client_secret(self, v: SecretStr) -> str:

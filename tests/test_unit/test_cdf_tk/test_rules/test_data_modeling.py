@@ -12,6 +12,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerResponse,
     DataModelResponse,
     DirectNodeRelation,
+    EnumProperty,
+    EnumValue,
     Int32Property,
     TextProperty,
     ViewCorePropertyRequest,
@@ -50,6 +52,7 @@ from cognite_toolkit._cdf_tk.resource_ios import (
 )
 from cognite_toolkit._cdf_tk.rules._data_modeling import DataModelingLimits, DataModelingRuleSet
 from cognite_toolkit._cdf_tk.rules._dependencies import DependencyRuleSet
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 CONTAINER_ID = ContainerId(space="my_space", external_id="MyContainer")
 VIEW_ID = ViewId(space="my_space", external_id="MyView", version="v1")
@@ -764,6 +767,69 @@ class TestMissingRequiresConstraints:
         assert [insight.code for insight in insights] == expected_codes
 
 
+def _schema_data_model_yaml(*views: ViewId) -> str:
+    view_refs = "".join(
+        f"  - type: view\n    space: {view.space}\n    externalId: {view.external_id}\n    version: {view.version}\n"
+        for view in views
+    )
+    return f"space: my_space\nexternalId: MyModel\nversion: v1\nviews:\n{view_refs}"
+
+
+def _schema_view_id(external_id: str) -> ViewId:
+    return ViewId(space="my_space", external_id=external_id, version="v1")
+
+
+@pytest.mark.usefixtures("alpha_rules")
+class TestMissingParentViews:
+    @pytest.mark.parametrize(
+        "model_views, expected_missing",
+        [
+            pytest.param(("Pump", "Equipment", "Asset"), [], id="all-parents-included"),
+            pytest.param(("Pump", "Equipment"), ["Asset"], id="missing-grandparent"),
+            pytest.param(("Pump",), ["Equipment", "Asset"], id="missing-parent-and-grandparent"),
+            pytest.param(("Asset",), [], id="view-without-parents"),
+        ],
+    )
+    def test_missing_parent_views_are_recommended(
+        self, model_views: tuple[str, ...], expected_missing: list[str], tmp_path: Path
+    ) -> None:
+        resources = _schema_resources(
+            tmp_path, {"Pump": (("Equipment",), ()), "Equipment": (("Asset",), ()), "Asset": ((), ())}, {}
+        )
+        model_file = _write(
+            tmp_path,
+            "MyModel.DataModel.yaml",
+            _schema_data_model_yaml(*(_schema_view_id(name) for name in model_views)),
+        )
+        resources += _resources([(model_file, DataModelIO, DATA_MODEL_ID)])
+
+        insights = [insight for insight in DataModelingRuleSet(resources=resources).validate()]
+        expected_fixes = (
+            [
+                "Add "
+                + humanize_collection([f"'{_schema_view_id(name)}'" for name in expected_missing], sort=False)
+                + " to the views of the data model."
+            ]
+            if expected_missing
+            else []
+        )
+        assert [(insight.code, insight.fix) for insight in insights] == [
+            ("MISSING-VALUE", fix) for fix in expected_fixes
+        ]
+
+    def test_parent_of_cdf_view_in_data_model(self, tmp_path: Path) -> None:
+        cdf_parent_id = ViewId(space="cdf_cdm", external_id="CogniteDescribable", version="v1")
+        cdf_view_id = ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")
+        cdf_view = _cdf_view(cdf_view_id, {}).model_copy(update={"implements": [cdf_parent_id]})
+        model_file = _write(tmp_path, "MyModel.DataModel.yaml", _schema_data_model_yaml(cdf_view_id))
+        rule = DataModelingRuleSet(
+            resources=_resources([(model_file, DataModelIO, DATA_MODEL_ID)]), client=_client(views=[cdf_view])
+        )
+
+        insights = [insight for insight in rule._check_schema_design() if isinstance(insight, InsightDefinition)]
+        assert [(insight.code, insight.line) for insight in insights] == [("MISSING-VALUE", 4)]
+
+
 class TestDataModelingChangesMove:
     def test_state_changes_run_here_and_are_skipped_by_dependency_rules(self, tmp_path: Path) -> None:
         container_file = _write(tmp_path, "MyContainer.container.yaml", CONTAINER_REMOVED_PROPERTY_YAML)
@@ -822,6 +888,17 @@ properties:
     immutable: false
     nullable: true
     autoIncrement: false
+"""
+
+CHANGE_CONTAINER_YAML_WITH_ENUM = """space: my_space
+externalId: MyContainer
+properties:
+  name:
+    type:
+      type: enum
+      values:
+        active: {}
+        archived: {}
 """
 
 CHANGE_VIEW_YAML = """space: my_space
@@ -989,6 +1066,12 @@ class TestIsDisallowedContainerPropertyChange:
                 False,
                 id="type-fields-left-unset-locally-are-not-flagged",
             ),
+            pytest.param(
+                ContainerPropertyDefinition(type=EnumProperty(values={"a": EnumValue(), "b": EnumValue()})),
+                ContainerPropertyDefinition(type=EnumProperty(values={"a": EnumValue()})),
+                False,
+                id="enum-value-added-is-allowed",
+            ),
         ],
     )
     def test_is_disallowed(
@@ -1111,6 +1194,19 @@ class TestDataModelingStateChanges:
                 ["INVALID-RESOURCE-CHANGE"],
                 "has modified usedFor",
                 id="container-used-for-change-is-disallowed",
+            ),
+            pytest.param(
+                CHANGE_CONTAINER_YAML_WITH_ENUM,
+                {
+                    "name": ContainerPropertyDefinition(
+                        type=EnumProperty(values={"active": EnumValue(), "inactive": EnumValue()})
+                    )
+                },
+                None,
+                "node",
+                ["UNSUPPORTED-RESOURCE-REMOVAL"],
+                "is missing enum values 'inactive' of property 'name'",
+                id="enum-value-removed-locally-is-warned",
             ),
         ],
     )
