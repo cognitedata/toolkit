@@ -175,6 +175,7 @@ class TestDataPointsIO:
             DataPointListResponse(items=[DataPointListItem(id=2)]),
         ]
         with monkeypatch_toolkit_client() as client:
+            client.config = MagicMock(create_api_url=MagicMock(return_value="https://example.com/timeseries/data/list"))
             client.http_client = MagicMock()
             client.http_client.request_single_retries.side_effect = [
                 SuccessResponse(status_code=200, body="", content=response.SerializeToString())
