@@ -9,6 +9,8 @@ from pydantic import Field
 
 from ._base import DataSelector, SelectorObject
 
+STATUS_CODE_COLUMN = "statusCode"
+
 
 class Column(SelectorObject, ABC):
     column_type: str
@@ -70,6 +72,7 @@ class DataPointsFileSelector(DataPointsSelector):
 
 class DataPointsDataSetSelector(DataPointsSelector):
     required_columns: ClassVar[frozenset[str]] = frozenset({"externalId", "timestamp", "value"})
+    optional_columns: ClassVar[frozenset[str]] = frozenset({STATUS_CODE_COLUMN})
     type: Literal["datapointsDataSet"] = "datapointsDataSet"
 
     data_set_external_id: str
@@ -96,6 +99,7 @@ class DataPointsInstanceSpaceSelector(DataPointsSelector):
     State time series only exist in data modeling, so they cannot be selected by data set.
     """
 
+    optional_columns: ClassVar[frozenset[str]] = frozenset({STATUS_CODE_COLUMN})
     type: Literal["datapointsInstanceSpace"] = "datapointsInstanceSpace"
 
     instance_space: str

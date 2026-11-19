@@ -1,10 +1,10 @@
 import itertools
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any, ClassVar, Literal, cast
 
 from cognite.client._proto.data_point_insertion_request_pb2 import DataPointInsertionItem, DataPointInsertionRequest
-from cognite.client._proto.data_point_list_response_pb2 import DataPointListResponse
+from cognite.client._proto.data_point_list_response_pb2 import DataPointListItem, DataPointListResponse
 from cognite.client._proto.data_points_pb2 import (
     InstanceId,
     NumericDatapoint,
@@ -21,6 +21,8 @@ from pydantic import ConfigDict
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier, RequestResource
 from cognite_toolkit._cdf_tk.client.http_client import (
+    FailedRequest,
+    FailedResponse,
     HTTPClient,
     RequestMessage,
     SuccessResponse,
@@ -29,7 +31,7 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResult
 from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import CountAggregate
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
@@ -44,12 +46,18 @@ from cognite_toolkit._cdf_tk.utils.fileio._readers import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Bookmark, DataItem, Page, TableDataIO, TableUploadableDataIO
+from .logger import LogEntryV2, Severity
 from .selectors import (
     DataPointsDataSetSelector,
     DataPointsFileSelector,
     DataPointsInstanceSpaceSelector,
     DataPointsSelector,
 )
+from .selectors._datapoints import STATUS_CODE_COLUMN
+
+# The datapoints API supports timestamps from 1900-01-01T00:00:00Z to 2099-12-31T23:59:59.999Z.
+MIN_TIMESTAMP_MS = -2208988800000
+MAX_TIMESTAMP_MS = 4102444799999
 
 
 class DatapointsRequestAdapter(RequestResource):
@@ -102,6 +110,7 @@ class DatapointsIO(
             *id_columns,
             SchemaColumn(name="timestamp", type="epoch"),
             *self._value_columns(selector),
+            SchemaColumn(name=STATUS_CODE_COLUMN, type="integer"),
         ]
 
     @staticmethod
@@ -142,8 +151,32 @@ class DatapointsIO(
             (self.MAX_TOTAL_DATAPOINTS // timeseries_count) if timeseries_count else self.MAX_PER_REQUEST_DATAPOINTS
         )
         limit_per_timeseries = min(limit_per_timeseries, self.MAX_PER_REQUEST_DATAPOINTS)
+        time_range = {
+            "start": self._query_time(selector.start, MIN_TIMESTAMP_MS),
+            "end": self._query_time(selector.end, MAX_TIMESTAMP_MS),
+        }
         for identifiers in identifier_chunks:
-            yield from self._stream_timeseries_datapoints(identifiers, selector, limit_per_timeseries)
+            yield from self._stream_timeseries_datapoints(identifiers, time_range, limit_per_timeseries)
+
+    def _query_time(self, value: int | str | None, default: int) -> int | str:
+        """Converts the selector start/end to a value accepted by the datapoints API.
+
+        The API accepts milliseconds since epoch, 'now', and relative times such as '2d-ago', but not ISO 8601.
+        """
+        if value is None:
+            return default
+        if isinstance(value, int):
+            return value
+        stripped = value.strip()
+        if stripped == "now" or stripped.endswith("-ago"):
+            return stripped
+        try:
+            return cast(int, self._epoc_converter.convert(stripped))
+        except ValueError as e:
+            raise ToolkitValueError(
+                f"Invalid time {value!r}. Expected an ISO 8601 timestamp, milliseconds since epoch, 'now', "
+                "or a relative time such as '1d-ago'."
+            ) from e
 
     def _iterate_data_set_timeseries(
         self, selector: DataPointsDataSetSelector, limit: int | None
@@ -188,63 +221,107 @@ class DatapointsIO(
     def _stream_timeseries_datapoints(
         self,
         identifiers: list[dict[str, JsonVal]],
-        selector: DataPointsDataSetSelector | DataPointsInstanceSpaceSelector,
+        time_range: dict[str, int | str],
         limit_per_timeseries: int,
     ) -> Iterable[Page[DataPointListResponse]]:
+        # Bad and uncertain datapoints are included, such that the download is a complete copy of the time series.
+        status_args = {"ignoreBadDataPoints": False, "treatUncertainAsBad": False}
         # Aggregation of datapoints per timeseries
         items = [
             {
                 **identifier,
-                "start": selector.start,
-                "end": selector.end,
+                **time_range,
+                **status_args,
                 "limit": self.MAX_PER_REQUEST_DATAPOINTS_AGGREGATION // len(identifiers),
                 "aggregates": ["count"],
                 "granularity": "1200mo",
             }
             for identifier in identifiers
         ]
-        response = self.client.http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=self.client.config.create_api_url("/timeseries/data/list"),
-                method="POST",
-                accept="application/protobuf",
-                content_type="application/json",
-                body_content={"items": items},  # type: ignore[dict-item]
-            )
-        )
-        if not isinstance(response, SuccessResponse):
+        aggregate_response = self._list_datapoints(items)
+        if isinstance(aggregate_response, str):
+            self._log_failed_request(len(identifiers), "count datapoints", aggregate_response)
             return
-        aggregate_response: DataPointListResponse = DataPointListResponse.FromString(response.content)
         remaining_by_id: dict[int, int] = {}
         for dp in aggregate_response.items:
             # State time series return their aggregates in stateAggregateDatapoints.
             aggregates = [*dp.aggregateDatapoints.datapoints, *dp.stateAggregateDatapoints.datapoints]
-            if count := int(sum(agg.count for agg in aggregates)):
-                remaining_by_id[dp.id] = min(count, limit_per_timeseries)
+            count = int(sum(agg.count for agg in aggregates))
+            # The count aggregate is eventually consistent, so a count of zero is checked with a single datapoint.
+            remaining_by_id[dp.id] = min(count, limit_per_timeseries) or 1
 
         cursor_by_id: dict[int, str] = {}
+        downloaded_by_id: Counter[int] = Counter()
         while remaining_by_id:
-            batch = self._create_datapoints_batch(remaining_by_id, cursor_by_id, selector)
+            batch = self._create_datapoints_batch(remaining_by_id, cursor_by_id, time_range)
             for item in batch:
                 remaining_by_id[item["id"]] -= item["limit"]
-            data_response = self._fetch_datapoints_batch(batch)
-            if data_response is None:
+            data_response = self._list_datapoints([{**item, **status_args, "includeStatus": True} for item in batch])
+            if isinstance(data_response, str):
+                self._log_failed_request(len(batch), "download datapoints", data_response)
                 for item in batch:
                     remaining_by_id.pop(item["id"], None)
                 continue
+            batch_truncated: list[int] = []
             for response_item in data_response.items:
-                if response_item.nextCursor and remaining_by_id.get(response_item.id, 0) > 0:
-                    cursor_by_id[response_item.id] = response_item.nextCursor
+                ts_id = response_item.id
+                downloaded_by_id[ts_id] += self._datapoint_count(response_item)
+                if not response_item.nextCursor:
+                    remaining_by_id.pop(ts_id, None)
+                elif downloaded_by_id[ts_id] >= limit_per_timeseries:
+                    batch_truncated.append(ts_id)
+                    remaining_by_id.pop(ts_id, None)
                 else:
-                    remaining_by_id.pop(response_item.id, None)
+                    cursor_by_id[ts_id] = response_item.nextCursor
+                    if remaining_by_id.get(ts_id, 0) <= 0:
+                        # The count can be lower than the actual number of datapoints. We trust the cursor
+                        # and continue up to the limit per time series.
+                        remaining_by_id[ts_id] = limit_per_timeseries - downloaded_by_id[ts_id]
+            # Time series that were deleted after the count are not returned.
+            returned_ids = {response_item.id for response_item in data_response.items}
+            for item in batch:
+                if item["id"] not in returned_ids:
+                    remaining_by_id.pop(item["id"], None)
+
             tracking_id = f"datapoints batch {next(self._batch_counter)}"
-            yield self.emit_registered_page(Page("Main", [DataItem(tracking_id=tracking_id, item=data_response)]))
+            page = self.emit_registered_page(Page("Main", [DataItem(tracking_id=tracking_id, item=data_response)]))
+            if batch_truncated:
+                self.logger.log(
+                    LogEntryV2(
+                        id=tracking_id,
+                        label="Datapoints limit per time series reached",
+                        severity=Severity.warning,
+                        message=f"Downloaded {limit_per_timeseries:,} datapoints for {len(batch_truncated):,} time "
+                        "series that have more datapoints. The remaining datapoints were not downloaded.",
+                    )
+                )
+            yield page
+
+    @staticmethod
+    def _datapoint_count(item: DataPointListItem) -> int:
+        return (
+            len(item.numericDatapoints.datapoints)
+            + len(item.stringDatapoints.datapoints)
+            + len(item.stateDatapoints.datapoints)
+        )
+
+    def _log_failed_request(self, timeseries_count: int, action: str, error: str) -> None:
+        tracking_id = f"datapoints batch {next(self._batch_counter)}"
+        self.logger.register([tracking_id])
+        self.logger.log(
+            LogEntryV2(
+                id=tracking_id,
+                label=f"Failed to {action}",
+                severity=Severity.failure,
+                message=f"Failed to {action} for {timeseries_count:,} time series: {error}",
+            )
+        )
 
     def _create_datapoints_batch(
         self,
         remaining_by_id: dict[int, int],
         cursor_by_id: dict[int, str],
-        selector: DataPointsDataSetSelector | DataPointsInstanceSpaceSelector,
+        time_range: dict[str, int | str],
     ) -> list[dict[str, Any]]:
         batch: list[dict[str, Any]] = []
         batch_count = 0
@@ -252,30 +329,35 @@ class DatapointsIO(
             ts_limit = min(remaining, self.MAX_PER_REQUEST_DATAPOINTS - batch_count)
             if ts_limit <= 0:
                 break
-            item: dict[str, Any] = {"id": ts_id, "start": selector.start, "end": selector.end, "limit": ts_limit}
+            item: dict[str, Any] = {"id": ts_id, **time_range, "limit": ts_limit}
             if cursor := cursor_by_id.get(ts_id):
                 item["cursor"] = cursor
             batch.append(item)
             batch_count += ts_limit
         return batch
 
-    def _fetch_datapoints_batch(self, batch: list[dict[str, Any]]) -> DataPointListResponse | None:
+    def _list_datapoints(self, items: list[dict[str, Any]]) -> DataPointListResponse | str:
+        """Lists datapoints. Returns the error message if the request fails."""
         response = self.client.http_client.request_single_retries(
             RequestMessage(
                 endpoint_url=self.client.config.create_api_url("/timeseries/data/list"),
                 method="POST",
                 accept="application/protobuf",
                 content_type="application/json",
-                body_content={"items": batch},  # type: ignore[dict-item]
+                body_content={"items": items, "ignoreUnknownIds": True},  # type: ignore[dict-item]
             )
         )
-        if not isinstance(response, SuccessResponse):
-            return None
-        return DataPointListResponse.FromString(response.content)
+        if isinstance(response, SuccessResponse):
+            return DataPointListResponse.FromString(response.content)
+        if isinstance(response, FailedResponse):
+            return f"HTTP {response.status_code}: {response.error.full_message}"
+        if isinstance(response, FailedRequest):
+            return response.error
+        return f"Unexpected response {type(response).__name__}"
 
     def count(self, selector: DataPointsSelector) -> int | None:
         if isinstance(selector, DataPointsDataSetSelector):
-            return self.client.timeseries.count(
+            count = self.client.timeseries.count(
                 filter={
                     "dataSetIds": [{"externalId": selector.data_set_external_id}],
                     "isString": selector.data_type == "string",
@@ -283,17 +365,27 @@ class DatapointsIO(
                 # We only want time series that have externalID set.
                 advanced_filter=Exists(TimeSeriesProperty.external_id).dump(),
             )
-        if isinstance(selector, DataPointsInstanceSpaceSelector):
+        elif isinstance(selector, DataPointsInstanceSpaceSelector):
             result = self.client.instances.aggregate(
                 self.TIMESERIES_VIEW,
                 aggregates=[CountAggregate(property="externalId")],
                 instance_type="node",
                 filter=self._instance_space_filter(selector),
             )
-            if not result.items or not result.items[0].aggregates:
-                return 0
-            return int(result.items[0].aggregates[0].value or 0)
-        return None
+            count = int(result.items[0].aggregates[0].value or 0) if result.items and result.items[0].aggregates else 0
+        else:
+            return None
+        if count == 0 and self._has_timeseries(selector):
+            # The count aggregates are eventually consistent, so recently created time series are not counted.
+            return None
+        return count
+
+    def _has_timeseries(self, selector: DataPointsDataSetSelector | DataPointsInstanceSpaceSelector) -> bool:
+        if isinstance(selector, DataPointsDataSetSelector):
+            chunks = self._iterate_data_set_timeseries(selector, limit=1)
+        else:
+            chunks = self._iterate_instance_space_timeseries(selector, limit=1)
+        return any(chunks)
 
     def data_to_json_chunk(
         self, data_chunk: Page[DataPointListResponse], selector: DataPointsSelector | None = None
@@ -322,7 +414,12 @@ class DatapointsIO(
                     result.append(
                         DataItem(
                             tracking_id=data_item.tracking_id,
-                            item={**timeseries_id, "timestamp": dp.timestamp, "value": dp.value},
+                            item={
+                                **timeseries_id,
+                                "timestamp": dp.timestamp,
+                                "value": None if dp.nullValue else dp.value,
+                                STATUS_CODE_COLUMN: self._status_code(dp),
+                            },
                         )
                     )
                 for state_dp in item.stateDatapoints.datapoints:
@@ -334,10 +431,18 @@ class DatapointsIO(
                                 "timestamp": state_dp.timestamp,
                                 "numericValue": state_dp.numericValue if state_dp.HasField("numericValue") else None,
                                 "stringValue": state_dp.stringValue if state_dp.HasField("stringValue") else None,
+                                STATUS_CODE_COLUMN: self._status_code(state_dp),
                             },
                         )
                     )
         return data_chunk.create_from(result)
+
+    @staticmethod
+    def _status_code(dp: NumericDatapoint | StringDatapoint | StateDatapoint) -> int | None:
+        # Good (code 0) is the default and is left empty to keep the files small.
+        if dp.HasField("status") and dp.status.code:
+            return dp.status.code
+        return None
 
     def json_to_row(
         self, item_json: dict[str, JsonVal], selector: DataPointsSelector | None = None
@@ -591,10 +696,12 @@ class DatapointsIO(
             return
         column_names = list(first.keys())
         if isinstance(selector, DataPointsDataSetSelector | DataPointsInstanceSpaceSelector):
-            if set(column_names) != selector.required_columns:
+            columns = set(column_names)
+            if not selector.required_columns <= columns <= selector.required_columns | selector.optional_columns:
                 raise RuntimeError(
                     f"When uploading datapoints using a {selector.type} manifest, you must have exactly the "
-                    f"columns: {humanize_collection(selector.required_columns)} in the file. Got {humanize_collection(column_names)}. "
+                    f"columns: {humanize_collection(selector.required_columns)} in the file, and optionally "
+                    f"{humanize_collection(selector.optional_columns)}. Got {humanize_collection(column_names)}. "
                 )
         batch: dict[str, list[Any]] = {col: [value] for col, value in first.items()}
         last_row = start_row
