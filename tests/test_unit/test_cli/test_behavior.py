@@ -1,8 +1,8 @@
 import json
 import os
 import sys
-import warnings
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 from unittest.mock import MagicMock, patch
 
@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import ConstraintOrIndexState
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest, GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterResponse,
@@ -72,8 +73,7 @@ from cognite_toolkit._cdf_tk.data_classes import CommandDisplay
 from cognite_toolkit._cdf_tk.data_classes._insights import BuildError
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_ios import AgentIO, LocationFilterIO, WorkflowVersionIO
-from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
+from cognite_toolkit._cdf_tk.resource_ios import AgentIO, FunctionIO, LocationFilterIO, WorkflowVersionIO
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from tests.constants import CDF_PROJECT, chdir
 from tests.data import (
@@ -1290,9 +1290,7 @@ capabilities:
     assert "my_non_existent_space" in unknown_refs[0].message
 
 
-def test_build_validation_does_not_warn_about_set_environment_variables(
-    tmp_path: Path, monkeypatch: MonkeyPatch
-) -> None:
+def test_built_function_as_request_injects_environment_variables(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     function_yaml = """name: my_function
 externalId: my_function
 space: my_space
@@ -1306,23 +1304,20 @@ secrets:
     (function_dir / "my_function.Function.yaml").write_text(function_yaml, encoding="utf-8")
     monkeypatch.setenv("MY_SECRET", "super-secret")
 
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        folder = BuildV2Command(silent=True, skip_tracking=True).build(
-            client=None,
-            parameters=BuildParameters(
-                organization_dir=my_org, build_dir=tmp_path / "build", user_selected_modules=[f"{MODULES}/"]
-            ),
-        )
-        ValidationCommand(silent=True, skip_tracking=True).validate(
-            [resource for module in folder.built_modules for resource in module.resources],
-            [],
-            None,
-            None,
-            display=False,
-        )
+    folder = BuildV2Command(silent=True, skip_tracking=True).build(
+        client=None,
+        parameters=BuildParameters(
+            organization_dir=my_org, build_dir=tmp_path / "build", user_selected_modules=[f"{MODULES}/"]
+        ),
+    )
+    resources = [resource for module in folder.built_modules for resource in module.resources]
+    assert len(resources) == 1
+    crud = FunctionIO(cast(ToolkitClient, SimpleNamespace(console=None)))
 
-    assert [str(w.message) for w in caught if isinstance(w.message, EnvironmentVariableMissingWarning)] == []
+    request = resources[0].as_request(crud, is_dry_run=True).request
+
+    assert isinstance(request, FunctionRequest)
+    assert request.secrets == {"my-secret": "super-secret"}
 
 
 @pytest.mark.skipif(not Flags.CDF_GROUP_EMAILS.is_enabled(), reason="CDF_GROUP_EMAILS feature flag is not enabled")
