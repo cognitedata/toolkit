@@ -373,7 +373,7 @@ def _unauthenticated(environment: EnvironmentVariables | None, failure: Exceptio
         method_label=_method_label(environment),
         identity_provider=_identity_provider_from_environment(environment) if environment is not None else None,
         subject=None,
-        cluster=environment.CDF_CLUSTER if environment is not None else None,
+        cluster=environment.attempt_to_get_cdf_cluster() if environment is not None else None,
         current_project=environment.CDF_PROJECT if environment is not None else None,
         projects=[],
         session=_session_details(environment),
