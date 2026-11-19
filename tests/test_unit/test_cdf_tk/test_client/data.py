@@ -82,6 +82,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import 
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_app import FunctionAppResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
     FunctionScheduleResponse,
@@ -662,6 +663,15 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "fileId": 789,
             "createdTime": 1622547800000,
             "status": "Ready",
+        },
+        FunctionAppResponse: {
+            "id": 457,
+            "externalId": "function_app_001",
+            "name": "My Function App",
+            "fileId": 790,
+            "createdTime": 1622547800000,
+            "status": "Ready",
+            "functionType": "functionApp",
         },
         FunctionScheduleResponse: {
             "id": 321,
@@ -1300,6 +1310,14 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             api_class=FunctionsAPI,
         ),
         id="Function",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=FunctionAppResponse,
+            request_cls=FunctionRequest,
+            example_data=get_example_minimum_responses(FunctionAppResponse),
+        ),
+        id="FunctionApp",
     )
     yield pytest.param(
         CDFResource(
