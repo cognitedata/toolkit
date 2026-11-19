@@ -526,7 +526,7 @@ class DatapointsIO(
                 raise RuntimeError(f"Unsupported dtype {column.dtype} for column {col}.")
             converter = self._numeric_converter if column.dtype == "numeric" else self._string_converter
             datapoints: list[Any] = []
-            for timestamp, raw_value in zip(timestamps, values):
+            for timestamp, raw_value in zip(timestamps, values, strict=True):
                 # Wide files are sparse, an empty cell means there is no datapoint for this time series.
                 if timestamp is None or raw_value is None:
                     continue
@@ -574,7 +574,7 @@ class DatapointsIO(
         if selector.data_type == "state":
             return self._rows_to_state_datapoint_items(rows, source_id)
         return self._rows_to_value_datapoint_items(
-            list(zip(rows["space"], rows["externalId"])),
+            list(zip(rows["space"], rows["externalId"], strict=True)),
             rows,
             selector.data_type,
             source_id,
@@ -596,7 +596,9 @@ class DatapointsIO(
         datapoints_by_key: dict[tuple[str, ...], list[Any]] = defaultdict(list)
         # Converting row by row ensures that a value that fails conversion cannot shift the following
         # values onto the wrong timestamps.
-        for key, raw_timestamp, raw_value, raw_status in zip(keys, rows["timestamp"], rows["value"], status_codes):
+        for key, raw_timestamp, raw_value, raw_status in zip(
+            keys, rows["timestamp"], rows["value"], status_codes, strict=True
+        ):
             try:
                 timestamp = cast(int | None, self._epoc_converter.convert(raw_timestamp))
                 value = converter.convert(raw_value)
@@ -645,6 +647,7 @@ class DatapointsIO(
             rows["numericValue"],
             rows["stringValue"],
             status_codes,
+            strict=True,
         ):
             try:
                 converted_timestamp = cast(int | None, self._epoc_converter.convert(timestamp))
