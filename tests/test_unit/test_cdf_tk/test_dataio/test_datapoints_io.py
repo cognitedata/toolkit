@@ -322,7 +322,7 @@ class TestDatapointsUploadConversion:
 
     def test_file_selector_keeps_strings_and_reads_naive_timestamps_as_utc(self, tmp_path: Path) -> None:
         csv_file = tmp_path / "wide.Datapoints.csv"
-        csv_file.write_text("time,code,temperature\n2024-01-01T00:00:00,007,\n2024-01-01T01:00:00,,21.5\n")
+        csv_file.write_text("time,code,temperature,unknown\n2024-01-01T00:00:00,007,,1\n2024-01-01T01:00:00,,21.5,2\n")
         selector = DataPointsFileSelector(
             timestamp_column="time",
             columns=(
@@ -331,31 +331,37 @@ class TestDatapointsUploadConversion:
             ),
         )
         with monkeypatch_toolkit_client() as client:
-            io, _ = create_io(client, [])
+            io, logger = create_io(client, [])
             reader = MultiFileReader([csv_file], schema=io.get_schema(selector))
             pages = list(io.read_chunks(reader, selector))
             resources = [
                 io.row_to_resource(item.tracking_id, item.item, selector) for page in pages for item in page.items
             ]
 
-        assert [resource.datapoints for resource in resources] == [
-            DataPointInsertionRequest(
-                items=[
-                    DataPointInsertionItem(
-                        externalId="ts_code",
-                        stringDatapoints=StringDatapoints(
-                            datapoints=[StringDatapoint(timestamp=1704067200000, value="007")]
+        assert {
+            "datapoints": [resource.datapoints for resource in resources],
+            "log": [entry.message for entry in logger.entries],
+        } == {
+            "datapoints": [
+                DataPointInsertionRequest(
+                    items=[
+                        DataPointInsertionItem(
+                            externalId="ts_code",
+                            stringDatapoints=StringDatapoints(
+                                datapoints=[StringDatapoint(timestamp=1704067200000, value="007")]
+                            ),
                         ),
-                    ),
-                    DataPointInsertionItem(
-                        externalId="ts_temperature",
-                        numericDatapoints=NumericDatapoints(
-                            datapoints=[NumericDatapoint(timestamp=1704070800000, value=21.5)]
+                        DataPointInsertionItem(
+                            externalId="ts_temperature",
+                            numericDatapoints=NumericDatapoints(
+                                datapoints=[NumericDatapoint(timestamp=1704070800000, value=21.5)]
+                            ),
                         ),
-                    ),
-                ]
-            )
-        ]
+                    ]
+                )
+            ],
+            "log": ["Skipped 2 values in column 'unknown', which is not in the selector."],
+        }
 
     def test_parquet_string_values_are_not_parsed_as_json(self, tmp_path: Path) -> None:
         parquet_file = tmp_path / "long.Datapoints.parquet"
@@ -417,7 +423,6 @@ class TestDatapointsDownload:
                     ],
                     TIME_RANGE,
                     limit_per_timeseries=100_000,
-                    truncated=[],
                 )
             )
             data_requests = request_bodies(client)[1:]
@@ -446,7 +451,7 @@ class TestDatapointsDownload:
     def test_count_request_includes_bad_datapoints_and_ignores_unknown_ids(self) -> None:
         with monkeypatch_toolkit_client() as client:
             io, _ = create_io(client, [success(DataPointListResponse())])
-            list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, limit_per_timeseries=10, truncated=[]))
+            list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, limit_per_timeseries=10))
 
         assert request_bodies(client) == [
             {
@@ -468,8 +473,8 @@ class TestDatapointsDownload:
         failed = FailedResponse(status_code=500, body="", error=ErrorDetails(code=500, message="Internal error"))
         with monkeypatch_toolkit_client() as client:
             io, logger = create_io(client, [failed, success(count_response({1: 5})), failed])
-            first = list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, 10, truncated=[]))
-            second = list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, 10, truncated=[]))
+            first = list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, 10))
+            second = list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, 10))
 
         assert {"pages": first + second, "registered": logger.registered, "log": log_summary(logger)} == {
             "pages": [],
@@ -482,14 +487,13 @@ class TestDatapointsDownload:
 
     def test_truncation_at_limit_per_timeseries_is_logged(self) -> None:
         responses = [count_response({1: 50}), DataPointListResponse(items=[numeric_item(1, 10, next_cursor="more")])]
-        truncated: list[int] = []
         with monkeypatch_toolkit_client() as client:
             io, logger = create_io(client, [success(response) for response in responses])
-            pages = list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, 10, truncated=truncated))
+            pages = list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, 10))
 
-        assert {"pages": len(pages), "truncated": truncated, "log": log_summary(logger)} == {
+        assert {"pages": len(pages), "requests": len(request_bodies(client)), "log": log_summary(logger)} == {
             "pages": 1,
-            "truncated": [1],
+            "requests": 2,
             "log": [("datapoints batch 1", "Datapoints limit per time series reached", Severity.warning)],
         }
 
@@ -502,7 +506,7 @@ class TestDatapointsDownload:
         ]
         with monkeypatch_toolkit_client() as client:
             io, _ = create_io(client, [success(response) for response in responses])
-            pages = list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, 100, truncated=[]))
+            pages = list(io._stream_timeseries_datapoints([{"id": 1}], TIME_RANGE, 100))
             limits = [body["items"][0]["limit"] for body in request_bodies(client)[1:]]
 
         assert {"pages": len(pages), "limits": limits} == {"pages": 2, "limits": [1, 99]}
@@ -515,7 +519,7 @@ class TestDatapointsDownload:
         ]
         with monkeypatch_toolkit_client() as client:
             io, _ = create_io(client, [success(response) for response in responses])
-            pages = list(io._stream_timeseries_datapoints([{"id": 1}, {"id": 2}], TIME_RANGE, 10, truncated=[]))
+            pages = list(io._stream_timeseries_datapoints([{"id": 1}, {"id": 2}], TIME_RANGE, 10))
 
         assert {"pages": len(pages), "requests": len(request_bodies(client))} == {
             "pages": 1,

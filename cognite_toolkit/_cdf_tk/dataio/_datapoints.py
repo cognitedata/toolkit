@@ -35,7 +35,6 @@ from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import CountAggregate
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     _EpochConverter,
@@ -102,7 +101,6 @@ class DatapointsIO(
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
-        self._warned_columns: set[str] = set()
         self._epoc_converter = _EpochConverter(nullable=True)
         self._numeric_converter = _Float64Converter(nullable=True)
         self._string_converter = _TextConverter(nullable=True)
@@ -171,14 +169,8 @@ class DatapointsIO(
             "start": self._query_time(selector.start, MIN_TIMESTAMP_MS),
             "end": self._query_time(selector.end, MAX_TIMESTAMP_MS),
         }
-        truncated: list[int] = []
         for identifiers in identifier_chunks:
-            yield from self._stream_timeseries_datapoints(identifiers, time_range, limit_per_timeseries, truncated)
-        if truncated:
-            HighSeverityWarning(
-                f"Downloaded at most {limit_per_timeseries:,} datapoints for each of {len(truncated):,} time series "
-                f"with more datapoints. Narrow the time range or the number of time series to download all datapoints."
-            ).print_warning(console=self.client.console)
+            yield from self._stream_timeseries_datapoints(identifiers, time_range, limit_per_timeseries)
 
     def _query_time(self, value: int | str | None, default: int) -> int | str:
         """Converts the selector start/end to a value accepted by the datapoints API.
@@ -245,7 +237,6 @@ class DatapointsIO(
         identifiers: list[dict[str, Any]],
         time_range: dict[str, int | str],
         limit_per_timeseries: int,
-        truncated: list[int],
     ) -> Iterable[Page[DataPointListResponse]]:
         # Bad and uncertain datapoints are included, such that the download is a complete copy of the time series.
         status_args = {"ignoreBadDataPoints": False, "treatUncertainAsBad": False}
@@ -309,7 +300,6 @@ class DatapointsIO(
             tracking_id = f"datapoints batch {next(self._batch_counter)}"
             page = self.emit_registered_page(Page("Main", [DataItem(tracking_id=tracking_id, item=data_response)]))
             if batch_truncated:
-                truncated.extend(batch_truncated)
                 self.logger.log(
                     LogEntryV2(
                         id=tracking_id,
@@ -583,7 +573,9 @@ class DatapointsIO(
                 continue
             column = selector.id_by_column.get(col)
             if column is None:
-                self._warn_missing_columns(col)
+                skipped[f"values in column {col!r}, which is not in the selector"] += sum(
+                    value is not None for value in values
+                )
                 continue
             if column.dtype not in ("numeric", "string"):
                 raise RuntimeError(f"Unsupported dtype {column.dtype} for column {col}.")
@@ -744,26 +736,18 @@ class DatapointsIO(
         ]
 
     def _log_skipped_datapoints(self, source_id: str, skipped: Counter[str]) -> None:
-        if not skipped:
-            return
-        self.logger.log(
-            [
-                LogEntryV2(
-                    id=source_id,
-                    label=f"Skipped {reason}",
-                    severity=Severity.warning,
-                    message=f"Skipped {count:,} {reason}.",
-                )
-                for reason, count in skipped.items()
-            ]
-        )
-
-    def _warn_missing_columns(self, column: str) -> None:
-        if column not in self._warned_columns:
-            HighSeverityWarning(
-                f"Column '{column}' not found in selector columns. Skipping this column."
-            ).print_warning(console=self.client.console)
-            self._warned_columns.add(column)
+        entries = [
+            LogEntryV2(
+                id=source_id,
+                label=f"Skipped {reason}",
+                severity=Severity.warning,
+                message=f"Skipped {count:,} {reason}.",
+            )
+            for reason, count in skipped.items()
+            if count
+        ]
+        if entries:
+            self.logger.log(entries)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> DatapointsRequestAdapter:
         raise ToolkitNotImplementedError(
