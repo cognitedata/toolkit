@@ -1,18 +1,25 @@
 from pathlib import Path
 from typing import Literal
+from unittest.mock import MagicMock
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 from cognite.client._proto.data_point_insertion_request_pb2 import DataPointInsertionItem, DataPointInsertionRequest
+from cognite.client._proto.data_point_list_response_pb2 import DataPointListItem, DataPointListResponse
 from cognite.client._proto.data_points_pb2 import (
+    AggregateDatapoint,
+    AggregateDatapoints,
     InstanceId,
     NumericDatapoint,
     NumericDatapoints,
+    StateDatapoint,
+    StateDatapoints,
     StringDatapoint,
     StringDatapoints,
 )
 
+from cognite_toolkit._cdf_tk.client.http_client import SuccessResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.dataio import DatapointsIO
 from cognite_toolkit._cdf_tk.dataio.selectors import (
@@ -122,3 +129,83 @@ class TestDataPointsIO:
             resource = DatapointsIO(client).row_to_resource("rows", rows, selector)
 
         assert resource.datapoints == DataPointInsertionRequest(items=expected_items)
+
+    def test_row_to_resource_instance_space_state(self) -> None:
+        selector = DataPointsInstanceSpaceSelector(instance_space="my_space", data_type="state")
+        rows: dict[str, JsonVal] = {
+            "space": ["my_space"] * 3,
+            "externalId": ["ts_a", "ts_b", "ts_a"],
+            "timestamp": [1, 2, 3],
+            "numericValue": [1, None, 0],
+            "stringValue": ["on", "unknown", None],
+        }
+        with monkeypatch_toolkit_client() as client:
+            resource = DatapointsIO(client).row_to_resource("rows", rows, selector)
+
+        assert resource.datapoints == DataPointInsertionRequest(
+            items=[
+                DataPointInsertionItem(
+                    instanceId=InstanceId(space="my_space", externalId="ts_a"),
+                    stateDatapoints=StateDatapoints(
+                        datapoints=[
+                            StateDatapoint(timestamp=1, numericValue=1, stringValue="on"),
+                            StateDatapoint(timestamp=3, numericValue=0),
+                        ]
+                    ),
+                ),
+                DataPointInsertionItem(
+                    instanceId=InstanceId(space="my_space", externalId="ts_b"),
+                    stateDatapoints=StateDatapoints(datapoints=[StateDatapoint(timestamp=2, stringValue="unknown")]),
+                ),
+            ]
+        )
+
+    def test_stream_timeseries_datapoints_continues_with_cursor(self) -> None:
+        selector = DataPointsInstanceSpaceSelector(instance_space="my_space", start=0, end=10)
+        responses = [
+            DataPointListResponse(
+                items=[
+                    DataPointListItem(
+                        id=ts_id, aggregateDatapoints=AggregateDatapoints(datapoints=[AggregateDatapoint(count=count)])
+                    )
+                    for ts_id, count in [(1, 80_000), (2, 50_000)]
+                ]
+            ),
+            DataPointListResponse(items=[DataPointListItem(id=1), DataPointListItem(id=2, nextCursor="cursor-2")]),
+            DataPointListResponse(items=[DataPointListItem(id=2)]),
+        ]
+        with monkeypatch_toolkit_client() as client:
+            client.http_client = MagicMock()
+            client.http_client.request_single_retries.side_effect = [
+                SuccessResponse(status_code=200, body="", content=response.SerializeToString())
+                for response in responses
+            ]
+            pages = list(
+                DatapointsIO(client)._stream_timeseries_datapoints(
+                    [
+                        {"instanceId": {"space": "my_space", "externalId": "a"}},
+                        {"instanceId": {"space": "my_space", "externalId": "b"}},
+                    ],
+                    selector,
+                    limit_per_timeseries=100_000,
+                )
+            )
+            data_requests = [
+                call.args[0].body_content for call in client.http_client.request_single_retries.call_args_list[1:]
+            ]
+
+        assert {
+            "tracking_ids": [item.tracking_id for page in pages for item in page.items],
+            "data_requests": data_requests,
+        } == {
+            "tracking_ids": ["datapoints batch 1", "datapoints batch 2"],
+            "data_requests": [
+                {
+                    "items": [
+                        {"id": 1, "start": 0, "end": 10, "limit": 80_000},
+                        {"id": 2, "start": 0, "end": 10, "limit": 20_000},
+                    ]
+                },
+                {"items": [{"id": 2, "start": 0, "end": 10, "limit": 30_000, "cursor": "cursor-2"}]},
+            ],
+        }
