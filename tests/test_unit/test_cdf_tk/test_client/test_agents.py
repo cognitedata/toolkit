@@ -5,6 +5,7 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.agent_chat import (
     AgentChatAgentMessage,
     AgentChatChunk,
@@ -136,11 +137,12 @@ class TestAgentsAPI:
             )
         )
 
-        responses = toolkit_client.agents.chat(
-            "my_agent",
-            [AgentChatUserMessage(content=AgentChatTextContent(text="Hi"))],
-            stream=True,
-            stream_options=AgentChatStreamOptions(return_cursor=True),
+        responses = list(
+            toolkit_client.agents.chat_stream(
+                "my_agent",
+                [AgentChatUserMessage(content=AgentChatTextContent(text="Hi"))],
+                stream_options=AgentChatStreamOptions(return_cursor=True),
+            )
         )
 
         assert {
@@ -161,3 +163,13 @@ class TestAgentsAPI:
                 AgentChatResult(cursor="abc", messages=[]),
             ],
         }
+
+    def test_chat_stream_raises_on_error(
+        self, toolkit_client: ToolkitClient, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.post(toolkit_config.create_api_url("/ai/agents/chat")).mock(
+            return_value=httpx2.Response(400, json={"error": {"code": 400, "message": "Unknown agent"}})
+        )
+
+        with pytest.raises(ToolkitAPIError, match="Unknown agent"):
+            list(toolkit_client.agents.chat_stream("my_agent", [AgentChatUserMessage(content=AgentChatTextContent())]))
