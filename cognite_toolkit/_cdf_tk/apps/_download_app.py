@@ -1233,8 +1233,9 @@ class DownloadApp(typer.Typer):
             str | None,
             typer.Option(
                 "--instance-space",
-                help="The instance space to download state time series datapoints from. "
+                help="The instance space to download time series datapoints from, used instead of the dataset. "
                 "Required when --data-type is state.",
+                hidden=not Flags.EXTEND_DOWNLOAD.is_enabled(),
             ),
         ] = None,
         file_format: Annotated[
@@ -1288,6 +1289,14 @@ class DownloadApp(typer.Typer):
                 "enabled. Enable the flag `extend_download` under [alpha_flags] in cdf.toml.",
                 param_hint="--data-type",
             )
+        if instance_space is not None and not Flags.EXTEND_DOWNLOAD.is_enabled():
+            raise typer.BadParameter(
+                "Downloading datapoints from an instance space is currently behind an alpha feature flag and is not "
+                "enabled. Enable the flag `extend_download` under [alpha_flags] in cdf.toml.",
+                param_hint="--instance-space",
+            )
+        if dataset is not None and instance_space is not None:
+            raise typer.BadParameter("Provide either a dataset or --instance-space, not both.", param_hint="dataset")
         client = EnvironmentVariables.create_from_environment().get_client()
         if dataset is None and instance_space is None:
             datapoint_type = questionary.select(
@@ -1297,10 +1306,18 @@ class DownloadApp(typer.Typer):
                 ],
                 default=datapoint_type,
             ).unsafe_ask()
-            if datapoint_type is DatapointsDataTypes.state:
+            use_instance_space = datapoint_type is DatapointsDataTypes.state or (
+                Flags.EXTEND_DOWNLOAD.is_enabled()
+                and questionary.select(
+                    "Select where to download the time series datapoints from:",
+                    choices=[Choice(title="data set", value=False), Choice(title="instance space", value=True)],
+                ).unsafe_ask()
+            )
+            if use_instance_space:
                 instance_space = DataModelingSelect(client, "download datapoints").select_instance_space(
                     multiselect=False,
-                    message="Select the instance space with the state time series to download datapoints from:",
+                    message=f"Select the instance space with the {datapoint_type.value} time series to download "
+                    "datapoints from:",
                 )
             else:
                 dataset = TimeSeriesInteractiveSelect(client, "download datapoints").select_data_set(allow_empty=False)
@@ -1331,22 +1348,22 @@ class DownloadApp(typer.Typer):
             verbose = _prompt_verbose(verbose)
 
         selector: DataPointsSelector
-        if datapoint_type is DatapointsDataTypes.state:
-            if instance_space is None:
-                raise typer.BadParameter(
-                    "An instance space is required when downloading state datapoints.", param_hint="--instance-space"
-                )
+        if instance_space is not None:
             selector = DataPointsInstanceSpaceSelector(
                 instance_space=instance_space,
                 start=start_time,
                 end=end_time,
+                data_type=datapoint_type.value,
                 download_dir_name=f"instance-space-{instance_space}",
+            )
+        elif datapoint_type is DatapointsDataTypes.state:
+            raise typer.BadParameter(
+                "An instance space is required when downloading state datapoints.", param_hint="--instance-space"
             )
         else:
             if dataset is None:
                 raise typer.BadParameter(
-                    f"A dataset is required when downloading {datapoint_type.value} datapoints. "
-                    "Use --data-type state to download from an instance space.",
+                    f"A dataset or --instance-space is required when downloading {datapoint_type.value} datapoints.",
                     param_hint="dataset",
                 )
             selector = DataPointsDataSetSelector(

@@ -146,7 +146,9 @@ class TestStateDatapointsRoundTrip:
         }
         delete_state_datapoints(toolkit_client, state_timeseries)
         insert_state_datapoints(toolkit_client, expected)
-        selector = DataPointsInstanceSpaceSelector(instance_space=STATE_SPACE, download_dir_name="state")
+        selector = DataPointsInstanceSpaceSelector(
+            instance_space=STATE_SPACE, data_type="state", download_dir_name="state"
+        )
         io = DatapointsIO(toolkit_client)
         # The count comes from an eventually consistent aggregate, and the download is skipped when it is zero.
         for _ in range(120):
