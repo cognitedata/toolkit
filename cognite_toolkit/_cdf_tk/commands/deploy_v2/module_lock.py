@@ -8,6 +8,7 @@ from typing import Self
 
 from pydantic import BaseModel, ValidationError
 from pydantic.alias_generators import to_camel
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._types import DMSTimestamp
@@ -159,10 +160,12 @@ class ModuleLockManager:
         dry_run: bool,
         deploy_branch: str | None = None,
         module_ids: Sequence[str] | None = None,
+        console: Console | None = None,
     ) -> None:
         self._client = client
         self._git = git
         self._dry_run = dry_run
+        self._console = console or client.console
         self._deploy_branch = deploy_branch
         self._module_ids = list(module_ids or [])
         self._acquired: SuccessfulLockResult | None = None
@@ -178,7 +181,7 @@ class ModuleLockManager:
             )
         elif not isinstance(lock_result, SuccessfulLockResult):
             raise ToolkitError(f"Unexpected lock result type: {type(lock_result).__name__}")
-        self._client.console.print(
+        self._console.print(
             ToolkitPanel(
                 "\n- ".join(lock_result.module_ids),
                 title="Successfully acquired locks."
@@ -200,7 +203,7 @@ class ModuleLockManager:
         if lock is None or not lock.is_deploy_branch:
             return
         if self.release_lock(lock):
-            self._client.console.print(
+            self._console.print(
                 ToolkitPanel(
                     "\n- ".join(lock.module_ids),
                     title="Successfully released locks."

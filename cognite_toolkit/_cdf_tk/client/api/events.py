@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.api._classic_list import (
     Sort,
     TimeRange,
     classic_list_body,
+    classic_search_body,
     int_ids,
     object_ids,
     str_ids,
@@ -42,6 +43,7 @@ class EventsAPI(CDFResourceAPI[EventResponse]):
                 "delete": Endpoint(method="POST", path="/events/delete", item_limit=1000, concurrency_max_workers=1),
                 "list": Endpoint(method="POST", path="/events/list", item_limit=1000),
                 "aggregate": Endpoint(method="POST", path="/events/aggregate", item_limit=1000),
+                "search": Endpoint(method="POST", path="/events/search", item_limit=1000),
             },
         )
 
@@ -321,6 +323,23 @@ class EventsAPI(CDFResourceAPI[EventResponse]):
             sort=sort,
             partition=partition,
         )
+
+    def search(
+        self,
+        description: str | None = None,
+        *,
+        filter: ClassicFilter | dict[str, Any] | None = None,
+        limit: int = 100,
+    ) -> builtins.list[EventResponse]:
+        """Search events by text in the description. Results are sorted by relevance.
+
+        ``filter`` is the same strict filter as :meth:`list`. Search is meant for human-centric use cases,
+        use :meth:`list` in programs.
+
+        See `API docs <https://api-docs.cognite.com/20230101/tag/Events/operation/searchEvents>`_.
+        """
+        body = classic_search_body(filter=filter, search={"description": description})
+        return self._search(body, limit)
 
     def count(
         self,

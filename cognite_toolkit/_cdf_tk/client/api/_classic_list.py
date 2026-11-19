@@ -46,6 +46,22 @@ def classic_list_body(
     return body
 
 
+def classic_search_body(
+    *,
+    filter: ClassicFilter | dict[str, Any] | None,
+    search: dict[str, str | None],
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    body: dict[str, Any] = dict(extra or {})
+    dumped_filter = _merge_filter(filter, {})
+    if dumped_filter:
+        body["filter"] = dumped_filter
+    dumped_search = {key: value for key, value in search.items() if value is not None}
+    if dumped_search:
+        body["search"] = dumped_search
+    return body
+
+
 def _merge_filter(filter: ClassicFilter | dict[str, Any] | None, fields: dict[str, Any]) -> dict[str, Any] | None:
     if isinstance(filter, ClassicFilter):
         body = filter.dump()

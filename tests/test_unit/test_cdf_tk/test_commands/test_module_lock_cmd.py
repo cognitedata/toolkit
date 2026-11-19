@@ -47,7 +47,7 @@ def wide_console(monkeypatch: pytest.MonkeyPatch) -> None:
     rich.print uses a global console singleton whose width is fixed when it is first created, so setting
     the COLUMNS environment variable is not enough if another test already created it. Replace it instead.
     """
-    monkeypatch.setattr(rich, "_console", Console(width=300))
+    monkeypatch.setattr(rich, "_console", Console(width=300, height=100))
 
 
 @pytest.fixture
