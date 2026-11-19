@@ -8,6 +8,7 @@ import typer
 from questionary import Choice
 from rich import print
 
+from cognite_toolkit._cdf_tk.client.config import parse_cdf_cluster
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_ios import (
     AssetIO,
@@ -160,7 +161,9 @@ def _prompt_cdf_project_and_cluster(
         validate=lambda value: bool(value.strip()) or "CDF project cannot be empty",
     ).unsafe_ask()
     cdf_project = cdf_project.strip()
-    fallback_cluster = os.environ.get("CDF_CLUSTER", "").strip()
+    fallback_cluster = (
+        os.environ.get("CDF_CLUSTER", "").strip() or parse_cdf_cluster(os.environ.get("CDF_URL", "").strip()) or ""
+    )
     cdf_cluster = questionary.text(
         "Enter the CDF cluster (e.g. westeurope-1)",
         default=fallback_cluster,
@@ -204,7 +207,7 @@ def prompt_user_environment_variables(
 
     cdf_cluster = questionary.text(
         "Enter the CDF cluster (e.g. westeurope-1)",
-        default=current.CDF_CLUSTER if current else "",
+        default=(current.attempt_to_get_cdf_cluster() or "") if current else "",
         validate=lambda v: True if v.strip() else "CDF cluster cannot be empty",
     ).unsafe_ask()
     cdf_project = questionary.text(
@@ -291,5 +294,5 @@ def _is_unchanged(
         current.PROVIDER == provider
         and current.LOGIN_FLOW == login_flow
         and current.CDF_PROJECT == cdf_project
-        and current.CDF_CLUSTER == cdf_cluster
+        and current.attempt_to_get_cdf_cluster() == cdf_cluster
     )

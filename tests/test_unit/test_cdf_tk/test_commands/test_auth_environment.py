@@ -170,12 +170,32 @@ class TestEnvironmentVariables:
 
         assert env_vars.idp_token_url == expected
 
+    @pytest.mark.parametrize(
+        "cdf_url, expected_cluster",
+        [
+            pytest.param("https://westeurope-1.cognitedata.com", "westeurope-1", id="standard url"),
+            pytest.param("https://acme.plink.westeurope-1.cognitedata.com", "westeurope-1", id="private link"),
+            pytest.param("https://cdf.example.com", None, id="custom url"),
+        ],
+    )
+    def test_cluster_derived_from_cdf_url(self, cdf_url: str, expected_cluster: str | None) -> None:
+        with mock.patch.dict(os.environ, {"CDF_PROJECT": "my-project", "CDF_URL": cdf_url}, clear=True):
+            env_vars = EnvironmentVariables.create_from_environment()
+
+        assert env_vars.attempt_to_get_cdf_cluster() == expected_cluster
+
+    def test_cdf_cluster_missing_raises(self) -> None:
+        env_vars = EnvironmentVariables(CDF_PROJECT="my-project", CDF_URL="https://cdf.example.com")
+
+        with pytest.raises(ToolkitMissingValueError, match="CDF_CLUSTER is missing"):
+            _ = env_vars.idp_scopes
+
     def test_create_dot_env_file(self) -> None:
         env_vars = EnvironmentVariables(
-            "bluefield",
-            "cognite-toolkit",
-            "entra_id",
-            "client_credentials",
+            CDF_CLUSTER="bluefield",
+            CDF_PROJECT="cognite-toolkit",
+            PROVIDER="entra_id",
+            LOGIN_FLOW="client_credentials",
             IDP_CLIENT_ID="my-identifier",
             IDP_CLIENT_SECRET="my-secret",
             IDP_TENANT_ID="my_tenant.onmicrosoft.com",
@@ -309,6 +329,29 @@ class TestPromptUserEnvironmentVariables:
         assert env.CDF_PROJECT == "my-project"
         assert env.IDP_TENANT_ID == "my-tenant.onmicrosoft.com"
         assert not env.get_missing_vars()
+
+    def test_keeps_cdf_url_when_cluster_derived_from_url_is_unchanged(self) -> None:
+        cdf_url = "https://acme.plink.westeurope-1.cognitedata.com"
+        current = EnvironmentVariables(
+            CDF_PROJECT="my-project",
+            CDF_URL=cdf_url,
+            PROVIDER="entra_id",
+            LOGIN_FLOW="device_code",
+            IDP_TENANT_ID="my-tenant.onmicrosoft.com",
+        )
+        with MockQuestionary(
+            AUTH_MODULE,
+            answers=[
+                "entra_id",  # provider select
+                "westeurope-1",  # CDF cluster, the default derived from CDF_URL
+                "my-project",  # CDF project
+                "my-tenant.onmicrosoft.com",  # IDP_TENANT_ID
+                False,  # "change optional vars?"
+            ],
+        ):
+            env = prompt_user_environment_variables(current=current, login_flow="device_code")
+
+        assert env.cdf_url == cdf_url
 
 
 class TestParseLoginFlow:

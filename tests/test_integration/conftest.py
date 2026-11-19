@@ -61,6 +61,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWRowRequest,
     RAWTableRequest,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.session import ClientCredentialsSessionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamRequest,
     StreamRequestSettings,
@@ -296,7 +297,9 @@ def dummy_function(cognite_client: CogniteClient) -> Function:
 
 
 @pytest.fixture
-def dummy_schedule(toolkit_client: ToolkitClient, dummy_function: Function) -> FunctionScheduleResponse:
+def dummy_schedule(
+    toolkit_client: ToolkitClient, toolkit_client_config: ToolkitClientConfig, dummy_function: Function
+) -> FunctionScheduleResponse:
     client = toolkit_client
     name = "integration_test_schedule_dummy"
     if existing_list := client.functions.schedules.list(name=name):
@@ -304,13 +307,19 @@ def dummy_schedule(toolkit_client: ToolkitClient, dummy_function: Function) -> F
             client.functions.schedules.delete([existing.as_id() for existing in existing_list[1:]])
         schedule = existing_list[0]
     else:
+        credentials = toolkit_client_config.credentials
+        assert isinstance(credentials, OAuthClientCredentials)
+        session = client.sessions.create_single(
+            ClientCredentialsSessionRequest(client_id=credentials.client_id, client_secret=credentials.client_secret)
+        )
         schedule = client.functions.schedules.create(
             [
                 FunctionScheduleRequest(
                     name=name,
                     cron_expression="0 7 * * MON",
                     description="Original description.",
-                    function_external_id=dummy_function.external_id,
+                    function_id=dummy_function.id,
+                    nonce=session.nonce,
                 )
             ]
         )[0]
