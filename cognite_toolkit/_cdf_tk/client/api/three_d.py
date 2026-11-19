@@ -1111,6 +1111,41 @@ class ThreeDJobsAPI(CDFResourceAPI[ThreeDJobResponse]):
         """
         self._request_no_response(ids, "delete")
 
+    def paginate(self, cursor: str | None = None) -> PagedResponse[ThreeDJobResponse]:
+        """Fetch one page of jobs.
+
+        The endpoint does not accept a limit, so the page size is decided by the API.
+
+        Args:
+            cursor: Cursor for pagination.
+
+        Returns:
+            One page of jobs.
+        """
+        body = {"cursor": cursor} if cursor is not None else {}
+        return self._validate_page_response(self._post(f"{self._JOBS}/list", body))
+
+    def iterate(self, limit: int | None = 100, cursor: str | None = None) -> Iterable[builtins.list[ThreeDJobResponse]]:
+        """Iterate jobs, following pagination cursors.
+
+        Args:
+            limit: Maximum number of jobs to return in total. None returns all.
+            cursor: Cursor to start from.
+
+        Yields:
+            Batches of jobs.
+        """
+        next_cursor = cursor
+        total = 0
+        while True:
+            page = self.paginate(next_cursor)
+            items = page.items if limit is None else page.items[: limit - total]
+            yield items
+            total += len(items)
+            if page.next_cursor is None or not page.items or (limit is not None and total >= limit):
+                break
+            next_cursor = page.next_cursor
+
     def list(self, limit: int | None = 100) -> builtins.list[ThreeDJobResponse]:
         """List jobs.
 
@@ -1120,9 +1155,7 @@ class ThreeDJobsAPI(CDFResourceAPI[ThreeDJobResponse]):
         Returns:
             The jobs.
         """
-        return self._collect_pages(
-            PagedResponse[ThreeDJobResponse], f"{self._JOBS}/list", "POST", limit, page_size=None
-        )
+        return [item for batch in self.iterate(limit) for item in batch]
 
     def list_results(self, job: ThreeDJobId, limit: int | None = 100) -> builtins.list[ThreeDJobResult]:
         """List the instances a job created, for example the files with the text found by an ImageTextDetection job.

@@ -43,3 +43,29 @@ class TestThreeDJobsAPI:
         )
 
         assert toolkit_client.three_d.jobs.list_rejections(_JOB, _RESULT, limit=2) == ["k1", "k2"]
+
+    def test_iterate_follows_cursor_and_truncates_to_limit(
+        self, toolkit_client: ToolkitClient, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        job = {
+            "space": "my_space",
+            "externalId": "my_job",
+            "name": "My job",
+            "type": "Optimizer",
+            "source": {"type": "CogniteFile", "instanceId": {"space": "my_space", "externalId": "my_file"}},
+            "status": "Scheduled",
+            "createdAt": 0,
+        }
+        route = respx_mock.post(toolkit_config.create_api_url("/3d/jobs/list")).mock(
+            side_effect=[
+                httpx2.Response(200, json={"items": [job], "nextCursor": "c1"}),
+                httpx2.Response(200, json={"items": [job, job], "nextCursor": "c2"}),
+            ]
+        )
+
+        batches = list(toolkit_client.three_d.jobs.iterate(limit=2))
+
+        assert {
+            "batch_sizes": [len(batch) for batch in batches],
+            "bodies": [json.loads(call.request.content) for call in route.calls],
+        } == {"batch_sizes": [1, 1], "bodies": [{}, {"cursor": "c1"}]}
