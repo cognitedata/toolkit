@@ -38,6 +38,8 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     ChartSelector,
     CogniteFileFilesSelectorV2,
     DataPointsDataSetSelector,
+    DataPointsInstanceSpaceSelector,
+    DataPointsSelector,
     DataSetSelector,
     FileMetadataFilesSelectorV2,
     InstanceSelector,
@@ -111,6 +113,7 @@ class DatapointFormats(StrEnum):
 class DatapointsDataTypes(StrEnum):
     numeric = "numeric"
     string = "string"
+    state = "state"
 
 
 class InstanceFormats(StrEnum):
@@ -170,6 +173,10 @@ def _validate_file_format(file_format: Enum) -> None:
             "Enable the flag `extend_download` under [alpha_flags] in cdf.toml.",
             param_hint="--format",
         )
+
+
+def _is_datapoint_type_enabled(datapoint_type: DatapointsDataTypes) -> bool:
+    return datapoint_type is not DatapointsDataTypes.state or Flags.EXTEND_DOWNLOAD.is_enabled()
 
 
 def _prompt_file_format(display_name: str, options: Iterable[T_Format], default: T_Format) -> T_Format:
@@ -1219,9 +1226,17 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--data-type",
                 "-d",
-                help="The type of datapoints to download.",
+                help="The type of datapoints to download. state requires the extend_download alpha flag.",
             ),
         ] = DatapointsDataTypes.numeric,
+        instance_space: Annotated[
+            str | None,
+            typer.Option(
+                "--instance-space",
+                help="The instance space to download state time series datapoints from. "
+                "Required when --data-type is state.",
+            ),
+        ] = None,
         file_format: Annotated[
             DatapointFormats,
             typer.Option(
@@ -1267,16 +1282,28 @@ class DownloadApp(typer.Typer):
     ) -> None:
         """This command will download Datapoints from CDF into a temporary directory."""
         _validate_file_format(file_format)
+        if not _is_datapoint_type_enabled(datapoint_type):
+            raise typer.BadParameter(
+                f"Downloading {datapoint_type.value} datapoints is currently behind an alpha feature flag and is not "
+                "enabled. Enable the flag `extend_download` under [alpha_flags] in cdf.toml.",
+                param_hint="--data-type",
+            )
         client = EnvironmentVariables.create_from_environment().get_client()
-        if dataset is None:
-            interactive = TimeSeriesInteractiveSelect(client, "download datapoints")
-            dataset = interactive.select_data_set(allow_empty=False)
-
+        if dataset is None and instance_space is None:
             datapoint_type = questionary.select(
                 "Select the type of datapoints to download:",
-                choices=[Choice(title=dt.value, value=dt) for dt in DatapointsDataTypes],
+                choices=[
+                    Choice(title=dt.value, value=dt) for dt in DatapointsDataTypes if _is_datapoint_type_enabled(dt)
+                ],
                 default=datapoint_type,
             ).unsafe_ask()
+            if datapoint_type is DatapointsDataTypes.state:
+                instance_space = DataModelingSelect(client, "download datapoints").select_instance_space(
+                    multiselect=False,
+                    message="Select the instance space with the state time series to download datapoints from:",
+                )
+            else:
+                dataset = TimeSeriesInteractiveSelect(client, "download datapoints").select_data_set(allow_empty=False)
 
             start_time = (
                 questionary.text(
@@ -1303,14 +1330,33 @@ class DownloadApp(typer.Typer):
             )
             verbose = _prompt_verbose(verbose)
 
+        selector: DataPointsSelector
+        if datapoint_type is DatapointsDataTypes.state:
+            if instance_space is None:
+                raise typer.BadParameter(
+                    "An instance space is required when downloading state datapoints.", param_hint="--instance-space"
+                )
+            selector = DataPointsInstanceSpaceSelector(
+                instance_space=instance_space,
+                start=start_time,
+                end=end_time,
+                download_dir_name=f"instance-space-{instance_space}",
+            )
+        else:
+            if dataset is None:
+                raise typer.BadParameter(
+                    f"A dataset is required when downloading {datapoint_type.value} datapoints. "
+                    "Use --data-type state to download from an instance space.",
+                    param_hint="dataset",
+                )
+            selector = DataPointsDataSetSelector(
+                data_set_external_id=dataset,
+                start=start_time,
+                end=end_time,
+                data_type=datapoint_type.value,
+                download_dir_name=f"dataset-{dataset}",
+            )
         cmd = DownloadCommand(client=client)
-        selector = DataPointsDataSetSelector(
-            data_set_external_id=dataset,
-            start=start_time,
-            end=end_time,
-            data_type=datapoint_type.value,
-            download_dir_name=f"dataset-{dataset}",
-        )
         cmd.run(
             lambda: cmd.download(
                 selectors=[selector],
