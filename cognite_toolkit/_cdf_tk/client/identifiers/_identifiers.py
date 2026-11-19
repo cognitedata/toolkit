@@ -284,6 +284,19 @@ class DataProductVersionId(Identifier):
         return f"{self.data_product_external_id}.{self.version}"
 
 
+class DataProductRoleId(Identifier):
+    data_product_external_id: str = Field(exclude=True)
+    external_id: str
+
+    def __str__(self) -> str:
+        return f"dataProductExternalId='{self.data_product_external_id}', externalId='{self.external_id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"dataProductExternalId-{self.data_product_external_id}.externalId-{self.external_id}"
+        return f"{self.data_product_external_id}.{self.external_id}"
+
+
 class TransformationNotificationId(Identifier):
     transformation_external_id: str
     destination: str

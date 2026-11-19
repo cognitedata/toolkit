@@ -25,6 +25,7 @@ from ._data_modeling import (
 )
 from ._identifiers import (
     AppVersionId,
+    DataProductRoleId,
     DataProductVersionId,
     DataSetId,
     ExternalId,
@@ -68,6 +69,7 @@ __all__ = [
     "ContainerReferenceUntyped",
     "DataModelId",
     "DataModelNoVersionId",
+    "DataProductRoleId",
     "DataProductVersionId",
     "DataSetId",
     "DatapointSubscriptionTimeSeriesId",

@@ -44,8 +44,12 @@ class DataProductRequest(DataProduct, UpdatableRequestResource):
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         update_item = super().as_update(mode)
+        update = update_item.get("update", {})
         # schemaSpace is immutable after creation — the API rejects it in updates.
-        update_item.get("update", {}).pop("schemaSpace", None)
+        update.pop("schemaSpace", None)
+        # The instance scope patch only supports set, an empty list clears it.
+        if update.get("instanceScope") == {"setNull": True}:
+            update["instanceScope"] = {"set": []}
         return update_item
 
 

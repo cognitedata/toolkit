@@ -242,8 +242,8 @@ class TestCDFResourceAPI:
         assert created[0].dump() == resource
 
         # Test retrieve
-        respx_mock.get(config.create_api_url(f"/dataproducts/{instance.external_id}")).mock(
-            return_value=httpx2.Response(status_code=200, json=resource)
+        respx_mock.post(config.create_api_url("/dataproducts/byids")).mock(
+            return_value=httpx2.Response(status_code=200, json={"items": [resource]})
         )
         retrieved = api.retrieve([request.as_id()])
         assert len(retrieved) == 1

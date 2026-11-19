@@ -18,6 +18,8 @@ from cognite_toolkit._cdf_tk.client.api.apps import AppsAPI
 from cognite_toolkit._cdf_tk.client.api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
 from cognite_toolkit._cdf_tk.client.api.charts_monitoring_job import ChartMonitoringJobsAPI
 from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
+from cognite_toolkit._cdf_tk.client.api.data_product_role_access_filters import DataProductRoleAccessFiltersAPI
+from cognite_toolkit._cdf_tk.client.api.data_product_roles import DataProductRolesAPI
 from cognite_toolkit._cdf_tk.client.api.data_product_versions import DataProductVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.datapoint_subscription import DatapointSubscriptionsAPI
@@ -384,6 +386,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # The dataproduct API is not yet supported in CDF.
         DataProductsAPI,
         DataProductVersionsAPI,
+        DataProductRolesAPI,
+        DataProductRoleAccessFiltersAPI,
         # Datapoints subscription has a special update method
         DatapointSubscriptionsAPI,
         # Statistics are read-only and have no items to create, update, or delete.
