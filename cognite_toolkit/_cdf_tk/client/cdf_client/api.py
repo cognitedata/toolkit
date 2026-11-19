@@ -405,6 +405,7 @@ class CDFResourceAPI(Generic[T_BaseModelObject], ABC):
         page_size: int | None,
         body: dict[str, Any] | None = None,
         api_version: str | None = None,
+        params: dict[str, Any] | None = None,
     ) -> list[T_PageItem]:
         """Follow the cursor of a list endpoint until ``limit`` items are collected.
 
@@ -419,12 +420,14 @@ class CDFResourceAPI(Generic[T_BaseModelObject], ABC):
             page_size: Maximum number of items per request. None if the endpoint does not accept a limit.
             body: Body content for POST requests.
             api_version: API version for the requests. Defaults to the API version of this client.
+            params: Extra query parameters sent with every request.
 
         Returns:
             The collected items.
         """
         items: list[T_PageItem] = []
         cursor: str | None = None
+        query = self._filter_out_none_values(params) or {}
         while True:
             paging: dict[str, Any] = {}
             if page_size is not None:
@@ -435,7 +438,7 @@ class CDFResourceAPI(Generic[T_BaseModelObject], ABC):
                 endpoint_url=self._make_url(path),
                 method=method,
                 body_content={**(body or {}), **paging} if method == "POST" else None,
-                parameters=(paging or None) if method == "GET" else None,
+                parameters=({**query, **paging} if method == "GET" else query) or None,
                 disable_gzip=self._disable_gzip,
                 api_version=api_version or self._api_version,
             )

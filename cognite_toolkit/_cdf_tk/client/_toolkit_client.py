@@ -32,6 +32,7 @@ from .api.limits import LimitsAPI
 from .api.lookup import LookUpGroup
 from .api.metering import MeteringAPI
 from .api.migration import MigrationAPI
+from .api.organizations import OrganizationsAPI
 from .api.postgres_gateway import PostgresGatewayAPI
 from .api.principals import PrincipalsAPI
 from .api.project import ProjectAPI
@@ -121,6 +122,7 @@ class ToolkitClient:
         self.charts = ChartsAPI(http_client)
         self.project = ProjectAPI(http_client)
         self.principals = PrincipalsAPI(http_client=http_client, project_api=self.project)
+        self.organizations = OrganizationsAPI(http_client=http_client, project_api=self.project)
         self.sessions = SessionAPI(http_client)
         self.user_profiles = UserProfilesAPI(http_client)
         self.infield = InfieldAPI(http_client)

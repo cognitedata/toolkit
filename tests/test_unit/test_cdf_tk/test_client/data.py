@@ -118,6 +118,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.organization import (
+    OrgProjectCreateResponse,
+    OrgProjectRequest,
+    OrgRequest,
+    OrgResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_table import (
     RawRowsTableRequest,
     RawRowsTableResponse,
@@ -794,6 +800,21 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "createdTime": 1622547800000,
             "status": "ACTIVE",
         },
+        OrgResponse: {
+            "id": "child-org",
+            "parentId": "parent-org",
+            "idp": {"idpVendor": "AZURE_AD", "issuer": "https://login.microsoftonline.com/tenant-id/v2.0"},
+            "adminsCanCreateOrgsInSubtree": False,
+            "adminsCanCreateProjectsInSubtree": False,
+            "allowedClusters": ["westeurope-1"],
+            "isDeleted": False,
+            "profilesEnabled": True,
+        },
+        OrgProjectCreateResponse: {
+            "name": "my-project",
+            "clusterName": "westeurope-1",
+            "projectAdminGroupId": "admin-group",
+        },
         ChartMonitoringJobResponse: {
             "id": 401,
             "externalId": "chart_monitoring_job_001",
@@ -1444,6 +1465,23 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             # No api_class: create returns the password and host, which list and retrieve do not.
         ),
         id="PostgresGatewayUser",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=OrgResponse,
+            request_cls=OrgRequest,
+            example_data=get_example_minimum_responses(OrgResponse),
+            # No api_class: the API is org-scoped and served from auth.cognite.com.
+        ),
+        id="Org",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=OrgProjectCreateResponse,
+            request_cls=OrgProjectRequest,
+            example_data=get_example_minimum_responses(OrgProjectCreateResponse),
+        ),
+        id="OrgProject",
     )
     yield pytest.param(
         CDFResource(

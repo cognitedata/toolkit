@@ -148,6 +148,16 @@ class ToolkitClientConfig(ClientConfig):
                 return f"{parsed.scheme}://{parsed.netloc}"
         return "https://auth.cognite.com"
 
+    def create_auth_admin_url(self, endpoint: str) -> str:
+        """Create a full Auth admin URL for the given endpoint.
+
+        Args:
+            endpoint (str): The Auth admin endpoint to append to the base URL.
+        """
+        if not endpoint.startswith("/"):
+            endpoint = f"/{endpoint}"
+        return f"https://auth.cognite.com/api/admin{endpoint}"
+
     def attempt_to_get_cdf_cluster(self) -> str | None:
         """A best effort attempt to extract the cluster from the base url when cluster was not explicitly provided in init."""
         if self._cluster is not None:
