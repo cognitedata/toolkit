@@ -305,13 +305,16 @@ class ExtractionPipelineConfigIO(
         original, _ = load_yaml_inject_variables(raw_str, {}, original_filepath=filepath)
         replaced, _ = load_yaml_inject_variables(raw_str, environment_variables or {}, original_filepath=filepath)
 
-        if isinstance(original, dict) and isinstance(replaced, dict) and "config" in original:
-            replaced["config"] = original.get("config")
+        if isinstance(original, dict) and isinstance(replaced, dict):
+            if "config" in original:
+                replaced["config"] = original.get("config")
             resources = [replaced]
-        else:
+        elif isinstance(original, list) and isinstance(replaced, list):
             for orig_item, repl_item in zip(original, replaced):
-                if "config" in orig_item:
-                    repl_item["config"] = orig_item.get("config")  # type: ignore
+                if isinstance(orig_item, dict) and isinstance(repl_item, dict) and "config" in orig_item:
+                    repl_item["config"] = orig_item.get("config")
+            resources = replaced
+        else:
             resources = replaced if isinstance(replaced, list) else [replaced]
 
         for resource in resources:
