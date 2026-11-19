@@ -6,7 +6,7 @@ from typing import Any, Literal, TypeVar
 from urllib.parse import quote
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingDMRequestId,
     AssetMappingDMResponse,
     ThreeDAssetNodeMapping,
+    ThreeDBoundingBoxFilter,
     ThreeDInstanceReference,
     ThreeDJobRejection,
     ThreeDJobRequest,
@@ -35,9 +36,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicResponse,
     ThreeDModelDMSRequest,
     ThreeDModelRevertMigrationRequest,
+    ThreeDNodeInBoundingBox,
     ThreeDNodeResponse,
     ThreeDRevisionClassicRequest,
     ThreeDRevisionClassicResponse,
+    ThreeDRevisionLog,
+    ThreeDRevisionOutput,
     ThreeDRevisionRevertMigrationRequest,
 )
 
@@ -200,6 +204,86 @@ class ThreeDClassicRevisionsAPI(CDFResourceAPI[ThreeDRevisionClassicResponse]):
                 item.model_id = int(model_id)
             results.extend(result)
         return results
+
+    def _revision_request(
+        self,
+        model_id: int,
+        revision_id: int,
+        suffix: str = "",
+        method: Literal["GET", "POST"] = "GET",
+        params: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
+    ) -> SuccessResponse:
+        request = RequestMessage(
+            endpoint_url=self._make_url(f"{self.ENDPOINT.format(modelId=model_id)}/{revision_id}{suffix}"),
+            method=method,
+            parameters=params,
+            body_content=body,
+            api_version=self._api_version,
+            disable_gzip=self._disable_gzip,
+        )
+        return self._http_client.request_single_retries(request).get_success_or_raise(request)
+
+    def retrieve(self, ids: Sequence[ThreeDModelRevisionId]) -> builtins.list[ThreeDRevisionClassicResponse]:
+        """Retrieve 3D revisions by their IDs.
+
+        Args:
+            ids: The revisions to retrieve. Each revision is retrieved with its own request.
+
+        Returns:
+            The retrieved revisions.
+        """
+        retrieved: builtins.list[ThreeDRevisionClassicResponse] = []
+        for id_ in ids:
+            item = ThreeDRevisionClassicResponse.model_validate_json(self._revision_request(id_.model_id, id_.id).body)
+            item.model_id = id_.model_id
+            retrieved.append(item)
+        return retrieved
+
+    def list_logs(
+        self, model_id: int, revision_id: int, severity: int | None = None
+    ) -> builtins.list[ThreeDRevisionLog]:
+        """List the processing logs of a 3D revision.
+
+        Args:
+            model_id: Model ID.
+            revision_id: Revision ID.
+            severity: Minimum severity of the logs to return (3 = INFO, 5 = WARN, 7 = ERROR). The API default is 5.
+
+        Returns:
+            The log entries.
+        """
+        params = None if severity is None else {"severity": severity}
+        response = self._revision_request(model_id, revision_id, "/logs", params=params)
+        return ResponseItems[ThreeDRevisionLog].model_validate_json(response.body).items
+
+    def list_outputs(
+        self, model_id: int, revision_id: int, format: str | None = None
+    ) -> builtins.list[ThreeDRevisionOutput]:
+        """List the files produced when a 3D revision was processed.
+
+        Args:
+            model_id: Model ID.
+            revision_id: Revision ID.
+            format: Only return outputs of this format, for example "reveal-directory" or "ept-pointcloud".
+                Use "all-outputs" to include internal outputs.
+
+        Returns:
+            The outputs.
+        """
+        params = None if format is None else {"format": format}
+        response = self._revision_request(model_id, revision_id, "/outputs", params=params)
+        return ResponseItems[ThreeDRevisionOutput].model_validate_json(response.body).items
+
+    def update_thumbnail(self, model_id: int, revision_id: int, file_id: int) -> None:
+        """Set the thumbnail of a 3D revision.
+
+        Args:
+            model_id: Model ID.
+            revision_id: Revision ID.
+            file_id: The ID of the uploaded image file to use as thumbnail.
+        """
+        self._revision_request(model_id, revision_id, "/thumbnail", method="POST", body={"fileId": file_id})
 
     def update(
         self,
@@ -1011,6 +1095,39 @@ class ThreeDNodesAPI(CDFResourceAPI[ThreeDNodeResponse]):
         )
         self._assign_revision(items, model_id, revision_id)
         return items
+
+    def list_in_bounding_box(
+        self,
+        model: NodeId,
+        revision: NodeId,
+        bounding_box: ThreeDBoundingBoxFilter,
+        node_ids: Sequence[int],
+    ) -> builtins.list[ThreeDNodeInBoundingBox]:
+        """Find which of the given nodes are within a bounding box. Only supported in data modeling projects.
+
+        Args:
+            model: The 3D model instance.
+            revision: The 3D revision instance.
+            bounding_box: The bounding box.
+            node_ids: The nodes to check, for example from the cadNodeReference of CogniteCADNode instances.
+
+        Returns:
+            The nodes within the bounding box.
+        """
+        body = {
+            "model": ThreeDInstanceReference(instance_id=model).dump(),
+            "revision": ThreeDInstanceReference(instance_id=revision).dump(),
+            "filterNodesByBoundingBox": {"boundingBox": bounding_box.dump(), "nodeIds": list(node_ids)},
+        }
+        request = RequestMessage(
+            endpoint_url=self._make_url("/3d/nodes/list"),
+            method="POST",
+            body_content=body,
+            disable_gzip=self._disable_gzip,
+            api_version=self._api_version,
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+        return PagedResponse[ThreeDNodeInBoundingBox].model_validate_json(response.body).items
 
 
 class ThreeDFilesAPI(CDFResourceAPI[BaseModelObject]):
