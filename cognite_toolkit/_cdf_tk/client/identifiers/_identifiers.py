@@ -309,6 +309,20 @@ class PrincipalId(Identifier):
         return self.id
 
 
+class ApplicationId(Identifier):
+    """The client ID of an application registered for an organization."""
+
+    id: str
+
+    def __str__(self) -> str:
+        return f"id='{self.id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"id-{self.id}"
+        return self.id
+
+
 class UserProfileId(Identifier):
     user_identifier: str
 

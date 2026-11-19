@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from . import ToolkitClientConfig
 from .api.agents import AgentsAPI
 from .api.app_versions import AppVersionsAPI
+from .api.applications import ApplicationsAPI
 from .api.apps import AppsAPI
 from .api.assets import AssetsAPI
 from .api.chart_scheduled_calculations import ChartScheduledCalculationsAPI
@@ -153,6 +154,7 @@ class ToolkitClientMock(ToolkitClient):
     lookup: MagicMock
     migration: MagicMock
     principals: MagicMock
+    applications: MagicMock
     sessions: MagicMock
     agents: MagicMock
     skills: MagicMock
@@ -271,6 +273,7 @@ class ToolkitClientMock(ToolkitClient):
         self.migration.instance_space_relocation_source = MagicMock(spec_set=InstanceSpaceRelocationSourceAPI)
         self.migration.instance_space_relocation_source.retrieve.return_value = []
         self.principals = MagicMock(spec_set=PrincipalsAPI)
+        self.applications = MagicMock(spec_set=ApplicationsAPI)
         self.sessions = MagicMock(spec_set=SessionAPI)
 
         def create_single(item: Any) -> Any:
