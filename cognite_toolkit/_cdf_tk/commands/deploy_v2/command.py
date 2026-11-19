@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.module_lock import (
     SuccessfulLockResult,
 )
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID, HINT_LEAD_TEXT
+from cognite_toolkit._cdf_tk.data_classes import CommandDisplay
 from cognite_toolkit._cdf_tk.data_classes._insights import Insight, InsightCode, InsightList
 from cognite_toolkit._cdf_tk.data_classes._tracking_info import DeploymentTracking, ResourceDeploymentStat
 from cognite_toolkit._cdf_tk.dataio.selectors import RawTableSelector, SelectedTable, Selector
@@ -81,7 +82,6 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     EnvironmentVariableMissingWarning,
     LowSeverityWarning,
     ToolkitWarning,
-    catch_warnings,
 )
 from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.ui import (
@@ -278,6 +278,7 @@ class DeployV2Command(ToolkitCommand):
         env_vars: EnvironmentVariables | None = None,
         client: ToolkitClient | None = None,
         options: DeployOptions | None = None,
+        display: CommandDisplay = CommandDisplay(),
     ) -> Sequence[DeploymentResult]:
         options = options or DeployOptions(environment_variables=env_vars.dump() if env_vars else None)
         build_lineage = self.read_build_lineage(user_build_dir)
@@ -285,40 +286,45 @@ class DeployV2Command(ToolkitCommand):
         build_dir = self.read_build_directory(user_build_dir, options.include, build_lineage)
 
         client = self._get_client(client, env_vars, build_dir.is_strict_validation)
+        console = client.console if client else Console(markup=True)
 
         self._validate_cdf_project(build_dir, options.operation, options.cdf_project, client.config.project)
 
-        with self._module_lock_context(client, options.dry_run, build_lineage):
+        with self._module_lock_context(client, options.dry_run, build_lineage, console):
             plan = self.create_deployment_plan(build_dir)
-            self._display_setup(
-                options.operation, build_dir, plan, client.config.project, client.console, options.verbose
-            )
+            if display.header:
+                self._display_setup(options.operation, build_dir, plan, client.config.project, console, options.verbose)
 
-            clean_result = self._drop_phase(client, plan, options, insights_by_resource)
+            with display.progress_bar(console) as progress:
+                clean_result = self._drop_phase(client, plan, options, progress, console, insights_by_resource)
 
-            if options.operation == "clean":
-                clean_result = clean_result or []
-                self._display_results(clean_result, options.operation, client.console, options.verbose)
-                return clean_result
-            results = self.apply_plan(client, plan, options, insights_by_resource=insights_by_resource)
+                if options.operation == "clean":
+                    clean_result = clean_result or []
+                    self._display_results(clean_result, options.operation, console, options.verbose)
+                    return clean_result
+
+                results = self.apply_plan(
+                    client, plan, options, progress, console=console, insights_by_resource=insights_by_resource
+                )
 
         if clean_result is not None:
             self._merge_clean_results(results, clean_result)
 
-        self._display_results(results, options.operation, client.console, options.verbose)
+        if display.results:
+            self._display_results(results, options.operation, console, options.verbose)
         self._track_deployment_result(self.tracker, client, results, options.operation)
 
         if build_lineage and (raw_files := self._find_raw_tables(build_lineage)):
             # To aviod circular imports, we import UploadCommand here.
             from cognite_toolkit._cdf_tk.commands import UploadCommand
 
-            self._display_deprecation_warning(raw_files, client.console)
+            self._display_deprecation_warning(raw_files, console)
             UploadCommand.upload_data(
                 cast(Mapping[Selector, list[Path]], raw_files),
                 user_build_dir,
                 client,
                 options.dry_run,
-                client.console,
+                console,
                 options.verbose,
                 self.tracker,
             )
@@ -330,23 +336,31 @@ class DeployV2Command(ToolkitCommand):
         client: ToolkitClient,
         plan: list[DeploymentStep],
         options: DeployOptions,
+        progress: Progress,
+        console: Console,
         insights_by_resource: InsightsByResource | None,
     ) -> Sequence[DeploymentResult] | None:
         """Validates, confirms, and runs the delete pass. Raises ToolkitUserAbortError if the user declines."""
         if not options.drop:
             return None
-        self._validate_plan_container_references(client, plan, options)
+        self._validate_plan_container_references(client, plan, options, console)
         if options.requires_drop_confirmation and not self._confirm_drop_data(client, plan, options):
             raise ToolkitUserAbortError("Drop data aborted by user. No resources were deleted.")
         if not options.runs_delete_pass:
             return None
         return self.apply_plan(
-            client, list(reversed(plan)), options, is_delete=True, insights_by_resource=insights_by_resource
+            client,
+            list(reversed(plan)),
+            options,
+            is_delete=True,
+            progress=progress,
+            console=console,
+            insights_by_resource=insights_by_resource,
         )
 
     @staticmethod
     def _module_lock_context(
-        client: ToolkitClient, dry_run: bool, build_lineage: BuildLineage | None
+        client: ToolkitClient, dry_run: bool, build_lineage: BuildLineage | None, console: Console
     ) -> AbstractContextManager[SuccessfulLockResult | None, bool | None]:
         if (
             not Flags.DEPLOY_PROTECTION.is_enabled()
@@ -360,6 +374,7 @@ class DeployV2Command(ToolkitCommand):
             dry_run,
             build_lineage.deploy_branch,
             module_ids=[module.module_id for module in build_lineage.module_lineage],
+            console=console,
         )
 
     @classmethod
@@ -717,6 +732,7 @@ class DeployV2Command(ToolkitCommand):
         client: ToolkitClient,
         plan: list[DeploymentStep],
         options: DeployOptions,
+        console: Console,
     ) -> None:
         """Raise ToolkitValueError if any container in the plan is referenced by views outside the build directory."""
         container_ids: list[ContainerId] = []
@@ -746,14 +762,11 @@ class DeployV2Command(ToolkitCommand):
             if options.operation == "clean"
             else "deploying with --drop flag",
             scope="build directory",
-            console=client.console,
+            console=console,
         )
 
     def _confirm_drop_data(
-        self,
-        client: ToolkitClient,
-        plan: list[DeploymentStep],
-        options: DeployOptions,
+        self, client: ToolkitClient, plan: list[DeploymentStep], options: DeployOptions, console: Console | None = None
     ) -> bool:
         """Show safety gates before any --drop-data deletion. Returns False if the user aborts."""
         instance_count = self._count_dms_instances_in_plan(client, plan, options)
@@ -769,7 +782,7 @@ class DeployV2Command(ToolkitCommand):
                 project_instance_statistics.soft_deleted_instances,
                 project_instance_statistics.soft_deleted_instances_limit,
                 instance_count,
-                client.console,
+                console or client.console,
             )
             acknowledge = questionary.confirm(
                 "Do you understand the soft-delete resource limit impact and wish to continue?",
@@ -777,7 +790,7 @@ class DeployV2Command(ToolkitCommand):
             ).ask()
             if not acknowledge:
                 return False
-        client.console.print(
+        (console or client.console).print(
             ToolkitPanel(
                 "[red]WARNING:[/red] This operation [bold]cannot be undone[/bold]! "
                 "Resources and their data will be permanently deleted.",
@@ -786,7 +799,9 @@ class DeployV2Command(ToolkitCommand):
                 expand=False,
             )
         )
-        return confirm_by_typing_project_name("You are about to delete resources and their data", client)
+        return confirm_by_typing_project_name(
+            "You are about to delete resources and their data", client.config.project, console or client.console
+        )
 
     @classmethod
     def apply_plan(
@@ -794,7 +809,9 @@ class DeployV2Command(ToolkitCommand):
         client: ToolkitClient,
         plan: list[DeploymentStep],
         options: DeployOptions,
+        progress: Progress,
         is_delete: bool = False,
+        console: Console | None = None,
         insights_by_resource: InsightsByResource | None = None,
     ) -> Sequence[DeploymentResult]:
         """Applies the given plan using the given client.
@@ -803,7 +820,9 @@ class DeployV2Command(ToolkitCommand):
             client: The client to use to apply the plan.
             plan: The plan to apply.
             options: The options to use when applying the plan.
+            progress: The progress bar to use when applying the plan.
             is_delete: Whether this plan application is a delete/clean operation.
+            console: The console to use for output. If None, a new console will be created.
             insights_by_resource: Optional mapping of resources to related build insights.
 
         Returns:
@@ -811,11 +830,11 @@ class DeployV2Command(ToolkitCommand):
         """
 
         results: list[DeploymentResult] = []
-        console = client.console
+        console = console or client.console
         collected_warnings: list[ToolkitWarning] = []
-        with cls._print_warnings_on_error(collected_warnings, console), Progress(console=console) as progress:
-            total_files = sum(len(step.files) for step in plan)
-            task_id = progress.add_task(f"Starting {options.operation}", total=total_files)
+        total_files = sum(len(step.files) for step in plan)
+        task_id = progress.add_task(f"Starting {options.operation}", total=total_files)
+        with cls._print_warnings_on_error(collected_warnings, console):
             for step in plan:
                 step_warning_start = len(collected_warnings)
                 crud = step.crud_cls(client, on_warning=collected_warnings.append)
@@ -919,8 +938,8 @@ class DeployV2Command(ToolkitCommand):
                 results.append(result)
 
                 progress.update(task_id, advance=len(step.files))
-            finished = "Finished dry-run." if options.dry_run else f"Finished {options.operation}ing."
-            progress.update(task_id, description=finished)
+        finished = "Finished dry-run." if options.dry_run else f"Finished {options.operation}ing."
+        progress.update(task_id, description=finished, completed=total_files)
         return results
 
     @staticmethod
@@ -945,18 +964,11 @@ class DeployV2Command(ToolkitCommand):
         to_deploy_by_id: dict[T_Identifier, ReadResource[T_RequestResource]] = {}
         environment_variables = options.environment_variables or {}
         for filepath in filepaths:
-            with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
+            with cls._capture_missing_env_vars(crud) as missing_env_vars:
                 try:
                     resource_list = crud.load_resource_file(filepath, environment_variables)
                 except YAMLError as e:
                     raise ToolkitYAMLFormatError(f"YAML validation error for {filepath.as_posix()}: {e}")
-            # Note we only catch EnvironmentVariableMissingWarning, so all warnings should be of that type.
-            missing_env_vars = {
-                env_var
-                for warning in warning_list
-                if isinstance(warning, EnvironmentVariableMissingWarning)
-                for env_var in warning.variables
-            }
             for resource_dict in resource_list:
                 try:
                     # The load resource modifies the resource_dict, so we deepcopy it to avoid side effects.
@@ -979,6 +991,25 @@ class DeployV2Command(ToolkitCommand):
                     to_deploy_by_id[identifier].source_files.append(filepath)
 
         return to_deploy_by_id
+
+    @staticmethod
+    @contextmanager
+    def _capture_missing_env_vars(crud: ResourceIO) -> Generator[set[str], None, None]:
+        """Missing environment variables are not shown to the user, only used to explain failed deployments."""
+        missing_env_vars: set[str] = set()
+        forward_warning = crud.on_warning
+
+        def on_warning(warning: ToolkitWarning) -> None:
+            if isinstance(warning, EnvironmentVariableMissingWarning):
+                missing_env_vars.update(warning.variables)
+            else:
+                forward_warning(warning)
+
+        crud.on_warning = on_warning
+        try:
+            yield missing_env_vars
+        finally:
+            crud.on_warning = forward_warning
 
     @classmethod
     def validate_access(

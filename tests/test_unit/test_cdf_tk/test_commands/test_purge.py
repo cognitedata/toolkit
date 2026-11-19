@@ -206,7 +206,7 @@ class TestPurgeInstances:
         client = purge_client
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
         monkeypatch.setattr(
-            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True
+            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, project, console: True
         )
         if not dry_run:
             respx_mock.get(config.create_api_url("/models/statistics")).respond(
@@ -339,7 +339,7 @@ class TestPurgeSpace:
         space = "test_space"
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
         monkeypatch.setattr(
-            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True
+            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, project, console: True
         )
         container_count = 10
         view_count = 15
@@ -489,7 +489,7 @@ class TestPurgeSpaceCrossReferenceCheck:
         space = "test_space"
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
         monkeypatch.setattr(
-            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True
+            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, project, console: True
         )
 
         respx_mock.post(config.create_api_url("/models/statistics/spaces/byids")).respond(
@@ -547,7 +547,7 @@ class TestPurgeSpaceCrossReferenceCheck:
         space = "test_space"
         monkeypatch.setattr("cognite_toolkit._cdf_tk.commands._purge.questionary", MagicMock())
         monkeypatch.setattr(
-            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, client: True
+            "cognite_toolkit._cdf_tk.commands._purge.confirm_by_typing_project_name", lambda msg, project, console: True
         )
 
         respx_mock.post(config.create_api_url("/models/statistics/spaces/byids")).respond(

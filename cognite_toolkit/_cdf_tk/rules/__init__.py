@@ -4,6 +4,7 @@ from ._classic import ClassicDeprecationRuleSet
 from ._data_modeling import DataModelingRuleSet
 from ._dependencies import DependencyRuleSet
 from ._duplicates import DuplicateRuleSet
+from ._failing_jobs import FailingJobRuleSet
 from ._functions import FunctionRuleSet
 from ._groups import GroupRuleSet
 from ._infield import InFieldCDMRuleSet
@@ -16,6 +17,7 @@ __all__ = [
     "DataModelingRuleSet",
     "DependencyRuleSet",
     "DuplicateRuleSet",
+    "FailingJobRuleSet",
     "FunctionRuleSet",
     "GroupRuleSet",
     "InFieldCDMRuleSet",
