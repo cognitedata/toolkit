@@ -23,7 +23,7 @@ class DataProductsAPI(CDFResourceAPI[DataProductResponse]):
                 "retrieve": Endpoint(method="GET", path="/dataproducts/{externalId}", item_limit=1),
                 "update": Endpoint(method="POST", path="/dataproducts/update", item_limit=1),
                 "delete": Endpoint(method="POST", path="/dataproducts/delete", item_limit=1),
-                "list": Endpoint(method="GET", path="/dataproducts", item_limit=1000),
+                "list": Endpoint(method="GET", path="/dataproducts", item_limit=100),
             },
             api_version="alpha",
         )

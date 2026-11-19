@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
+from cognite_toolkit._cdf_tk.client.api.labels import LabelsAPI
 from cognite_toolkit._cdf_tk.client.api.sequences import SequencesAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
@@ -105,6 +106,21 @@ def test_asset_list_iterate_paginate_send_every_filter(
     assert captured[1] == expected_common
     list(api.iterate(limit=10, **kwargs))
     assert captured[2] == expected_common
+
+
+def test_label_list_iterate_paginate_send_filter(
+    toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+) -> None:
+    api = LabelsAPI(HTTPClient(toolkit_config))
+    captured = _capture_list(api, toolkit_config, respx_mock)
+    kwargs: dict[str, Any] = {"filter": ClassicFilter(data_set_ids=[InternalId(id=4)]), "name": "pump"}
+    expected = {"filter": {"dataSetIds": [{"id": 4}], "name": "pump"}, "limit": 10}
+
+    api.paginate(limit=10, cursor="cursor", **kwargs)
+    api.list(limit=10, **kwargs)
+    list(api.iterate(limit=10, **kwargs))
+
+    assert captured == [{**expected, "cursor": "cursor"}, expected, expected]
 
 
 def test_event_list_merges_dict_filter_with_arguments(

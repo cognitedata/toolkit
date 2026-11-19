@@ -104,8 +104,20 @@ class TextProperty(ListablePropertyTypeDefinition):
     )
 
 
+class Unit(BaseModelResource):
+    external_id: str
+    space: str | None = Field(
+        default=None,
+        description="The space hosting the unit. If not set, the unit is assumed to be a global unit.",
+    )
+    source_unit: str | None = Field(
+        default=None,
+        description="The source unit of the data stored in this property. For example, 'time:sec' or 'length:m'.",
+    )
+
+
 class FloatPrimitiveProperty(ListablePropertyTypeDefinition, ABC):
-    unit: dict[Literal["externalId", "sourceUnit"], str] | None = Field(
+    unit: Unit | None = Field(
         default=None,
         description="The unit of the data stored in this property.",
     )
