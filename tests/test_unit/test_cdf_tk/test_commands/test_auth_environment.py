@@ -170,12 +170,32 @@ class TestEnvironmentVariables:
 
         assert env_vars.idp_token_url == expected
 
+    @pytest.mark.parametrize(
+        "cdf_url, expected_cluster",
+        [
+            pytest.param("https://westeurope-1.cognitedata.com", "westeurope-1", id="standard url"),
+            pytest.param("https://acme.plink.westeurope-1.cognitedata.com", "westeurope-1", id="private link"),
+            pytest.param("https://cdf.example.com", None, id="custom url"),
+        ],
+    )
+    def test_cluster_derived_from_cdf_url(self, cdf_url: str, expected_cluster: str | None) -> None:
+        with mock.patch.dict(os.environ, {"CDF_PROJECT": "my-project", "CDF_URL": cdf_url}, clear=True):
+            env_vars = EnvironmentVariables.create_from_environment()
+
+        assert env_vars.attempt_to_get_cdf_cluster() == expected_cluster
+
+    def test_cdf_cluster_missing_raises(self) -> None:
+        env_vars = EnvironmentVariables(CDF_PROJECT="my-project", CDF_URL="https://cdf.example.com")
+
+        with pytest.raises(ToolkitMissingValueError, match="CDF_CLUSTER is missing"):
+            _ = env_vars.idp_scopes
+
     def test_create_dot_env_file(self) -> None:
         env_vars = EnvironmentVariables(
-            "bluefield",
-            "cognite-toolkit",
-            "entra_id",
-            "client_credentials",
+            CDF_CLUSTER="bluefield",
+            CDF_PROJECT="cognite-toolkit",
+            PROVIDER="entra_id",
+            LOGIN_FLOW="client_credentials",
             IDP_CLIENT_ID="my-identifier",
             IDP_CLIENT_SECRET="my-secret",
             IDP_TENANT_ID="my_tenant.onmicrosoft.com",

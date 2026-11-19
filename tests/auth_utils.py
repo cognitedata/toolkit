@@ -378,7 +378,7 @@ def _prompt_cluster_and_project() -> EnvironmentVariables:
 
     cluster = Prompt.ask("Enter CDF Cluster (example 'greenfield', 'bluefield', 'westeurope-1)")
     project = Prompt.ask("Enter CDF Project")
-    return EnvironmentVariables(cluster, project)
+    return EnvironmentVariables(CDF_PROJECT=project, CDF_CLUSTER=cluster)
 
 
 def _repo_root() -> Path | None:

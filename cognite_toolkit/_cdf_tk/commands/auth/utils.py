@@ -204,7 +204,7 @@ def prompt_user_environment_variables(
 
     cdf_cluster = questionary.text(
         "Enter the CDF cluster (e.g. westeurope-1)",
-        default=current.CDF_CLUSTER if current else "",
+        default=(current.attempt_to_get_cdf_cluster() or "") if current else "",
         validate=lambda v: True if v.strip() else "CDF cluster cannot be empty",
     ).unsafe_ask()
     cdf_project = questionary.text(
