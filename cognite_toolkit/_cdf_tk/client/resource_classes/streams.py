@@ -55,6 +55,7 @@ class LimitsObject(BaseModelObject):
 
     max_records_total: ResourceUsage
     max_giga_bytes_total: ResourceUsage
+    max_unique_properties_with_data: ResourceUsage | None = None
     max_filtering_interval: str | None = None
 
 
@@ -84,3 +85,32 @@ class StreamResponse(Stream, ResponseResource[StreamRequest]):
                 "settings": {"template": {"name": self.created_from_template}},
             }
         )
+
+
+class StreamTemplateSetting(BaseModelObject):
+    """A single limit or lifecycle setting of a stream template."""
+
+    type: str
+    name: str
+    # A number for counts and sizes, or an ISO-8601 duration (or 'infinity') for durations.
+    value: float | str
+
+
+class StreamTemplateMaxStreams(BaseModelObject):
+    provisioned: int
+
+
+class StreamTemplateSettings(BaseModelObject):
+    """Settings keyed by identifier, for example 'maxRecordsTotal' or 'retainedAfterSoftDelete'."""
+
+    limits: dict[str, StreamTemplateSetting]
+    lifecycle: dict[str, StreamTemplateSetting]
+
+
+class StreamTemplateResponse(BaseModelObject):
+    """A stream template available in the project. Use the name as settings.template.name when creating a stream."""
+
+    name: str
+    type: Literal["Mutable", "Immutable"]
+    max_streams: StreamTemplateMaxStreams
+    settings: StreamTemplateSettings
