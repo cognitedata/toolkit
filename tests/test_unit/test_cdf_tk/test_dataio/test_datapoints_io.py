@@ -29,7 +29,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.dataio import DatapointsIO
 from cognite_toolkit._cdf_tk.dataio._base import DataItem, Page
-from cognite_toolkit._cdf_tk.dataio._datapoints import MAX_TIMESTAMP_MS, MIN_TIMESTAMP_MS
+from cognite_toolkit._cdf_tk.dataio._datapoints import MAX_TIMESTAMP_MS, MIN_TIMESTAMP_MS, DatapointsRequestAdapter
 from cognite_toolkit._cdf_tk.dataio.logger import DataLogger, LogEntryV2, Severity
 from cognite_toolkit._cdf_tk.dataio.selectors import (
     DataPointsDataSetSelector,
@@ -138,13 +138,11 @@ class TestDataPointsIO:
             io = DatapointsIO(client)
 
             reader = MultiFileReader([data_file])
+            # The upload progress bar advances one step per chunk, so the count must match the number of chunks.
             item_count = io.count_items(reader, selector)
-            assert item_count == n_rows * n_columns
-
             actual_chunks = list(io.read_chunks(reader, selector))
-            assert len(actual_chunks) == expected_iterations, (
-                f"Expected {expected_iterations} chunk, got {len(actual_chunks)}"
-            )
+
+        assert (item_count, len(actual_chunks)) == (expected_iterations, expected_iterations)
 
     @pytest.mark.parametrize(
         "data_type, values, expected_items",
@@ -393,6 +391,34 @@ class TestDatapointsUploadConversion:
         assert rows == [{"externalId": ["ts_a", "ts_a"], "timestamp": [1, 2], "value": ["007", "[1, 2]"]}]
 
 
+class TestDatapointsReadChunks:
+    def test_long_format_chunks_by_rows_and_never_span_files(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        first = tmp_path / "data-part-0001.Datapoints.csv"
+        second = tmp_path / "data-part-0002.Datapoints.csv"
+        rows = "".join(f"ts_a,{no},{no}.0\n" for no in range(3))
+        first.write_text(f"externalId,timestamp,value\n{rows}")
+        second.write_text(f"externalId,timestamp,value,statusCode\n{rows}")
+        selector = DataPointsDataSetSelector(data_set_external_id="my_data_set")
+        monkeypatch.setattr(DatapointsIO, "CHUNK_SIZE", 2)
+
+        reader = MultiFileReader([first, second])
+        tracking_ids = [item.tracking_id for page in DatapointsIO.read_chunks(reader, selector) for item in page.items]
+        item_count = DatapointsIO.count_items(reader, selector)
+
+        # A chunk holds CHUNK_SIZE datapoints, which is CHUNK_SIZE rows as each row is a single datapoint.
+        assert {"tracking_ids": tracking_ids, "item_count": item_count} == {
+            "tracking_ids": [
+                "data-part-0001.Datapoints.csv rows 1 to 2",
+                "data-part-0001.Datapoints.csv rows 3 to 3",
+                "data-part-0002.Datapoints.csv rows 1 to 2",
+                "data-part-0002.Datapoints.csv rows 3 to 3",
+            ],
+            "item_count": 4,
+        }
+
+
 class TestDatapointsDownload:
     def test_stream_timeseries_datapoints_continues_with_cursor(
         self, datapoints_io: tuple[DatapointsIO, RecordingLogger], datapoints_route: respx.Route
@@ -567,6 +593,46 @@ class TestDatapointsDownload:
             {"externalId": "ts_a", "timestamp": 1, "value": 1.0, "statusCode": None},
             {"externalId": "ts_a", "timestamp": 2, "value": None, "statusCode": BAD},
         ]
+
+
+class TestDatapointsUpload:
+    def test_upload_retries_without_missing_timeseries(self) -> None:
+        request = DataPointInsertionRequest(
+            items=[
+                DataPointInsertionItem(
+                    externalId=external_id,
+                    numericDatapoints=NumericDatapoints(datapoints=[NumericDatapoint(timestamp=1, value=1.0)]),
+                )
+                for external_id in ["exists", "missing"]
+            ]
+        )
+        missing = FailedResponse(
+            status_code=400,
+            body="",
+            error=ErrorDetails(code=400, message="Time series not found", missing=[{"externalId": "missing"}]),
+        )
+        http_client = MagicMock()
+        http_client.config.create_api_url.return_value = "https://example.com/timeseries/data"
+        http_client.request_single_retries.side_effect = [missing, success()]
+        with monkeypatch_toolkit_client() as client:
+            io, logger = create_io(client, [])
+            results = io.upload_items(
+                Page("main", [DataItem(tracking_id="rows 1 to 2", item=DatapointsRequestAdapter(datapoints=request))]),
+                http_client,
+            )
+        retried = DataPointInsertionRequest.FromString(
+            http_client.request_single_retries.call_args.args[0].data_content
+        )
+
+        assert {
+            "results": [type(result).__name__ for result in results],
+            "retried": [item.externalId for item in retried.items],
+            "log": log_summary(logger),
+        } == {
+            "results": ["ItemsSuccessResponse"],
+            "retried": ["exists"],
+            "log": [("rows 1 to 2", "Missing time series", Severity.warning)],
+        }
 
 
 class TestDatapointsCount:

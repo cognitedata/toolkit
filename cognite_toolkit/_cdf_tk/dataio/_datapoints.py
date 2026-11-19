@@ -1,4 +1,5 @@
 import itertools
+import math
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any, ClassVar, Literal, cast
@@ -25,6 +26,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     FailedRequest,
     FailedResponse,
     HTTPClient,
+    HTTPResult,
     RequestMessage,
     SuccessResponse,
 )
@@ -88,6 +90,7 @@ class DatapointsIO(
     KIND = "Datapoints"
     UPLOAD_ENDPOINT = "/timeseries/data"
     UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = None
+    MAX_CONSECUTIVE_FAILED_PAGES = 5
     MAX_TOTAL_DATAPOINTS = 10_000_000
     MAX_PER_REQUEST_DATAPOINTS = 100_000
     MAX_PER_REQUEST_DATAPOINTS_AGGREGATION = 10_000
@@ -465,16 +468,65 @@ class DatapointsIO(
     ) -> ItemsResultList:
         results = ItemsResultList()
         for item in data_chunk.items:
-            response = http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=http_client.config.create_api_url(self.UPLOAD_ENDPOINT),
-                    method="POST",
-                    content_type="application/protobuf",
-                    data_content=item.item.datapoints.SerializeToString(),
+            request = item.item.datapoints
+            response = self._insert_datapoints(http_client, request)
+            missing = self._missing_references(response, request)
+            if missing:
+                # The API rejects the entire request if any time series is missing. Retry without them.
+                request = DataPointInsertionRequest(
+                    items=[dp_item for dp_item in request.items if self._reference(dp_item) not in missing]
                 )
-            )
+                self.logger.log(
+                    LogEntryV2(
+                        id=item.tracking_id,
+                        label="Missing time series",
+                        severity=Severity.warning,
+                        message=f"Skipped datapoints for {len(missing):,} time series that do not exist: "
+                        f"{humanize_collection([str(ref[-1]) for ref in missing])}",
+                    )
+                )
+                if not request.items:
+                    continue
+                response = self._insert_datapoints(http_client, request)
             results.append(response.as_item_response(item.tracking_id))
         return results
+
+    def _insert_datapoints(self, http_client: HTTPClient, request: DataPointInsertionRequest) -> HTTPResult:
+        return http_client.request_single_retries(
+            RequestMessage(
+                endpoint_url=http_client.config.create_api_url(self.UPLOAD_ENDPOINT),
+                method="POST",
+                content_type="application/protobuf",
+                data_content=request.SerializeToString(),
+            )
+        )
+
+    @classmethod
+    def _missing_references(
+        cls, response: HTTPResult, request: DataPointInsertionRequest
+    ) -> set[tuple[str | int, ...]]:
+        if not isinstance(response, FailedResponse) or not response.error.missing:
+            return set()
+        requested = {cls._reference(item) for item in request.items}
+        missing: set[tuple[str | int, ...]] = set()
+        for identifier in response.error.missing:
+            if isinstance(instance_id := identifier.get("instanceId"), dict):
+                missing.add(("instanceId", str(instance_id.get("space")), str(instance_id.get("externalId"))))
+            elif "externalId" in identifier:
+                missing.add(("externalId", str(identifier["externalId"])))
+            elif isinstance(internal_id := identifier.get("id"), int):
+                missing.add(("id", internal_id))
+        # Only retry if the missing time series are part of the request, otherwise the retry fails the same way.
+        return missing if missing <= requested else set()
+
+    @staticmethod
+    def _reference(item: DataPointInsertionItem) -> tuple[str | int, ...]:
+        reference = item.WhichOneof("timeSeriesReference")
+        if reference == "id":
+            return ("id", item.id)
+        if reference == "externalId":
+            return ("externalId", item.externalId)
+        return ("instanceId", item.instanceId.space, item.instanceId.externalId)
 
     def row_to_resource(
         self, source_id: str, row: dict[str, JsonVal], selector: DataPointsSelector | None = None
@@ -706,49 +758,66 @@ class DatapointsIO(
     def read_chunks(cls, reader: MultiFileReader, selector: DataPointsSelector) -> Iterable[Page[dict[str, JsonVal]]]:
         if not reader.is_table:
             raise RuntimeError(f"{cls.__name__} can only read from TableReader instances.")
-
-        iterator = iter(reader.read_chunks_with_line_numbers())
-        try:
-            start_row, first = next(iterator)
-        except StopIteration:
-            # Empty file
-            return
-        column_names = list(first.keys())
-        if isinstance(selector, DataPointsDataSetSelector | DataPointsInstanceSpaceSelector):
-            columns = set(column_names)
-            if not selector.required_columns <= columns <= selector.required_columns | selector.optional_columns:
-                raise RuntimeError(
-                    f"When uploading datapoints using a {selector.type} manifest, you must have exactly the "
-                    f"columns: {humanize_collection(selector.required_columns)} in the file, and optionally "
-                    f"{humanize_collection(selector.optional_columns)}. Got {humanize_collection(column_names)}. "
-                )
-        batch: dict[str, list[Any]] = {col: [value] for col, value in first.items()}
-        last_row = start_row
-        for row_no, chunk in iterator:
-            for col, value in chunk.items():
-                batch[col].append(value)
-
-            # The number of datapoints is the number of rows times the number of value columns.
-            if ((len(column_names) - 1) * len(batch[column_names[0]])) >= cls.CHUNK_SIZE:
-                # We cannot guarantee JsonVal here, but that is handled later in the processing pipeline.
-                yield Page(
-                    worker_id="main",
-                    items=[DataItem(tracking_id=f"rows {start_row} to {row_no}", item=batch)],  # type: ignore[arg-type]
-                )
+        rows_per_chunk = cls._rows_per_chunk(selector)
+        current_file = None
+        column_names: list[str] = []
+        batch: dict[str, list[Any]] = {}
+        start_row = row_no = 0
+        for chunk in reader.read_chunks():
+            if reader.current_file != current_file:
+                # Chunks never span files, such that the tracking IDs point to rows in a single file.
+                if current_file is not None and row_no >= start_row:
+                    yield cls._create_chunk_page(current_file.name, start_row, row_no, batch)
+                current_file = reader.current_file
+                column_names = list(chunk.keys())
+                cls._validate_columns(column_names, selector, current_file.name)
+                batch = {col: [] for col in column_names}
+                start_row, row_no = 1, 0
+            row_no += 1
+            for col in column_names:
+                batch[col].append(chunk.get(col))
+            if row_no - start_row + 1 >= rows_per_chunk:
+                yield cls._create_chunk_page(current_file.name, start_row, row_no, batch)
                 start_row = row_no + 1
                 batch = {col: [] for col in column_names}
-            last_row = row_no
-        if any(batch.values()):
-            yield Page(
-                worker_id="main",
-                items=[DataItem(tracking_id=f"rows {start_row} to {last_row}", item=batch)],  # type: ignore[arg-type]
-            )
+        if current_file is not None and row_no >= start_row:
+            yield cls._create_chunk_page(current_file.name, start_row, row_no, batch)
+
+    @staticmethod
+    def _create_chunk_page(
+        file_name: str, start_row: int, end_row: int, batch: dict[str, list[Any]]
+    ) -> Page[dict[str, JsonVal]]:
+        # We cannot guarantee JsonVal here, but that is handled later in the processing pipeline.
+        return Page(
+            worker_id="main",
+            items=[DataItem(tracking_id=f"{file_name} rows {start_row} to {end_row}", item=batch)],  # type: ignore[arg-type]
+        )
+
+    @staticmethod
+    def _validate_columns(column_names: list[str], selector: DataPointsSelector, file_name: str) -> None:
+        if not isinstance(selector, DataPointsDataSetSelector | DataPointsInstanceSpaceSelector):
+            return
+        columns = set(column_names)
+        if selector.required_columns <= columns <= selector.required_columns | selector.optional_columns:
+            return
+        raise RuntimeError(
+            f"When uploading datapoints using a {selector.type} manifest, you must have exactly the "
+            f"columns: {humanize_collection(selector.required_columns)} in the file, and optionally "
+            f"{humanize_collection(selector.optional_columns)}. Got {humanize_collection(column_names)} in {file_name}."
+        )
+
+    @classmethod
+    def _rows_per_chunk(cls, selector: DataPointsSelector) -> int:
+        # Long files have one datapoint per row, while wide files have one datapoint per time series column.
+        datapoints_per_row = len(selector.columns) if isinstance(selector, DataPointsFileSelector) else 1
+        return max(1, cls.CHUNK_SIZE // max(1, datapoints_per_row))
 
     @classmethod
     def count_items(cls, reader: MultiFileReader, selector: DataPointsSelector | None = None) -> int:
+        """Counts the number of chunks read_chunks yields, which is what the upload progress bar tracks."""
         if selector is None:
             raise ValueError("A selector is required to correctly count datapoint items.")
-        count = reader.count()
-        if isinstance(selector, DataPointsFileSelector):
-            return count * len(selector.columns)
-        return count
+        rows_per_chunk = cls._rows_per_chunk(selector)
+        return sum(
+            math.ceil(reader.create_reader(input_file).count() / rows_per_chunk) for input_file in reader.input_files
+        )
