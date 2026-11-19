@@ -68,7 +68,7 @@ class AgentChatTextContent(AgentObject):
 class AgentChatImageContent(AgentObject):
     type: Literal["image"] = "image"
     data: str = Field(description="Base64-encoded image data.", max_length=6990508)
-    media_type: Literal["image/png", "image/jpeg", "image/webp"]
+    media_type: Literal["image/png", "image/jpeg", "image/webp"] | str
 
 
 AgentChatContentPart: TypeAlias = Annotated[AgentChatTextContent | AgentChatImageContent, Field(discriminator="type")]
@@ -178,7 +178,7 @@ class AgentChatToolConfirmation(AgentObject):
     role: Literal["action"] = "action"
     type: Literal["toolConfirmation"] = "toolConfirmation"
     action_id: str
-    status: Literal["ALLOW", "DENY"]
+    status: Literal["ALLOW", "DENY"] | str
 
 
 class AgentChatUserSession(AgentObject):
@@ -370,9 +370,6 @@ class AgentChatResult(AgentObject):
 
 class AgentChatResponse(AgentObject):
     """The agent's reply. Pass ``response.cursor`` to the next chat call to continue the conversation."""
-
-    # Ignores the deprecated agentId.
-    model_config = ConfigDict(extra="ignore")
 
     agent_external_id: str
     response: AgentChatResult
