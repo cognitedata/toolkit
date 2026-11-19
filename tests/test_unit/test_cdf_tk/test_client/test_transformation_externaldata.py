@@ -1,4 +1,7 @@
+import json
+
 import httpx2
+import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
@@ -6,9 +9,10 @@ from cognite_toolkit._cdf_tk.client.api.transformation_externaldata import Trans
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.externaldata import (
-    ExternalDataSourceRequest,
+    ExternalDataSourceRotateKeysRequest,
     ExternalDataSourceUsabilityResponse,
     OneLakeCredentialsWrite,
+    OneLakeExternalDataSourceRequest,
     OneLakeLocationDescription,
     OneLakeSettingsWrite,
 )
@@ -27,8 +31,8 @@ _EXAMPLE_RESPONSE = {
 }
 
 
-def _make_request() -> ExternalDataSourceRequest:
-    return ExternalDataSourceRequest(
+def _make_request() -> OneLakeExternalDataSourceRequest:
+    return OneLakeExternalDataSourceRequest(
         external_id="fabric-lakehouse-prod",
         name="Production lakehouse",
         data_set_id=123,
@@ -74,6 +78,39 @@ class TestTransformationExternalDataSourcesAPI:
         respx_mock.post(delete_url).mock(return_value=httpx2.Response(status_code=200, json={}))
         api.delete([ExternalId(external_id="fabric-lakehouse-prod")])
         assert respx_mock.calls[-1].request.url.path.endswith("/transformations/externaldata/delete")
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_retrieve(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        api = TransformationExternalDataSourcesAPI(HTTPClient(toolkit_config))
+        route = respx_mock.post(toolkit_config.create_api_url("/transformations/externaldata/byids")).mock(
+            return_value=httpx2.Response(status_code=200, json={"items": [_EXAMPLE_RESPONSE]})
+        )
+
+        retrieved = api.retrieve([ExternalId(external_id="fabric-lakehouse-prod")], ignore_unknown_ids=True)
+
+        assert (json.loads(route.calls[0].request.content), [item.external_id for item in retrieved]) == (
+            {"items": [{"externalId": "fabric-lakehouse-prod"}], "ignoreUnknownIds": True},
+            ["fabric-lakehouse-prod"],
+        )
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_rotate_keys_chunks_requests(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        api = TransformationExternalDataSourcesAPI(HTTPClient(toolkit_config))
+
+        def echo_keys(request: httpx2.Request) -> httpx2.Response:
+            items = json.loads(request.content)["items"]
+            return httpx2.Response(200, json={"items": [{**item, "publicKey": "key"} for item in items]})
+
+        route = respx_mock.post(toolkit_config.create_api_url("/transformations/externaldata/rotatekeys")).mock(
+            side_effect=echo_keys
+        )
+        items = [ExternalDataSourceRotateKeysRequest(external_id=f"snowflake-{no}", expiry_time=1) for no in range(11)]
+
+        rotated = api.rotate_keys(items)
+
+        assert (route.call_count, [key.external_id for key in rotated]) == (2, [item.external_id for item in items])
 
     def test_verify_usability(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         client = HTTPClient(toolkit_config)

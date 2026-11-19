@@ -95,14 +95,16 @@ class SimulatorRoutinesAPI(CDFResourceAPI[SimulatorRoutineResponse]):
 
     def list(
         self,
+        filter: SimulatorModelRoutineFilter | None = None,
         limit: int | None = 100,
     ) -> builtins.list[SimulatorRoutineResponse]:
         """List all simulator routines in CDF.
 
         Args:
+            filter: Filter to apply to the simulator routines.
             limit: Maximum number of items to return. None for all items.
 
         Returns:
             List of SimulatorRoutineResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, body={"filter": filter.dump() if filter else None})

@@ -547,21 +547,28 @@ class TestRunWorkflowV2:
     def test_run_workflow_interactive_uses_trigger_input(
         self, workflow_client: MagicMock, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        trigger = WorkflowTriggerResponse.model_validate(
-            {
-                "externalId": "my_trigger",
-                "triggerRule": {"triggerType": "schedule", "cronExpression": "0 0 * * *"},
-                "workflowExternalId": "workflow",
-                "workflowVersion": "v1",
-                "input": {"breakfast": "egg and bacon"},
-                "createdTime": 0,
-                "lastUpdatedTime": 0,
-                "isPaused": False,
-            }
-        )
+        def trigger(external_id: str, workflow_external_id: str, workflow_version: str) -> WorkflowTriggerResponse:
+            return WorkflowTriggerResponse.model_validate(
+                {
+                    "externalId": external_id,
+                    "triggerRule": {"triggerType": "schedule", "cronExpression": "0 0 * * *"},
+                    "workflowExternalId": workflow_external_id,
+                    "workflowVersion": workflow_version,
+                    "input": {"breakfast": f"input from {external_id}"},
+                    "createdTime": 0,
+                    "lastUpdatedTime": 0,
+                    "isPaused": False,
+                }
+            )
+
         client = workflow_client
         client.workflows.versions.list.return_value = [_workflow_version()]
-        client.workflows.triggers.list.return_value = [trigger]
+        # The API cannot filter triggers, so it returns the triggers of every workflow.
+        client.workflows.triggers.list.return_value = [
+            trigger("other_workflow_trigger", "other_workflow", "v1"),
+            trigger("my_trigger", "workflow", "v1"),
+            trigger("other_version_trigger", "workflow", "v2"),
+        ]
 
         def select_workflow(choices: list[Choice]) -> object:
             assert len(choices) == 1
@@ -580,7 +587,7 @@ class TestRunWorkflowV2:
         client.workflows.executions.run.assert_called_once_with(
             ToolkitWorkflowVersionId(workflow_external_id="workflow", version="v1"),
             nonce="dummy-nonce",
-            input={"breakfast": "egg and bacon"},
+            input={"breakfast": "input from my_trigger"},
         )
 
     @patch("cognite_toolkit._cdf_tk.commands.run.time.sleep")

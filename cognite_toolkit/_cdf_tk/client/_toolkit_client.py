@@ -56,6 +56,7 @@ from .api.three_d import ThreeDAPI
 from .api.timeseries import TimeSeriesAPI
 from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
+from .api.units import UnitsAPI
 from .api.user_profiles import UserProfilesAPI
 from .api.views import ViewsAPI
 from .api.workflows import WorkflowsAPI
@@ -106,6 +107,7 @@ class ToolkitClient:
         self.token = ToolkitTokenAPI(http_client)
         self.timeseries = TimeSeriesAPI(http_client)
         self.transformations = TransformationsAPI(http_client)
+        self.units = UnitsAPI(http_client)
         self.workflows = WorkflowsAPI(http_client)
         self.data_products = DataProductsAPI(http_client)
         self.signal_sinks = SignalSinksAPI(http_client)

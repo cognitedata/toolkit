@@ -1,6 +1,6 @@
 from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 
-from pydantic import BeforeValidator, ConfigDict, JsonValue, field_validator
+from pydantic import BeforeValidator, ConfigDict, Field, JsonValue, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -10,6 +10,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.utils._auxiliary import registry_from_subclasses_with_type_field
+
+HostedExtractorJobTargetStatus: TypeAlias = Literal["running", "paused"]
 
 
 class JobFormatDefinition(BaseModelObject):
@@ -193,6 +195,9 @@ class HostedExtractorJobRequest(HostedExtractorJob, UpdatableRequestResource):
     # does not support setting config to null.
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"config"})
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
+    # The create endpoint does not accept these, they can only be set with an update.
+    target_status: HostedExtractorJobTargetStatus | None = Field(default=None, exclude=True)
+    dlq_enabled: bool | None = Field(default=None, exclude=True)
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         update_item = super().as_update(mode=mode)
@@ -200,11 +205,17 @@ class HostedExtractorJobRequest(HostedExtractorJob, UpdatableRequestResource):
         update_item["update"]["format"] = {
             "set": self.format.model_dump(mode="json", exclude_none=True, by_alias=True, exclude_unset=exclude_unset)
         }
+        if self.target_status is not None:
+            update_item["update"]["targetStatus"] = {"set": self.target_status}
+        if self.dlq_enabled is not None:
+            update_item["update"]["dlqEnabled"] = {"set": self.dlq_enabled}
         return update_item
 
 
 class HostedExtractorJobResponse(HostedExtractorJob, ResponseResource[HostedExtractorJobRequest]):
     status: str | None = None
+    target_status: HostedExtractorJobTargetStatus | str | None = None
+    dlq_enabled: bool | None = None
     created_time: int
     last_updated_time: int
 
