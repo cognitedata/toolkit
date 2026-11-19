@@ -11,6 +11,7 @@ from cognite.client._proto.data_points_pb2 import (
     NumericDatapoints,
     StateDatapoint,
     StateDatapoints,
+    Status,
     StringDatapoint,
     StringDatapoints,
 )
@@ -32,14 +33,13 @@ from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import CountAggregate
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     _EpochConverter,
     _Float64Converter,
     _Int32Converter,
+    _Int64Converter,
     _TextConverter,
-    _ValueConverter,
 )
 from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.fileio._readers import MultiFileReader
@@ -95,14 +95,22 @@ class DatapointsIO(
 
     def __init__(self, client: ToolkitClient, api_format: Literal["request", "response"] = "request") -> None:
         super().__init__(client, api_format=api_format)
-        self._warned_columns: set[str] = set()
         self._epoc_converter = _EpochConverter(nullable=True)
         self._numeric_converter = _Float64Converter(nullable=True)
         self._string_converter = _TextConverter(nullable=True)
         self._state_converter = _Int32Converter(nullable=True)
+        self._status_converter = _Int64Converter(nullable=True)
         self._batch_counter = itertools.count(1)
 
     def get_schema(self, selector: DataPointsSelector) -> list[SchemaColumn] | None:
+        if isinstance(selector, DataPointsFileSelector):
+            return [
+                SchemaColumn(name=selector.timestamp_column, type="epoch"),
+                *(
+                    SchemaColumn(name=column.column, type="float" if column.dtype == "numeric" else "string")
+                    for column in selector.columns
+                ),
+            ]
         id_columns = [SchemaColumn(name="externalId", type="string")]
         if isinstance(selector, DataPointsInstanceSpaceSelector):
             id_columns.insert(0, SchemaColumn(name="space", type="string"))
@@ -493,14 +501,16 @@ class DatapointsIO(
         if selector.timestamp_column not in rows:
             raise RuntimeError(f"Timestamp column '{selector.timestamp_column}' not found.")
 
-        timestamps = list(
-            self._convert_values(
-                rows[selector.timestamp_column],
-                self._epoc_converter,
-                f"timestamps (columns {selector.timestamp_column!r})",
-                source_id,
-            )
-        )
+        skipped: Counter[str] = Counter()
+        timestamps: list[int | None] = []
+        for raw_timestamp in rows[selector.timestamp_column]:
+            try:
+                timestamp = cast(int | None, self._epoc_converter.convert(raw_timestamp))
+            except ValueError:
+                timestamp = None
+            if timestamp is None:
+                skipped[f"rows without a valid timestamp (column {selector.timestamp_column!r})"] += 1
+            timestamps.append(timestamp)
 
         datapoints_items: list[DataPointInsertionItem] = []
         for col, values in rows.items():
@@ -508,36 +518,39 @@ class DatapointsIO(
                 continue
             column = selector.id_by_column.get(col)
             if column is None:
-                self._warn_missing_columns(col)
+                skipped[f"values in column {col!r}, which is not in the selector"] += sum(
+                    value is not None for value in values
+                )
+                continue
+            if column.dtype not in ("numeric", "string"):
+                raise RuntimeError(f"Unsupported dtype {column.dtype} for column {col}.")
+            converter = self._numeric_converter if column.dtype == "numeric" else self._string_converter
+            datapoints: list[Any] = []
+            for timestamp, raw_value in zip(timestamps, values):
+                # Wide files are sparse, an empty cell means there is no datapoint for this time series.
+                if timestamp is None or raw_value is None:
+                    continue
+                try:
+                    value = converter.convert(raw_value)
+                except ValueError:
+                    skipped[f"values that could not be converted (column {col!r})"] += 1
+                    continue
+                if value is None:
+                    continue
+                if column.dtype == "numeric":
+                    datapoints.append(NumericDatapoint(timestamp=timestamp, value=cast(float, value)))
+                else:
+                    datapoints.append(StringDatapoint(timestamp=timestamp, value=cast(str, value)))
+            if not datapoints:
                 continue
             args: dict[str, Any] = column.as_wrapped_id()
             if column.dtype == "numeric":
-                number_values = self._convert_values(
-                    values, self._numeric_converter, f"numeric datapoints (column {col!r})", source_id
-                )
-                args["numericDatapoints"] = NumericDatapoints(
-                    datapoints=[
-                        NumericDatapoint(timestamp=timestamp, value=value)
-                        for timestamp, value in zip(timestamps, number_values)
-                        if timestamp is not None
-                    ]
-                )
-            elif column.dtype == "string":
-                string_values = self._convert_values(
-                    values, self._string_converter, f"string datapoints (column {col!r})", source_id
-                )
-                args["stringDatapoints"] = StringDatapoints(
-                    datapoints=[
-                        StringDatapoint(timestamp=timestamp, value=value)
-                        for timestamp, value in zip(timestamps, string_values)
-                        if timestamp is not None
-                    ]
-                )
+                args["numericDatapoints"] = NumericDatapoints(datapoints=datapoints)
             else:
-                raise RuntimeError(f"Unsupported dtype {column.dtype} for column {col}.")
-
+                args["stringDatapoints"] = StringDatapoints(datapoints=datapoints)
             datapoints_items.append(DataPointInsertionItem(**args))
 
+        self._log_skipped_datapoints(source_id, skipped)
         return datapoints_items
 
     def _rows_to_datapoint_items_data_set_selector(
@@ -556,10 +569,10 @@ class DatapointsIO(
     def _rows_to_datapoint_items_instance_space_selector(
         self, rows: dict[str, list[Any]], selector: DataPointsInstanceSpaceSelector, source_id: str
     ) -> list[DataPointInsertionItem]:
-        if selector.data_type == "state":
-            return self._rows_to_state_datapoint_items(rows, selector, source_id)
         if missing := selector.required_columns - set(rows):
             raise RuntimeError(f"Columns {humanize_collection(missing)} not found.")
+        if selector.data_type == "state":
+            return self._rows_to_state_datapoint_items(rows, source_id)
         return self._rows_to_value_datapoint_items(
             list(zip(rows["space"], rows["externalId"])),
             rows,
@@ -576,76 +589,88 @@ class DatapointsIO(
         source_id: str,
         to_id: Callable[[tuple[str, ...]], dict[str, Any]],
     ) -> list[DataPointInsertionItem]:
-        timestamps = list(
-            self._convert_values(
-                rows["timestamp"],
-                self._epoc_converter,
-                "timestamps (column 'timestamp')",
-                source_id,
-            )
-        )
-        values = list(
-            self._convert_values(
-                rows["value"],
-                self._numeric_converter if data_type == "numeric" else self._string_converter,
-                "values (column 'value')",
-                source_id,
-            )
-        )
-        datapoints_by_key: dict[tuple[str, ...], list[tuple[Any, Any]]] = defaultdict(list)
-        for key, timestamp, value in zip(keys, timestamps, values):
-            datapoints_by_key[key].append((timestamp, value))
+        converter = self._numeric_converter if data_type == "numeric" else self._string_converter
+        datapoint_cls = NumericDatapoint if data_type == "numeric" else StringDatapoint
+        status_codes = rows.get(STATUS_CODE_COLUMN) or [None] * len(keys)
+        skipped: Counter[str] = Counter()
+        datapoints_by_key: dict[tuple[str, ...], list[Any]] = defaultdict(list)
+        # Converting row by row ensures that a value that fails conversion cannot shift the following
+        # values onto the wrong timestamps.
+        for key, raw_timestamp, raw_value, raw_status in zip(keys, rows["timestamp"], rows["value"], status_codes):
+            try:
+                timestamp = cast(int | None, self._epoc_converter.convert(raw_timestamp))
+                value = converter.convert(raw_value)
+                status_code = cast(int | None, self._status_converter.convert(raw_status))
+            except ValueError:
+                skipped["rows that could not be converted"] += 1
+                continue
+            if any(part is None for part in key):
+                skipped["rows without a time series identifier"] += 1
+            elif timestamp is None:
+                skipped["rows without a timestamp"] += 1
+            elif value is None and not status_code:
+                # Only datapoints with a bad status can be without a value.
+                skipped["rows without a value"] += 1
+            else:
+                args: dict[str, Any] = {"timestamp": timestamp}
+                if status_code:
+                    args["status"] = Status(code=status_code)
+                if value is None:
+                    args["nullValue"] = True
+                else:
+                    args["value"] = value
+                datapoints_by_key[key].append(datapoint_cls(**args))
+        self._log_skipped_datapoints(source_id, skipped)
 
         if data_type == "numeric":
             return [
-                DataPointInsertionItem(
-                    **to_id(key),
-                    numericDatapoints=NumericDatapoints(
-                        datapoints=[NumericDatapoint(timestamp=timestamp, value=value) for timestamp, value in dps]
-                    ),
-                )
+                DataPointInsertionItem(**to_id(key), numericDatapoints=NumericDatapoints(datapoints=dps))
                 for key, dps in datapoints_by_key.items()
             ]
         return [
-            DataPointInsertionItem(
-                **to_id(key),
-                stringDatapoints=StringDatapoints(
-                    datapoints=[StringDatapoint(timestamp=timestamp, value=value) for timestamp, value in dps]
-                ),
-            )
+            DataPointInsertionItem(**to_id(key), stringDatapoints=StringDatapoints(datapoints=dps))
             for key, dps in datapoints_by_key.items()
         ]
 
     def _rows_to_state_datapoint_items(
-        self, rows: dict[str, list[Any]], selector: DataPointsInstanceSpaceSelector, source_id: str
+        self, rows: dict[str, list[Any]], source_id: str
     ) -> list[DataPointInsertionItem]:
-        if missing := selector.required_columns - set(rows):
-            raise RuntimeError(f"Columns {humanize_collection(missing)} not found.")
-
+        status_codes = rows.get(STATUS_CODE_COLUMN) or [None] * len(rows["timestamp"])
+        skipped: Counter[str] = Counter()
         datapoints_by_instance_id: dict[tuple[str, str], list[StateDatapoint]] = defaultdict(list)
-        failed_count = 0
-        for space, external_id, timestamp, numeric_value, string_value in zip(
-            rows["space"], rows["externalId"], rows["timestamp"], rows["numericValue"], rows["stringValue"]
+        for space, external_id, timestamp, numeric_value, string_value, raw_status in zip(
+            rows["space"],
+            rows["externalId"],
+            rows["timestamp"],
+            rows["numericValue"],
+            rows["stringValue"],
+            status_codes,
         ):
             try:
                 converted_timestamp = cast(int | None, self._epoc_converter.convert(timestamp))
                 converted_numeric = cast(int | None, self._state_converter.convert(numeric_value))
                 converted_string = cast(str | None, self._string_converter.convert(string_value))
+                status_code = cast(int | None, self._status_converter.convert(raw_status))
             except ValueError:
-                failed_count += 1
+                skipped["rows that could not be converted"] += 1
                 continue
-            if converted_timestamp is None:
-                failed_count += 1
-                continue
-            datapoints_by_instance_id[(space, external_id)].append(
-                StateDatapoint(
-                    timestamp=converted_timestamp, numericValue=converted_numeric, stringValue=converted_string
+            if space is None or external_id is None:
+                skipped["rows without a time series identifier"] += 1
+            elif converted_timestamp is None:
+                skipped["rows without a timestamp"] += 1
+            elif converted_numeric is None and converted_string is None and not status_code:
+                # Only datapoints with a bad status can be without a value.
+                skipped["rows without a value"] += 1
+            else:
+                datapoints_by_instance_id[(space, external_id)].append(
+                    StateDatapoint(
+                        timestamp=converted_timestamp,
+                        numericValue=converted_numeric,
+                        stringValue=converted_string,
+                        status=Status(code=status_code) if status_code else None,
+                    )
                 )
-            )
-        if failed_count > 0:
-            HighSeverityWarning(
-                f"In {source_id}, {failed_count:,} state datapoints could not be converted and will be skipped."
-            ).print_warning(console=self.client.console)
+        self._log_skipped_datapoints(source_id, skipped)
 
         return [
             DataPointInsertionItem(
@@ -655,28 +680,19 @@ class DatapointsIO(
             for (space, external_id), datapoints in datapoints_by_instance_id.items()
         ]
 
-    def _convert_values(
-        self, values: list[Any], converter: _ValueConverter, name: str, source_id: str
-    ) -> Iterable[Any]:
-        failed_count = 0
-        for value in values:
-            try:
-                converted = converter.convert(value)
-            except ValueError:
-                failed_count += 1
-                continue
-            yield converted
-        if failed_count > 0:
-            HighSeverityWarning(
-                f"In {source_id}' {failed_count:,} {name} could not be converted and will be skipped."
-            ).print_warning(console=self.client.console)
-
-    def _warn_missing_columns(self, column: str) -> None:
-        if column not in self._warned_columns:
-            HighSeverityWarning(
-                f"Column '{column}' not found in selector columns. Skipping this column."
-            ).print_warning(console=self.client.console)
-            self._warned_columns.add(column)
+    def _log_skipped_datapoints(self, source_id: str, skipped: Counter[str]) -> None:
+        entries = [
+            LogEntryV2(
+                id=source_id,
+                label=f"Skipped {reason}",
+                severity=Severity.warning,
+                message=f"Skipped {count:,} {reason}.",
+            )
+            for reason, count in skipped.items()
+            if count
+        ]
+        if entries:
+            self.logger.log(entries)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> DatapointsRequestAdapter:
         raise ToolkitNotImplementedError(

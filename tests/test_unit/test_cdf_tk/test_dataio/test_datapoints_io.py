@@ -241,6 +241,141 @@ class TestDataPointsIO:
 
 
 class TestDatapointsUploadConversion:
+    def test_invalid_value_does_not_shift_following_values(self) -> None:
+        selector = DataPointsDataSetSelector(data_set_external_id="my_data_set")
+        rows: dict[str, JsonVal] = {
+            "externalId": ["ts_a"] * 3,
+            "timestamp": [1, 2, 3],
+            "value": ["1.0", "not a number", "3.0"],
+        }
+        with monkeypatch_toolkit_client() as client:
+            io, logger = create_io(client, [])
+            resource = io.row_to_resource("file.csv rows 1 to 3", rows, selector)
+
+        assert {"datapoints": resource.datapoints, "log": log_summary(logger)} == {
+            "datapoints": DataPointInsertionRequest(
+                items=[
+                    DataPointInsertionItem(
+                        externalId="ts_a",
+                        numericDatapoints=NumericDatapoints(
+                            datapoints=[
+                                NumericDatapoint(timestamp=1, value=1.0),
+                                NumericDatapoint(timestamp=3, value=3.0),
+                            ]
+                        ),
+                    )
+                ]
+            ),
+            "log": [("file.csv rows 1 to 3", "Skipped rows that could not be converted", Severity.warning)],
+        }
+
+    def test_empty_cells_are_skipped_and_status_codes_are_uploaded(self) -> None:
+        selector = DataPointsDataSetSelector(data_set_external_id="my_data_set")
+        rows: dict[str, JsonVal] = {
+            "externalId": ["ts_a", "ts_a", "ts_a", None, "ts_a"],
+            "timestamp": [1, None, 3, 4, 5],
+            "value": [None, 2.0, None, 4.0, 5.0],
+            "statusCode": [None, None, BAD, None, BAD],
+        }
+        with monkeypatch_toolkit_client() as client:
+            io, logger = create_io(client, [])
+            resource = io.row_to_resource("rows", rows, selector)
+
+        assert {"datapoints": resource.datapoints, "log": sorted(entry.label for entry in logger.entries)} == {
+            "datapoints": DataPointInsertionRequest(
+                items=[
+                    DataPointInsertionItem(
+                        externalId="ts_a",
+                        numericDatapoints=NumericDatapoints(
+                            datapoints=[
+                                NumericDatapoint(timestamp=3, status=Status(code=BAD), nullValue=True),
+                                NumericDatapoint(timestamp=5, value=5.0, status=Status(code=BAD)),
+                            ]
+                        ),
+                    )
+                ]
+            ),
+            "log": [
+                "Skipped rows without a time series identifier",
+                "Skipped rows without a timestamp",
+                "Skipped rows without a value",
+            ],
+        }
+
+    def test_state_rows_without_value_or_identifier_are_skipped(self) -> None:
+        selector = DataPointsInstanceSpaceSelector(instance_space="my_space", data_type="state")
+        rows: dict[str, JsonVal] = {
+            "space": ["my_space", "my_space", None, "my_space"],
+            "externalId": ["ts_a", "ts_a", "ts_a", "ts_a"],
+            "timestamp": [1, 2, 3, 4],
+            "numericValue": [None, 1, 1, None],
+            "stringValue": [None, None, None, None],
+            "statusCode": [None, None, None, BAD],
+        }
+        with monkeypatch_toolkit_client() as client:
+            io, logger = create_io(client, [])
+            resource = io.row_to_resource("rows", rows, selector)
+
+        assert {"datapoints": resource.datapoints, "log": sorted(entry.label for entry in logger.entries)} == {
+            "datapoints": DataPointInsertionRequest(
+                items=[
+                    DataPointInsertionItem(
+                        instanceId=InstanceId(space="my_space", externalId="ts_a"),
+                        stateDatapoints=StateDatapoints(
+                            datapoints=[
+                                StateDatapoint(timestamp=2, numericValue=1),
+                                StateDatapoint(timestamp=4, status=Status(code=BAD)),
+                            ]
+                        ),
+                    )
+                ]
+            ),
+            "log": ["Skipped rows without a time series identifier", "Skipped rows without a value"],
+        }
+
+    def test_file_selector_keeps_strings_and_reads_naive_timestamps_as_utc(self, tmp_path: Path) -> None:
+        csv_file = tmp_path / "wide.Datapoints.csv"
+        csv_file.write_text("time,code,temperature,unknown\n2024-01-01T00:00:00,007,,1\n2024-01-01T01:00:00,,21.5,2\n")
+        selector = DataPointsFileSelector(
+            timestamp_column="time",
+            columns=(
+                ExternalIdColumn(dtype="string", column="code", external_id="ts_code"),
+                ExternalIdColumn(dtype="numeric", column="temperature", external_id="ts_temperature"),
+            ),
+        )
+        with monkeypatch_toolkit_client() as client:
+            io, logger = create_io(client, [])
+            reader = MultiFileReader([csv_file], schema=io.get_schema(selector))
+            pages = list(io.read_chunks(reader, selector))
+            resources = [
+                io.row_to_resource(item.tracking_id, item.item, selector) for page in pages for item in page.items
+            ]
+
+        assert {
+            "datapoints": [resource.datapoints for resource in resources],
+            "log": [entry.message for entry in logger.entries],
+        } == {
+            "datapoints": [
+                DataPointInsertionRequest(
+                    items=[
+                        DataPointInsertionItem(
+                            externalId="ts_code",
+                            stringDatapoints=StringDatapoints(
+                                datapoints=[StringDatapoint(timestamp=1704067200000, value="007")]
+                            ),
+                        ),
+                        DataPointInsertionItem(
+                            externalId="ts_temperature",
+                            numericDatapoints=NumericDatapoints(
+                                datapoints=[NumericDatapoint(timestamp=1704070800000, value=21.5)]
+                            ),
+                        ),
+                    ]
+                )
+            ],
+            "log": ["Skipped 2 values in column 'unknown', which is not in the selector."],
+        }
+
     def test_parquet_string_values_are_not_parsed_as_json(self, tmp_path: Path) -> None:
         parquet_file = tmp_path / "long.Datapoints.parquet"
         pq.write_table(
