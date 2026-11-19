@@ -1,4 +1,6 @@
 import time
+from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -20,8 +22,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoints import Datapoint
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.dataio import DatapointsIO
 from cognite_toolkit._cdf_tk.dataio.selectors import DataPointsInstanceSpaceSelector
+from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
+from tests_smoke.constants import SMOKE_SPACE
 
-STATE_SPACE = "toolkit_test_state_round_trip"
+STATE_SPACE = SMOKE_SPACE
 STATE_SET_VIEW = ViewId(space="cdf_cdm", external_id="CogniteStateSet", version="v1")
 TIMESERIES_VIEW = ViewId(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1")
 STATE_SET_ID = NodeId(space=STATE_SPACE, external_id="state_round_trip_states")
@@ -134,6 +138,33 @@ def delete_state_datapoints(client: ToolkitClient, timeseries_ids: list[NodeId])
     )
 
 
+def read_downloaded_state_datapoints(
+    tmp_path: Path, file_format: str, selector: DataPointsInstanceSpaceSelector, io: DatapointsIO
+) -> dict[NodeId, list[StateRow]]:
+    files = sorted(tmp_path.rglob(f"*{file_format}"))
+    assert files, f"Expected downloaded {file_format} files in {tmp_path}"
+    datapoints_by_id: dict[NodeId, list[StateRow]] = defaultdict(list)
+    for row in MultiFileReader(files, schema=io.get_schema(selector)).read_chunks():
+        ts_id = NodeId(space=str(row["space"]), external_id=str(row["externalId"]))
+        numeric, string = row["numericValue"], row["stringValue"]
+        datapoints_by_id[ts_id].append(
+            (
+                as_epoch_ms(row["timestamp"]),
+                int(numeric) if isinstance(numeric, int | float) else None,
+                string if isinstance(string, str) else None,
+            )
+        )
+    return {ts_id: sorted(datapoints) for ts_id, datapoints in datapoints_by_id.items()}
+
+
+def as_epoch_ms(value: object) -> int:
+    if isinstance(value, datetime):
+        return int(value.timestamp() * 1000)
+    if isinstance(value, int | float):
+        return int(value)
+    raise TypeError(f"Unexpected timestamp value {value!r}")
+
+
 class TestStateDatapointsRoundTrip:
     @pytest.mark.usefixtures("enable_extend_download")
     @pytest.mark.parametrize("file_format", [".csv", ".parquet", ".sqlite"])
@@ -144,6 +175,8 @@ class TestStateDatapointsRoundTrip:
             ts_id: [(START + i * 1000, *STATES[(i + no) % len(STATES)]) for i in range(5)]
             for no, ts_id in enumerate(state_timeseries)
         }
+        no_datapoints: dict[NodeId, list[StateRow]] = {ts_id: [] for ts_id in state_timeseries}
+
         delete_state_datapoints(toolkit_client, state_timeseries)
         insert_state_datapoints(toolkit_client, expected)
         selector = DataPointsInstanceSpaceSelector(
@@ -165,10 +198,19 @@ class TestStateDatapointsRoundTrip:
             compression="none",
             limit=None,
         )
+        downloaded = read_downloaded_state_datapoints(tmp_path, file_format, selector, io)
+
         delete_state_datapoints(toolkit_client, state_timeseries)
+        after_delete = retrieve_state_datapoints(toolkit_client, state_timeseries)
+
         upload_dir = tmp_path if file_format == ".sqlite" else tmp_path / "state"
         UploadCommand(silent=True, skip_tracking=True).upload(
             upload_dir, toolkit_client, deploy_resources=False, dry_run=False, verbose=False
         )
+        uploaded = retrieve_state_datapoints(toolkit_client, state_timeseries)
 
-        assert retrieve_state_datapoints(toolkit_client, state_timeseries) == expected
+        assert {"downloaded": downloaded, "after_delete": after_delete, "uploaded": uploaded} == {
+            "downloaded": expected,
+            "after_delete": no_datapoints,
+            "uploaded": expected,
+        }
