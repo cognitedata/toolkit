@@ -186,6 +186,27 @@ class InstanceSlimDefinition(BaseModelObject):
         return InstanceId(instance_id=node_id)
 
 
+class InstanceInspectResult(BaseModelObject):
+    """Inspection results for a single instance. Only the requested operations are set."""
+
+    involved_views: list[ViewId] | None = None
+    involved_containers: list[ContainerId] | None = None
+
+
+class InstanceInspectResultItem(BaseModelObject):
+    """An instance together with the results of running instance inspection operations on it."""
+
+    instance_type: Literal["node", "edge"]
+    space: str
+    external_id: str
+    inspection_results: InstanceInspectResult
+
+    def as_id(self) -> NodeId | EdgeId:
+        if self.instance_type == "node":
+            return NodeId(space=self.space, external_id=self.external_id)
+        return EdgeId(space=self.space, external_id=self.external_id)
+
+
 class UnknownInstanceRequest(InstanceRequestDefinition):
     instance_type: str
 
