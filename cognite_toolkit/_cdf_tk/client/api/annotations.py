@@ -139,6 +139,8 @@ class AnnotationsAPI(CDFResourceAPI[AnnotationResponse]):
         Returns:
             The IDs of the matching annotated resources.
         """
+        if limit is not None and limit <= 0:
+            raise ValueError(f"Limit must be greater than 0, got {limit}.")
         filter_ = self._filter_out_none_values(
             {
                 "annotatedResourceType": annotated_resource_type,
