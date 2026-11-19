@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerRequest,
     WorkflowTriggerResponse,
+    WorkflowTriggerRun,
 )
 
 
@@ -63,6 +64,35 @@ class WorkflowTriggersAPI(CDFResourceAPI[WorkflowTriggerResponse]):
             items: List of ExternalId objects to delete.
         """
         self._request_no_response(items, "delete")
+
+    def history(self, item: ExternalId, limit: int | None = 100) -> builtins.list[WorkflowTriggerRun]:
+        """Retrieve the times a workflow trigger fired.
+
+        Args:
+            item: The workflow trigger.
+            limit: Maximum number of runs to return. None returns all.
+
+        Returns:
+            The trigger runs.
+        """
+        if limit is not None and limit <= 0:
+            return []
+        url = self._make_url(f"/workflows/triggers/{item.external_id}/history")
+        page_size = self._method_endpoint_map["list"].item_limit
+        results: builtins.list[WorkflowTriggerRun] = []
+        cursor: str | None = None
+        while True:
+            page_limit = page_size if limit is None else min(limit - len(results), page_size)
+            params: dict[str, str | int] = {"limit": page_limit}
+            if cursor is not None:
+                params["cursor"] = cursor
+            request = RequestMessage(endpoint_url=url, method="GET", parameters=params)
+            response = self._http_client.request_single_retries(request).get_success_or_raise(request)
+            page = PagedResponse[WorkflowTriggerRun].model_validate_json(response.body)
+            results.extend(page.items)
+            cursor = page.next_cursor
+            if cursor is None or not page.items or (limit is not None and len(results) >= limit):
+                return results
 
     def _request_per_trigger(
         self,

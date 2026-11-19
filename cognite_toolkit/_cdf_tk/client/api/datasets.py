@@ -6,6 +6,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedRespo
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import EpochTimestampRange
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 
 
@@ -88,7 +89,11 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
 
     @staticmethod
     def _list_body(
-        metadata: dict[str, str] | None, external_id_prefix: str | None, write_protected: bool | None
+        metadata: dict[str, str] | None,
+        external_id_prefix: str | None,
+        write_protected: bool | None,
+        created_time: EpochTimestampRange | None,
+        last_updated_time: EpochTimestampRange | None,
     ) -> dict[str, Any]:
         filter_body: dict[str, Any] = {}
         if metadata is not None:
@@ -97,6 +102,10 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
             filter_body["externalIdPrefix"] = external_id_prefix
         if write_protected is not None:
             filter_body["writeProtected"] = write_protected
+        if created_time is not None:
+            filter_body["createdTime"] = created_time.dump()
+        if last_updated_time is not None:
+            filter_body["lastUpdatedTime"] = last_updated_time.dump()
         return {"filter": filter_body} if filter_body else {}
 
     def paginate(
@@ -104,6 +113,8 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
         metadata: dict[str, str] | None = None,
         external_id_prefix: str | None = None,
         write_protected: bool | None = None,
+        created_time: EpochTimestampRange | None = None,
+        last_updated_time: EpochTimestampRange | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[DataSetResponse]:
@@ -113,6 +124,8 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
             metadata: Filter by metadata.
             external_id_prefix: Filter by external ID prefix.
             write_protected: Filter by write protection status.
+            created_time: Only return data sets created in this time range.
+            last_updated_time: Only return data sets last updated in this time range.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
@@ -122,7 +135,7 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body=self._list_body(metadata, external_id_prefix, write_protected),
+            body=self._list_body(metadata, external_id_prefix, write_protected, created_time, last_updated_time),
         )
 
     def iterate(
@@ -130,6 +143,8 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
         metadata: dict[str, str] | None = None,
         external_id_prefix: str | None = None,
         write_protected: bool | None = None,
+        created_time: EpochTimestampRange | None = None,
+        last_updated_time: EpochTimestampRange | None = None,
         limit: int | None = 100,
     ) -> Iterable[builtins.list[DataSetResponse]]:
         """Iterate over all data sets in CDF.
@@ -138,18 +153,25 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
             metadata: Filter by metadata.
             external_id_prefix: Filter by external ID prefix.
             write_protected: Filter by write protection status.
+            created_time: Only return data sets created in this time range.
+            last_updated_time: Only return data sets last updated in this time range.
             limit: Maximum number of items to return per page.
 
         Returns:
             Iterable of lists of DataSetResponse objects.
         """
-        return self._iterate(limit=limit, body=self._list_body(metadata, external_id_prefix, write_protected))
+        return self._iterate(
+            limit=limit,
+            body=self._list_body(metadata, external_id_prefix, write_protected, created_time, last_updated_time),
+        )
 
     def list(
         self,
         metadata: dict[str, str] | None = None,
         external_id_prefix: str | None = None,
         write_protected: bool | None = None,
+        created_time: EpochTimestampRange | None = None,
+        last_updated_time: EpochTimestampRange | None = None,
         limit: int | None = 100,
     ) -> builtins.list[DataSetResponse]:
         """List all data sets in CDF.
@@ -158,9 +180,14 @@ class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
             metadata: Filter by metadata.
             external_id_prefix: Filter by external ID prefix.
             write_protected: Filter by write protection status.
+            created_time: Only return data sets created in this time range.
+            last_updated_time: Only return data sets last updated in this time range.
             limit: Maximum number of items to return.
 
         Returns:
             List of DataSetResponse objects.
         """
-        return self._list(limit=limit, body=self._list_body(metadata, external_id_prefix, write_protected))
+        return self._list(
+            limit=limit,
+            body=self._list_body(metadata, external_id_prefix, write_protected, created_time, last_updated_time),
+        )
