@@ -21,12 +21,14 @@ RECENT = NOW - int(timedelta(days=1).total_seconds() * 1000)
 OLD = NOW - int(timedelta(days=30).total_seconds() * 1000)
 
 
-def _execution(id_: str, created_time: int, reason: str) -> WorkflowExecutionResponse:
+def _execution(
+    id_: str, created_time: int, reason: str | None = None, status: str = "FAILED"
+) -> WorkflowExecutionResponse:
     return WorkflowExecutionResponse(
         id=id_,
         workflow_external_id="my_workflow",
         version="v1",
-        status="FAILED",
+        status=status,
         created_time=created_time,
         reason_for_incompletion=reason,
     )
@@ -126,8 +128,10 @@ def _hosted_job(external_id: str, status: str) -> HostedExtractorJobResponse:
 def _client() -> MagicMock:
     client = MagicMock()
     client.workflows.executions.list.return_value = [
-        _execution("e1", RECENT - 10, "Old failure"),
-        _execution("e2", RECENT, "Function task failed"),
+        _execution("e1", RECENT - 20, "Old failure"),
+        _execution("e2", RECENT - 10, status="COMPLETED"),
+        _execution("e3", RECENT - 5, "Old failure"),
+        _execution("e4", RECENT, "Function task failed"),
     ]
     client.workflows.versions.retrieve.return_value = [_workflow_version()]
     client.functions.list.return_value = [
@@ -140,6 +144,7 @@ def _client() -> MagicMock:
         _call(1, "Completed", RECENT - 20),
         _call(2, "Failed", RECENT - 10, error="Old error"),
         _call(3, "Timeout", RECENT, error="Function timed out"),
+        _call(4, "Running", RECENT + 10),
     ]
     client.transformations.list.return_value = [
         _transformation(1, "tr_in_workflow", lastFinishedJob=_job(10, "Failed", RECENT, "Column not found").dump()),
@@ -169,7 +174,7 @@ class TestFailingJobRuleSet:
             (failure.job_type, str(failure.identifier), failure.reason, failure.failed_executions)
             for failure in failures
         ] == [
-            ("Workflow", "workflowExternalId='my_workflow', version='v1'", "Function task failed", 2),
+            ("Workflow", "workflowExternalId='my_workflow', version='v1'", "Function task failed", 3),
             ("Function", "externalId='fn_failing'", "Function timed out", 2),
             ("Transformation", "externalId='tr_failed'", "Column not found", 2),
             ("Transformation", "externalId='tr_blocked'", "Blocked: Too many failures", None),
@@ -197,6 +202,29 @@ class TestFailingJobRuleSet:
         failures = rule._load_failing_workflows(client)
 
         assert (failures, client.workflows.versions.retrieve.called) == ([], False)
+
+    def test_workflow_succeeding_after_failure_is_not_reported(self) -> None:
+        client = _client()
+        client.workflows.executions.list.return_value = [
+            _execution("e1", RECENT - 10, "Old failure"),
+            _execution("e2", RECENT, status="COMPLETED"),
+        ]
+        rule = FailingJobRuleSet(client=client)
+
+        failures = rule._load_failing_workflows(client)
+
+        assert (failures, client.workflows.versions.retrieve.called) == ([], False)
+
+    def test_function_succeeding_after_failure_is_not_reported(self) -> None:
+        client = _client()
+        client.functions.list.return_value = [_function(4, "fn_recovered", last_called=RECENT)]
+        client.functions.calls.list.return_value = [
+            _call(1, "Failed", RECENT - 10, error="Old error"),
+            _call(2, "Completed", RECENT),
+        ]
+        rule = FailingJobRuleSet(client=client)
+
+        assert rule._load_failing_functions(client, skip=set()) == []
 
     def test_count_failed_jobs_stops_paging_at_lookback_period(self) -> None:
         client = MagicMock()

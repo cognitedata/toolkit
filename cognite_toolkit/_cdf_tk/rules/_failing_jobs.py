@@ -48,8 +48,10 @@ FailingCDFResource: TypeAlias = (
 )
 Dependencies: TypeAlias = set[tuple[type[ResourceIO], Identifier]]
 
-FAILED_WORKFLOW_STATUSES = ["FAILED", "TERMINATED", "TIMED_OUT"]
+FAILED_WORKFLOW_STATUSES = frozenset({"FAILED", "TERMINATED", "TIMED_OUT"})
+FINISHED_WORKFLOW_STATUSES = ["COMPLETED", *sorted(FAILED_WORKFLOW_STATUSES)]
 FAILED_FUNCTION_CALL_STATUSES = frozenset({"failed", "timeout", "concurrencylimitexceeded"})
+RUNNING_FUNCTION_CALL_STATUS = "running"
 FAILED_HOSTED_EXTRACTOR_JOB_STATUSES = frozenset(
     {"startup_error", "connection_error", "transform_error", "cdf_write_error"}
 )
@@ -79,6 +81,9 @@ class FailingJob:
 class FailingJobRuleSet(ToolkitRuleSet):
     """Checks for failing jobs, i.e. workflows, transformations, functions, and hosted extractors that
     are currently failing in CDF.
+
+    A job is currently failing if its latest finished execution failed. Jobs that failed earlier in the
+    lookback period, but have succeeded since, are not reported.
     """
 
     DISPLAY_NAME = "Failing Jobs"
@@ -134,32 +139,38 @@ class FailingJobRuleSet(ToolkitRuleSet):
         return failures
 
     def _load_failing_workflows(self, client: ToolkitClient) -> list[FailingJob]:
-        failed_executions = client.workflows.executions.list(
-            filter=WorkflowExecutionFilter(status=FAILED_WORKFLOW_STATUSES, created_time_start=self.from_time_epoch),
+        finished_executions = client.workflows.executions.list(
+            filter=WorkflowExecutionFilter(status=FINISHED_WORKFLOW_STATUSES, created_time_start=self.from_time_epoch),
             limit=None,
         )
-        failed_executions_by_id: dict[WorkflowVersionId, list[WorkflowExecutionResponse]] = defaultdict(list)
-        for execution in failed_executions:
+        executions_by_id: dict[WorkflowVersionId, list[WorkflowExecutionResponse]] = defaultdict(list)
+        for execution in finished_executions:
             if execution.version is None:
                 continue
-            failed_executions_by_id[
+            executions_by_id[
                 WorkflowVersionId(workflow_external_id=execution.workflow_external_id, version=execution.version)
             ].append(execution)
-        if not failed_executions_by_id:
+        failing_by_id = {
+            workflow_id: executions
+            for workflow_id, executions in executions_by_id.items()
+            if max(executions, key=lambda e: e.created_time).status.upper() in FAILED_WORKFLOW_STATUSES
+        }
+        if not failing_by_id:
             return []
 
         io = WorkflowVersionIO(client)
         failures: list[FailingJob] = []
-        for workflow in io.retrieve(list(failed_executions_by_id.keys())):
-            executions = failed_executions_by_id[workflow.as_id()]
+        for workflow in io.retrieve(list(failing_by_id.keys())):
+            executions = failing_by_id[workflow.as_id()]
             latest = max(executions, key=lambda e: e.created_time)
+            failed_executions = [e for e in executions if e.status.upper() in FAILED_WORKFLOW_STATUSES]
             failures.append(
                 FailingJob(
                     job_type="Workflow",
                     job=workflow,
                     reason=latest.reason_for_incompletion or "Unknown reason",
                     url=f"/workflows/{workflow.workflow_external_id}/executions/",
-                    failed_executions=len(executions),
+                    failed_executions=len(failed_executions),
                     dependencies=self._workflow_dependencies(io, workflow),
                 )
             )
@@ -185,10 +196,13 @@ class FailingJobRuleSet(ToolkitRuleSet):
                 filter=FunctionCallFilter(start_time=EpochTimestampRange(min=self.from_time_epoch)),
                 limit=None,
             )
-            failed_calls = [call for call in calls if call.status.casefold() in FAILED_FUNCTION_CALL_STATUSES]
-            if not failed_calls:
+            finished_calls = [call for call in calls if call.status.casefold() != RUNNING_FUNCTION_CALL_STATUS]
+            if not finished_calls:
                 continue
-            latest = max(failed_calls, key=lambda c: c.start_time)
+            latest = max(finished_calls, key=lambda c: c.start_time)
+            if latest.status.casefold() not in FAILED_FUNCTION_CALL_STATUSES:
+                continue
+            failed_calls = [call for call in finished_calls if call.status.casefold() in FAILED_FUNCTION_CALL_STATUSES]
             failures.append(
                 FailingJob(
                     job_type="Function",
