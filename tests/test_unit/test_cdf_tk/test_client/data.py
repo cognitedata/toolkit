@@ -118,6 +118,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.organization_user import OrganizationUser
 from cognite_toolkit._cdf_tk.client.resource_classes.postgres_gateway_table import (
     RawRowsTableRequest,
     RawRowsTableResponse,
@@ -793,6 +794,10 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "id": "session-001",
             "createdTime": 1622547800000,
             "status": "ACTIVE",
+        },
+        OrganizationUser: {
+            "id": "abcdefghijklmnopqrstuv",
+            "pictureUrl": "https://example.com/avatar.png",
         },
         ChartMonitoringJobResponse: {
             "id": 401,
