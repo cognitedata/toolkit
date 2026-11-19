@@ -11,6 +11,7 @@ import httpx2
 import pytest
 import respx
 from rich.console import Console
+from rich.progress import Progress
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -607,14 +608,14 @@ class TestApplyPlan:
             path.write_text(content)
 
         plan = [DeploymentStep(case.crud_cls, [tmp_path / p for p in case.yaml_files])]
-
+        progress = MagicMock(spec=Progress)
         with monkeypatch_toolkit_client() as client:
             self._set_up_mock_client(case, client)
 
             actual: Sequence[DeploymentResult] | type[Exception]
             error_message = ""
             try:
-                actual = DeployV2Command.apply_plan(client, plan, case.options)
+                actual = DeployV2Command.apply_plan(client, plan, case.options, progress)
             except Exception as e:
                 actual = type(e)
                 error_message = str(e)
@@ -1068,9 +1069,11 @@ class TestDeployAccessControlErrors:
             json={"subject": "test", "projects": [], "capabilities": []}
         )
         client = ToolkitClient(config=toolkit_config)
-
+        progress = MagicMock(spec=Progress)
         with pytest.raises(AuthorizationError) as exc_info:
-            DeployV2Command.apply_plan(client, [DeploymentStep(SpaceIO, [yaml_file])], DeployOptions(dry_run=False))
+            DeployV2Command.apply_plan(
+                client, [DeploymentStep(SpaceIO, [yaml_file])], DeployOptions(dry_run=False), progress
+            )
 
         required = DataModelsAcl(actions=["READ", "WRITE"], scope=SpaceIDScope(space_ids=["my_space"]))
         assert str(exc_info.value) == (
@@ -1113,9 +1116,11 @@ class TestDeployAccessControlErrors:
         )
         client = ToolkitClient(config=toolkit_config)
 
+        progress = MagicMock(spec=Progress)
+
         with pytest.raises(AuthorizationError) as exc_info:
             DeployV2Command.apply_plan(
-                client, [DeploymentStep(TimeSeriesIO, [yaml_file])], DeployOptions(dry_run=False)
+                client, [DeploymentStep(TimeSeriesIO, [yaml_file])], DeployOptions(dry_run=False), progress
             )
 
         missing_owner = DataSetsAcl(actions=["OWNER"], scope=IDScope(ids=[data_set_id]))
